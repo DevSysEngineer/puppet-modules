@@ -42,18 +42,26 @@ class basic_settings::kernel (
     $guest_agent_package = undef
   }
 
-  # Override some settings when we have antivirus or we are virtual machine
-  case $antivirus_package {
-    'eset': {
-      $security_lockdown_correct = 'none'
-    }
-    default: {
-      if ($guest_agent_enable and $guest_agent_package != undef) {
+  # When efi, the minimal lockdown state is integrity
+  $kernel_efi = find_file('/sys/firmware/efi')
+  if (!$kernel_efi) {
+    # Override some settings when we have antivirus or we are virtual machine
+    case $antivirus_package {
+      'eset': {
         $security_lockdown_correct = 'none'
-      } else {
-        $security_lockdown_correct = $security_lockdown
+      }
+      default: {
+        if ($guest_agent_enable and $guest_agent_package != undef) {
+          $security_lockdown_correct = 'none'
+        } else {
+          $security_lockdown_correct = $security_lockdown
+        }
       }
     }
+  } elsif ($security_lockdown != 'none') {
+    $security_lockdown_correct = $security_lockdown
+  } else {
+    $security_lockdown_correct = 'integrity'
   }
 
   # Get IP versions
