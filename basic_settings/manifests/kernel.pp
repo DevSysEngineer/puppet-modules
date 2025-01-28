@@ -43,7 +43,7 @@ class basic_settings::kernel (
   }
 
   # When efi, the minimal lockdown state is integrity
-  if ($facts['secure_boot_enabled']) {
+  if (!$facts['secure_boot_enabled']) {
     # Override some settings when we have antivirus or we are virtual machine
     case $antivirus_package {
       'eset': {
