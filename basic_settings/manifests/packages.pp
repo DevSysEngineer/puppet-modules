@@ -92,7 +92,7 @@ class basic_settings::packages (
   }
 
   # Remove unnecessary packages
-  package { 'packagekit':
+  package { ['command-not-found', 'packagekit']:
     ensure => purged,
   }
 

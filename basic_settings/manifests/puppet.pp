@@ -14,6 +14,12 @@ class basic_settings::puppet (
     require => Package['cloud-init'],
   }
 
+  # Install augeas-tools package
+  package { 'augeas-tools':
+    ensure          => installed,
+    install_options => ['--no-install-recommends', '--no-install-suggests'],
+  }
+
   # Disable service
   service { 'puppet':
     ensure => undef,
