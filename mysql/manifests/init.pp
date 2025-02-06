@@ -17,18 +17,20 @@ class mysql (
 
   # Set mysqld default values
   $default_values = {
-    'innodb_buffer_pool_size' => '256M',
-    'innodb_flush_method'     => 1, # O_DSYNC
-    'innodb_redo_log_capacity'=> '200M',
-    'join_buffer_size'        => '2M',
-    'max_allowed_packet'      => '128M',
-    'max_connections'         => 1000,
-    'read_buffer_size'        => '2M',
-    'read_rnd_buffer_size'    => '2M',
-    'sort_buffer_size'        => '2M',
-    'table_open_cache'        => 512,
-    'thread_cache_size'       => 16,
-    'thread_stack'            => '2M',
+    'binlog_expire_logs_seconds'    => 172800, # 2 days
+    'binlog_expire_logs_auto_purge' => 'ON',
+    'innodb_buffer_pool_size'       => '256M',
+    'innodb_flush_method'           => 1, # O_DSYNC
+    'innodb_redo_log_capacity'      => '200M',
+    'join_buffer_size'              => '2M',
+    'max_allowed_packet'            => '128M',
+    'max_connections'               => 1000,
+    'read_buffer_size'              => '2M',
+    'read_rnd_buffer_size'          => '2M',
+    'sort_buffer_size'              => '2M',
+    'table_open_cache'              => 512,
+    'thread_cache_size'             => 16,
+    'thread_stack'                  => '2M',
   }
 
   # Merge default settings with user settings
