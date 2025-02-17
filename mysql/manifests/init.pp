@@ -21,6 +21,8 @@ class mysql (
     'binlog_format'                 => 'MIXED',
     'binlog_expire_logs_auto_purge' => 'ON',
     'binlog_expire_logs_seconds'    => 172800, # 2 days
+    'innodb_buffer_pool_chunk_size' => '256M', # innodb_buffer_pool_size / innodb_buffer_pool_instances
+    'innodb_buffer_pool_instances'  => 1, # innodb_buffer_pool_size <= 1 GiB, then value is 1
     'innodb_buffer_pool_size'       => '256M',
     'innodb_flush_method'           => 1, # O_DSYNC
     'innodb_redo_log_capacity'      => '256M',
