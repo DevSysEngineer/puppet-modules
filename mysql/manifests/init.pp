@@ -17,18 +17,21 @@ class mysql (
 
   # Set mysqld default values
   $default_values = {
-    'binlog_expire_logs_seconds'    => 172800, # 2 days
+    'binlog_cache_size'             => '2M',
+    'binlog_format'                 => 'MIXED',
     'binlog_expire_logs_auto_purge' => 'ON',
+    'binlog_expire_logs_seconds'    => 172800, # 2 days
     'innodb_buffer_pool_size'       => '256M',
     'innodb_flush_method'           => 1, # O_DSYNC
-    'innodb_redo_log_capacity'      => '200M',
+    'innodb_redo_log_capacity'      => '256M',
     'join_buffer_size'              => '2M',
     'max_allowed_packet'            => '128M',
+    'max_binlog_size'               => '1G',
     'max_connections'               => 1000,
     'read_buffer_size'              => '2M',
     'read_rnd_buffer_size'          => '2M',
     'sort_buffer_size'              => '2M',
-    'table_open_cache'              => 512,
+    'table_open_cache'              => 8000,
     'thread_cache_size'             => 16,
     'thread_stack'                  => '2M',
   }
@@ -128,6 +131,7 @@ class mysql (
         target_unit   => 'mysql.service',
         unit          => $unit,
         service       => {
+          'LimitNOFILE'  => 'infinity',
           'LimitMEMLOCK' => 'infinity',
           'Nice'         => "-${nice_level}",
         },
