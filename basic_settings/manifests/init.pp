@@ -27,7 +27,7 @@ class basic_settings (
   Boolean                               $lvm_enable                                 = false,
   String                                $mail_package                               = 'postfix',
   Boolean                               $mongodb_enable                             = false,
-  Float                                 $mongodb_version                            = 4.4,
+  Float                                 $mongodb_version                            = 8.0,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $nginx_enable                               = false,

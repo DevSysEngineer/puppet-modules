@@ -3,7 +3,7 @@ class basic_settings::package_mongodb (
   Boolean             $enable,
   String              $os_parent,
   String              $os_name,
-  Float               $version = 4.4
+  Float               $version = 8.0
 ) {
   # Reload source list
   exec { 'package_mongodb_source_reload':
