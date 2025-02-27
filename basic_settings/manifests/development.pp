@@ -8,7 +8,7 @@ class basic_settings::development (
   }
 
   # Install default development packages
-  package { ['build-essential', 'python-is-python3', 'python3', 'nano', 'ruby', 'screen']:
+  package { ['build-essential', 'python-is-python3', 'python3', 'nano', 'ruby']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }

@@ -8,13 +8,14 @@ class basic_settings::login (
   Boolean   $sudoers_dir_enable     = false
 ) {
   # Remove unnecessary packages
-  package { ['session-migration', 'polkitd', 'xdg-user-dirs', 'xauth', 'x11-utils']:
+  package { ['session-migration', 'polkitd', 'tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
     ensure  => purged,
   }
 
   # Install packages
-  package { ['sudo', 'libpam-modules']:
-    ensure  => installed,
+  package { ['screen', 'sudo', 'libpam-modules']:
+    ensure          => installed,
+    install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
   # Create group wheel
