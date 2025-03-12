@@ -10,8 +10,9 @@ class basic_settings::network (
   ],
   String                                      $firewall_path      = '/etc/firewall.conf',
   Array                                       $install_options    = [],
-  String                                      $interfaces         = 'ens*'
-
+  String                                      $interfaces         = 'eth* ens* wlan*',
+  Optional[String]                            $network_package    = undef,
+  Boolean                                     $wireless_enable    = false,
 ) {
   # Set some default values
   $kernel_enable = defined(Class['basic_settings::kernel'])
@@ -122,7 +123,7 @@ class basic_settings::network (
   }
 
   # Remove unnecessary packages
-  package { ['ifupdown', 'netcat-traditional', 'wpasupplicant']:
+  package { ['ifupdown', 'netcat-traditional']:
     ensure  => purged,
   }
 
@@ -188,10 +189,28 @@ class basic_settings::network (
     }
   }
 
-  # If we need to install netplan
+  # Try to get correct network package name
   case $facts['os']['name'] {
     'Ubuntu': {
-      $netplan_rules = [
+      if ($network_package == undef) {
+        $network_package_correct = 'netplan.io'
+      } else {
+        $network_package_correct = $network_package
+      }
+    }
+    default: {
+      if ($network_package == undef) {
+        $network_package_correct = 'systemd-networkd'
+      } else {
+        $network_package_correct = $network_package
+      }
+    }
+  }
+
+  # Install network package
+  case $network_package_correct {
+    'netplan.io': {
+      $network_rules = [
         '-a always,exit -F arch=b32 -F path=/etc/netplan -F perm=wa -F key=network',
         '-a always,exit -F arch=b64 -F path=/etc/netplan -F perm=wa -F key=network',
       ]
@@ -201,10 +220,22 @@ class basic_settings::network (
       }
     }
     default: {
-      $netplan_rules = []
+      $network_rules = []
       package { 'netplan.io':
         ensure  => purged,
       }
+    }
+  }
+
+  # Check if we need to install wireless packages
+  if ($wireless_enable) {
+    package { 'wpasupplicant':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  } else {
+    package { 'wpasupplicant':
+      ensure  => purged,
     }
   }
 
@@ -422,7 +453,7 @@ class basic_settings::network (
   if (defined(Package['auditd'])) {
     $suspicious_filter = delete($suspicious_packages, '/usr/bin/ip')
     basic_settings::security_audit { 'network':
-      rules                    => flatten($netplan_rules, $networkd_rules),
+      rules                    => flatten($network_rules, $networkd_rules),
       rule_suspicious_packages => $suspicious_filter,
       order                    => 20,
     }

@@ -1,5 +1,6 @@
 class basic_settings::pro (
-  Boolean $enable = false
+  Boolean $enable            = false,
+  Boolean $monitoring_enable = false
 ) {
   # Get OS name
   case $facts['os']['name'] { #lint:ignore:case_without_default
@@ -28,10 +29,24 @@ class basic_settings::pro (
       }
 
       # Check if pro is enabled
-      if ($enable and $snap_enable) {} else {
-        service { ['ubuntu-advantage.service', 'ua-reboot-cmds.service', 'ua-timer.timer']:
-          ensure => stopped,
-          enable => false,
+      if ($enable and $monitoring_enable) {
+        # Install monitoring tools
+        package { ['landscape-common']:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      } else {
+        # Remove monitoring tools
+        package { ['landscape-common']:
+          ensure          => purged,
+        }
+      }
+
+      if ($enable and $snap_enable) {
+        # Install advantage tools
+        package { ['ubuntu-advantage-tools', 'ubuntu-pro-client']:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
         }
       }
 

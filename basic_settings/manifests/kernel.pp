@@ -155,7 +155,7 @@ class basic_settings::kernel (
   }
 
   # Remove unnecessary packages
-  package { ['apport', 'installation-report', 'linux-tools-common', 'plymouth', 'thermald', 'upower']:
+  package { ['apport', 'installation-report', 'linux-tools-common', 'pemmican-common', 'plymouth', 'thermald', 'upower']:
     ensure  => purged,
   }
 
@@ -186,6 +186,14 @@ class basic_settings::kernel (
   # Install system package
   if (!defined(Package['lsb-release'])) {
     package { 'lsb-release':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Install system package
+  if (!defined(Package['lsof'])) {
+    package { 'lsof':
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }

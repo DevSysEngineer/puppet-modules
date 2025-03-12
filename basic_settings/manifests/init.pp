@@ -31,12 +31,14 @@ class basic_settings (
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $nginx_enable                               = false,
+  Optional[String]                      $network_package                            = undef,
   Boolean                               $nodejs_enable                              = false,
   Integer                               $nodejs_version                             = 20,
   Boolean                               $non_free                                   = false,
   Boolean                               $openjdk_enable                             = false,
   String                                $openjdk_version                            = 'default',
   Boolean                               $pro_enable                                 = false,
+  Boolean                               $pro_monitoring_enable                      = false,
   Boolean                               $proxmox_enable                             = false,
   Boolean                               $puppetserver_enable                        = false,
   Boolean                               $rabbitmq_enable                            = false,
@@ -57,7 +59,8 @@ class basic_settings (
     'nodejs',
     'php*',
     'rabbitmq-server',
-  ]
+  ],
+  Boolean                               $wireless_enable                            = false,
 ) {
   # Get OS name
   case $facts['os']['name'] {
@@ -379,8 +382,9 @@ class basic_settings (
 
   # Set Pro
   class { 'basic_settings::pro':
-    enable  => $pro_enable,
-    require => Class['basic_settings::message']
+    enable            => $pro_enable,
+    monitoring_enable => $pro_monitoring_enable,
+    require           => Class['basic_settings::message']
   }
 
   # Set timezone
@@ -415,6 +419,7 @@ class basic_settings (
     dhcpc_enable      => $ip_dhcpc_enable,
     firewall_package  => $firewall_package,
     install_options   => $backports_install_options,
+    network_package   => $network_package,
     require           => [File['basic_settings_source'], Class['basic_settings::message']],
   }
 

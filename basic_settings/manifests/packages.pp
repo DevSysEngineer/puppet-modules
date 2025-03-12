@@ -92,7 +92,7 @@ class basic_settings::packages (
   }
 
   # Remove unnecessary packages
-  package { ['command-not-found', 'packagekit']:
+  package { ['command-not-found', 'packagekit', 'update-notifier-common']:
     ensure => purged,
   }
 
