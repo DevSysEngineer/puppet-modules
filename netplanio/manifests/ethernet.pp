@@ -56,7 +56,7 @@ define netplanio::ethernet (
     # Config file
     file { "/etc/netplan/${name}.yaml":
       ensure  => file,
-      content => template('netplanio/ethernets.yaml'),
+      content => template('netplanio/ethernet.yaml'),
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
