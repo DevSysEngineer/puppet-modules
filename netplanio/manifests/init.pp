@@ -1,7 +1,7 @@
 class netplanio (
 ) {
   # Check if we have systemd
-  if (defined(Package['netplan.io'])) {
+  if (!defined(Package['netplan.io'])) {
     # Install netplan.io package
     package { 'netplan.io':
       ensure          => installed,
