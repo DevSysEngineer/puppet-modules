@@ -1,7 +1,7 @@
 define netplanio::network (
   Optional[Array]           $addresses       = undef,
   Optional[Boolean]         $dhcp_enable     = undef,
-  Enum['present','absent']  $ensure          = true,
+  Enum['present','absent']  $ensure          = present,
   Optional[String]          $interface       = undef,
 ) {
   if ($ensure) {
