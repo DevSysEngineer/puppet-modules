@@ -1,7 +1,7 @@
 class basic_settings::network (
   Enum['nftables','iptables','firewalld']     $firewall_package,
   Optional[String]                            $antivirus_package  = undef,
-  Boolean                                     $dhcpc_enable       =  true,
+  Boolean                                     $dhcp_enable       =  true,
   Array                                       $fallback_dns       = [
     '8.8.8.8',
     '8.8.4.4',
@@ -16,6 +16,23 @@ class basic_settings::network (
 ) {
   # Set some default values
   $kernel_enable = defined(Class['basic_settings::kernel'])
+
+  # Get IP data
+  if ($kernel_enable) {
+    $ip_version = $basic_settings::kernel::ip_version
+    if ($basic_settings::kernel::ip_version_v6 and $dhcp_enable and $basic_settings::kernel::ip_ra_enable) {
+      $ip_ra_enable = true
+    } else {
+      $ip_ra_enable = false
+    }
+  } else {
+    $ip_version = 'all'
+    if ($dhcp_enable) {
+      $ip_ra_enable = true
+    } else {
+      $dhcp_enable = false
+    }
+  }
 
   # Default suspicious packages
   $default_packages = [
@@ -146,7 +163,7 @@ class basic_settings::network (
   }
 
   # Check if dhcpc is needed on this server
-  if ($dhcpc_enable or ($kernel_enable and $basic_settings::kernel::ram_disk_package == 'initramfs')) {
+  if ($dhcp_enable or ($kernel_enable and $basic_settings::kernel::ram_disk_package == 'initramfs')) {
     # Install dhcpcd-base
     if (!defined(Package['dhcpcd-base'])) {
       package { 'dhcpcd-base':
@@ -170,7 +187,7 @@ class basic_settings::network (
     }
 
     # DHCP is disabled, but we need dhcpd package because kernel package
-    if (!$dhcpc_enable and $kernel_enable) {
+    if (!$dhcp_enable and $kernel_enable) {
       # Create config file
       file { '/etc/dhcpcd.conf':
         ensure  => file,
@@ -280,7 +297,7 @@ class basic_settings::network (
 
   if (defined(Package['systemd'])) {
     # If DHCP is disabled, force system not to use DHCP
-    if ($interfaces != '' and !$dhcpc_enable) {
+    if ($interfaces != '' and !$dhcp_enable) {
       basic_settings::systemd_network { '90-dhcpc':
         interface     => $interfaces,
         network       => {
@@ -295,9 +312,9 @@ class basic_settings::network (
       }
     }
 
-    # Setup default Router Advertisement settings
-    if ($interfaces != '' and $kernel_enable and $basic_settings::kernel::ip_version_v6) {
-      if ($dhcpc_enable and $basic_settings::kernel::ip_ra_enable) {
+    # Setup default router advertisement settings
+    if ($interfaces != '') {
+      if ($ip_ra_enable) {
         $ip_learn_prefix = bool2str($basic_settings::kernel::ip_ra_learn_prefix, 'yes', 'no')
         basic_settings::systemd_network { '90-router-advertisement':
           interface      => $interfaces,

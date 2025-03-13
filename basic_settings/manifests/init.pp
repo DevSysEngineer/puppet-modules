@@ -10,7 +10,7 @@ class basic_settings (
   Boolean                               $getty_enable                               = false,
   Boolean                               $gitlab_enable                              = false,
   Boolean                               $guest_agent_enable                         = false,
-  Boolean                               $ip_dhcpc_enable                            = true,
+  Boolean                               $ip_dhcp_enable                             = true,
   Enum['all','4']                       $ip_version                                 = 'all',
   Boolean                               $ip_ra_enable                               = true,
   Boolean                               $ip_ra_learn_prefix                         = true,
@@ -252,7 +252,7 @@ class basic_settings (
   }
 
   # Get IP RA state
-  if ($ip_dhcpc_enable and $ip_ra_enable) {
+  if ($ip_dhcp_enable and $ip_ra_enable) {
     $ip_ra_enable_correct = $ip_ra_enable
   } else {
     $ip_ra_enable_correct = false
@@ -416,7 +416,7 @@ class basic_settings (
   # Set network
   class { 'basic_settings::network':
     antivirus_package => $antivirus_package,
-    dhcpc_enable      => $ip_dhcpc_enable,
+    dhcp_enable       => $ip_dhcp_enable,
     firewall_package  => $firewall_package,
     install_options   => $backports_install_options,
     network_package   => $network_package,
