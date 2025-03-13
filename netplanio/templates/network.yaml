@@ -1,0 +1,13 @@
+# Managed by puppet
+network:
+  version: 2
+  ethernets:
+    <%= @interface_correct %>:
+<% if @addresses.nil? -%>
+      dhcp4: no
+      addresses:
+<% @addresses.each do |address| -%>
+        - <%= address %>
+<% else -%>
+      dhcp4: <%= @dhcpc_string %>
+<% end -%>
