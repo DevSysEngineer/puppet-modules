@@ -8,6 +8,7 @@ network:
       addresses:
 <% @addresses.each do |address| -%>
         - <%= address %>
+<% end -%>
 <% else -%>
       dhcp4: <%= @dhcpc_string %>
 <% end -%>
