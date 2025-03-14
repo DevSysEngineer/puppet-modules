@@ -420,6 +420,7 @@ class basic_settings (
     firewall_package  => $firewall_package,
     install_options   => $backports_install_options,
     network_package   => $network_package,
+    wireless_enable   => $wireless_enable,
     require           => [File['basic_settings_source'], Class['basic_settings::message']],
   }
 
