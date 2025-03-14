@@ -9,9 +9,14 @@ network:
       access-points:
 <% @access_points.each do |ssid, object| -%>
 <% if !object.nil? and !object.empty? -%>
-        <%= ssid %>:
+        "<%= ssid %>":
 <% if !object['password'].nil? and !object['password'].empty? -%>
           auth:
+<% if object['key_management'].nil? or object['key_management'].empty? -%>
+            key-management: <%= object['key_management'] %>
+<% else -%>
+            key-management: psk
+<% end -%>       
             password: "<%= object['password'] %>"
 <% end -%>
 <% else -%>
@@ -23,7 +28,7 @@ network:
       dhcp4: no
 <% end -%>
 <% if @ip_version_v6 -%>
-      dhcp4: no
+      dhcp6: no
 <% end -%>
       addresses:
 <% @addresses.each do |address| -%>
