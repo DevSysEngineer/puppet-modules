@@ -12,6 +12,7 @@ network:
 <% else -%>
         <%= ssid %>: {}
 <% end -%>
+<% end -%>
 <% if !@addresses.nil? -%>
 <% if @ip_version_v4 -%>
       dhcp4: no
