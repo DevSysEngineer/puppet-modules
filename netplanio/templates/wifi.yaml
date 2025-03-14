@@ -12,7 +12,7 @@ network:
         <%= ssid %>:
 <% if !object['password'].nil? and !object['password'].empty? -%>
           auth:
-            password:  <%= object['password'] %>
+            password: "<%= object['password'] %>"
 <% end -%>
 <% else -%>
         <%= ssid %>: {}
