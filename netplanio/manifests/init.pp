@@ -1,6 +1,6 @@
 class netplanio (
 ) {
-  # Check if we have systemd
+  # Check if systemd is not installed
   if (!defined(Package['netplan.io'])) {
     # Install netplan.io package
     package { 'netplan.io':
@@ -31,4 +31,14 @@ class netplanio (
   } else {
     $renderer = undef
   }
-}
+
+  # Setup audit rules
+  if (defined(Package['auditd'])) {
+    basic_settings::security_audit { 'netplanio':
+      rules => [
+        '-a always,exit -F arch=b32 -F path=/etc/netplan -F perm=wa -F key=netplanio',
+        '-a always,exit -F arch=b64 -F path=/etc/netplan -F perm=wa -F key=netplanio',
+      ],
+      order => 20,
+    }
+  }

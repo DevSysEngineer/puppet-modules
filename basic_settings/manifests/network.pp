@@ -1,18 +1,18 @@
 class basic_settings::network (
   Enum['nftables','iptables','firewalld']     $firewall_package,
-  Optional[String]                            $antivirus_package  = undef,
-  Boolean                                     $dhcp_enable       =  true,
-  Array                                       $fallback_dns       = [
+  Optional[String]                            $antivirus_package      = undef,
+  Enum['none','netplan.io']                   $configurator_package   = 'none',
+  Boolean                                     $dhcp_enable            =  true,
+  Array                                       $fallback_dns           = [
     '8.8.8.8',
     '8.8.4.4',
     '2001:4860:4860::8888',
     '2001:4860:4860::8844',
   ],
-  String                                      $firewall_path      = '/etc/firewall.conf',
-  Array                                       $install_options    = [],
-  String                                      $interfaces         = 'eth* ens* wlan*',
-  Optional[String]                            $network_package    = undef,
-  Boolean                                     $wireless_enable    = false,
+  String                                      $firewall_path          = '/etc/firewall.conf',
+  Array                                       $install_options        = [],
+  String                                      $interfaces             = 'eth* ens* wlan*',
+  Boolean                                     $wireless_enable        = false,
 ) {
   # Set some default values
   $kernel_enable = defined(Class['basic_settings::kernel'])
@@ -206,38 +206,15 @@ class basic_settings::network (
     }
   }
 
-  # Try to get correct network package name
-  case $facts['os']['name'] {
-    'Ubuntu': {
-      if ($network_package == undef) {
-        $network_package_correct = 'netplan.io'
-      } else {
-        $network_package_correct = $network_package
-      }
-    }
-    default: {
-      if ($network_package == undef) {
-        $network_package_correct = 'systemd-networkd'
-      } else {
-        $network_package_correct = $network_package
-      }
-    }
-  }
-
-  # Install network package
-  case $network_package_correct {
+  # Try to get network configurator
+  case $configurator_package {
     'netplan.io': {
-      $network_rules = [
-        '-a always,exit -F arch=b32 -F path=/etc/netplan -F perm=wa -F key=network',
-        '-a always,exit -F arch=b64 -F path=/etc/netplan -F perm=wa -F key=network',
-      ]
       package { 'netplan.io':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
     }
     default: {
-      $network_rules = []
       package { 'netplan.io':
         ensure  => purged,
       }
@@ -265,8 +242,9 @@ class basic_settings::network (
     }
   }
 
-  # Start nftables
+  # Check which firewall we have
   if ($firewall_package == 'nftables' or $firewall_package == 'firewalld') {
+    # Start service 
     service { $firewall_package:
       ensure  => running,
       enable  => true,
@@ -323,7 +301,8 @@ class basic_settings::network (
             'UseOnLinkPrefix'     => $ip_learn_prefix,
           },
           network        => {
-            'IPv6AcceptRA' => 'yes',
+            'IPv6AcceptRA'        => 'yes',
+            'LinkLocalAddressing' => 'ipv6',
           },
           daemon_reload  => 'network_firewall_systemd_daemon_reload',
         }
@@ -331,7 +310,8 @@ class basic_settings::network (
         basic_settings::systemd_network { '90-router-advertisement':
           interface     => $interfaces,
           network       => {
-            'IPv6AcceptRA' => 'no',
+            'IPv6AcceptRA'        => 'no',
+            'LinkLocalAddressing' => 'no',
           },
           daemon_reload => 'network_firewall_systemd_daemon_reload',
         }
@@ -470,7 +450,7 @@ class basic_settings::network (
   if (defined(Package['auditd'])) {
     $suspicious_filter = delete($suspicious_packages, '/usr/bin/ip')
     basic_settings::security_audit { 'network':
-      rules                    => flatten($network_rules, $networkd_rules),
+      rules                    => $networkd_rules,
       rule_suspicious_packages => $suspicious_filter,
       order                    => 20,
     }

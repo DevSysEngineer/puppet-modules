@@ -7,6 +7,15 @@ define netplanio::wifi (
   Optional[String]          $ip_version      = undef,
 ) {
   if ($ensure) {
+    # Check if wpasupplicant is not installed
+    if (!defined(Package['wpasupplicant'])) {
+      # Install wpasupplicant package
+      package { 'wpasupplicant':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+    }
+
     # Get interface
     if ($interface == undef) {
       $interface_correct = $name
