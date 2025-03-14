@@ -463,7 +463,7 @@ class basic_settings::kernel (
     $mglru_min_ttl_ms = 1000
     exec { 'kernel_mglru':
       command => "/usr/bin/bash -c 'echo \"y\" > /sys/kernel/mm/lru_gen/enabled'",
-      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"', #lint:ignore:140chars
+      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"', #lint:ignore:140chars
     }
   } else {
     $mglru_min_ttl_ms = 0
