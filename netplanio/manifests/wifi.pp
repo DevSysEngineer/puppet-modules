@@ -1,4 +1,5 @@
-define netplanio::ethernet (
+define netplanio::wifi (
+  Hash                      $access_points,
   Optional[Array]           $addresses       = undef,
   Optional[Boolean]         $dhcp_enable     = undef,
   Enum['present','absent']  $ensure          = present,
@@ -56,7 +57,7 @@ define netplanio::ethernet (
     # Config file
     file { "/etc/netplan/${name}.yaml":
       ensure  => file,
-      content => template('netplanio/ethernet.yaml'),
+      content => template('netplanio/wifi.yaml'),
       owner   => 'root',
       group   => 'root',
       mode    => '0600',

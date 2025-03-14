@@ -1,0 +1,34 @@
+# Managed by puppet
+network:
+  version: 2
+<% if !@renderer.nil? -%>
+  renderer: <%= @renderer %>
+<% end -%>
+  wifis:
+    <%= @interface_correct %>:
+      access-points:
+<% @access_points.each do |ssid,object| -%>
+<% if !@object.nil? and !@object.empty? -%>
+<% else -%>
+        <%= ssid %>: {}
+<% end -%>
+<% if !@addresses.nil? -%>
+<% if @ip_version_v4 -%>
+      dhcp4: no
+<% end -%>
+<% if @ip_version_v6 -%>
+      dhcp4: no
+<% end -%>
+      addresses:
+<% @addresses.each do |address| -%>
+        - <%= address %>
+<% end -%>
+<% else -%>
+<% if @ip_version_v4 -%>
+      dhcp4: <%= @dhcpc_string %>
+<% end -%>
+<% if @ip_version_v6 -%>
+      dhcp6: <%= @dhcpc_string %>
+      accept-ra: <%= @ip_ra_string %>
+<% end -%>
+<% end -%>
