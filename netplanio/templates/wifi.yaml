@@ -7,7 +7,7 @@ network:
   wifis:
     <%= @interface_correct %>:
       access-points:
-<% @access_points.each do |ssid,object| -%>
+<% @access_points.each do |ssid, object| -%>
 <% if !object.nil? and !object.empty? -%>
         <%= ssid %>:
 <% if !object['password'].nil? and !object['password'].empty? -%>
