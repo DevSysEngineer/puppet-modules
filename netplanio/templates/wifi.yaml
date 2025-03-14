@@ -13,9 +13,9 @@ network:
 <% if !object['password'].nil? and !object['password'].empty? -%>
           auth:
 <% if object['key_management'].nil? or object['key_management'].empty? -%>
-            key-management: <%= object['key_management'] %>
-<% else -%>
             key-management: psk
+<% else -%>
+            key-management: <%= object['key_management'] %>
 <% end -%>       
             password: "<%= object['password'] %>"
 <% end -%>
