@@ -8,7 +8,12 @@ network:
     <%= @interface_correct %>:
       access-points:
 <% @access_points.each do |ssid,object| -%>
-<% if !@object.nil? and !@object.empty? -%>
+<% if !object.nil? and !object.empty? -%>
+        <%= ssid %>:
+<% if !object['password'].nil? and !object['password'].empty? -%>
+          auth:
+            password:  <%= object['password'] %>
+<% end -%>
 <% else -%>
         <%= ssid %>: {}
 <% end -%>

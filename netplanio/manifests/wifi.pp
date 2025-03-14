@@ -57,7 +57,7 @@ define netplanio::wifi (
     # Config file
     file { "/etc/netplan/${name}.yaml":
       ensure  => file,
-      content => template('netplanio/wifi.yaml'),
+      content => Sensitive.new(template('netplanio/wifi.yaml')),
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
