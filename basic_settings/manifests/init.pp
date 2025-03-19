@@ -10,7 +10,7 @@ class basic_settings (
   Boolean                               $getty_enable                               = false,
   Boolean                               $gitlab_enable                              = false,
   Boolean                               $guest_agent_enable                         = false,
-  Enum['none','netplanio']              $ip_configurator_package                    = 'none',
+  Enum['none','netplan.io']             $ip_configurator_package                    = 'none',
   Boolean                               $ip_dhcp_enable                             = true,
   Enum['all','4']                       $ip_version                                 = 'all',
   Boolean                               $ip_ra_enable                               = true,
@@ -415,13 +415,13 @@ class basic_settings (
 
   # Set network
   class { 'basic_settings::network':
-    antivirus_package => $antivirus_package,
-    dhcp_enable       => $ip_dhcp_enable,
-    firewall_package  => $firewall_package,
-    install_options   => $backports_install_options,
-    configurator_package   => $ip_configurator_package,
-    wireless_enable   => $wireless_enable,
-    require           => [File['basic_settings_source'], Class['basic_settings::message']],
+    antivirus_package    => $antivirus_package,
+    dhcp_enable          => $ip_dhcp_enable,
+    firewall_package     => $firewall_package,
+    install_options      => $backports_install_options,
+    configurator_package => $ip_configurator_package,
+    wireless_enable      => $wireless_enable,
+    require              => [File['basic_settings_source'], Class['basic_settings::message']],
   }
 
   # Set timezone
