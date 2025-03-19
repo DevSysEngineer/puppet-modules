@@ -140,7 +140,7 @@ class basic_settings::network (
   }
 
   # Remove unnecessary packages
-  package { ['ifupdown', 'netcat-traditional']:
+  package { ['ifupdown', 'iw', 'netcat-traditional', 'wireless-tools']:
     ensure  => purged,
   }
 

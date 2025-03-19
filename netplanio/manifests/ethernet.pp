@@ -60,6 +60,8 @@ define netplanio::ethernet (
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
+      notify  => Exec['netplanio_apply'],
+      require => Package['netplan.io'],
     }
   } else {
     # Remove config

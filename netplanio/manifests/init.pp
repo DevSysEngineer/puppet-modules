@@ -32,6 +32,13 @@ class netplanio (
     $renderer = undef
   }
 
+  # Command for triggering netplan config
+  exec { 'netplanio_apply':
+    command     => '/usr/sbin/netplan apply',
+    refreshonly => true,
+    require     => Package['netplan.io'],
+  }
+
   # Setup audit rules
   if (defined(Package['auditd'])) {
     basic_settings::security_audit { 'netplanio':
