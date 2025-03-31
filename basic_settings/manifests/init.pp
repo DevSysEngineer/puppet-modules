@@ -2,7 +2,6 @@ class basic_settings (
   Optional[String]                      $antivirus_package                          = undef,
   Boolean                               $backports                                  = false,
   String                                $cluster_id                                 = 'core',
-  Boolean                               $dconf_service_enable                       = false,
   Boolean                               $docs_enable                                = false,
   String                                $environment                                = 'production',
   String                                $firewall_package                           = 'nftables',
@@ -629,34 +628,49 @@ class basic_settings (
       name   => 'openjdk*',
     }
 
-    # Check if we need to install dconf-service
+    # Setup GUI mode
+    case $gui_mode {
+      'kiosk': {
+        $adwaita_icon_theme_enable = true
+        $dconf_service_enable = true
+      }
+      'adwaita-icon': {
+        $adwaita_icon_theme_enable = true
+        $dconf_service_enable = false
+      }
+      default: {
+        $adwaita_icon_theme_enable = false
+        $dconf_service_enable = false
+      }
+    }
+
+    if ($adwaita_icon_theme_enable) {
+      # Install adwaita icon package
+      package { 'adwaita-icon-theme':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['openjdk'],
+      }
+    } else {
+      # Remove adwaita icon package
+      package { 'adwaita-icon-theme':
+        ensure  => purged,
+        require => Package['openjdk'],
+      }
+    }
+
     if ($dconf_service_enable) {
+      # Install dconf service package
       package { 'dconf-service':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['openjdk'],
       }
     } else {
+      # Remove dconf service package
       package { 'dconf-service':
         ensure  => purged,
         require => Package['openjdk'],
-      }
-    }
-
-    # Setup GUI mode
-    case $gui_mode {
-      'kiosk', 'adwaita-icon': {
-        package { 'adwaita-icon-theme':
-          ensure          => installed,
-          install_options => ['--no-install-recommends', '--no-install-suggests'],
-          require         => Package['openjdk'],
-        }
-      }
-      default: {
-        package { 'adwaita-icon-theme':
-          ensure  => purged,
-          require => Package['openjdk'],
-        }
       }
     }
 
