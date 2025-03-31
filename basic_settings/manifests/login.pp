@@ -1,14 +1,15 @@
 class basic_settings::login (
-  String    $environment            = 'production',
-  Boolean   $getty_enable           = false,
-  String    $hostname               = $facts['networking']['hostname'],
-  String    $mail_to                = 'root',
-  String    $server_fdqn            = $facts['networking']['fqdn'],
-  String    $sudoers_banner_text    = "WARNING: You are running this command with elevated privileges.\nThis action is registered and sent to the server administrator(s). Unauthorized access will be fully investigated and reported to law enforcement authorities.",
-  Boolean   $sudoers_dir_enable     = false
+  String                                $environment            = 'production',
+  Boolean                               $getty_enable           = false,
+  Enum['none','kiosk','adwaita-icon']   $gui_mode               = 'none',
+  String                                $hostname               = $facts['networking']['hostname'],
+  String                                $mail_to                = 'root',
+  String                                $server_fdqn            = $facts['networking']['fqdn'],
+  String                                $sudoers_banner_text    = "WARNING: You are running this command with elevated privileges.\nThis action is registered and sent to the server administrator(s). Unauthorized access will be fully investigated and reported to law enforcement authorities.",
+  Boolean                               $sudoers_dir_enable     = false
 ) {
   # Remove unnecessary packages
-  package { ['session-migration', 'polkitd', 'tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
+  package { ['session-migration', 'tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
     ensure  => purged,
   }
 
@@ -24,7 +25,32 @@ class basic_settings::login (
   }
 
   # Create list of packages that is suspicious
-  $suspicious_packages = ['/usr/bin/chage', '/usr/bin/sudo', '/usr/bin/last', '/usr/sbin/pam-auth-update'];
+  $suspicious_packages = ['/usr/bin/chage', '/usr/bin/sudo', '/usr/bin/last', '/usr/sbin/pam-auth-update']
+
+  # Setup GUI mode
+  case $gui_mode {
+    'kiosk': {
+      $getty_correct = true
+      $polkitd_enable = true
+    }
+    default: {
+      $getty_correct = $getty_enable
+      $polkitd_enable = false
+    }
+  }
+
+  if ($polkitd_enable) {
+    # Install polkitd package
+    package { 'polkitd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  } else {
+    # Remove polkitd package
+    package { 'polkitd':
+      ensure  => purged,
+    }
+  }
 
   # Create script dir
   if (!defined(File['/usr/local/lib/puppet'])) {
@@ -146,7 +172,7 @@ class basic_settings::login (
   }
 
   # Ensure that getty is stopped or running
-  if ($getty_enable) {
+  if ($getty_correct) {
     service { 'getty@tty*':
       ensure => running,
       enable => true,

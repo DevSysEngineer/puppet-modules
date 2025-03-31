@@ -244,13 +244,6 @@ class basic_settings (
     }
   }
 
-  # Get getty state
-  if ($gui_mode == 'kiosk') {
-    $getty_correct = true
-  } else {
-    $getty_correct = $getty_enable
-  }
-
   # Get ramdisk package
   if ($kernel_ram_disk_package == undef) {
     $kernel_ram_disk_package_correct = $ram_disk_package
@@ -698,7 +691,8 @@ class basic_settings (
   # Setup login
   class { 'basic_settings::login':
     environment        => $environment,
-    getty_enable       => $getty_correct,
+    getty_enable       => $getty_enable,
+    gui_mode           => $gui_mode,
     mail_to            => $systemd_notify_mail,
     server_fdqn        => $server_fdqn,
     sudoers_dir_enable => $sudoers_dir_enable,
