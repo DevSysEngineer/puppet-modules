@@ -246,7 +246,7 @@ class basic_settings (
   }
 
   # Get getty state
-  if ($gui_modue == 'kiosk') {
+  if ($gui_mode == 'kiosk') {
     $getty_correct = true
   } else {
     $getty_correct = $getty_enable
