@@ -1,5 +1,4 @@
 class basic_settings (
-  Boolean                               $adwaita_icon_theme_enable                  = false,
   Optional[String]                      $antivirus_package                          = undef,
   Boolean                               $backports                                  = false,
   String                                $cluster_id                                 = 'core',
@@ -10,6 +9,7 @@ class basic_settings (
   Boolean                               $getty_enable                               = false,
   Boolean                               $gitlab_enable                              = false,
   Boolean                               $guest_agent_enable                         = false,
+  Enum['none','kiosk','adwaita-icon']   $gui_mode                                   = 'none',
   Enum['none','netplan.io']             $ip_configurator_package                    = 'none',
   Boolean                               $ip_dhcp_enable                             = true,
   Enum['all','4']                       $ip_version                                 = 'all',
@@ -29,6 +29,7 @@ class basic_settings (
   String                                $mail_package                               = 'postfix',
   Boolean                               $mongodb_enable                             = false,
   Float                                 $mongodb_version                            = 8.0,
+  Float                                 $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $nginx_enable                               = false,
@@ -83,6 +84,7 @@ class basic_settings (
         $gcc_version = 14
         $gitlab_allow = true
         $mongodb_allow = true
+        $mozilla_allow = true
         if ($facts['os']['architecture'] == 'amd64') {
           $mysql_allow = true
           $rabbitmq_allow = true
@@ -106,6 +108,7 @@ class basic_settings (
         $gcc_version = 12
         $gitlab_allow = true
         $mongodb_allow = true
+        $mozilla_allow = true
         if ($facts['os']['architecture'] == 'amd64') {
           $mysql_allow = true
           $rabbitmq_allow = true
@@ -129,6 +132,7 @@ class basic_settings (
         $gcc_version = 12
         $gitlab_allow = true
         $mongodb_allow = true
+        $mozilla_allow = true
         if ($facts['os']['architecture'] == 'amd64') {
           $mysql_allow = true
           $rabbitmq_allow = true
@@ -152,6 +156,7 @@ class basic_settings (
         $gcc_version = undef
         $gitlab_allow = false
         $mongodb_allow = false
+        $mozilla_allow = false
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
@@ -180,6 +185,7 @@ class basic_settings (
         $gcc_version = undef
         $gitlab_allow = true
         $mongodb_allow = true
+        $mozilla_allow = true
         if ($facts['os']['architecture'] == 'amd64') {
           $mysql_allow = true
         } else {
@@ -202,6 +208,7 @@ class basic_settings (
         $gcc_version = undef
         $gitlab_allow = false
         $mongodb_allow = false
+        $mozilla_allow = false
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
@@ -222,6 +229,7 @@ class basic_settings (
       $gcc_version = undef
       $gitlab_allow = false
       $mongodb_allow = false
+      $mozilla_allow = false
       $mysql_allow = false
       $nginx_allow = false
       $nodejs_allow = false
@@ -235,6 +243,13 @@ class basic_settings (
       $puppetserver_package = 'puppet-master'
       $sury_allow = false
     }
+  }
+
+  # Get getty state
+  if ($gui_modue == 'kiosk') {
+    $getty_correct = true
+  } else {
+    $getty_correct = $getty_enable
   }
 
   # Get ramdisk package
@@ -470,6 +485,23 @@ class basic_settings (
     }
   }
 
+  # Check if variable mozilla is true; if true, install new source list and key
+  if ($mozilla_enable and $mozilla_allow) {
+    class { 'basic_settings::package_mozilla':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_mozilla':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  }
+
   # Check if variable mysql is true; if true, install new source list and key
   if ($mysql_enable and $mysql_allow) {
     class { 'basic_settings::package_mysql':
@@ -597,20 +629,6 @@ class basic_settings (
       name   => 'openjdk*',
     }
 
-    # Check if we need to install adwaita theme
-    if ($adwaita_icon_theme_enable) {
-      package { 'adwaita-icon-theme':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['openjdk'],
-      }
-    } else {
-      package { 'adwaita-icon-theme':
-        ensure  => purged,
-        require => Package['openjdk'],
-      }
-    }
-
     # Check if we need to install dconf-service
     if ($dconf_service_enable) {
       package { 'dconf-service':
@@ -622,6 +640,23 @@ class basic_settings (
       package { 'dconf-service':
         ensure  => purged,
         require => Package['openjdk'],
+      }
+    }
+
+    # Setup GUI mode
+    case $gui_mode {
+      'kiosk', 'adwaita-icon': {
+        package { 'adwaita-icon-theme':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+          require         => Package['openjdk'],
+        }
+      }
+      default: {
+        package { 'adwaita-icon-theme':
+          ensure  => purged,
+          require => Package['openjdk'],
+        }
       }
     }
 
@@ -649,7 +684,7 @@ class basic_settings (
   # Setup login
   class { 'basic_settings::login':
     environment        => $environment,
-    getty_enable       => $getty_enable,
+    getty_enable       => $getty_correct,
     mail_to            => $systemd_notify_mail,
     server_fdqn        => $server_fdqn,
     sudoers_dir_enable => $sudoers_dir_enable,
