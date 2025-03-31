@@ -29,7 +29,7 @@ class basic_settings (
   String                                $mail_package                               = 'postfix',
   Boolean                               $mongodb_enable                             = false,
   Float                                 $mongodb_version                            = 8.0,
-  Float                                 $mozilla_enable                             = false,
+  Boolean                               $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $nginx_enable                               = false,
