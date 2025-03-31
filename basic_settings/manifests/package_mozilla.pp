@@ -18,7 +18,7 @@ class basic_settings::package_mozilla (
   }
 
   # Set keyrings file
-  $key = '/usr/share/keyrings/sury.gpg'
+  $key = '/usr/share/keyrings/mozilla.gpg'
 
   # Check if enabled
   if ($enable) {
