@@ -1,6 +1,10 @@
 class basic_settings::puppet (
   Boolean                               $server_enable  = false,
-  Enum['puppet-master','puppetserver']  $server_package = 'puppetserver',
+  Enum[
+    'puppet-master',
+    'puppetserver',
+    'openvox-server'
+  ]                                     $server_package = 'puppetserver',
   String                                $server_dir     = 'puppetserver'
 ) {
   # Remove unnecessary packages
