@@ -3,7 +3,7 @@ class basic_settings::puppet (
   Enum[
     'openvox-server',
     'puppet-master',
-    'puppetserver',
+    'puppetserver'
   ]                                     $server_package = 'puppetserver',
   String                                $server_dir     = 'puppetserver'
 ) {
