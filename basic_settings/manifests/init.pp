@@ -212,7 +212,7 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = 'puppetserver'
+        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
       } else {
         $backports_allow = false
@@ -231,7 +231,7 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = 'puppet-master'
+        $puppetserver_package = $puppetserver_master
         $sury_allow = false
       }
     }
@@ -252,7 +252,7 @@ class basic_settings (
       $proxmox_allow = false
       $puppetserver_dir = 'puppet'
       $puppetserver_jdk = false
-      $puppetserver_package = 'puppet-master'
+      $puppetserver_package = $puppetserver_master
       $sury_allow = false
     }
   }

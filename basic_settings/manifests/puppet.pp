@@ -7,6 +7,16 @@ class basic_settings::puppet (
   ]                                     $server_package = 'puppetserver',
   String                                $server_dir     = 'puppetserver'
 ) {
+  # Get puppet service name
+  case $puppetserver_source {
+    'openvox-server': {
+      $server_service = 'puppetserver'
+    }
+    default: {
+      $server_service = $server_package
+    }
+  }
+
   # Remove unnecessary packages
   package { ['cloud-init', 'tasksel']:
     ensure  => purged,
@@ -90,20 +100,29 @@ class basic_settings::puppet (
     }
 
     # Remove other package
-    if ($server_package == 'puppetserver') {
-      package { 'puppet-master':
-        ensure  => purged,
-        require => Package[$server_package],
+    case $server_package {
+      'openvox-server': {
+        package { ['puppet-master', 'puppetserver']:
+          ensure  => purged,
+          require => Package[$server_package],
+        }
       }
-    } else {
-      package { 'puppetserver':
-        ensure  => purged,
-        require => Package[$server_package],
+      'puppetserver': {
+        package { ['openvox-server', 'puppet-master']:
+          ensure  => purged,
+          require => Package[$server_package],
+        }
+      }
+      'puppet-master': {
+        package { ['openvox-server', 'puppetserver']:
+          ensure  => purged,
+          require => Package[$server_package],
+        }
       }
     }
 
     # Disable service
-    service { $server_package:
+    service { $server_service:
       ensure  => undef,
       enable  => false,
       require => Package[$server_package],
@@ -111,10 +130,10 @@ class basic_settings::puppet (
 
     # Create drop in for services target
     if (defined(Class['basic_settings'])) {
-      basic_settings::systemd_drop_in { "${server_package}_dependency":
+      basic_settings::systemd_drop_in { "${server_service}_dependency":
         target_unit => "${basic_settings::cluster_id}-system.target",
         unit        => {
-          'Wants'   => "${server_package}.service",
+          'Wants'   => "${server_service}.service",
         },
         require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-system"],
       }
@@ -139,8 +158,8 @@ class basic_settings::puppet (
 
     if (defined(Package['systemd'])) {
       # Create drop in for puppet x service
-      basic_settings::systemd_drop_in { "${server_package}_settings":
-        target_unit => "${server_package}.service",
+      basic_settings::systemd_drop_in { "${server_service}_settings":
+        target_unit => "${server_service}.service",
         unit        => {
           'OnFailure' => 'notify-failed@%i.service',
         },
@@ -150,8 +169,8 @@ class basic_settings::puppet (
       }
 
       # Create systemd puppet x clean reports service
-      basic_settings::systemd_service { "${server_package}-clean-reports":
-        description => "Clean ${server_package} reports service",
+      basic_settings::systemd_service { "${server_service}-clean-reports":
+        description => "Clean ${server_service} reports service",
         service     => {
           'Type'      => 'oneshot',
           'User'      => 'puppet',
@@ -161,19 +180,19 @@ class basic_settings::puppet (
       }
 
       # Create systemd puppet x clean reports timer
-      basic_settings::systemd_timer { "${server_package}-clean-reports":
-        description => "Clean ${server_package} reports timer",
+      basic_settings::systemd_timer { "${server_service}-clean-reports":
+        description => "Clean ${server_service} reports timer",
         timer       => {
           'OnCalendar' => '*-*-* 10:00',
         },
       }
 
       # Create drop in for puppet service
-      basic_settings::systemd_drop_in { "puppet_${server_package}_dependency":
+      basic_settings::systemd_drop_in { "puppet_${server_service}_dependency":
         target_unit => 'puppet.service',
         unit        => {
-          'After'   => "${server_package}.service",
-          'BindsTo' => "${server_package}.service",
+          'After'   => "${server_service}.service",
+          'BindsTo' => "${server_service}.service",
         },
       }
     }
