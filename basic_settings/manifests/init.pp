@@ -18,7 +18,7 @@ class basic_settings (
   Integer                               $kernel_hugepages                           = 0,
   Boolean                               $kernel_mglru_enable                        = true,
   String                                $kernel_network_mode                        = 'strict',
-  Optional[Enum['initramfs','dracut']]  $kernel_ram_disk_package                    = 'initramfs',
+  Enum['initramfs','dracut']            $kernel_ram_disk_package                    = 'initramfs',
   String                                $kernel_security_lockdown                   = 'integrity',
   String                                $kernel_tcp_congestion_control              = 'brr',
   Integer                               $kernel_tcp_fastopen                        = 3,
@@ -41,6 +41,7 @@ class basic_settings (
   Boolean                               $pro_monitoring_enable                      = false,
   Boolean                               $proxmox_enable                             = false,
   Boolean                               $puppetserver_enable                        = false,
+  Enum['perforce','openvox']            $puppetserver_source                        = 'perforce',
   Boolean                               $rabbitmq_enable                            = false,
   String                                $server_fdqn                                = $facts['networking']['fqdn'],
   String                                $server_timezone                            = 'UTC',
@@ -62,6 +63,18 @@ class basic_settings (
   ],
   Boolean                               $wireless_enable                            = false,
 ) {
+  # Get puppet prefix
+  case $puppetserver_source {
+    'perforce': {
+      $puppetserver_prefix = 'puppet'
+      $puppetserver_master = 'puppet-master'
+    }
+    'openvox': {
+      $puppetserver_prefix = 'openvox-'
+      $puppetserver_master = 'openvox-server'
+    }
+  }
+
   # Get OS name
   case $facts['os']['name'] {
     'Ubuntu': {
@@ -99,7 +112,7 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = 'puppetserver'
+        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
       } elsif ($facts['os']['release']['major'] == '23.04') { # Stable
         $backports_allow = false
@@ -123,7 +136,7 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = 'puppetserver'
+        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = false
       } elsif ($facts['os']['release']['major'] == '22.04') { # LTS
         $backports_allow = false
@@ -148,6 +161,7 @@ class basic_settings (
         $puppetserver_dir = 'puppet'
         $puppetserver_jdk = false
         $puppetserver_package = 'puppet-master'
+        $puppetserver_package = $puppetserver_master
         $sury_allow = true
       } else {
         $backports_allow = false
@@ -166,7 +180,7 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = 'puppet-master'
+        $puppetserver_package = $puppetserver_master
         $sury_allow = false
       }
     }
