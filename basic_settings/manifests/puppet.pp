@@ -8,7 +8,7 @@ class basic_settings::puppet (
   String                                $server_dir     = 'puppetserver'
 ) {
   # Get puppet service name
-  case $puppetserver_source {
+  case $server_package {
     'openvox-server': {
       $server_service = 'puppetserver'
     }
