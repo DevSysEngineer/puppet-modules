@@ -41,7 +41,7 @@ class basic_settings (
   Boolean                               $pro_monitoring_enable                      = false,
   Boolean                               $proxmox_enable                             = false,
   Boolean                               $puppetserver_enable                        = false,
-  Enum['perforce','openvox']            $puppetserver_source                        = 'perforce',
+  Enum['openvox','perforce']            $puppetserver_source                        = 'perforce',
   Boolean                               $rabbitmq_enable                            = false,
   String                                $server_fdqn                                = $facts['networking']['fqdn'],
   String                                $server_timezone                            = 'UTC',
@@ -160,7 +160,6 @@ class basic_settings (
         $proxmox_allow = false
         $puppetserver_dir = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = 'puppet-master'
         $puppetserver_package = $puppetserver_master
         $sury_allow = true
       } else {
