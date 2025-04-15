@@ -4,7 +4,8 @@ Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Pu
 > [!IMPORTANT]
 > **Perforce zet Puppet open-sourcecode achter betaalmuur**: In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je gaan betalen. Vind jij – net als ik – dat open source toegankelijk en vrij beschikbaar moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). Vox Pupuli biedt een drop-in replacement voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door openvox package van Vox Pupuli, zonder aanpassingen aan je bestaande configuratie.
 
-:warning: **Compatibiliteit**: Deze uitbreidingsmodule is ontworpen voor 64-bits besturingssystemen.
+> [!CAUTION]
+> **Compatibiliteit**: Deze uitbreidingsmodule is ontworpen voor 64-bits besturingssystemen.
 
 ## Beveiligingsaanpassingen
 Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geïmplementeerd, ook wel bekend als [hardening](https://en.wikipedia.org/wiki/Hardening_(computing)). Dit kan leiden tot afwijkend gedrag van softwarepakketten ten opzichte van de oorspronkelijke verwachtingen. Voorbeelden hiervan zijn extra opties in systemd zoals `PrivateTmp: true`, `ProtectHome: true` en `ProtectSystem: full`, en aanpassingen aan GRUB zodat de kernel bij het opstarten in een hardening modus draait. Ook zijn PAM-instellingen zo aangepast dat bestanden via umask 0077 worden aangemaakt. Ik wil madaidan en zijn pagina [linux-hardening](https://madaidans-insecurities.github.io/guides/linux-hardening.html) bedanken voor de waardevolle tips; een groot deel van deze informatie heb ik als inspiratie gebruikt.
@@ -56,7 +57,8 @@ Dit onderdeel bestaat uit subonderdelen die afzonderlijk kunnen worden toegepast
 
 Onnodige pakketten, zoals die voor energiebeheer op laptops, worden verwijderd omdat ze niet relevant zijn voor een serveromgeving. Pakketten zoals `mtr` en `rsync` worden daarentegen wel geïnstalleerd omdat ze vaak nodig zijn voor systeembeheerders. Ook worden beveiligingspakketten zoals `apparmor` en `auditd` geïnstalleerd om de server te beveiligen en te monitoren op verdachte activiteiten.
 
-:warning: **Sudo**: Wanneer `basic settings` gebruikt in een (bestaande) server waarin al sudo configuratie is toegepast, raad ik aan om de optie `sudoers_dir_enable` op `false` te zetten. Hierdoor blijft de bestaande configuratie behouden.
+> [!CAUTION]
+> **Sudo**: Wanneer `basic settings` gebruikt in een (bestaande) server waarin al sudo configuratie is toegepast, raad ik aan om de optie `sudoers_dir_enable` op `false` te zetten. Hierdoor blijft de bestaande configuratie behouden.
 
 Basic settings omvatten de volgende subonderdelen:
 
