@@ -68,7 +68,7 @@ class basic_settings::package_mozilla (
     }
 
     # Remove sury key
-    file { 'package_mongodb_key':
+    file { 'package_mozilla_key':
       ensure => absent,
       path   => $key,
     }
