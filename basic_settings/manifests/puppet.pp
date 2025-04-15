@@ -21,10 +21,23 @@ class basic_settings::puppet (
   # Do some things based on server repo
   case $server_repo {
     'remote': {
+      # Set some values
       $report_dir = "/var/log/puppetlabs/${server_dir}/reports"
+
+      # Install some puppet packages
+      package { ['augeas-tools', 'facter']:
+        ensure  => purged,
+      }
     }
     default: {
+      # Set some values
       $report_dir = "/var/log/${server_dir}/reports"
+
+      # Install some puppet packages
+      package { ['augeas-tools', 'facter']:
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
     }
   }
 
@@ -37,12 +50,6 @@ class basic_settings::puppet (
   file { '/boot/firmware/user-data':
     ensure  => absent,
     require => Package['cloud-init'],
-  }
-
-  # Install some puppet packages
-  package { ['augeas-tools', 'facter']:
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
   # Disable service
