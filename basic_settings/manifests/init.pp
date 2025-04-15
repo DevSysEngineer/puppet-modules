@@ -68,10 +68,12 @@ class basic_settings (
     'perforce': {
       $puppetserver_prefix = 'puppet'
       $puppetserver_master = 'puppet-master'
+      $puppetserver_repo = 'distro'
     }
     'openvox': {
       $puppetserver_prefix = 'openvox-'
       $puppetserver_master = 'openvox-server'
+      $puppetserver_repo = 'remote'
     }
   }
 
@@ -696,9 +698,10 @@ class basic_settings (
 
   # Setup Puppet
   class { 'basic_settings::puppet':
+    server_dir     => $puppetserver_dir,
     server_enable  => $puppetserver_enable,
     server_package => $puppetserver_package,
-    server_dir     => $puppetserver_dir
+    server_repo    => $puppetserver_repo
   }
 
   # Setup login

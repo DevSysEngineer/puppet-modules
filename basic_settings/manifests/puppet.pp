@@ -5,7 +5,8 @@ class basic_settings::puppet (
     'puppet-master',
     'puppetserver'
   ]                                     $server_package = 'puppetserver',
-  String                                $server_dir     = 'puppetserver'
+  String                                $server_dir     = 'puppetserver',
+  Enum['distro', 'remote']              $server_repo    = 'distro'
 ) {
   # Get puppet service name
   case $server_package {
@@ -14,6 +15,16 @@ class basic_settings::puppet (
     }
     default: {
       $server_service = $server_package
+    }
+  }
+
+  # Do some things based on server repo
+  case $server_repo {
+    'remote': {
+      $report_dir = "/var/log/puppetlabs/${server_dir}/reports"
+    }
+    default: {
+      $report_dir = "/var/log/${server_dir}/reports"
     }
   }
 
@@ -28,8 +39,8 @@ class basic_settings::puppet (
     require => Package['cloud-init'],
   }
 
-  # Install augeas-tools package
-  package { 'augeas-tools':
+  # Install some puppet packages
+  package { ['augeas-tools', 'facter']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -142,7 +153,7 @@ class basic_settings::puppet (
     # Create log dir
     file { 'puppet_reports':
       ensure => directory,
-      path   => "/var/log/${server_dir}/reports",
+      path   => $report_dir,
       owner  => 'puppet',
       group  => 'puppet',
       mode   => '0700',
