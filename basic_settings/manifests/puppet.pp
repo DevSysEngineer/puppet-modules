@@ -1,4 +1,5 @@
 class basic_settings::puppet (
+  Enum['distro', 'remote']              $repo           = 'distro',
   Boolean                               $server_enable  = false,
   Enum[
     'openvox-server',
@@ -6,7 +7,6 @@ class basic_settings::puppet (
     'puppetserver'
   ]                                     $server_package = 'puppetserver',
   String                                $server_dir     = 'puppetserver',
-  Enum['distro', 'remote']              $server_repo    = 'distro'
 ) {
   # Get puppet service name
   case $server_package {
@@ -19,7 +19,7 @@ class basic_settings::puppet (
   }
 
   # Do some things based on server repo
-  case $server_repo {
+  case $repo {
     'remote': {
       # Set some values
       $report_dir = "/var/log/puppetlabs/${server_dir}/reports"

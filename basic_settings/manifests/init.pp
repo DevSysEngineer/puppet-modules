@@ -40,6 +40,7 @@ class basic_settings (
   Boolean                               $pro_enable                                 = false,
   Boolean                               $pro_monitoring_enable                      = false,
   Boolean                               $proxmox_enable                             = false,
+  Enum['distro','remote']               $puppet_repo                                = 'distro',
   Boolean                               $puppetserver_enable                        = false,
   Enum['openvox','perforce']            $puppetserver_source                        = 'perforce',
   Boolean                               $rabbitmq_enable                            = false,
@@ -69,12 +70,10 @@ class basic_settings (
     'perforce': {
       $puppetserver_prefix = 'puppet'
       $puppetserver_master = 'puppet-master'
-      $puppetserver_repo = 'distro'
     }
     'openvox': {
       $puppetserver_prefix = 'openvox-'
       $puppetserver_master = 'openvox-server'
-      $puppetserver_repo = 'remote'
     }
   }
 
@@ -722,10 +721,10 @@ class basic_settings (
 
   # Setup Puppet
   class { 'basic_settings::puppet':
+    repo           => $puppet_repo,
     server_dir     => $puppetserver_dir,
     server_enable  => $puppetserver_enable,
     server_package => $puppetserver_package,
-    server_repo    => $puppetserver_repo
   }
 
   # Setup login
