@@ -18,6 +18,9 @@ class basic_settings::package_mysql (
     $file = '/etc/apt/sources.list.d/mysql.list'
   }
 
+  # Set keyrings file
+  $key = '/usr/share/keyrings/mysql.gpg'
+
   if ($enable) {
     # Get source name
     case $version {
@@ -34,9 +37,6 @@ class basic_settings::package_mysql (
         $version_correct = $version
       }
     }
-
-    # Set keyrings file
-    $key = '/usr/share/keyrings/mysql.gpg'
 
     # Get source
     if ($deb_version == '822') {
