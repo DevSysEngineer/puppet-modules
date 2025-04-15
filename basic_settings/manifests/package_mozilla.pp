@@ -66,5 +66,11 @@ class basic_settings::package_mozilla (
       notify  => Exec['package_mozilla_source_reload'],
       require => Package['apt'],
     }
+
+    # Remove sury key
+    file { 'package_mongodb_key':
+      ensure => absent,
+      path   => $key,
+    }
   }
 }

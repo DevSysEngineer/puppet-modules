@@ -22,31 +22,34 @@ class basic_settings::package_mysql (
     # Get source name
     case $version {
       8.0: {
-        $key = 'mysql-8.key'
+        $key_filename = 'mysql-8.key'
         $version_correct = $version
       }
       8.4: {
-        $key = 'mysql-8.key'
+        $key_filename = 'mysql-8.key'
         $version_correct = "${version}-lts"
       }
       default: {
-        $key = 'mysql-7.key'
+        $key_filename = 'mysql-7.key'
         $version_correct = $version
       }
     }
 
+    # Set keyrings file
+    $key = '/usr/share/keyrings/mysql.gpg'
+
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:/usr/share/keyrings/mysql.gpg\n"
+      $source  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=/usr/share/keyrings/mysql.gpg] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
+      $source = "deb [signed-by=${key}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
     }
 
     # Create MySQL key
-    file { 'package_mysql_key':
+    file { 'package_mysql_key_filename':
       ensure => file,
       path   => '/usr/share/keyrings/mysql.key',
-      source => "puppet:///modules/basic_settings/mysql/${key}",
+      source => "puppet:///modules/basic_settings/mysql/${key_filename}",
       owner  => 'root',
       group  => 'root',
       mode   => '0600',
@@ -54,10 +57,10 @@ class basic_settings::package_mysql (
 
     # Set source
     exec { 'package_mysql_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee /usr/share/keyrings/mysql.gpg >/dev/null; chmod 644 /usr/share/keyrings/mysql.gpg", #lint:ignore:140chars
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}", #lint:ignore:140chars
       unless  => "[ -e ${file} ]",
       notify  => Exec['package_mysql_source_reload'],
-      require => [Package['apt'], Package['curl'], Package['gnupg'], File['package_mysql_key']],
+      require => [Package['apt'], Package['curl'], Package['gnupg'], File['package_mysql_key_filename']],
     }
   } else {
     # Remove mysql repo
@@ -67,5 +70,14 @@ class basic_settings::package_mysql (
       notify  => Exec['package_mysql_source_reload'],
       require => Package['apt'],
     }
+
+    # Remove MySQL key
+    file { 'package_mysql_key_filename':
+      ensure => absent,
+      path   => '/usr/share/keyrings/mysql.key',
+    }
+    file { 'package_mysql_key':
+      ensure => absent,
+      path   => $key,
+    }
   }
-}

@@ -62,6 +62,7 @@ class basic_settings (
     'rabbitmq-server',
   ],
   Boolean                               $wireless_enable                            = false,
+  Boolean                               $voxpupuli_enable                           = false
 ) {
   # Get puppet prefix
   case $puppetserver_source {
@@ -116,6 +117,7 @@ class basic_settings (
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
+        $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '23.04') { # Stable
         $backports_allow = false
         $deb_version = 'list'
@@ -140,6 +142,7 @@ class basic_settings (
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = false
+        $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '22.04') { # LTS
         $backports_allow = false
         $deb_version = 'list'
@@ -164,6 +167,7 @@ class basic_settings (
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = true
+        $voxpupuli_allow = true
       } else {
         $backports_allow = false
         $deb_version = 'list'
@@ -183,6 +187,7 @@ class basic_settings (
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = false
+        $voxpupuli_allow = false
       }
     }
     'Debian': {
@@ -216,6 +221,7 @@ class basic_settings (
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
+        $voxpupuli_allow = true
       } else {
         $backports_allow = false
         $deb_version = 'list'
@@ -235,6 +241,7 @@ class basic_settings (
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = false
+        $voxpupuli_allow = false
       }
     }
     default: {
@@ -604,6 +611,23 @@ class basic_settings (
       enable      => false,
       os_parent   => $os_parent,
       os_name     => $os_name,
+    }
+  }
+
+  # Check if variable sury is true; if true, install new source list and key
+  if ($voxpupuli_enable and $voxpupuli_allow) {
+    class { 'basic_settings::package_voxpupuli':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_version  => $facts['os']['release']['major'],
+    }
+  } else {
+    class { 'basic_settings::package_voxpupuli':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_version  => $facts['os']['release']['major'],
     }
   }
 

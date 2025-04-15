@@ -17,17 +17,20 @@ class basic_settings::package_nginx (
     $file = '/etc/apt/sources.list.d/nginx.list'
   }
 
+  # Set keyrings file
+  $key = '/usr/share/keyrings/nginx-archive-keyring.gpg'
+
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://nginx.org/packages/mainline/${os_parent}\nSuites: ${os_name}\nComponents: nginx\nSigned-By:/usr/share/keyrings/nginx-archive-keyring.gpg\n"
+      $source  = "Types: deb\nURIs: https://nginx.org/packages/mainline/${os_parent}\nSuites: ${os_name}\nComponents: nginx\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://nginx.org/packages/mainline/${os_parent} ${os_name} nginx\n"
+      $source = "deb [signed-by=${key}] https://nginx.org/packages/mainline/${os_parent} ${os_name} nginx\n"
     }
 
     # Install Nginx repo
     exec { 'package_nginx_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee /usr/share/keyrings/nginx-archive-keyring.gpg >/dev/null; chmod 644 /usr/share/keyrings/nginx-archive-keyring.gpg",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
       unless  => "[ -e ${file} ]",
       notify  => Exec['package_nginx_source_reload'],
       require => [Package['apt'], Package['curl'], Package['gnupg']],
@@ -39,6 +42,12 @@ class basic_settings::package_nginx (
       onlyif  => "[ -e ${file} ]",
       notify  => Exec['package_nginx_source_reload'],
       require => Package['apt'],
+    }
+
+    # Remove nginx key
+    file { 'package_nginx_key':
+      ensure => absent,
+      path   => $key,
     }
   }
 }

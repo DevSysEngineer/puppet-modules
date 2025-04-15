@@ -17,17 +17,20 @@ class basic_settings::package_gitlab (
     $file = '/etc/apt/sources.list.d/gitlab.list'
   }
 
+  # Set keyrings file
+  $key = '/usr/share/keyrings/gitlab.gpg'
+
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://packages.gitlab.com/gitlab/gitlab-ee/${os_parent}\nSuites: ${os_name}\nComponents: main\nSigned-By:/usr/share/keyrings/gitlab.gpg\n"
+      $source  = "Types: deb\nURIs: https://packages.gitlab.com/gitlab/gitlab-ee/${os_parent}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=/usr/share/keyrings/gitlab.gpg] https://packages.gitlab.com/gitlab/gitlab-ee/${os_parent} ${os_name} main\n"
+      $source = "deb [signed-by=${key}] https://packages.gitlab.com/gitlab/gitlab-ee/${os_parent} ${os_name} main\n"
     }
 
     # Install Gitlab repo
     exec { 'package_gitlab_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages.gitlab.com/gitlab/gitlab-ee/gpgkey | gpg --dearmor | tee /usr/share/keyrings/gitlab.gpg >/dev/null; chmod 644 /usr/share/keyrings/gitlab.gpg",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages.gitlab.com/gitlab/gitlab-ee/gpgkey | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
       unless  => "[ -e ${file} ]",
       notify  => Exec['package_gitlab_source_reload'],
       require => [Package['apt'], Package['curl'], Package['gnupg']],
@@ -39,6 +42,12 @@ class basic_settings::package_gitlab (
       onlyif  => "[ -e ${file} ]",
       notify  => Exec['package_gitlab_source_reload'],
       require => Package['apt'],
+    }
+
+    # Remove Gitlab key
+    file { 'package_gitlab_key':
+      ensure => absent,
+      path   => $key,
     }
   }
 }

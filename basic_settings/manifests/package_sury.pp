@@ -66,5 +66,13 @@ class basic_settings::package_sury (
       notify  => Exec['package_sury_source_reload'],
       require => Package['apt'],
     }
+
+    # Remove sury key
+    if ($os_parent == 'ubuntu') {
+      file { 'package_sury_key':
+        ensure => absent,
+        path   => $key,
+      }
+    }
   }
 }

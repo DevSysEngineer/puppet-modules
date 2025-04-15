@@ -18,17 +18,20 @@ class basic_settings::package_mongodb (
     $file = '/etc/apt/sources.list.d/mongodb.list'
   }
 
+  # Set keyrings file
+  $key = '/usr/share/keyrings/mongodb.gpg'
+
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://repo.mongodb.org/apt/${os_parent}\nSuites: ${os_name}/mongodb-org/${version}\nComponents: main\nSigned-By:/usr/share/keyrings/mongodb.gpg\n"
+      $source  = "Types: deb\nURIs: https://repo.mongodb.org/apt/${os_parent}\nSuites: ${os_name}/mongodb-org/${version}\nComponents: main\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=/usr/share/keyrings/mongodb.gpg] https://repo.mongodb.org/apt/${os_parent} ${os_name}/mongodb-org/${version} main\n"
+      $source = "deb [signed-by=${key}] https://repo.mongodb.org/apt/${os_parent} ${os_name}/mongodb-org/${version} main\n"
     }
 
     # Install mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://pgp.mongodb.com/server-${version}.asc | gpg --dearmor | tee /usr/share/keyrings/mongodb.gpg >/dev/null; chmod 644 /usr/share/keyrings/mongodb.gpg",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://pgp.mongodb.com/server-${version}.asc | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
       unless  => "[ -e ${file} ]",
       notify  => Exec['package_mongodb_source_reload'],
       require => [Package['apt'], Package['curl'], Package['gnupg']],
@@ -52,6 +55,12 @@ class basic_settings::package_mongodb (
       onlyif  => "[ -e ${file} ]",
       notify  => Exec['package_mongodb_source_reload'],
       require => [Package['apt'], Package['mongodb-org-server']],
+    }
+
+    # Remove Gitlab key
+    file { 'package_mongodb_key':
+      ensure => absent,
+      path   => $key,
     }
   }
 }
