@@ -81,3 +81,4 @@ class basic_settings::package_mysql (
       path   => $key,
     }
   }
+}
