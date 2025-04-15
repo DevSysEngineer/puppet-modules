@@ -192,7 +192,7 @@ define basic_settings::login_user (
     }
 
     # Create audit rules
-    if defined(Package['auditd'])) {
+    if (defined(Package['auditd'])) {
       basic_settings::security_audit { "${name}-ssh":
         ensure => $ensure,
         rules  => [
