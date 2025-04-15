@@ -160,7 +160,11 @@ define basic_settings::login_user (
     # Create bashrc file
     if ($bashrc != undef) {
       if ($bashrc == 'default') {
-        $bash_rc_correct = template('basic_settings/login/bash/rc')
+        if ($name == 'root') {
+          $bash_rc_correct = template('basic_settings/login/bash/rc-root')
+        } else {
+          $bash_rc_correct = template('basic_settings/login/bash/rc')
+        }
       } else {
         $bash_rc_correct = $bashrc
       }

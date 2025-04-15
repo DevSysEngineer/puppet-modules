@@ -14,3 +14,12 @@ fi
 if [ -f ~/.bash_aliases_custom ]; then
     . ~/.bash_aliases_custom
 fi
+
+# Add /opt/puppetlabs/bin to the path 
+if [ -d /opt/puppetlabs/bin ]; then
+    if [ -z "${PATH-}" ] ; then
+        export PATH=/opt/puppetlabs/bin
+    elif ! echo "${PATH}" | grep -q /opt/puppetlabs/bin ; then
+        export PATH="${PATH}:/opt/puppetlabs/bin"
+    fi
+fi
