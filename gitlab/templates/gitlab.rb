@@ -38,4 +38,7 @@ logging['logrotate_size'] = nil
 logging['logrotate_rotate'] = <%= @logrotate_rotate_correct %>
 postgresql['shared_buffers'] = '<%= @database_shared_buffers %>'
 puma['worker_processes'] = <%= @puma_worker_processes %>
+puma['min_threads'] = 1
+puma['max_threads'] = <%= @puma_max_threads %>
+puma['per_worker_max_memory_mb'] = <%= @puma_max_memory_mb %>
 sidekiq['concurrency'] = <%= @sidekiq_concurrency %>

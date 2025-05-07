@@ -2,6 +2,7 @@ class basic_settings (
   Optional[String]                      $antivirus_package                          = undef,
   Boolean                               $backports                                  = false,
   String                                $cluster_id                                 = 'core',
+  Enum['allow-downgrade','no']          $dns_dnssec                                 = 'allow-downgrade',
   Boolean                               $docs_enable                                = false,
   String                                $environment                                = 'production',
   String                                $firewall_package                           = 'nftables',
@@ -445,6 +446,7 @@ class basic_settings (
   class { 'basic_settings::network':
     antivirus_package    => $antivirus_package,
     dhcp_enable          => $ip_dhcp_enable,
+    dns_dnssec           => $dns_dnssec,
     firewall_package     => $firewall_package,
     install_options      => $backports_install_options,
     configurator_package => $ip_configurator_package,
