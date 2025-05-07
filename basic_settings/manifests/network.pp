@@ -3,7 +3,8 @@ class basic_settings::network (
   Optional[String]                            $antivirus_package      = undef,
   Enum['none','netplan.io']                   $configurator_package   = 'none',
   Boolean                                     $dhcp_enable            =  true,
-  Array                                       $fallback_dns           = [
+  Enum['allow-downgrade','no']                $dns_dnssec             = 'allow-downgrade',
+  Array                                       $dns_fallback           = [
     '8.8.8.8',
     '8.8.4.4',
     '2001:4860:4860::8888',
@@ -387,8 +388,8 @@ class basic_settings::network (
     $systemd_resolved_settings = {
       'Cache'         => 'yes',
       'DNSOverTLS'    => 'opportunistic',
-      'DNSSEC'        => 'allow-downgrade',
-      'FallbackDNS'   => join($fallback_dns, ' '),
+      'DNSSEC'        => $dns_dnssec,
+      'FallbackDNS'   => join($dns_fallback, ' '),
       'LLMNR'         => 'no',
       'MulticastDNS'  => 'no',
       'ReadEtcHosts'  => 'yes',
