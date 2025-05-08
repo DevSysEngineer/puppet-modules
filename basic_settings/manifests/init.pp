@@ -287,6 +287,16 @@ class basic_settings (
     $ip_ra_enable_correct = false
   }
 
+  # Get audio state
+  case $gui_mode {
+    'kiosk': {
+      $audio_enable = true
+    }
+    default: {
+      $audio_enable = false
+    }
+  }
+
   # Basic system packages; This packages needed to be installed first
   package { ['apt', 'bc', 'coreutils', 'dpkg', 'grep', 'lsb-release', 'kmod', 'sed', 'util-linux']:
     ensure          => installed,
@@ -462,6 +472,7 @@ class basic_settings (
 
   # Set assistent
   class { 'basic_settings::assistent':
+    audio_enable    => $audio_enable,
     keyboard_enable => $keyboard_enable,
   }
 

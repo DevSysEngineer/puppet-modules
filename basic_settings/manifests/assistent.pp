@@ -1,4 +1,5 @@
 class basic_settings::assistent (
+  Boolean             $audio_enable = false,
   Optional[Boolean]   $keyboard_enable  = undef,
   String              $keyboard_layout  = 'us',
   String              $keyboard_codeset = 'Lat15'
@@ -12,6 +13,19 @@ class basic_settings::assistent (
   package { ['bash-completion']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
+  }
+
+  if ($audio_enable) {
+    # Install audio packages
+    package {['pipewire-pulse', 'wireplumber']:
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  } else {
+    # Remove audio packages
+    package { ['pipewire-pulse', 'wireplumber']:
+      ensure  => purged,
+    }
   }
 
   # Get keyboard state

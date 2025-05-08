@@ -9,7 +9,7 @@ class basic_settings::login (
   Boolean                               $sudoers_dir_enable     = false
 ) {
   # Remove unnecessary packages
-  package { ['session-migration', 'tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
+  package { ['tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
     ensure  => purged,
   }
 
@@ -32,10 +32,12 @@ class basic_settings::login (
     'kiosk': {
       $getty_correct = true
       $polkitd_enable = true
+      $session_migration_enable = true
     }
     default: {
       $getty_correct = $getty_enable
       $polkitd_enable = false
+      $session_migration_enable = false
     }
   }
 
@@ -48,6 +50,19 @@ class basic_settings::login (
   } else {
     # Remove polkitd package
     package { 'polkitd':
+      ensure  => purged,
+    }
+  }
+
+  if ($session_migration_enable) {
+    # Install session-migration package
+    package { 'session-migration':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  } else {
+    # Remove session-migration package
+    package { 'session-migration':
       ensure  => purged,
     }
   }
