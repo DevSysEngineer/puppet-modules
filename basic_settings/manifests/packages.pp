@@ -33,7 +33,6 @@ class basic_settings::packages (
   # Install package
   package { [
       'apt-listchanges',
-      'apt-transport-https',
       'ca-certificates',
       'curl',
       'debconf',
@@ -49,6 +48,14 @@ class basic_settings::packages (
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
       require         => Package['apt'],
+  }
+
+  # Install APT transport HTTPS package
+  if (!defined(Package['apt-transport-https'])) {
+    package { 'apt-transport-https':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
   }
 
   # Set default rules

@@ -6,7 +6,7 @@ class basic_settings::puppet (
     'puppet-master',
     'puppetserver'
   ]                                     $server_package = 'puppetserver',
-  String                                $server_dir     = 'puppetserver',
+  String                                $server_dirname = 'puppetserver',
 ) {
   # Get puppet service name
   case $server_package {
@@ -22,7 +22,19 @@ class basic_settings::puppet (
   case $repo {
     'remote': {
       # Set some values
-      $report_dir = "/var/log/puppetlabs/${server_dir}/reports"
+      $server_dir = '/opt/puppetlabs/server'
+      $server_etc_dir = "/etc/puppetlabs/${server_dirname}"
+      $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
+      $server_var_dir = "${server_dir}/data/${server_dirname}"
+      $server_var_extra = "/var/lib/puppetlabs/${server_dirname}"
+
+      # Set list
+      $require_dirs = [
+        $server_report_dir,
+        '/var/lib/puppetlabs',
+        $server_var_extra,
+        "${server_var_extra}/temp",
+      ]
 
       # Install some puppet packages
       package { ['augeas-tools', 'facter']:
@@ -31,7 +43,18 @@ class basic_settings::puppet (
     }
     default: {
       # Set some values
-      $report_dir = "/var/log/${server_dir}/reports"
+      $server_dir = "/var/lib/${server_dirname}"
+      $server_etc_dir = "/etc/${server_dirname}"
+      $server_report_dir = "/var/log/${server_dirname}/reports"
+      $server_var_dir = $server_dir
+      $server_var_extra = $server_var_dir
+
+      # Set list
+      $require_dirs = [
+        $server_report_dir,
+        $server_var_extra,
+        "${server_var_extra}/temp",
+      ]
 
       # Install some puppet packages
       package { ['augeas-tools', 'facter']:
@@ -84,7 +107,7 @@ class basic_settings::puppet (
 
     # Get clean filebucket dir
     if ($server_enable) {
-      $clean_filebucket_dir = $server_dir
+      $clean_filebucket_dir = $server_dirname
     } else {
       $clean_filebucket_dir = 'puppet'
     }
@@ -157,24 +180,36 @@ class basic_settings::puppet (
       }
     }
 
-    # Create log dir
-    file { 'puppet_reports':
-      ensure => directory,
-      path   => $report_dir,
-      owner  => 'puppet',
-      group  => 'puppet',
-      mode   => '0700',
+    # Create puppet dirs
+    file { $require_dirs:
+      ensure  => directory,
+      mode    => '0700',
+      owner   => 'puppet',
+      group   => 'puppet',
+      require => Package[$server_package],
     }
 
     # Create symlink
-    file { "/var/lib/${server_dir}/reports":
+    file { 'puppet_reports_symlink':
       ensure  => 'link',
-      target  => "/var/log/${server_dir}/reports",
+      path    => "${server_var_dir}/reports",
+      target  => "/var/log/${server_dirname}/reports",
       force   => true,
-      require => File['puppet_reports'],
+      require => File[$server_report_dir],
     }
 
+    # Check if we have systemd
     if (defined(Package['systemd'])) {
+      # Create env file
+      file { '/etc/default/puppetserver':
+        ensure  => file,
+        mode    => '0600',
+        owner   => 'root',
+        group   => 'root',
+        content => template('basic_settings/puppet/environment'),
+        notify  => Service[$server_service],
+      }
+
       # Create drop in for puppet x service
       basic_settings::systemd_drop_in { "${server_service}_settings":
         target_unit => "${server_service}.service",
@@ -192,7 +227,7 @@ class basic_settings::puppet (
         service     => {
           'Type'      => 'oneshot',
           'User'      => 'puppet',
-          'ExecStart' => "/usr/bin/find /var/lib/${server_dir}/reports/ -type f -name '*.yaml' -ctime +1 -delete", #lint:ignore:140chars # Last dir separator (/) very important
+          'ExecStart' => "/usr/bin/find ${server_var_dir}/reports/ -type f -name '*.yaml' -ctime +1 -delete", #lint:ignore:140chars # Last dir separator (/) very important
           'Nice'      => '19',
         },
       }

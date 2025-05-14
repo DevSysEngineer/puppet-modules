@@ -113,7 +113,7 @@ class basic_settings (
         $os_name = 'noble'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dir = 'puppetserver'
+        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
@@ -138,7 +138,7 @@ class basic_settings (
         $os_name = 'lunar'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dir = 'puppetserver'
+        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = false
@@ -163,7 +163,7 @@ class basic_settings (
         $os_name = 'jammy'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dir = 'puppet'
+        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = true
@@ -183,7 +183,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = false
         $proxmox_allow = false
-        $puppetserver_dir = 'puppet'
+        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = false
@@ -217,7 +217,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = true
         $proxmox_allow = false
-        $puppetserver_dir = 'puppetserver'
+        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
         $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
@@ -237,7 +237,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = false
         $proxmox_allow = false
-        $puppetserver_dir = 'puppet'
+        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
         $puppetserver_package = $puppetserver_master
         $sury_allow = false
@@ -259,7 +259,7 @@ class basic_settings (
       $ram_disk_package = 'initramfs'
       $rabbitmq_allow = false
       $proxmox_allow = false
-      $puppetserver_dir = 'puppet'
+      $puppetserver_dirname = 'puppet'
       $puppetserver_jdk = false
       $puppetserver_package = $puppetserver_master
       $sury_allow = false
@@ -298,7 +298,7 @@ class basic_settings (
   }
 
   # Basic system packages; This packages needed to be installed first
-  package { ['apt', 'bc', 'coreutils', 'dpkg', 'grep', 'lsb-release', 'kmod', 'sed', 'util-linux']:
+  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'dpkg', 'grep', 'lsb-release', 'kmod', 'sed', 'util-linux']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -746,7 +746,7 @@ class basic_settings (
   # Setup Puppet
   class { 'basic_settings::puppet':
     repo           => $puppet_repo_correct,
-    server_dir     => $puppetserver_dir,
+    server_dirname => $puppetserver_dirname,
     server_enable  => $puppetserver_enable,
     server_package => $puppetserver_package,
   }
