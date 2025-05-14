@@ -204,8 +204,8 @@ class basic_settings::puppet (
       file { '/etc/default/puppetserver':
         ensure  => file,
         mode    => '0600',
-        owner   => 'root',
-        group   => 'root',
+        owner   => 'puppet',
+        group   => 'puppet',
         content => template('basic_settings/puppet/environment'),
         notify  => Service[$server_service],
       }
