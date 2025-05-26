@@ -4,12 +4,6 @@ class basic_settings::package_mozilla (
   String              $os_parent,
   String              $os_name
 ) {
-  # Reload source list
-  exec { 'package_mozilla_source_reload':
-    command     => '/usr/bin/apt-get update',
-    refreshonly => true,
-  }
-
   # Check if we need newer format for APT
   if ($deb_version == '822') {
     $file = '/etc/apt/sources.list.d/mozilla.sources'
@@ -43,27 +37,25 @@ class basic_settings::package_mozilla (
     case $os_parent {
       'ubuntu': {
         exec { 'package_mozilla_source':
-          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
+          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
           notify  => Exec['package_mozilla_source_reload'],
-          require => [Package['apt'], Package['curl'], Package['gnupg']],
+          require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
       default: {
         exec { 'package_mozilla_source':
-          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
+          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
-          notify  => Exec['package_mozilla_source_reload'],
-          require => [Package['apt'], Package['curl'], Package['gnupg']],
+          require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
     }
   } else {
     # Remove sury php repo
     exec { 'package_mozilla_source':
-      command => "/usr/bin/rm ${file}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
       onlyif  => "[ -e ${file} ]",
-      notify  => Exec['package_mozilla_source_reload'],
       require => Package['apt'],
     }
 

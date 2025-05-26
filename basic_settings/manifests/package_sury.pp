@@ -4,12 +4,6 @@ class basic_settings::package_sury (
   String              $os_parent,
   String              $os_name
 ) {
-  # Reload source list
-  exec { 'package_sury_source_reload':
-    command     => '/usr/bin/apt-get update',
-    refreshonly => true,
-  }
-
   # Check if we need newer format for APT
   if ($deb_version == '822') {
     $file = '/etc/apt/sources.list.d/sury_php.sources'
@@ -43,27 +37,24 @@ class basic_settings::package_sury (
     case $os_parent {
       'ubuntu': {
         exec { 'package_sury_source':
-          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
+          command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
-          notify  => Exec['package_sury_source_reload'],
-          require => [Package['apt'], Package['curl'], Package['gnupg']],
+          require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
       default: {
         exec { 'package_sury_source':
-          command => "/usr/bin/curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb; dpkg -i /tmp/debsuryorg-archive-keyring.deb; printf \"${source}\" > ${file}",
+          command => "/usr/bin/curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb; dpkg -i /tmp/debsuryorg-archive-keyring.deb; printf \"${source}\" > ${file}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
-          notify  => Exec['package_sury_source_reload'],
-          require => [Package['apt'], Package['curl'], Package['gnupg']],
+          require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
     }
   } else {
     # Remove sury php repo
     exec { 'package_sury_source':
-      command => "/usr/bin/rm ${file}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
       onlyif  => "[ -e ${file} ]",
-      notify  => Exec['package_sury_source_reload'],
       require => Package['apt'],
     }
 

@@ -5,12 +5,6 @@ class basic_settings::package_mongodb (
   String              $os_name,
   Float               $version = 8.0
 ) {
-  # Reload source list
-  exec { 'package_mongodb_source_reload':
-    command     => '/usr/bin/apt-get update',
-    refreshonly => true,
-  }
-
   # Check if we need newer format for APT
   if ($deb_version == '822') {
     $file = '/etc/apt/sources.list.d/mongodb.sources'
@@ -31,10 +25,9 @@ class basic_settings::package_mongodb (
 
     # Install mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://pgp.mongodb.com/server-${version}.asc | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://pgp.mongodb.com/server-${version}.asc | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
       unless  => "[ -e ${file} ]",
-      notify  => Exec['package_mongodb_source_reload'],
-      require => [Package['apt'], Package['curl'], Package['gnupg']],
+      require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
 
     # Install mongodb-org-server package
@@ -51,9 +44,8 @@ class basic_settings::package_mongodb (
 
     # Remove mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/rm ${file}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
       onlyif  => "[ -e ${file} ]",
-      notify  => Exec['package_mongodb_source_reload'],
       require => [Package['apt'], Package['mongodb-org-server']],
     }
 

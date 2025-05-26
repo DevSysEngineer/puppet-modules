@@ -5,12 +5,6 @@ class basic_settings::package_mysql (
   String              $os_name,
   Float               $version = 8.0
 ) {
-  # Reload source list
-  exec { 'package_mysql_source_reload':
-    command     => '/usr/bin/apt-get update',
-    refreshonly => true,
-  }
-
   # Check if we need newer format for APT
   if ($deb_version == '822') {
     $file = '/etc/apt/sources.list.d/mysql.sources'
@@ -57,17 +51,15 @@ class basic_settings::package_mysql (
 
     # Set source
     exec { 'package_mysql_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}", #lint:ignore:140chars
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "[ -e ${file} ]",
-      notify  => Exec['package_mysql_source_reload'],
-      require => [Package['apt'], Package['curl'], Package['gnupg'], File['package_mysql_key_filename']],
+      require => [Package['apt', 'apt-transport-https', 'curl', 'gnupg'], File['package_mysql_key_filename']],
     }
   } else {
     # Remove mysql repo
     exec { 'package_mysql_source':
-      command => "/usr/bin/rm ${file}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
       onlyif  => "[ -e ${file} ]",
-      notify  => Exec['package_mysql_source_reload'],
       require => Package['apt'],
     }
 

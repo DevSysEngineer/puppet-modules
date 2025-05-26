@@ -2,17 +2,14 @@ class basic_settings::package_node (
   Boolean $enable,
   Integer $version = 20
 ) {
-  # Reload source list
-  exec { 'package_node_source_reload':
-    command     => 'apt-get update',
-    refreshonly => true,
-  }
+  # Set default value
+  $file = '/etc/apt/sources.list.d/nodesource.list'
 
   if ($enable) {
     # Install source list
     exec { 'source_nodejs':
       command => "/usr/bin/bash -c 'umask 22; /usr/bin/curl -fsSL https://deb.nodesource.com/setup_${version}.x | bash -'",
-      unless  => '[ -e /etc/apt/sources.list.d/nodesource.list ]',
+      unless  => "[ -e ${file} ]",
       notify  => Exec['package_node_source_reload'],
       require => [Package['apt'], Package['curl']],
     }
@@ -41,9 +38,8 @@ class basic_settings::package_node (
 
     # Remove nodejs repo
     exec { 'source_nodejs':
-      command => '/usr/bin/rm /etc/apt/sources.list.d/nodesource.list',
-      onlyif  => '[ -e /etc/apt/sources.list.d/nodesource.list ]',
-      notify  => Exec['package_node_source_reload'],
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
+      onlyif  => "[ -e ${file} ]",
       require => [Package['apt'], Package['nodejs']],
     }
   }

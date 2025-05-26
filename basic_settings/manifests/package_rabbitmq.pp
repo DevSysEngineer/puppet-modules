@@ -4,12 +4,6 @@ class basic_settings::package_rabbitmq (
   String              $os_parent,
   String              $os_name
 ) {
-  # Reload source list
-  exec { 'package_rabbitmq_source_reload':
-    command     => '/usr/bin/apt-get update',
-    refreshonly => true,
-  }
-
   # Check if we need newer format for APT
   if ($deb_version == '822') {
     $file_erlang = '/etc/apt/sources.list.d/rabbitmq-erlang.sources'
@@ -35,32 +29,28 @@ class basic_settings::package_rabbitmq (
 
     # Install Rabbitmq erlang repo
     exec { 'package_rabbitmq_erlang_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source_erlang}\" > ${file_erlang}; /usr/bin/curl -fsSL https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/gpg.E495BB49CC4BBE5B.key | gpg --dearmor | tee ${key_erlang} >/dev/null; chmod 644 ${key_erlang}",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source_erlang}\" > ${file_erlang}; /usr/bin/curl -fsSL https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/gpg.E495BB49CC4BBE5B.key | gpg --dearmor | tee ${key_erlang} >/dev/null; chmod 644 ${key_erlang}; /usr/bin/apt-get update",
       unless  => "[ -e ${file_erlang} ]",
-      notify  => Exec['package_rabbitmq_source_reload'],
-      require => [Package['apt'], Package['curl'], Package['gnupg']],
+      require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
 
     # Install Rabbitmq server repo
     exec { 'package_rabbitmq_server_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source_server}\" >  ${file_server}; /usr/bin/curl -fsSL https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key | gpg --dearmor | tee ${key_server} >/dev/null; chmod 644 ${key_server}",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source_server}\" >  ${file_server}; /usr/bin/curl -fsSL https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key | gpg --dearmor | tee ${key_server} >/dev/null; chmod 644 ${key_server}; /usr/bin/apt-get update",
       unless  => "[ -e  ${file_server} ]",
-      notify  => Exec['package_rabbitmq_source_reload'],
-      require => [Package['apt'], Package['curl'], Package['gnupg']],
+      require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
   } else {
     # Remove Rabbitmq erlang repo
     exec { 'package_rabbitmq_erlang_source':
-      command => "/usr/bin/rm ${file_erlang}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file_erlang} && /usr/bin/apt-get update'",
       onlyif  => "[ -e ${file_erlang} ]",
-      notify  => Exec['package_rabbitmq_source_reload'],
     }
 
     # Remove Rabbitmq server repo
     exec { 'package_rabbitmq_server_source':
-      command => "/usr/bin/rm  ${file_server}",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file_server} && /usr/bin/apt-get update'",
       onlyif  => "[ -e  ${file_server} ]",
-      notify  => Exec['package_rabbitmq_source_reload'],
       require => Package['apt'],
     }
 

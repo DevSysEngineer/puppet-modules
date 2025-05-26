@@ -193,7 +193,7 @@ class basic_settings::puppet (
     file { 'puppet_reports_symlink':
       ensure  => 'link',
       path    => "${server_var_dir}/reports",
-      target  => "/var/log/${server_dirname}/reports",
+      target  => $server_report_dir,
       force   => true,
       require => File[$server_report_dir],
     }
