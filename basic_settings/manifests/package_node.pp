@@ -10,7 +10,6 @@ class basic_settings::package_node (
     exec { 'source_nodejs':
       command => "/usr/bin/bash -c 'umask 22; /usr/bin/curl -fsSL https://deb.nodesource.com/setup_${version}.x | bash -'",
       unless  => "[ -e ${file} ]",
-      notify  => Exec['package_node_source_reload'],
       require => [Package['apt'], Package['curl']],
     }
 
