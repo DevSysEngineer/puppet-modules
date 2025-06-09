@@ -145,6 +145,7 @@ class basic_settings::security (
         'ProtectSystem' => 'full',
       },
       daemon_reload => 'security_systemd_daemon_reload',
+      enable        => false,
     }
 
     # Create systemd timer

@@ -250,6 +250,7 @@ class mysql (
         'BindsTo' => "${package_name}.service",
       },
       daemon_reload => 'mysql_systemd_daemon_reload',
+      enable        => false,
     }
 
     # Create systemd timer

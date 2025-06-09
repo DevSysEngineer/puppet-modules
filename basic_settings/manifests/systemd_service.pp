@@ -1,6 +1,7 @@
 define basic_settings::systemd_service (
   String                    $description,
   String                    $daemon_reload  = 'systemd_daemon_reload',
+  Boolean                   $enable         = true,
   Enum['present','absent']  $ensure         = present,
   Hash                      $unit           = {},
   Hash                      $service        = {},
@@ -16,5 +17,14 @@ define basic_settings::systemd_service (
     mode    => '0644', # See issue https://github.com/systemd/systemd/issues/770
     notify  => Exec[$daemon_reload],
     require => Package['systemd'],
+  }
+
+  if ($ensure == present) {
+    # Enable service
+    service { $title:
+      ensure  => true,
+      enable  => $enable,
+      require => File["/etc/systemd/system/${title}.timer"],
+    }
   }
 }
