@@ -24,7 +24,7 @@ define basic_settings::systemd_service (
     service { $title:
       ensure  => true,
       enable  => $enable,
-      require => File["/etc/systemd/system/${title}.timer"],
+      require => File["/etc/systemd/system/${title}.service"],
     }
   }
 }
