@@ -4,7 +4,7 @@ define basic_settings::systemd_timer (
   Boolean                               $enable         = true,
   Enum['present','absent']              $ensure         = present,
   Hash                                  $unit           = {},
-  Optional[Enurm['running','stopped']]  $state          = undef,
+  Optional[Enum['running','stopped']]   $state          = undef,
   Hash                                  $timer          = {},
   Hash                                  $install        = {
     'WantedBy'  => 'timers.target',
