@@ -1,11 +1,12 @@
 define basic_settings::systemd_timer (
-  String                    $description,
-  String                    $daemon_reload  = 'systemd_daemon_reload',
-  Boolean                   $enable         = true,
-  Enum['present','absent']  $ensure         = present,
-  Hash                      $unit           = {},
-  Hash                      $timer          = {},
-  Hash                      $install        = {
+  String                                $description,
+  String                                $daemon_reload  = 'systemd_daemon_reload',
+  Boolean                               $enable         = true,
+  Enum['present','absent']              $ensure         = present,
+  Hash                                  $unit           = {},
+  Optional[Enurm['running','stopped']]  $state          = undef,
+  Hash                                  $timer          = {},
+  Hash                                  $install        = {
     'WantedBy'  => 'timers.target',
   },
 ) {
@@ -22,9 +23,17 @@ define basic_settings::systemd_timer (
 
   if ($ensure == present) {
     # Enable timer
-    service { "${title}.timer":
-      enable  => $enable,
-      require => File["/etc/systemd/system/${title}.timer"],
+    if ($state != undef) {
+      service { "${title}.timer":
+        ensure  => $state,
+        enable  => $enable,
+        require => File["/etc/systemd/system/${title}.timer"],
+      }
+    } else {
+      service { "${title}.timer":
+        enable  => $enable,
+        require => File["/etc/systemd/system/${title}.timer"],
+      }
     }
   }
 }

@@ -151,6 +151,7 @@ class basic_settings::security (
     # Create systemd timer
     basic_settings::systemd_timer { 'auditmail':
       description   => 'Audit mail timer',
+      state         => 'running',
       timer         => {
         'OnCalendar' => '*-*-* 0:30',
       },

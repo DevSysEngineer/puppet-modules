@@ -81,8 +81,11 @@ class basic_settings::puppet (
     enable => false,
   }
 
+  # Get some value
+  $basic_settings_enable = defined(Class['basic_settings'])
+
   # Create drop in for services target
-  if (defined(Class['basic_settings'])) {
+  if ($basic_settings_enable) {
     basic_settings::systemd_drop_in { 'puppet_dependency':
       target_unit => "${basic_settings::cluster_id}-system.target",
       unit        => {
@@ -123,12 +126,32 @@ class basic_settings::puppet (
       },
     }
 
-    # Create systemd puppet server clean reports timer
-    basic_settings::systemd_timer { 'puppet-clean-filebucket':
-      description => 'Clean puppet filebucket timer',
-      timer       => {
-        'OnCalendar' => '*-*-* 10:00',
-      },
+    if ($basic_settings_enable) {
+      # Create systemd puppet server clean reports timer
+      basic_settings::systemd_timer { 'puppet-clean-filebucket':
+        description => 'Clean puppet filebucket timer',
+        timer       => {
+          'OnCalendar' => '*-*-* 10:00',
+        },
+      }
+
+      # Create drop in for services target
+      basic_settings::systemd_drop_in { 'puppet_clean_filebucket_dependency':
+        target_unit => "${basic_settings::cluster_id}-helpers.target",
+        unit        => {
+          'BindsTo'   => 'puppet-clean-filebucket.timer',
+        },
+        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+      }
+    } else {
+      # Create systemd puppet server clean reports timer
+      basic_settings::systemd_timer { 'puppet-clean-filebucket':
+        description => 'Clean puppet filebucket timer',
+        state       => 'running',
+        timer       => {
+          'OnCalendar' => '*-*-* 10:00',
+        },
+      }
     }
   }
 
@@ -232,12 +255,32 @@ class basic_settings::puppet (
         },
       }
 
-      # Create systemd puppet x clean reports timer
-      basic_settings::systemd_timer { "${server_service}-clean-reports":
-        description => "Clean ${server_service} reports timer",
-        timer       => {
-          'OnCalendar' => '*-*-* 10:00',
-        },
+      if ($basic_settings_enable) {
+        # Create systemd puppet x clean reports timer
+        basic_settings::systemd_timer { "${server_service}-clean-reports":
+          description => "Clean ${server_service} reports timer",
+          timer       => {
+            'OnCalendar' => '*-*-* 10:00',
+          },
+        }
+
+        # Create drop in for services target
+        basic_settings::systemd_drop_in { "${server_service}_clean_reports_dependency":
+          target_unit => "${basic_settings::cluster_id}-helpers.target",
+          unit        => {
+            'BindsTo'   => "${server_service}-clean-reports.timer",
+          },
+          require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+        }
+      } else {
+        # Create systemd puppet x clean reports timer
+        basic_settings::systemd_timer { "${server_service}-clean-reports":
+          description => "Clean ${server_service} reports timer",
+          state       => 'running',
+          timer       => {
+            'OnCalendar' => '*-*-* 10:00',
+          },
+        }
       }
 
       # Create drop in for puppet service
