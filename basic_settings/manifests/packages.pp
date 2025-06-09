@@ -15,6 +15,17 @@ class basic_settings::packages (
   String            $mail_to                                    = 'root',
   Boolean           $needrestart_dir_enable                     = true
 ) {
+  # Try to get systemd default target
+  if (defined(Class['basic_settings::systemd'])) {
+    if ($systemd_default_target == undef) {
+      $systemd_default_target_correct = "${basic_settings::systemd::cluster_id}-${basic_settings::systemd::default_target}"
+    } else {
+      $systemd_default_target_correct = $systemd_default_target
+    }
+  } else {
+    $systemd_default_target_correct = $systemd_default_target
+  }
+
   # Install apt package
   if (!defined(Package['apt'])) {
     package { 'apt':
@@ -156,16 +167,6 @@ class basic_settings::packages (
       group   => 'root',
       mode    => '0700',
     }
-  }
-
-  if (defined(Class['basic_settings::systemd'])) {
-    if ($systemd_default_target == undef) {
-      $systemd_default_target_correct = $basic_settings::systemd::default_target
-    } else {
-      $systemd_default_target_correct = $systemd_default_target
-    }
-  } else {
-    $systemd_default_target_correct = $systemd_default_target
   }
 
   # Create APT settings
