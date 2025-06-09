@@ -22,7 +22,6 @@ define basic_settings::systemd_service (
   if ($ensure == present) {
     # Enable service
     service { $title:
-      ensure  => true,
       enable  => $enable,
       require => File["/etc/systemd/system/${title}.service"],
     }
