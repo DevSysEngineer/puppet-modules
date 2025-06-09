@@ -1,18 +1,19 @@
 class basic_settings::packages (
-  Boolean $config_dir_enable                          = true,
-  Boolean $listchanges_dir_enable                     = true,
-  Array   $unattended_upgrades_block_extra_packages   = [],
-  Array   $unattended_upgrades_block_packages         = [
+  Boolean           $config_dir_enable                          = true,
+  Boolean           $listchanges_dir_enable                     = true,
+  Array             $unattended_upgrades_block_extra_packages   = [],
+  Array             $unattended_upgrades_block_packages         = [
     'libmysql*',
     'mysql*',
     'nginx',
     'nodejs',
     'php*',
   ],
-  String  $server_fdqn                                = $facts['networking']['fqdn'],
-  Boolean $snap_enable                                = false,
-  String  $mail_to                                    = 'root',
-  Boolean $needrestart_dir_enable                     = true
+  String            $server_fdqn                                = $facts['networking']['fqdn'],
+  Optional[String]  $systemd_default_target                     = undef,
+  Boolean           $snap_enable                                = false,
+  String            $mail_to                                    = 'root',
+  Boolean           $needrestart_dir_enable                     = true
 ) {
   # Install apt package
   if (!defined(Package['apt'])) {
@@ -155,6 +156,16 @@ class basic_settings::packages (
       group   => 'root',
       mode    => '0700',
     }
+  }
+
+  if (defined(Class['basic_settings::systemd'])) {
+    if ($systemd_default_target == undef) {
+      $systemd_default_target_correct = $basic_settings::systemd::default_target
+    } else {
+      $systemd_default_target_correct = $systemd_default_target
+    }
+  } else {
+    $systemd_default_target_correct = $systemd_default_target
   }
 
   # Create APT settings
