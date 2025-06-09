@@ -269,11 +269,12 @@ class mysql (
 
       # Create drop in for services target
       basic_settings::systemd_drop_in { 'automysqlbackup_dependency':
-        target_unit => "${basic_settings::cluster_id}-services.target",
-        unit        => {
+        target_unit   => "${basic_settings::cluster_id}-services.target",
+        unit          => {
           'BindsTo'   => 'automysqlbackup.timer',
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+        daemon_reload => 'mysql_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
       }
     } else {
       # Create systemd timer
