@@ -23,7 +23,6 @@ define basic_settings::systemd_timer (
   if ($ensure == present) {
     # Enable timer
     service { "${title}.timer":
-      ensure  => true,
       enable  => $enable,
       require => File["/etc/systemd/system/${title}.timer"],
     }
