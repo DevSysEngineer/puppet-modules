@@ -27,6 +27,7 @@ class basic_settings::puppet (
       $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
       $server_var_dir = "${server_dir}/data/${server_dirname}"
       $server_var_extra = "/var/lib/puppetlabs/${server_dirname}"
+      $cache_dir = '/opt/puppetlabs/puppet/cache'
 
       # Set list
       $require_dirs = [
@@ -48,6 +49,13 @@ class basic_settings::puppet (
       $server_report_dir = "/var/log/${server_dirname}/reports"
       $server_var_dir = $server_dir
       $server_var_extra = $server_var_dir
+
+      # Get clean filebucket dir
+      if ($server_enable) {
+        $cache_dir = "/var/cache/${server_dirname}"
+      } else {
+        $cache_dir = '/var/cache/puppet'
+      }
 
       # Set list
       $require_dirs = [
@@ -108,20 +116,13 @@ class basic_settings::puppet (
       },
     }
 
-    # Get clean filebucket dir
-    if ($server_enable) {
-      $clean_filebucket_dir = $server_dirname
-    } else {
-      $clean_filebucket_dir = 'puppet'
-    }
-
     # Create systemd puppet clean bucket service
     basic_settings::systemd_service { 'puppet-clean-filebucket':
       description => 'Clean puppet filebucket service',
       service     => {
         'Type'      => 'oneshot',
         'User'      => 'root',
-        'ExecStart' => "/usr/bin/find /var/cache/${clean_filebucket_dir}/clientbucket/ -type f -mtime +14 -atime +14 -delete", #lint:ignore:140chars # Last dir separator (/) very important
+        'ExecStart' => "/usr/bin/find ${cache_dir}/clientbucket/ -type f -mtime +14 -atime +14 -delete", #lint:ignore:140chars # Last dir separator (/) very important
         'Nice'      => '19',
       },
     }

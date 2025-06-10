@@ -4,6 +4,7 @@ class basic_settings::kernel (
   Integer                     $connection_max             = 4096,
   String                      $cpu_governor               = 'performance',
   Boolean                     $guest_agent_enable         = false,
+  Optional[Boolean]           $hardware_passthrough       = undef,
   Integer                     $hugepages                  = 0,
   Array                       $install_options            = [],
   Enum['all','4']             $ip_version                 = 'all',
@@ -28,7 +29,7 @@ class basic_settings::kernel (
     }
   }
 
-  # Try to get guest package
+  # Try to get some settings
   if ($facts['is_virtual']) {
     case $facts['virtual'] {
       'vmware': {
@@ -38,8 +39,15 @@ class basic_settings::kernel (
         $guest_agent_package = 'qemu-guest-agent'
       }
     }
+
+    # Check if we need extra tools for hardware passthrough
+    if ($hardware_passthrough == undef) {
+      $hardware_passthrough_correct = false
+    } else {
+      $hardware_passthrough_correct = $hardware_passthrough
+    }
   } else {
-    $guest_agent_package = undef
+    $hardware_passthrough_correct = true
   }
 
   # When efi, the minimal lockdown state is integrity
@@ -330,10 +338,37 @@ class basic_settings::kernel (
       }
     }
   } else {
+    # Set some settings
     $cpu_governor_corect = undef
     $cpu_boost = undef
     $cpu_idle_max_cstate = undef
     $cpu_pstate = undef
+  }
+
+  # Check if we have hardware that is passthrough
+  if ($hardware_passthrough_correct) {
+    # Install firmware packages
+    if ($facts['secure_boot_enabled']) {
+      package { ['fwupd', 'fwupd-signed']:
+        ensure  => installed,
+      }
+    } else {
+      package { 'fwupd':
+        ensure  => installed,
+      }
+    }
+
+    # Set fwupd-refresh 
+    service { 'fwupd-refresh.timer':
+      ensure  => true,
+      enable  => true,
+      require => Package['fwupd'],
+    }
+  } else {
+    # Remove firmware packages
+    package { ['fwupd', 'fwupd-signed', 'rpi-eeprom-update']:
+      ensure  => purged,
+    }
   }
 
   # Install ram disk package
