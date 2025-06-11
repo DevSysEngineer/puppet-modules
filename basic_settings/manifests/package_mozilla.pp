@@ -39,7 +39,6 @@ class basic_settings::package_mozilla (
         exec { 'package_mozilla_source':
           command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
-          notify  => Exec['package_mozilla_source_reload'],
           require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
