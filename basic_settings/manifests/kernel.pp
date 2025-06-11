@@ -48,6 +48,7 @@ class basic_settings::kernel (
     }
   } else {
     $hardware_passthrough_correct = true
+    $guest_agent_package = undef
   }
 
   # When efi, the minimal lockdown state is integrity
