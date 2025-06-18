@@ -35,6 +35,7 @@ class basic_settings (
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
   Integer                               $nodejs_version                             = 20,
+  Boolean                               $nagios_enable                              = false,
   Boolean                               $non_free                                   = false,
   Boolean                               $openjdk_enable                             = false,
   String                                $openjdk_version                            = 'default',
@@ -572,6 +573,23 @@ class basic_settings (
   } else {
     class { 'basic_settings::package_node':
       enable  => false,
+    }
+  }
+
+  # Check if variable nagios is true; if true, install new source list and key
+  if ($nagios_enable and $nagios_allow) {
+    class { 'basic_settings::package_node':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_node':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
     }
   }
 
