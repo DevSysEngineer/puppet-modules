@@ -17,9 +17,9 @@ class basic_settings::package_nagios (
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://repo.nagios.com/deb/${os_parent}\nSuites: /}\nComponents: nagios\nSigned-By:${key}\n"
+      $source  = "Types: deb\nURIs: https://repo.nagios.com/deb/${os_name}\nSuites: /}\nComponents: nagios\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=${key}] https://repo.nagios.com/deb/${os_parent} /\n"
+      $source = "deb [signed-by=${key}] https://repo.nagios.com/deb/${os_name} /\n"
     }
 
     # Install nagios repo
