@@ -110,6 +110,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'noble'
         $ram_disk_package = 'initramfs'
@@ -135,6 +136,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'lunar'
         $ram_disk_package = 'initramfs'
@@ -160,6 +162,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'jammy'
         $ram_disk_package = 'initramfs'
@@ -179,6 +182,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
+        $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
         $ram_disk_package = 'initramfs'
@@ -213,6 +217,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'bookworm'
         $ram_disk_package = 'initramfs'
@@ -233,6 +238,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
+        $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
         $ram_disk_package = 'initramfs'
@@ -255,6 +261,7 @@ class basic_settings (
       $mysql_allow = false
       $nginx_allow = false
       $nodejs_allow = false
+      $nagios_allow = false
       $openjdk_allow = false
       $os_name = 'unknown'
       $ram_disk_package = 'initramfs'
@@ -578,14 +585,14 @@ class basic_settings (
 
   # Check if variable nagios is true; if true, install new source list and key
   if ($nagios_enable and $nagios_allow) {
-    class { 'basic_settings::package_node':
+    class { 'basic_settings::package_nagios':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_node':
+    class { 'basic_settings::package_nagios':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
