@@ -112,9 +112,9 @@ class ncpa (
   }
 
   # Create settings file
-  file { '/usr/local/ncpa/etc/ncpa.cfg.d/99-settings.conf':
+  file { '/usr/local/ncpa/etc/ncpa.cfg.d/99-settings.cfg':
     ensure  => file,
-    content => Sensitive.new(template('ncpa/settings.conf')),
+    content => Sensitive.new(template('ncpa/settings.cfg')),
     owner   => 'root',
     group   => 'nagios',
     mode    => '0600',
