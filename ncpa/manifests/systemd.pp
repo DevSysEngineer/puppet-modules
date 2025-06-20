@@ -1,0 +1,3 @@
+class ncpa::system (
+
+) {}

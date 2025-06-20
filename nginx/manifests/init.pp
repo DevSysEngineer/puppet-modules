@@ -91,6 +91,13 @@ class nginx (
       daemon_reload => 'nginx_systemd_daemon_reload',
       require       => Package['nginx'],
     }
+  } else {
+    # Eanble service
+    service { 'nginx':
+      ensure  => true,
+      enable  => true,
+      require => Package['nginx'],
+    }
   }
 
   # Create log file

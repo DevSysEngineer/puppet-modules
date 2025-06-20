@@ -22,18 +22,10 @@ define basic_settings::systemd_timer (
   }
 
   if ($ensure == present) {
-    # Enable timer
-    if ($state != undef) {
-      service { "${title}.timer":
-        ensure  => $state,
-        enable  => $enable,
-        require => File["/etc/systemd/system/${title}.timer"],
-      }
-    } else {
-      service { "${title}.timer":
-        enable  => $enable,
-        require => File["/etc/systemd/system/${title}.timer"],
-      }
+    service { "${title}.timer":
+      ensure  => $state,
+      enable  => $enable,
+      require => File["/etc/systemd/system/${title}.timer"],
     }
   }
 }
