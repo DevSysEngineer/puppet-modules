@@ -21,8 +21,8 @@ class gitlab (
 
   # Try to get root email
   if ($root_email == undef) {
-    if (defined(Class['basic_settings::message'])) {
-      $root_email_found = $basic_settings::message::mail_to
+    if (defined(Class['basic_settings::monitoring'])) {
+      $root_email_found = $basic_settings::monitoring::mail_to
     } else {
       $root_email_found = 'root'
     }
@@ -112,7 +112,7 @@ class gitlab (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::message'])) {
+    if (defined(Class['basic_settings::monitoring'])) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }

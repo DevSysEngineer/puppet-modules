@@ -18,7 +18,7 @@ class letsencrypt (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::message'])) {
+    if (defined(Class['basic_settings::monitoring'])) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }
@@ -40,8 +40,8 @@ class letsencrypt (
 
   # Try to get mail adres
   if ($mail_to == undef) {
-    if (defined(Class['basic_settings::message'])) {
-      $mail_to_correct = $basic_settings::message::mail_to
+    if (defined(Class['basic_settings::monitoring'])) {
+      $mail_to_correct = $basic_settings::monitoring::mail_to
     } else {
       $mail_to_correct = 'root'
     }

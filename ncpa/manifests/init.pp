@@ -4,7 +4,7 @@ class ncpa (
   Sensitive[String]                   $server_token,
   Optional[Array]                     $handlers_extra     = undef,
   Optional[String]                    $server_fdqn        = undef,
-  Integer                             $nice_level         = 12,
+  Integer                             $nice_level         = -19,
 ) {
   # Set variables
   $log_path = '/var/log/ncpa'
@@ -20,68 +20,103 @@ class ncpa (
     $server_fdqn_correct = $server_fdqn
   }
 
-  # Install Nagios Cross-Platform Agent
-  package { 'ncpa':
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
+  # Check if we have systemd
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  if ($monitoring_enable) {
+    $monitoring_package = $basic_settings::monitoring::package
+  } else {
+    $monitoring_package = false
   }
 
-  # Check if we have systemd
-  if (defined(Package['systemd'])) {
-    # Disable service
-    service { 'ncpa':
-      ensure  => undef,
-      enable  => false,
-      require => Package['ncpa'],
+  # Install Nagios Cross-Platform Agent
+  if (!defined(Package['ncpa'])) {
+    package { 'ncpa':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
+  }
 
-    # Reload systemd deamon
-    exec { 'ncpa_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+  # Check if monitoring package is not configured
+  if ($monitoring_package == 'none') {
+    if (defined(Package['systemd'])) {
+      # Disable service
+      service { 'ncpa':
+        ensure  => undef,
+        enable  => false,
+        require => Package['ncpa'],
+      }
 
-    # Create drop in for x target
-    if (defined(Class['basic_settings::systemd'])) {
-      basic_settings::systemd_drop_in { 'ncpa_dependency':
-        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-        unit          => {
-          'BindsTo'   => 'ncpa.service',
+      # Reload systemd deamon
+      exec { 'ncpa_systemd_daemon_reload':
+        command     => '/usr/bin/systemctl daemon-reload',
+        refreshonly => true,
+        require     => Package['systemd'],
+      }
+
+      # Create drop in for x target
+      if (defined(Class['basic_settings::systemd'])) {
+        basic_settings::systemd_drop_in { 'ncpa_dependency':
+          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+          unit          => {
+            'BindsTo'   => 'ncpa.service',
+          },
+          daemon_reload => 'ncpa_systemd_daemon_reload',
+          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+        }
+      }
+
+      # Get unit
+      if ($monitoring_enable) {
+        $unit = {
+          'OnFailure' => 'notify-failed@%i.service',
+        }
+      } else {
+        $unit = {}
+      }
+
+      # Create drop in for ncpa service
+      basic_settings::systemd_drop_in { 'ncpa_settings':
+        target_unit   => 'ncpa.service',
+        unit          => $unit,
+        service       => {
+          'Nice'          => $nice_level,
+          'PrivateTmp'    => 'true',
+          'ProtectHome'   => 'true',
+          'ProtectSystem' => 'full',
         },
         daemon_reload => 'ncpa_systemd_daemon_reload',
-        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
-      }
-    }
-
-    # Get unit
-    if (defined(Class['basic_settings::message'])) {
-      $unit = {
-        'OnFailure' => 'notify-failed@%i.service',
+        require       => Package['ncpa'],
       }
     } else {
-      $unit = {}
+      # Eanble service
+      service { 'ncpa':
+        ensure  => true,
+        enable  => true,
+        require => Package['ncpa'],
+      }
     }
 
-    # Create drop in for ncpa service
-    basic_settings::systemd_drop_in { 'ncpa_settings':
-      target_unit   => 'ncpa.service',
-      unit          => $unit,
-      service       => {
-        'Nice'          => "-${nice_level}",
-        'PrivateTmp'    => 'true',
-        'ProtectHome'   => 'true',
-        'ProtectSystem' => 'full',
-      },
-      daemon_reload => 'ncpa_systemd_daemon_reload',
-      require       => Package['ncpa'],
-    }
-  } else {
-    # Eanble service
-    service { 'ncpa':
-      ensure  => true,
-      enable  => true,
+    # Create config directory
+    file { '/usr/local/ncpa/etc':
+      ensure  => directory,
+      purge   => true,
+      force   => true,
+      recurse => true,
+      owner   => 'root',
+      group   => 'nagios',
       require => Package['ncpa'],
+    }
+
+    # Create config directory
+    file { '/usr/local/ncpa/etc/ncpa.cfg.d':
+      ensure  => directory,
+      purge   => true,
+      force   => true,
+      recurse => true,
+      owner   => 'root',
+      group   => 'nagios',
+      notify  => Service['ncpa'],
+      require => File['/usr/local/ncpa/etc'],
     }
   }
 
@@ -100,15 +135,6 @@ class ncpa (
     recurse => true,
     owner   => 'nagios',
     group   => 'nagios',
-  }
-
-  # Create config directory
-  file { '/usr/local/ncpa/etc':
-    ensure  => directory,
-    purge   => true,
-    force   => true,
-    recurse => true,
-    require => Package['ncpa'],
   }
 
   # Create settings file

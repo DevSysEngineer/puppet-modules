@@ -22,7 +22,7 @@ class basic_settings::pro (
       }
 
       # Check snap state
-      if (defined(Class['basic_settings::message'])) {
+      if (defined(Class['basic_settings::monitoring'])) {
         $snap_enable = $basic_settings::packages::snap_enable
       } else {
         $snap_enable = false

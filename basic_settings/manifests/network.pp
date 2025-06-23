@@ -235,7 +235,7 @@ class basic_settings::network (
   }
 
   # Reload systemd deamon
-  if (defined(Class['basic_settings::systemd']) or defined(Class['basic_settings::message'])) {
+  if (defined(Class['basic_settings::systemd']) or defined(Class['basic_settings::monitoring'])) {
     exec { 'network_firewall_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
       refreshonly => true,
@@ -252,7 +252,7 @@ class basic_settings::network (
       require => Package[$firewall_package],
     }
 
-    if (defined(Package['systemd']) and defined(Class['basic_settings::message'])) {
+    if (defined(Package['systemd']) and defined(Class['basic_settings::monitoring'])) {
       # Create drop in for firewall service
       basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
         target_unit   => "${firewall_package}.service",

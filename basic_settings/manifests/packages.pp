@@ -240,7 +240,7 @@ class basic_settings::packages (
     value   => 'Readline',
   }
 
-  if (defined(Package['systemd']) and defined(Class['basic_settings::message'])) {
+  if (defined(Package['systemd']) and defined(Class['basic_settings::monitoring'])) {
     # Reload systemd deamon
     exec { 'packages_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',

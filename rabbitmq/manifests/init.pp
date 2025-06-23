@@ -48,7 +48,7 @@ class rabbitmq (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::message'])) {
+    if (defined(Class['basic_settings::monitoring'])) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }

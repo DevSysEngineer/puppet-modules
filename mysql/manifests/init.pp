@@ -7,9 +7,9 @@ class mysql (
   Hash              $settings                   = {}
 ) {
   # Use systemd settings
-  if (defined(Class['basic_settings::message'])) {
-    $automysqlbackup_host_friendly = $basic_settings::message::server_fdqn
-    $automysqlbackup_mail_address = $basic_settings::message::mail_to
+  if (defined(Class['basic_settings::monitoring'])) {
+    $automysqlbackup_host_friendly = $basic_settings::monitoring::server_fdqn
+    $automysqlbackup_mail_address = $basic_settings::monitoring::mail_to
   } else {
     $automysqlbackup_host_friendly = $fdqn
     $automysqlbackup_mail_address = 'root'
@@ -120,7 +120,7 @@ class mysql (
       }
 
       # Get unit
-      if (defined(Class['basic_settings::message'])) {
+      if (defined(Class['basic_settings::monitoring'])) {
         $unit = {
           'OnFailure' => 'notify-failed@%i.service',
         }

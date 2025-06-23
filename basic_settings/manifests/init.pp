@@ -29,6 +29,8 @@ class basic_settings (
   String                                $mail_package                               = 'postfix',
   Boolean                               $mongodb_enable                             = false,
   Float                                 $mongodb_version                            = 8.0,
+  Enum['none','ncpa']                   $monitoring_package                         = 'none',
+  Boolean                               $monitoring_package_install                 = false,
   Boolean                               $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
@@ -328,11 +330,11 @@ class basic_settings (
     # Based on OS parent use correct source list
     file { '/etc/apt/sources.list':
       ensure  => file,
-      path    => '/etc/apt/sources.list',
       mode    => '0600',
       owner   => 'root',
       group   => 'root',
       content => "# Managed by puppet\n# ${facts['os']['name']} sourcess have to moved to /etc/apt/sources.list.d/${os_parent}.sources\n",
+      notify  => Exec['basic_settings_source_reload'],
       require => Package['apt'],
     }
 
@@ -344,6 +346,7 @@ class basic_settings (
       owner   => 'root',
       group   => 'root',
       content => template("basic_settings/source/${os_parent}.sources"),
+      notify  => Exec['basic_settings_source_reload'],
       require => [Package['apt'], File['/etc/apt/sources.list']],
     }
 
@@ -381,6 +384,7 @@ class basic_settings (
       owner   => 'root',
       group   => 'root',
       content => template("basic_settings/source/${os_parent}.list"),
+      notify  => Exec['basic_settings_source_reload'],
       require => Exec['basic_settings_source_backports'],
     }
   }
@@ -394,9 +398,11 @@ class basic_settings (
   }
 
   # Setup message
-  class { 'basic_settings::message':
+  class { 'basic_settings::monitoring':
     mail_to         => $systemd_notify_mail,
     mail_package    => $mail_package,
+    package         => $monitoring_package,
+    package_install => $monitoring_package_install,
     server_fdqn     => $server_fdqn,
     require         => Class['basic_settings::systemd']
   }
@@ -405,13 +411,13 @@ class basic_settings (
   class { 'basic_settings::security':
     mail_to     => $systemd_notify_mail,
     server_fdqn => $server_fdqn,
-    require     => Class['basic_settings::message'],
+    require     => Class['basic_settings::monitoring'],
   }
 
   # Set IO
   class { 'basic_settings::io':
     lvm_enable => $lvm_enable,
-    require    => Class['basic_settings::message'],
+    require    => Class['basic_settings::monitoring'],
   }
 
   # Setup APT
@@ -423,7 +429,7 @@ class basic_settings (
     mail_to                                  => $systemd_notify_mail,
     require                                  => [
       File['/etc/apt/sources.list'],
-      Class['basic_settings::message']
+      Class['basic_settings::monitoring']
     ],
   }
 
@@ -431,7 +437,7 @@ class basic_settings (
   class { 'basic_settings::pro':
     enable            => $pro_enable,
     monitoring_enable => $pro_monitoring_enable,
-    require           => Class['basic_settings::message']
+    require           => Class['basic_settings::monitoring']
   }
 
   # Set timezone
@@ -439,7 +445,7 @@ class basic_settings (
     timezone        => $server_timezone,
     ntp_extra_pools => $systemd_ntp_extra_pools,
     install_options => $backports_install_options,
-    require         => [File['basic_settings_source'], Class['basic_settings::message']],
+    require         => [File['basic_settings_source'], Class['basic_settings::monitoring']],
   }
 
   # Setup kernel
@@ -469,7 +475,7 @@ class basic_settings (
     install_options      => $backports_install_options,
     configurator_package => $ip_configurator_package,
     wireless_enable      => $wireless_enable,
-    require              => [File['basic_settings_source'], Class['basic_settings::message']],
+    require              => [File['basic_settings_source'], Class['basic_settings::monitoring']],
   }
 
   # Set timezone
