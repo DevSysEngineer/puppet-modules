@@ -17,6 +17,7 @@ class basic_settings::network (
 ) {
   # Set some default values
   $kernel_enable = defined(Class['basic_settings::kernel'])
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
   # Get IP data
   if ($kernel_enable) {
@@ -164,7 +165,8 @@ class basic_settings::network (
   }
 
   # Check if dhcpc is needed on this server
-  if ($dhcp_enable or ($kernel_enable and $basic_settings::kernel::ram_disk_package == 'initramfs')) {
+  $dhcp_state = ($dhcp_enable or ($kernel_enable and $basic_settings::kernel::ram_disk_package == 'initramfs'))
+  if ($dhcp_state) {
     # Install dhcpcd-base
     if (!defined(Package['dhcpcd-base'])) {
       package { 'dhcpcd-base':
@@ -235,7 +237,7 @@ class basic_settings::network (
   }
 
   # Reload systemd deamon
-  if (defined(Class['basic_settings::systemd']) or defined(Class['basic_settings::monitoring'])) {
+  if (defined(Class['basic_settings::systemd']) or $monitoring_enable) {
     exec { 'network_firewall_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
       refreshonly => true,
@@ -252,15 +254,22 @@ class basic_settings::network (
       require => Package[$firewall_package],
     }
 
-    if (defined(Package['systemd']) and defined(Class['basic_settings::monitoring'])) {
-      # Create drop in for firewall service
-      basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
-        target_unit   => "${firewall_package}.service",
-        unit          => {
-          'OnFailure' => 'notify-failed@%i.service',
-        },
-        daemon_reload => 'network_firewall_systemd_daemon_reload',
-        require       => Package[$firewall_package],
+    if ($monitoring_enable) {
+      # Create service check
+      basic_settings::monitoring_service { $firewall_package:
+        services => [$firewall_package],
+      }
+
+      if (defined(Package['systemd'])) {
+        # Create drop in for firewall service
+        basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
+          target_unit   => "${firewall_package}.service",
+          unit          => {
+            'OnFailure' => 'notify-failed@%i.service',
+          },
+          daemon_reload => 'network_firewall_systemd_daemon_reload',
+          require       => Package[$firewall_package],
+        }
       }
     }
   }
@@ -434,6 +443,19 @@ class basic_settings::network (
       }
     }
 
+    if ($monitoring_enable) {
+      # Create service check
+      if ($dhcp_state) {
+        basic_settings::monitoring_service { 'network':
+          services => ['dhcpcd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher'],
+        }
+      } else {
+        basic_settings::monitoring_service { 'network':
+          services => ['systemd-networkd', 'systemd-resolved', 'networkd-dispatcher'],
+        }
+      }
+    }
+
     # Create symlink to network service
     if (defined(Package['dbus'])) {
       file { '/usr/lib/systemd/system/dbus-org.freedesktop.network1.service':
@@ -445,6 +467,12 @@ class basic_settings::network (
     }
   } else {
     $networkd_rules = []
+    if ($monitoring_enable and $dhcp_state) {
+      # Create service check
+      basic_settings::monitoring_service { 'network':
+        services => ['dhcpcd'],
+      }
+    }
   }
 
   # Setup audit rules
