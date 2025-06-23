@@ -13,7 +13,7 @@ define basic_settings::monitoring_service (
   if ($services == undef) {
     $services_correct = $name
   } else {
-    $services_correct = join($services_correct, '&service=')
+    $services_correct = join($services, '&service=')
   }
 
   case $basic_settings::monitoring::package {
