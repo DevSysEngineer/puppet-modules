@@ -42,11 +42,26 @@ class basic_settings::packages (
     }
   }
 
+  # Install curk package
+  if (!defined(Package['curl'])) {
+    package { 'curl':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Install gnupg package
+  if (!defined(Package['gnupg'])) {
+    package { 'gnupg':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Install package
   package { [
       'apt-listchanges',
       'ca-certificates',
-      'curl',
       'debconf',
       'debian-archive-keyring',
       'debian-keyring',

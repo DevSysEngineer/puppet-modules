@@ -308,7 +308,7 @@ class basic_settings (
   }
 
   # Basic system packages; This packages needed to be installed first
-  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'dpkg', 'grep', 'lsb-release', 'kmod', 'sed', 'util-linux']:
+  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'curl' 'dpkg', 'grep', 'gnupg', 'lsb-release', 'kmod', 'sed', 'util-linux', 'curl',]:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -397,20 +397,22 @@ class basic_settings (
     require         => File['basic_settings_source']
   }
 
-  # Check if variable nagios is true; if true, install new source list and key
-  if ($nagios_enable and $nagios_allow) {
-    class { 'basic_settings::package_nagios':
-      deb_version => $deb_version,
-      enable      => true,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
-    }
-  } else {
-    class { 'basic_settings::package_nagios':
-      deb_version => $deb_version,
-      enable      => false,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
+  # Special case when monitoring_package is not none
+  if ($monitoring_package != 'none') {
+    if ($nagios_enable and $nagios_allow) {
+      class { 'basic_settings::package_nagios':
+        deb_version => $deb_version,
+        enable      => true,
+        os_parent   => $os_parent,
+        os_name     => $os_name,
+      }
+    } else {
+      class { 'basic_settings::package_nagios':
+        deb_version => $deb_version,
+        enable      => false,
+        os_parent   => $os_parent,
+        os_name     => $os_name,
+      }
     }
   }
 
@@ -521,6 +523,25 @@ class basic_settings (
       enable      => false,
       os_parent   => $os_parent,
       os_name     => $os_name,
+    }
+  }
+
+  # Special case when monitoring_package is none
+  if ($monitoring_package == 'none') {
+    if ($nagios_enable and $nagios_allow) {
+      class { 'basic_settings::package_nagios':
+        deb_version => $deb_version,
+        enable      => true,
+        os_parent   => $os_parent,
+        os_name     => $os_name,
+      }
+    } else {
+      class { 'basic_settings::package_nagios':
+        deb_version => $deb_version,
+        enable      => false,
+        os_parent   => $os_parent,
+        os_name     => $os_name,
+      }
     }
   }
 
