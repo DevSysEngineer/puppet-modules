@@ -66,7 +66,6 @@ class basic_settings::packages (
       'debian-archive-keyring',
       'debian-keyring',
       'dirmngr',
-      'gnupg',
       'libssl-dev',
       'needrestart',
       'ucf',

@@ -107,6 +107,13 @@ class basic_settings::monitoring (
         }
       }
 
+      # Create etc dir
+      if ($package_install) {
+        $notify = Service['ncpa']
+      } else {
+        $notify = undef
+      }
+
       # Create root directory
       file { 'monitoring_location':
         ensure => directory,
@@ -114,13 +121,6 @@ class basic_settings::monitoring (
         mode   => '0700',
         owner  => 'root',
         group  => 'root',
-      }
-
-      # Create etc dir
-      if ($package_install) {
-        $notify = Service['ncpa']
-      } else {
-        $notify = undef
       }
 
       file { 'monitoring_location_etc':
