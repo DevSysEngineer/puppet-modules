@@ -149,5 +149,7 @@ class basic_settings::monitoring (
   }
 
   # Create service check
-  basic_settings::monitoring_service { 'dhcpcd': }
+  basic_settings::monitoring_service { 'mail':
+    services => [$mail_package],
+  }
 }
