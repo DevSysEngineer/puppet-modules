@@ -1,6 +1,6 @@
 define basic_settings::monitoring_service (
   Optional[String] $friendly = undef,
-  Option[Array]   $services = undef
+  Optional[Array]  $services = undef
 ) {
   # Get friendly name
   if ($friendly == undef) {
