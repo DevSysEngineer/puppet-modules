@@ -23,7 +23,6 @@ define basic_settings::monitoring_service (
         owner   => 'root',
         group   => 'nagios',
         content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Service = services?service=${services_correct}&status=running&check=1\n",
-        notify  => $basic_settings::monitoring::notify,
         require => File['monitoring_location_config'],
       }
     }
