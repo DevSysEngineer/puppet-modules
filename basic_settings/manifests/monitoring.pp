@@ -118,9 +118,9 @@ class basic_settings::monitoring (
 
       # Create etc dir
       if ($package_install) {
-        $notify =Service['ncpa']
+        $notify = Service['ncpa']
       } else {
-        $notify = []
+        $notify = undef
       }
 
       file { 'monitoring_location_etc':

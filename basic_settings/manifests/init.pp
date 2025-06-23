@@ -397,6 +397,23 @@ class basic_settings (
     require         => File['basic_settings_source']
   }
 
+  # Check if variable nagios is true; if true, install new source list and key
+  if ($nagios_enable and $nagios_allow) {
+    class { 'basic_settings::package_nagios':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_nagios':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  }
+
   # Setup message
   class { 'basic_settings::monitoring':
     mail_to         => $systemd_notify_mail,
@@ -404,7 +421,7 @@ class basic_settings (
     package         => $monitoring_package,
     package_install => $monitoring_package_install,
     server_fdqn     => $server_fdqn,
-    require         => Class['basic_settings::systemd']
+    require         => Class['basic_settings::systemd', 'basic_settings::package_nagios'],
   }
 
   # Setup security
@@ -586,23 +603,6 @@ class basic_settings (
   } else {
     class { 'basic_settings::package_node':
       enable  => false,
-    }
-  }
-
-  # Check if variable nagios is true; if true, install new source list and key
-  if ($nagios_enable and $nagios_allow) {
-    class { 'basic_settings::package_nagios':
-      deb_version => $deb_version,
-      enable      => true,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
-    }
-  } else {
-    class { 'basic_settings::package_nagios':
-      deb_version => $deb_version,
-      enable      => false,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
     }
   }
 
