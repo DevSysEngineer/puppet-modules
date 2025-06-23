@@ -255,9 +255,11 @@ class basic_settings::network (
     }
 
     if ($monitoring_enable) {
-      # Create service check
-      basic_settings::monitoring_service { $firewall_package:
-        services => [$firewall_package],
+      if ($basic_settings::monitoring::package != 'none') {
+        # Create service check
+        basic_settings::monitoring_service { $firewall_package:
+          services => [$firewall_package],
+        }
       }
 
       if (defined(Package['systemd'])) {
@@ -443,7 +445,7 @@ class basic_settings::network (
       }
     }
 
-    if ($monitoring_enable) {
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
       # Create service check
       if ($dhcp_state) {
         basic_settings::monitoring_service { 'network':
@@ -467,7 +469,7 @@ class basic_settings::network (
     }
   } else {
     $networkd_rules = []
-    if ($monitoring_enable and $dhcp_state) {
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none' and $dhcp_state) {
       # Create service check
       basic_settings::monitoring_service { 'network':
         services => ['dhcpcd'],
