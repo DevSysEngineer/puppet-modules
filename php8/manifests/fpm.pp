@@ -101,7 +101,7 @@ class php8::fpm (
   # Create drop in for PHP FPM service
   basic_settings::systemd_drop_in { "php8_${minor_version}_settings":
     target_unit   => "php8.${minor_version}-fpm.service",
-    unit          => $uni,
+    unit          => $unit,
     service       => $service,
     daemon_reload => "php8_${minor_version}_systemd_daemon_reload",
     require       => Package["php8.${minor_version}-fpm"],
