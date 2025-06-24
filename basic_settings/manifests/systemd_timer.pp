@@ -25,7 +25,7 @@ define basic_settings::systemd_timer (
 
   # Check if we need to monitoring this timer
   if ($monitoring_enable != undef and $monitoring_package != 'none') {
-    monitoring_timer { $title:
+    basic_settings::monitoring_timer { $title:
       package => $monitoring_package,
     }
   }
