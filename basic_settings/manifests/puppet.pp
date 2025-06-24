@@ -11,6 +11,11 @@ class basic_settings::puppet (
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  if ($monitoring_enable) {
+    $monitoring_package = $basic_settings::monitoring::package
+  } else {
+    $monitoring_package = 'none'
+  }
 
   # Get puppet service name
   case $server_package {
@@ -112,7 +117,7 @@ class basic_settings::puppet (
     }
 
     # Create service check
-    if ($basic_settings::monitoring::package != 'none') {
+    if ($monitoring_package != 'none') {
       basic_settings::monitoring_service { 'puppet': }
     }
   } else {
@@ -144,8 +149,10 @@ class basic_settings::puppet (
     if ($basic_settings_enable) {
       # Create systemd puppet server clean reports timer
       basic_settings::systemd_timer { 'puppet-clean-filebucket':
-        description => 'Clean puppet filebucket timer',
-        timer       => {
+        description        => 'Clean puppet filebucket timer',
+        monitoring_enable  => $monitoring_enable,
+        monitoring_package => $monitoring_package,
+        timer              => {
           'OnCalendar' => '*-*-* 10:00',
         },
       }
@@ -161,9 +168,11 @@ class basic_settings::puppet (
     } else {
       # Create systemd puppet server clean reports timer
       basic_settings::systemd_timer { 'puppet-clean-filebucket':
-        description => 'Clean puppet filebucket timer',
-        state       => 'running',
-        timer       => {
+        description        => 'Clean puppet filebucket timer',
+        monitoring_enable  => $monitoring_enable,
+        monitoring_package => $monitoring_package,
+        state              => 'running',
+        timer              => {
           'OnCalendar' => '*-*-* 10:00',
         },
       }
@@ -280,8 +289,10 @@ class basic_settings::puppet (
       if ($basic_settings_enable) {
         # Create systemd puppet x clean reports timer
         basic_settings::systemd_timer { "${server_service}-clean-reports":
-          description => "Clean ${server_service} reports timer",
-          timer       => {
+          description        => "Clean ${server_service} reports timer",
+          monitoring_enable  => $monitoring_enable,
+          monitoring_package => $monitoring_package,
+          timer              => {
             'OnCalendar' => '*-*-* 10:00',
           },
         }
@@ -297,9 +308,11 @@ class basic_settings::puppet (
       } else {
         # Create systemd puppet x clean reports timer
         basic_settings::systemd_timer { "${server_service}-clean-reports":
-          description => "Clean ${server_service} reports timer",
-          state       => 'running',
-          timer       => {
+          description        => "Clean ${server_service} reports timer",
+          monitoring_enable  => $monitoring_enable,
+          monitoring_package => $monitoring_package,
+          state              => 'running',
+          timer              => {
             'OnCalendar' => '*-*-* 10:00',
           },
         }

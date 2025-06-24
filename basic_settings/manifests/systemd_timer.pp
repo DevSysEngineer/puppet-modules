@@ -6,7 +6,7 @@ define basic_settings::systemd_timer (
   Hash                                  $install              = {
     'WantedBy'  => 'timers.target',
   },
-  Boolean                               $monitoring_enable    = false,
+  Optional[Boolean]                     $monitoring_enable    = undef,
   Optional[String]                      $monitoring_package   = undef,
   Optional[Enum['running','stopped']]   $state                = undef,
   Hash                                  $timer                = {},
@@ -24,7 +24,7 @@ define basic_settings::systemd_timer (
   }
 
   # Check if we need to monitoring this timer
-  if ($monitoring_enable) {
+  if ($monitoring_enable != undef and $monitoring_package != 'none') {
     monitoring_timer { $title:
       package => $monitoring_package,
     }
