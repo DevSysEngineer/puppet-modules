@@ -7,7 +7,7 @@ define basic_settings::systemd_timer (
     'WantedBy'  => 'timers.target',
   },
   Boolean                               $monitoring_enable    = false,
-  String                                $monitoring_package   = undef,
+  Optional[String]                      $monitoring_package   = undef,
   Optional[Enum['running','stopped']]   $state                = undef,
   Hash                                  $timer                = {},
   Hash                                  $unit                 = {},
