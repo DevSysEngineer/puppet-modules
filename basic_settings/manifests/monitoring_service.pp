@@ -1,6 +1,7 @@
 define basic_settings::monitoring_service (
   Optional[String] $friendly = undef,
-  Optional[Array]  $services = undef
+  Optional[Array]  $services = undef,
+  Optional[String] $package = undef
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -9,15 +10,28 @@ define basic_settings::monitoring_service (
     $friendly_correct = $friendly
   }
 
-  # Get list of services
-  if ($services == undef) {
-    $services_correct = $name
+  # Try to get package
+  if (defined(Class['basic_settings::monitoring'])) {
+    if ($package == undef) {
+      $package_correct = $basic_settings::monitoring::package
+    } else {
+      $package_correct = $package
+    }
   } else {
-    $services_correct = join($services, '&service=')
+    $package_correct = 'none'
   }
 
-  case $basic_settings::monitoring::package {
+  # Do thing based on package
+  case $package_correct {
     'ncpa': {
+      # Get list of services
+      if ($services == undef) {
+        $services_correct = $name
+      } else {
+        $services_correct = join($services, '&service=')
+      }
+
+      # Create check
       file { "/usr/local/ncpa/etc/ncpa.cfg.d/${name}_service.cfg":
         ensure  => file,
         owner   => 'root',

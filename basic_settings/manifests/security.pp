@@ -22,6 +22,12 @@ class basic_settings::security (
     require => Package['auditd'],
   }
 
+  # Create service check
+  if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_service { 'apparmor': }
+    basic_settings::monitoring_service { 'apparauditdmor': }
+  }
+
   # Create auditd config file */
   file { '/etc/audit/auditd.conf':
     ensure  => file,

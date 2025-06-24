@@ -89,14 +89,17 @@ class basic_settings::monitoring (
               'OnFailure' => 'notify-failed@%i.service',
             },
             service       => {
-              'Nice'          => '19',
-              'PrivateTmp'    => 'true',
-              'ProtectHome'   => 'true',
-              'ProtectSystem' => 'full',
+              'Nice'           => '19',
+              'ProtectHome'    => 'true',
+              'ProtectSystem'  => 'full',
+              'ReadWritePaths' => '/usr/local/ncpa',
             },
             daemon_reload => 'monitoring_systemd_daemon_reload',
             require       => Package['ncpa'],
           }
+
+          # Set notify
+          $notify = Service['ncpa']
         } else {
           # Eanble service
           service { 'ncpa':
@@ -104,21 +107,15 @@ class basic_settings::monitoring (
             enable  => true,
             require => Package['ncpa'],
           }
+          $notify = undef
         }
-      }
-
-      # Create etc dir
-      if ($package_install) {
-        $notify = Service['ncpa']
-      } else {
-        $notify = undef
       }
 
       # Create root directory
       file { 'monitoring_location':
         ensure => directory,
         path   => '/usr/local/ncpa',
-        mode   => '0700',
+        mode   => '0755', # Important
         owner  => 'root',
         group  => 'root',
       }

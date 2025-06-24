@@ -143,6 +143,7 @@ class ssh (
       enable  => true,
       require => Package['openssh-server'],
     }
+    $service = 'ssh.socket'
   } else {
     # Ensure that ssh is always running
     service { 'ssh':
@@ -150,6 +151,14 @@ class ssh (
       enable    => true,
       require   => File['/etc/ssh/sshd_config.d/99-custom.conf'],
       subscribe => [File['/etc/ssh/sshd_config.d'], File['/etc/ssh/sshd_config.d/99-custom.conf']],
+    }
+    $service = 'ssh'
+  }
+
+  # Create service check
+  if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_service { 'ssh':
+      services => [$service],
     }
   }
 

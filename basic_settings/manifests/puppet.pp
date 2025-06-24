@@ -8,6 +8,10 @@ class basic_settings::puppet (
   ]                                     $server_package = 'puppetserver',
   String                                $server_dirname = 'puppetserver',
 ) {
+  # Set some values
+  $basic_settings_enable = defined(Class['basic_settings'])
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
   # Get puppet service name
   case $server_package {
     'openvox-server': {
@@ -89,9 +93,6 @@ class basic_settings::puppet (
     enable => false,
   }
 
-  # Get some value
-  $basic_settings_enable = defined(Class['basic_settings'])
-
   # Create drop in for services target
   if ($basic_settings_enable) {
     basic_settings::systemd_drop_in { 'puppet_dependency':
@@ -103,13 +104,26 @@ class basic_settings::puppet (
     }
   }
 
+  # Check if monitoring is enabled
+  if ($monitoring_enable) {
+    # Set unit
+    $unit = {
+      'OnFailure' => 'notify-failed@%i.service',
+    }
+
+    # Create service check
+    if ($basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_service { 'puppet': }
+    }
+  } else {
+    $unit = {}
+  }
+
   if (defined(Package['systemd'])) {
     # Create drop in for puppet service
     basic_settings::systemd_drop_in { 'puppet_settings':
       target_unit => 'puppet.service',
-      unit        => {
-        'OnFailure' => 'notify-failed@%i.service',
-      },
+      unit        => $unit,
       service     => {
         'Nice'        => 19,
         'LimitNOFILE' => 10000,
@@ -201,6 +215,13 @@ class basic_settings::puppet (
           'Wants'   => "${server_service}.service",
         },
         require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-system"],
+      }
+    }
+
+    # Create service check
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_service { 'puppetserver':
+        services => [$server_service],
       }
     }
 

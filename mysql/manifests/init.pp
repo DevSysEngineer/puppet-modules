@@ -7,7 +7,8 @@ class mysql (
   Hash              $settings                   = {}
 ) {
   # Use systemd settings
-  if (defined(Class['basic_settings::monitoring'])) {
+  $monitoring_enable = defined(Class['basic_settings::monitoring']);
+  if ($monitoring_enable) {
     $automysqlbackup_host_friendly = $basic_settings::monitoring::server_fdqn
     $automysqlbackup_mail_address = $basic_settings::monitoring::mail_to
   } else {
@@ -150,6 +151,18 @@ class mysql (
         daemon_reload => 'mysql_systemd_daemon_reload',
         require       => Package['mysql-server'],
       }
+    } else {
+      # Enable service
+      service { 'mysql':
+        ensure  => true,
+        enable  => true,
+        require => Package['mysql-server'],
+      }
+    }
+
+    # Create service check
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_service { 'mysql': }
     }
 
     # Check if logrotate package exists

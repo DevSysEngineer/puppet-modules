@@ -255,9 +255,9 @@ class basic_settings::network (
     }
 
     if ($monitoring_enable) {
+      # Create service check
       if ($basic_settings::monitoring::package != 'none') {
-        # Create service check
-        basic_settings::monitoring_service { $firewall_package:
+        basic_settings::monitoring_service { 'firewall':
           services => [$firewall_package],
         }
       }
@@ -445,8 +445,8 @@ class basic_settings::network (
       }
     }
 
+    # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-      # Create service check
       if ($dhcp_state) {
         basic_settings::monitoring_service { 'network':
           services => ['dhcpcd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher'],

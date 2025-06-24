@@ -6,6 +6,9 @@ class rabbitmq (
   Integer   $nice_level           = 12,
   Integer   $limit_file           = 10000
 ) {
+  # Set some values
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
   # Install erlang
   package { 'erlang-base':
     ensure          => installed,
@@ -48,7 +51,7 @@ class rabbitmq (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::monitoring'])) {
+    if ($monitoring_enable) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }
@@ -71,6 +74,18 @@ class rabbitmq (
       daemon_reload => 'rabbitmq_systemd_daemon_reload',
       require       => Package['rabbitmq-server'],
     }
+  } else {
+    # Enable service
+    service { 'rabbitmq-server':
+      ensure  => true,
+      enable  => true,
+      require => Package['rabbitmq-server'],
+    }
+  }
+
+  # Create service check
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_service { 'rabbitmq-server': }
   }
 
   # Create config directory

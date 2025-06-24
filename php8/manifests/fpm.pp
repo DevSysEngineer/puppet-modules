@@ -84,12 +84,24 @@ class php8::fpm (
     $default = $default_service
   }
 
+  # Create service check
+  if (defined(Class['basic_settings::monitoring'])) {
+    $unit = {
+      'OnFailure' => "php8.${minor_version}-fpm",
+    }
+    if ($basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_service { 'PHP8':
+        services => ["php8.${minor_version}-fpm"],
+      }
+    }
+  } else {
+    $unit = {}
+  }
+
   # Create drop in for PHP FPM service
   basic_settings::systemd_drop_in { "php8_${minor_version}_settings":
     target_unit   => "php8.${minor_version}-fpm.service",
-    unit          => {
-      'OnFailure' => 'notify-failed@%i.service',
-    },
+    unit          => $uni,
     service       => $service,
     daemon_reload => "php8_${minor_version}_systemd_daemon_reload",
     require       => Package["php8.${minor_version}-fpm"],

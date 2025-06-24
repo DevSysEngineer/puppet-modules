@@ -53,6 +53,11 @@ class basic_settings::io (
       require => Package['multipath-tools-boot'],
     }
 
+    # Create service check
+    if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_service { 'multipathd': }
+    }
+
     # Create multipart config
     file { '/etc/multipath.conf':
       ensure => file,

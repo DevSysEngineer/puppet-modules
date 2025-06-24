@@ -13,6 +13,9 @@ class nginx (
   String    $ssl_protocols              = 'TLSv1.2 TLSv1.3',
   String    $target                     = 'services'
 ) {
+  # Set some values
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
   # Remove unnecessary package
   package { 'apache2':
     ensure => purged,
@@ -66,7 +69,7 @@ class nginx (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::monitoring'])) {
+    if ($monitoring_enable) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }
@@ -92,12 +95,17 @@ class nginx (
       require       => Package['nginx'],
     }
   } else {
-    # Eanble service
+    # Enable service
     service { 'nginx':
       ensure  => true,
       enable  => true,
       require => Package['nginx'],
     }
+  }
+
+  # Create service check
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_service { 'nginx': }
   }
 
   # Create log file
