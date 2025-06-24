@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+function die() {
+    echo "UNKNOWN – $*" ;
+    exit 3;
+}
+
+# Check if date is available
+SYSTEMCTL=/usr/bin/systemctl
+test -x $SYSTEMCTL || die "systemctl not available"
+
+# Set values
+TIMER_UNIT="${1:?UNKNOWN - no timer given}"
+SERVICE_UNIT="${TIMER_UNIT%.timer}.service"
+
+# Check if timer exists
+$SYSTEMCTL list-unit-files | grep -q "^${TIMER_UNIT}" || {
+      echo "CRITICAL - ${TIMER_UNIT} does not exist";
+      exit 2;
+}
+
+# Check if timer is active
+$SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
+      echo "CRITICAL - ${TIMER_UNIT} is not active";
+      exit 2;
+}
+
+# Try to get last run
+LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
+[[ -z $LAST_RUN || $LAST_RUN == 0 ]] && {
+    echo "WARNING - ${TIMER_UNIT} has never been triggered";
+    exit 1;
+}
+
+# Check process status
+RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
+EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
+
+# Check status
+case "$RESULT,$EXIT_CODE" in
+    success,0)
+        echo "OK - ${SERVICE_UNIT} successful; last run: ${LAST_RUN}";
+        exit 0;;
+    *)
+        echo "CRITICAL - ${SERVICE_UNIT} failed (Result=${RESULT}, Exit=${EXIT_CODE}); last run: ${LAST_RUN}";
+        exit 2;;
+esac

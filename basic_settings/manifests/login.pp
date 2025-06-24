@@ -14,9 +14,17 @@ class basic_settings::login (
   }
 
   # Install packages
-  package { ['screen', 'sudo', 'libpam-modules']:
+  package { ['screen', 'libpam-modules']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
+  }
+
+  # Check if sudo package is not defined
+  if (!defined(Package['sudo'])) {
+    package { 'sudo':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
   }
 
   # Create group wheel

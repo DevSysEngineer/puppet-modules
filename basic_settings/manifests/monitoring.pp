@@ -53,6 +53,11 @@ class basic_settings::monitoring (
   # Monitoring package 
   case $package {
     'ncpa': {
+      # Set some values
+      $plugin_dir = '/usr/local/ncpa/plugin'
+      $uid  = 'nagios'
+      $gid  = 'nagios'
+
       # Check if we can install package
       if ($package_install) {
         # Install Nagios Cross-Platform Agent
@@ -125,7 +130,7 @@ class basic_settings::monitoring (
         path    => '/usr/local/ncpa/etc',
         mode    => '0700',
         owner   => 'root',
-        group   => 'nagios',
+        group   => $gid,
         notify  => $notify,
         require => File['monitoring_location'],
       }
@@ -138,9 +143,19 @@ class basic_settings::monitoring (
         force   => true,
         recurse => true,
         owner   => 'root',
-        group   => 'nagios',
+        group   => $gid,
         notify  => $notify,
         require => File['monitoring_location_etc'],
+      }
+
+      # Create plugin directory
+      file { 'monitoring_location_plugin':
+        ensure  => directory,
+        path    => $plugin_dir,
+        mode    => '0755', # Important
+        owner   => 'root',
+        group   => 'root',
+        require => File['monitoring_location'],
       }
     }
   }
