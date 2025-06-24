@@ -87,7 +87,7 @@ class php8::fpm (
   # Create service check
   if (defined(Class['basic_settings::monitoring'])) {
     $unit = {
-      'OnFailure' => "php8.${minor_version}-fpm",
+      'OnFailure' => 'notify-failed@%i.service',
     }
     if ($basic_settings::monitoring::package != 'none') {
       basic_settings::monitoring_service { 'PHP8':
