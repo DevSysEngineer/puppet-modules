@@ -47,7 +47,7 @@ define basic_settings::monitoring_timer (
           ensure  => file,
           owner   => 'root',
           group   => 'nagios',
-          content => "# Managed by puppet\n[plugin directives] check_systemd_timer = \$plugin_path/check_systemd_timer \$ARG1\n",
+          content => "# Managed by puppet\n[plugin directives]\ncheck_systemd_timer = \$plugin_path/check_systemd_timer \$ARG1\n",
         }
       }
 
