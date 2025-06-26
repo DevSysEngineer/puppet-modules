@@ -1,6 +1,6 @@
 define basic_settings::monitoring_custom (
-  String                    $source     = undef,
-  String                    $content    = undef,
+  Optional[String]          $source     = undef,
+  Optional[String]          $content    = undef,
   Enum['present','absent']  $ensure     = present,
   Optional[String]          $friendly   = undef,
   Optional[String]          $package    = undef
