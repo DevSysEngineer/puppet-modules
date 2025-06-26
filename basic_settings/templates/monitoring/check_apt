@@ -1,0 +1,135 @@
+#!/bin/sh
+
+# Managed by puppet
+
+die() {
+    printf 'UNKNOWN – %s\n' "$*" >&2
+    exit 3
+}
+
+# Check if packages exists
+<% if @systemd_enable -%>
+for BIN in apt-get date find stat systemctl printf; do
+<% else -%>
+for BIN in apt-get date find stat printf; do
+<% end -%>
+    command -v "$BIN" >/dev/null 2>&1 || die "$BIN not available"
+done
+
+APT=$(command -v apt-get)
+DATE=$(command -v date)
+FIND=$(command -v find)
+STAT=$(command -v stat)
+<% if @systemd_enable -%>
+SYSTEMCTL=$(command -v systemctl)
+<% end -%>
+PRINTF=$(command -v printf)
+
+# Set some values
+UPDATES_TOTAL=0
+UPDATES_SECURITY=0
+TIMESTAMP_UNKNOWN=0
+LAST_UPDATE_TIMESTAMP=""
+STATE_CODE=0  # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
+STATE_LABEL="OK"
+GRACE=172800 # 48 hours in seconden
+
+# Extra options
+while getopts "c:" opt; do
+    case "$opt" in
+        c) GRACE=$OPTARG ;;
+        *) die "Usage: $0 [-c <seconds>]" ;;
+    esac
+done
+
+# Try to get timesatmp
+STAMP_FILE=/var/lib/apt/periodic/update-success-stamp
+if [ -e "$STAMP_FILE" ]; then
+    LAST_UPDATE_TIMESTAMP=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null)
+elif [ -d /var/lib/apt/lists ]; then
+    LAST_UPDATE_TIMESTAMP=$(
+        "$FIND" /var/lib/apt/lists -type f ! -name lock ! -path "*/partial/*" -printf '%T@\n' 2>/dev/null | sort -n | tail -1
+    )
+fi
+
+# Check if we have timestamp
+if [ -n "$LAST_UPDATE_TIMESTAMP" ]; then
+    CURRENT_TIME=$("$DATE" +%s)
+    LAST_UPDATE_SEC=${LAST_UPDATE_TIMESTAMP%%.*}
+    LAST_UPDATE_AGE_SEC=$((CURRENT_TIME - LAST_UPDATE_SEC))
+else
+    LAST_UPDATE_AGE_SEC=0
+fi
+
+# Check if timestamp is invalid
+[ "$LAST_UPDATE_AGE_SEC" -le 0 ] && TIMESTAMP_UNKNOWN=1
+
+# Run simulation
+APT_SIM_OUTPUT=$(LC_ALL=C "$APT" -s -o Debug::NoLocking=1 dist-upgrade 2>&1)
+[ $? -ne 0 ] && die "apt-get simulation failed: $(printf '%s\n' "$APT_SIM_OUTPUT" | head -1)"
+
+# Parse output
+printf '%s\n' "$APT_SIM_OUTPUT" | while IFS= read -r line; do
+    case "$line" in
+        "Inst "*)
+            UPDATES_TOTAL=$((UPDATES_TOTAL + 1))
+            REPO_PART=${line#*(}
+            REPO_LOW=$(printf '%s' "$REPO_PART" | tr '[:upper:]' '[:lower:]')
+            case "$REPO_LOW" in *security*) UPDATES_SECURITY=$((UPDATES_SECURITY + 1));; esac
+        ;;
+    esac
+done
+
+# Do only when timestamp is valid
+if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
+    if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ] || [ "$UPDATES_SECURITY" -gt 0 ]; then
+        STATE_CODE=2
+        STATE_LABEL="CRITICAL"
+    elif [ "$UPDATES_TOTAL" -gt 0 ]; then
+        STATE_CODE=1
+        STATE_LABEL="WARNING"
+    fi
+else
+    STATE_CODE=3
+    STATE_LABEL="UNKNOWN"
+fi
+
+# Set timer active
+<% if @systemd_enable -%>
+if "$SYSTEMCTL" is-active --quiet apt-daily.timer; then
+    TIMER_ACTIVE=1
+else
+    TIMER_ACTIVE=0
+fi
+<% else -%>
+TIMER_ACTIVE=0
+<% end -%>
+
+# Make message
+OUTPUT_MSG="APT "
+if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
+    if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ]; then
+        days=$((LAST_UPDATE_AGE_SEC / 86400))
+        OUTPUT_MSG="$OUTPUT_MSG metadata ${days} days old."
+    fi
+    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
+else
+    OUTPUT_MSG="$OUTPUT_MSG could not determine last 'apt-get update' timestamp."
+    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
+fi
+
+# Timer‑melding
+[ "$TIMER_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-updates.timer inactive! "
+
+# Reboot message
+if [ -e /var/run/reboot-required ]; then
+    OUTPUT_MSG="$OUTPUT_MSG Reboot required! "
+    [ "$STATE_CODE" -eq 0 ] && { STATE_CODE=2; STATE_LABEL="WARNING"; }
+fi
+
+# Perfdata
+PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0; security_updates=${UPDATES_SECURITY};;1;0; last_update_age=${LAST_UPDATE_AGE_SEC};;${GRACE};0; timer_active=${TIMER_ACTIVE};;1;0;1"
+
+# Show output
+printf '%s - %s | %s\n' "$STATE_LABEL" "$OUTPUT_MSG" "$PERF_DATA"
+exit "$STATE_CODE"

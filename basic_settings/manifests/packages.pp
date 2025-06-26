@@ -15,6 +15,10 @@ class basic_settings::packages (
   String            $mail_to                                    = 'root',
   Boolean           $needrestart_dir_enable                     = true
 ) {
+  # Set some values
+  $systemd_enable = defined(Package['systemd'])
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
   # Try to get systemd default target
   if (defined(Class['basic_settings::systemd'])) {
     if ($systemd_default_target == undef) {
@@ -246,6 +250,13 @@ class basic_settings::packages (
     require => Package['systemd'],
   }
 
+  # Create service check
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'apt':
+      content => template('basic_settings/monitoring/check_apt'),
+    }
+  }
+
   # Set debconf readline
   debconf { 'packages_debconf_readline':
     package => 'debconf',
@@ -254,7 +265,7 @@ class basic_settings::packages (
     value   => 'Readline',
   }
 
-  if (defined(Package['systemd']) and defined(Class['basic_settings::monitoring'])) {
+  if ($systemd_enable and $monitoring_enable) {
     # Reload systemd deamon
     exec { 'packages_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',

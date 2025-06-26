@@ -25,7 +25,7 @@ class basic_settings::security (
   # Create service check
   if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_service { 'apparmor': }
-    basic_settings::monitoring_service { 'apparauditdmor': }
+    basic_settings::monitoring_service { 'auditd': }
   }
 
   # Create auditd config file */

@@ -23,19 +23,25 @@ define basic_settings::systemd_timer (
     require => Package['systemd'],
   }
 
-  # Check if we need to monitoring this timer
-  if ($monitoring_enable != undef and $monitoring_package != 'none') {
-    basic_settings::monitoring_timer { $title:
-      package => $monitoring_package,
-    }
-  }
-
   # Set service
   if ($ensure == present) {
     service { "${title}.timer":
       ensure  => $state,
       enable  => $enable,
       require => File["/etc/systemd/system/${title}.timer"],
+    }
+
+    # Check if we need to monitoring this timer
+    if ($monitoring_enable != undef and $monitoring_package != 'none') {
+      basic_settings::monitoring_timer { $title:
+        ensure  => $monitoring_enable,
+        package => $monitoring_package,
+      }
+    }
+  } elsif ($monitoring_package != 'none') {
+    basic_settings::monitoring_timer { $title:
+      ensure  => $ensure,
+      package => $monitoring_package,
     }
   }
 }

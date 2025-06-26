@@ -1,7 +1,8 @@
 define basic_settings::monitoring_service (
-  Optional[String] $friendly = undef,
-  Optional[Array]  $services = undef,
-  Optional[String] $package = undef
+  Enum['present','absent']  $ensure     = present,
+  Optional[String]          $friendly   = undef,
+  Optional[Array]           $services   = undef,
+  Optional[String]          $package    = undef
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -22,6 +23,7 @@ define basic_settings::monitoring_service (
   }
 
   # Do thing based on package
+  $file_ensure = $ensure ? { 'present' => 'file', default => $ensure }
   case $package_correct {
     'ncpa': {
       # Get list of services
@@ -32,8 +34,8 @@ define basic_settings::monitoring_service (
       }
 
       # Create check
-      file { "/usr/local/ncpa/etc/ncpa.cfg.d/${name}_service.cfg":
-        ensure  => file,
+      file { "/usr/local/ncpa/etc/ncpa.cfg.d/service_${name}.cfg":
+        ensure  => $file_ensure,
         owner   => 'root',
         group   => 'nagios',
         content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Service = services?service=${services_correct}&status=running&check=1\n",

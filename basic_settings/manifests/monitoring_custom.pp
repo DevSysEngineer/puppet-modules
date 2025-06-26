@@ -1,4 +1,6 @@
-define basic_settings::monitoring_timer (
+define basic_settings::monitoring_custom (
+  String                    $source     = undef,
+  String                    $content    = undef,
   Enum['present','absent']  $ensure     = present,
   Optional[String]          $friendly   = undef,
   Optional[String]          $package    = undef
@@ -34,20 +36,16 @@ define basic_settings::monitoring_timer (
   case $package_correct {
     'ncpa': {
       # Set some values
-      $script_path = '/usr/local/ncpa/plugin/check_systemd_timer'
-      $script_exists = defined(File[$script_path])
+      $script_path = "/usr/local/ncpa/plugin/check_${name}"
       $uid = 'nagios'
       $gid = 'nagios'
 
-      # Check if script path is not defined
-      if (!$script_exists) {
-        # Create plugin
-        file { '/usr/local/ncpa/etc/ncpa.cfg.d/plugin_check_systemd_timer.cfg':
-          ensure  => $file_ensure,
-          owner   => 'root',
-          group   => $gid,
-          content => "# Managed by puppet\n[plugin directives]\ncheck_systemd_timer = sudo \$plugin_path/check_systemd_timer \$plugin_args\n",
-        }
+      # Create plugin
+      file { "/usr/local/ncpa/etc/ncpa.cfg.d/plugin_check_${name}.cfg":
+        ensure  => $file_ensure,
+        owner   => 'root',
+        group   => $gid,
+        content => "# Managed by puppet\n[plugin directives]\ncheck_${name} = sudo \$plugin_path/check_${name} \$plugin_args\n",
       }
 
       # Create check
@@ -55,33 +53,33 @@ define basic_settings::monitoring_timer (
         ensure  => $file_ensure,
         owner   => 'root',
         group   => $gid,
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer ${name}.timer\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_${name} ${name}.timer\n",
       }
     }
     default: {
       $script_path = undef
-      $script_exists = true
       $uid = undef
       $gid = undef
     }
   }
 
   # Check if script path is not defined
-  if (!$script_exists) {
+  if (!$script_path != undef) {
     # Create script
     file { $script_path:
-      ensure => $file_ensure,
-      source => 'puppet:///modules/basic_settings/monitoring/check_systemd_timer',
-      owner  => $uid,
-      group  => $gid,
-      mode   => '0700',
+      ensure  => $file_ensure,
+      source  => $source,
+      content => $content,
+      owner   => $uid,
+      group   => $gid,
+      mode    => '0700',
     }
 
     # Create sudo
-    file { "/etc/sudoers.d/monitoring_timer_${name}":
+    file { "/etc/sudoers.d/monitoring_plugin_${name}":
       ensure  => $file_ensure,
       owner   => 'root',
-      group   => $gid,
+      group   => 'root',
       content => "# Managed by puppet\nnagios ALL=(root) NOPASSWD: ${script_path} *\n",
     }
   }

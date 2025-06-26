@@ -121,7 +121,7 @@ class mysql (
       }
 
       # Get unit
-      if (defined(Class['basic_settings::monitoring'])) {
+      if ($monitoring_enable) {
         $unit = {
           'OnFailure' => 'notify-failed@%i.service',
         }
@@ -162,7 +162,9 @@ class mysql (
 
     # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'mysql': }
+      basic_settings::monitoring_custom { 'mysql':
+        content => template('mysql/check_mysql'),
+      }
     }
 
     # Check if logrotate package exists

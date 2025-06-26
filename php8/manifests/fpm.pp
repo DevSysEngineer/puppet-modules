@@ -90,7 +90,8 @@ class php8::fpm (
       'OnFailure' => 'notify-failed@%i.service',
     }
     if ($basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'PHP8':
+      basic_settings::monitoring_service { 'php8':
+        friendly => 'PHP8',
         services => ["php8.${minor_version}-fpm"],
       }
     }
