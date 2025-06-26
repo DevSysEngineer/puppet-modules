@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    echo "UNKNOWN - $*";
+    printf 'UNKNOWN - %s\n' "$*" >&2
     exit 3
 }
 
@@ -13,23 +13,23 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 
 # Arguments
 TIMER_UNIT="$1"
-[ -n "$TIMER_UNIT" ] || die "no timer given"
+[ -n "$TIMER_UNIT" ] || die "No timer given"
 SERVICE_UNIT="${TIMER_UNIT%.timer}.service"
 
 # Existence & state checks
 $SYSTEMCTL list-unit-files | grep -q "^${TIMER_UNIT}" || {
-    echo "CRITICAL - ${TIMER_UNIT} does not exist | last_run_age=U exit_code=U";
+    echo "CRITICAL - ${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
     exit 2
 }
 $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
-    echo "CRITICAL - ${TIMER_UNIT} is not active | last_run_age=U exit_code=U";
+    echo "CRITICAL - ${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
     exit 2
 }
 
 # Try to get last run & result 
 LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
 if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "0" ]; then
-    echo "WARNING - ${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U";
+    echo "WARNING - ${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
     exit 1
 fi
 

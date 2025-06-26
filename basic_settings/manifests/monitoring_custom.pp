@@ -53,7 +53,7 @@ define basic_settings::monitoring_custom (
         ensure  => $file_ensure,
         owner   => 'root',
         group   => $gid,
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_${name} ${name}.timer\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_${name}\n",
       }
     }
     default: {
@@ -64,7 +64,7 @@ define basic_settings::monitoring_custom (
   }
 
   # Check if script path is not defined
-  if (!$script_path != undef) {
+  if ($script_path != undef) {
     # Create script
     file { $script_path:
       ensure  => $file_ensure,

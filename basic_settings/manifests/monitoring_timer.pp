@@ -55,7 +55,7 @@ define basic_settings::monitoring_timer (
         ensure  => $file_ensure,
         owner   => 'root',
         group   => $gid,
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer ${name}.timer\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer?args=${name}.timer\n",
       }
     }
     default: {
