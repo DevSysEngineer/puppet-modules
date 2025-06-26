@@ -36,7 +36,7 @@ define basic_settings::monitoring_custom (
   case $package_correct {
     'ncpa': {
       # Set some values
-      $script_path = "/usr/local/ncpa/plugin/check_${name}"
+      $script_path = "/usr/local/ncpa/plugins/check_${name}"
       $uid = 'nagios'
       $gid = 'nagios'
 
@@ -81,6 +81,7 @@ define basic_settings::monitoring_custom (
       owner   => 'root',
       group   => 'root',
       content => "# Managed by puppet\nnagios ALL=(root) NOPASSWD: ${script_path} *\n",
+      require => Package['sudo'],
     }
   }
 }

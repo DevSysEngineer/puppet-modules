@@ -34,7 +34,7 @@ define basic_settings::monitoring_timer (
   case $package_correct {
     'ncpa': {
       # Set some values
-      $script_path = '/usr/local/ncpa/plugin/check_systemd_timer'
+      $script_path = '/usr/local/ncpa/plugins/check_systemd_timer'
       $script_exists = defined(File[$script_path])
       $uid = 'nagios'
       $gid = 'nagios'
@@ -83,6 +83,7 @@ define basic_settings::monitoring_timer (
       owner   => 'root',
       group   => $gid,
       content => "# Managed by puppet\nnagios ALL=(root) NOPASSWD: ${script_path} *\n",
+      require => Package['sudo'],
     }
   }
 }

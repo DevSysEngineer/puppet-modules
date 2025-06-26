@@ -54,7 +54,7 @@ class basic_settings::monitoring (
   case $package {
     'ncpa': {
       # Set some values
-      $plugin_dir = '/usr/local/ncpa/plugin'
+      $plugins_dir = '/usr/local/ncpa/plugins'
       $uid  = 'nagios'
       $gid  = 'nagios'
 
@@ -149,9 +149,9 @@ class basic_settings::monitoring (
       }
 
       # Create plugin directory
-      file { 'monitoring_location_plugin':
+      file { 'monitoring_location_plugins':
         ensure  => directory,
-        path    => $plugin_dir,
+        path    => $plugins_dir,
         mode    => '0755', # Important
         owner   => 'root',
         group   => 'root',
