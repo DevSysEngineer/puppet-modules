@@ -1,0 +1,163 @@
+#!/bin/sh
+
+# Managed by puppet
+
+die() {
+    printf 'UNKNOWN - %s\n' "$*" >&2
+    exit 3
+}
+
+# Locate date
+DATE=$(command -v date 2>/dev/null)
+[ -n "$DATE" ] || die "date not available"
+
+# Locate printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
+
+# Locate mktemp
+MKTEMP=$(command -v mktemp 2>/dev/null)
+[ -n "$MKTEMP" ] || die "mktemp not available"
+
+# Locate systemctl
+SYSTEMCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMCTL" ] || die "systemctl not available"
+
+# Locate sed
+SED=$(command -v sed 2>/dev/null)
+[ -n "$SED" ] || die "sed not available"
+
+# Locate tr
+TR=$(command -v tr 2>/dev/null)
+[ -n "$TR" ] || die "tr not available"
+
+# Locate tr
+AWK=$(command -v akw 2>/dev/null)
+[ -n "$AWK" ] || die "akw not available"
+
+# Locate grpe
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
+
+# Locate cut
+CUT=$(command -v cut 2>/dev/null)
+[ -n "$CUT" ] || die "cut not available"
+
+# Locate RM
+RM=$(command -v cut 2>/dev/null)
+[ -n "$RM" ] || die "cut not available"
+
+crit() {
+    printf 'CRITICAL - %s\n' "$*" >&2
+    exit 2
+}
+
+# Set default values
+CONFIG="/opt/mirthconnect/conf/mirth-cli-config.properties"
+GRACE=600 # seconds before CRITICAL for queues
+STATE_FILE="/tmp/mirth_queue_state.txt"
+MCCOMMAND="/usr/local/bin/mccommand"
+SERVICE="mcservice.service"
+TMPDIR="/tmp"
+WARN_Q=25 # queued‑message threshold
+
+# Extra options
+while getopts 'c:t:w:' opt; do
+    case "$opt" in
+        c) CONFIG="$OPTARG" ;;
+        t) GRACE="$OPTARG" ;;
+        w) WARN_Q="$OPTARG" ;;
+        *) die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]" ;;
+    esac
+done
+
+# Ensure Mirth Connect service is running
+$SYSTEMCTL is-active --quiet "$SERVICE" || crit "Mirth Connect service '$SERVICE' is not active"
+
+# Temporary workspace
+WORK_DIR=$($MKTEMP -d "$TMPDIR/mirthcheck.XXXXXX") || die "mktemp failed"
+trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
+
+# Gather channel stats
+$PRINTF 'channel stats *\n' >"$WORK_DIR/cli.cmd"
+OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli.cmd" 2>&1) || die "mccommand failed"
+[ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand"
+
+# Strip control characters / ANSI colour codes so AWK is happy
+OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" \
+    | $TR -d '\r' \
+    | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' \
+    | $TR -cd '\11\12\40-\176')
+
+# Parse with AWK: emit "name|status|queue" per channel
+$PRINTF '%s\n' "$OUTPUT_CLEAN" | $AWK '
+      BEGIN{FS=": +"}
+      /^Channel Stats for/{sub(/^Channel Stats for +/, ""); chan=$0}
+      /^Status:/{status=$2}
+      /^Queued:/{q=$2+0; printf "%s|%s|%d\n", chan, status, q}
+  ' >"$WORK_DIR/parsed.txt"
+
+# Get total number of channels
+TOTAL_CHANS=$($WC -l <"$WORK_DIR/parsed.txt" 2>/dev/null || echo 0)
+
+# Evaluate each channel
+NOW=$($DATE +%s)
+QUEUE_ISSUES=0
+STATUS_ISSUES=0
+QUEUE_CRIT=0
+SUMMARY_QUEUE=""
+SUMMARY_STATUS=""
+
+# Load any previous state into variable (format: name|first_seen_epoch)
+[ -f "$STATE_FILE" ] && PREV_STATE=$(cat "$STATE_FILE") || PREV_STATE=""
+
+while IFS='|' read -r chan status q; do
+    # Status check
+    case "$status" in
+        Started) : ;; # all good
+        *) STATUS_ISSUES=$((STATUS_ISSUES+1))
+           SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${status}), " ;;
+    esac
+
+    # Queue check
+    if [ "$q" -gt "$WARN_Q" ]; then
+        # If the channel is not in the previous state, add it with current time
+        FIRST=$($PRINTF '%s\n' "$PREV_STATE" | $GREP -F "${chan}|" | $CUT -d'|' -f2)
+        [ -z "$FIRST" ] && FIRST=$NOW
+        $PRINTF '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
+
+        # If the queue is above the threshold for longer than the grace period, set critical
+        [ $((NOW - FIRST)) -ge "$GRACE" ] && QUEUE_CRIT=1
+
+        QUEUE_ISSUES=$((QUEUE_ISSUES+1))
+        SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
+    fi
+done <"$WORK_DIR/parsed.txt"
+
+# Persist new state file (only channels still breaching threshold)
+if [ -f "$WORK_DIR/new_state" ]; then
+    mv "$WORK_DIR/new_state" "$STATE_FILE"
+else
+    [ -f "$STATE_FILE" ] && $RM -f "$STATE_FILE"
+fi
+
+# Trim trailing comma+space
+SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
+SUMMARY_STATUS=${SUMMARY_STATUS%%, }
+
+# Prepare performance data
+PERF="channels=${TOTAL_CHANS} queues=${QUEUE_ISSUES};0;${WARN_Q} status_issues=${STATUS_ISSUES}"
+
+# Check if we have issues
+if [ "$STATUS_ISSUES" -gt 0 ]; then
+    crit "${STATUS_ISSUES} channel(s) halted/stopped: ${SUMMARY_STATUS} | ${PERF}"
+elif [ "$QUEUE_CRIT" -eq 1 ]; then
+    crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF}"
+elif [ "$QUEUE_ISSUES" -gt 0 ]; then
+    echo "WARNING - ${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF}"
+    exit 1
+fi
+
+# OK status
+echo "OK - Alle ${TOTAL_CHANS} kanalen  | ${PERF}"
+exit 0

@@ -7,23 +7,39 @@ die() {
     exit 3
 }
 
-# Check if packages exists
-<% if @systemd_enable -%>
-for BIN in apt-get date find stat systemctl printf; do
-<% else -%>
-for BIN in apt-get date find stat printf; do
-<% end -%>
-    command -v "$BIN" >/dev/null 2>&1 || die "$BIN not available"
-done
+# Locate apt
+APT=$(command -v apt 2>/dev/null)
+[ -n "$APT" ] || die "apt not available"
 
-APT=$(command -v apt-get)
-DATE=$(command -v date)
-FIND=$(command -v find)
-STAT=$(command -v stat)
+# Locate date
+DATE=$(command -v date 2>/dev/null)
+[ -n "$DATE" ] || die "date not available"
+
+# Locate find
+FIND=$(command -v find 2>/dev/null)
+[ -n "$FIND" ] || die "find not available"
+
+# Locate stat
+STAT=$(command -v stat 2>/dev/null)
+[ -n "$STAT" ] || die "stat not available"
+
+# Locate sort
+SORT=$(command -v sort 2>/dev/null)
+[ -n "$SORT" ] || die "sort not available"
+
 <% if @systemd_enable -%>
-SYSTEMCTL=$(command -v systemctl)
+# Locate systemctl
+SYSTEMCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMCTL" ] || die "systemctl not available"
+
 <% end -%>
-PRINTF=$(command -v printf)
+# Locate tailf
+TAIL=$(command -v tail 2>/dev/null)
+[ -n "$TAIL" ] || die "tail not available"
+
+# Locate printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
 
 # Set some values
 UPDATES_TOTAL=0
@@ -48,7 +64,7 @@ if [ -e "$STAMP_FILE" ]; then
     LAST_UPDATE_TIMESTAMP=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null)
 elif [ -d /var/lib/apt/lists ]; then
     LAST_UPDATE_TIMESTAMP=$(
-        "$FIND" /var/lib/apt/lists -type f ! -name lock ! -path "*/partial/*" -printf '%T@\n' 2>/dev/null | sort -n | tail -1
+        "$FIND" /var/lib/apt/lists -type f ! -name lock ! -path "*/partial/*" -printf '%T@\n' 2>/dev/null | $SORT -n | $TAIL -1
     )
 fi
 

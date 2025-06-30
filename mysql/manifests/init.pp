@@ -7,6 +7,7 @@ class mysql (
   Hash              $settings                   = {}
 ) {
   # Use systemd settings
+  $basic_settings_enable = defined(Class['basic_settings'])
   $monitoring_enable = defined(Class['basic_settings::monitoring']);
   if ($monitoring_enable) {
     $automysqlbackup_host_friendly = $basic_settings::monitoring::server_fdqn
@@ -74,7 +75,7 @@ class mysql (
     }
 
     # Enable hugepages
-    if (defined(Class['basic_settings']) and $basic_settings::kernel_hugepages > 0) {
+    if ($basic_settings_enable and $basic_settings::kernel_hugepages > 0) {
       exec { 'mysql_hugetlb':
         unless  => '/bin/getent group hugetlb | /bin/cut -d: -f4 | /bin/grep -q mysql',
         command => '/usr/sbin/usermod -a -G hugetlb mysql',
@@ -108,7 +109,7 @@ class mysql (
           daemon_reload => 'mysql_systemd_daemon_reload',
           require       => Class['php8::fpm'],
         }
-      } elsif (defined(Class['basic_settings'])) {
+      } elsif ($basic_settings_enable) {
         # Create drop in for services target
         basic_settings::systemd_drop_in { 'mysql_dependency':
           target_unit   => "${basic_settings::cluster_id}-services.target",
@@ -268,7 +269,24 @@ class mysql (
       enable        => false,
     }
 
-    if (defined(Class['basic_settings'])) {
+    # Create systemd timer
+    $timer_state = $basic_settings_enable ? { true => undef, default => 'running' }
+    basic_settings::systemd_timer { 'automysqlbackup':
+      description        => 'Automysqlbackup timer',
+      monitoring_enable  => $monitoring_enable,
+      monitoring_package => $monitoring_package,
+      state              => $timer_state,
+      timer              => {
+        'OnCalendar' => '*-*-* 5:00',
+      },
+      unit               => {
+        'After'   => "${package_name}.service",
+        'BindsTo' => "${package_name}.service",
+      },
+      daemon_reload      => 'mysql_systemd_daemon_reload',
+    }
+
+    if ($basic_settings_enable) {
       # Create systemd timer
       basic_settings::systemd_timer { 'automysqlbackup':
         description   => 'Automysqlbackup timer',
@@ -290,20 +308,6 @@ class mysql (
         },
         daemon_reload => 'mysql_systemd_daemon_reload',
         require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
-      }
-    } else {
-      # Create systemd timer
-      basic_settings::systemd_timer { 'automysqlbackup':
-        description   => 'Automysqlbackup timer',
-        state         => 'running',
-        timer         => {
-          'OnCalendar' => '*-*-* 5:00',
-        },
-        unit          => {
-          'After'   => "${package_name}.service",
-          'BindsTo' => "${package_name}.service",
-        },
-        daemon_reload => 'mysql_systemd_daemon_reload',
       }
     }
   }

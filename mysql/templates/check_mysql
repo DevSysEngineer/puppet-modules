@@ -1,39 +1,54 @@
 #!/bin/sh
 
+# Managed by puppet
+
 die() {
-  echo "UNKNOWN – $*"
-  exit 3
+    printf 'UNKNOWN - %s\n' "$*" >&2
+    exit 3
 }
 
-MYSQLADMIN=$(command -v mysqladmin) || die "mysqladmin not found"
-SYSTEMDCTL=$(command -v systemctl)  || die "systemctl not found"
-AWK=$(command -v awk)               || die "awk not found"
-BC=$(command -v bc)                 || die "bc not found"
+# Locate mysqladmin
+MYSQLADMIN=$(command -v mysqladmin 2>/dev/null)
+[ -n "$MYSQLADMIN" ] || die "mysqladmin not available"
+
+<% if @systemd_enable -%>
+# Locate mysqladmin
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+
+<% end -%>
+# Locate awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "awk not available"
+
+# Locate awk
+BC=$(command -v bc 2>/dev/null)
+[ -n "$BC" ] || die "bc not available"
 
 crit() {
-  echo "CRITICAL – $*"
-  exit 2
+    printf 'CRITICAL - %s\n' "$*" >&2
+    exit 2
 }
 
 run() {
-  "$@" 2>/dev/null
+    "$@" 2>/dev/null
 }
 
 parse_to_int() {
-  case "$1" in
-    ''|*[!0-9]*) echo 0 ;;
-    *)           echo "$1" ;;
-  esac
+    case "$1" in
+        ''|*[!0-9]*) echo 0 ;;
+        *)           echo "$1" ;;
+    esac
 }
 
 get_field() {
-  NEEDLE="$1"
-  INPUT="$2"
-  echo "$INPUT" | $AWK -F'|' -v n="$NEEDLE" '
+    NEEDLE="$1"
+    INPUT="$2"
+    echo "$INPUT" | $AWK -F'|' -v n="$NEEDLE" '
     {
-      gsub(/^ +| +$/, "", $2)  # trim column
-      gsub(/^ +| +$/, "", $3)  # trim value
-      if (toupper($2)==toupper(n)) { print $3; exit }
+        gsub(/^ +| +$/, "", $2)  # trim column
+        gsub(/^ +| +$/, "", $3)  # trim value
+        if (toupper($2)==toupper(n)) { print $3; exit }
     }'
 }
 
@@ -53,17 +68,21 @@ ISSUES=""
 
 # Extra options
 while getopts "c:" opt; do
-  case "$opt" in
-    c) DEFAULTS_FILE="$OPTARG" ;;
-    *) die "Usage: $0 [-c <config_file>]" ;;
-  esac
+    case "$opt" in
+        c) DEFAULTS_FILE="$OPTARG" ;;
+        *) die "Usage: $0 [-c <config_file>]" ;;
+    esac
 done
 
 # Check if config file exists
 [ -r "$DEFAULTS_FILE" ] || crit "Defaults-file $DEFAULTS_FILE not readable"
 
+<% if @systemd_enable -%>
 # Check if mysql is running
 $SYSTEMDCTL is-active --quiet "mysql.service" || crit "MySQL service is not active"
+
+<% end -%>
+# Check if mysql is running
 run $MYSQLADMIN --defaults-file="$DEFAULTS_FILE" ping >/dev/null || crit "MySQL service running but not responding"
 
 # Try to get data
@@ -85,73 +104,79 @@ BUF_PAGES_TOTAL=$(parse_to_int "$(sf Innodb_buffer_pool_pages_total)")
 
 # Derive metrics
 if [ "$BUF_READ_REQ" -gt 0 ]; then
-  HIT_RATE_PCT=$(echo "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
+    HIT_RATE_PCT=$(echo "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
 else
-  HIT_RATE_PCT="N/A"
+    HIT_RATE_PCT="N/A"
 fi
 
 # Check if max connection is not zero
 if [ "$MAX_CONNECTIONS" -gt 0 ]; then
-  CONN_PCT=$((THREADS_CONNECTED * 100 / MAX_CONNECTIONS))
-  if [ "$CONN_PCT" -ge "$CRIT_CONN_CURR_PCT" ]; then
-    STATE=2; ISSUES="Connections ${CONN_PCT}% (CRIT)."
-  elif [ "$CONN_PCT" -ge "$WARN_CONN_CURR_PCT" ]; then
-    STATE=1; ISSUES="Connections ${CONN_PCT}% (WARN)."
-  fi
+    CONN_PCT=$((THREADS_CONNECTED * 100 / MAX_CONNECTIONS))
+    if [ "$CONN_PCT" -ge "$CRIT_CONN_CURR_PCT" ]; then
+        STATE=2
+        ISSUES="Connections ${CONN_PCT}% (CRIT)."
+    elif [ "$CONN_PCT" -ge "$WARN_CONN_CURR_PCT" ]; then
+        STATE=1
+        ISSUES="Connections ${CONN_PCT}% (WARN)."
+    fi
 
-  PEAK_PCT=$((MAX_USED_CONN * 100 / MAX_CONNECTIONS))
-  if [ "$PEAK_PCT" -ge "$CRIT_CONN_PEAK_PCT" ]; then
-    STATE=2; ISSUES="Max used connections ever ${PEAK_PCT}% (CRIT). $ISSUES"
-  elif [ "$PEAK_PCT" -ge "$WARN_CONN_PEAK_PCT" ]; then
-    [ $STATE -lt 2 ] && STATE=1
-    ISSUES="Max used connections ever ${PEAK_PCT}% (WARN). $ISSUES"
-  fi
+    PEAK_PCT=$((MAX_USED_CONN * 100 / MAX_CONNECTIONS))
+    if [ "$PEAK_PCT" -ge "$CRIT_CONN_PEAK_PCT" ]; then
+        STATE=2
+        ISSUES="Max used connections ever ${PEAK_PCT}% (CRIT). $ISSUES"
+    elif [ "$PEAK_PCT" -ge "$WARN_CONN_PEAK_PCT" ]; then
+        [ $STATE -lt 2 ] && STATE=1
+        ISSUES="Max used connections ever ${PEAK_PCT}% (WARN). $ISSUES"
+    fi
 
-  WARN_CURR_ABS=$((MAX_CONNECTIONS * WARN_CONN_CURR_PCT / 100))
-  CRIT_CURR_ABS=$((MAX_CONNECTIONS * CRIT_CONN_CURR_PCT / 100))
-  WARN_PEAK_ABS=$((MAX_CONNECTIONS * WARN_CONN_PEAK_PCT / 100))
-  CRIT_PEAK_ABS=$((MAX_CONNECTIONS * CRIT_CONN_PEAK_PCT / 100))
+    # Set ABS
+    WARN_CURR_ABS=$((MAX_CONNECTIONS * WARN_CONN_CURR_PCT / 100))
+    CRIT_CURR_ABS=$((MAX_CONNECTIONS * CRIT_CONN_CURR_PCT / 100))
+    WARN_PEAK_ABS=$((MAX_CONNECTIONS * WARN_CONN_PEAK_PCT / 100))
+    CRIT_PEAK_ABS=$((MAX_CONNECTIONS * CRIT_CONN_PEAK_PCT / 100))
 else
-  STATE=3
-  ISSUES="Max connection is zero (UNKN))."
-  WARN_CURR_ABS=""
-  CRIT_CURR_ABS=""
-  WARN_PEAK_ABS=""
-  CRIT_PEAK_ABS=""
+    STATE=3
+    ISSUES="Max connection is zero (UNKN))."
+    WARN_CURR_ABS=""
+    CRIT_CURR_ABS=""
+    WARN_PEAK_ABS=""
+    CRIT_PEAK_ABS=""
 fi
 
 # Check if hit ratw is given
 if [ "$HIT_RATE_PCT" != "N/A" ]; then
-  INT_HIT=${HIT_RATE_PCT%.*}
-  if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then
-    STATE=2; ISSUES="Hit rate ${HIT_RATE_PCT}% (CRIT). $ISSUES"
-  elif [ "$INT_HIT" -lt "$WARN_HIT_PCT" ]; then
-    [ $STATE -lt 2 ] && STATE=1
-    ISSUES="Hit rate ${HIT_RATE_PCT}% (WARN). $ISSUES"
-  fi
-  WARN_HIT_ABS=$WARN_HIT_PCT; CRIT_HIT_ABS=$CRIT_HIT_PCT
+    INT_HIT=${HIT_RATE_PCT%.*}
+    if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then
+        STATE=2; ISSUES="Hit rate ${HIT_RATE_PCT}% (CRIT). $ISSUES"
+    elif [ "$INT_HIT" -lt "$WARN_HIT_PCT" ]; then
+        [ $STATE -lt 2 ] && STATE=1
+        ISSUES="Hit rate ${HIT_RATE_PCT}% (WARN). $ISSUES"
+    fi
+    WARN_HIT_ABS=$WARN_HIT_PCT
+    CRIT_HIT_ABS=$CRIT_HIT_PCT
 else
-  WARN_HIT_ABS=""; CRIT_HIT_ABS=""
+    WARN_HIT_ABS=""
+    CRIT_HIT_ABS=""
 fi
 
 # Check if buffer wait is not zero
 if [ "$BUF_WAIT_FREE" -gt 0 ]; then
-  [ $STATE -lt 2 ] && STATE=1
-  ISSUES="InnoDB waits ${BUF_WAIT_FREE}. $ISSUES"
+    [ $STATE -lt 2 ] && STATE=1
+    ISSUES="InnoDB waits ${BUF_WAIT_FREE}. $ISSUES"
 fi
 
 # Check if we have slow queries
 if [ "$SLOW_QUERIES" -gt 0 ]; then
-  [ $STATE -lt 2 ] && STATE=1
-  ISSUES="Slow queries ${SLOW_QUERIES}. $ISSUES"
+    [ $STATE -lt 2 ] && STATE=1
+    ISSUES="Slow queries ${SLOW_QUERIES}. $ISSUES"
 fi
 
 # Set label
 case $STATE in
-  0) LABEL="OK" ;;
-  1) LABEL="WARNING" ;;
-  2) LABEL="CRITICAL" ;;
-  3) LABEL="UNKNOWN" ;;
+    0) LABEL="OK" ;;
+    1) LABEL="WARNING" ;;
+    2) LABEL="CRITICAL" ;;
+    3) LABEL="UNKNOWN" ;;
 esac
 
 # Create message

@@ -7,6 +7,10 @@ die() {
     exit 3
 }
 
+# Locate date
+DATE=$(command -v date 2>/dev/null)
+[ -n "$DATE" ] || die "date not available"
+
 # Locate systemctl
 SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMCTL" ] || die "systemctl not available"
@@ -38,8 +42,8 @@ RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
 EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
 
 # Perfdata
-LAST_RUN_TS=$(date -d "$LAST_RUN" +%s 2>/dev/null)
-NOW_TS=$(date +%s)
+LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
+NOW_TS=$($DATE +%s)
 if [ -n "$LAST_RUN_TS" ]; then
     LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
 else
