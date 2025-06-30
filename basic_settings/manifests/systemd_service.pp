@@ -5,7 +5,7 @@ define basic_settings::systemd_service (
   Enum['present','absent']  $ensure               = present,
   Hash                      $install              = {
     'WantedBy'  => 'multi-user.target',
-  }
+  },
   Optional[Boolean]         $monitoring_enable    = undef,
   Optional[String]          $monitoring_package   = undef,
   Hash                      $service              = {},
