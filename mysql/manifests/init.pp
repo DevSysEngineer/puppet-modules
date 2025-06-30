@@ -289,19 +289,6 @@ class mysql (
     }
 
     if ($basic_settings_enable) {
-      # Create systemd timer
-      basic_settings::systemd_timer { 'automysqlbackup':
-        description   => 'Automysqlbackup timer',
-        timer         => {
-          'OnCalendar' => '*-*-* 5:00',
-        },
-        unit          => {
-          'After'   => "${package_name}.service",
-          'BindsTo' => "${package_name}.service",
-        },
-        daemon_reload => 'mysql_systemd_daemon_reload',
-      }
-
       # Create drop in for services target
       basic_settings::systemd_drop_in { 'automysqlbackup_dependency':
         target_unit   => "${basic_settings::cluster_id}-services.target",
