@@ -12,9 +12,11 @@ class mysql (
   if ($monitoring_enable) {
     $automysqlbackup_host_friendly = $basic_settings::monitoring::server_fdqn
     $automysqlbackup_mail_address = $basic_settings::monitoring::mail_to
+    $monitoring_package = $basic_settings::monitoring::package
   } else {
     $automysqlbackup_host_friendly = $fdqn
     $automysqlbackup_mail_address = 'root'
+    $monitoring_package = 'none'
   }
 
   # Set mysqld default values
