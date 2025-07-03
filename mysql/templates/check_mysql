@@ -7,16 +7,6 @@ die() {
     exit 3
 }
 
-# Locate mysqladmin
-MYSQLADMIN=$(command -v mysqladmin 2>/dev/null)
-[ -n "$MYSQLADMIN" ] || die "mysqladmin not available"
-
-<% if @systemd_enable -%>
-# Locate mysqladmin
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
-<% end -%>
 # Locate awk
 AWK=$(command -v awk 2>/dev/null)
 [ -n "$AWK" ] || die "awk not available"
@@ -25,6 +15,16 @@ AWK=$(command -v awk 2>/dev/null)
 BC=$(command -v bc 2>/dev/null)
 [ -n "$BC" ] || die "bc not available"
 
+# Locate mysqladmin
+MYSQLADMIN=$(command -v mysqladmin 2>/dev/null)
+[ -n "$MYSQLADMIN" ] || die "mysqladmin not available"
+
+<% if @systemd_enable -%>
+# Locate systemctl
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+
+<% end -%>
 crit() {
     printf 'CRITICAL - %s\n' "$*" >&2
     exit 2

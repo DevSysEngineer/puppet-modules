@@ -33,7 +33,8 @@ class ssh (
   }
 
   # Check if SSH used socket
-  if (defined(Package['systemd'])) {
+  $systemd_enable = efined(Package['systemd'])
+  if ($systemd_enable) {
     # Get OS name
     case $facts['os']['name'] {
       'Ubuntu': {
@@ -143,6 +144,8 @@ class ssh (
       enable  => true,
       require => Package['openssh-server'],
     }
+
+    # Set service name
     $service = 'ssh.socket'
   } else {
     # Ensure that ssh is always running
@@ -152,13 +155,15 @@ class ssh (
       require   => File['/etc/ssh/sshd_config.d/99-custom.conf'],
       subscribe => [File['/etc/ssh/sshd_config.d'], File['/etc/ssh/sshd_config.d/99-custom.conf']],
     }
-    $service = 'ssh'
+
+    # Set service name
+    $service = 'ssh.service'
   }
 
   # Create service check
   if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_service { 'ssh':
-      services => [$service],
+    basic_settings::monitoring_custom { 'ssh':
+      content => template('ssh/check_ssh'),
     }
   }
 

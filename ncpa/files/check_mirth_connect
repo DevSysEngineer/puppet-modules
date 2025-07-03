@@ -7,9 +7,17 @@ die() {
     exit 3
 }
 
+# Locate awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "akw not available"
+
 # Locate date
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
+
+# Locate grep
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
 
 # Locate printf
 PRINTF=$(command -v printf 2>/dev/null)
@@ -30,14 +38,6 @@ SED=$(command -v sed 2>/dev/null)
 # Locate tr
 TR=$(command -v tr 2>/dev/null)
 [ -n "$TR" ] || die "tr not available"
-
-# Locate tr
-AWK=$(command -v akw 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
-
-# Locate grpe
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
 
 # Locate cut
 CUT=$(command -v cut 2>/dev/null)
