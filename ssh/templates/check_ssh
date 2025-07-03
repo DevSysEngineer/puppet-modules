@@ -81,10 +81,10 @@ fi
 
 # Determine base status from session thresholds
 if [ "$ROOT_LOGIN" = false ]; then
-    if [ "$SESSION_COUNT" -ge "$crit_thresh" ]; then
+    if [ "$SESSION_COUNT" -ge "$CRIT_THRESH" ]; then
         LABEL="CRITICAL"
         STATE=2
-    elif [ "$SESSION_COUNT" -ge "$warn_thresh" ]; then
+    elif [ "$SESSION_COUNT" -ge "$WARN_THRESH" ]; then
         LABEL="WARNING"
         STATE=1
     fi
@@ -97,7 +97,7 @@ if [ -f /var/log/auth.log ]; then
 fi
 
 # Check for zombie sshd processes
-ZOOMBIE_COUNT=$(PS -C sshd -o stat= | $GREP -c Z)
+ZOOMBIE_COUNT=$($PS -C sshd -o stat= | $GREP -c Z)
 if [ "$ZOOMBIE_COUNT" -gt 0 ]; then
     ZOMBIE_FLAG=true
     if [ $STATE -lt 2 ]; then
@@ -111,11 +111,11 @@ fi
 # Compile output message
 EXTRA_MSG=""
 [ "$ROOT_LOGIN" = true ] && EXTRA_MSG="${EXTRA_MSG}root login detected, "
-[ "$ZOMBIE_FLAG" = true ] && EXTRA_MSG="${EXTRA_MSG}${zombie_count} zombie procs, "
-[ "$FAIL_COUNT" -gt 0 ] && EXTRA_MSG="${EXTRA_MSG}${fail_count} auth failures, "
+[ "$ZOMBIE_FLAG" = true ] && EXTRA_MSG="${EXTRA_MSG}${ZOOMBIE_COUNT} zombie procs, "
+[ "$FAIL_COUNT" -gt 0 ] && EXTRA_MSG="${EXTRA_MSG}${FAIL_COUNT} auth failures, "
 EXTRA_MSG=$(echo "$EXTRA_MSG" | sed 's/, $//')
 [ -n "$EXTRA_MSG" ] && EXTRA_MSG=" (${EXTRA_MSG})"
 
 # Output & exit
-echo "${LABEL} - ${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_};${crit_thresh};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
+echo "${LABEL} - ${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_THRESH};${CRIT_THRESH};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
 exit $STATE
