@@ -38,7 +38,7 @@ define basic_settings::monitoring_custom (
     'ncpa': {
       # Get script path
       if ($root_required) {
-        $$script_path = "/usr/local/ncpa/plugins/check_${name}.root"
+        $script_path = "/usr/local/ncpa/plugins/check_${name}.root"
       } else {
         $script_path = "/usr/local/ncpa/plugins/check_${name}"
       }
