@@ -38,6 +38,7 @@ define basic_settings::monitoring_service (
         ensure  => $file_ensure,
         owner   => 'root',
         group   => 'nagios',
+        mode    => '0600',
         content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Service = services?service=${services_correct}&status=running&check=1\n",
       }
     }

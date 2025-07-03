@@ -34,19 +34,20 @@ define basic_settings::monitoring_timer (
   case $package_correct {
     'ncpa': {
       # Set some values
-      $script_path = '/usr/local/ncpa/plugins/check_systemd_timer'
+      $script_path = '/usr/local/ncpa/plugins/check_systemd_timer.root'
       $script_exists = defined(File[$script_path])
       $uid = 'nagios'
       $gid = 'nagios'
 
-      # Check if script path is not defined
-      if (!$script_exists) {
-        # Create plugin
-        file { '/usr/local/ncpa/etc/ncpa.cfg.d/plugin_check_systemd_timer.cfg':
-          ensure  => $file_ensure,
+      # Create plugin settings
+      $plugin_settings =  '/usr/local/ncpa/etc/ncpa.cfg.d/90-plugins.cfg'
+      if (!$script_exists and !defined(File[$plugin_settings])) {
+        file { $plugin_settings:
+          ensure  => file,
           owner   => 'root',
           group   => $gid,
-          content => "# Managed by puppet\n[plugin directives]\ncheck_systemd_timer = sudo \$plugin_path/check_systemd_timer \$plugin_args\n",
+          mode    => '0600',
+          content => "# Managed by puppet\n[plugin directives]\n.root = /usr/bin/sudo \$plugin_name \$plugin_args\n",
         }
       }
 
@@ -55,6 +56,7 @@ define basic_settings::monitoring_timer (
         ensure  => $file_ensure,
         owner   => 'root',
         group   => $gid,
+        mode    => '0600',
         content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer?args=${name}.timer\n",
       }
     }
@@ -82,6 +84,7 @@ define basic_settings::monitoring_timer (
       ensure  => $file_ensure,
       owner   => 'root',
       group   => $gid,
+      mode    => '0440',
       content => "# Managed by puppet\nnagios ALL=(root) NOPASSWD: ${script_path} *\n",
       require => Package['sudo'],
     }
