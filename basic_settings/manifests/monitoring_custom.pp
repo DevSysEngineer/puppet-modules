@@ -36,14 +36,15 @@ define basic_settings::monitoring_custom (
   $file_ensure = $ensure ? { 'present' => 'file', default => $ensure }
   case $package_correct {
     'ncpa': {
-      # Get script path
+      # Get script name
       if ($root_required) {
-        $script_path = "/usr/local/ncpa/plugins/check_${name}.root"
+        $scriptt_name = "check_${name}.root"
       } else {
-        $script_path = "/usr/local/ncpa/plugins/check_${name}"
+        $scriptt_name = "check_${name}"
       }
 
       # Set some values
+      $script_path = "/usr/local/ncpa/plugins/check_${name}"
       $uid = 'nagios'
       $gid = 'nagios'
 
@@ -53,7 +54,7 @@ define basic_settings::monitoring_custom (
         owner   => 'root',
         group   => $gid,
         mode    => '0600',
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_${name}\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/${scriptt_name}\n",
       }
 
       # Create plugin settings

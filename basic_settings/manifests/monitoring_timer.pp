@@ -57,7 +57,7 @@ define basic_settings::monitoring_timer (
         owner   => 'root',
         group   => $gid,
         mode    => '0600',
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer?args=${name}.timer\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer.root?args=${name}.timer\n",
       }
     }
     default: {
