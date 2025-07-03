@@ -33,7 +33,7 @@ class ssh (
   }
 
   # Check if SSH used socket
-  $systemd_enable = efined(Package['systemd'])
+  $systemd_enable = defined(Package['systemd'])
   if ($systemd_enable) {
     # Get OS name
     case $facts['os']['name'] {
