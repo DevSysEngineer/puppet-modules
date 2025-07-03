@@ -94,11 +94,13 @@ fi
 if [ -f /var/log/auth.log ]; then
     TIMESTAMP=$($DATE --date="$TIMEFRAME minutes ago" +"%b %e %H")
     FAIL_COUNT=$($AWK -v t="$TIMESTAMP" '($0 ~ t) && /sshd/ && (/Failed password/ || /Failed publickey/ || /Invalid user/ || /authentication failure/){c++} END {print c+0}' /var/log/auth.log)
+else
+    FAIL_COUNT=0
 fi
 
 # Check for zombie sshd processes
-ZOOMBIE_COUNT=$($PS -C sshd -o stat= | $GREP -c Z)
-if [ "$ZOOMBIE_COUNT" -gt 0 ]; then
+ZOMBIE_COUNT=$($PS -C sshd -o stat= | $GREP -c Z)
+if [ "$ZOMBIE_COUNT" -gt 0 ]; then
     ZOMBIE_FLAG=true
     if [ $STATE -lt 2 ]; then
         [ $STATE -lt 1 ] && {
@@ -111,7 +113,7 @@ fi
 # Compile output message
 EXTRA_MSG=""
 [ "$ROOT_LOGIN" = true ] && EXTRA_MSG="${EXTRA_MSG}root login detected, "
-[ "$ZOMBIE_FLAG" = true ] && EXTRA_MSG="${EXTRA_MSG}${ZOOMBIE_COUNT} zombie procs, "
+[ "$ZOMBIE_FLAG" = true ] && EXTRA_MSG="${EXTRA_MSG}${ZOMBIE_COUNT} zombie procs, "
 [ "$FAIL_COUNT" -gt 0 ] && EXTRA_MSG="${EXTRA_MSG}${FAIL_COUNT} auth failures, "
 EXTRA_MSG=$(echo "$EXTRA_MSG" | sed 's/, $//')
 [ -n "$EXTRA_MSG" ] && EXTRA_MSG=" (${EXTRA_MSG})"

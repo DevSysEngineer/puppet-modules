@@ -19,6 +19,10 @@ DATE=$(command -v date 2>/dev/null)
 FIND=$(command -v find 2>/dev/null)
 [ -n "$FIND" ] || die "find not available"
 
+# Locate grep
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
+
 # Locate stat
 STAT=$(command -v stat 2>/dev/null)
 [ -n "$STAT" ] || die "stat not available"
@@ -82,19 +86,11 @@ fi
 
 # Run simulation
 APT_SIM_OUTPUT=$(LC_ALL=C "$APT" -s -o Debug::NoLocking=1 dist-upgrade 2>&1)
-[ $? -ne 0 ] && die "apt-get simulation failed: $(printf '%s\n' "$APT_SIM_OUTPUT" | head -1)"
+[ $? -ne 0 ] && die "apt-get simulation failed: $($PRINTF '%s\n' "$APT_SIM_OUTPUT" | head -1)"
 
 # Parse output
-printf '%s\n' "$APT_SIM_OUTPUT" | while IFS= read -r line; do
-    case "$line" in
-        "Inst "*)
-            UPDATES_TOTAL=$((UPDATES_TOTAL + 1))
-            REPO_PART=${line#*(}
-            REPO_LOW=$(printf '%s' "$REPO_PART" | tr '[:upper:]' '[:lower:]')
-            case "$REPO_LOW" in *security*) UPDATES_SECURITY=$((UPDATES_SECURITY + 1));; esac
-        ;;
-    esac
-done
+UPDATES_TOTAL=$($PRINTF '%s\n' "$APT_SIM_OUTPUT" | $GREP -c '^Inst ')
+UPDATES_SECURITY=$($PRINTF '%s\n' "$APT_SIM_OUTPUT" | $GREP -i '^Inst ' | $GREP -c security)
 
 # Do only when timestamp is valid
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
