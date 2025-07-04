@@ -63,7 +63,7 @@ WARN_CONN_PEAK_PCT=90   # WARNING when historical peak ≥90 %
 CRIT_CONN_PEAK_PCT=95   # CRITICAL at 95 %
 WARN_HIT_PCT=95         # WARNING when buffer‑hit <95 %
 CRIT_HIT_PCT=90         # CRITICAL when buffer‑hit <90 %
-STATE=0
+STATE_CODE=0
 ISSUES=""
 
 # Extra options
@@ -113,19 +113,19 @@ fi
 if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     CONN_PCT=$((THREADS_CONNECTED * 100 / MAX_CONNECTIONS))
     if [ "$CONN_PCT" -ge "$CRIT_CONN_CURR_PCT" ]; then
-        STATE=2
+        STATE_CODE=2
         ISSUES="Connections ${CONN_PCT}% (CRIT)."
     elif [ "$CONN_PCT" -ge "$WARN_CONN_CURR_PCT" ]; then
-        STATE=1
+        STATE_CODE=1
         ISSUES="Connections ${CONN_PCT}% (WARN)."
     fi
 
     PEAK_PCT=$((MAX_USED_CONN * 100 / MAX_CONNECTIONS))
     if [ "$PEAK_PCT" -ge "$CRIT_CONN_PEAK_PCT" ]; then
-        STATE=2
+        STATE_CODE=2
         ISSUES="Max used connections ever ${PEAK_PCT}% (CRIT). $ISSUES"
     elif [ "$PEAK_PCT" -ge "$WARN_CONN_PEAK_PCT" ]; then
-        [ $STATE -lt 2 ] && STATE=1
+        [ $STATE_CODE -lt 2 ] && STATE_CODE=1
         ISSUES="Max used connections ever ${PEAK_PCT}% (WARN). $ISSUES"
     fi
 
@@ -135,7 +135,7 @@ if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     WARN_PEAK_ABS=$((MAX_CONNECTIONS * WARN_CONN_PEAK_PCT / 100))
     CRIT_PEAK_ABS=$((MAX_CONNECTIONS * CRIT_CONN_PEAK_PCT / 100))
 else
-    STATE=3
+    STATE_CODE=3
     ISSUES="Max connection is zero (UNKN))."
     WARN_CURR_ABS=""
     CRIT_CURR_ABS=""
@@ -147,9 +147,9 @@ fi
 if [ "$HIT_RATE_PCT" != "N/A" ]; then
     INT_HIT=${HIT_RATE_PCT%.*}
     if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then
-        STATE=2; ISSUES="Hit rate ${HIT_RATE_PCT}% (CRIT). $ISSUES"
+        STATE_CODE=2; ISSUES="Hit rate ${HIT_RATE_PCT}% (CRIT). $ISSUES"
     elif [ "$INT_HIT" -lt "$WARN_HIT_PCT" ]; then
-        [ $STATE -lt 2 ] && STATE=1
+        [ $STATE_CODE -lt 2 ] && STATE_CODE=1
         ISSUES="Hit rate ${HIT_RATE_PCT}% (WARN). $ISSUES"
     fi
     WARN_HIT_ABS=$WARN_HIT_PCT
@@ -161,22 +161,22 @@ fi
 
 # Check if buffer wait is not zero
 if [ "$BUF_WAIT_FREE" -gt 0 ]; then
-    [ $STATE -lt 2 ] && STATE=1
+    [ $STATE_CODE -lt 2 ] && STATE_CODE=1
     ISSUES="InnoDB waits ${BUF_WAIT_FREE}. $ISSUES"
 fi
 
 # Check if we have slow queries
 if [ "$SLOW_QUERIES" -gt 0 ]; then
-    [ $STATE -lt 2 ] && STATE=1
+    [ $STATE_CODE -lt 2 ] && STATE_CODE=1
     ISSUES="Slow queries ${SLOW_QUERIES}. $ISSUES"
 fi
 
-# Set label
-case $STATE in
-    0) LABEL="OK" ;;
-    1) LABEL="WARNING" ;;
-    2) LABEL="CRITICAL" ;;
-    3) LABEL="UNKNOWN" ;;
+# Set STATE_LABEL
+case $STATE_CODE in
+    0) STATE_LABEL="OK" ;;
+    1) STATE_LABEL="WARNING" ;;
+    2) STATE_LABEL="CRITICAL" ;;
+    3) STATE_LABEL="UNKNOWN" ;;
 esac
 
 # Create message
@@ -194,5 +194,5 @@ PERF="${PERF}hit_rate_pct=${HIT_RATE_PCT};${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 
 PERF="${PERF}innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_TOTAL}"
 
 # Show result
-echo "${LABEL} - ${MSG} | ${PERF}"
-exit $STATE
+printf '%s - %s | %s\n' "$STATE_LABEL" "$OUTPUT_MSG" "$PERF"
+exit $STATE_CODE

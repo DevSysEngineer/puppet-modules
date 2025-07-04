@@ -188,6 +188,7 @@ class basic_settings::packages (
   }
 
   # Create APT settings
+  $apt_settings_file = '/etc/apt/apt.conf.d/99-settings.conf'
   file { '/etc/apt/apt.conf.d/99-settings.conf':
     ensure  => file,
     content => template('basic_settings/packages/settings.conf'),
@@ -210,7 +211,7 @@ class basic_settings::packages (
     }
   }
 
-  # Create APT list chanes settings
+  # Create APT list changes settings
   file { '/etc/apt/listchanges.conf.d/99-settings.conf':
     ensure  => file,
     content => template('basic_settings/packages/listchanges.conf'),

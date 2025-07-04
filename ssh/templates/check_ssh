@@ -41,8 +41,8 @@ crit() {
 # Set some default values
 CRIT_THRESH=2
 FAIL_COUNT=0
-LABEL="OK";
-STATE=0
+STATE_LABEL="OK";
+STATE_CODE=0
 TIMEFRAME=10
 WARN_THRESH=1
 WHO_OUT=$(who)
@@ -73,8 +73,8 @@ SESSION_COUNT=$($PRINTF '%s\n' "$WHO_OUT" | $GREP -c 'pts/')
 # Check if root is logged in
 if $PRINTF '%s\n' "$WHO_OUT" | $GREP -q '^root[[:space:]]'; then
     ROOT_LOGIN=true
-    LABEL="CRITICAL"
-    STATE=2
+    STATE_LABEL="CRITICAL"
+    STATE_CODE=2
 else
     ROOT_LOGIN=false
 fi
@@ -82,11 +82,11 @@ fi
 # Determine base status from session thresholds
 if [ "$ROOT_LOGIN" = false ]; then
     if [ "$SESSION_COUNT" -ge "$CRIT_THRESH" ]; then
-        LABEL="CRITICAL"
-        STATE=2
+        STATE_LABEL="CRITICAL"
+        STATE_CODE=2
     elif [ "$SESSION_COUNT" -ge "$WARN_THRESH" ]; then
-        LABEL="WARNING"
-        STATE=1
+        STATE_LABEL="WARNING"
+        STATE_CODE=1
     fi
 fi
 
@@ -102,10 +102,10 @@ fi
 ZOMBIE_COUNT=$($PS -C sshd -o stat= | $GREP -c Z)
 if [ "$ZOMBIE_COUNT" -gt 0 ]; then
     ZOMBIE_FLAG=true
-    if [ $STATE -lt 2 ]; then
-        [ $STATE -lt 1 ] && {
-            LABEL="WARNING";
-            STATE=1;
+    if [ $STATE_CODE -lt 2 ]; then
+        [ $STATE_CODE -lt 1 ] && {
+            STATE_LABEL="WARNING";
+            STATE_CODE=1;
         }
     fi
 fi
@@ -119,5 +119,5 @@ EXTRA_MSG=$(echo "$EXTRA_MSG" | sed 's/, $//')
 [ -n "$EXTRA_MSG" ] && EXTRA_MSG=" (${EXTRA_MSG})"
 
 # Output & exit
-echo "${LABEL} - ${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_THRESH};${CRIT_THRESH};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
-exit $STATE
+echo "${STATE_LABEL} - ${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_THRESH};${CRIT_THRESH};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
+exit $STATE_CODE
