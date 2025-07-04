@@ -60,26 +60,25 @@ RULESET=$($NFT list ruleset 2>/dev/null) || crit "Failed to retrieve ruleset"
 [ -z "$RULESET" ] && crit "No rules found | rules_total=${RULES_TOTAL} ${PERF_DATA}"
 
 KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
-    BEGIN { FS="[[:space:]]+" }
+    BEGIN { FS="[[:space:]]+"; inch=0 }
     $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
     $1=="chain" { inch=1; next }
     inch && /^[[:space:]]*}/ { inch=0; next }
 
-    /^[[:space:]]*$/                            { next }
-    /^[[:space:]]*#/                            { next }
-    /^[[:space:]]*(type|policy)/                { next }
+    /^[[:space:]]*$/        { next }
+    /^[[:space:]]*#/        { next }
+    /^[[:space:]]*(type|policy)/ { next }
     /^[[:space:]]*(set|counter|flags|elements|size|timeout)/ { next }
 
     inch { cnt[fam SUBSEP tab]++ }
 
     END {
         tot=0; perf=""; emp="";
-        for (t in tbl) {
-            split(t,a,SUBSEP); f=a[1]; b=a[2]
-            n=cnt[t]+0
-            perf = perf sprintf("table_%s_%s=%d ",f,b,n)
-            tot += n
-            if(n==0) emp = emp" "f"/"b
+        for(t in tbl){
+            split(t,a,SUBSEP); f=a[1]; b=a[2];
+            n=cnt[t]+0; tot+=n;
+            perf=perf "table_"f"_"b"="n" ";
+            if(n==0) emp=emp" "f"/"b;
         }
         print "rules_total="tot
         print "table_count="length(tbl)
@@ -88,17 +87,15 @@ KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
     }'
 )
 
-# --- 2. Key‑value‑regels inlezen -------------------------------------------
-while IFS='=' read -r KEY VAL; do
-    case $KEY in
-        rules_total)  RULES_TOTAL=$VAL  ;;
-        table_count)  TABLE_COUNT=$VAL  ;;
-        table_perf)   TABLE_PERF=$VAL   ;;
-        table_empty)  TABLE_EMPTY=$VAL  ;;
+TOTAL_RULES=0 TABLE_COUNT=0 TABLE_PERF="" TABLE_EMPTY=""
+printf '%s\n' "$KEYVALS" | while IFS='=' read -r K V; do
+    case $K in
+        rules_total)  TOTAL_RULES=$V  ;;
+        table_count)  TABLE_COUNT=$V  ;;
+        table_perf)   TABLE_PERF=$V   ;;
+        table_empty)  TABLE_EMPTY=$V ;;
     esac
-done <<EOF
-$KEYVALS
-EOF
+done
 
 # Set performance data
 PERF_DATA="$table_perf"
