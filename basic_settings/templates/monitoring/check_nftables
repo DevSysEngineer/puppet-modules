@@ -62,13 +62,13 @@ RULESET=$($NFT list ruleset 2>/dev/null) || crit "Failed to retrieve ruleset"
 # Parse data
 while IFS='=' read -r KEY VAL; do
     case $KEY in
-        rules_total)  RULES_TOTAL=$VAL  ;;
+        rules_total)  TOTAL_RULES=$VAL  ;;
         table_count)  TABLE_COUNT=$VAL  ;;
         table_perf)   TABLE_PERF=$VAL   ;;
-        table_empty)  TABLE_EMPTY=$VAL ;;
+        table_empty)  EMPTY_TABLES=$VAL ;;
     esac
-done <<EOF
-$($PRINTF '%s\n' "$RULESET" | $AWK '
+done <<'EOF'
+'"$(printf '%s\n' "$RULESET" | $AWK '
     BEGIN { FS="[[:space:]]+" }
     $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
     $1=="chain" { inch=1; next }
@@ -82,21 +82,20 @@ $($PRINTF '%s\n' "$RULESET" | $AWK '
     inch { cnt[fam SUBSEP tab]++ }
 
     END {
-        tot=0; perf=""; emp="";
+        tot=0; perf=\"\"; emp=\"\";
         for (t in tbl) {
             split(t,a,SUBSEP); f=a[1]; b=a[2]
             n=cnt[t]+0
-            perf=perf sprintf("table_%s_%s=%d ",f,b,n)
+            perf=perf sprintf(\"table_%s_%s=%d \",f,b,n)
             tot+=n
-            if(n==0) emp=emp" "f"/"b
+            if(n==0) emp=emp\" \"f\"/\"b
         }
-        print "rules_total="tot
-        print "table_count="length(tbl)
-        print "table_perf="perf
-        print "table_empty="emp
-    }')
+        print \"rules_total=\"tot
+        print \"table_count=\"length(tbl)
+        print \"table_perf=\"perf
+        print \"table_empty=\"emp
+    }')"
 EOF
-
 
 # Set performance data
 PERF_DATA="$table_perf"
