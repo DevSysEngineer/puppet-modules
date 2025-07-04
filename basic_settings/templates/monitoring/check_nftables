@@ -24,14 +24,14 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 LSMOD=$(command -v lsmod 2>/dev/null)
 [ -n "$LSMOD" ] || die "lsmod not available"
 
-<% if @systemd_enable -%>
 crit() {
     printf 'CRITICAL - %s\n' "$*" >&2
     exit 2
 }
 
+<% if @systemd_enable -%>
 # Check if nftables is running
-$SYSTEMDCTL is-active --quiet "nftables" || crit "nftables service is not active"
+$SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 
 <% end -%>
 # Check if nftables is loaded in the kernel
@@ -44,9 +44,8 @@ TABLES=$($NFT list tables 2>/dev/null) || crit "Faield to retrieve tables"
 # Set some default values
 BL_ITEMS=0
 EMPTY_TABLES=""
-STATUS=0
 TOTAL_RULES=0 
-PERFDATA=""
+PERF_DATA=""
 
 # Loop through all tables
 printf '%s\n' "$TABLES" | while IFS= read -r LINE; do
@@ -59,12 +58,12 @@ printf '%s\n' "$TABLES" | while IFS= read -r LINE; do
         {c++}
         END {print c+0}')
     TOTAL_RULES=$((TOTAL_RULES + RULES))
-    PERFDATA="${PERFDATA}table_${FAMILY}_${TABLE}=${RULES} "
+    PERF_DATA="${PERF_DATA}table_${FAMILY}_${TABLE}=${RULES} "
     [ "$RULES" -eq 0 ] && EMPTY_TABLES="${EMPTY_TABLES} ${FAMILY}/${TABLE}"
 done
 
 # Check if we have tabels without rules
-[ -n "$EMPTY_TABLES" ] && crit "No rules in tables | total_rules=${TOTAL_RULES} ${PERFDATA}"
+[ -n "$EMPTY_TABLES" ] && crit "No rules in tables | total_rules=${TOTAL_RULES} ${PERF_DATA}"
 
 # Try to get named counters
 COUNTER_LINES=$($NFT list counters 2>/dev/null | $AWK '/^counter /')
@@ -73,7 +72,7 @@ if [ -n "$COUNTER_LINES" ]; then
         CNAME=$(printf '%s\n' "$CLINE" | $AWK '{print $2}')
         CPACK=$(printf '%s\n' "$CLINE" | $AWK '{for(i=3;i<=NF;i++) if($i=="packets"){print $(i+1); exit}}')
         CNAME=$(printf '%s\n' "$CNAME" | tr -c 'A-Za-z0-9_' '_')
-        PERFDATA="${PERFDATA}ctr_${CNAME}=${CPACK}c "
+        PERF_DATA="${PERF_DATA}ctr_${CNAME}=${CPACK}c "
     done
 fi
 
@@ -92,9 +91,9 @@ if [ -n "$BL_SETS" ]; then
 fi
 
 # Set performance data
-PERFDATA="${PERFDATA}blacklist_items=${BL_ITEMS} "
-PERFDATA="total_rules=${TOTAL_RULES} ${PERFDATA}"
+PERF_DATA="${PERF_DATA}blacklist_items=${BL_ITEMS} "
+PERF_DATA="total_rules=${TOTAL_RULES} ${PERF_DATA}"
 TABLE_COUNT=$(printf '%s\n' "$TABLES" | $AWK '/^table /{c++} END{print c+0}')
 
-echo "OK - ${TOTAL_RULES} rules in ${TABLE_COUNT} table(s), blacklist=${BL_ITEMS} | ${PERFDATA}"
+echo "OK - ${TOTAL_RULES} rules in ${TABLE_COUNT} table(s), blacklist=${BL_ITEMS} | ${PERF_DATA}"
 exit 0
