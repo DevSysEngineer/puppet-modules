@@ -67,27 +67,40 @@ while IFS='=' read -r KEY VAL; do
         table_perf)   TABLE_PERF=$VAL   ;;
         table_empty)  TABLE_EMPTY=$VAL ;;
     esac
-done <<EOF
-$(printf '%s\n' "$RULESET" | $AWK '
+<<EOF
+$($PRINTF '%s\n' "$RULESET" | $AWK '
     BEGIN { FS="[[:space:]]+" }
-    $1=="table" { tbl[$2 SUBSEP $3] }
-    $1=="rule"  { cnt[$2 SUBSEP $3]++ }
+    # Onthoud huidige family/table
+    $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
+    # Detect start/stop van een chain-blok
+    $1=="chain" { in=1; next }
+    in && /^[[:space:]]*}/        { in=0; next }
+
+    # Regels overslaan die geen firewall-regel zijn
+    /^[[:space:]]*$/              { next }      # leeg
+    /^[[:space:]]*#/              { next }      # comment
+    /^[[:space:]]*(type|policy)/  { next }
+    /^[[:space:]]*(set|counter|flags|elements|size|timeout)/ { next }
+
+    # Overige regels binnen een chain tellen
+    in { cnt[fam SUBSEP tab]++ }
 
     END {
-        total=0; tcnt=0; perf=""; empty="";
+        total=0; tcnt=0; perf=""; emp="";
         for (t in tbl) {
-            split(t,a,SUBSEP); fam=a[1]; tab=a[2]
+            split(t,a,SUBSEP); f=a[1]; b=a[2];
             n=cnt[t]+0
-            perf=perf sprintf("table_%s_%s=%d ",fam,tab,n)
+            perf=perf sprintf("table_%s_%s=%d ",f,b,n)
             total+=n; tcnt++
-            if(n==0) empty=empty" "fam"/"tab
+            if(n==0) emp=emp" "f"/"b
         }
         print "rules_total="total
         print "table_count="tcnt
         print "table_perf="perf
-        print "table_empty="empty
+        print "table_empty="emp
     }')
 EOF
+
 
 # Set performance data
 PERF_DATA="$table_perf"
