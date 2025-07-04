@@ -56,8 +56,8 @@ $SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 $LSMOD | $AWK '/nf_tables/' >/dev/null 2>&1 || crit "nftables is not loaded in the kernel"
 
 # Get ruleset
-RULESET=$($NFT list ruleset 2>/dev/null || crit "Faield to retrieve ruleset"
-[ -n "$RULESET" ] && crit "No rules found | rules_total=${RULES_TOTAL} ${PERF_DATA}"
+RULESET=$($NFT list ruleset 2>/dev/null) || crit "Failed to retrieve ruleset"
+[ -z "$RULESET" ] && crit "No rules found | rules_total=${RULES_TOTAL} ${PERF_DATA}"
 
 # Parse data
 while IFS='=' read -r KEY VAL; do
