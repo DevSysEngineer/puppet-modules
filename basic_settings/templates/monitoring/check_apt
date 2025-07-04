@@ -13,7 +13,7 @@ APT=$(command -v apt 2>/dev/null)
 
 # Locate awk
 AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
+[ -n "$AWK" ] || die "awk not available"
 
 # Locate date
 DATE=$(command -v date 2>/dev/null)
@@ -91,7 +91,7 @@ BLACKLIST_PATTERNS=$("$AWK" '
 
 # Run apt simulation
 APT_SIM_OUTPUT=$(LC_ALL=C $APT -s -o Debug::NoLocking=1 dist-upgrade 2>&1) || die "APT simulation failed"
-APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
+APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
     /^Inst / {
         total++; pkg=$2
         pkgs[pkg]=1
@@ -99,12 +99,12 @@ APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
     }
     END {
         for (p in pkgs) printf "PKG:%s\n", p
-        printf "TOT:%d SEC:%d\n", total, sec
+        printf "TOT:%d\nSEC:%d\n", total, sec
     }')
-
+    
 # Get total and security count
-UPDATES_TOTAL=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK '/^TOT:/ {print $2}')
-UPDATES_SECURITY=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK '/^SEC:/ {print $2}')
+UPDATES_TOTAL=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^TOT:/ {print $2}')
+UPDATES_SECURITY=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^SEC:/ {print $2}')
 
 # Check if we have updates in backlist patterns
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
