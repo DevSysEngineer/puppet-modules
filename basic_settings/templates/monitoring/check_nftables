@@ -67,35 +67,31 @@ while IFS='=' read -r KEY VAL; do
         table_perf)   TABLE_PERF=$VAL   ;;
         table_empty)  TABLE_EMPTY=$VAL ;;
     esac
-<<EOF
+done <<EOF
 $($PRINTF '%s\n' "$RULESET" | $AWK '
     BEGIN { FS="[[:space:]]+" }
-    # Onthoud huidige family/table
     $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
-    # Detect start/stop van een chain-blok
-    $1=="chain" { in=1; next }
-    in && /^[[:space:]]*}/        { in=0; next }
+    $1=="chain" { inch=1; next }
+    inch && /^[[:space:]]*}/ { inch=0; next }
 
-    # Regels overslaan die geen firewall-regel zijn
-    /^[[:space:]]*$/              { next }      # leeg
-    /^[[:space:]]*#/              { next }      # comment
+    /^[[:space:]]*$/              { next }
+    /^[[:space:]]*#/              { next }
     /^[[:space:]]*(type|policy)/  { next }
     /^[[:space:]]*(set|counter|flags|elements|size|timeout)/ { next }
 
-    # Overige regels binnen een chain tellen
-    in { cnt[fam SUBSEP tab]++ }
+    inch { cnt[fam SUBSEP tab]++ }
 
     END {
-        total=0; tcnt=0; perf=""; emp="";
+        tot=0; perf=""; emp="";
         for (t in tbl) {
-            split(t,a,SUBSEP); f=a[1]; b=a[2];
+            split(t,a,SUBSEP); f=a[1]; b=a[2]
             n=cnt[t]+0
             perf=perf sprintf("table_%s_%s=%d ",f,b,n)
-            total+=n; tcnt++
+            tot+=n
             if(n==0) emp=emp" "f"/"b
         }
-        print "rules_total="total
-        print "table_count="tcnt
+        print "rules_total="tot
+        print "table_count="length(tbl)
         print "table_perf="perf
         print "table_empty="emp
     }')
@@ -148,7 +144,7 @@ $PRINTF '%s\n' "$RULESET" | $AWK '/counter[[:space:]]+packets[[:space:]][0-9]+/ 
 while IFS= read -r L; do
     PACK=$(echo "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="packets"){print $(i+1); break}}')
     COMM=$(echo "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="comment"){print $(i+1); break}}')
-    COMM=${COMM//\"/}
+    COMM=$($PRINTF '%s\n' "$COMM" | tr -d '"')
     [ -z "$COMM" ] && { SEQ=$((SEQ+1)); COMM="rule_${SEQ}"; }
     add_ctr "$COMM" "$PACK"
 done
