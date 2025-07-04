@@ -59,42 +59,45 @@ $LSMOD | $AWK '/nf_tables/' >/dev/null 2>&1 || crit "nftables is not loaded in t
 RULESET=$($NFT list ruleset 2>/dev/null) || crit "Failed to retrieve ruleset"
 [ -z "$RULESET" ] && crit "No rules found | rules_total=${RULES_TOTAL} ${PERF_DATA}"
 
-# Parse data
-while IFS='=' read -r KEY VAL; do
-    case $KEY in
-        rules_total)  TOTAL_RULES=$VAL  ;;
-        table_count)  TABLE_COUNT=$VAL  ;;
-        table_perf)   TABLE_PERF=$VAL   ;;
-        table_empty)  EMPTY_TABLES=$VAL ;;
-    esac
-done <<'EOF'
-'"$(printf '%s\n' "$RULESET" | $AWK '
+KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
     BEGIN { FS="[[:space:]]+" }
     $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
     $1=="chain" { inch=1; next }
     inch && /^[[:space:]]*}/ { inch=0; next }
 
-    /^[[:space:]]*$/              { next }
-    /^[[:space:]]*#/              { next }
-    /^[[:space:]]*(type|policy)/  { next }
+    /^[[:space:]]*$/                            { next }
+    /^[[:space:]]*#/                            { next }
+    /^[[:space:]]*(type|policy)/                { next }
     /^[[:space:]]*(set|counter|flags|elements|size|timeout)/ { next }
 
     inch { cnt[fam SUBSEP tab]++ }
 
     END {
-        tot=0; perf=\"\"; emp=\"\";
+        tot=0; perf=""; emp="";
         for (t in tbl) {
             split(t,a,SUBSEP); f=a[1]; b=a[2]
             n=cnt[t]+0
-            perf=perf sprintf(\"table_%s_%s=%d \",f,b,n)
-            tot+=n
-            if(n==0) emp=emp\" \"f\"/\"b
+            perf = perf sprintf("table_%s_%s=%d ",f,b,n)
+            tot += n
+            if(n==0) emp = emp" "f"/"b
         }
-        print \"rules_total=\"tot
-        print \"table_count=\"length(tbl)
-        print \"table_perf=\"perf
-        print \"table_empty=\"emp
-    }')"
+        print "rules_total="tot
+        print "table_count="length(tbl)
+        print "table_perf="perf
+        print "table_empty="emp
+    }'
+)
+
+# --- 2. Key‑value‑regels inlezen -------------------------------------------
+while IFS='=' read -r KEY VAL; do
+    case $KEY in
+        rules_total)  RULES_TOTAL=$VAL  ;;
+        table_count)  TABLE_COUNT=$VAL  ;;
+        table_perf)   TABLE_PERF=$VAL   ;;
+        table_empty)  TABLE_EMPTY=$VAL  ;;
+    esac
+done <<EOF
+$KEYVALS
 EOF
 
 # Set performance data
