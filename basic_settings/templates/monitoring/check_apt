@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    printf 'UNKNOWN - %s\n' "$*" >&2
+    echo "UNKNOWN - $*" >&2
     exit 3
 }
 
