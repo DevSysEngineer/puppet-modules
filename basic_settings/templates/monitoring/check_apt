@@ -82,8 +82,8 @@ fi
 
 # Try to get blacklist patterns
 BLACKLIST_PATTERNS=$("$AWK" '
-    /Package-Blacklist[[:space:]]*{/ {inblk=1; next}
-    inblk && /^\s*}/ {exit}
+    /^[[:space:]]*Package-Blacklist/ {inblk=1; next}
+    inblk && /^[[:space:]]*}/ {exit}
     inblk && match($0,/"[^"]+"/) {
         print substr($0, RSTART+1, RLENGTH-2)
     }
@@ -102,21 +102,19 @@ APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
         printf "TOT:%d\nSEC:%d\n", total, sec
     }')
     
-# Get total and security count
+# Get some data
 UPDATES_TOTAL=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^TOT:/ {print $2}')
 UPDATES_SECURITY=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^SEC:/ {print $2}')
+PKG_LIST=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^PKG:/ {print $2}')
 
 # Check if we have updates in backlist patterns
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
-    printf '%s\n' "$APT_SIM_SUMMARY" | while IFS= read -r line; do
-        case $line in
-            PKG:*) pkg=${line#PKG:}
-                for pat in $BLACKLIST_PATTERNS; do
-                    case $pkg in
-                        $pat) UPDATES_BLACKLISTED=$((UPDATES_BLACKLISTED+1)); break ;;
-                    esac
-                done ;;
-        esac
+    for pkg in $PKG_LIST; do
+        for pat in $BLACKLIST_PATTERNS; do
+            case "$pkg" in
+                $pat) UPDATES_BLACKLISTED=$((UPDATES_BLACKLISTED+1)); break ;;
+            esac
+        done
     done
 fi
 
