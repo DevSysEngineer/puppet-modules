@@ -96,41 +96,28 @@ PERF_DATA="$table_perf"
 [ -n "$TABLE_EMPTY" ] && crit "No rules in tables | rules_total=${RULES_TOTAL} ${PERF_DATA}"
 
 # Try to get blacklist sets
-BL_SETS=$(printf '%s\n' "$RULESET" | $AWK '
-    BEGIN {fam=""; tab=""}
-    /^table[[:space:]]+/{fam=$2; tab=$3}
+printf '%s\n' "$RULESET" | $AWK '
+    BEGIN { RS="\n"; fam=""; tab="" }
+    /^table[[:space:]]+/      { fam=$2; tab=$3 }
     /^[[:space:]]*set[[:space:]]+[A-Za-z0-9_]+[[:space:]]+{/{
-        setname=$2
-        if ($0 ~ /flags[[:space:]]+.*dynamic/) {
-            printf "%s %s %s\n", fam, tab, setname
-            next
-        }
-        nextblock=1
+        set=$2; dyn=($0 ~ /flags[[:space:]]+.*dynamic/); next
     }
-    nextblock && /^[[:space:]]*flags[[:space:]]+.*dynamic/{
-        printf "%s %s %s\n", fam, tab, setname
-        nextblock=0
-    }' | sort -u)
-
-# Check if we have blacklist sets
-if [ -n "$BL_SETS" ]; then
-    printf '%s\n' "$BL_SETS" | while read -r FAMILY TABLE SETNAME; do
-        CNT=$($NFT list set "$FAMILY" "$TABLE" "$SETNAME" 2>/dev/null | \
-              $AWK -v RS= -v ORS='\n' '
-                /elements[[:space:]]*=/{
-                    gsub(/\n/," ")
-                    gsub(/.*{[[:space:]]*/,"")
-                    gsub(/[[:space:]]*}.*/,"")
-                    n=split($0,a,",")
-                    for(i=1;i<=n;i++){
-                        gsub(/^[[:space:]]+|[[:space:]]+$/,"",a[i])
-                        if (a[i] ~ /^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || a[i] ~ /:/) c++
-                    }
-                    print c
-                }')
-        BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
-    done
-fi
+    dyn && /^[[:space:]]*flags[[:space:]]+.*dynamic/ { dyn=1 }
+    dyn && /\}/ { print fam, tab, set; dyn=0 }
+' | sort -u | while read -r FAM TAB SET; do
+    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS= '
+        /elements[[:space:]]*=/{
+            gsub(/\n/," ")
+            sub(/.*{[[:space:]]*/,""); sub(/[[:space:]]*}.*/,"")
+            n=split($0,a,",")
+            for(i=1;i<=n;i++){
+                gsub(/^[[:space:]]+|[[:space:]]+$/,"",a[i])
+                if (a[i] ~ /^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || a[i] ~ /:/) c++
+            }
+            print c
+        }')
+    BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
+done
 
 # Try to get named counters
 $PRINTF '%s\n' "$RULESET" | $AWK -v RS='}' '
