@@ -32,17 +32,20 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 
 # Set some default values
 BL_ITEMS=0
-TABLE_EMPTY=""
-RULES_TOTAL=0 
 PERF_DATA=""
+RULES_TOTAL=0
 SEQ=0
+TABLE_COUNT=0
+TABLE_EMPTY=""
+TABLE_PERF=""
+TOTAL_RULES=0
 
 crit() {
     $PRINTF 'CRITICAL - %s\n' "$*" >&2
     exit 2
 }
 
-add_ctr() {
+add_pd() {
     LABEL=$($PRINTF '%s\n' "$1" | tr -c 'A-Za-z0-9_' '_')
     PERF_DATA="${PERF_DATA}ctr_${LABEL}=${2:-0}c "
 }
@@ -52,106 +55,114 @@ add_ctr() {
 $SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 
 <% end -%>
-# Check if nftables is loaded in the kernel
-$LSMOD | $AWK '/nf_tables/' >/dev/null 2>&1 || crit "nftables is not loaded in the kernel"
 
-# Get ruleset
-RULESET=$($NFT list ruleset 2>/dev/null) || crit "Failed to retrieve ruleset"
-[ -z "$RULESET" ] && crit "No rules found | rules_total=${RULES_TOTAL} ${PERF_DATA}"
+# Kernel‑check
+$LSMOD | $AWK '/\bnf_tables\b/' >/dev/null 2>&1 || crit "nf_tables kernel module not loaded"
 
+# Try to get ruleset
+RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
+[ -z "$RULESET" ] && crit "Ruleset empty"
+
+# Count rules in tables
 KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
-    BEGIN { FS="[[:space:]]+"; inch=0 }
-    $1=="table" { fam=$2; tab=$3; tbl[fam SUBSEP tab]; next }
-    $1=="chain" { inch=1; next }
-    inch && /^[[:space:]]*}/ { inch=0; next }
-
-    /^[[:space:]]*$/        { next }
-    /^[[:space:]]*#/        { next }
-    /^[[:space:]]*(type|policy)/ { next }
-    /^[[:space:]]*(set|counter|flags|elements|size|timeout)/ { next }
-
-    inch { cnt[fam SUBSEP tab]++ }
-
-    END {
-        tot=0; perf=""; emp="";
-        for(t in tbl){
-            split(t,a,SUBSEP); f=a[1]; b=a[2];
-            n=cnt[t]+0; tot+=n;
-            perf=perf "table_"f"_"b"="n" ";
-            if(n==0) emp=emp" "f"/"b;
-        }
-        print "rules_total="tot
-        print "table_count="length(tbl)
-        print "table_perf="perf
-        print "table_empty="emp
-    }'
-)
-
-TOTAL_RULES=0 TABLE_COUNT=0 TABLE_PERF="" TABLE_EMPTY=""
-printf '%s\n' "$KEYVALS" | while IFS='=' read -r K V; do
-    case $K in
-        rules_total)  TOTAL_RULES=$V  ;;
-        table_count)  TABLE_COUNT=$V  ;;
-        table_perf)   TABLE_PERF=$V   ;;
-        table_empty)  TABLE_EMPTY=$V ;;
-    esac
-done
-
-# Set performance data
-PERF_DATA="$table_perf"
-
-# Check if we have any rules
-[ -n "$TABLE_EMPTY" ] && crit "No rules in tables | rules_total=${RULES_TOTAL} ${PERF_DATA}"
-
-# Try to get blacklist sets
-printf '%s\n' "$RULESET" | $AWK '
-    BEGIN { RS="\n"; fam=""; tab="" }
-    /^table[[:space:]]+/      { fam=$2; tab=$3 }
-    /^[[:space:]]*set[[:space:]]+[A-Za-z0-9_]+[[:space:]]+{/{
-        set=$2; dyn=($0 ~ /flags[[:space:]]+.*dynamic/); next
+BEGIN { FS=" ";  SUBSEP=SUBSEP; inside=0; tblkey="" }
+{
+    if ($1=="table") {
+        fam=$2; tab=$3; tblkey=fam SUBSEP tab; tbl[tblkey]=1; next
     }
-    dyn && /^[[:space:]]*flags[[:space:]]+.*dynamic/ { dyn=1 }
-    dyn && /\}/ { print fam, tab, set; dyn=0 }
-' | sort -u | while read -r FAM TAB SET; do
-    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS= '
-        /elements[[:space:]]*=/{
-            gsub(/\n/," ")
-            sub(/.*{[[:space:]]*/,""); sub(/[[:space:]]*}.*/,"")
-            n=split($0,a,",")
-            for(i=1;i<=n;i++){
-                gsub(/^[[:space:]]+|[[:space:]]+$/,"",a[i])
-                if (a[i] ~ /^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || a[i] ~ /:/) c++
-            }
-            print c
-        }')
+    if ($1=="chain") { inside=1; next }
+    if (inside && $0 ~ /^[[:space:]]*}/) { inside=0; next }
+
+    if (inside) {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if ($0 ~ /^[[:space:]]*#/) next
+        if ($1 ~ /^(type|policy|set|counter|flags|elements|size|timeout)$/) next
+        rules[tblkey]++
+    }
+}
+END {
+    tot=0; perf=""; emp="";
+    for (k in tbl) {
+        n = (k in rules) ? rules[k] : 0; tot += n
+        split(k, a, SUBSEP); fam=a[1]; tab=a[2]
+        perf = perf "table_" fam "_" tab "=" n " "
+        if (!n) emp = emp " " fam "/" tab
+    }
+    printf "rules_total=%d\n",  tot
+    printf "table_count=%d\n",  length(tbl)
+    printf "table_perf=%s\n",   perf
+    printf "table_empty=%s\n",  emp
+}')
+
+# Variabelen in de hoofd‑shell zetten
+while IFS='=' read -r K V; do
+  case $K in
+     rules_total) TOTAL_RULES=$V ;;
+     table_count) TABLE_COUNT=$V ;;
+     table_perf)  TABLE_PERF=$V  ;;
+     table_empty) TABLE_EMPTY=$V ;;
+  esac
+done <<EOF
+$KEYVALS
+EOF
+
+# Check if we have rules
+[ -n "$TABLE_EMPTY" ] && crit "No rules in tables | rules_total=$TOTAL_RULES $TABLE_PERF"
+
+# Check if we have backlist sets
+printf '%s\n' "$RULESET" | $AWK '
+BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
+{
+    if ($1=="table") { fam=$2; tab=$3 }
+    if ($1=="set")   { setn=$2; dyn=(index($0,"dynamic")>0); inst=1; next }
+    if (inst) {
+        if (index($0,"dynamic")>0) dyn=1
+        if ($0 ~ /}/) {
+            if (dyn) print fam,tab,setn
+            inst=0; dyn=0
+        }
+  }
+}' | while read -r FAM TAB SET; do
+    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS='' '
+    /elements[ \t]*=/{
+        gsub(/[{},]/," "); n=split($0,a);
+        c=0; for(i=1;i<=n;i++) {
+            gsub(/^[ \t]+|[ \t]+$/,"",a[i])
+            if (a[i]~/^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/||index(a[i],":")) c++
+        }
+        print c
+    }
+    ')
     BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
 done
 
-# Try to get named counters
-$PRINTF '%s\n' "$RULESET" | $AWK -v RS='}' '
-    /^counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]*{/{
-        name=$2
-        if (match($0,/packets[[:space:]]+([0-9]+)/,m))
-            print name, m[1]
-    }' |
-while read -r NAME PACK; do
-    add_ctr "$NAME" "$PACK"
-done
+echo 'TEST2'
 
-# Try to get inline counters
-$PRINTF '%s\n' "$RULESET" | $AWK '/counter[[:space:]]+packets[[:space:]][0-9]+/ {print}' |
+# Set performance data
+PERF_DATA="$TABLE_PERF"
+
+# Named counters
+printf '%s\n' "$RULESET" | $AWK -v RS='}' '
+/^[[:space:]]*counter[[:space:]]+[[:alnum:]_]+/{
+    for (i = 1; i <= NF; i++)
+        if ($i == "packets" && (i+1) <= NF) {
+            print $2, $(i+1)
+            break
+        }
+}' | while read -r N P; do add_pd "ctr_$N" "$P"; done
+
+echo 'TEST5'
+
+# Inline counters
+SEQ=0
+printf '%s\n' "$RULESET" | $AWK '/counter[ \t]+packets[ \t]+[0-9]+/ {print}' |
 while IFS= read -r L; do
-    PACK=$(echo "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="packets"){print $(i+1); break}}')
-    COMM=$(echo "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="comment"){print $(i+1); break}}')
-    COMM=$($PRINTF '%s\n' "$COMM" | tr -d '"')
-    [ -z "$COMM" ] && { SEQ=$((SEQ+1)); COMM="rule_${SEQ}"; }
-    add_ctr "$COMM" "$PACK"
+  P=$(printf '%s\n' "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="packets"){print $(i+1); break}}')
+  C=$(printf '%s\n' "$L" | $AWK '{for(i=1;i<=NF;i++) if($i=="comment"){print $(i+1); break}}' | tr -d '"')
+  [ -z "$C" ] && { SEQ=$((SEQ+1)); C="rule_$SEQ"; }
+  add_pd "ctr_$C" "$P"
 done
-
-# Set data
-PERF_DATA="rules_total=${RULES_TOTAL} ${PERF_DATA}blacklist_items=${BL_ITEMS} "
-TABLE_COUNT=$($PRINTF '%s\n' "$TABLES" | $AWK '/^table /{c++} END{print c+0}')
 
 # Show output
-echo "OK - ${RULES_TOTAL} rules in ${TABLE_COUNT} table(s), blacklist=${BL_ITEMS} | ${PERF_DATA}"
+echo "OK - $TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | rules_total=$TOTAL_RULES $PERF_DATA""blacklist_items=$BL_ITEMS"
 exit 0
