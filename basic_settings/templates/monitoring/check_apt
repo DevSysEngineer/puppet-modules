@@ -81,15 +81,13 @@ fi
 [ "$LAST_UPDATE_AGE_SEC" -le 0 ] && TIMESTAMP_UNKNOWN=1
 
 # Try to get blacklist patterns
-BLACKLIST_PATTERNS=$AWK '
+BLACKLIST_PATTERNS=$("$AWK" '
     /Package-Blacklist[[:space:]]*{/ {inblk=1; next}
-    inblk && /^\s*}/            {exit}
-    inblk {
-        if (match($0,/"[^"]+"/)) {
-            print substr($0, RSTART+1, RLENGTH-2)
-        }
+    inblk && /^\s*}/ {exit}
+    inblk && match($0,/"[^"]+"/) {
+        print substr($0, RSTART+1, RLENGTH-2)
     }
-' "$BLACKLIST_FILE"
+' "$BLACKLIST_FILE")
 
 # Run apt simulation
 APT_SIM_OUTPUT=$(LC_ALL=C $APT -s -o Debug::NoLocking=1 dist-upgrade 2>&1) || die "APT simulation failed"
