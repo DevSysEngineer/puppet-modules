@@ -48,19 +48,27 @@ TOTAL_RULES=0
 PERF_DATA=""
 
 # Loop through all tables
-printf '%s\n' "$TABLES" | while IFS= read -r LINE; do
-    STRIPPED=${LINE#table }          # e.g. "inet filter"
-    FAMILY=${STRIPPED%% *}           # inet
-    TABLE=${STRIPPED#* }             # filter
-    RULES=$($NFT list table "$FAMILY" "$TABLE" 2>/dev/null $AWK '
+while IFS= read -r LINE; do
+    # Get data from line
+    STRIPPED=${LINE#table }
+    FAMILY=${STRIPPED%% *}
+    TABLE=${STRIPPED#* }
+    RULES=$($NFT list table "$FAMILY" "$TABLE" 2>/dev/null | $AWK '
         /^\s*(table|chain|\})/ {next}
         /;$/                   {next}
         {c++}
-        END {print c+0}')
+        END {print c+0}'
+    )
+
+    # Check if we have a valid number
+    RULES=${RULES:-0}
+
+    # Set data
     TOTAL_RULES=$((TOTAL_RULES + RULES))
     PERF_DATA="${PERF_DATA}table_${FAMILY}_${TABLE}=${RULES} "
+
     [ "$RULES" -eq 0 ] && EMPTY_TABLES="${EMPTY_TABLES} ${FAMILY}/${TABLE}"
-done
+done <<< "$TABLES"
 
 # Check if we have tabels without rules
 [ -n "$EMPTY_TABLES" ] && crit "No rules in tables | total_rules=${TOTAL_RULES} ${PERF_DATA}"
