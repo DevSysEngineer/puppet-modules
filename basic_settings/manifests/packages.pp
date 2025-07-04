@@ -189,7 +189,7 @@ class basic_settings::packages (
 
   # Create APT settings
   $apt_settings_file = '/etc/apt/apt.conf.d/99-settings.conf'
-  file { '/etc/apt/apt.conf.d/99-settings.conf':
+  file { $apt_settings_file:
     ensure  => file,
     content => template('basic_settings/packages/settings.conf'),
     owner   => 'root',

@@ -18,6 +18,7 @@ class basic_settings::network (
   # Set some default values
   $kernel_enable = defined(Class['basic_settings::kernel'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  $systemd_enable = defined(Package['systemd'])
 
   # Get IP data
   if ($kernel_enable) {
@@ -257,12 +258,18 @@ class basic_settings::network (
     if ($monitoring_enable) {
       # Create service check
       if ($basic_settings::monitoring::package != 'none') {
-        basic_settings::monitoring_service { 'firewall':
-          services => [$firewall_package],
+        if ($firewall_package == 'nftables') {
+          basic_settings::monitoring_custom { 'firewall':
+            content => template("basic_settings/monitoring/check_${firewall_package}"),
+          }
+        } else {
+          basic_settings::monitoring_service { 'firewall':
+            services => [$firewall_package],
+          }
         }
       }
 
-      if (defined(Package['systemd'])) {
+      if ($systemd_enable) {
         # Create drop in for firewall service
         basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
           target_unit   => "${firewall_package}.service",
@@ -285,7 +292,7 @@ class basic_settings::network (
     mode   => '0755', # High important
   }
 
-  if (defined(Package['systemd'])) {
+  if ($systemd_enable) {
     # If DHCP is disabled, force system not to use DHCP
     if ($interfaces != '' and !$dhcp_enable) {
       basic_settings::systemd_network { '90-dhcpc':

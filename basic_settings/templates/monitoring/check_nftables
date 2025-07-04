@@ -1,0 +1,100 @@
+#!/bin/sh
+
+# Managed by puppet
+
+die() {
+    printf 'UNKNOWN - %s\n' "$*" >&2
+    exit 3
+}
+
+# Locate awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "awk not available"
+
+# Locate nft
+NFT=$(command -v nft 2>/dev/null)
+[ -n "$NFT" ] || die "nft not available"
+
+<% if @systemd_enable -%>
+# Locate systemctl
+SYSTEMCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMCTL" ] || die "systemctl not available"
+
+<% end -%>
+LSMOD=$(command -v lsmod 2>/dev/null)
+[ -n "$LSMOD" ] || die "lsmod not available"
+
+<% if @systemd_enable -%>
+crit() {
+    printf 'CRITICAL - %s\n' "$*" >&2
+    exit 2
+}
+
+# Check if nftables is running
+$SYSTEMDCTL is-active --quiet "nftables" || crit "nftables service is not active"
+
+<% end -%>
+# Check if nftables is loaded in the kernel
+$LSMOD | $AWK '/nf_tables/' >/dev/null 2>&1 || crit "nftables is not loaded in the kernel"
+
+# 3. Alle tables ophalen
+TABLES=$($NFT list tables 2>/dev/null) || crit "Faield to retrieve tables"
+[ -z "$TABLES" ] && crit "Empty tables"
+
+# Set some default values
+BL_ITEMS=0
+EMPTY_TABLES=""
+STATUS=0
+TOTAL_RULES=0 
+PERFDATA=""
+
+# Loop through all tables
+printf '%s\n' "$TABLES" | while IFS= read -r LINE; do
+    STRIPPED=${LINE#table }          # e.g. "inet filter"
+    FAMILY=${STRIPPED%% *}           # inet
+    TABLE=${STRIPPED#* }             # filter
+    RULES=$($NFT list table "$FAMILY" "$TABLE" 2>/dev/null $AWK '
+        /^\s*(table|chain|\})/ {next}
+        /;$/                   {next}
+        {c++}
+        END {print c+0}')
+    TOTAL_RULES=$((TOTAL_RULES + RULES))
+    PERFDATA="${PERFDATA}table_${FAMILY}_${TABLE}=${RULES} "
+    [ "$RULES" -eq 0 ] && EMPTY_TABLES="${EMPTY_TABLES} ${FAMILY}/${TABLE}"
+done
+
+# Check if we have tabels without rules
+[ -n "$EMPTY_TABLES" ] && crit "No rules in tables | total_rules=${TOTAL_RULES} ${PERFDATA}"
+
+# Try to get named counters
+COUNTER_LINES=$($NFT list counters 2>/dev/null | $AWK '/^counter /')
+if [ -n "$COUNTER_LINES" ]; then
+    printf '%s\n' "$COUNTER_LINES" | while IFS= read -r CLINE; do
+        CNAME=$(printf '%s\n' "$CLINE" | $AWK '{print $2}')
+        CPACK=$(printf '%s\n' "$CLINE" | $AWK '{for(i=3;i<=NF;i++) if($i=="packets"){print $(i+1); exit}}')
+        CNAME=$(printf '%s\n' "$CNAME" | tr -c 'A-Za-z0-9_' '_')
+        PERFDATA="${PERFDATA}ctr_${CNAME}=${CPACK}c "
+    done
+fi
+
+# Check blacklist items
+BL_SETS=$($NFT list ruleset 2>/dev/null | $AWK '/set .* (blacklist|blocklist).* /{print $2}' | sort -u)
+if [ -n "$BL_SETS" ]; then
+    printf '%s\n' "$BL_SETS" | while IFS= read -r S; do
+        EL=$($NFT list ruleset 2>/dev/null \
+             | $AWK "/set ${S} /,/\}/" | $AWK '/elements/{print; exit}')
+        if [ -n "$EL" ]; then
+            CNT=$(printf '%s\n' "$EL" \
+                  | $AWK -F'[{},]' '{for(i=2;i<NF;i++) if(length($i)) n++} END{print n}')
+            BL_ITEMS=$((BL_ITEMS + CNT))
+        fi
+    done
+fi
+
+# Set performance data
+PERFDATA="${PERFDATA}blacklist_items=${BL_ITEMS} "
+PERFDATA="total_rules=${TOTAL_RULES} ${PERFDATA}"
+TABLE_COUNT=$(printf '%s\n' "$TABLES" | $AWK '/^table /{c++} END{print c+0}')
+
+echo "OK - ${TOTAL_RULES} rules in ${TABLE_COUNT} table(s), blacklist=${BL_ITEMS} | ${PERFDATA}"
+exit 0
