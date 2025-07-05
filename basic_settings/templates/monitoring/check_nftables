@@ -182,27 +182,21 @@ done <<EOF
 $NAMED_CTRS
 EOF
 
+echo "TEST 3"
+
 # Try to get inline counters
 INLINE_CTRS=$(printf '%s\n' "$RULESET" | $AWK '
 BEGIN { seq = 0 }
 {
-    # vind "counter packets <n>"
     if (match($0, /counter[[:space:]]+packets[[:space:]]+([0-9]+)/, pkt)) {
         val = pkt[1]
-
         lbl = ""
-        if (match($0, /comment[[:space:]]+"([^"]+)"/, cmt)) {
-            lbl = cmt[1]
-        } else {
-            seq++; lbl = "rule_" seq    # fallback
-        }
-
+        if (match($0, /comment[[:space:]]+\"([^\"]+)\"/, cmt)) { lbl = cmt[1] } else { seq++; lbl = "rule_" seq }
         gsub(/[^A-Za-z0-9_]+/, "_", lbl)
         print lbl, val
     }
 }')
 
-# Read data
 while read -r LABEL VALUE; do
     add_pd "$LABEL" "$VALUE"
 done <<EOF
