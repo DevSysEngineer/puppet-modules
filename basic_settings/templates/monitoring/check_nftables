@@ -47,8 +47,8 @@ crit() {
 }
 
 add_pd() {
-    LABEL=$($PRINTF '%s\n' "$1" | tr -c 'A-Za-z0-9_' '_')
-    PERF_DATA="${PERF_DATA}ctr_${LABEL}=${2:-0}c "
+    LABEL=$($PRINTF '%s' "$1" | tr -c 'A-Za-z0-9_' '_')
+    PERF_DATA="${PERF_DATA}${LABEL}=${2:-0}c "
 }
 
 <% if @systemd_enable -%>
@@ -133,7 +133,7 @@ BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
 # Read data
 BL_ITEMS=0
 while read -r FAM TAB SET; do
-    [ -z "$FAM" ] && continue           # lege regels overslaan
+    [ -z "$FAM" ] && continue
     CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null |
           $AWK -v RS='' '
           /elements[ \t]*=/{
@@ -154,37 +154,35 @@ EOF
 echo 'TEST2'
 
 # Get named counters
-NAMED_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK -v RS='}' '/^[[:space:]]*counter[[:space:]]+[[:alnum:]_]+[[:space:]]+packets[[:space:]]+[0-9]+/ { for (i = 1; i <= NF; i++) if ($i == "packets" && (i+1) <= NF) { print $2, $(i+1); break } }')
-while read -r N P; do
-    add_pd "ctr_${N}_pkts" "$P"
-    add_pd "ctr_${N}_drops" "0"
+NAMED_CTRS=$(printf '%s\n' "$RULESET"|$AWK -v RS='}' '
+/^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]+packets/{ if($2!="packets"){for(i=1;i<=NF;i++)if($i=="packets"&&(i+1)<=NF){print $2,$(i+1);break}} }')
+while read -r N P;do
+    [ -z "$N" ] && continue;
+    add_pd "ctr_${N}_pkts" "$P";
+    add_pd "ctr_${N}_drops" "0";
 done <<EOF
 $NAMED_CTRS
 EOF
 
-# Get inline counters
-INLINE_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK '
-BEGIN { seq=0 }
+# Inline counters 
+INLINE_CTRS=$(printf '%s\n' "$RULESET"|$AWK '
+BEGIN{seq=0}
 {
-    if ($0 ~ /counter[[:space:]]+packets[[:space:]]+[0-9]+/) {
-        val="0"; n=split($0,f,/[[:space:]]+/); for(i=1;i<=n;i++) if(f[i]=="counter" && i+2<=n && f[i+1]=="packets") { val=f[i+2]; break }
-        lbl=""; if(match($0,/comment[[:space:]]+\"[^\"]+\"/)){ c=substr($0,RSTART,RLENGTH); sub(/^comment[[:space:]]+\"/,"",c); sub(/\"$/,"",c); lbl=c } else { seq++; lbl="rule_"seq }
-        gsub(/[^A-Za-z0-9_]+/,"_",lbl)
-        isdrop=(index($0," drop")>0)?1:0
-        print lbl,val,isdrop
-    }
+  if($0~/counter[[:space:]]+packets[[:space:]]+[0-9]+/){
+    n=split($0,f,/[[:space:]]+/);val="0";for(i=1;i<=n;i++)if(f[i]=="counter"&&i+2<=n&&f[i+1]=="packets"){val=f[i+2];break}
+    lbl="";if(match($0,/comment[[:space:]]+\"[^\"]+\"/)){c=substr($0,RSTART,RLENGTH);sub(/^comment[[:space:]]+\"/,"",c);sub(/\"$/,"",c);lbl=c}else{seq++;lbl="anon_"seq}
+    gsub(/[^A-Za-z0-9_]+/,"_",lbl);isdrop=(index($0," drop")>0)?1:0;print lbl,val,isdrop
+  }
 }')
-
-# Parse inline counters
-while read -r LABEL VALUE ISDROP; do
-    add_pd "rule_${LABEL}_pkts" "$VALUE"
-    if [ "$ISDROP" -eq 1 ]; then add_pd "rule_${LABEL}_drops" "$VALUE"; else add_pd "rule_${LABEL}_drops" "0"; fi
+while read -r LABEL VALUE ISDROP;do
+    add_pd "rule_${LABEL}_pkts" "$VALUE";
+    [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "$VALUE" || add_pd "rule_${LABEL}_drops" "0";
 done <<EOF
 $INLINE_CTRS
 EOF
 
 # Set performance data
-PERF_DATA="rules_total=$TOTAL_RULES $TABLE_PERF blacklist_items=$BL_ITEMS"
+PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PERF_DATA"
 
 # Check some values
 [ -n "$CHAIN_EMPTY" ] && crit "No rules in chain(s): $CHAIN_EMPTY | $PERF_DATA"
