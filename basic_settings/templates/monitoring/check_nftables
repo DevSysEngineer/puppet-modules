@@ -65,69 +65,66 @@ RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
 [ -z "$RULESET" ] && crit "Ruleset empty"
 
 # Analyse tables & chains
-KEYVALS=$($PRINTF '%s\n' "$RULESET" | $AWK '
+KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
 BEGIN {
-    FS=" ";
-    SUBSEP=SUBSEP;
+    FS=" "; SUBSEP=SUBSEP;
     inside=0; tblkey=""; chainkey="";
 }
 {
-    if ($1=="table") {
-        fam=$2; tab=$3; tblkey=fam SUBSEP tab;
-        next
+    if ($1 == "table") {
+        fam=$2; tab=$3; tblkey=fam SUBSEP tab; next
     }
-    if ($1=="chain") {
-        inside=1; ch=$2; chainkey=tblkey SUBSEP ch;
-        chain_seen[chainkey]=1;
-        next
+    if ($1 == "chain") {
+        inside=1; ch=$2; chainkey=tblkey SUBSEP ch; chain_seen[chainkey]=1; next
     }
     if (inside && $0 ~ /^[[:space:]]*}/) { inside=0; next }
     if (inside) {
-        if ($0 ~ /^[[:space:]]*$/)     next
-        if ($0 ~ /^[[:space:]]*#/)     next
-        if ($1 ~ /^(type|policy|set|counter|flags|elements|size|timeout)$/) next
+        if ($0 ~ /^[[:space:]]*$/)          next   # lege regel
+        if ($0 ~ /^[[:space:]]*#/)          next   # commentaar
+        if ($1 == "type" || $1 == "policy") { chain_has_meta[chainkey]=1; next }
+        if ($1 ~ /^(set|counter|flags|elements|size|timeout)$/) next
         rules_in_chain[chainkey]++
     }
 }
 END {
+    total_rules=0; perf=""; empty_tables=""; empty_chains="";
+
+    # Chains controleren
     for (ck in chain_seen) {
-        split(ck,a,SUBSEP); tbl=a[1] SUBSEP a[2];
-        chaincnt = (ck in rules_in_chain) ? rules_in_chain[ck] : 0;
-        table_rules[tbl] += chaincnt;
-        if (!chaincnt) empty_chains = empty_chains " " a[1]"/"a[2]"/"a[3];
+        split(ck,a,SUBSEP); fam=a[1]; tab=a[2]; ch=a[3];
+        rc = (ck in rules_in_chain) ? rules_in_chain[ck] : 0;
+        if (!rc && !(ck in chain_has_meta))
+            empty_chains = empty_chains " " fam"/"tab"/"ch;
+        table_key=fam SUBSEP tab; table_rules[table_key]+=rc;
     }
-    total=0; perf=""; empty_tables="";
+
+    # Tabellen controleren
     for (t in table_rules) {
-        rc=table_rules[t];
-        split(t,b,SUBSEP); fam=b[1]; tab=b[2];
+        split(t,b,SUBSEP); fam=b[1]; tab=b[2]; rc=table_rules[t];
         perf = perf "table_"fam"_"tab"=" rc " ";
         if (!rc) empty_tables = empty_tables " " fam"/"tab;
-        total += rc
-        tblcount++
+        total_rules+=rc; tblcount++;
     }
-    printf "rules_total=%d\n", total
-    printf "table_count=%d\n", tblcount
-    printf "table_perf=%s\n",  perf
-    printf "table_empty=%s\n", empty_tables
-    printf "chain_empty=%s\n", empty_chains
+
+    printf "rules_total=%d\n", total_rules;
+    printf "table_count=%d\n", tblcount;
+    printf "table_perf=%s\n",  perf;
+    printf "table_empty=%s\n", empty_tables;
+    printf "chain_empty=%s\n", empty_chains;
 }')
 
+# Parse keyvals
 while IFS='=' read -r K V; do
-  case $K in
-     rules_total) TOTAL_RULES=$V ;;
-     table_count) TABLE_COUNT=$V ;;
-     table_perf)  TABLE_PERF=$V  ;;
-     table_empty) TABLE_EMPTY=$V ;;
-     chain_empty) CHAIN_EMPTY=$V ;;
-  esac
+    case "$K" in
+        rules_total) TOTAL_RULES=$V ;;
+        table_count) TABLE_COUNT=$V ;;
+        table_perf)  TABLE_PERF=$V  ;;
+        table_empty) TABLE_EMPTY=$V ;;
+        chain_empty) CHAIN_EMPTY=$V ;;
+    esac
 done <<EOF
 $KEYVALS
 EOF
-
-# Do some checks
-[ -n "$CHAIN_EMPTY" ] && crit "No rules in chain(s): $CHAIN_EMPTY | rules_total=$TOTAL_RULES $TABLE_PERF"
-[ -n "$TABLE_EMPTY" ] && crit "No rules in table(s): $TABLE_EMPTY | rules_total=$TOTAL_RULES $TABLE_PERF"
-[ -n "$TABLE_EMPTY" ] && crit "No rules in tables | rules_total=$TOTAL_RULES $TABLE_PERF"
 
 # Get dynamic sets
 DYNSETS=$(printf '%s\n' "$RULESET" | $AWK '
@@ -166,9 +163,6 @@ $DYNSETS
 EOF
 
 echo 'TEST2'
-
-# Set performance data
-PERF_DATA="$TABLE_PERF"
 
 # Try to get named counters
 NAMED_CTRS=$(
@@ -215,6 +209,13 @@ done <<EOF
 $INLINE_CTRS
 EOF
 
+# Set performance data
+PERF_DATA="rules_total=$TOTAL_RULES $TABLE_PERF blacklist_items=$BL_ITEMS"
+
+# Check some values
+[ -n "$CHAIN_EMPTY" ] && crit "No rules in chain(s): $CHAIN_EMPTY | $PERF_DATA"
+[ -n "$TABLE_EMPTY" ] && crit "No rules in table(s): $TABLE_EMPTY | $PERF_DATA"
+
 # Show output
-echo "OK - $TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | rules_total=$TOTAL_RULES $PERF_DATA""blacklist_items=$BL_ITEMS"
+echo "OK - $TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | $PERF_DATA"
 exit 0
