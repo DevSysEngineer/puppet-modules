@@ -64,23 +64,18 @@ $LSMOD | $AWK '/\bnf_tables\b/' >/dev/null 2>&1 || crit "nf_tables kernel module
 RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
 [ -z "$RULESET" ] && crit "Ruleset empty"
 
-# Analyse tables & chains
+# Analyze ruleset
 KEYVALS=$(printf '%s\n' "$RULESET" | $AWK '
 BEGIN {
-    FS=" "; SUBSEP=SUBSEP;
-    inside=0; tblkey=""; chainkey="";
+    FS=" "; SUBSEP=SUBSEP; inside=0; tblkey=""; chainkey="";
 }
 {
-    if ($1 == "table") {
-        fam=$2; tab=$3; tblkey=fam SUBSEP tab; next
-    }
-    if ($1 == "chain") {
-        inside=1; ch=$2; chainkey=tblkey SUBSEP ch; chain_seen[chainkey]=1; next
-    }
+    if ($1 == "table") { fam=$2; tab=$3; tblkey=fam SUBSEP tab; next }
+    if ($1 == "chain") { inside=1; ch=$2; chainkey=tblkey SUBSEP ch; chain_seen[chainkey]=1; next }
     if (inside && $0 ~ /^[[:space:]]*}/) { inside=0; next }
     if (inside) {
-        if ($0 ~ /^[[:space:]]*$/)          next   # lege regel
-        if ($0 ~ /^[[:space:]]*#/)          next   # commentaar
+        if ($0 ~ /^[[:space:]]*$/) next
+        if ($0 ~ /^[[:space:]]*#/) next
         if ($1 == "type" || $1 == "policy") { chain_has_meta[chainkey]=1; next }
         if ($1 ~ /^(set|counter|flags|elements|size|timeout)$/) next
         rules_in_chain[chainkey]++
@@ -88,29 +83,23 @@ BEGIN {
 }
 END {
     total_rules=0; perf=""; empty_tables=""; empty_chains="";
-
-    # Chains controleren
     for (ck in chain_seen) {
         split(ck,a,SUBSEP); fam=a[1]; tab=a[2]; ch=a[3];
         rc = (ck in rules_in_chain) ? rules_in_chain[ck] : 0;
-        if (!rc && !(ck in chain_has_meta))
-            empty_chains = empty_chains " " fam"/"tab"/"ch;
+        if (!rc && !(ck in chain_has_meta)) empty_chains = empty_chains " " fam"/"tab"/"ch;
         table_key=fam SUBSEP tab; table_rules[table_key]+=rc;
     }
-
-    # Tabellen controleren
     for (t in table_rules) {
         split(t,b,SUBSEP); fam=b[1]; tab=b[2]; rc=table_rules[t];
         perf = perf "table_"fam"_"tab"=" rc " ";
         if (!rc) empty_tables = empty_tables " " fam"/"tab;
         total_rules+=rc; tblcount++;
     }
-
     printf "rules_total=%d\n", total_rules;
     printf "table_count=%d\n", tblcount;
     printf "table_perf=%s\n",  perf;
     printf "table_empty=%s\n", empty_tables;
-    printf "chain_empty=%s\n", empty_chains;
+    printf "chain_empty=%s\n",  empty_chains;
 }')
 
 # Parse keyvals
@@ -164,41 +153,32 @@ EOF
 
 echo 'TEST2'
 
-# Try to get named counters
-NAMED_CTRS=$(
-    printf '%s\n' "$RULESET" | $AWK -v RS='}' '
-    /^[[:space:]]*counter[[:space:]]+[[:alnum:]_]+/{
-        for (i = 1; i <= NF; i++)
-            if ($i == "packets" && (i+1) <= NF) {
-                print $2, $(i+1); break
-            }
-    }'
-)
-
-# Read data
+# Get named counters
+NAMED_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK -v RS='}' '/^[[:space:]]*counter[[:space:]]+[[:alnum:]_]+[[:space:]]+packets[[:space:]]+[0-9]+/ { for (i = 1; i <= NF; i++) if ($i == "packets" && (i+1) <= NF) { print $2, $(i+1); break } }')
 while read -r N P; do
-    add_pd "$N" "$P"
+    add_pd "ctr_${N}_pkts" "$P"
+    add_pd "ctr_${N}_drops" "0"
 done <<EOF
 $NAMED_CTRS
 EOF
 
-echo "TEST 3"
-
-# Try to get inline counters
-INLINE_CTRS=$(printf '%s\n' "$RULESET" | $AWK '
-BEGIN { seq = 0 }
+# Get inline counters
+INLINE_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK '
+BEGIN { seq=0 }
 {
-    if (match($0, /counter[[:space:]]+packets[[:space:]]+([0-9]+)/, pkt)) {
-        val = pkt[1]
-        lbl = ""
-        if (match($0, /comment[[:space:]]+\"([^\"]+)\"/, cmt)) { lbl = cmt[1] } else { seq++; lbl = "rule_" seq }
-        gsub(/[^A-Za-z0-9_]+/, "_", lbl)
-        print lbl, val
+    if ($0 ~ /counter[[:space:]]+packets[[:space:]]+[0-9]+/) {
+        val="0"; n=split($0,f,/[[:space:]]+/); for(i=1;i<=n;i++) if(f[i]=="counter" && i+2<=n && f[i+1]=="packets") { val=f[i+2]; break }
+        lbl=""; if(match($0,/comment[[:space:]]+\"[^\"]+\"/)){ c=substr($0,RSTART,RLENGTH); sub(/^comment[[:space:]]+\"/,"",c); sub(/\"$/,"",c); lbl=c } else { seq++; lbl="rule_"seq }
+        gsub(/[^A-Za-z0-9_]+/,"_",lbl)
+        isdrop=(index($0," drop")>0)?1:0
+        print lbl,val,isdrop
     }
 }')
 
-while read -r LABEL VALUE; do
-    add_pd "$LABEL" "$VALUE"
+# Parse inline counters
+while read -r LABEL VALUE ISDROP; do
+    add_pd "rule_${LABEL}_pkts" "$VALUE"
+    if [ "$ISDROP" -eq 1 ]; then add_pd "rule_${LABEL}_drops" "$VALUE"; else add_pd "rule_${LABEL}_drops" "0"; fi
 done <<EOF
 $INLINE_CTRS
 EOF
