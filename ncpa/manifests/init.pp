@@ -130,11 +130,10 @@ class ncpa (
 
   # Create log directory
   file { $log_path:
-    ensure  => directory,
-    mode    => '0700',
-    recurse => true,
-    owner   => 'nagios',
-    group   => 'nagios',
+    ensure => directory,
+    mode   => '0700',
+    owner  => 'nagios',
+    group  => 'nagios',
   }
 
   # Create settings file
