@@ -185,6 +185,14 @@ class basic_settings::kernel (
   }
 
   # Install system package
+  if (!defined(Package['findutils'])) {
+    package { 'findutils':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Install system package
   if (!defined(Package['grep'])) {
     package { 'grep':
       ensure          => installed,

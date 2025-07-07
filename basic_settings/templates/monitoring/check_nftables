@@ -29,6 +29,9 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMCTL" ] || die "systemctl not available"
 
 <% end -%>
+# Locate tr
+TR=$(command -v tr 2>/dev/null)
+[ -n "$TR" ] || die "tr not available"
 
 # Set some default values
 BL_ITEMS=0
@@ -47,7 +50,7 @@ crit() {
 }
 
 add_pd() {
-    LABEL_FORMAT=$($PRINTF '%s' "$1" | tr -c 'A-Za-z0-9_' '_')
+    LABEL_FORMAT=$($PRINTF '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
     PERF_DATA="${PERF_DATA}${LABEL_FORMAT}=${2:-0}c "
 }
 
@@ -116,7 +119,7 @@ $KEYVALS
 EOF
 
 # Get dynamic sets
-DYNSETS=$(printf '%s\n' "$RULESET" | $AWK '
+DYNSETS=$($PRINTF '%s\n' "$RULESET" | $AWK '
 BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
 {
     if ($1=="table") { fam=$2; tab=$3 }
@@ -130,34 +133,44 @@ BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
     }
 }')
 
-echo "TEST3"
-
 # Read data
 BL_ITEMS=0
 while read -r FAM TAB SET; do
     [ -z "$FAM" ] && continue
-    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null |
-          $AWK -v RS='' '
-          /elements[ \t]*=/{
-              gsub(/[{},]/," "); n=split($0,a)
-              c=0
-              for(i=1;i<=n;i++){
-                  gsub(/^[ \t]+|[ \t]+$/,"",a[i])
-                  if (a[i]~/^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || index(a[i],":"))
-                      c++
-              }
-              print c
-          }')
+    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS='' '
+    /elements[ \t]*=/{
+        gsub(/[{},]/," "); n=split($0,a)
+        c=0
+        for(i=1;i<=n;i++){
+            gsub(/^[ \t]+|[ \t]+$/,"",a[i])
+            if (a[i]~/^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || index(a[i],":"))
+                c++
+        }
+        print c
+    }')
     BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
 done <<EOF
 $DYNSETS
 EOF
 
-echo "TEST6"
-
 # Get named counters
-NAMED_CTRS=$(printf '%s\n' "$RULESET"|$AWK -v RS='}' '
-/^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]+packets/{ if($2!="packets"){for(i=1;i<=NF;i++)if($i=="packets"&&(i+1)<=NF){print $2,$(i+1);break}} }')
+NAMED_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK '
+BEGIN {
+    RS = "}"           # elk block sluit met }
+    FS = "[[:space:]]+" # velden splitsen op witruimte
+}
+/^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]+packets/ {
+    if ($2 == "packets") next
+    for (i = 1; i <= NF; i++) {
+        if ($i == "packets" && (i + 1) <= NF) {
+            pkt_val = $(i + 1)
+            print $2, pkt_val
+            break
+        }
+    }
+}')
+
+# Process named counters
 while read -r N P;do
     [ -z "$N" ] && continue;
     add_pd "ctr_${N}_pkts" "$P";
@@ -165,20 +178,37 @@ done <<EOF
 $NAMED_CTRS
 EOF
 
-echo "TEST7"
-
 # Inline counters 
-INLINE_CTRS=$(printf '%s\n' "$RULESET"|$AWK '
-BEGIN{seq=0}
+INLINE_CTRS=$($PRINTF '%s\n' "$RULESET" | $AWK '
+BEGIN { seq = 0 }
 {
-  if($0~/counter[[:space:]]+packets[[:space:]]+[0-9]+/){
-    n=split($0,f,/[[:space:]]+/);val="0";for(i=1;i<=n;i++)if(f[i]=="counter"&&i+2<=n&&f[i+1]=="packets"){val=f[i+2];break}
-    lbl="";if(match($0,/comment[[:space:]]+\"[^\"]+\"/)){c=substr($0,RSTART,RLENGTH);sub(/^comment[[:space:]]+\"/,"",c);sub(/\"$/,"",c);lbl=c}else{seq++;lbl="anon_"seq}
-    gsub(/[^A-Za-z0-9_]+/,"_",lbl);isdrop=(index($0," drop")>0)?1:0;print lbl,val,isdrop
-  }
+    if ($0 ~ /counter[[:space:]]+packets[[:space:]]+[0-9]+/) {
+        n = split($0, f, /[[:space:]]+/)
+        val = 0
+        for (i = 1; i <= n; i++)
+            if (f[i] == "counter" && i + 2 <= n && f[i + 1] == "packets") {
+                val = f[i + 2]; break
+            }
+
+        lbl = ""
+        if (match($0, /comment[[:space:]]+"[^"]+"/)) {
+            c = substr($0, RSTART, RLENGTH)
+            sub(/^comment[[:space:]]+"/, "", c)
+            sub(/"$/, "", c)
+            lbl = c
+        } else {
+            seq++; lbl = "anon_" seq
+        }
+
+        gsub(/[^A-Za-z0-9_]+/, "_", lbl)
+        lbl = tolower(lbl)                    # <── nieuwe regel
+        isdrop = (index($0, " drop") > 0) ? 1 : 0
+        print lbl, val, isdrop
+    }
 }')
+
+# Process inline counters
 while read -r LABEL VALUE ISDROP;do
-    echo $VALUE
     add_pd "rule_${LABEL}_pkts" "$VALUE"
     [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "$VALUE"
 done <<EOF

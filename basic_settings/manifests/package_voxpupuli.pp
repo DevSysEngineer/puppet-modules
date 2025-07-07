@@ -39,8 +39,8 @@ class basic_settings::package_voxpupuli (
       require => Package['apt'],
     }
 
-    # Remove nginx key
-    file { 'package_nginx_key':
+    # Remove voxpupuli key
+    file { 'package_voxpupuli_key':
       ensure => absent,
       path   => $key,
     }

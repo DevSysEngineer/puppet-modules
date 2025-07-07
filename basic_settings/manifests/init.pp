@@ -34,10 +34,11 @@ class basic_settings (
   Boolean                               $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
+  Boolean                               $naemon_enable                              = false,
+  Boolean                               $nagios_enable                              = false,
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
   Integer                               $nodejs_version                             = 20,
-  Boolean                               $nagios_enable                              = false,
   Boolean                               $non_free                                   = false,
   Boolean                               $openjdk_enable                             = false,
   String                                $openjdk_version                            = 'default',
@@ -112,6 +113,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $naemon_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'noble'
@@ -138,6 +140,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $naemon_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'lunar'
@@ -164,6 +167,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $naemon_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'jammy'
@@ -184,6 +188,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
+        $naemon_allow = false
         $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
@@ -219,6 +224,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
+        $naemon_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'bookworm'
@@ -240,6 +246,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
+        $naemon_allow = false
         $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
@@ -263,6 +270,7 @@ class basic_settings (
       $mysql_allow = false
       $nginx_allow = false
       $nodejs_allow = false
+      $naemon_allow = false
       $nagios_allow = false
       $openjdk_allow = false
       $os_name = 'unknown'
@@ -308,7 +316,7 @@ class basic_settings (
   }
 
   # Basic system packages; This packages needed to be installed first
-  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'curl', 'dpkg', 'grep', 'gnupg', 'lsb-release', 'kmod', 'sed', 'util-linux']:
+  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'curl', 'dpkg', 'findutils', 'grep', 'gnupg', 'lsb-release', 'kmod', 'sed', 'util-linux']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -519,6 +527,23 @@ class basic_settings (
     }
   } else {
     class { 'basic_settings::package_gitlab':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  }
+
+  # Check if variable naemon is true; if true, install new source list and key
+  if ($naemon_enable and $naemon_allow) {
+    class { 'basic_settings::package_naemon':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_naemon':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
