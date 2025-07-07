@@ -540,14 +540,14 @@ class basic_settings (
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
-      os_name     => $os_name,
+      os_version  => $facts['os']['release']['major'],
     }
   } else {
     class { 'basic_settings::package_naemon':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
-      os_name     => $os_name,
+      os_version  => $facts['os']['release']['major'],
     }
   }
 
