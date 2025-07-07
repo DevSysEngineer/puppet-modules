@@ -1,4 +1,4 @@
-class ncpa::mirth_conect (
+class ncpa::mirth_connect (
   Enum['present','absent']  $ensure     = present,
   Optional[String]          $package    = undef
 ) {
