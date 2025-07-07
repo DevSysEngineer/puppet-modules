@@ -47,6 +47,16 @@ CUT=$(command -v cut 2>/dev/null)
 RM=$(command -v cut 2>/dev/null)
 [ -n "$RM" ] || die "cut not available"
 
+<% if @systemd_enable -%>
+# Locate systemctl
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+<% else -%>
+# Locate ps
+PS=$(command -v ps 2>/dev/null)
+[ -n "$PS" ] || die "ps not available"
+<% end -%>
+
 crit() {
     printf 'CRITICAL - %s\n' "$*" >&2
     exit 2
@@ -71,8 +81,13 @@ while getopts 'c:t:w:' opt; do
     esac
 done
 
-# Ensure Mirth Connect service is running
-$SYSTEMCTL is-active --quiet "$SERVICE" || crit "Mirth Connect service '$SERVICE' is not active"
+<% if @systemd_enable -%>
+# Check if Mirth Connect is running
+$SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "Mirth Connect service is not active"
+<% else -%>
+# Check if Mirth Connect is running
+$PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
+<% end -%>
 
 # Temporary workspace
 WORK_DIR=$($MKTEMP -d "$TMPDIR/mirthcheck.XXXXXX") || die "mktemp failed"

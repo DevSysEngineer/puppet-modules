@@ -63,7 +63,7 @@ done
 $SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "SSH service is not active"
 <% else -%>
 # Check if sshd process is running
-ps -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
+$PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
 <% end -%>
 
 # Count active SSH sessions (lines containing pts/) 
