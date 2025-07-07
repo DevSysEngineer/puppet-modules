@@ -8,6 +8,7 @@ class ncpa (
 ) {
   # Set variables
   $log_path = '/var/log/ncpa'
+  $systemd_enable = defined(Package['systemd'])
 
   # Try to get server fdqn
   if ($server_fdqn == undef) {
@@ -38,7 +39,7 @@ class ncpa (
 
   # Check if monitoring package is not configured
   if ($monitoring_package == 'none') {
-    if (defined(Package['systemd'])) {
+    if ($systemd_enable) {
       # Disable service
       service { 'ncpa':
         ensure  => undef,
