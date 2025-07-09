@@ -163,7 +163,8 @@ class ssh (
   # Create service check
   if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_custom { 'ssh':
-      content => template('ssh/check_ssh'),
+      content  => template('ssh/check_ssh'),
+      friendly => 'SSH',
     }
   }
 

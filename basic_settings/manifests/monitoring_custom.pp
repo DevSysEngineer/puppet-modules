@@ -8,7 +8,7 @@ define basic_settings::monitoring_custom (
 ) {
   # Get friendly name
   if ($friendly == undef) {
-    $friendly_correct = $name
+    $friendly_correct = capitalize($name)
   } else {
     $friendly_correct = $friendly
   }
@@ -54,7 +54,7 @@ define basic_settings::monitoring_custom (
         owner   => 'root',
         group   => $gid,
         mode    => '0600',
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/${script_name}\n",
+        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} = plugins/${script_name}\n",
       }
 
       # Create plugin settings

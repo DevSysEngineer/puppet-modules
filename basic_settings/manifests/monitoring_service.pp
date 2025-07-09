@@ -6,7 +6,7 @@ define basic_settings::monitoring_service (
 ) {
   # Get friendly name
   if ($friendly == undef) {
-    $friendly_correct = $name
+    $friendly_correct = capitalize($name)
   } else {
     $friendly_correct = $friendly
   }
