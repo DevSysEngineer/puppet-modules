@@ -15,13 +15,15 @@
     delaycompress
 <% end -%>
 <% end -%>
-<% if ! @create_user.nil? -%>
+<% if @rotate_copy -%>
+    copytruncate
+<% elsif ! @create_user.nil? -%>
     create <%= @create_mode %> <%= @create_user %> <%= @create_group %>
+<% end -%>
+<% if ! @rotate_post.nil? -%>
 <% if @shared_scripts -%>
     sharedscripts
 <% end -%>
-<% end -%>
-<% if ! @rotate_post.nil? -%>
     postrotate
         <%= @rotate_post %>
     endscript

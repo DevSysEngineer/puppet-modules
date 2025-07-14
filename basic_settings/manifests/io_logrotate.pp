@@ -8,6 +8,7 @@ define basic_settings::io_logrotate (
   Optional[String]                    $create_user    = undef,
   Enum['present','absent']            $ensure         = present,
   Optional[Integer]                   $rotate         = undef,
+  Boolean                             $rotate_copy    = false,
   Optional[String]                    $rotate_post    = undef,
   Boolean                             $skip_empty     = true,
   Boolean                             $skip_missing   = true,
