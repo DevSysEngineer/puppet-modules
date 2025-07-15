@@ -90,12 +90,13 @@ define basic_settings::monitoring_custom (
 
     # Create sudo
     if ($root_required) {
+      $sudo_cmnd = upcase("monitoring_plugin_${name}")
       file { "/etc/sudoers.d/monitoring_plugin_${name}":
         ensure  => $file_ensure,
         owner   => 'root',
         group   => 'root',
         mode    => '0440',
-        content => "# Managed by puppet\nCmnd_Alias monitoring_plugin_${name} = ${script_path} * \nDefaults!monitoring_plugin_${name} !mail_always \nnagios ALL=(root) NOPASSWD: monitoring_plugin_${name}\n",
+        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always \nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
         require => Package['sudo'],
       }
     }

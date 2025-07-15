@@ -80,12 +80,13 @@ define basic_settings::monitoring_timer (
     }
 
     # Create sudo
+    $sudo_cmnd = upcase("monitoring_timer_${name}")
     file { "/etc/sudoers.d/monitoring_timer_${name}":
       ensure  => $file_ensure,
       owner   => 'root',
       group   => $gid,
       mode    => '0440',
-      content => "# Managed by puppet\nCmnd_Alias monitoring_timer_${name} = ${script_path} * \nDefaults!monitoring_timer_${name} !mail_always \nnagios ALL=(root) NOPASSWD: monitoring_timer_${name}\n",
+      content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always \nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
       require => Package['sudo'],
     }
   }
