@@ -80,7 +80,7 @@ define basic_settings::monitoring_timer (
     }
 
     # Create sudo
-    $sudo_cmnd = upcase("monitoring_timer_${name}")
+    $sudo_cmnd = regsubst("monitoring_timer_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
     file { "/etc/sudoers.d/monitoring_timer_${name}":
       ensure  => $file_ensure,
       owner   => 'root',

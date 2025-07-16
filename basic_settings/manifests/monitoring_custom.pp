@@ -90,7 +90,7 @@ define basic_settings::monitoring_custom (
 
     # Create sudo
     if ($root_required) {
-      $sudo_cmnd = upcase("monitoring_plugin_${name}")
+      $sudo_cmnd = regsubst("monitoring_plugin_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
       file { "/etc/sudoers.d/monitoring_plugin_${name}":
         ensure  => $file_ensure,
         owner   => 'root',
