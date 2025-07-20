@@ -5,12 +5,12 @@ define naemon::host (
   Hash                      $checks     = {},
 ) {
   # Create host file
-  file { "/usr/local/nagios/etc/servers/${name}.cfg":
+  file { "/etc/naemon/conf.d/host_${name}.cfg":
     ensure  => $ensure,
-    owner   => 'nagios',
-    group   => 'nagios',
+    owner   => 'naemon',
+    group   => 'naemon',
     mode    => '0600',
     content => template('naemon/host.cfg'),
-    require => File['/usr/local/nagios/etc/servers'],
+    require => File['/etc/naemon/conf.d'],
   }
 }

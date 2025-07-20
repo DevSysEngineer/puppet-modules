@@ -18,10 +18,10 @@ class basic_settings::package_naemon (
     # Get variables
     case $os_parent {
       'ubuntu': {
-        $url = "http://download.opensuse.org/repositories/home:/naemon/xUbuntu_${os_version}"
+        $url = "https://download.opensuse.org/repositories/home:/naemon/xUbuntu_${os_version}"
       }
       default: {
-        $url = "http://download.opensuse.org/repositories/home:/naemon/Debian_${os_version}"
+        $url = "https://download.opensuse.org/repositories/home:/naemon/Debian_${os_version}"
       }
     }
 
@@ -34,7 +34,7 @@ class basic_settings::package_naemon (
 
     # Install naemon repo
     exec { 'package_naemon_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSLo ${key} https://build.opensuse.org/projects/home:naemon/signing_keys/download?kind=gpg; chmod 644 ${key}; /usr/bin/apt-get update",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://build.opensuse.org/projects/home:naemon/signing_keys/download?kind=gpg | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
       unless  => "[ -e ${file} ]",
       require => Package['apt', 'apt-transport-https', 'curl'],
     }

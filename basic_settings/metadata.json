@@ -9,6 +9,10 @@
     "issues_url": "https://github.com/DevSysEngineer/puppet-modules/issues",
     "dependencies": [
         {
+            "name": "puppetlabs-concat",
+            "version_requirement": ">= 9.0.0 < 10.0.0"
+        },
+        {
             "name": "saz-timezone",
             "version_requirement": ">= 6.0.0 < 7.0.0"
         }

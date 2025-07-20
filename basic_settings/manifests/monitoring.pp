@@ -12,6 +12,16 @@ class basic_settings::monitoring (
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
+  # Do thing based on mail package
+  case $mail_package {
+    'postfix': {
+      exec { 'monitoring_newaliases':
+        command => '/usr/bin/newaliases',
+        creates => '/etc/aliases.db',
+      }
+    }
+  }
+
   # Enable mail service
   service { $mail_package:
     ensure  => true,

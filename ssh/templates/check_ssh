@@ -7,7 +7,7 @@ die() {
     exit 3
 }
 
-# Locate date
+# Locate awk
 AWK=$(command -v awk 2>/dev/null)
 [ -n "$AWK" ] || die "awk not available"
 

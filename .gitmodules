@@ -10,3 +10,6 @@
 [submodule "debconf"]
 	path = debconf
 	url = https://github.com/smoeding/puppet-debconf.git
+[submodule "concat"]
+	path = concat
+	url = https://github.com/puppetlabs/puppetlabs-concat.git
