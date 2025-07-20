@@ -1,9 +1,6 @@
 #!/bin/sh
 # Managed by Puppet
 
-# Exit silently when invoked by cron
-[ "$PAM_SERVICE" = "cron" ] || [ "$PAM_SERVICE" = "crond" ] && exit 0
-
 die() {
     echo "$*" >&2
     exit 3
@@ -25,9 +22,17 @@ HEAD=$(command -v head 2>/dev/null)
 LAST=$(command -v last 2>/dev/null)
 [ -n "$LAST" ] || die "last not available"
 
-# Locate last
+# Locate mail
 MAIL=$(command -v mail 2>/dev/null)
 [ -n "$MAIL" ] || die "mail not available"
+
+# Locate ps
+PS=$(command -v ps 2>/dev/null)
+[ -n "$PS" ] || die "ps not available"
+
+# Try to get service
+SERVICE=$($PS -o comm= -p "$PPID" 2>/dev/null | $AWK '{gsub(/[[:space:]]+/,""); print}')
+[ -z "$SERVICE" ] && SERVICE="unknown"
 
 # Determine originating user and target user
 if [ -n "$PAM_RUSER" ]; then # su / sudo
@@ -49,18 +54,17 @@ else
     [ -z "$IP" ] && IP="UNKNOWN"
 fi
 
-# Set some values
+# Get current time
 NOW="$($DATE)"
-SERVICE=${PAM_SERVICE:-unknown}
 
 # Interactive feedback
 if [ -n "$PS1" ]; then
     if [ "$TARGET_USER" = "root" ]; then
-        printf '\033[0;31mYou are logged in as root; this action has been logged and reported.\033[0m\n'
+        printf "\033[0;31mYou login as root, this action is registered and sent to the server administrator(s).\033[0m\n"
     elif [ "$TARGET_USER" = "$USER" ]; then
-        printf '\033[0;36mIP %s, time %s, user %s – recorded and reported (service %s).\033[0m\n' "$IP" "$NOW" "$USER" "$SERVICE"
+        printf "\033[0;36mYour IP (%s), login time (%s) and username (%s) have been registered and sent to the server administrator(s) (service %s).\033[0m\n" "$IP" "$NOW" "$USER" "$SERVICE"
     else
-        printf '\033[0;36mYou are logged in as %s; this action has been recorded and reported (service %s).\033[0m\n' "$TARGET_USER" "$SERVICE"
+        printf '\033[0;36mYou are logged in as %s; this action is registered and sent to the server administrator(s) (service %s).\033[0m\n' "$TARGET_USER" "$SERVICE"
     fi
 fi
 
