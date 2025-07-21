@@ -1,17 +1,18 @@
 class nginx (
-  Array     $events_directives          = [],
-  Array     $global_directives          = [],
-  Array     $http_directives            = [],
-  Boolean   $ssl_prefer_server_ciphers  = true,
-  Integer   $keepalive_requests         = 1000,
-  Integer   $limit_file                 = 10000,
-  Integer   $nice_level                 = 10,
-  Integer   $types_hash_max_size        = 2048,
-  String    $keepalive_timeout          = '75s',
-  String    $run_group                  = 'www-data',
-  String    $run_user                   = 'www-data',
-  String    $ssl_protocols              = 'TLSv1.2 TLSv1.3',
-  String    $target                     = 'services'
+  Array                       $events_directives          = [],
+  Array                       $global_directives          = [],
+  Array                       $http_directives            = [],
+  Boolean                     $ssl_prefer_server_ciphers  = true,
+  Integer                     $keepalive_requests         = 1000,
+  Integer                     $limit_file                 = 10000,
+  Integer                     $nice_level                 = 10,
+  Integer                     $types_hash_max_size        = 2048,
+  String                      $keepalive_timeout          = '75s',
+  Enum['nginx','nginx-full']  $package                    = 'nginx',
+  String                      $run_group                  = 'www-data',
+  String                      $run_user                   = 'www-data',
+  String                      $ssl_protocols              = 'TLSv1.2 TLSv1.3',
+  String                      $target                     = 'services'
 ) {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
@@ -22,10 +23,35 @@ class nginx (
   }
 
   # Install Nginx
-  package { 'nginx':
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => Package['apache2'],
+  case $package {
+    'nginx-full': {
+      # Remove unnecessary package
+      package { 'nginx':
+        ensure => purged,
+      }
+
+      # Install Nginx package
+      package { 'nginx-full':
+        ensure          => installed,
+        name            => $package,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['apache2', 'nginx'],
+      }
+    }
+    default: {
+      # Remove unnecessary package
+      package { 'nginx-full':
+        ensure => purged,
+      }
+
+      # Install Nginx package
+      package { 'nginx':
+        ensure          => installed,
+        name            => $package,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['apache2', 'nginx-full'],
+      }
+    }
   }
 
   # Check if letsencrypt class is defined
