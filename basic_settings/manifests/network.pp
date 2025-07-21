@@ -11,7 +11,7 @@ class basic_settings::network (
     '2001:4860:4860::8844',
   ],
   String                                      $firewall_path          = '/etc/firewall.conf',
-  Boolean                                     $firewall_remove        = true
+  Boolean                                     $firewall_remove        = true,
   Array                                       $install_options        = [],
   String                                      $interfaces             = 'eth* ens* wlan*',
   Boolean                                     $wireless_enable        = false,
