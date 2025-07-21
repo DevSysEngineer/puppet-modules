@@ -27,7 +27,7 @@ class basic_settings::package_openitcockpit (
 
     # Install openitcockpit repo
     exec { 'package_openitcockpit_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
       unless  => "[ -e ${file} ]",
       require => Package['apt', 'apt-transport-https', 'curl'],
     }
