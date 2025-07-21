@@ -6,6 +6,7 @@ class basic_settings (
   Boolean                               $docs_enable                                = false,
   String                                $environment                                = 'production',
   String                                $firewall_package                           = 'nftables',
+  Boolean                               $firewall_remove                            = true,
   Boolean                               $getty_enable                               = false,
   Boolean                               $gitlab_enable                              = false,
   Boolean                               $guest_agent_enable                         = false,
@@ -499,6 +500,7 @@ class basic_settings (
     dhcp_enable          => $ip_dhcp_enable,
     dns_dnssec           => $dns_dnssec,
     firewall_package     => $firewall_package,
+    firewall_remove      => $firewall_remove,
     install_options      => $backports_install_options,
     configurator_package => $ip_configurator_package,
     wireless_enable      => $wireless_enable,
@@ -635,7 +637,7 @@ class basic_settings (
     }
   }
 
-  # Check if variable naemon is true; if true, install new source list and key
+  # Check if variable openitcockpit is true; if true, install new source list and key
   if ($openitcockpit_enable and $openitcockpit_allow) {
     class { 'basic_settings::package_openitcockpit':
       deb_version => $deb_version,
