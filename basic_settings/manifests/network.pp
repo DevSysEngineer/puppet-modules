@@ -11,6 +11,7 @@ class basic_settings::network (
     '2001:4860:4860::8844',
   ],
   String                                      $firewall_path          = '/etc/firewall.conf',
+  Boolean                                     $firewall_remove        = true
   Array                                       $install_options        = [],
   String                                      $interfaces             = 'eth* ens* wlan*',
   Boolean                                     $wireless_enable        = false,
@@ -58,16 +59,18 @@ class basic_settings::network (
   case $firewall_package { #lint:ignore:case_without_default
     'nftables': {
       $firewall_command = ''
-      package { ['iptables', 'firewalld']:
-        ensure => purged,
-      }
+      if ($firewall_remove) {
+        package { ['iptables', 'firewalld']:
+          ensure => purged,
+        }
 
-      # Remove unnecessary files
-      file { '/etc/firewalld':
-        ensure  => absent,
-        recurse => true,
-        force   => true,
-        require => Package['firewalld'],
+        # Remove unnecessary files
+        file { '/etc/firewalld':
+          ensure  => absent,
+          recurse => true,
+          force   => true,
+          require => Package['firewalld'],
+        }
       }
 
       # Create list of packages that is suspicious
@@ -75,8 +78,10 @@ class basic_settings::network (
     }
     'iptables': {
       $firewall_command = "iptables-restore < ${firewall_path}"
-      package { ['nftables', 'firewalld']:
-        ensure => purged,
+      if ($firewall_remove) {
+        package { ['nftables', 'firewalld']:
+          ensure => purged,
+        }
       }
 
       # Create list of packages that is suspicious
@@ -86,8 +91,10 @@ class basic_settings::network (
       $firewall_command = ''
       case $antivirus_package {
         'eset': {
-          package { 'iptables':
-            ensure => purged,
+          if ($firewall_remove) {
+            package { 'iptables':
+              ensure => purged,
+            }
           }
           package { 'nftables':
             ensure          => installed,
@@ -98,8 +105,10 @@ class basic_settings::network (
           $suspicious_packages = flatten($default_packages, ['/usr/bin/firewall-cmd', '/usr/sbin/nft'])
         }
         default:  {
-          package { ['nftables', 'iptables']:
-            ensure => purged,
+          if ($firewall_remove) {
+            package { ['nftables', 'iptables']:
+              ensure => purged,
+            }
           }
 
           # Create list of packages that is suspicious
