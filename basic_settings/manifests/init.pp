@@ -34,7 +34,7 @@ class basic_settings (
   Boolean                               $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
-  Boolean                               $naemon_enable                              = false,
+  Boolean                               $openitcockpit_enable                       = false,
   Boolean                               $nagios_enable                              = false,
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
@@ -113,7 +113,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
-        $naemon_allow = true
+        $openitcockpit_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'noble'
@@ -140,7 +140,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
-        $naemon_allow = true
+        $openitcockpit_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'lunar'
@@ -167,7 +167,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
-        $naemon_allow = true
+        $openitcockpit_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'jammy'
@@ -188,7 +188,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
-        $naemon_allow = false
+        $openitcockpit_allow = false
         $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
@@ -224,7 +224,7 @@ class basic_settings (
         }
         $nginx_allow = true
         $nodejs_allow = true
-        $naemon_allow = true
+        $openitcockpit_allow = true
         $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'bookworm'
@@ -246,7 +246,7 @@ class basic_settings (
         $mysql_allow = false
         $nginx_allow = false
         $nodejs_allow = false
-        $naemon_allow = false
+        $openitcockpit_allow = false
         $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
@@ -270,7 +270,7 @@ class basic_settings (
       $mysql_allow = false
       $nginx_allow = false
       $nodejs_allow = false
-      $naemon_allow = false
+      $openitcockpit_allow = false
       $nagios_allow = false
       $openjdk_allow = false
       $os_name = 'unknown'
@@ -534,23 +534,6 @@ class basic_settings (
     }
   }
 
-  # Check if variable naemon is true; if true, install new source list and key
-  if ($naemon_enable and $naemon_allow) {
-    class { 'basic_settings::package_naemon':
-      deb_version => $deb_version,
-      enable      => true,
-      os_parent   => $os_parent,
-      os_version  => $facts['os']['release']['major'],
-    }
-  } else {
-    class { 'basic_settings::package_naemon':
-      deb_version => $deb_version,
-      enable      => false,
-      os_parent   => $os_parent,
-      os_version  => $facts['os']['release']['major'],
-    }
-  }
-
   # Special case when monitoring_package is none
   if ($monitoring_package == 'none') {
     if ($nagios_enable and $nagios_allow) {
@@ -649,6 +632,23 @@ class basic_settings (
   } else {
     class { 'basic_settings::package_node':
       enable  => false,
+    }
+  }
+
+  # Check if variable naemon is true; if true, install new source list and key
+  if ($openitcockpit_enable and $openitcockpit_allow) {
+    class { 'basic_settings::package_openitcockpit':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_openitcockpit':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
     }
   }
 

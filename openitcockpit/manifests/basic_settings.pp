@@ -1,10 +1,10 @@
-define naemon::basic_settings (
+define openitcockpit::basic_settings (
   Optional[String]          $address      = undef,
   Enum['present','absent']  $ensure       = present,
   Optional[String]          $friendly     = undef,
 ) {
   # Create host
-  naemon::host { $name:
+  openitcockpit::host { $name:
     ensure   => $ensure,
     address  => $address,
     friendly => $friendly,

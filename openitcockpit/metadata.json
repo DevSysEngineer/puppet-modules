@@ -1,10 +1,10 @@
 {
-    "name": "puppetmodules-naemon",
+    "name": "puppetmodules-openitcockpit",
     "version": "2.0.0",
     "author": "DevSysEngineer",
-    "summary": "Setup Naemon server",
+    "summary": "Setup openitcockpit server",
     "license": "Apache-2.0",
-    "source": "https://github.com/DevSysEngineer/puppet-modules/tree/main/naemon",
+    "source": "https://github.com/DevSysEngineer/puppet-modules/tree/main/openitcockpit",
     "project_page": "https://github.com/DevSysEngineer/puppet-modules",
     "issues_url": "https://github.com/DevSysEngineer/puppet-modules/issues",
     "dependencies": [],
@@ -33,6 +33,6 @@
     ],
     "tags": [
         "puppet-modules",
-        "naemon"
+        "openitcockpit"
     ]
 }

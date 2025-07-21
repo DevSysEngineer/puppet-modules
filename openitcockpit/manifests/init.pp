@@ -1,4 +1,4 @@
-class naemon (
+class openitcockpit (
   Optional[String] $webserver_uid  = undef,
   Optional[String] $webserver_gid  = undef
 ) {
@@ -16,15 +16,9 @@ class naemon (
     $webserver_gid_correct = $webserver_gid
   }
 
-  # Check if uid are defined
-  if ($webserver_uid_correct != undef and !defined(Basic_settings::Login_cron[$webserver_uid_correct])) {
-    basic_settings::login_cron { $webserver_uid_correct: }
-  }
-
   # Install package
-  package { 'naemon':
+  package { 'openitcockpit':
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => Basic_settings::Login_cron['naemon_cron'],
   }
 }
