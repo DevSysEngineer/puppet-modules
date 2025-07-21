@@ -29,7 +29,7 @@ class nginx (
       package { ['nginx', 'nginx-full']:
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['apache2', 'nginx'],
+        require         => Package['apache2'],
       }
     }
     default: {
@@ -41,7 +41,6 @@ class nginx (
       # Install Nginx package
       package { 'nginx':
         ensure          => installed,
-        name            => $package,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['apache2', 'nginx-full'],
       }
