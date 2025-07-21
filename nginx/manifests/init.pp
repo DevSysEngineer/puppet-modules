@@ -25,15 +25,9 @@ class nginx (
   # Install Nginx
   case $package {
     'nginx-full': {
-      # Remove unnecessary package
-      package { 'nginx':
-        ensure => purged,
-      }
-
       # Install Nginx package
-      package { 'nginx-full':
+      package { ['nginx', 'nginx-full']:
         ensure          => installed,
-        name            => $package,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['apache2', 'nginx'],
       }

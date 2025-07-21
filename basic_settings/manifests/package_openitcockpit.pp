@@ -20,9 +20,9 @@ class basic_settings::package_openitcockpit (
 
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: ${url}\nSuites: /\nSigned-By:${key}\n"
+      $source  = "Types: deb\nURIs: ${url}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=${key}] ${url} /\n"
+      $source = "deb [signed-by=${key}] ${url} ${os_name} main\n"
     }
 
     # Install openitcockpit repo
