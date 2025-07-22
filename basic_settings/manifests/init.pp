@@ -528,7 +528,7 @@ class basic_settings (
   }
 
   # Check if variable docket is true; if true, install new source list and key
-  if ($docker_enable and $docket_allow) {
+  if ($docker_enable and $docker_allow) {
     class { 'basic_settings::package_docker':
       deb_version => $deb_version,
       enable      => true,
