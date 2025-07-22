@@ -61,28 +61,22 @@ class openitcockpit (
       force   => true,
       require => File['openitcockpit_install_dir'],
     }
-
-    # Set requirements
-    if ($php_fpm_enable) {
-      $requirements = [File['/opt/openitc'], Class['php8::fpm']]
-    } else {
-      $requirements = File['/opt/openitc']
-    }
   } else {
-    # Set requirements
+    # Create directory
     $install_dir_correct = '/opt/openitc'
-    if ($php_fpm_enable) {
-      $requirements = Class['php8::fpm']
-    } else {
-      $requirements = undef
+    file { $install_dir_correct:
+      ensure => directory,
+      owner  => 'root',
+      group  => 'root',
+      mode   => '0755', # Important for internal scripts
     }
   }
 
-  # Install package
-  package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => $requirements,
+  # Set requirements
+  if ($php_fpm_enable) {
+    $requirements = [File['/opt/openitc'], Class['php8::fpm']]
+  } else {
+    $requirements = File['/opt/openitc']
   }
 
   # Create log directory
@@ -91,7 +85,7 @@ class openitcockpit (
     owner   => 'root',
     group   => 'root',
     mode    => '0755', # Important for internal scripts
-    require => Package['openitcockpit'],
+    require => $requirements,
   }
 
   # Create symlink
@@ -100,6 +94,13 @@ class openitcockpit (
     target  => $log_dir,
     force   => true,
     require => File[$log_dir],
+  }
+
+  # Install package
+  package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
+    ensure          => installed,
+    install_options => ['--no-install-recommends', '--no-install-suggests'],
+    require         => File['/opt/openitc/logs'],
   }
 
   # Set correct permissions
@@ -128,7 +129,7 @@ class openitcockpit (
     owner   => 'root',
     group   => $webserver_gid_correct,
     mode    => '0644',
-    require => File['/opt/openitc/etc/mod_gearman'],
+    require => File['/opt/openitc/etc/nagios'],
   }
 
   # Create statusengine config file
@@ -138,7 +139,7 @@ class openitcockpit (
     owner   => 'root',
     group   => $webserver_gid_correct,
     mode    => '0644',
-    require => ackage['openitcockpit'],
+    require => File['/opt/openitc/etc/statusengine'],
   }
 
   # Check if nginx is enabled
