@@ -320,7 +320,7 @@ class mysql (
       username => 'root',
     }
 
-    # Create debian cnf
+    # Create config cnf
     file { 'mysql_debian_cnf':
       path    => $defaults_file,
       content => template('mysql/debian.cnf'),
@@ -328,6 +328,17 @@ class mysql (
       group   => 'mysql',
       mode    => '0600', # Only readably for user mysql
       require => Mysql::User['root'],
+    }
+
+    # Create debian cnf
+    if ($package_name == 'mysql') {
+      file { 'mysql_debian_cnf_extra':
+        path    => '/etc/mysql/debian.cnf',
+        owner   => 'mysql',
+        group   => 'mysql',
+        mode    => '0600',
+        content => template('mysql/mysql.cnf'),
+      }
     }
 
     # Set mysql grant for user root
