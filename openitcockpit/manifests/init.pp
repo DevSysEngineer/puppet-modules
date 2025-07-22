@@ -163,21 +163,19 @@ class openitcockpit (
   }
 
   # Get SSL content
-  if (file_exists('/etc/nginx/openitc/ssl_cert.conf')) {
-    if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
-      $ssl_content = template('openitcockpit/nginx/ssl_cert.conf')
-    } else {
-      $ssl_content = ''
-    }
+  if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
+    $ssl_content = template('openitcockpit/nginx/ssl_cert.conf')
+  } else {
+    $ssl_content = ''
+  }
 
-    # Create SSL config file
-    file { '/etc/nginx/openitc/ssl_cert.conf':
-      ensure  => file,
-      content => $content,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0600',
-    }
+  # Create SSL config file
+  file { '/etc/nginx/openitc/ssl_cert.conf':
+    ensure  => file,
+    content => $content,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
   }
 
   # Check if php FPM is enabled
