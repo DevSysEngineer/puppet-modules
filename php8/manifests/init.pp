@@ -1,11 +1,13 @@
 class php8 (
   Boolean   $apcu               = false,
   Boolean   $bcmath             = false,
-  Boolean   $bzip2              = false,
+  Boolean   $bz2                = false,
   Boolean   $curl               = false,
   Boolean   $gd                 = false,
+  Boolean   $gearman            = false,
   Boolean   $gmp                = false,
   Boolean   $imagick            = false,
+  Boolean   $imap               = false,
   Boolean   $intl               = false,
   Boolean   $ldap               = false,
   Boolean   $mbstring           = false,
@@ -13,12 +15,15 @@ class php8 (
   Boolean   $msgpack            = false,
   Boolean   $mysql              = false,
   Boolean   $readline           = false,
+  Boolean   $redis              = false,
+  Boolean   $rrd                = false,
   Boolean   $soap               = false,
   Boolean   $sqlite3            = false,
   Boolean   $sybase             = false,
   Boolean   $uploadprogress     = false,
   Boolean   $xdebug             = false,
   Boolean   $xml                = false,
+  Boolean   $xmlrpc             = false,
   Boolean   $zip                = false,
   Integer   $minor_version      = 2,
   Boolean   $skip_default_files = false
@@ -41,7 +46,7 @@ class php8 (
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
   }
-  if ($bzip2) {
+  if ($bz2) {
     package { "php8.${minor_version}-bz2":
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
@@ -59,6 +64,12 @@ class php8 (
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
   }
+  if ($gearman) {
+    package { "php8.${minor_version}-gearman":
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
   if ($gmp) {
     package { "php8.${minor_version}-gmp":
       ensure          => installed,
@@ -67,6 +78,12 @@ class php8 (
   }
   if ($imagick) {
     package { "php8.${minor_version}-imagick":
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+  if ($imap) {
+    package { "php8.${minor_version}-imap":
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
@@ -113,6 +130,18 @@ class php8 (
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
   }
+  if ($redis) {
+    package { "php8.${minor_version}-redis":
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+  if ($rrd) {
+    package { "php8.${minor_version}-rrd":
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
   if ($soap) {
     package { "php8.${minor_version}-soap":
       ensure          => installed,
@@ -145,6 +174,12 @@ class php8 (
   }
   if ($xml) {
     package { "php8.${minor_version}-xml":
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+  if ($xmlrpc) {
+    package { "php8.${minor_version}-xmlrpc":
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
