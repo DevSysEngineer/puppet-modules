@@ -5,6 +5,7 @@ class openitcockpit (
 ) {
   # Try to get uid and gid
   $nginx_enable = defined(Class['nginx'])
+  $php_fpm_enable = defined(Class['php8::fpm'])
   if ($webserver_uid == undef or $webserver_gid == undef) {
     if ($nginx_enable) {
       $webserver_uid_correct = $nginx::run_user
@@ -57,11 +58,19 @@ class openitcockpit (
     }
 
     # Set requirements
-    $requirements = File['/opt/openitc']
+    if ($php_fpm_enable) {
+      $requirements = [File['/opt/openitc'], Class['php8::fpm']]
+    } else {
+      $requirements = File['/opt/openitc']
+    }
   } else {
     # Set requirements
     $install_dir_correct = '/opt/openitc'
-    $requirements = undef
+    if ($php_fpm_enable) {
+      $requirements = Class['php8::fpm']
+    } else {
+      $requirements = undef
+    }
   }
 
   # Setup openitcockpit
@@ -89,8 +98,8 @@ class openitcockpit (
     }
   }
 
-  # Check if php8::fpm is enabled
-  if (defined(Class['php8::fpm'])) {
+  # Check if php FPM is enabled
+  if ($php_fpm_enable) {
     php8::fpm_pool { 'oitc':
       listen => '/run/php/php-fpm-oitc.sock',
     }
