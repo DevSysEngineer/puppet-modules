@@ -172,7 +172,7 @@ class openitcockpit (
   # Create SSL config file
   file { '/etc/nginx/openitc/ssl_cert.conf':
     ensure  => file,
-    content => $content,
+    content => $ssl_content,
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
