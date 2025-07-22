@@ -89,12 +89,21 @@ class openitcockpit (
 
   # Check if nginx is enabled
   if ($nginx_enable) {
-    file { '/etc/nginx/sites-enabled/openitc':
+    $nginx_config = '/etc/nginx/sites-available/openitc'
+    file { $nginx_config:
       ensure  => file,
       replace => false,
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
+    }
+
+    # Create symlink
+    file { '/etc/nginx/conf.d/openitc':
+      ensure  => 'link',
+      target  => $nginx_config,
+      force   => true,
+      require => File[$nginx_config],
     }
   }
 
