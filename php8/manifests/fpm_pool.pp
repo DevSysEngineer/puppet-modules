@@ -18,7 +18,7 @@ define php8::fpm_pool (
   $skip_default_files = $php8::skip_default_files
 
   # Set listen path
-  if ($listen) {
+  if ($listen != undef) {
     $listen_path = $listen
   } elsif ($skip_default_files) {
     $listen_path = "/run/php/php8.${minor_version}-fpm.sock"

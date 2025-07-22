@@ -64,10 +64,17 @@ class openitcockpit (
     $requirements = undef
   }
 
+  # Setup openitcockpit
+  exec { 'openitcockpit_setup':
+    command     => '/opt/openitc/frontend/SETUP.sh',
+    refreshonly => true,
+  }
+
   # Install package
   package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
+    #notify          => Exec['openitcockpit_setup'],
     require         => $requirements,
   }
 
@@ -79,6 +86,13 @@ class openitcockpit (
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
+    }
+  }
+
+  # Check if php8::fpm is enabled
+  if (defined(Class['php8::fpm'])) {
+    php8::fpm_pool { 'oitc':
+      listen => '/run/php/php-fpm-oitc.sock',
     }
   }
 }
