@@ -18,6 +18,24 @@ class openitcockpit (
     $webserver_gid_correct = $webserver_gid
   }
 
+  # Check if sudo package is not defined
+  if (!defined(Package['sudo'])) {
+    package { 'sudo':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Create sudoers file
+  file { '/etc/sudoers.d/openitc_cake':
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0440',
+    content => "# Managed by puppet\nCmnd_Alias OPENITC_CAKE_CMD = /opt/openitc/frontend/bin/cake *\nDefaults!OPENITC_CAKE_CMD root_sudo\nroot ALL = (ALL) SETENV: OPENITC_CAKE_CMD\n",
+    require => Package['sudo'],
+  }
+
   # Check if installation dir is given
   if ($install_dir != undef) {
     # Create directory
@@ -47,7 +65,7 @@ class openitcockpit (
   }
 
   # Install package
-  package { 'openitcockpit':
+  package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => $requirements,
