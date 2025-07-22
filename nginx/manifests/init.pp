@@ -101,7 +101,6 @@ class nginx (
       target_unit   => 'nginx.service',
       unit          => $unit,
       service       => {
-        'ExecStartPre'   => "/usr/bin/chown -R ${run_user}:${run_group} /var/cache/nginx",
         'LimitNOFILE'    => $limit_file,
         'Nice'           => "-${nice_level}",
         'PIDFile'        => $pid,
@@ -131,6 +130,14 @@ class nginx (
   file { '/var/log/nginx':
     ensure  => directory,
     owner   => $run_user,
+    require => Package['nginx'],
+  }
+
+  # Create cache directory
+  file { '/var/cache/nginx':
+    ensure  => directory,
+    owner   => $run_user,
+    group   => $run_group,
     require => Package['nginx'],
   }
 
