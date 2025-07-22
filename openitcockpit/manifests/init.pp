@@ -1,18 +1,23 @@
 class openitcockpit (
   Optional[String] $install_dir    = undef,
+  Optional[String] $ssl_certificate        = undef,
+  Optional[String] $ssl_certificate_key    = undef,
   Optional[String] $webserver_uid  = undef,
-  Optional[String] $webserver_gid  = undef
+  Optional[String] $webserver_gid  = undef,
 ) {
-  # Try to get uid and gid
+  # Set some values
+  $log_dir = '/var/log/openitc'
   $nginx_enable = defined(Class['nginx'])
   $php_fpm_enable = defined(Class['php8::fpm'])
+
+  # Try to get uid and gid
   if ($webserver_uid == undef or $webserver_gid == undef) {
     if ($nginx_enable) {
       $webserver_uid_correct = $nginx::run_user
       $webserver_gid_correct = $nginx::run_group
     } else {
-      $webserver_uid_correct = undef
-      $webserver_gid_correct = undef
+      $webserver_uid_correct = 'www-data'
+      $webserver_gid_correct = 'www-data'
     }
   } else {
     $webserver_uid_correct = $webserver_uid
@@ -73,18 +78,67 @@ class openitcockpit (
     }
   }
 
-  # Setup openitcockpit
-  exec { 'openitcockpit_setup':
-    command     => '/opt/openitc/frontend/SETUP.sh',
-    refreshonly => true,
-  }
-
   # Install package
   package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
-    #notify          => Exec['openitcockpit_setup'],
     require         => $requirements,
+  }
+
+  # Create log directory
+  file { $log_dir:
+    ensure  => directory,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755', # Important for internal scripts
+    require => Package['openitcockpit'],
+  }
+
+  # Create symlink
+  file { '/opt/openitc/logs':
+    ensure  => 'link',
+    target  => $log_dir,
+    force   => true,
+    require => File[$log_dir],
+  }
+
+  # Set correct permissions
+  file { ['/opt/openitc/etc/mod_gearman', '/opt/openitc/etc/nagios', '/opt/openitc/etc/statusengine']:
+    ensure  => directory,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755', # Important for internal scripts
+    require => Package['openitcockpit'],
+  }
+
+  # Create mod_gearman_neb config file
+  file { '/opt/openitc/etc/mod_gearman/mod_gearman_neb.conf':
+    ensure  => file,
+    replace => false,
+    owner   => 'root',
+    group   => $webserver_gid_correct,
+    mode    => '0644',
+    require => File['/opt/openitc/etc/mod_gearman'],
+  }
+
+  # Create nagios config file
+  file { '/opt/openitc/etc/nagios/nagios.cfg':
+    ensure  => file,
+    replace => false,
+    owner   => 'root',
+    group   => $webserver_gid_correct,
+    mode    => '0644',
+    require => File['/opt/openitc/etc/mod_gearman'],
+  }
+
+  # Create statusengine config file
+  file { '/opt/openitc/etc/statusengine/statusengine.toml':
+    ensure  => file,
+    replace => false,
+    owner   => 'root',
+    group   => $webserver_gid_correct,
+    mode    => '0644',
+    require => ackage['openitcockpit'],
   }
 
   # Check if nginx is enabled
@@ -99,11 +153,29 @@ class openitcockpit (
     }
 
     # Create symlink
-    file { '/etc/nginx/conf.d/openitc':
+    file { '/etc/nginx/conf.d/openitc.conf':
       ensure  => 'link',
       target  => $nginx_config,
       force   => true,
       require => File[$nginx_config],
+    }
+  }
+
+  # Get SSL content
+  if (file_exists('/etc/nginx/openitc/ssl_cert.conf')) {
+    if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
+      $ssl_content = template('openitcockpit/nginx/ssl_cert.conf')
+    } else {
+      $ssl_content = ''
+    }
+
+    # Create SSL config file
+    file { '/etc/nginx/openitc/ssl_cert.conf':
+      ensure  => file,
+      content => $content,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
     }
   }
 
