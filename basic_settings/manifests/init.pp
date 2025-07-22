@@ -4,6 +4,7 @@ class basic_settings (
   String                                $cluster_id                                 = 'core',
   Enum['allow-downgrade','no']          $dns_dnssec                                 = 'allow-downgrade',
   Boolean                               $docs_enable                                = false,
+  Boolean                               $docker_enable                              = false,
   String                                $environment                                = 'production',
   String                                $firewall_package                           = 'nftables',
   Boolean                               $firewall_remove                            = true,
@@ -101,6 +102,7 @@ class basic_settings (
       if ($facts['os']['release']['major'] == '24.04') { # LTS
         $backports_allow = false
         $deb_version = '822'
+        $docker_allow = true
         $gcc_version = 14
         $gitlab_allow = true
         $mongodb_allow = true
@@ -128,6 +130,7 @@ class basic_settings (
       } elsif ($facts['os']['release']['major'] == '23.04') { # Stable
         $backports_allow = false
         $deb_version = 'list'
+        $docker_allow = true
         $gcc_version = 12
         $gitlab_allow = true
         $mongodb_allow = true
@@ -155,6 +158,7 @@ class basic_settings (
       } elsif ($facts['os']['release']['major'] == '22.04') { # LTS
         $backports_allow = false
         $deb_version = 'list'
+        $docker_allow = true
         $gcc_version = 12
         $gitlab_allow = true
         $mongodb_allow = true
@@ -182,6 +186,7 @@ class basic_settings (
       } else {
         $backports_allow = false
         $deb_version = 'list'
+        $docker_allow = false
         $gcc_version = undef
         $gitlab_allow = false
         $mongodb_allow = false
@@ -214,6 +219,7 @@ class basic_settings (
       if ($facts['os']['release']['major'] == '12') {
         $backports_allow = false
         $deb_version = 'list'
+        $docker_allow = true
         $gcc_version = undef
         $gitlab_allow = true
         $mongodb_allow = true
@@ -240,6 +246,7 @@ class basic_settings (
       } else {
         $backports_allow = false
         $deb_version = 'list'
+        $docker_allow = false
         $gcc_version = undef
         $gitlab_allow = false
         $mongodb_allow = false
@@ -264,6 +271,7 @@ class basic_settings (
     default: {
       $backports_allow = false
       $deb_version = 'list'
+      $docker_allow = false
       $gcc_version = undef
       $gitlab_allow = false
       $mongodb_allow = false
@@ -517,6 +525,23 @@ class basic_settings (
   class { 'basic_settings::assistent':
     audio_enable    => $audio_enable,
     keyboard_enable => $keyboard_enable,
+  }
+
+  # Check if variable docket is true; if true, install new source list and key
+  if ($docker_enable and $docket_allow) {
+    class { 'basic_settings::package_docker':
+      deb_version => $deb_version,
+      enable      => true,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
+  } else {
+    class { 'basic_settings::package_docker':
+      deb_version => $deb_version,
+      enable      => false,
+      os_parent   => $os_parent,
+      os_name     => $os_name,
+    }
   }
 
   # Check if variable gitlab is true; if true, install new source list and key

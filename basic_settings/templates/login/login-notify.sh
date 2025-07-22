@@ -3,7 +3,7 @@
 
 die() {
     echo "$*" >&2
-    exit 3
+    exit 0 # Important, we do not want to fail the login
 }
 
 # Locate awk
@@ -39,7 +39,7 @@ if [ -n "$PAM_RUSER" ]; then # su / sudo
     USER="$PAM_RUSER"
     TARGET_USER="$PAM_USER"
 else # direct session
-    WHOAMI=/usr/bin/whoami ; [ -x "$WHOAMI" ] || exit 1
+    WHOAMI=/usr/bin/whoami ; [ -x "$WHOAMI" ] || exit 0 # Important, we do not want to fail the login
     TARGET_USER="$($WHOAMI)"
     USER="$TARGET_USER"
 fi
