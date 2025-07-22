@@ -4,8 +4,9 @@ class openitcockpit (
   Optional[String] $webserver_gid  = undef
 ) {
   # Try to get uid and gid
+  $nginx_enable = defined(Class['nginx'])
   if ($webserver_uid == undef or $webserver_gid == undef) {
-    if (defined(Class['nginx'])) {
+    if ($nginx_enable) {
       $webserver_uid_correct = $nginx::run_user
       $webserver_gid_correct = $nginx::run_group
     } else {
@@ -50,5 +51,16 @@ class openitcockpit (
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => $requirements,
+  }
+
+  # Check if nginx is enabled
+  if ($nginx_enable) {
+    file { '/etc/nginx/sites-enabled/openitc':
+      ensure  => file,
+      replace => false,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+    }
   }
 }
