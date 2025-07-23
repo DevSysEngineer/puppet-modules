@@ -83,6 +83,7 @@ class openitcockpit (
   # Create dirs
   file { [
       '/opt/openitc/etc',
+      '/opt/openitc/etc/grafana',
       '/opt/openitc/etc/mod_gearman',
       '/opt/openitc/etc/mysql',
       '/opt/openitc/etc/nagios',
@@ -93,7 +94,6 @@ class openitcockpit (
       "${lib_dir}/frontend",
       "${lib_dir}/frontend/tmp",
       "${lib_dir}/nagios",
-      "${lib_dir}/nagios/var",
       "${lib_dir}/var",
       $log_dir,
     ]:
@@ -110,14 +110,6 @@ class openitcockpit (
     target  => "${lib_dir}/frontend/tmp",
     force   => true,
     require => File["${lib_dir}/frontend/tmp"],
-  }
-
-  # Create symlink
-  file { '/opt/openitc/nagios/var':
-    ensure  => 'link',
-    target  => "${lib_dir}/nagios/var",
-    force   => true,
-    require => File["${lib_dir}/nagios/var"],
   }
 
   # Create symlink
@@ -141,6 +133,23 @@ class openitcockpit (
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => File['/opt/openitc/logs'],
+  }
+
+  # Create dirs
+  file { "${lib_dir}/nagios/var":
+    ensure  => directory,
+    owner   => 'nagios',
+    group   => $webserver_gid,
+    mode    => '0755', # Important for internal scripts
+    require => Package['openitcockpit'],
+  }
+
+  # Create symlink
+  file { '/opt/openitc/nagios/var':
+    ensure  => 'link',
+    target  => "${lib_dir}/nagios/var",
+    force   => true,
+    require => File["${lib_dir}/nagios/var"],
   }
 
   # Create mod_gearman_neb config file
