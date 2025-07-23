@@ -83,10 +83,12 @@ class openitcockpit (
   # Create dirs
   file { [
       '/opt/openitc/etc',
+      '/opt/openitc/etc/carbon',
       '/opt/openitc/etc/grafana',
       '/opt/openitc/etc/mod_gearman',
       '/opt/openitc/etc/mysql',
       '/opt/openitc/etc/nagios',
+      '/opt/openitc/etc/nsta',
       '/opt/openitc/etc/statusengine',
       '/opt/openitc/frontend',
       '/opt/openitc/nagios',
@@ -136,12 +138,20 @@ class openitcockpit (
   }
 
   # Create dirs
-  file { "${lib_dir}/nagios/var":
-    ensure  => directory,
-    owner   => 'nagios',
-    group   => $webserver_gid,
-    mode    => '0755', # Important for internal scripts
-    require => Package['openitcockpit'],
+  file { [
+      "${lib_dir}/nagios/var",
+      "${lib_dir}/nagios/var/archives",
+      "${lib_dir}/nagios/var/cache",
+      "${lib_dir}/nagios/var/log",
+      "${lib_dir}/nagios/var/rw",
+      "${lib_dir}/nagios/var/spool",
+      "${lib_dir}/nagios/var/stats",
+    ]:
+      ensure  => directory,
+      owner   => 'nagios',
+      group   => $webserver_gid,
+      mode    => '0755', # Important for internal scripts
+      require => Package['openitcockpit'],
   }
 
   # Create symlink
@@ -152,34 +162,29 @@ class openitcockpit (
     require => File["${lib_dir}/nagios/var"],
   }
 
-  # Create mod_gearman_neb config file
-  file { '/opt/openitc/etc/mod_gearman/mod_gearman_neb.conf':
-    ensure  => file,
-    replace => false,
-    owner   => 'root',
-    group   => $webserver_gid_correct,
-    mode    => '0644',
-    require => File['/opt/openitc/etc/mod_gearman'],
+  # Set proper permissions
+  file { [
+      '/opt/openitc/etc/grafana/grafana.ini',
+      '/opt/openitc/etc/mod_gearman/mod_gearman_neb.conf',
+      '/opt/openitc/etc/nagios/nagios.cfg',
+      '/opt/openitc/etc/statusengine/statusengine.toml',
+    ]:
+      ensure  => file,
+      replace => false,
+      owner   => 'root',
+      group   => $webserver_gid_correct,
+      mode    => '0644',
+      require => Package['openitcockpit'],
   }
 
-  # Create nagios config file
-  file { '/opt/openitc/etc/nagios/nagios.cfg':
+  # Set proper permissions
+  file { ['/opt/openitc/etc/admin_password']:
     ensure  => file,
     replace => false,
     owner   => 'root',
-    group   => $webserver_gid_correct,
+    group   => 'root',
     mode    => '0644',
-    require => File['/opt/openitc/etc/nagios'],
-  }
-
-  # Create statusengine config file
-  file { '/opt/openitc/etc/statusengine/statusengine.toml':
-    ensure  => file,
-    replace => false,
-    owner   => 'root',
-    group   => $webserver_gid_correct,
-    mode    => '0644',
-    require => File['/opt/openitc/etc/statusengine'],
+    require => Package['openitcockpit'],
   }
 
   # Create openitc directory
