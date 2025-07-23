@@ -7,7 +7,7 @@ class openitcockpit (
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'
-  $lib_dir = '/var/lib/openitc'
+  $lib_dir = '/var/lib/openitcockpit'
   $nginx_enable = defined(Class['nginx'])
   $php_fpm_enable = defined(Class['php8::fpm'])
 
