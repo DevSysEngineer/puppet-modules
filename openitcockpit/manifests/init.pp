@@ -7,6 +7,7 @@ class openitcockpit (
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'
+  $lib_dir = '/var/lib/openitc'
   $nginx_enable = defined(Class['nginx'])
   $php_fpm_enable = defined(Class['php8::fpm'])
 
@@ -79,13 +80,52 @@ class openitcockpit (
     $requirements = File['/opt/openitc']
   }
 
-  # Create log directory
-  file { $log_dir:
-    ensure  => directory,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0755', # Important for internal scripts
-    require => $requirements,
+  # Create dirs
+  file { [
+      '/opt/openitc/etc',
+      '/opt/openitc/etc/mod_gearman',
+      '/opt/openitc/etc/mysql',
+      '/opt/openitc/etc/nagios',
+      '/opt/openitc/etc/statusengine',
+      '/opt/openitc/frontend',
+      '/opt/openitc/nagios',
+      $lib_dir,
+      "${lib_dir}/frontend",
+      "${lib_dir}/frontend/tmp",
+      "${lib_dir}/nagios",
+      "${lib_dir}/nagios/var",
+      "${lib_dir}/var",
+      $log_dir,
+    ]:
+      ensure  => directory,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0755', # Important for internal scripts
+      require => $requirements,
+  }
+
+  # Create symlink
+  file { '/opt/openitc/frontend/tmp':
+    ensure  => 'link',
+    target  => "${lib_dir}/frontend/tmp",
+    force   => true,
+    require => File["${lib_dir}/frontend/tmp"],
+  }
+
+  # Create symlink
+  file { '/opt/openitc/nagios/var':
+    ensure  => 'link',
+    target  => "${lib_dir}/nagios/var",
+    force   => true,
+    require => File["${lib_dir}/nagios/var"],
+  }
+
+  # Create symlink
+  file { '/opt/openitc/var':
+    ensure  => 'link',
+    target  => "${lib_dir}/var",
+    force   => true,
+    require => File["${lib_dir}/var"],
   }
 
   # Create symlink
@@ -97,19 +137,10 @@ class openitcockpit (
   }
 
   # Install package
-  package { ['openitcockpit', 'openitcockpit-monitoring-plugins']:
+  package { ['openitcockpit', 'openitcockpit-frontend-angular', 'openitcockpit-module-grafana', 'openitcockpit-monitoring-plugins']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => File['/opt/openitc/logs'],
-  }
-
-  # Set correct permissions
-  file { ['/opt/openitc/etc/mod_gearman', '/opt/openitc/etc/nagios', '/opt/openitc/etc/statusengine']:
-    ensure  => directory,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0755', # Important for internal scripts
-    require => Package['openitcockpit'],
   }
 
   # Create mod_gearman_neb config file
@@ -142,24 +173,13 @@ class openitcockpit (
     require => File['/opt/openitc/etc/statusengine'],
   }
 
-  # Check if nginx is enabled
-  if ($nginx_enable) {
-    $nginx_config = '/etc/nginx/sites-available/openitc'
-    file { $nginx_config:
-      ensure  => file,
-      replace => false,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0600',
-    }
-
-    # Create symlink
-    file { '/etc/nginx/conf.d/openitc.conf':
-      ensure  => 'link',
-      target  => $nginx_config,
-      force   => true,
-      require => File[$nginx_config],
-    }
+  # Create openitc directory
+  file { '/etc/nginx/openitc':
+    ensure  => directory,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0700',
+    require => Package['openitcockpit'],
   }
 
   # Get SSL content
@@ -176,6 +196,7 @@ class openitcockpit (
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
+    require => File['/etc/nginx/openitc'],
   }
 
   # Check if php FPM is enabled
