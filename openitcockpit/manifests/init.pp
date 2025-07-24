@@ -1,7 +1,7 @@
 class openitcockpit (
   Sensitive[String] $grafana_password,
   Optional[String]  $install_dir              = undef,
-  Optional[String]  $server_fdqn              = undef
+  Optional[String]  $server_fdqn              = undef,
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
   Optional[String]  $webserver_uid            = undef,
