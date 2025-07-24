@@ -114,7 +114,7 @@ class openitcockpit (
     content => $grafana_password,
     owner   => 'root',
     group   => 'root',
-    mode    => '0600',
+    mode    => '0644',
     require => File["${install_dir_correct}/etc/grafana"],
   }
 
