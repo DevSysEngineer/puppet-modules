@@ -137,14 +137,6 @@ class openitcockpit (
   }
 
   # Create symlink
-  file { "${install_dir_correct}/frontend/tmp":
-    ensure  => 'link',
-    target  => "${lib_dir}/frontend/tmp",
-    force   => true,
-    require => File["${lib_dir}/frontend/tmp"],
-  }
-
-  # Create symlink
   file { "${install_dir_correct}/var":
     ensure  => 'link',
     target  => "${lib_dir}/var",
