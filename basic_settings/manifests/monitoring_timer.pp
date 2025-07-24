@@ -86,7 +86,7 @@ define basic_settings::monitoring_timer (
       owner   => 'root',
       group   => $gid,
       mode    => '0440',
-      content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always \nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
+      content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always\nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
       require => Package['sudo'],
     }
   }

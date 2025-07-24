@@ -40,7 +40,7 @@ class openitcockpit (
     owner   => 'root',
     group   => 'root',
     mode    => '0440',
-    content => "# Managed by puppet\nCmnd_Alias OPENITC_CAKE_CMD = /opt/openitc/frontend/bin/cake *\nDefaults!OPENITC_CAKE_CMD root_sudo\nroot ALL = (ALL) SETENV: OPENITC_CAKE_CMD\n",
+    content => "# Managed by puppet\nCmnd_Alias OPENITC_CAKE_CMD = /opt/openitc/frontend/bin/cake *\nDefaults!OPENITC_CAKE_CMD !mail_always\nDefaults!OPENITC_CAKE_CMD root_sudo\nroot ALL = (ALL) SETENV: OPENITC_CAKE_CMD\n",
     require => Package['sudo'],
   }
 
@@ -289,10 +289,10 @@ class openitcockpit (
     }
   } else {
     # Enable service
-    service { 'nginx':
+    service { ['openitcockpit-node', 'openitcockpit-graphing']:
       ensure  => true,
       enable  => true,
-      require => Package['nginx'],
+      require => Package['openitcockpit'],
     }
   }
 }
