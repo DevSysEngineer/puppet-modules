@@ -338,6 +338,7 @@ class mysql (
         group   => 'mysql',
         mode    => '0600',
         content => template('mysql/mysql.cnf'),
+        require => File['mysql_debian_cnf'],
       }
     }
 
