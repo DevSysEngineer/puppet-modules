@@ -205,7 +205,7 @@ class openitcockpit (
   # Create grafana config file
   file { "${install_dir_correct}/etc/grafana/grafana.ini":
     ensure  => file,
-    source  => template('openitcockpit/grafana/grafana.ini'),
+    content => template('openitcockpit/grafana/grafana.ini'),
     replace => false,
     owner   => 'root',
     group   => $webserver_gid_correct,
