@@ -8,6 +8,7 @@ class openitcockpit (
   # Set some values
   $log_dir = '/var/log/openitc'
   $lib_dir = '/var/lib/openitcockpit'
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $nginx_enable = defined(Class['nginx'])
   $php_fpm_enable = defined(Class['php8::fpm'])
 
@@ -177,16 +178,6 @@ class openitcockpit (
       require => Package['openitcockpit'],
   }
 
-  # Set proper permissions
-  file { ['/opt/openitc/etc/admin_password']:
-    ensure  => file,
-    replace => false,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0644',
-    require => Package['openitcockpit'],
-  }
-
   # Create openitc directory
   file { '/etc/nginx/openitc':
     ensure  => directory,
@@ -217,6 +208,91 @@ class openitcockpit (
   if ($php_fpm_enable) {
     php8::fpm_pool { 'oitc':
       listen => '/run/php/php-fpm-oitc.sock',
+    }
+  }
+
+  # Disable service
+  if (defined(Package['systemd'])) {
+    # Disable service
+    service { ['openitcockpit-node', 'openitcockpit-graphing']:
+      ensure  => undef,
+      enable  => false,
+      require => Package['openitcockpit'],
+    }
+
+    # Reload systemd deamon
+    exec { 'openitcockpit_systemd_daemon_reload':
+      command     => '/usr/bin/systemctl daemon-reload',
+      refreshonly => true,
+      require     => Package['systemd'],
+    }
+
+    # Create drop in for x target
+    if (defined(Class['basic_settings::systemd'])) {
+      basic_settings::systemd_drop_in { 'openitcockpit_node_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
+        unit          => {
+          'BindsTo'   => 'openitcockpit-node.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
+      }
+    }
+
+    # Create drop in for x target
+    if (defined(Class['basic_settings::systemd'])) {
+      basic_settings::systemd_drop_in { 'openitcockpit_graphing_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
+        unit          => {
+          'BindsTo'   => 'openitcockpit-graphing.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
+      }
+    }
+
+    # Get unit
+    if ($monitoring_enable) {
+      $unit = {
+        'OnFailure' => 'notify-failed@%i.service',
+      }
+    } else {
+      $unit = {}
+    }
+
+    # Create drop in for openitcockpit-node service
+    basic_settings::systemd_drop_in { 'openitcockpit_node_settings':
+      target_unit   => 'openitcockpit-node.service',
+      unit          => $unit,
+      service       => {
+        'PrivateDevices' => 'true',
+        'PrivateTmp'     => 'true',
+        'ProtectHome'    => 'true',
+        'ProtectSystem'  => 'full',
+      },
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    # Create drop in for openitcockpit-node service
+    basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
+      target_unit   => 'openitcockpit-graphing.service',
+      unit          => $unit,
+      service       => {
+        'PrivateDevices' => 'true',
+        'PrivateTmp'     => 'true',
+        'ProtectHome'    => 'true',
+        'ProtectSystem'  => 'full',
+      },
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+  } else {
+    # Enable service
+    service { 'nginx':
+      ensure  => true,
+      enable  => true,
+      require => Package['nginx'],
     }
   }
 }

@@ -160,13 +160,11 @@ class nginx (
   }
 
   # Create symlink
-  if (defined(Class['basic_settings']) and !$basic_settings::nginx_enable) {
-    file { '/etc/nginx/sites-enabled':
-      ensure  => 'link',
-      target  => $nginx_config,
-      force   => true,
-      require => File[$nginx_config],
-    }
+  file { '/etc/nginx/sites-enabled':
+    ensure  => 'link',
+    target  => $nginx_config,
+    force   => true,
+    require => File[$nginx_config],
   }
 
   # Create snippets directory

@@ -37,6 +37,7 @@ class basic_settings (
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $openitcockpit_enable                       = false,
+  Boolean                               $openitcockpit_nightly                      = false,
   Boolean                               $nagios_enable                              = false,
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
@@ -667,6 +668,7 @@ class basic_settings (
     class { 'basic_settings::package_openitcockpit':
       deb_version => $deb_version,
       enable      => true,
+      nightly     => $openitcockpit_nightly,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
@@ -674,6 +676,7 @@ class basic_settings (
     class { 'basic_settings::package_openitcockpit':
       deb_version => $deb_version,
       enable      => false,
+      nightly     => $openitcockpit_nightly,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }

@@ -2,7 +2,8 @@ class basic_settings::package_openitcockpit (
   Enum['list','822']  $deb_version,
   Boolean             $enable,
   String              $os_parent,
-  String              $os_name
+  String              $os_name,
+  Boolean             $nightly = false,
 ) {
   # Check if we need newer format for APT
   if ($deb_version == '822') {
@@ -16,7 +17,11 @@ class basic_settings::package_openitcockpit (
 
   if ($enable) {
     # Set url
-    $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/stable"
+    if ($nightly) {
+      $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/nightly"
+    } else {
+      $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/stable"
+    }
 
     # Get source
     if ($deb_version == '822') {
