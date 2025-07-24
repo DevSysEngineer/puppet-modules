@@ -1,9 +1,10 @@
 class openitcockpit (
-  Optional[String] $install_dir    = undef,
-  Optional[String] $ssl_certificate        = undef,
-  Optional[String] $ssl_certificate_key    = undef,
-  Optional[String] $webserver_uid  = undef,
-  Optional[String] $webserver_gid  = undef,
+  Sensitive[String] $grafana_password,
+  Optional[String]  $install_dir              = undef,
+  Optional[String]  $ssl_certificate          = undef,
+  Optional[String]  $ssl_certificate_key      = undef,
+  Optional[String]  $webserver_uid            = undef,
+  Optional[String]  $webserver_gid            = undef,
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'
@@ -83,16 +84,16 @@ class openitcockpit (
 
   # Create dirs
   file { [
-      '/opt/openitc/etc',
-      '/opt/openitc/etc/carbon',
-      '/opt/openitc/etc/grafana',
-      '/opt/openitc/etc/mod_gearman',
-      '/opt/openitc/etc/mysql',
-      '/opt/openitc/etc/nagios',
-      '/opt/openitc/etc/nsta',
-      '/opt/openitc/etc/statusengine',
-      '/opt/openitc/frontend',
-      '/opt/openitc/nagios',
+      "${install_dir_correct}/etc",
+      "${install_dir_correct}/etc/carbon",
+      "${install_dir_correct}/etc/grafana",
+      "${install_dir_correct}/etc/mod_gearman",
+      "${install_dir_correct}/etc/mysql",
+      "${install_dir_correct}/etc/nagios",
+      "${install_dir_correct}/etc/nsta",
+      "${install_dir_correct}/etc/statusengine",
+      "${install_dir_correct}/frontend",
+      "${install_dir_correct}/nagios",
       $lib_dir,
       "${lib_dir}/frontend",
       "${lib_dir}/frontend/tmp",
@@ -107,8 +108,18 @@ class openitcockpit (
       require => $requirements,
   }
 
+  # Create SSL config file
+  file { "${install_dir_correct}/etc/grafana/admin_password":
+    ensure  => file,
+    content => $grafana_password,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => File["${install_dir_correct}/etc/grafana"],
+  }
+
   # Create symlink
-  file { '/opt/openitc/frontend/tmp':
+  file { "${install_dir_correct}/frontend/tmp":
     ensure  => 'link',
     target  => "${lib_dir}/frontend/tmp",
     force   => true,
@@ -116,7 +127,7 @@ class openitcockpit (
   }
 
   # Create symlink
-  file { '/opt/openitc/var':
+  file { "${install_dir_correct}/var":
     ensure  => 'link',
     target  => "${lib_dir}/var",
     force   => true,
@@ -124,7 +135,7 @@ class openitcockpit (
   }
 
   # Create symlink
-  file { '/opt/openitc/logs':
+  file { "${install_dir_correct}/logs":
     ensure  => 'link',
     target  => $log_dir,
     force   => true,
@@ -135,7 +146,12 @@ class openitcockpit (
   package { ['openitcockpit', 'openitcockpit-frontend-angular', 'openitcockpit-module-grafana', 'openitcockpit-monitoring-plugins']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => File['/opt/openitc/logs'],
+    require         => File[
+      "${install_dir_correct}/etc/grafana/admin_password",
+      "${install_dir_correct}/frontend/tmp",
+      "${install_dir_correct}/var",
+      "${install_dir_correct}/logs"
+    ],
   }
 
   # Create dirs
@@ -156,7 +172,7 @@ class openitcockpit (
   }
 
   # Create symlink
-  file { '/opt/openitc/nagios/var':
+  file { "${install_dir_correct}/nagios/var":
     ensure  => 'link',
     target  => "${lib_dir}/nagios/var",
     force   => true,
@@ -165,10 +181,10 @@ class openitcockpit (
 
   # Set proper permissions
   file { [
-      '/opt/openitc/etc/grafana/grafana.ini',
-      '/opt/openitc/etc/mod_gearman/mod_gearman_neb.conf',
-      '/opt/openitc/etc/nagios/nagios.cfg',
-      '/opt/openitc/etc/statusengine/statusengine.toml',
+      "${install_dir_correct}/etc/grafana/grafana.ini",
+      "${install_dir_correct}/etc/mod_gearman/mod_gearman_neb.conf",
+      "${install_dir_correct}/etc/nagios/nagios.cfg",
+      "${install_dir_correct}/etc/statusengine/statusengine.toml",
     ]:
       ensure  => file,
       replace => false,
