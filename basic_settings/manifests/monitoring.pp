@@ -4,7 +4,6 @@ class basic_settings::monitoring (
   Enum['none','ncpa'] $package          = 'none',
   Boolean             $package_install  = false,
   String              $server_fdqn      = $facts['networking']['fqdn']
-
 ) {
   # Install package
   package { [$mail_package, 'mailutils']:

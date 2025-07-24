@@ -32,7 +32,7 @@ class gitlab (
 
   # Set email
   if ($root_email_found == 'root') {
-    $root_email_correct = "${root_email_correct}@${server_fdqn_correct}"
+    $root_email_correct = "root@${server_fdqn_correct}"
   } else {
     $root_email_correct = $root_email_found
   }

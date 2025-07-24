@@ -1,10 +1,12 @@
 class openitcockpit (
   Sensitive[String] $grafana_password,
   Optional[String]  $install_dir              = undef,
+  Optional[String]  $server_fdqn              = undef
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
   Optional[String]  $webserver_uid            = undef,
   Optional[String]  $webserver_gid            = undef,
+
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'
@@ -25,6 +27,24 @@ class openitcockpit (
   } else {
     $webserver_uid_correct = $webserver_uid
     $webserver_gid_correct = $webserver_gid
+  }
+
+  # Try to get server fdqn
+  if ($server_fdqn == undef) {
+    if (defined(Class['basic_settings'])) {
+      $server_fdqn_correct = $basic_settings::server_fdqn
+    } else {
+      $server_fdqn_correct = $facts['networking']['fqdn']
+    }
+  } else {
+    $server_fdqn_correct = $server_fdqn
+  }
+
+  # Set notification for nginx
+  if (defined(Service['nginx'])) {
+    $nginx_notify = Service['nginx']
+  } else {
+    $nginx_notify = undef
   }
 
   # Check if sudo package is not defined
@@ -92,12 +112,10 @@ class openitcockpit (
       "${install_dir_correct}/etc/nagios",
       "${install_dir_correct}/etc/nsta",
       "${install_dir_correct}/etc/statusengine",
-      "${install_dir_correct}/frontend",
       "${install_dir_correct}/nagios",
       $lib_dir,
-      "${lib_dir}/frontend",
-      "${lib_dir}/frontend/tmp",
       "${lib_dir}/nagios",
+      "${lib_dir}/nagios/backup",
       "${lib_dir}/var",
       $log_dir,
     ]:
@@ -148,7 +166,6 @@ class openitcockpit (
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => File[
       "${install_dir_correct}/etc/grafana/admin_password",
-      "${install_dir_correct}/frontend/tmp",
       "${install_dir_correct}/var",
       "${install_dir_correct}/logs"
     ],
@@ -172,6 +189,14 @@ class openitcockpit (
   }
 
   # Create symlink
+  file { "${install_dir_correct}/nagios/backup":
+    ensure  => 'link',
+    target  => "${lib_dir}/nagios/backup",
+    force   => true,
+    require => File["${lib_dir}/nagios/backup"],
+  }
+
+  # Create symlink
   file { "${install_dir_correct}/nagios/var":
     ensure  => 'link',
     target  => "${lib_dir}/nagios/var",
@@ -179,9 +204,19 @@ class openitcockpit (
     require => File["${lib_dir}/nagios/var"],
   }
 
+  # Create grafana config file
+  file { "${install_dir_correct}/etc/grafana/grafana.ini":
+    ensure  => file,
+    source  => 'puppet:///modules/openitcockpit/grafana/grafana.ini',
+    replace => false,
+    owner   => 'root',
+    group   => $webserver_gid_correct,
+    mode    => '0644',
+    require => Package['openitcockpit'],
+  }
+
   # Set proper permissions
   file { [
-      "${install_dir_correct}/etc/grafana/grafana.ini",
       "${install_dir_correct}/etc/mod_gearman/mod_gearman_neb.conf",
       "${install_dir_correct}/etc/nagios/nagios.cfg",
       "${install_dir_correct}/etc/statusengine/statusengine.toml",
@@ -192,6 +227,38 @@ class openitcockpit (
       group   => $webserver_gid_correct,
       mode    => '0644',
       require => Package['openitcockpit'],
+  }
+
+  # Create dirs
+  file { [
+      "${install_dir_correct}/frontend",
+      "${install_dir_correct}/frontend/config",
+      "${lib_dir}/frontend",
+      "${lib_dir}/frontend/tmp",
+    ]:
+      ensure  => directory,
+      owner   => $webserver_uid_correct,
+      group   => $webserver_gid_correct,
+      mode    => '0700',
+      require => Package['openitcockpit'],
+  }
+
+  # Create symlink
+  file { "${install_dir_correct}/frontend/tmp":
+    ensure  => 'link',
+    target  => "${lib_dir}/frontend/tmp",
+    force   => true,
+    require => File["${lib_dir}/frontend/tmp"],
+  }
+
+  # Create email config file
+  file { "${lib_dir}/frontend/config/email.php":
+    ensure  => file,
+    content => template('openitcockpit/frontend/email.php'),
+    owner   => $webserver_uid_correct,
+    group   => $webserver_gid_correct,
+    mode    => '0600',
+    require => File["${lib_dir}/frontend/config"],
   }
 
   # Create openitc directory
@@ -217,6 +284,7 @@ class openitcockpit (
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
+    notify  => $nginx_notify,
     require => File['/etc/nginx/openitc'],
   }
 
@@ -294,6 +362,12 @@ class openitcockpit (
     basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
       target_unit   => 'openitcockpit-graphing.service',
       unit          => $unit,
+      service       => {
+        'PrivateDevices' => 'true',
+        'PrivateTmp'     => 'true',
+        'ProtectHome'    => 'true',
+        'ProtectSystem'  => 'full',
+      },
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
