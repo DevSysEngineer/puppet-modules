@@ -40,13 +40,6 @@ class openitcockpit (
     $server_fdqn_correct = $server_fdqn
   }
 
-  # Set notification for nginx
-  if (defined(Service['nginx'])) {
-    $nginx_notify = Service['nginx']
-  } else {
-    $nginx_notify = undef
-  }
-
   # Check if sudo package is not defined
   if (!defined(Package['sudo'])) {
     package { 'sudo':
@@ -276,7 +269,6 @@ class openitcockpit (
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
-    notify  => $nginx_notify,
     require => File['/etc/nginx/openitc'],
   }
 
