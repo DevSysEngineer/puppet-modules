@@ -130,11 +130,25 @@ class openitcockpit (
   }
 
   # Create symlink
+  file { "${install_dir_correct}/nagios/backup":
+    ensure  => 'link',
+    target  => "${lib_dir}/nagios/backup",
+    force   => true,
+    require => File[
+      "${install_dir_correct}/nagios",
+      "${lib_dir}/nagios/backup"
+    ],
+  }
+
+  # Create symlink
   file { "${install_dir_correct}/var":
     ensure  => 'link',
     target  => "${lib_dir}/var",
     force   => true,
-    require => File["${lib_dir}/var"],
+    require => File[
+      $install_dir_correct,
+      "${lib_dir}/var"
+    ],
   }
 
   # Create symlink
@@ -142,7 +156,10 @@ class openitcockpit (
     ensure  => 'link',
     target  => $log_dir,
     force   => true,
-    require => File[$log_dir],
+    require => File[
+      $install_dir_correct,
+      $log_dir
+    ],
   }
 
   # Install package
@@ -151,6 +168,7 @@ class openitcockpit (
     install_options => ['--no-install-recommends', '--no-install-suggests'],
     require         => File[
       "${install_dir_correct}/etc/grafana/admin_password",
+      "${install_dir_correct}/nagios/backup",
       "${install_dir_correct}/var",
       "${install_dir_correct}/logs"
     ],
@@ -174,25 +192,20 @@ class openitcockpit (
   }
 
   # Create symlink
-  file { "${install_dir_correct}/nagios/backup":
-    ensure  => 'link',
-    target  => "${lib_dir}/nagios/backup",
-    force   => true,
-    require => File["${lib_dir}/nagios/backup"],
-  }
-
-  # Create symlink
   file { "${install_dir_correct}/nagios/var":
     ensure  => 'link',
     target  => "${lib_dir}/nagios/var",
     force   => true,
-    require => File["${lib_dir}/nagios/var"],
+    require => File[
+      "${install_dir_correct}/nagios",
+      "${lib_dir}/nagios/var"
+    ],
   }
 
   # Create grafana config file
   file { "${install_dir_correct}/etc/grafana/grafana.ini":
     ensure  => file,
-    source  => 'puppet:///modules/openitcockpit/grafana/grafana.ini',
+    source  => template('openitcockpit/grafana/grafana.ini'),
     replace => false,
     owner   => 'root',
     group   => $webserver_gid_correct,
