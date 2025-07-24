@@ -244,13 +244,13 @@ class openitcockpit (
   }
 
   # Create email config file
-  file { "${lib_dir}/frontend/config/email.php":
+  file { "${install_dir_correct}/frontend/config/email.php":
     ensure  => file,
     content => template('openitcockpit/frontend/email.php'),
     owner   => $webserver_uid_correct,
     group   => $webserver_gid_correct,
     mode    => '0600',
-    require => File["${lib_dir}/frontend/config"],
+    require => File["${install_dir_correct}/frontend/config"],
   }
 
   # Create openitc directory
