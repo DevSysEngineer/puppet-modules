@@ -294,12 +294,6 @@ class openitcockpit (
     basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
       target_unit   => 'openitcockpit-graphing.service',
       unit          => $unit,
-      service       => {
-        'PrivateDevices' => 'true',
-        'PrivateTmp'     => 'true',
-        'ProtectHome'    => 'true',
-        'ProtectSystem'  => 'full',
-      },
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
