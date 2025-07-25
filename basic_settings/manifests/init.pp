@@ -31,14 +31,14 @@ class basic_settings (
   String                                $mail_package                               = 'postfix',
   Boolean                               $mongodb_enable                             = false,
   Float                                 $mongodb_version                            = 8.0,
-  Enum['none','ncpa']                   $monitoring_package                         = 'none',
+  Enum['none','openitcockpit']          $monitoring_package                         = 'none',
   Boolean                               $monitoring_package_install                 = false,
   Boolean                               $mozilla_enable                             = false,
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $openitcockpit_enable                       = false,
   Boolean                               $openitcockpit_nightly                      = false,
-  Boolean                               $nagios_enable                              = false,
+  Enum['agent','server']                $openitcockpit_package                      = 'agent',
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
   Integer                               $nodejs_version                             = 20,
@@ -118,7 +118,6 @@ class basic_settings (
         $nginx_allow = true
         $nodejs_allow = true
         $openitcockpit_allow = true
-        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'noble'
         $ram_disk_package = 'initramfs'
@@ -146,7 +145,6 @@ class basic_settings (
         $nginx_allow = true
         $nodejs_allow = true
         $openitcockpit_allow = true
-        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'lunar'
         $ram_disk_package = 'initramfs'
@@ -174,7 +172,6 @@ class basic_settings (
         $nginx_allow = true
         $nodejs_allow = true
         $openitcockpit_allow = true
-        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'jammy'
         $ram_disk_package = 'initramfs'
@@ -196,7 +193,6 @@ class basic_settings (
         $nginx_allow = false
         $nodejs_allow = false
         $openitcockpit_allow = false
-        $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
         $ram_disk_package = 'initramfs'
@@ -233,7 +229,6 @@ class basic_settings (
         $nginx_allow = true
         $nodejs_allow = true
         $openitcockpit_allow = true
-        $nagios_allow = true
         $openjdk_allow = true
         $os_name = 'bookworm'
         $ram_disk_package = 'initramfs'
@@ -256,7 +251,6 @@ class basic_settings (
         $nginx_allow = false
         $nodejs_allow = false
         $openitcockpit_allow = false
-        $nagios_allow = false
         $openjdk_allow = false
         $os_name = 'unknown'
         $ram_disk_package = 'initramfs'
@@ -281,7 +275,6 @@ class basic_settings (
       $nginx_allow = false
       $nodejs_allow = false
       $openitcockpit_allow = false
-      $nagios_allow = false
       $openjdk_allow = false
       $os_name = 'unknown'
       $ram_disk_package = 'initramfs'
@@ -417,21 +410,29 @@ class basic_settings (
 
   # Special case when monitoring_package is not none
   if ($monitoring_package != 'none') {
-    if ($nagios_enable and $nagios_allow) {
-      class { 'basic_settings::package_nagios':
+    # Check if variable openitcockpit is true; if true, install new source list and key
+    if ($openitcockpit_enable and $openitcockpit_allow) {
+      class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => true,
+        nightly     => $openitcockpit_nightly,
+        package     => $openitcockpit_package,
         os_parent   => $os_parent,
         os_name     => $os_name,
       }
     } else {
-      class { 'basic_settings::package_nagios':
+      class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => false,
+        nightly     => $openitcockpit_nightly,
+        package     => $openitcockpit_package,
         os_parent   => $os_parent,
         os_name     => $os_name,
       }
     }
+    $monitoring_requirements = Class['basic_settings::systemd', 'basic_settings::package_openitcockpit'],
+  } else {
+    $monitoring_requirements = Class['basic_settings::systemd'],
   }
 
   # Setup message
@@ -441,7 +442,7 @@ class basic_settings (
     package         => $monitoring_package,
     package_install => $monitoring_package_install,
     server_fdqn     => $server_fdqn,
-    require         => Class['basic_settings::systemd', 'basic_settings::package_nagios'],
+    require         => $monitoring_requirements,
   }
 
   # Setup security
@@ -564,17 +565,22 @@ class basic_settings (
 
   # Special case when monitoring_package is none
   if ($monitoring_package == 'none') {
-    if ($nagios_enable and $nagios_allow) {
-      class { 'basic_settings::package_nagios':
+    # Check if variable openitcockpit is true; if true, install new source list and key
+    if ($openitcockpit_enable and $openitcockpit_allow) {
+      class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => true,
+        nightly     => $openitcockpit_nightly,
+        package     => $openitcockpit_package,
         os_parent   => $os_parent,
         os_name     => $os_name,
       }
     } else {
-      class { 'basic_settings::package_nagios':
+      class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => false,
+        nightly     => $openitcockpit_nightly,
+        package     => $openitcockpit_package,
         os_parent   => $os_parent,
         os_name     => $os_name,
       }
@@ -660,25 +666,6 @@ class basic_settings (
   } else {
     class { 'basic_settings::package_node':
       enable  => false,
-    }
-  }
-
-  # Check if variable openitcockpit is true; if true, install new source list and key
-  if ($openitcockpit_enable and $openitcockpit_allow) {
-    class { 'basic_settings::package_openitcockpit':
-      deb_version => $deb_version,
-      enable      => true,
-      nightly     => $openitcockpit_nightly,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
-    }
-  } else {
-    class { 'basic_settings::package_openitcockpit':
-      deb_version => $deb_version,
-      enable      => false,
-      nightly     => $openitcockpit_nightly,
-      os_parent   => $os_parent,
-      os_name     => $os_name,
     }
   }
 

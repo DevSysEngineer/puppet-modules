@@ -3,6 +3,7 @@ class basic_settings::package_openitcockpit (
   Boolean             $enable,
   String              $os_parent,
   String              $os_name,
+  String              $package,
   Boolean             $nightly = false,
 ) {
   # Check if we need newer format for APT
@@ -16,18 +17,35 @@ class basic_settings::package_openitcockpit (
   $key = '/usr/share/keyrings/openitcockpit.gpg'
 
   if ($enable) {
-    # Set url
-    if ($nightly) {
-      $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/nightly"
-    } else {
-      $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/stable"
-    }
+    # Check if package is server or agent
+    if ($package == 'server') {
+      # Set url
+      if ($nightly) {
+        $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/nightly"
+      } else {
+        $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/stable"
+      }
 
-    # Get source
-    if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: ${url}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
+      # Get source
+      if ($deb_version == '822') {
+        $source  = "Types: deb\nURIs: ${url}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
+      } else {
+        $source = "deb [signed-by=${key}] ${url} ${os_name} main\n"
+      }
     } else {
-      $source = "deb [signed-by=${key}] ${url} ${os_name} main\n"
+      # Set url
+      if ($nightly) {
+        $url = 'https://packages5.openitcockpit.io/openitcockpit-agent/deb/nightly'
+      } else {
+        $url = 'https://packages5.openitcockpit.io/openitcockpit-agent/deb/stable'
+      }
+
+      # Get source
+      if ($deb_version == '822') {
+        $source  = "Types: deb\nURIs: ${url}\nSuites: deb\nComponents: main\nSigned-By:${key}\n"
+      } else {
+        $source = "deb [signed-by=${key}] ${url} deb main\n"
+      }
     }
 
     # Install openitcockpit repo

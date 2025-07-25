@@ -2,12 +2,12 @@ class naemon () {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
-  if (defined(Package['openitcockpit'])) {
+  if (defined(Package['openitcockpit::server'])) {
     $package = 'openitcockpit-naemon'
     $webserver_uid = 'nagios'
     if (defined(Class['openitcockpit'])) {
-      $config_dir = "${openitcockpit::install_dir_correct}/etc/nagios/nagios.cfg.d"
-      $webserver_gid = $openitcockpit::webserver_gid
+      $config_dir = "${openitcockpit::server::install_dir_correct}/etc/nagios/nagios.cfg.d"
+      $webserver_gid = $openitcockpit::server::webserver_gid
     } else {
       $config_dir = '/opt/openitc/etc/nagios/nagios.cfg.d'
       $webserver_gid = 'www-data'
