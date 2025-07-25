@@ -140,12 +140,12 @@ class basic_settings::monitoring (
         owner   => 'root',
         group   => 'root',
         mode    => '0600',
-        reuiqre => Package['monitoring_location'],
+        require => Package['monitoring_location'],
       }
     }
   }
 
-# Create service check
+  # Create service check
   basic_settings::monitoring_service { 'mail':
     services => [$mail_package],
   }
