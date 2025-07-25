@@ -118,10 +118,11 @@ class openitcockpit (
       require => $requirements,
   }
 
-  # Create SSL config file
+  # Create admin password file
   file { "${install_dir_correct}/etc/grafana/admin_password":
     ensure  => file,
-    content => $grafana_password,
+    content => 'admin',
+    replace => false,
     owner   => 'root',
     group   => 'root',
     mode    => '0644',
@@ -201,29 +202,9 @@ class openitcockpit (
     ],
   }
 
-  # Create grafana config file for installation
-  file { "${install_dir_correct}/frontend/src/config_templates/graphing/grafana/grafana.ini":
-    ensure  => file,
-    content => template('openitcockpit/grafana/grafana.ini'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0644',
-    require => Package['openitcockpit'],
-  }
-
-  # Create grafana config file
-  file { "${install_dir_correct}/etc/grafana/grafana.ini":
-    ensure  => file,
-    content => template('openitcockpit/grafana/grafana.ini'),
-    replace => false,
-    owner   => 'root',
-    group   => $webserver_gid_correct,
-    mode    => '0644',
-    require => Package['openitcockpit'],
-  }
-
   # Set proper permissions
   file { [
+      "${install_dir_correct}/etc/grafana/grafana.ini",
       "${install_dir_correct}/etc/mod_gearman/mod_gearman_neb.conf",
       "${install_dir_correct}/etc/nagios/nagios.cfg",
       "${install_dir_correct}/etc/statusengine/statusengine.toml",
@@ -384,5 +365,13 @@ class openitcockpit (
       enable  => true,
       require => Package['openitcockpit'],
     }
+  }
+
+  # Update grafana admin password
+  exec { 'openitcockpit_grafana_admin_pw':
+    command   => "/bin/sh -c '/usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'",
+    onlyif    => "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'",
+    sensitive => true,
+    require   => Package['openitcockpit'],
   }
 }
