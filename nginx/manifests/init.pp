@@ -16,7 +16,7 @@ class nginx (
 ) {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
-  $nginx_config = '/etc/nginx/conf.d'
+  $config = '/etc/nginx/conf.d'
 
   # Remove unnecessary package
   package { 'apache2':
@@ -151,20 +151,12 @@ class nginx (
   }
 
   # Create sites config directory
-  file { $nginx_config:
+  file { [$config, '/etc/nginx/sites-enabled']:
     ensure  => directory,
     purge   => true,
     force   => true,
     recurse => true,
     require => Package['nginx'],
-  }
-
-  # Create symlink
-  file { '/etc/nginx/sites-enabled':
-    ensure  => 'link',
-    target  => $nginx_config,
-    force   => true,
-    require => File[$nginx_config],
   }
 
   # Create snippets directory
