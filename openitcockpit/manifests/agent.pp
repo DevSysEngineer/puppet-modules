@@ -39,7 +39,7 @@ class openitcockpit::agent (
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
-        basic_settings::systemd_drop_in { 'openitcockpit-agent_dependency':
+        basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
           target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
           unit          => {
             'BindsTo'   => 'openitcockpit-agent.service',
@@ -58,8 +58,17 @@ class openitcockpit::agent (
         $unit = {}
       }
 
+      # Create symlink
+      file { '/usr/lib/systemd/system/openitcockpit-agent.service':
+        ensure  => 'link',
+        target  => '/etc/openitcockpit-agent/init/openitcockpit-agent.service',
+        force   => true,
+        notify  => Exec['openitcockpit_agent_systemd_daemon_reload'],
+        require => Package['openitcockpit-agent'],
+      }
+
       # Create drop in for ncpa service
-      basic_settings::systemd_drop_in { 'openitcockpit-agent_settings':
+      basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
         target_unit   => 'openitcockpit-agent.service',
         unit          => $unit,
         service       => {
@@ -69,7 +78,7 @@ class openitcockpit::agent (
           'ProtectSystem'  => 'full',
         },
         daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
-        require       => Package['openitcockpit-agent'],
+        require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
       }
     } else {
       # Eanble service

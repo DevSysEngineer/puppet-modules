@@ -29,10 +29,11 @@ define basic_settings::systemd_drop_in (
     and !defined(File["/usr/lib/systemd/system/${target_unit}"])
   and !defined(File["/etc/systemd/system/${target_unit}"])) {
     file { "/usr/lib/systemd/system/${target_unit}":
-      ensure => file,
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0644' # See issue https://github.com/systemd/systemd/issues/770
+      ensure  => file,
+      replace => false,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0644' # See issue https://github.com/systemd/systemd/issues/770
     }
   }
 

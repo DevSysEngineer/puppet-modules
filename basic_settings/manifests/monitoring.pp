@@ -81,7 +81,7 @@ class basic_settings::monitoring (
 
           # Create drop in for x target
           if (defined(Class['basic_settings::systemd'])) {
-            basic_settings::systemd_drop_in { 'openitcockpit-agent_dependency':
+            basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
               target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
               unit          => {
                 'BindsTo'   => 'openitcockpit-agent.service',
@@ -92,7 +92,7 @@ class basic_settings::monitoring (
           }
 
           # Create drop in for ncpa service
-          basic_settings::systemd_drop_in { 'openitcockpit-agent_settings':
+          basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
             target_unit   => 'openitcockpit-agent.service',
             unit          => {
               'OnFailure' => 'notify-failed@%i.service',
