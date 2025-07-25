@@ -61,112 +61,6 @@ class basic_settings::monitoring (
 
   # Monitoring package 
   case $package {
-    'ncpa': {
-      # Set some values
-      $plugins_dir = '/usr/local/ncpa/plugins'
-      $uid  = 'nagios'
-      $gid  = 'nagios'
-
-      # Check if we can install package
-      if ($package_install) {
-        # Install Nagios Cross-Platform Agent
-        package { 'ncpa':
-          ensure          => installed,
-          install_options => ['--no-install-recommends', '--no-install-suggests'],
-        }
-
-        # Check if we have systemd
-        if (defined(Package['systemd'])) {
-          # Disable service
-          service { 'ncpa':
-            ensure  => undef,
-            enable  => false,
-            require => Package['ncpa'],
-          }
-
-          # Create drop in for x target
-          if (defined(Class['basic_settings::systemd'])) {
-            basic_settings::systemd_drop_in { 'ncpa_dependency':
-              target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-              unit          => {
-                'BindsTo'   => 'ncpa.service',
-              },
-              daemon_reload => 'monitoring_systemd_daemon_reload',
-              require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
-            }
-          }
-
-          # Create drop in for ncpa service
-          basic_settings::systemd_drop_in { 'ncpa_settings':
-            target_unit   => 'ncpa.service',
-            unit          => {
-              'OnFailure' => 'notify-failed@%i.service',
-            },
-            service       => {
-              'Nice'           => '19',
-              'ProtectHome'    => 'true',
-              'ProtectSystem'  => 'full',
-              'ReadWritePaths' => '/usr/local/ncpa',
-            },
-            daemon_reload => 'monitoring_systemd_daemon_reload',
-            require       => Package['ncpa'],
-          }
-
-          # Set notify
-          $notify = Service['ncpa']
-        } else {
-          # Eanble service
-          service { 'ncpa':
-            ensure  => true,
-            enable  => true,
-            require => Package['ncpa'],
-          }
-          $notify = undef
-        }
-      }
-
-      # Create root directory
-      file { 'monitoring_location':
-        ensure => directory,
-        path   => '/usr/local/ncpa',
-        mode   => '0755', # Important
-        owner  => 'root',
-        group  => 'root',
-      }
-
-      file { 'monitoring_location_etc':
-        ensure  => directory,
-        path    => '/usr/local/ncpa/etc',
-        mode    => '0700',
-        owner   => 'root',
-        group   => $gid,
-        notify  => $notify,
-        require => File['monitoring_location'],
-      }
-
-      # Create config directory
-      file { 'monitoring_location_config':
-        ensure  => directory,
-        path    => '/usr/local/ncpa/etc/ncpa.cfg.d',
-        purge   => true,
-        force   => true,
-        recurse => true,
-        owner   => 'root',
-        group   => $gid,
-        notify  => $notify,
-        require => File['monitoring_location_etc'],
-      }
-
-      # Create plugin directory
-      file { 'monitoring_location_plugins':
-        ensure  => directory,
-        path    => $plugins_dir,
-        mode    => '0755', # Important
-        owner   => 'root',
-        group   => 'root',
-        require => File['monitoring_location'],
-      }
-    }
     'openitcockpit': {
       # Check if we can install package
       if ($package_install) {
@@ -175,11 +69,83 @@ class basic_settings::monitoring (
           ensure          => installed,
           install_options => ['--no-install-recommends', '--no-install-suggests'],
         }
+
+        # Check if we have systemd
+        if (defined(Package['systemd'])) {
+          # Disable service
+          service { 'openitcockpit-agent':
+            ensure  => undef,
+            enable  => false,
+            require => Package['openitcockpit-agent'],
+          }
+
+          # Create drop in for x target
+          if (defined(Class['basic_settings::systemd'])) {
+            basic_settings::systemd_drop_in { 'openitcockpit-agent_dependency':
+              target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+              unit          => {
+                'BindsTo'   => 'openitcockpit-agent.service',
+              },
+              daemon_reload => 'monitoring_systemd_daemon_reload',
+              require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+            }
+          }
+
+          # Create drop in for ncpa service
+          basic_settings::systemd_drop_in { 'openitcockpit-agent_settings':
+            target_unit   => 'openitcockpit-agent.service',
+            unit          => {
+              'OnFailure' => 'notify-failed@%i.service',
+            },
+            service       => {
+              'PrivateDevices' => 'true',
+              'PrivateTmp'     => 'true',
+              'ProtectHome'    => 'true',
+              'ProtectSystem'  => 'full',
+            },
+            daemon_reload => 'monitoring_systemd_daemon_reload',
+            require       => Package['openitcockpit-agent'],
+          }
+        } else {
+          # Enable service
+          service { 'openitcockpit-agent':
+            ensure  => true,
+            enable  => true,
+            require => Package['openitcockpit-agent'],
+          }
+        }
+      }
+
+      # Create root directory
+      file { 'monitoring_location':
+        ensure => directory,
+        path   => '/etc/openitcockpit-agent',
+        mode   => '0755', # Important
+        owner  => 'root',
+        group  => 'root',
+      }
+
+      # Create plugin directory
+      file { 'monitoring_location_plugins':
+        ensure  => directory,
+        path    => '/etc/openitcockpit-agent/plugins',
+        mode    => '0755', # Important
+        owner   => 'root',
+        group   => 'root',
+        require => File['monitoring_location'],
+      }
+
+      # Create config config
+      concat { '/etc/openitcockpit-agent/customchecks.ini':
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0600',
+        reuiqre => Package['monitoring_location'],
       }
     }
   }
 
-  # Create service check
+# Create service check
   basic_settings::monitoring_service { 'mail':
     services => [$mail_package],
   }

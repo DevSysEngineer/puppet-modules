@@ -1,4 +1,4 @@
-class openitcockpit (
+class openitcockpit::server (
   Sensitive[String] $grafana_password,
   Optional[String]  $install_dir              = undef,
   Optional[String]  $server_fdqn              = undef,
