@@ -167,6 +167,16 @@ class basic_settings::monitoring (
         require => File['monitoring_location'],
       }
     }
+    'openitcockpit': {
+      # Check if we can install package
+      if ($package_install) {
+        # Install OpenITCockpit agent
+        package { 'openitcockpit-agent':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      }
+    }
   }
 
   # Create service check
