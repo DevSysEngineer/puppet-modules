@@ -57,6 +57,16 @@ class openitcockpit::server (
     require => Package['sudo'],
   }
 
+  # Create sudoers file
+  file { '/etc/sudoers.d/openitc_nagios':
+    ensure  => file,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0440',
+    content => "# Managed by puppet\nCmnd_Alias OPENITC_NAGIOS_CMD = /opt/openitc/nagios/bin/nagios -v /opt/openitc/nagios/etc/nagios.cfg\nDefaults!OPENITC_NAGIOS_CMD !mail_always\nDefaults!OPENITC_NAGIOS_CMD root_sudo\nnagios ALL = (root): OPENITC_NAGIOS_CMD\n",
+    require => Package['sudo'],
+  }
+
   # Check if installation dir is given
   if ($install_dir != undef) {
     # Create directory
@@ -163,15 +173,21 @@ class openitcockpit::server (
   }
 
   # Install package
-  package { ['openitcockpit', 'openitcockpit-frontend-angular', 'openitcockpit-module-grafana', 'openitcockpit-monitoring-plugins']:
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => File[
-      "${install_dir_correct}/etc/grafana/admin_password",
-      "${install_dir_correct}/nagios/backup",
-      "${install_dir_correct}/var",
-      "${install_dir_correct}/logs"
-    ],
+  package { [
+      'openitcockpit',
+      'openitcockpit-frontend-angular',
+      'openitcockpit-mod-gearman-worker-go-local',
+      'openitcockpit-module-grafana',
+      'openitcockpit-monitoring-plugins',
+    ]:
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+      require         => File[
+        "${install_dir_correct}/etc/grafana/admin_password",
+        "${install_dir_correct}/nagios/backup",
+        "${install_dir_correct}/var",
+        "${install_dir_correct}/logs"
+      ],
   }
 
   # Create dirs
@@ -297,10 +313,20 @@ class openitcockpit::server (
   # Disable service
   if (defined(Package['systemd'])) {
     # Disable service
-    service { ['openitcockpit-node', 'openitcockpit-graphing']:
-      ensure  => undef,
-      enable  => false,
-      require => Package['openitcockpit'],
+    service { [
+        'gearman-job-server',
+        'gearman_worker',
+        'openitcockpit-node',
+        'openitcockpit-graphing',
+        'oitc_cmd',
+        'oitc_cronjobs.timer',
+        'push_notification',
+        'statusengine',
+        'sudo_server',
+      ]:
+        ensure  => undef,
+        enable  => false,
+        require => Package['openitcockpit'],
     }
 
     # Reload systemd deamon
@@ -312,6 +338,24 @@ class openitcockpit::server (
 
     # Create drop in for x target
     if (defined(Class['basic_settings::systemd'])) {
+      basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'gearman-job-server.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_gearman_worker_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'gearman_worker.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+      }
+
       basic_settings::systemd_drop_in { 'openitcockpit_node_dependency':
         target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
         unit          => {
@@ -320,10 +364,7 @@ class openitcockpit::server (
         daemon_reload => 'openitcockpit_systemd_daemon_reload',
         require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
       }
-    }
 
-    # Create drop in for x target
-    if (defined(Class['basic_settings::systemd'])) {
       basic_settings::systemd_drop_in { 'openitcockpit_graphing_dependency':
         target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
         unit          => {
@@ -331,6 +372,50 @@ class openitcockpit::server (
         },
         daemon_reload => 'openitcockpit_systemd_daemon_reload',
         require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'oitc_cmd.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_dependency':
+        target_unit => "${basic_settings::cluster_id}-helpers.target",
+        unit        => {
+          'BindsTo'   => 'oitc_cronjobs.timer',
+        },
+        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_push_notification_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'push_notification.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_statusengine_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'statusengine.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+      }
+
+      basic_settings::systemd_drop_in { 'openitcockpit_sudo_server_dependency':
+        target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+        unit          => {
+          'BindsTo'   => 'sudo_server.service',
+        },
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
       }
     }
 
@@ -343,39 +428,101 @@ class openitcockpit::server (
       $unit = {}
     }
 
-    # Create drop in for openitcockpit-node service
-    basic_settings::systemd_drop_in { 'openitcockpit_node_settings':
-      target_unit   => 'openitcockpit-node.service',
+    # Set service
+    $service = {
+      'PrivateDevices' => 'true',
+      'PrivateTmp'     => 'true',
+      'ProtectHome'    => 'true',
+      'ProtectSystem'  => 'full',
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_settings':
+      target_unit   => 'gearman-job-server.service',
       unit          => $unit,
-      service       => {
-        'PrivateDevices' => 'true',
-        'PrivateTmp'     => 'true',
-        'ProtectHome'    => 'true',
-        'ProtectSystem'  => 'full',
-      },
+      service       => $service,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
 
-    # Create drop in for openitcockpit-node service
+    basic_settings::systemd_drop_in { 'openitcockpit_gearman_worker_settings':
+      target_unit   => 'gearman_worker.service',
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_node_settings':
+      target_unit   => 'openitcockpit-node.service',
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
     basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
       target_unit   => 'openitcockpit-graphing.service',
       unit          => $unit,
-      service       => {
-        'PrivateDevices' => 'true',
-        'PrivateTmp'     => 'true',
-        'ProtectHome'    => 'true',
-        'ProtectSystem'  => 'full',
-      },
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_settings':
+      target_unit   => 'oitc_cmd.service',
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_settings':
+      target_unit   => 'oitc_cronjobs.service', # oitc_cronjobs.timer
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_push_notification_settings':
+      target_unit   => 'push_notification.service',
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
+      target_unit   => 'statusengine.service',
+      unit          => $unit,
+      service       => $service,
+      daemon_reload => 'openitcockpit_systemd_daemon_reload',
+      require       => Package['openitcockpit'],
+    }
+
+    basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
+      target_unit   => 'sudo_server.service',
+      unit          => $unit,
+      service       => $service,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
   } else {
     # Enable service
-    service { ['openitcockpit-node', 'openitcockpit-graphing']:
-      ensure  => true,
-      enable  => true,
-      require => Package['openitcockpit'],
+    service { [
+        'gearman-job-server',
+        'gearman_worker',
+        'openitcockpit-node',
+        'openitcockpit-graphing',
+        'oitc_cmd',
+        'oitc_cronjobs.timer',
+        'push_notification',
+        'statusengine',
+        'sudo_server',
+      ]:
+        ensure  => true,
+        enable  => true,
+        require => Package['openitcockpit'],
     }
   }
 

@@ -1,11 +1,12 @@
 class naemon () {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  $openitcockpit_server_enable = defined(Class['openitcockpit::server'])
 
   if (defined(Package['openitcockpit'])) {
     $package = 'openitcockpit-naemon'
     $webserver_uid = 'nagios'
-    if (defined(Class['openitcockpit::server'])) {
+    if ($openitcockpit_server_enable) {
       $config_dir = "${openitcockpit::server::install_dir_correct}/etc/nagios/nagios.cfg.d"
       $webserver_gid = $openitcockpit::server::webserver_gid
     } else {
@@ -79,6 +80,18 @@ class naemon () {
       },
       daemon_reload => 'naemon_systemd_daemon_reload',
       require       => Package[$package],
+    }
+
+    # Check if we have openitcockpit server
+    if ($openitcockpit_server_enable) {
+      # Create symlink
+      file { '/usr/lib/systemd/system/nagios.service':
+        ensure  => 'link',
+        target  => '/usr/lib/systemd/system/naemon.service',
+        force   => true,
+        notify  => Exec['naemon_systemd_daemon_reload'],
+        require => Package[$package],
+      }
     }
   } else {
     # Enable service
