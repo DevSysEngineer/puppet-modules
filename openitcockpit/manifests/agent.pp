@@ -104,7 +104,7 @@ class openitcockpit::agent (
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
-      reuiqre => Package['monitoring_location'],
+      require => File['monitoring_location'],
     }
   }
 }

@@ -140,7 +140,7 @@ class basic_settings::monitoring (
         owner   => 'root',
         group   => 'root',
         mode    => '0600',
-        require => Package['monitoring_location'],
+        require => File['monitoring_location'],
       }
     }
   }
