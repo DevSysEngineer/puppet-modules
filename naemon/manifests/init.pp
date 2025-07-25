@@ -4,10 +4,29 @@ class naemon () {
 
   if (defined(Package['openitcockpit'])) {
     $package = 'openitcockpit-naemon'
+    $webserver_uid = 'nagios'
+    if (defined(Class['openitcockpit'])) {
+      $config_dir = "${openitcockpit::install_dir_correct}/etc/nagios/nagios.cfg.d"
+      $webserver_gid = $openitcockpit::webserver_gid
+    } else {
+      $config_dir = '/opt/openitc/etc/nagios/nagios.cfg.d'
+      $webserver_gid = 'www-data'
+    }
+
+    # Install package
     package { $package:
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
       require         => Package['openitcockpit'],
+    }
+
+    # Create config directory
+    file { $config_dir:
+      ensure  => directory,
+      purge   => true,
+      force   => true,
+      recurse => true,
+      require => Package[$package],
     }
   }
 
