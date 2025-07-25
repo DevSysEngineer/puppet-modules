@@ -121,7 +121,7 @@ class openitcockpit (
   # Create admin password file
   file { "${install_dir_correct}/etc/grafana/admin_password":
     ensure  => file,
-    content => 'admin',
+    content => Sensitive.new('admin'),
     replace => false,
     owner   => 'root',
     group   => 'root',
@@ -182,6 +182,8 @@ class openitcockpit (
       "${lib_dir}/nagios/var/log",
       "${lib_dir}/nagios/var/rw",
       "${lib_dir}/nagios/var/spool",
+      "${lib_dir}/nagios/var/spool/checkresults",
+      "${lib_dir}/nagios/var/spool/perfdata",
       "${lib_dir}/nagios/var/stats",
     ]:
       ensure  => directory,
@@ -249,6 +251,13 @@ class openitcockpit (
     require => File["${install_dir_correct}/frontend/config"],
   }
 
+  # Get SSL content
+  if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
+    $ssl_content = template('openitcockpit/nginx/ssl_cert.conf')
+  } else {
+    $ssl_content = ''
+  }
+
   # Create openitc directory
   file { '/etc/nginx/openitc':
     ensure  => directory,
@@ -258,11 +267,14 @@ class openitcockpit (
     require => Package['openitcockpit'],
   }
 
-  # Get SSL content
-  if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
-    $ssl_content = template('openitcockpit/nginx/ssl_cert.conf')
-  } else {
-    $ssl_content = ''
+  # Set nginx config
+  file { '/etc/nginx/sites-enabled/openitc':
+    ensure  => file,
+    replace => false,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => File['/etc/nginx/openitc'],
   }
 
   # Create SSL config file
@@ -369,8 +381,8 @@ class openitcockpit (
 
   # Update grafana admin password
   exec { 'openitcockpit_grafana_admin_pw':
-    command => "/bin/sh -c '/usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'",
-    onlyif  => "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'",
-    require => Package['openitcockpit'],
+    command => Sensitive.new("/bin/sh -c '/usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'"),
+    onlyif  => Sensitive.new( "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'"),
+    require => Package['coreutils', 'grep', 'openitcockpit'],
   }
 }
