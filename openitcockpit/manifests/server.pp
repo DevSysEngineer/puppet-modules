@@ -384,11 +384,12 @@ class openitcockpit::server (
       }
 
       basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_dependency':
-        target_unit => "${basic_settings::cluster_id}-helpers.target",
-        unit        => {
+        target_unit   => "${basic_settings::cluster_id}-helpers.target",
+        unit          => {
           'BindsTo'   => 'oitc_cronjobs.timer',
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
       }
 
       basic_settings::systemd_drop_in { 'openitcockpit_push_notification_dependency':
