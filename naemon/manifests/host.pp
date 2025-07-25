@@ -5,7 +5,7 @@ define naemon::host (
   Hash                      $checks     = {},
 ) {
   # Create host file
-  file { "${naemon::config_dir}/20-host${name}.cfg":
+  file { "${naemon::config_dir}/20-host-${name}.cfg":
     ensure  => $ensure,
     owner   => $naemon::webserver_uid,
     group   => $naemon::webserver_gid,

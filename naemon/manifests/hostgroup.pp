@@ -3,7 +3,7 @@ define naemon::hostgroup (
   Optional[String]          $description = undef,
 ) {
   # Create host file
-  file { "${naemon::config_dir}/10-hostgroup_${name}.cfg":
+  file { "${naemon::config_dir}/10-hostgroup-${name}.cfg":
     ensure  => $ensure,
     owner   => $naemon::webserver_uid,
     group   => $naemon::webserver_gid,
