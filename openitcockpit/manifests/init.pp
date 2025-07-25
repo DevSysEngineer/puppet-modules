@@ -6,7 +6,6 @@ class openitcockpit (
   Optional[String]  $ssl_certificate_key      = undef,
   Optional[String]  $webserver_uid            = undef,
   Optional[String]  $webserver_gid            = undef,
-
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'
@@ -200,6 +199,16 @@ class openitcockpit (
       "${install_dir_correct}/nagios",
       "${lib_dir}/nagios/var"
     ],
+  }
+
+  # Create grafana config file for installation
+  file { "${install_dir_correct}/frontend/src/config_templates/graphing/grafana/grafana.ini":
+    ensure  => file,
+    content => template('openitcockpit/grafana/grafana.ini'),
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0644',
+    require => Package['openitcockpit'],
   }
 
   # Create grafana config file
