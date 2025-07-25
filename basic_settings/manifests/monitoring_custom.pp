@@ -35,37 +35,19 @@ define basic_settings::monitoring_custom (
   # Do thing based on package
   $file_ensure = $ensure ? { 'present' => 'file', default => $ensure }
   case $package_correct {
-    'ncpa': {
-      # Get script name
-      if ($root_required) {
-        $script_name = "check_${name}.root"
-      } else {
-        $script_name = "check_${name}"
-      }
-
+    'openitcockpit': {
       # Set some values
-      $script_path = "/usr/local/ncpa/plugins/${script_name}"
-      $uid = 'nagios'
-      $gid = 'nagios'
+      $script_name = "check_${name}"
+      $script_path = "/etc/openitcockpit-agent/plugins/${script_name}"
+      $uid = 'root'
+      $gid = 'root'
 
-      # Create check
-      file { "/usr/local/ncpa/etc/ncpa.cfg.d/timer_${name}.cfg":
-        ensure  => $file_ensure,
-        owner   => 'root',
-        group   => $gid,
-        mode    => '0600',
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} = plugins/${script_name}\n",
-      }
-
-      # Create plugin settings
-      $plugin_settings =  '/usr/local/ncpa/etc/ncpa.cfg.d/90-plugins.cfg'
-      if ($root_required and !defined(File[$plugin_settings])) {
-        file { $plugin_settings:
-          ensure  => file,
-          owner   => 'root',
-          group   => $gid,
-          mode    => '0600',
-          content => "# Managed by puppet\n[plugin directives]\n.root = /usr/bin/sudo \$plugin_name \$plugin_args\n",
+      # Create fragment for plugin
+      if ($ensure == present) {
+        concat::fragment { "monitoring_plugin_${name}":
+          target  => '/etc/openitcockpit-agent/customchecks.ini',
+          content => "[${script_name}] #${friendly_correct}\ncommand = ${script_path}\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          order   => '10',
         }
       }
     }
@@ -89,14 +71,14 @@ define basic_settings::monitoring_custom (
     }
 
     # Create sudo
-    if ($root_required) {
+    if ($root_required and $uid != 'root') {
       $sudo_cmnd = regsubst("monitoring_plugin_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
       file { "/etc/sudoers.d/monitoring_plugin_${name}":
         ensure  => $file_ensure,
         owner   => 'root',
         group   => 'root',
         mode    => '0440',
-        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always \nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
+        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always \n${uid} ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
         require => Package['sudo'],
       }
     }

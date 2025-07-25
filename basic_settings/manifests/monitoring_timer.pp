@@ -32,32 +32,21 @@ define basic_settings::monitoring_timer (
   # Do thing based on package
   $file_ensure = $ensure ? { 'present' => 'file', default => $ensure }
   case $package_correct {
-    'ncpa': {
+    'openitcockpit': {
       # Set some values
-      $script_path = '/usr/local/ncpa/plugins/check_systemd_timer.root'
+      $script_name = "check_${name}"
+      $script_path = '/etc/openitcockpit-agent/plugins/check_systemd_timer'
       $script_exists = defined(File[$script_path])
-      $uid = 'nagios'
-      $gid = 'nagios'
+      $uid = 'root'
+      $gid = 'root'
 
-      # Create plugin settings
-      $plugin_settings =  '/usr/local/ncpa/etc/ncpa.cfg.d/90-plugins.cfg'
-      if (!$script_exists and !defined(File[$plugin_settings])) {
-        file { $plugin_settings:
-          ensure  => file,
-          owner   => 'root',
-          group   => $gid,
-          mode    => '0600',
-          content => "# Managed by puppet\n[plugin directives]\n.root = /usr/bin/sudo \$plugin_name \$plugin_args\n",
+      # Create fragment for plugin
+      if ($ensure == present) {
+        concat::fragment { "monitoring_timer_${name}":
+          target  => '/etc/openitcockpit-agent/customchecks.ini',
+          content => "[${script_name}] #${friendly_correct}\ncommand = ${script_path} ${name}\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          order   => '10',
         }
-      }
-
-      # Create check
-      file { "/usr/local/ncpa/etc/ncpa.cfg.d/timer_${name}.cfg":
-        ensure  => $file_ensure,
-        owner   => 'root',
-        group   => $gid,
-        mode    => '0600',
-        content => "# Managed by puppet\n[passive checks]\n%HOSTNAME%|${friendly_correct} Timer = plugins/check_systemd_timer.root?args=${name}.timer\n",
       }
     }
     default: {
@@ -80,14 +69,16 @@ define basic_settings::monitoring_timer (
     }
 
     # Create sudo
-    $sudo_cmnd = regsubst("monitoring_timer_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
-    file { "/etc/sudoers.d/monitoring_timer_${name}":
-      ensure  => $file_ensure,
-      owner   => 'root',
-      group   => $gid,
-      mode    => '0440',
-      content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always\nnagios ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
-      require => Package['sudo'],
+    if ($uid != 'root') {
+      $sudo_cmnd = regsubst("monitoring_timer_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
+      file { "/etc/sudoers.d/monitoring_timer_${name}":
+        ensure  => $file_ensure,
+        owner   => 'root',
+        group   => $gid,
+        mode    => '0440',
+        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always\n${uid} ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
+        require => Package['sudo'],
+      }
     }
   }
 }

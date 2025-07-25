@@ -142,6 +142,13 @@ class basic_settings::monitoring (
         mode    => '0600',
         require => File['monitoring_location'],
       }
+
+      # Create fragment 
+      concat::fragment { 'monitoring_customchecks_default':
+        target  => '/etc/openitcockpit-agent/customchecks.ini',
+        content => "# Managed by puppet\n[default]\n",
+        order   => '01',
+      }
     }
   }
 

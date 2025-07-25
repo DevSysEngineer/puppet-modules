@@ -500,7 +500,7 @@ class openitcockpit::server (
       require       => Package['openitcockpit'],
     }
 
-    basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
+    basic_settings::systemd_drop_in { 'openitcockpit_sudo_server_settings':
       target_unit   => 'sudo_server.service',
       unit          => $unit,
       service       => $service,

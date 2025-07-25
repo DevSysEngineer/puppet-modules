@@ -93,7 +93,7 @@ class openitcockpit::agent (
     file { 'monitoring_location_plugins':
       ensure  => directory,
       path    => '/etc/openitcockpit-agent/plugins',
-      mode    => '0755', # Important
+      mode    => '0700',
       owner   => 'root',
       group   => 'root',
       require => File['monitoring_location'],
@@ -105,6 +105,13 @@ class openitcockpit::agent (
       group   => 'root',
       mode    => '0600',
       require => File['monitoring_location'],
+    }
+
+    # Create fragment 
+    concat::fragment { 'monitoring_customchecks_default':
+      target  => '/etc/openitcockpit-agent/customchecks.ini',
+      content => "# Managed by puppet\n[default]\n",
+      order   => '01',
     }
   }
 }
