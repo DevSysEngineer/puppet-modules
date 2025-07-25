@@ -430,9 +430,9 @@ class basic_settings (
         os_name     => $os_name,
       }
     }
-    $monitoring_requirements = Class['basic_settings::systemd', 'basic_settings::package_openitcockpit'],
+    $monitoring_requirements = Class['basic_settings::systemd', 'basic_settings::package_openitcockpit']
   } else {
-    $monitoring_requirements = Class['basic_settings::systemd'],
+    $monitoring_requirements = Class['basic_settings::systemd']
   }
 
   # Setup message
