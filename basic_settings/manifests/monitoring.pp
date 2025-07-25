@@ -1,9 +1,9 @@
 class basic_settings::monitoring (
-  String              $mail_to          = 'root',
-  String              $mail_package     = 'postfix',
-  Enum['none','ncpa'] $package          = 'none',
-  Boolean             $package_install  = false,
-  String              $server_fdqn      = $facts['networking']['fqdn']
+  String                        $mail_to          = 'root',
+  String                        $mail_package     = 'postfix',
+  Enum['none','openitcockpit']  $package          = 'none',
+  Boolean                       $package_install  = false,
+  String                        $server_fdqn      = $facts['networking']['fqdn']
 ) {
   # Install package
   package { [$mail_package, 'mailutils']:
