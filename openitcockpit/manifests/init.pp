@@ -369,9 +369,8 @@ class openitcockpit (
 
   # Update grafana admin password
   exec { 'openitcockpit_grafana_admin_pw':
-    command   => "/bin/sh -c '/usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'",
-    onlyif    => "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'",
-    sensitive => true,
-    require   => Package['openitcockpit'],
+    command => "/bin/sh -c '/usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'",
+    onlyif  => "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'",
+    require => Package['openitcockpit'],
   }
 }
