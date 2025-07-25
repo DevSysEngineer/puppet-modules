@@ -8,7 +8,8 @@ define naemon::hostgroup (
     owner   => $naemon::webserver_uid,
     group   => $naemon::webserver_gid,
     mode    => '0600',
-    content => template('openitcockpit/hostgroup.cfg'),
+    content => template('naemon/hostgroup.cfg'),
     notify  => Service['naemon'],
+    require => File[$naemon::config_dir],
   }
 }

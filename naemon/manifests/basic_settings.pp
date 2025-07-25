@@ -1,5 +1,5 @@
 define naemon::basic_settings (
-  Optional[String]          $address      = undef,
+  String                    $address,
   Enum['present','absent']  $ensure       = present,
   Optional[String]          $friendly     = undef,
 ) {
