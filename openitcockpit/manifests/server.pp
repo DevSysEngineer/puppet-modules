@@ -63,7 +63,7 @@ class openitcockpit::server (
     owner   => 'root',
     group   => 'root',
     mode    => '0440',
-    content => "# Managed by puppet\nCmnd_Alias OPENITC_NAGIOS_CMD = /opt/openitc/nagios/bin/nagios -v /opt/openitc/nagios/etc/nagios.cfg\nDefaults!OPENITC_NAGIOS_CMD !mail_always\nDefaults!OPENITC_NAGIOS_CMD root_sudo\nnagios ALL = (root): OPENITC_NAGIOS_CMD\n",
+    content => "# Managed by puppet\nCmnd_Alias OPENITC_NAGIOS_CMD = /opt/openitc/nagios/bin/nagios -v /opt/openitc/nagios/etc/nagios.cfg\nDefaults!OPENITC_NAGIOS_CMD !mail_always\nDefaults!OPENITC_NAGIOS_CMD root_sudo\nnagios ALL = (root) OPENITC_NAGIOS_CMD\n",
     require => Package['sudo'],
   }
 
@@ -177,6 +177,7 @@ class openitcockpit::server (
       'openitcockpit',
       'openitcockpit-frontend-angular',
       'openitcockpit-mod-gearman-worker-go-local',
+      'openitcockpit-module-design',
       'openitcockpit-module-grafana',
       'openitcockpit-monitoring-plugins',
     ]:
@@ -245,7 +246,7 @@ class openitcockpit::server (
       ensure  => directory,
       owner   => $webserver_uid_correct,
       group   => $webserver_gid_correct,
-      mode    => '0700',
+      mode    => '0755', # Important for internal scripts
       require => Package['openitcockpit'],
   }
 
@@ -263,7 +264,7 @@ class openitcockpit::server (
     content => template('openitcockpit/frontend/email.php'),
     owner   => $webserver_uid_correct,
     group   => $webserver_gid_correct,
-    mode    => '0600',
+    mode    => '0664',
     require => File["${install_dir_correct}/frontend/config"],
   }
 
