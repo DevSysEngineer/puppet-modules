@@ -302,6 +302,7 @@ class openitcockpit::server (
       "${lib_dir}/frontend",
       "${lib_dir}/frontend/tmp",
       "${lib_dir}/frontend/webroot",
+      "${lib_dir}/frontend/webroot/img",
     ]:
       ensure  => directory,
       owner   => $webserver_uid_correct,
@@ -319,11 +320,11 @@ class openitcockpit::server (
   }
 
   # Create symlink
-  file { "${install_dir_correct}/frontend/webroot":
+  file { "${install_dir_correct}/frontend/webroot/img":
     ensure  => 'link',
-    target  => "${lib_dir}/frontend/webroot",
+    target  => "${lib_dir}/frontend/webroot/img",
     force   => true,
-    require => File["${lib_dir}/frontend/webroot"],
+    require => File["${lib_dir}/frontend/webroot/img"],
   }
 
   # Create email config file
@@ -354,11 +355,9 @@ class openitcockpit::server (
 
   # Set nginx config
   file { '/etc/nginx/sites-enabled/openitc':
-    ensure  => file,
-    replace => false,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
+    ensure  => 'link',
+    target  => '/etc/nginx/sites-available/openit',
+    force   => true,
     require => File['/etc/nginx/openitc'],
   }
 
