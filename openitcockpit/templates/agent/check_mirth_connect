@@ -83,7 +83,7 @@ done
 
 # Service running
 <% if @systemd_enable -%>
-$SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "Mirth Connect service is not active"
+$SYSTEMDCTL is-active --quiet "$SERVICE" || crit "Mirth Connect service is not active"
 <% else -%>
 $PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
 <% end -%>
@@ -168,7 +168,7 @@ while IFS='|' read -r _prefix chan group status q recv sent; do
 
         # If the queue is above the threshold for longer than the grace period, set critical
         [ $((NOW - FIRST)) -ge "$GRACE" ] && QUEUE_CRIT=1
-        
+
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
         SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
     fi
