@@ -15,10 +15,6 @@ AWK=$(command -v awk 2>/dev/null)
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
 
-# Locate grep
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
-
 # Locate printf
 PRINTF=$(command -v printf 2>/dev/null)
 [ -n "$PRINTF" ] || die "printf not available"
@@ -39,13 +35,13 @@ SED=$(command -v sed 2>/dev/null)
 TR=$(command -v tr 2>/dev/null)
 [ -n "$TR" ] || die "tr not available"
 
-# Locate cut
-CUT=$(command -v cut 2>/dev/null)
-[ -n "$CUT" ] || die "cut not available"
-
-# Locate RM
+# Locate rm
 RM=$(command -v rm 2>/dev/null)
 [ -n "$RM" ] || die "rm not available"
+
+# Locate mv
+MV=$(command -v rm 2>/dev/null)
+[ -n "$MV" ] || die "mv not available"
 
 <% if @systemd_enable -%>
 # Locate systemctl
@@ -94,86 +90,67 @@ $SYSTEMDCTL is-active --quiet "$SERVICE" || crit "Mirth Connect service is not a
 $PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
 <% end -%>
 
-# Workspace
+# Workdir
 WORK_DIR=$($MKTEMP -d "$TMPDIR/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
-# Collect channel stats
+# Stats
 $PRINTF 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "mccommand stats failed"
 [ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand stats"
 
-# Parse stats → C/G/T records
+# Parse stats → C/T
 OUTPUT_CLEAN=$($PRINTF '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
 $PRINTF '%s\n' "$OUTPUT_CLEAN" | $AWK '
-    function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
-    function emit(){
-        if (chan!="") {
-            if (group=="") group="ungrouped";
-            if (status=="") status="";             # status komt uit tweede call
-            if (q=="") q=0; if (recv=="") recv=0; if (sent=="") sent=0;
-            printf "C|%s|%s|%s|%d|%d|%d\n", chan, group, status, q+0, recv+0, sent+0;
-            g_recv[group]+=recv+0; g_sent[group]+=sent+0; t_recv+=recv+0; t_sent+=sent+0;
-        }
-        chan=""; group=""; status=""; q=recv=sent=0;
+  function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
+  function emit(){
+    if (chan!="") {
+      if (q=="") q=0; if (recv=="") recv=0; if (sent=="") sent=0;
+      printf "C|%s|%d|%d|%d\n", chan, q+0, recv+0, sent+0;
+      t_recv+=recv+0; t_sent+=sent+0;
     }
-    BEGIN { chan=""; group=""; status=""; q=recv=sent=0 }
-    /^Channel Stats for[[:space:]]+/ { emit(); sub(/^Channel Stats for[[:space:]]+/,"",$0); chan=$0; next }
-    /^Channel Group:/ { group=after_colon($0); next }
-    /^Group:/ { if(group=="") group=after_colon($0); next }
-    /^Queued:/ { v=after_colon($0); gsub(",","",v); q=v+0; next }
-    /^Received:/ { v=after_colon($0); gsub(",","",v); recv=v+0; next }
-    /^Sent:/ { v=after_colon($0); gsub(",","",v); sent=v+0; next }
-    END {
-        emit();
-        for (g in g_recv) printf "G|%s|%d|%d\n", g, g_recv[g]+0, g_sent[g]+0;
-        printf "T|%d|%d\n", t_recv+0, t_sent+0;
-    }
+    chan=""; q=recv=sent=0;
+  }
+  BEGIN { chan=""; q=recv=sent=0; t_recv=0; t_sent=0 }
+  /^Channel Stats for[[:space:]]+/ { emit(); sub(/^Channel Stats for[[:space:]]+/,"",$0); chan=$0; next }
+  /^Queued:/   { v=after_colon($0); gsub(",","",v); q=v+0; next }
+  /^Received:/ { v=after_colon($0); gsub(",","",v); recv=v+0; next }
+  /^Sent:/     { v=after_colon($0); gsub(",","",v); sent=v+0; next }
+  END { emit(); printf "T|%d|%d\n", t_recv+0, t_sent+0; }
 ' >"$WORK_DIR/parsed_all.txt"
 
-# Split to helper files (zonder grep)
 $AWK -F'|' '/^C\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_channels.txt"
-$AWK -F'|' '/^G\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_groups.txt"
 $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals.txt"
 
-# Collect channel status
+# Status
 $PRINTF 'status\n' >"$WORK_DIR/cli_status.cmd"
 STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die "mccommand status failed"
 [ -n "$STATUS_RAW" ] || crit "Empty output from mccommand status"
 
-# Build status map: name|status
+# status_map.txt → name|Status
 STATUS_CLEAN=$($PRINTF '%s\n' "$STATUS_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
 $PRINTF '%s\n' "$STATUS_CLEAN" | $AWK '
-    BEGIN{skip=1}
-    /^ID[[:space:]]+Status[[:space:]]+Name/ { skip=0; next }
-    skip==1 { next }
-    NF<3 { next }
-    {
-        st=$2; name=""; for(i=3;i<=NF;i++) name=(i==3?$i:name FS $i);
-        print name "|" st
-    }
+  BEGIN{in_tbl=0}
+  /^ID[[:space:]]+Status[[:space:]]+Name/ { in_tbl=1; next }
+  in_tbl==0 { next }
+  NF<3 { next }
+  { st=$2; name=""; for(i=3;i<=NF;i++) name=(i==3?$i:name FS $i); print name "|" st }
 ' >"$WORK_DIR/status_map.txt"
 
-# Set variables
+# Init
 TOTAL_CHANS=$($AWK -F'|' '/^C\|/ {c++} END{print c+0}' "$WORK_DIR/parsed_channels.txt")
+STATE_IN="$STATE_FILE"; [ -f "$STATE_IN" ] || STATE_IN=/dev/null
 
-# Evaluate per channel
-# Load previous state file into temp (may not exist)
-[ -f "$STATE_FILE" ] || :
-
-while IFS='|' read -r _c chan group status q recv sent; do
-    # Fill status from map using awk lookup
-    status_lookup=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
-    [ -n "$status_lookup" ] && status="$status_lookup"
-
-    case "$status" in
+# Evaluate
+while IFS='|' read -r _c chan q recv sent; do
+    STATUS=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
+    case "$STATUS" in
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
-        *) STATUS_ISSUES=$((STATUS_ISSUES+1)); SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${status}), ";;
+        *) STATUS_ISSUES=$((STATUS_ISSUES+1)); SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${STATUS:-Unknown}), ";;
     esac
 
-    # Queue threshold handling with grace window
     if [ "${q:-0}" -gt "$WARN_Q" ]; then
-        FIRST=$($AWK -F'|' -v c="$chan" '$1==c{print $2; found=1; exit} END{if(!found) print ""}' "$STATE_FILE" 2>/dev/null)
+        FIRST=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$STATE_IN")
         [ -z "$FIRST" ] && FIRST=$NOW
         $PRINTF '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
@@ -186,35 +163,27 @@ while IFS='|' read -r _c chan group status q recv sent; do
     fi
 done <"$WORK_DIR/parsed_channels.txt"
 
-# Persist new state (only channels still breaching threshold)
+# State write
 if [ -f "$WORK_DIR/new_state" ]; then
     $MV "$WORK_DIR/new_state" "$STATE_FILE"
 else
     [ -f "$STATE_FILE" ] && $RM -f "$STATE_FILE"
 fi
 
-# Trim trailing comma+space
+# Trim
 SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
-# Build perfdata
+# Perfdata
 RUNNING_OK=$((TOTAL_CHANS - STATUS_ISSUES))
 PERF="channels=${TOTAL_CHANS} queues=${QUEUE_ISSUES};0;${WARN_Q} status_issues=${STATUS_ISSUES} running_ok=${RUNNING_OK} running_down=${STATUS_ISSUES}"
-
-# Totals
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
     PERF="$PERF total_received=${tot_recv} total_sent=${tot_sent}"
 fi
 
-# Per group
-while IFS='|' read -r _g group grecv gsent; do
-    lbl=$(printf '%s' "$group" | $TR '[:upper:]' '[:lower:]' | $TR ' ' '_' | $SED 's/[^A-Za-z0-9_]/_/g')
-    PERF="$PERF group_${lbl}_received=${grecv} group_${lbl}_sent=${gsent}"
-done <"$WORK_DIR/parsed_groups.txt"
-
 # Result
 if [ "$STATUS_ISSUES" -gt 0 ]; then
-    crit "${STATUS_ISSUES} channel(s) not started: ${SUMMARY_STATUS} | ${PERF}"
+    crit "${STATUS_ISSUES} channel(s) not Started: ${SUMMARY_STATUS} | ${PERF}"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
     crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
