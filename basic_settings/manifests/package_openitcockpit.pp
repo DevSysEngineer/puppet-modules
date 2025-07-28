@@ -4,7 +4,7 @@ class basic_settings::package_openitcockpit (
   String              $os_parent,
   String              $os_name,
   String              $package,
-  Optional[String]    $license = undef
+  Optional[String]    $license = undef,
   Boolean             $nightly = false,
 ) {
   # Check if we need newer format for APT
