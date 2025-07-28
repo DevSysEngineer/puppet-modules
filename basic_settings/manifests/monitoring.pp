@@ -102,6 +102,7 @@ class basic_settings::monitoring (
               'PrivateTmp'     => 'true',
               'ProtectHome'    => 'true',
               'ProtectSystem'  => 'full',
+              'ReadWritePaths' => '/etc/openitcockpit-agent/auth.json',
             },
             daemon_reload => 'monitoring_systemd_daemon_reload',
             require       => Package['openitcockpit-agent'],
