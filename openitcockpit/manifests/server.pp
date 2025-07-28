@@ -269,16 +269,6 @@ class openitcockpit::server (
   file { [
       "${install_dir_correct}/etc/nagios/nagios.cfg",
       "${lib_dir}/nagios/etc/resource.cfg",
-      "${lib_dir}/nagios/etc/config/services/services_minified.cfg",
-      "${lib_dir}/nagios/etc/config/servicetemplates/servicetemplates_minified.cfg",
-      "${lib_dir}/nagios/etc/config/hostgroups/hostgroups_minified.cfg",
-      "${lib_dir}/nagios/etc/config/timeperiods/timeperiods_minified.cfg",
-      "${lib_dir}/nagios/etc/config/contactgroups/contactgroups_minified.cfg",
-      "${lib_dir}/nagios/etc/config/contacts/contacts_minified.cfg",
-      "${lib_dir}/nagios/etc/config/commands/commands_minified.cfg",
-      "${lib_dir}/nagios/etc/config/hosts/hosts_minified.cfg",
-      "${lib_dir}/nagios/etc/config/hosttemplates/hosttemplates_minified.cfg",
-      "${lib_dir}/nagios/etc/config/defaults",
     ]:
       ensure  => file,
       replace => false,
@@ -311,6 +301,7 @@ class openitcockpit::server (
       "${install_dir_correct}/frontend/config",
       "${lib_dir}/frontend",
       "${lib_dir}/frontend/tmp",
+      "${lib_dir}/frontend/webroot",
     ]:
       ensure  => directory,
       owner   => $webserver_uid_correct,
@@ -325,6 +316,14 @@ class openitcockpit::server (
     target  => "${lib_dir}/frontend/tmp",
     force   => true,
     require => File["${lib_dir}/frontend/tmp"],
+  }
+
+  # Create symlink
+  file { "${install_dir_correct}/frontend/webroot":
+    ensure  => 'link',
+    target  => "${lib_dir}/frontend/webroot",
+    force   => true,
+    require => File["${lib_dir}/frontend/webroot"],
   }
 
   # Create email config file

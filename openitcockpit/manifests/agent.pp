@@ -127,7 +127,7 @@ class openitcockpit::agent (
           'PrivateTmp'     => 'true',
           'ProtectHome'    => 'true',
           'ProtectSystem'  => 'full',
-          'ReadWritePaths' => '/etc/openitcockpit-agent/auth.json',
+          'ReadWritePaths' => '/etc/openitcockpit-agent',
         },
         daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
         require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
