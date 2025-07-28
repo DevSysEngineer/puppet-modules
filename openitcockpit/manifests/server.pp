@@ -193,6 +193,7 @@ class openitcockpit::server (
 
   # Create dirs
   file { [
+      "${install_dir_correct}/nagios/etc",
       "${lib_dir}/nagios/var",
       "${lib_dir}/nagios/var/archives",
       "${lib_dir}/nagios/var/cache",
@@ -221,11 +222,26 @@ class openitcockpit::server (
     ],
   }
 
+  # Create resource config
+  file { [
+      "${install_dir_correct}/etc/nagios/nagios.cfg",
+      "${install_dir_correct}/nagios/etc/resource.cfg",
+    ]:
+      ensure  => file,
+      replace => false,
+      owner   => 'nagios',
+      group   => $webserver_gid_correct,
+      mode    => '0644',
+      require => File[
+        "${install_dir_correct}/nagios/etc",
+        "${install_dir_correct}/etc/nagios"
+      ],
+  }
+
   # Set proper permissions
   file { [
       "${install_dir_correct}/etc/grafana/grafana.ini",
       "${install_dir_correct}/etc/mod_gearman/mod_gearman_neb.conf",
-      "${install_dir_correct}/etc/nagios/nagios.cfg",
       "${install_dir_correct}/etc/statusengine/statusengine.toml",
     ]:
       ensure  => file,
