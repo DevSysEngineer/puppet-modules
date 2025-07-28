@@ -44,7 +44,7 @@ define basic_settings::monitoring_timer (
       if ($ensure == present) {
         concat::fragment { "monitoring_timer_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "[${script_name}] #${friendly_correct}\ncommand = ${script_path} ${name}\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${name}.timer\ninterval = 300\ntimeout = 10\nenabled = true\n",
           order   => '10',
         }
       }

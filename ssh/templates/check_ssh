@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    echo "UNKNOWN - $*" >&2
+    echo "$*" >&2
     exit 3
 }
 
@@ -34,14 +34,13 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 
 <% end -%>
 crit() {
-    printf 'CRITICAL - %s\n' "$*" >&2
+    $PRINTF 'CRITICAL - %s\n' "$*" >&2
     exit 2
 }
 
 # Set some default values
 CRIT_THRESH=2
 FAIL_COUNT=0
-STATE_LABEL="OK";
 STATE_CODE=0
 TIMEFRAME=10
 WARN_THRESH=1
@@ -73,7 +72,6 @@ SESSION_COUNT=$($PRINTF '%s\n' "$WHO_OUT" | $GREP -c 'pts/')
 # Check if root is logged in
 if $PRINTF '%s\n' "$WHO_OUT" | $GREP -q '^root[[:space:]]'; then
     ROOT_LOGIN=true
-    STATE_LABEL="CRITICAL"
     STATE_CODE=2
 else
     ROOT_LOGIN=false
@@ -82,10 +80,8 @@ fi
 # Determine base status from session thresholds
 if [ "$ROOT_LOGIN" = false ]; then
     if [ "$SESSION_COUNT" -ge "$CRIT_THRESH" ]; then
-        STATE_LABEL="CRITICAL"
         STATE_CODE=2
     elif [ "$SESSION_COUNT" -ge "$WARN_THRESH" ]; then
-        STATE_LABEL="WARNING"
         STATE_CODE=1
     fi
 fi
@@ -104,7 +100,6 @@ if [ "$ZOMBIE_COUNT" -gt 0 ]; then
     ZOMBIE_FLAG=true
     if [ $STATE_CODE -lt 2 ]; then
         [ $STATE_CODE -lt 1 ] && {
-            STATE_LABEL="WARNING";
             STATE_CODE=1;
         }
     fi
@@ -119,5 +114,5 @@ EXTRA_MSG=$(echo "$EXTRA_MSG" | sed 's/, $//')
 [ -n "$EXTRA_MSG" ] && EXTRA_MSG=" (${EXTRA_MSG})"
 
 # Output & exit
-echo "${STATE_LABEL} - ${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_THRESH};${CRIT_THRESH};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
+echo "${SESSION_COUNT} SSH session(s) active${EXTRA_MSG} | sessions=${SESSION_COUNT};${WARN_THRESH};${CRIT_THRESH};0; zombies=${ZOMBIE_COUNT};;; fails=${FAIL_COUNT};;;"
 exit $STATE_CODE

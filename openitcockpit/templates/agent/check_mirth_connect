@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    echo "UNKNOWN - $*" >&2
+    echo "$*" >&2
     exit 3
 }
 
@@ -58,7 +58,7 @@ PS=$(command -v ps 2>/dev/null)
 <% end -%>
 
 crit() {
-    printf 'CRITICAL - %s\n' "$*" >&2
+    $PRINTF '%s\n' "$*" >&2
     exit 2
 }
 
@@ -99,7 +99,7 @@ OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli.cmd" 2>&1) || die "mccomm
 [ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand"
 
 # Strip control characters / ANSI colour codes so AWK is happy
-OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" \
+OUTPUT_CLEAN=$($PRINTF '%s\n' "$OUTPUT_RAW" \
     | $TR -d '\r' \
     | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' \
     | $TR -cd '\11\12\40-\176')
@@ -169,10 +169,10 @@ if [ "$STATUS_ISSUES" -gt 0 ]; then
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
     crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    echo "WARNING - ${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF}"
+    echo "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF}"
     exit 1
 fi
 
 # OK status
-echo "OK - Alle ${TOTAL_CHANS} kanalen  | ${PERF}"
+echo "Alle ${TOTAL_CHANS} kanalen  | ${PERF}"
 exit 0

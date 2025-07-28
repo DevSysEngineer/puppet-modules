@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    echo "UNKNOWN - $*" >&2
+    echo "$*" >&2
     exit 3
 }
 
@@ -45,7 +45,7 @@ TABLE_PERF=""
 TOTAL_RULES=0
 
 crit() {
-    $PRINTF 'CRITICAL - %s\n' "$*" >&2
+    $PRINTF '%s\n' "$*" >&2
     exit 2
 }
 
@@ -223,5 +223,5 @@ PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PERF_DATA"
 [ -n "$TABLE_EMPTY" ] && crit "No rules in table(s): $TABLE_EMPTY | $PERF_DATA"
 
 # Show output
-echo "OK - $TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | $PERF_DATA"
+echo "$TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | $PERF_DATA"
 exit 0

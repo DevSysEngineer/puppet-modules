@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    printf 'UNKNOWN - %s\n' "$*" >&2
+    echo "$*" >&2
     exit 3
 }
 
@@ -54,9 +54,9 @@ PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 # Output & exit
 case "${RESULT},${EXIT_CODE}" in
     success,0)
-        echo "OK - ${SERVICE_UNIT} successful; last run: ${LAST_RUN} | ${PERFDATA}"
+        echo "${SERVICE_UNIT} successful; last run: ${LAST_RUN} | ${PERFDATA}"
         exit 0 ;;
     *)
-        echo "CRITICAL - ${SERVICE_UNIT} failed (Result=${RESULT}, Exit=${EXIT_CODE}); last run: ${LAST_RUN} | ${PERFDATA}"
+        echo "${SERVICE_UNIT} failed (Result=${RESULT}, Exit=${EXIT_CODE}); last run: ${LAST_RUN} | ${PERFDATA}"
         exit 2 ;;
 esac

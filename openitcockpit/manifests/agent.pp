@@ -1,5 +1,19 @@
 class openitcockpit::agent (
-
+  Boolean $cpustats_enable      = true,
+  Boolean $diskstats_enable     = true,
+  Boolean $dockerstats_enable   = true,
+  Boolean $libvirt_enable       = true,
+  Boolean $memory_enable        = true,
+  Boolean $netstats_enable      = true,
+  Boolean $ntp_enable           = true,
+  Boolean $processstats_enable  = true,
+  Boolean $sensorstats_enable   = undef,
+  Boolean $services_enable      = true,
+  Boolean $swap_enable          = true,
+  Boolean $userstats_enable     = true,
+  Boolean $push_enable          = false,
+  Bollean $push_url             = undef,
+  Boolean $push_apikey          = undef,
 ) {
   # Set variables
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
@@ -11,6 +25,43 @@ class openitcockpit::agent (
   } else {
     $monitoring_package = 'none'
   }
+
+  # Check if we have sensorstats
+  if ($sensorstats_enable == undef) {
+    if ($facts['is_virtual']) {
+      $sensorstats_correct = false
+    } else {
+      $sensorstats_correct = true
+    }
+  } else {
+    $sensorstats_correct = $sensorstats_enable
+  }
+
+  # Get push state
+  if ($push_enable and $push_url != undef and $push_apikey != undef) {
+    $push_correct = true
+    $push_url_correct = $push_url
+    $push_apikey_correct = $push_apikey
+  } else {
+    $push_correct = false
+    $push_url_correct = ''
+    $push_apikey_correct = ''
+  }
+
+  # Convert string to boolean
+  $cpustats_string = bool2str($cpustats_enable, 'True', 'False')
+  $diskstats_string = bool2str($diskstats_enable, 'True', 'False')
+  $dockerstats_string = bool2str($dockerstats_enable, 'True', 'False')
+  $libvirt_string = bool2str($libvirt_enable, 'True', 'False')
+  $memory_string = bool2str($memory_enable, 'True', 'False')
+  $netstats_string = bool2str($netstats_enable, 'True', 'False')
+  $ntp_string = bool2str($ntp_enable, 'True', 'False')
+  $processstats_string = bool2str($processstats_enable, 'True', 'False')
+  $sensorstats_stirng = bool2str($sensorstats_correct, 'True', 'False')
+  $services_string = bool2str($services_enable, 'True', 'False')
+  $swap_string = bool2str($swap_enable, 'True', 'False')
+  $userstats_string = bool2str($userstats_enable, 'True', 'False')
+  $push_string = bool2str($push_correct, 'True', 'False')
 
   # Install OpenITCockpit agent
   if (!defined(Package['openitcockpit-agent'])) {
@@ -76,6 +127,7 @@ class openitcockpit::agent (
           'PrivateTmp'     => 'true',
           'ProtectHome'    => 'true',
           'ProtectSystem'  => 'full',
+          'ReadWritePaths' => '/etc/openitcockpit-agent',
         },
         daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
         require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
@@ -105,6 +157,16 @@ class openitcockpit::agent (
       mode    => '0700',
       owner   => 'root',
       group   => 'root',
+      require => File['monitoring_location'],
+    }
+
+    # Create email config file
+    file { '/etc/openitcockpit-agent/config.ini':
+      ensure  => file,
+      content => template('openitcockpit/agent/config.ini'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
       require => File['monitoring_location'],
     }
 

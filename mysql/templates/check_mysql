@@ -3,7 +3,7 @@
 # Managed by puppet
 
 die() {
-    echo "UNKNOWN - $*" >&2
+    echo "$*" >&2
     exit 3
 }
 
@@ -26,7 +26,7 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 
 <% end -%>
 crit() {
-    printf 'CRITICAL - %s\n' "$*" >&2
+    echo "$*" >&2
     exit 2
 }
 
@@ -171,19 +171,11 @@ if [ "$SLOW_QUERIES" -gt 0 ]; then
     ISSUES="Slow queries ${SLOW_QUERIES}. $ISSUES"
 fi
 
-# Set STATE_LABEL
-case $STATE_CODE in
-    0) STATE_LABEL="OK" ;;
-    1) STATE_LABEL="WARNING" ;;
-    2) STATE_LABEL="CRITICAL" ;;
-    3) STATE_LABEL="UNKNOWN" ;;
-esac
-
 # Create message
-MSG="MySQL alive (uptime ${UPTIME}s, Curr_conn ${THREADS_CONNECTED}/${MAX_CONNECTIONS}, "
-MSG="${MSG}Peak_conn ${MAX_USED_CONN}, Threads_run ${THREADS_RUNNING}, Slow_q ${SLOW_QUERIES}, "
-MSG="${MSG}Hit ${HIT_RATE_PCT}%)"
-[ -n "$ISSUES" ] && MSG="${MSG} - Issues: ${ISSUES}"
+OUTPUT_MSG="MySQL alive (uptime ${UPTIME}s, Curr_conn ${THREADS_CONNECTED}/${MAX_CONNECTIONS}, "
+OUTPUT_MSG="${OUTPUT_MSG}Peak_conn ${MAX_USED_CONN}, Threads_run ${THREADS_RUNNING}, Slow_q ${SLOW_QUERIES}, "
+OUTPUT_MSG="${OUTPUT_MSG}Hit ${HIT_RATE_PCT}%)"
+[ -n "$ISSUES" ] && OUTPUT_MSG="${OUTPUT_MSG} - Issues: ${ISSUES}"
 
 # Set perform data
 PERF="curr_connections=${THREADS_CONNECTED};${WARN_CURR_ABS};${CRIT_CURR_ABS};0;${MAX_CONNECTIONS} "
@@ -194,5 +186,5 @@ PERF="${PERF}hit_rate_pct=${HIT_RATE_PCT};${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 
 PERF="${PERF}innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_TOTAL}"
 
 # Show result
-printf '%s - %s | %s\n' "$STATE_LABEL" "$OUTPUT_MSG" "$PERF"
+printf '%s | %s\n' "$OUTPUT_MSG" "$PERF"
 exit $STATE_CODE
