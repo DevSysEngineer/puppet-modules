@@ -366,7 +366,7 @@ class openitcockpit::server (
   # Set nginx config
   file { '/etc/nginx/sites-enabled/openitc':
     ensure  => 'link',
-    target  => '/etc/nginx/sites-available/openit',
+    target  => '/etc/nginx/sites-available/openitc',
     force   => true,
     require => File['/etc/nginx/openitc'],
   }
