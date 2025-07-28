@@ -34,7 +34,7 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 
 <% end -%>
 crit() {
-    $PRINTF 'CRITICAL - %s\n' "$*" >&2
+    $PRINTF '%s\n' "$*" >&2
     exit 2
 }
 

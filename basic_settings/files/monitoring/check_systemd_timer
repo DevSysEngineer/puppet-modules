@@ -22,18 +22,18 @@ SERVICE_UNIT="${TIMER_UNIT%.timer}.service"
 
 # Existence & state checks
 $SYSTEMCTL list-unit-files | grep -q "^${TIMER_UNIT}" || {
-    echo "CRITICAL - ${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
+    echo "${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
     exit 2
 }
 $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
-    echo "CRITICAL - ${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
+    echo "${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
     exit 2
 }
 
 # Try to get last run & result 
 LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
 if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "0" ]; then
-    echo "WARNING - ${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
+    echo "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
     exit 1
 fi
 

@@ -62,7 +62,7 @@ crit() {
     exit 2
 }
 
-# Set default values
+# Defaults
 CONFIG="/opt/mirthconnect/conf/mirth-cli-config.properties"
 GRACE=600 # seconds before CRITICAL for queues
 STATE_FILE="/tmp/mirth_queue_state.txt"
@@ -71,7 +71,7 @@ SERVICE="mcservice.service"
 TMPDIR="/tmp"
 WARN_Q=25 # queued‑message threshold
 
-# Extra options
+# Options 
 while getopts 'c:t:w:' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
@@ -81,41 +81,67 @@ while getopts 'c:t:w:' opt; do
     esac
 done
 
+# Service running
 <% if @systemd_enable -%>
-# Check if Mirth Connect is running
 $SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "Mirth Connect service is not active"
 <% else -%>
-# Check if Mirth Connect is running
 $PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
 <% end -%>
 
-# Temporary workspace
+# Workspace
 WORK_DIR=$($MKTEMP -d "$TMPDIR/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
-# Gather channel stats
+# Collect CLI output
 $PRINTF 'channel stats *\n' >"$WORK_DIR/cli.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli.cmd" 2>&1) || die "mccommand failed"
 [ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand"
 
-# Strip control characters / ANSI colour codes so AWK is happy
+# Strip CR/ANSI/control
 OUTPUT_CLEAN=$($PRINTF '%s\n' "$OUTPUT_RAW" \
     | $TR -d '\r' \
     | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' \
     | $TR -cd '\11\12\40-\176')
 
-# Parse with AWK: emit "name|status|queue" per channel
+# Parse & aggregate with AWK
+# Emit lines:
+#   C|name|group|status|queue|received|sent
+#   G|group|received_total|sent_total
+#   T|received_total|sent_total
 $PRINTF '%s\n' "$OUTPUT_CLEAN" | $AWK '
     BEGIN{FS=": +"}
-    /^Channel Stats for/{sub(/^Channel Stats for +/, ""); chan=$0}
+    function emit(){
+        if(chan!=""){ 
+            # defaults
+            if(group=="") group="ungrouped";
+            if(status=="") status="Unknown";
+            if(q=="") q=0; if(recv=="") recv=0; if(sent=="") sent=0;
+            printf "C|%s|%s|%s|%d|%d|%d\n", chan, group, status, q+0, recv+0, sent+0;
+            g_recv[group]+=recv+0; g_sent[group]+=sent+0;
+            t_recv+=recv+0; t_sent+=sent+0;
+        }
+        chan=""; group=""; status=""; q=recv=sent=0;
+    }
+    /^Channel Stats for/{emit(); sub(/^Channel Stats for +/,"",$0); chan=$0}
+    /^Channel Group:/{group=$2}
+    /^Group:/{if(group=="") group=$2}
     /^Status:/{status=$2}
-    /^Queued:/{q=$2+0; printf "%s|%s|%d\n", chan, status, q}
-' >"$WORK_DIR/parsed.txt"
+    /^Queued:/{gsub(",","",$2); q=$2+0}
+    /^Received:/{gsub(",","",$2); recv=$2+0}
+    /^Sent:/{gsub(",","",$2); sent=$2+0}
+    END{
+        emit();
+        for(g in g_recv){ printf "G|%s|%d|%d\n", g, g_recv[g]+0, g_sent[g]+0 }
+        printf "T|%d|%d\n", t_recv+0, t_sent+0
+    }
+' > "$WORK_DIR/parsed_all.txt"
 
-# Get total number of channels
-TOTAL_CHANS=$($WC -l <"$WORK_DIR/parsed.txt" 2>/dev/null || echo 0)
+# Split for convenience
+$GREP '^C|' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_channels.txt"
+$GREP '^G|' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_groups.txt"
+$GREP '^T|' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals.txt"
 
-# Evaluate each channel
+TOTAL_CHANS=$($WC -l <"$WORK_DIR/parsed_channels.txt" 2>/dev/null || echo 0)
 NOW=$($DATE +%s)
 QUEUE_ISSUES=0
 STATUS_ISSUES=0
@@ -123,35 +149,34 @@ QUEUE_CRIT=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
 
-# Load any previous state into variable (format: name|first_seen_epoch)
+# Check if state file exists
 [ -f "$STATE_FILE" ] && PREV_STATE=$(cat "$STATE_FILE") || PREV_STATE=""
 
-while IFS='|' read -r chan status q; do
-    # Status check
+# Evaluate per channel
+while IFS='|' read -r _prefix chan group status q recv sent; do
+    # Status
     case "$status" in
-        Started) : ;; # all good
-        *) STATUS_ISSUES=$((STATUS_ISSUES+1))
-           SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${status}), " ;;
+        Started) : ;;
+        *) STATUS_ISSUES=$((STATUS_ISSUES+1)); SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${status}), " ;;
     esac
 
-    # Queue check
-    if [ "$q" -gt "$WARN_Q" ]; then
-        # If the channel is not in the previous state, add it with current time
+    # Queue
+    if [ "${q:-0}" -gt "$WARN_Q" ]; then
         FIRST=$($PRINTF '%s\n' "$PREV_STATE" | $GREP -F "${chan}|" | $CUT -d'|' -f2)
         [ -z "$FIRST" ] && FIRST=$NOW
         $PRINTF '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
         # If the queue is above the threshold for longer than the grace period, set critical
         [ $((NOW - FIRST)) -ge "$GRACE" ] && QUEUE_CRIT=1
-
+        
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
         SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
     fi
-done <"$WORK_DIR/parsed.txt"
+done <"$WORK_DIR/parsed_channels.txt"
 
-# Persist new state file (only channels still breaching threshold)
+# Persist new state (only channels still breaching threshold)
 if [ -f "$WORK_DIR/new_state" ]; then
-    mv "$WORK_DIR/new_state" "$STATE_FILE"
+    $MV "$WORK_DIR/new_state" "$STATE_FILE"
 else
     [ -f "$STATE_FILE" ] && $RM -f "$STATE_FILE"
 fi
@@ -160,10 +185,22 @@ fi
 SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
-# Prepare performance data
+# Build perfdata
 PERF="channels=${TOTAL_CHANS} queues=${QUEUE_ISSUES};0;${WARN_Q} status_issues=${STATUS_ISSUES}"
 
-# Check if we have issues
+# Totals
+if read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
+    PERF="$PERF total_received=${tot_recv} total_sent=${tot_sent}"
+fi
+
+# Per group
+while IFS='|' read -r _g group grecv gsent; do
+    # sanitize label: lower, spaces->_, strip non [A-Za-z0-9_]
+    lbl=$(printf '%s' "$group" | $TR '[:upper:]' '[:lower:]' | $TR ' ' '_' | $SED 's/[^A-Za-z0-9_]/_/g')
+    PERF="$PERF group_${lbl}_received=${grecv} group_${lbl}_sent=${gsent}"
+done <"$WORK_DIR/parsed_groups.txt"
+
+# Result
 if [ "$STATUS_ISSUES" -gt 0 ]; then
     crit "${STATUS_ISSUES} channel(s) halted/stopped: ${SUMMARY_STATUS} | ${PERF}"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
@@ -173,6 +210,5 @@ elif [ "$QUEUE_ISSUES" -gt 0 ]; then
     exit 1
 fi
 
-# OK status
-echo "Alle ${TOTAL_CHANS} kanalen  | ${PERF}"
+echo "${TOTAL_CHANS} channel(s) running | ${PERF}"
 exit 0
