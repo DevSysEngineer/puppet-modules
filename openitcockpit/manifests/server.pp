@@ -222,21 +222,6 @@ class openitcockpit::server (
   # Create dirs
   file { [
       "${lib_dir}/nagios/etc/config",
-      "${lib_dir}/nagios/etc/config/servicedependencies",
-      "${lib_dir}/nagios/etc/config/hostdependencies",
-      "${lib_dir}/nagios/etc/config/serviceescalations",
-      "${lib_dir}/nagios/etc/config/servicegroups",
-      "${lib_dir}/nagios/etc/config/services",
-      "${lib_dir}/nagios/etc/config/servicetemplates",
-      "${lib_dir}/nagios/etc/config/hostescalations",
-      "${lib_dir}/nagios/etc/config/hostgroups",
-      "${lib_dir}/nagios/etc/config/timeperiods",
-      "${lib_dir}/nagios/etc/config/contactgroups",
-      "${lib_dir}/nagios/etc/config/contacts",
-      "${lib_dir}/nagios/etc/config/commands",
-      "${lib_dir}/nagios/etc/config/hosts",
-      "${lib_dir}/nagios/etc/config/hosttemplates",
-      "${lib_dir}/nagios/etc/config/defaults",
       "${lib_dir}/nagios/var",
       "${lib_dir}/nagios/var/archives",
       "${lib_dir}/nagios/var/cache",
@@ -263,6 +248,31 @@ class openitcockpit::server (
       "${install_dir_correct}/nagios",
       "${lib_dir}/nagios/var"
     ],
+  }
+
+  # Create nagios config
+  file { [
+      "${lib_dir}/nagios/etc/config/servicedependencies",
+      "${lib_dir}/nagios/etc/config/hostdependencies",
+      "${lib_dir}/nagios/etc/config/serviceescalations",
+      "${lib_dir}/nagios/etc/config/servicegroups",
+      "${lib_dir}/nagios/etc/config/services",
+      "${lib_dir}/nagios/etc/config/servicetemplates",
+      "${lib_dir}/nagios/etc/config/hostescalations",
+      "${lib_dir}/nagios/etc/config/hostgroups",
+      "${lib_dir}/nagios/etc/config/timeperiods",
+      "${lib_dir}/nagios/etc/config/contactgroups",
+      "${lib_dir}/nagios/etc/config/contacts",
+      "${lib_dir}/nagios/etc/config/commands",
+      "${lib_dir}/nagios/etc/config/hosts",
+      "${lib_dir}/nagios/etc/config/hosttemplates",
+      "${lib_dir}/nagios/etc/config/defaults",
+    ]:
+      ensure  => directory,
+      owner   => 'root',
+      group   => $webserver_gid_correct,
+      mode    => '0755',
+      require => File["${lib_dir}/nagios/etc/config"],
   }
 
   # Create resource config
