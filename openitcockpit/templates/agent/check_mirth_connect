@@ -60,11 +60,13 @@ crit() {
 
 # Defaults
 CONFIG="/opt/mirthconnect/conf/mirth-cli-config.properties"
+CRIT_Q=30
 GRACE=600 # seconds before CRITICAL for queues
 MCCOMMAND="/usr/local/bin/mccommand"
 NOW=$($DATE +%s)
 QUEUE_CRIT=0
 QUEUE_ISSUES=0
+MAX_Q=0
 SERVICE="mcservice.service"
 STATE_FILE="/tmp/mirth_queue_state.txt"
 STATUS_ISSUES=0
@@ -143,6 +145,10 @@ STATE_IN="$STATE_FILE"; [ -f "$STATE_IN" ] || STATE_IN=/dev/null
 
 # Evaluate
 while IFS='|' read -r _c chan q recv sent; do
+    # Set max q
+    [ "${q:-0}" -gt "$MAX_Q" ] && MAX_Q="$q"
+
+    # Get status
     STATUS=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
     case "$STATUS" in
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
@@ -175,15 +181,14 @@ SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
 # Perfdata
-RUNNING_OK=$((TOTAL_CHANS - STATUS_ISSUES))
-PERF="channels=${TOTAL_CHANS} queues=${QUEUE_ISSUES};0;${WARN_Q} status_issues=${STATUS_ISSUES} running_ok=${RUNNING_OK} running_down=${STATUS_ISSUES}"
+PERF="channels=${TOTAL_CHANS};;;0; queue=${MAX_Q};${WARN_Q};${CRIT_Q};0; issues=${STATUS_ISSUES};;1;0;"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
-    PERF="$PERF total_received=${tot_recv} total_sent=${tot_sent}"
+    PERF="$PERF total_received=${tot_recv};;;0; total_sent=${tot_sent};;;0;"
 fi
 
 # Result
 if [ "$STATUS_ISSUES" -gt 0 ]; then
-    crit "${STATUS_ISSUES} channel(s) not Started: ${SUMMARY_STATUS} | ${PERF}"
+    crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS} | ${PERF}"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
     crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
