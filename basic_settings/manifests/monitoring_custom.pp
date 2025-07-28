@@ -6,6 +6,7 @@ define basic_settings::monitoring_custom (
   Integer                   $interval       = 300,
   Optional[String]          $package        = undef,
   Boolean                   $root_required  = true,
+  Integer                   $timeout        = 30
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -47,7 +48,7 @@ define basic_settings::monitoring_custom (
       if ($ensure == present) {
         concat::fragment { "monitoring_plugin_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}\ninterval = ${interval}\ntimeout = 10\nenabled = true\n",
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}\ninterval = ${interval}\ntimeout = ${timeout}\nenabled = true\n",
           order   => '10',
         }
       }

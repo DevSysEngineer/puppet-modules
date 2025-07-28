@@ -8,5 +8,6 @@ class openitcockpit::agent_mirth_connect (
     package  => $package,
     friendly => 'Mirth Connect',
     content  => template('openitcockpit/agent/check_mirth_connect'),
+    timeout  => 60,
   }
 }
