@@ -115,9 +115,13 @@ class openitcockpit::server (
       "${install_dir_correct}/etc/nsta",
       "${install_dir_correct}/etc/statusengine",
       "${install_dir_correct}/nagios",
+      "${install_dir_correct}/receiver",
       $lib_dir,
       "${lib_dir}/nagios",
       "${lib_dir}/nagios/backup",
+      "${lib_dir}/nagios/etc",
+      "${lib_dir}/receiver",
+      "${lib_dir}/receiver/etc",
       "${lib_dir}/var",
       $log_dir,
     ]:
@@ -147,6 +151,28 @@ class openitcockpit::server (
     require => File[
       "${install_dir_correct}/nagios",
       "${lib_dir}/nagios/backup"
+    ],
+  }
+
+  # Create symlink
+  file { "${install_dir_correct}/nagios/etc":
+    ensure  => 'link',
+    target  => "${lib_dir}/nagios/etc",
+    force   => true,
+    require => File[
+      "${install_dir_correct}/nagios",
+      "${lib_dir}/nagios/etc"
+    ],
+  }
+
+  # Create symlink
+  file { "${install_dir_correct}/receiver/etc":
+    ensure  => 'link',
+    target  => "${lib_dir}/receiver/etc",
+    force   => true,
+    require => File[
+      "${install_dir_correct}/receiver",
+      "${lib_dir}/receiver/etc"
     ],
   }
 
@@ -186,6 +212,8 @@ class openitcockpit::server (
       require         => File[
         "${install_dir_correct}/etc/grafana/admin_password",
         "${install_dir_correct}/nagios/backup",
+        "${install_dir_correct}/nagios/etc",
+        "${install_dir_correct}/receiver/etc",
         "${install_dir_correct}/var",
         "${install_dir_correct}/logs"
       ],
@@ -193,7 +221,6 @@ class openitcockpit::server (
 
   # Create dirs
   file { [
-      "${install_dir_correct}/nagios/etc",
       "${lib_dir}/nagios/var",
       "${lib_dir}/nagios/var/archives",
       "${lib_dir}/nagios/var/cache",
@@ -225,7 +252,7 @@ class openitcockpit::server (
   # Create resource config
   file { [
       "${install_dir_correct}/etc/nagios/nagios.cfg",
-      "${install_dir_correct}/nagios/etc/resource.cfg",
+      "${lib_dir}/nagios/etc/resource.cfg",
     ]:
       ensure  => file,
       replace => false,
@@ -233,8 +260,8 @@ class openitcockpit::server (
       group   => $webserver_gid_correct,
       mode    => '0644',
       require => File[
-        "${install_dir_correct}/nagios/etc",
-        "${install_dir_correct}/etc/nagios"
+        "${install_dir_correct}/etc/nagios",
+        "${lib_dir}/nagios/etc",
       ],
   }
 
