@@ -191,7 +191,7 @@ if [ -e /var/run/reboot-required ]; then
 fi
 
 # Perfdata
-PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0; security_updates=${UPDATES_SECURITY};;1;0; blacklisted_updates=${UPDATES_BLACKLISTED};;;0; last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0; timer_daily_active=${TIMER_DAILY_ACTIVE};;1;0;1 timer_upgrade_active=${TIMER_UPGRADE_ACTIVE};;1;0;1"
+PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0; security_updates=${UPDATES_SECURITY};;1;0; blacklisted_updates=${UPDATES_BLACKLISTED};;;0; last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0;"
 
 # output
 "$PRINTF" '%s | %s\n' "$OUTPUT_MSG" "$PERF_DATA"

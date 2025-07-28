@@ -254,7 +254,9 @@ class basic_settings::packages (
   # Create service check
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_custom { 'apt':
-      content => template('basic_settings/monitoring/check_apt'),
+      content  => template('basic_settings/monitoring/check_apt'),
+      friendly => 'APT',
+      interval => 3600 # 1 hour
     }
   }
 
