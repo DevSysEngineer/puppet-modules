@@ -183,7 +183,7 @@ class openitcockpit::agent (
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
-    notifiy => Service['openitcockpit-agent'],
+    notify  => Service['openitcockpit-agent'],
     require => File['monitoring_location'],
   }
 }
