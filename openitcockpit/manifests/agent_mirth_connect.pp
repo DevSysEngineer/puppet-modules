@@ -6,6 +6,6 @@ class openitcockpit::agent_mirth_connect (
     ensure   => $ensure,
     package  => $package,
     friendly => 'Mirth Connect',
-    content  => template('openitcockpit/agent/check_mysql'),
+    content  => template('openitcockpit/agent/check_mirth_connect'),
   }
 }
