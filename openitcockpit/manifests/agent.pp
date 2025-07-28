@@ -160,16 +160,6 @@ class openitcockpit::agent (
       require => File['monitoring_location'],
     }
 
-    # Create email config file
-    file { '/etc/openitcockpit-agent/config.ini':
-      ensure  => file,
-      content => template('openitcockpit/agent/config.ini'),
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0600',
-      require => File['monitoring_location'],
-    }
-
     # Create config config
     concat { '/etc/openitcockpit-agent/customchecks.ini':
       owner   => 'root',
@@ -184,5 +174,16 @@ class openitcockpit::agent (
       content => "# Managed by puppet\n[default]\n",
       order   => '01',
     }
+  }
+
+  # Create config file
+  file { '/etc/openitcockpit-agent/config.ini':
+    ensure  => file,
+    content => template('openitcockpit/agent/config.ini'),
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    notifiy => Service['openitcockpit-agent'],
+    require => File['monitoring_location'],
   }
 }
