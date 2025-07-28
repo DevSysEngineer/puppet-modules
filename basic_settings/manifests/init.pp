@@ -37,6 +37,7 @@ class basic_settings (
   Boolean                               $mysql_enable                               = false,
   Float                                 $mysql_version                              = 8.0,
   Boolean                               $openitcockpit_enable                       = false,
+  Optional[String]                      $openitcockpit_license                      = undef,
   Boolean                               $openitcockpit_nightly                      = false,
   Enum['agent','server']                $openitcockpit_package                      = 'agent',
   Boolean                               $nginx_enable                               = false,
@@ -415,6 +416,7 @@ class basic_settings (
       class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => true,
+        license     => $openitcockpit_license,
         nightly     => $openitcockpit_nightly,
         package     => $openitcockpit_package,
         os_parent   => $os_parent,
@@ -424,6 +426,7 @@ class basic_settings (
       class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => false,
+        license     => $openitcockpit_license,
         nightly     => $openitcockpit_nightly,
         package     => $openitcockpit_package,
         os_parent   => $os_parent,
@@ -570,6 +573,7 @@ class basic_settings (
       class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => true,
+        license     => $openitcockpit_license,
         nightly     => $openitcockpit_nightly,
         package     => $openitcockpit_package,
         os_parent   => $os_parent,
@@ -579,6 +583,7 @@ class basic_settings (
       class { 'basic_settings::package_openitcockpit':
         deb_version => $deb_version,
         enable      => false,
+        license     => $openitcockpit_license,
         nightly     => $openitcockpit_nightly,
         package     => $openitcockpit_package,
         os_parent   => $os_parent,
