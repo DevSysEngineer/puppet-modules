@@ -75,8 +75,9 @@ class openitcockpit::agent (
   if ($monitoring_package == 'none') {
     if ($systemd_enable) {
       # Disable service
-      service { 'openitcockpit-agent':
+      service { 'monitoring_service':
         ensure  => undef,
+        name    => 'openitcockpit-agent',
         enable  => false,
         require => Package['openitcockpit-agent'],
       }
@@ -133,9 +134,10 @@ class openitcockpit::agent (
         require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
       }
     } else {
-      # Eanble service
-      service { 'openitcockpit-agent':
+      # Enable service
+      service { 'monitoring_service':
         ensure  => true,
+        name    => 'openitcockpit-agent',
         enable  => true,
         require => Package['openitcockpit-agent'],
       }
@@ -165,6 +167,7 @@ class openitcockpit::agent (
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
+      notify  => Service['monitoring_service'],
       require => File['monitoring_location'],
     }
 
@@ -183,7 +186,7 @@ class openitcockpit::agent (
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
-    notify  => Service['openitcockpit-agent'],
+    notify  => Service['monitoring_service'],
     require => File['monitoring_location'],
   }
 }

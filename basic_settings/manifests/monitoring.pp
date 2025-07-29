@@ -73,8 +73,9 @@ class basic_settings::monitoring (
         # Check if we have systemd
         if (defined(Package['systemd'])) {
           # Disable service
-          service { 'openitcockpit-agent':
+          service { 'monitoring_service':
             ensure  => undef,
+            name    => 'openitcockpit-agent',
             enable  => false,
             require => Package['openitcockpit-agent'],
           }
@@ -109,8 +110,9 @@ class basic_settings::monitoring (
           }
         } else {
           # Enable service
-          service { 'openitcockpit-agent':
+          service { 'monitoring_service':
             ensure  => true,
+            name    => 'openitcockpit-agent',
             enable  => true,
             require => Package['openitcockpit-agent'],
           }
@@ -141,6 +143,7 @@ class basic_settings::monitoring (
         owner   => 'root',
         group   => 'root',
         mode    => '0600',
+        notify  => Service['monitoring_service'],
         require => File['monitoring_location'],
       }
 
