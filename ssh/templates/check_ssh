@@ -82,25 +82,29 @@ AGE_CRIT=false
 # Count zombie sshd processes
 ZOMBIE_COUNT=$($PS -C sshd -o stat= | $AWK '$0 ~ /Z/ {c++} END {print c+0}')
 
-$PRINTF '%s\n' "$WHO_OUTPUT" | while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
+while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
+    # Skip empty lines
+    [ -z "$USER" ] && continue
+
     # Root login detection
     [ "$USER" = "root" ] && ROOT_LOGIN=true
 
     # Determine idle minutes
     case "$IDLE" in
-        '.')    IDLE_MIN=0 ;;
-        'old')  IDLE_MIN=$((MAX_IDLE + 1)) ;;
-        *:* )   H=${IDLE%%:*}; M=${IDLE##*:}; IDLE_MIN=$((10#$H*60 + 10#$M)) ;;
-        *d)     D=${IDLE%%[^0-9]*}; IDLE_MIN=$((D*1440)) ;;
-        *)      IDLE_MIN=$((MAX_IDLE + 1)) ;;
+        '.')   IDLE_MIN=0 ;;
+        'old') IDLE_MIN=$((MAX_IDLE + 1)) ;;
+        *:* )  H=${IDLE%%:*}; M=${IDLE##*:}; IDLE_MIN=$((10#$H*60 + 10#$M)) ;;
+        *d)    D=${IDLE%%[^0-9]*}; IDLE_MIN=$((D*1440)) ;;
+        *)     IDLE_MIN=$((MAX_IDLE + 1)) ;;
     esac
 
-    # Count processes on TTY (headerless); first line is the shell itself
-    PROC_COUNT=$($PS -t "$TTY" --no-headers | $WC -l)
+    # Count processes on TTY; silence ps error when TTY is stale
+    PROC_COUNT=$($PS -t "$TTY" --no-headers 2>/dev/null | wc -l)
+    [ -z "$PROC_COUNT" ] && PROC_COUNT=0
 
-    # Session is active if >1 proc OR idle <= threshold
-    if [ "$PROC_COUNT" -gt 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
-        ACTIVE_SESSIONS=$((ACTIVE_SESSIONS+1))
+    # Session is active if ≥1 proc OR idle ≤ threshold
+    if [ "$PROC_COUNT" -ge 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
+        ACTIVE_SESSIONS=$((ACTIVE_SESSIONS + 1))
     fi
 
     # Age check
@@ -109,7 +113,9 @@ $PRINTF '%s\n' "$WHO_OUTPUT" | while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE
         AGE_MIN=$(((NOW_EPOCH - LOGIN_EPOCH)/60))
         [ "$AGE_MIN" -gt "$MAX_AGE" ] && AGE_CRIT=true
     fi
-done
+done <<EOF
+$WHO_OUTPUT
+EOF
 
 # Auth failure detection
 if [ -f /var/log/auth.log ]; then
