@@ -86,7 +86,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
     # Skip empty lines
     [ -z "$USER" ] && continue
 
-    # Root login detection
+    # Check root login
     [ "$USER" = "root" ] && ROOT_LOGIN=true
 
     # Determine idle minutes
@@ -98,11 +98,16 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
         *)      IDLE_MIN=$((MAX_IDLE + 1)) ;;
     esac
 
-    # Count processes on TTY; silence ps error when TTY is stale
-    PROC_COUNT=$($PS -t "$TTY" --no-headers 2>/dev/null | wc -l)
+    # PS call
+    TTY_PROCS=$($PS -t "$TTY" -o user= 2>/dev/null)
+    PROC_COUNT=$($PRINTF '%s\n' "$TTY_PROCS" | wc -l)
     [ -z "$PROC_COUNT" ] && PROC_COUNT=0
 
-    # Session is active if ≥1 proc OR idle ≤ threshold
+    case "$TTY_PROCS" in
+        *root*) ROOT_LOGIN=true ;;
+    esac
+
+    # Count sessions
     if [ "$PROC_COUNT" -ge 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
         ACTIVE_SESSIONS=$((ACTIVE_SESSIONS + 1))
     fi
