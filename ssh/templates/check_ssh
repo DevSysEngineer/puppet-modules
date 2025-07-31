@@ -91,11 +91,11 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
 
     # Determine idle minutes
     case "$IDLE" in
-        '.')   IDLE_MIN=0 ;;
-        'old') IDLE_MIN=$((MAX_IDLE + 1)) ;;
-        *:* )  H=${IDLE%%:*}; M=${IDLE##*:}; IDLE_MIN=$((10#$H*60 + 10#$M)) ;;
-        *d)    D=${IDLE%%[^0-9]*}; IDLE_MIN=$((D*1440)) ;;
-        *)     IDLE_MIN=$((MAX_IDLE + 1)) ;;
+        '.')    IDLE_MIN=0 ;;
+        'old')  IDLE_MIN=$((MAX_IDLE + 1)) ;;
+        *:* )   H=${IDLE%%:*}; M=${IDLE##*:}; H=${H#0}; M=${M#0}; [ -z "$H" ] && H=0; [ -z "$M" ] && M=0; IDLE_MIN=$((H*60 + M)) ;;
+        *d)     D=${IDLE%%[^0-9]*}; IDLE_MIN=$((D*1440)) ;;
+        *)      IDLE_MIN=$((MAX_IDLE + 1)) ;;
     esac
 
     # Count processes on TTY; silence ps error when TTY is stale
