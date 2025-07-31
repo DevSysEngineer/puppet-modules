@@ -7,7 +7,7 @@ class ssh (
     'ecdsa-sha2-nistp521',
     'ssh-ed25519',
   ],
-  Integer             $idle_timeout                   = 15,
+  Integer             $idle_timeout                   = 300,
   Array               $password_authentication_users  = [],
   Boolean             $permit_root_login              = false,
   Integer             $port                           = 22,

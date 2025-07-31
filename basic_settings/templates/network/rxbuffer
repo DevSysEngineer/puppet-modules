@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # Managed by puppet
 
 # Check if RX buffer tool is available

@@ -5,8 +5,9 @@ class gitlab (
   Optional[String]    $root_email     = undef,
   Optional[String]    $server_fdqn    = undef
 ) {
-  # Set suspicious packages
+  # Set some values
   $suspicious_packages = ['/usr/bin/gitlab-ctl']
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
   # Try to get server fdqn
   if ($server_fdqn == undef) {
@@ -21,7 +22,7 @@ class gitlab (
 
   # Try to get root email
   if ($root_email == undef) {
-    if (defined(Class['basic_settings::monitoring'])) {
+    if ($monitoring_enable) {
       $root_email_found = $basic_settings::monitoring::mail_to
     } else {
       $root_email_found = 'root'
@@ -112,7 +113,7 @@ class gitlab (
     }
 
     # Get unit
-    if (defined(Class['basic_settings::monitoring'])) {
+    if ($monitoring_enable) {
       $unit = {
         'OnFailure' => 'notify-failed@%i.service',
       }
@@ -129,6 +130,15 @@ class gitlab (
       },
       daemon_reload => 'gitlab_systemd_daemon_reload',
       require       => Exec['gitlab_install'],
+    }
+  }
+
+  # Create service check
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'gitlab':
+      source   => 'puppet:///modules/gitlab/check_gitlab',
+      friendly => 'GitLab',
+      timeout  => 60,
     }
   }
 

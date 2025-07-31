@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # Managed by puppet
 
 die() {

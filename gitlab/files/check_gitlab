@@ -1,0 +1,160 @@
+#!/bin/sh
+# Managed by puppet
+
+die() { echo "$*" >&2; exit 3; }
+
+# Locate awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "awk not available"
+
+# Locate date
+DATE=$(command -v date 2>/dev/null)
+[ -n "$DATE" ] || die "date not available"
+
+# Locate gitlab-ctl
+GITLAB_CTL=$(command -v gitlab-ctl 2>/dev/null)
+[ -n "$GITLAB_CTL" ] || die "gitlab-ctl not available"
+
+# Locate gitlab-rake
+GITLAB_RAKE=$(command -v gitlab-rake 2>/dev/null)
+[ -n "$GITLAB_RAKE" ] || die "gitlab-rake not available"
+
+# Locate gitlab-rails
+GITLAB_RAILS=$(command -v gitlab-rails 2>/dev/null)
+[ -n "$GITLAB_RAILS" ] || die "gitlab-rails not available"
+
+# Locate $printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
+
+# Locate mktemp
+MKTEMP=$(command -v mktemp 2>/dev/null)
+[ -n "$MKTEMP" ] || die "mktemp not available"
+
+# Locate sed
+SED=$(command -v sed 2>/dev/null)
+[ -n "$SED" ] || die "sed not available"
+
+# Locate tr
+TR=$(command -v tr 2>/dev/null)
+[ -n "$TR" ] || die "tr not available"
+
+# Locate rm
+RM=$(command -v rm 2>/dev/null)
+[ -n "$RM" ] || die "rm not available"
+
+# Defaults
+LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
+STATE_CODE=0
+MSG=""
+PERF=""
+
+# Work file
+WORK_FILE=$($MKTEMP -d "/tmp/gitlab.XXXXXX") || die "mktemp failed"
+trap '$RM -rf "$WORK_FILE"' EXIT HUP INT QUIT TERM
+
+# Services
+SVC_RAW=$($GITLAB_CTL status 2>&1)
+DOWN=$($PRINTF '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
+[ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $($PRINTF '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
+
+# Single rails‑runner for version‑check + group‑sizes
+RAILS_RAW=$($GITLAB_RAILS runner -e production '
+    # Trigger remote version check (async), wait, output result prefixed VC|
+    Gitlab::Version::VersionCheckCronWorker.new.perform
+    sleep 5
+    vc = Rails.cache.read("version_check")
+    puts "VC|#{vc ? vc.to_json : "nil"}"
+    # Output group sizes prefixed GR|
+    Namespace.where(type: "Group").find_each do |g|
+    size = 0
+    if g.respond_to?(:root_storage_statistics) && g.root_storage_statistics
+        size = g.root_storage_statistics.storage_size || 0
+    elsif g.respond_to?(:statistics) && g.statistics
+        size = g.statistics.storage_size || 0
+    end
+    puts "GR|#{g.full_path}|#{size}"
+    end
+' 2>/dev/null) || die "gitlab-rails runner failed"
+
+# Parse version block
+VC_RAW=$($PRINTF '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {sub(/^VC\|/, "", $0); print; exit}')
+if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
+    DATA=$($PRINTF '%s' "$VC_RAW" | $AWK '
+        BEGIN{cv=0;ver="";sev=""}
+        /"critical_vulnerability": *true/ {cv=1}
+        match($0,/"version":"([^"]+)/,a){ver=a[1]}
+        match($0,/"severity":"([^"]+)/,b){sev=b[1]}
+        END{printf "%d|%s|%s",cv,ver,sev}'
+    )
+    CV=$(echo "$DATA" | $AWK -F'|' '{print $1}')
+    NEW_VER=$(echo "$DATA" | $AWK -F'|' '{print $2}')
+    SEV=$(echo "$DATA" | $AWK -F'|' '{print $3}')
+    
+    if [ "$CV" -eq 1 ]; then
+        STATE_CODE=2
+        MSG="${MSG}${MSG:+; }GitLab critical security update available (→ $NEW_VER)"
+    elif [ "$SEV" = "success" ] || [ -z "$NEW_VER" ]; then
+        : # Up‑to‑date
+    else
+        [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+        MSG="${MSG}${MSG:+; }GitLab update available ($SEV: $NEW_VER)"
+    fi
+fi
+
+# Parse group lines and build perfdata
+$PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}' > "$WORK_FILE"
+while IFS='|' read -r N B; do
+    [ -z "$N" ] && continue
+    MB=$(( B / 1048576 ))
+    SAFE=$($PRINTF '%s' "$N" | sed "s/'/''/g")
+
+    # Quote label if contains whitespace
+    case $SAFE in *[[:space:]]*) SAFE="'$SAFE'";; esac
+    PERF="${PERF} ${SAFE}=${MB}MB;;;0;"
+done < "$WORK_FILE"
+
+# Licence info (skip on CE / no licence)
+LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
+if $PRINTF '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {exit 0} END{exit 1}'; then
+  LIC_MODE="none"
+else
+  LIC_MODE="ee"
+fi
+
+if [ "$LIC_MODE" = "ee" ]; then
+    CURR=$($PRINTF '%s\n' "$LIC_RAW" | $AWK -F': *' '/Current User Count/ {print $2}')
+    MAX=$($PRINTF '%s\n' "$LIC_RAW"  | $AWK -F': *' '/Max Users in License/ {print $2}')
+    EXP=$($PRINTF '%s\n' "$LIC_RAW" | $AWK -F': *' '/License valid until/ {print $2}')
+
+    # Expiry
+    if [ -n "$EXP" ]; then
+        NOW=$(date +%s)
+        EXP_S=$(date -d "$EXP" +%s 2>/dev/null || echo 0)
+        if [ "$EXP_S" -gt 0 ]; then
+            DLEFT=$(( (EXP_S - NOW) / 86400 ))
+            if [ "$DLEFT" -le 0 ]; then STATE_CODE=1; MSG="${MSG}${MSG:+; }License expired";
+            elif [ "$DLEFT" -le "$LIC_WARN_DAYS" ]; then [ $STATE_CODE -lt 1 ] && STATE_CODE=1; MSG="${MSG}${MSG:+; }License expires in ${DLEFT}d"; fi
+        fi
+    fi
+
+    # Overage
+    if [ -n "$CURR" ] && [ -n "$MAX" ]; then
+        PERF="${PERF} active_users=${CURR};;;0; user_limit=${MAX};;;0;"
+        OVER=$(( CURR - MAX ))
+        if [ "$OVER" -gt 0 ]; then
+            PCT=$(( OVER * 100 / MAX ))
+            if [ "$PCT" -gt 10 ]; then STATE_CODE=2; else [ $STATE_CODE -lt 1 ] && STATE_CODE=1; fi
+            MSG="${MSG}${MSG:+; }Over licence: +${OVER} users"
+            PERF="${PERF} overage=${OVER};;;0;"
+        fi
+    fi
+fi
+
+# Parse output
+[ -z "$MSG" ] && MSG="GitLab is running"
+[ -n "$PERF" ] && OUT="$MSG |$PERF" || OUT="$MSG"
+
+# Show result
+$PRINTF '%s\n' "$OUT"
+exit $STATE_CODE

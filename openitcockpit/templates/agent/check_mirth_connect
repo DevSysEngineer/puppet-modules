@@ -1,5 +1,4 @@
 #!/bin/sh
-
 # Managed by puppet
 
 die() {
@@ -22,10 +21,6 @@ PRINTF=$(command -v printf 2>/dev/null)
 # Locate mktemp
 MKTEMP=$(command -v mktemp 2>/dev/null)
 [ -n "$MKTEMP" ] || die "mktemp not available"
-
-# Locate systemctl
-SYSTEMCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMCTL" ] || die "systemctl not available"
 
 # Locate sed
 SED=$(command -v sed 2>/dev/null)
@@ -72,7 +67,6 @@ STATE_FILE="/tmp/mirth_queue_state.txt"
 STATUS_ISSUES=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
-TMPDIR="/tmp"
 WARN_Q=25 # queued‑message threshold
 
 # Options 
@@ -93,7 +87,7 @@ $PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
 <% end -%>
 
 # Workdir
-WORK_DIR=$($MKTEMP -d "$TMPDIR/mirthcheck.XXXXXX") || die "mktemp failed"
+WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
 # Stats
@@ -183,7 +177,7 @@ SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 # Perfdata
 PERF="channels=${TOTAL_CHANS};;;0; queue=${MAX_Q};${WARN_Q};${CRIT_Q};0; issues=${STATUS_ISSUES};;1;0;"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
-    PERF="$PERF total_received=${tot_recv};;;0; total_sent=${tot_sent};;;0;"
+    PERF="$PERF total_received=${tot_recv}c;;;0; total_sent=${tot_sent}c;;;0;"
 fi
 
 # Result
