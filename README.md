@@ -12,6 +12,37 @@ Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geï
 
 Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies (zoals [Fedora](https://discussion.fedoraproject.org/t/f40-change-proposal-systemd-security-hardening-system-wide/96423/11)) worden toegepast, kies ik ervoor om deze aanpassingen ook in Puppet op te nemen. Dit is omdat niet alle distributies altijd de meest recente versie van de software gebruiken en er altijd een kans bestaat dat een specifieke beveiligingsaanpassing niet is doorgevoerd.
 
+## Monitoring
+Binnen de verschillende onderdelen heb ik diverse monitoringtools en -scripts geïmplementeerd. Wanneer je via de `Basic settings`-class de optie `monitoring_package` invult met een ondersteund monitoringpakket, zorg ik ervoor dat er op meerdere plaatsen automatisch configuratiebestanden worden aangemaakt voor dat specifieke pakket.
+
+Gebruik je de basisinstellingen niet, dan is het altijd mogelijk om de ingebouwde monitoringtools en -scripts handmatig te activeren vanuit andere onderdelen.
+
+Voor sommige processen, zoals de firewall of SSH, is het niet voldoende om alleen te controleren of het proces actief is. Je wilt ook inhoudelijk kunnen verifiëren of het correct functioneert én performancegegevens kunnen uitlezen.
+
+Op dit moment ondersteun ik alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent. Hieronder een voorbeeld van hoe je deze instelt:
+
+```puppet
+node 'webserver.dev.xxxx.nl' {
+    class { 'basic_settings':
+        monitoring_package          => 'openitcockpit',
+        monitoring_package_install  => true,
+    }
+
+    # Setup openitcockpit
+    class { 'openitcockpit': }
+
+    # Setup openitcockpit agent
+    class { 'openitcockpit::agent':
+        dockerstats_enable => false,
+        libvirt_enable     => false,
+        push_enable        => true,
+        push_url           => 'https://monitoring.xxxx.nl',
+        push_apikey        => Sensitive('XXXXXXX'), #lint:ignore:140chars
+        require            => Class['basic_settings'],
+    }
+}
+```
+
 ## Installatie
 Navigeer naar de hoofdmap van je Puppet-omgeving en voeg de submodule toe met het volgende commando:
 
