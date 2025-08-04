@@ -179,16 +179,16 @@ MSG="ESET $STATE_LABEL – eng $ENGINE_VER (age ${SIG_AGE}d); scans $SCANS_TOTAL
 [ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && MSG="$MSG | $WARN_MSG"
 
 # Create perf data
-PERF="'engine_version'=${ENGINE_VER};;;; "
-PERF="$PERF'sig_age_days'=${SIG_AGE};${WARN_SIG_AGE_DAYS};${CRIT_SIG_AGE_DAYS};0; "
-PERF="$PERF'update_age_minutes'=${UPDATE_AGE_MIN};${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0; "
-PERF="$PERF'update_failed'=${UPDATES_FAILED};;;; "
-PERF="$PERF'scans_total'=${SCANS_TOTAL};;;; "
-PERF="$PERF'scanned_files'=${SCANNED_FILES};;;; "
-PERF="$PERF'last_scan_age_days'=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0; "
-PERF="$PERF'last_scan_duration_sec'=${LAST_SCAN_SECS};;;; "
-PERF="$PERF'last_scan_cleaned'=${LAST_CLEAN};;;; "
-PERF="$PERF'last_scan_detections'=${LAST_DET};;;;"
+PERF="'engine_version'=${ENGINE_VER};;;;"
+PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0;"
+PERF="$PERF update_failed=${UPDATES_FAILED};;;;"
+PERF="$PERF scans_total=${SCANS_TOTAL};;;;"
+PERF="$PERF scanned_files=${SCANNED_FILES};;;;"
+PERF="$PERF sig_age_days=${SIG_AGE};${WARN_SIG_AGE_DAYS};${CRIT_SIG_AGE_DAYS};0;"
+PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0;"
+PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s;;;;"
+PERF="$PERF last_scan_cleaned=${LAST_CLEAN};;;;"
+PERF="$PERF last_scan_detections=${LAST_DET};;;;"
 
 # Show output
 printf '%s | %s\n' "$MSG" "$PERF"

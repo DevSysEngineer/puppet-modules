@@ -161,6 +161,12 @@ EXTRA=""
 EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA=" ($EXTRA)"
 
+# Create perfdata
+PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
+PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT};;;;"
+PERF_DATA="$PERF_DATA fails=${FAIL_COUNT};;;;"
+PERF_DATA="$PERF_DATA age_crit=$([ "$AGE_CRIT" = true ] && echo 1 || echo 0);;;;"
+
 # Output
-$PRINTF '%s active SSH session(s)%s | sessions=%s;%s;%s;0; zombies=%s;;; fails=%s;;; age_crit=%s;;;\n' "$ACTIVE_SESSIONS" "$EXTRA" "$ACTIVE_SESSIONS" "$WARN_THRESH" "$CRIT_THRESH" "$ZOMBIE_COUNT" "$FAIL_COUNT" "$([ "$AGE_CRIT" = true ] && echo 1 || echo 0)"
+$PRINTF '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
 exit "$STATE_CODE"

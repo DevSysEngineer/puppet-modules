@@ -189,8 +189,11 @@ if [ -e /var/run/reboot-required ]; then
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=2
 fi
 
-# Perfdata
-PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0; security_updates=${UPDATES_SECURITY};;1;0; blacklisted_updates=${UPDATES_BLACKLISTED};;;0; last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0;"
+# Create perf data
+PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0;"
+PERF_DATA="$PERF_DATA security_updates=${UPDATES_SECURITY};;1;0;"
+PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0;"
+PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0;"
 
 # output
 "$PRINTF" '%s | %s\n' "$OUTPUT_MSG" "$PERF_DATA"

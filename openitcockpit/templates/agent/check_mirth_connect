@@ -174,20 +174,20 @@ SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
 # Perfdata
-PERF="channels=${TOTAL_CHANS};;;0; queue=${MAX_Q};${WARN_Q};${CRIT_Q};0; issues=${STATUS_ISSUES};;1;0;"
+PERF_DATA="channels=${TOTAL_CHANS};;;0; queue=${MAX_Q};${WARN_Q};${CRIT_Q};0; issues=${STATUS_ISSUES};;1;0;"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
-    PERF="$PERF total_received=${tot_recv}c;;;0; total_sent=${tot_sent}c;;;0;"
+    PERF_DATA="$PERF_DATA total_received=${tot_recv}c;;;0; total_sent=${tot_sent}c;;;0;"
 fi
 
 # Result
 if [ "$STATUS_ISSUES" -gt 0 ]; then
-    crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS} | ${PERF}"
+    crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS} | ${PERF_DATA}"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
-    crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF}"
+    crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF_DATA}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    echo "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF}"
+    echo "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF_DATA}"
     exit 1
 fi
 
-echo "${TOTAL_CHANS} channel(s) OK | ${PERF}"
+echo "${TOTAL_CHANS} channel(s) OK | ${PERF_DATA}"
 exit 0

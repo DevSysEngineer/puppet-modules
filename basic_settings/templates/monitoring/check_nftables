@@ -133,30 +133,31 @@ BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
 }')
 
 # Read data
-BL_ITEMS=0
-while read -r FAM TAB SET; do
-    [ -z "$FAM" ] && continue
-    CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS='' '
-    /elements[ \t]*=/{
-        gsub(/[{},]/," "); n=split($0,a)
-        c=0
-        for(i=1;i<=n;i++){
-            gsub(/^[ \t]+|[ \t]+$/,"",a[i])
-            if (a[i]~/^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || index(a[i],":"))
-                c++
-        }
-        print c
-    }')
-    BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
-done <<EOF
+if [ -n "$DYNSETS" ]; then
+    while IFS=' ' read -r FAM TAB SET; do
+        [ -z "$FAM" ] && continue
+        CNT=$($NFT list set "$FAM" "$TAB" "$SET" 2>/dev/null | $AWK -v RS='' '
+        /elements[ \t]*=/{
+            gsub(/[{},]/," "); n=split($0,a)
+            c=0
+            for(i=1;i<=n;i++){
+                gsub(/^[ \t]+|[ \t]+$/,"",a[i])
+                if (a[i]~/^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || index(a[i],":"))
+                    c++
+            }
+            print c
+        }')
+        BL_ITEMS=$((BL_ITEMS + ${CNT:-0}))
+    done <<EOF
 $DYNSETS
 EOF
+fi
 
 # Get named counters
 NAMED_CTRS=$($PRINTF '%s' "$RULESET" | $AWK '
 BEGIN {
-    RS = "}"           # elk block sluit met }
-    FS = "[[:space:]]+" # velden splitsen op witruimte
+    RS = "}"
+    FS = "[[:space:]]+"
 }
 /^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]+packets/ {
     if ($2 == "packets") next
@@ -170,12 +171,13 @@ BEGIN {
 }')
 
 # Process named counters
-while read -r N P;do
-    [ -z "$N" ] && continue;
-    add_pd "ctr_${N}_pkts" "$P";
-done <<EOF
+if [ -n "$NAMED_CTRS" ]; then
+    while IFS=' ' read -r N P; do
+        add_pd "ctr_${N}_pkts" "$P";
+    done <<EOF
 $NAMED_CTRS
 EOF
+fi
 
 # Inline counters 
 INLINE_CTRS=$($PRINTF '%s' "$RULESET" | $AWK '
@@ -207,12 +209,14 @@ BEGIN { seq = 0 }
 }')
 
 # Process inline counters
-while read -r LABEL VALUE ISDROP;do
-    add_pd "rule_${LABEL}_pkts" "$VALUE"
-    [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "$VALUE"
-done <<EOF
+if [ -n "$INLINE_CTRS" ]; then
+    while read -r LABEL VALUE ISDROP;do
+        add_pd "rule_${LABEL}_pkts" "$VALUE"
+        [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "$VALUE"
+    done <<EOF
 $INLINE_CTRS
 EOF
+fi
 
 # Set performance data
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PERF_DATA"
