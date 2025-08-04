@@ -1,7 +1,12 @@
 class basic_settings::security (
-  String $mail_to                = 'root',
-  String $server_fdqn            = $facts['networking']['fqdn']
+  Optional[String]  $antivirus_package  = undef,
+  String            $mail_to            = 'root',
+  String            $server_fdqn        = $facts['networking']['fqdn']
 ) {
+  # Set some values
+  $systemd_enable = defined(Package['systemd'])
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
   # Install default security packages
   package { ['apparmor', 'auditd', 'pwgen']:
     ensure          => installed,
@@ -22,8 +27,21 @@ class basic_settings::security (
     require => Package['auditd'],
   }
 
+  # Setup virusscanner
+  case $antivirus_package {
+    'eset': {
+      if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+        basic_settings::monitoring_custom { 'antivirus':
+          friendly => 'ESET Server Security',
+          content  => template('basic_settings/monitoring/check_eset'),
+          timeout  => 60,
+        }
+      }
+    }
+  }
+
   # Create service check
-  if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_service { 'apparmor': }
     basic_settings::monitoring_service { 'auditd': }
   }
@@ -56,14 +74,6 @@ class basic_settings::security (
     mode    => '0600',
     notify  => Service['auditd'],
     require => File['/etc/audit/rules.d'],
-  }
-
-  # Check if we have systemd
-  if (defined(Package['systemd'])) {
-    # We have systemd
-    $systemd_enable = true
-  } else {
-    $systemd_enable = false
   }
 
   # Create systemd exclude rules

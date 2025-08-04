@@ -450,9 +450,10 @@ class basic_settings (
 
   # Setup security
   class { 'basic_settings::security':
-    mail_to     => $systemd_notify_mail,
-    server_fdqn => $server_fdqn,
-    require     => Class['basic_settings::monitoring'],
+    antivirus_package => $antivirus_package,
+    mail_to           => $systemd_notify_mail,
+    server_fdqn       => $server_fdqn,
+    require           => Class['basic_settings::monitoring'],
   }
 
   # Set IO

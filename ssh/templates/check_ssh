@@ -73,21 +73,31 @@ $PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
 <% end -%>
 
 # Analyse current SSH sessions
-WHO_OUTPUT=$($WHO -u)
-NOW_EPOCH=$($DATE +%s)
 ACTIVE_SESSIONS=0
-ROOT_LOGIN=false
 AGE_CRIT=false
+NOW_EPOCH=$($DATE +%s)
+ROOT_LOGIN=false
+SEP=""
+USERS_LIST=""
+WHO_OUTPUT=$($WHO -u)
 
 # Count zombie sshd processes
 ZOMBIE_COUNT=$($PS -C sshd -o stat= | $AWK '$0 ~ /Z/ {c++} END {print c+0}')
 
 while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
-    # Skip empty lines
-    [ -z "$USER" ] && continue
+    # Skip users
+    if [ -z "$USER" ] || [ ! -e "/dev/$TTY" ]; then
+        continue
+    fi
 
     # Check root login
     [ "$USER" = "root" ] && ROOT_LOGIN=true
+
+    # Add user to list
+    case ",$USERS_LIST," in
+        *,"$USER",*) ;;
+        *) USERS_LIST="${USERS_LIST}${SEP}${USER}"; SEP="," ;;
+    esac
 
     # Determine idle minutes
     case "$IDLE" in
@@ -99,9 +109,8 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
     esac
 
     # PS call
-    TTY_PROCS=$($PS -t "$TTY" -o user= 2>/dev/null)
-    PROC_COUNT=$($PRINTF '%s\n' "$TTY_PROCS" | wc -l)
-    [ -z "$PROC_COUNT" ] && PROC_COUNT=0
+    TTY_PROCS=$($PS -t "$TTY" -o user=)
+    PROC_COUNT=$($PRINTF '%s\n' "$TTY_PROCS" | $WC -l)
 
     case "$TTY_PROCS" in
         *root*) ROOT_LOGIN=true ;;
@@ -148,6 +157,7 @@ EXTRA=""
 [ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}age> ${MAX_AGE}m, "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
 [ "$FAIL_COUNT" -gt 0 ] && EXTRA="${EXTRA}${FAIL_COUNT} auth fails, "
+[ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
 EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA=" ($EXTRA)"
 
