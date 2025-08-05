@@ -174,9 +174,9 @@ SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
 # Perfdata
-PERF_DATA="channels=${TOTAL_CHANS};;;0; queue=${MAX_Q};${WARN_Q};${CRIT_Q};0; issues=${STATUS_ISSUES};;1;0;"
+PERF_DATA="channels=${TOTAL_CHANS};;;0 queue=${MAX_Q};${WARN_Q};${CRIT_Q};0 issues=${STATUS_ISSUES};;1;0"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
-    PERF_DATA="$PERF_DATA total_received=${tot_recv}c;;;0; total_sent=${tot_sent}c;;;0;"
+    PERF_DATA="$PERF_DATA total_received=${tot_recv}c;;;0 total_sent=${tot_sent}c;;;0"
 fi
 
 # Result

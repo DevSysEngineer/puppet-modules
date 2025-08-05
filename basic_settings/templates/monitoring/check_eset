@@ -174,16 +174,16 @@ fi
 [ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && MSG="$MSG; $WARN_MSG"
 
 # Create perf data
-PERF="'engine_version'=${ENGINE_VER};;;;"
-PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0;"
-PERF="$PERF update_failed=${UPDATES_FAILED};;;;"
-PERF="$PERF detections=${DETECTIONS_TOTAL};;;;"
-PERF="$PERF scans_toal=${SCANS_TOTAL};;;;"
-PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0;"
-PERF="$PERF last_scan_cleaned=${LAST_CLEAN};;;;"
-PERF="$PERF last_scan_detections=${LAST_DET};;;;"
-PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s;;;;"
-PERF="$PERF last_scan_files=${LAST_FILES};;;;"
+PERF="'engine_version'=${ENGINE_VER}"
+PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0"
+PERF="$PERF update_failed=${UPDATES_FAILED}"
+PERF="$PERF detections=${DETECTIONS_TOTAL}"
+PERF="$PERF scans_toal=${SCANS_TOTAL}"
+PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0"
+PERF="$PERF last_scan_cleaned=${LAST_CLEAN}"
+PERF="$PERF last_scan_detections=${LAST_DET}"
+PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s"
+PERF="$PERF last_scan_files=${LAST_FILES}"
 
 # Show output
 printf '%s | %s\n' "$MSG" "$PERF"

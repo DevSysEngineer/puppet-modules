@@ -35,7 +35,7 @@ TR=$(command -v tr 2>/dev/null)
 # Set some default values
 BL_ITEMS=0
 CHAIN_EMPTY=""
-PERF_DATA=""
+PREF_LIST=""
 RULES_TOTAL=0
 SEQ=0
 TABLE_COUNT=0
@@ -50,7 +50,7 @@ crit() {
 
 add_pd() {
     LABEL_FORMAT=$($PRINTF '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
-    PERF_DATA="${PERF_DATA}${LABEL_FORMAT}=${2:-0}c "
+    PREF_LIST="${PREF_LIST}${LABEL_FORMAT} ${2:-0}\n"
 }
 
 <% if @systemd_enable -%>
@@ -164,7 +164,8 @@ BEGIN {
     for (i = 1; i <= NF; i++) {
         if ($i == "packets" && (i + 1) <= NF) {
             pkt_val = $(i + 1)
-            print $2, pkt_val
+            if (pkt_val > 0)
+                print $2, pkt_val
             break
         }
     }
@@ -190,6 +191,8 @@ BEGIN { seq = 0 }
             if (f[i] == "counter" && i + 2 <= n && f[i + 1] == "packets") {
                 val = f[i + 2]; break
             }
+
+        if (val == 0) next
 
         lbl = ""
         if (match($0, /comment[[:space:]]+"[^"]+"/)) {
@@ -219,7 +222,8 @@ EOF
 fi
 
 # Set performance data
-PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PERF_DATA"
+PREF_LIST=$(printf '%b' "$PREF_LIST" | sort -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
+PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
 
 # Check some values
 [ -n "$CHAIN_EMPTY" ] && crit "No rules in chain(s): $CHAIN_EMPTY | $PERF_DATA"
