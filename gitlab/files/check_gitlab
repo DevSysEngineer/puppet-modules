@@ -27,10 +27,6 @@ GITLAB_RAILS=$(command -v gitlab-rails 2>/dev/null)
 PRINTF=$(command -v printf 2>/dev/null)
 [ -n "$PRINTF" ] || die "printf not available"
 
-# Locate mktemp
-MKTEMP=$(command -v mktemp 2>/dev/null)
-[ -n "$MKTEMP" ] || die "mktemp not available"
-
 # Locate sed
 SED=$(command -v sed 2>/dev/null)
 [ -n "$SED" ] || die "sed not available"
@@ -39,19 +35,11 @@ SED=$(command -v sed 2>/dev/null)
 TR=$(command -v tr 2>/dev/null)
 [ -n "$TR" ] || die "tr not available"
 
-# Locate rm
-RM=$(command -v rm 2>/dev/null)
-[ -n "$RM" ] || die "rm not available"
-
 # Defaults
 LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
 STATE_CODE=0
 MSG=""
 PERF=""
-
-# Work file
-WORK_FILE=$($MKTEMP -d "/tmp/gitlab.XXXXXX") || die "mktemp failed"
-trap '$RM -rf "$WORK_FILE"' EXIT HUP INT QUIT TERM
 
 # Services
 SVC_RAW=$($GITLAB_CTL status 2>&1)
@@ -103,7 +91,7 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
 fi
 
 # Parse group lines and build perfdata
-$PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}' > "$WORK_FILE"
+$GROUPS=$($PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     MB=$(( B / 1048576 ))
@@ -112,7 +100,9 @@ while IFS='|' read -r N B; do
     # Quote label if contains whitespace
     case $SAFE in *[[:space:]]*) SAFE="'$SAFE'";; esac
     PERF="${PERF} ${SAFE}=${MB}MB;;;0;"
-done < "$WORK_FILE"
+done <<EOF
+$GROUPS
+EOF
 
 # Licence info (skip on CE / no licence)
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)

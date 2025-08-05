@@ -138,8 +138,8 @@ class gitlab (
     basic_settings::monitoring_custom { 'gitlab':
       source   => 'puppet:///modules/gitlab/check_gitlab',
       friendly => 'GitLab',
-      timeout  => 120,
-      interval => 360,
+      timeout  => 300,
+      interval => 600,
     }
   }
 
