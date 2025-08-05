@@ -35,7 +35,7 @@ RM=$(command -v rm 2>/dev/null)
 [ -n "$RM" ] || die "rm not available"
 
 # Locate mv
-MV=$(command -v rm 2>/dev/null)
+MV=$(command -v mv 2>/dev/null)
 [ -n "$MV" ] || die "mv not available"
 
 <% if @systemd_enable -%>

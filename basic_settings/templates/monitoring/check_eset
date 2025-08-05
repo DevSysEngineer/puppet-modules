@@ -52,18 +52,16 @@ crit() {
 # Default values
 CRIT_MSG=""
 CRIT_NO_SCAN_DAYS=14  # CRITICAL if >14 days
-CRIT_SIG_AGE_DAYS=7   # CRITICAL if older than 7 days
-CRIT_UPDATE_MIN=720   # CRITICAL if >12 h (720 min)
+CRIT_UPDATE_MIN=1440   # CRITICAL if >24h
 ENGINE_VER=0
 LAST_CLEAN=0
 LAST_DET=0
+LAST_FILES=0
+LAST_SCAN_EPOCH=0
 LAST_SCAN_AGE=9999
 LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
 NOW_EPOCH=`$DATE +%s`
-SCANNED_FILES=0
-SIG_AGE=0
-SIG_DATE=""
 STATE_CODE=0
 STATE_LABEL="OK";
 UPDATE_AGE_MIN=999999
@@ -71,19 +69,16 @@ UPD=/opt/eset/efs/bin/upd
 WAP_FLAG=/opt/eset/efs/etc/WAP_DISABLED
 WARN_MSG=""
 WARN_NO_SCAN_DAYS=7   # WARNING if no on‑demand scan in >7 days
-WARN_SIG_AGE_DAYS=1   # WARNING if signatures older than 1 day
-WARN_UPDATE_MIN=180   # WARNING if no engine up$DATE for >3 h (180 min)
+WARN_UPDATE_MIN=720   # WARNING if no engine update for >12h
 
 # Options 
 while getopts 'n:N:s:S:u:U:h' opt; do
   case "$opt" in
     n) WARN_NO_SCAN_DAYS="$OPTARG" ;;
     N) CRIT_NO_SCAN_DAYS="$OPTARG" ;;
-    s) WARN_SIG_AGE_DAYS="$OPTARG" ;;
-    S) CRIT_SIG_AGE_DAYS="$OPTARG" ;;
     u) WARN_UPDATE_MIN="$OPTARG" ;;
     U) CRIT_UPDATE_MIN="$OPTARG" ;;
-    *) die "Usage: $0 [-n <days>] [-N <days>] [-s <days>] [-S <days>] [-u <min>] [-U <min>]" ;;
+    *) die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]" ;;
   esac
 done
 
@@ -119,14 +114,7 @@ fi
 LINE=$($UPD -l 2>/dev/null | $GREP -m1 "Detection engine")
 if [ -n "$LINE" ]; then
     ENGINE_VER=$($PRINTF '%s' "$LINE" | $AWK '{print $2}')
-    SIG_DATE=$($PRINTF '%s' "$LINE" | $SED -n 's/.*(\(....-..-..\)).*/\1/p')
-    if [ -n "$SIG_DATE" ]; then
-        SIG_EPOCH=$($DATE -d "$SIG_DATE" +%s 2>/dev/null)
-        SIG_AGE=$(( (NOW_EPOCH - SIG_EPOCH) / 86400 ))
-    fi
 fi
-[ "$SIG_AGE" -ge "$CRIT_SIG_AGE_DAYS" ] && add_crit "defs ${SIG_AGE}d old"
-[ "$SIG_AGE" -ge "$WARN_SIG_AGE_DAYS" ] && [ "$SIG_AGE" -lt "$CRIT_SIG_AGE_DAYS" ] && add_warn "defs ${SIG_AGE}d old"
 
 # On‑demand scan stats
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
@@ -134,11 +122,11 @@ SCANS_TOTAL=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n +2 | $WC -l)
 LAST_LINE=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n 1)
 case "$LAST_LINE" in Time*|'') : ;;
     *)
-        IFS=',' read STARTED _ SCANNED_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
+        IFS=',' read STARTED _ LAST_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
 $LAST_LINE
 EOF
-        LAST_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
-        LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
+        LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
+        LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 ))
         IFS=':' read H M S <<EOF
 $DURATION
 EOF
@@ -155,12 +143,12 @@ DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{prin
 
 # Update gap
 LAST_OK=$( $LSLOG -c 2>/dev/null | grep -F "Detection Engine was successfully updated" | $TAIL -n 1 )
-[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$($PRINTF '%s' "$LAST_OK"|cut -d',' -f1)" +%s))/60 ))
+[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$($PRINTF '%s' "$LAST_OK"| cut -d ',' -f1)" +%s))/60 ))
 [ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "no upd $((UPDATE_AGE_MIN/60))h"
 [ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "upd gap $((UPDATE_AGE_MIN/60))h"
 
 # Update error
-UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application update" | $AWK -F',' '{print $1}' | while read TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
+UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}' | while read TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
 [ "$UPDATES_FAILED" -gt 0 ] && add_warn "$UPDATES_FAILED update errors (1h)"
  
 # Final label
@@ -174,21 +162,28 @@ UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application 
 }
 
 # Create message
-MSG="ESET $STATE_LABEL – eng $ENGINE_VER (age ${SIG_AGE}d); scans $SCANS_TOTAL; detections $DETECTIONS_TOTAL; upd_age ${UPDATE_AGE_MIN}m"
-[ -n "$CRIT_MSG" ] && MSG="$MSG | $CRIT_MSG"
-[ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && MSG="$MSG | $WARN_MSG"
+if [ "$LAST_SCAN_EPOCH" -gt 0 ]; then
+    LAST_SCAN_HUMAN=$($DATE -d "@$LAST_SCAN_EPOCH" '+%Y-%m-%d %H:%M')
+    MSG="ESET $STATE_LABEL – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
+else
+    MSG="ESET $STATE_LABEL – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
+fi
+
+# Create message
+[ -n "$CRIT_MSG" ] && MSG="$MSG; $CRIT_MSG"
+[ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && MSG="$MSG; $WARN_MSG"
 
 # Create perf data
 PERF="'engine_version'=${ENGINE_VER};;;;"
 PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0;"
 PERF="$PERF update_failed=${UPDATES_FAILED};;;;"
-PERF="$PERF scans_total=${SCANS_TOTAL};;;;"
-PERF="$PERF scanned_files=${SCANNED_FILES};;;;"
-PERF="$PERF sig_age_days=${SIG_AGE};${WARN_SIG_AGE_DAYS};${CRIT_SIG_AGE_DAYS};0;"
+PERF="$PERF detections=${DETECTIONS_TOTAL};;;;"
+PERF="$PERF scans_toal=${SCANS_TOTAL};;;;"
 PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0;"
-PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s;;;;"
 PERF="$PERF last_scan_cleaned=${LAST_CLEAN};;;;"
 PERF="$PERF last_scan_detections=${LAST_DET};;;;"
+PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s;;;;"
+PERF="$PERF last_scan_files=${LAST_FILES};;;;"
 
 # Show output
 printf '%s | %s\n' "$MSG" "$PERF"
