@@ -197,7 +197,7 @@ fi
 
 # Security‑packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$($PRINTF '%s' $APT_SIM_SUMMARY | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
+    SEC_CSV=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
     OUTPUT_MSG="$OUTPUT_MSG Security packages: ${SEC_CSV}."
 fi
 
