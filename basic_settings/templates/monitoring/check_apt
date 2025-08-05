@@ -121,7 +121,6 @@ APT_SIM_SUMMARY=$($PRINTF '%s' "$APT_SIM_OUTPUT" | $AWK '
 UPDATES_TOTAL=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^TOT:/ {print $2}')
 UPDATES_SECURITY=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SEC:/ {print $2}')
 PKG_LIST=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^PKG:/ {print $2}')
-SEC_PKG_LIST=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{print $2}')
 
 # Count blacklisted
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
@@ -175,22 +174,20 @@ if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
         DAYS=$((LAST_UPDATE_AGE_SEC / 86400))
         OUTPUT_MSG="$OUTPUT_MSG metadata ${DAYS} days old."
     fi
-    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)"
+    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
 else
-    OUTPUT_MSG="$OUTPUT_MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)"
+    OUTPUT_MSG="$OUTPUT_MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
 fi
 
 # Security‑packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$($PRINTF '%s' $SEC_PKG_LIST | $AWK 'NR==1{printf "%s",$0;next}{printf ",%s",$0}')
-    OUTPUT_MSG="$OUTPUT_MSG, security packages: ${SEC_CSV}"
+    SEC_CSV=$($PRINTF '%s' $APT_SIM_SUMMARY | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}'))
+    OUTPUT_MSG="$OUTPUT_MSG Security packages: ${SEC_CSV}."
 fi
 
 # Blacklisted
 if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
-    OUTPUT_MSG="$OUTPUT_MSG, ${UPDATES_BLACKLISTED} blacklisted."
-else
-    OUTPUT_MSG="$OUTPUT_MSG."
+    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_BLACKLISTED} blacklisted."
 fi
 
 # Set messages
