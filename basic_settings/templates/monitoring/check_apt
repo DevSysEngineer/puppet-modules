@@ -179,17 +179,6 @@ else
     OUTPUT_MSG="$OUTPUT_MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
 fi
 
-# Security‑packages
-if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$($PRINTF '%s' $APT_SIM_SUMMARY | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
-    OUTPUT_MSG="$OUTPUT_MSG Security packages: ${SEC_CSV}."
-fi
-
-# Blacklisted
-if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
-    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_BLACKLISTED} blacklisted."
-fi
-
 # Set messages
 [ "$TIMER_DAILY_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-daily.timer inactive!"
 [ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-daily-upgrade.timer inactive!"
@@ -199,6 +188,17 @@ fi
 if [ -e /var/run/reboot-required ]; then
     OUTPUT_MSG="$OUTPUT_MSG Reboot required!"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=2
+fi
+
+# Blacklisted
+if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
+    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_BLACKLISTED} blacklisted."
+fi
+
+# Security‑packages
+if [ "$UPDATES_SECURITY" -gt 0 ]; then
+    SEC_CSV=$($PRINTF '%s' $APT_SIM_SUMMARY | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
+    OUTPUT_MSG="$OUTPUT_MSG Security packages: ${SEC_CSV}."
 fi
 
 # Create perf data
