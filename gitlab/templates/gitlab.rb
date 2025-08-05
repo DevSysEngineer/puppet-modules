@@ -4,11 +4,11 @@ external_url 'https://<%= @server_fdqn %>'
 <% else -%>
 external_url 'http://<%= @server_fdqn %>'
 <% end -%>
-gitlab_rails['gitlab_email_enabled'] = <%= (@smtp_enable ? "true" : "false") %>
+gitlab_rails['gitlab_email_enabled'] = true
 gitlab_rails['gitlab_ssh_host'] = '<%= @ssh_host_correct %>'
 gitlab_rails['gitlab_shell_ssh_port'] = <%= @ssh_port %>
 gitlab_rails['incoming_email_enabled'] = false
-gitlab_rails['smtp_enable'] = <%= (@smtp_enable ? "true" : "false") %>
+gitlab_rails['smtp_enable'] = true
 gitlab_rails['smtp_address'] = '<%= @smtp_server_correct %>'
 gitlab_rails['smtp_port'] = 25
 gitlab_rails['smtp_openssl_verify_mode'] = '<%= @smtp_openssl_verify_mode %>'
