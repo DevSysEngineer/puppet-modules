@@ -168,7 +168,7 @@ UNATTENDED_ACTIVE=0
 <% end -%>
 
 # Message
-OUTPUT_MSG="APT "
+OUTPUT_MSG="APT"
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
     if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ]; then
         DAYS=$((LAST_UPDATE_AGE_SEC / 86400))
