@@ -22,6 +22,10 @@ LSMOD=$(command -v lsmod 2>/dev/null)
 NFT=$(command -v nft 2>/dev/null)
 [ -n "$NFT" ] || die "nft not available"
 
+# Locate sort
+SORT=$(command -v sort 2>/dev/null)
+[ -n "$SORT" ] || die "sort not available"
+
 <% if @systemd_enable -%>
 # Locate systemctl
 SYSTEMCTL=$(command -v systemctl 2>/dev/null)
@@ -222,7 +226,7 @@ EOF
 fi
 
 # Set performance data
-PREF_LIST=$(printf '%b' "$PREF_LIST" | sort -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
+PREF_LIST=$($PRINTF '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
 
 # Check some values

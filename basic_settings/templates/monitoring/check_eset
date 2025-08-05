@@ -10,6 +10,10 @@ die() {
 AWK=$(command -v awk 2>/dev/null)
 [ -n "$AWK" ] || die "akw not available"
 
+# Locate cut
+CUT=$(command -v cut 2>/dev/null)
+[ -n "$CUT" ] || die "cut not available"
+
 # Locate date
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
@@ -143,7 +147,7 @@ DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{prin
 
 # Update gap
 LAST_OK=$( $LSLOG -c 2>/dev/null | grep -F "Detection Engine was successfully updated" | $TAIL -n 1 )
-[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$($PRINTF '%s' "$LAST_OK"| cut -d ',' -f1)" +%s))/60 ))
+[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$($PRINTF '%s' "$LAST_OK"| $CUT -d ',' -f1)" +%s))/60 ))
 [ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "no upd $((UPDATE_AGE_MIN/60))h"
 [ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "upd gap $((UPDATE_AGE_MIN/60))h"
 
