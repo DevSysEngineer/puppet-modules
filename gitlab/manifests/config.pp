@@ -30,14 +30,11 @@ class gitlab::config (
   # Try to get smtp server
   if ($smtp_server == undef) {
     if (defined(Class['basic_settings'])) {
-      $smtp_enable = true
       $smtp_server_correct = $basic_settings::smtp_server
     } else {
-      $smtp_enable = false
-      $smtp_server_correct = undef
+      $smtp_server_correct = '127.0.0.1'
     }
   } else {
-    $smtp_enable = true
     $smtp_server_correct = $smtp_server
   }
 

@@ -183,7 +183,7 @@ fi
 # Security‑packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
     SEC_CSV=$($PRINTF '%s' $SEC_PKG_LIST | $AWK 'NR==1{printf "%s",$0;next}{printf ",%s",$0}')
-    OUTPUT_MSG="$OUTPUT_MSG | security packages: ${SEC_CSV}"
+    OUTPUT_MSG="$OUTPUT_MSG, security packages: ${SEC_CSV}"
 fi
 
 # Blacklisted

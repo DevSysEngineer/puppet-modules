@@ -4,6 +4,7 @@ class openitcockpit::server (
   Optional[String]  $server_fdqn              = undef,
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
+  Optional[String]  $smtp_server              = undef,
   Optional[String]  $webserver_uid            = undef,
   Optional[String]  $webserver_gid            = undef,
 ) {
@@ -13,6 +14,17 @@ class openitcockpit::server (
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $nginx_enable = defined(Class['nginx'])
   $php_fpm_enable = defined(Class['php8::fpm'])
+
+  # Try to get smtp server
+  if ($smtp_server == undef) {
+    if (defined(Class['basic_settings'])) {
+      $smtp_server_correct = $basic_settings::smtp_server
+    } else {
+      $smtp_server_correct = '127.0.0.1'
+    }
+  } else {
+    $smtp_server_correct = $smtp_server
+  }
 
   # Try to get uid and gid
   if ($webserver_uid == undef or $webserver_gid == undef) {
@@ -335,6 +347,20 @@ class openitcockpit::server (
     target  => "${lib_dir}/frontend/webroot/img",
     force   => true,
     require => File["${lib_dir}/frontend/webroot/img"],
+  }
+
+  # Set proper permissions
+  file { [
+      "${install_dir_correct}/frontend/config/dbbackend.php",
+      "${install_dir_correct}/frontend/config/graphite.php",
+      "${install_dir_correct}/frontend/config/perfdatabackend.php",
+    ]:
+      ensure  => file,
+      replace => false,
+      owner   => $webserver_uid_correct,
+      group   => $webserver_gid_correct,
+      mode    => '0664',
+      require => File["${install_dir_correct}/frontend/config"],
   }
 
   # Create email config file
