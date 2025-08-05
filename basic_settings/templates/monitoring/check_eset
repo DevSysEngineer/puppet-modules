@@ -67,7 +67,6 @@ LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
 NOW_EPOCH=`$DATE +%s`
 STATE_CODE=0
-STATE_LABEL="OK";
 UPDATE_AGE_MIN=999999
 UPD=/opt/eset/efs/bin/upd
 WAP_FLAG=/opt/eset/efs/etc/WAP_DISABLED
@@ -155,30 +154,24 @@ LAST_OK=$( $LSLOG -c 2>/dev/null | grep -F "Detection Engine was successfully up
 UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}' | while read TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
 [ "$UPDATES_FAILED" -gt 0 ] && add_warn "$UPDATES_FAILED update errors (1h)"
  
-# Final label
-[ -n "$CRIT_MSG" ] && {
-    STATE_LABEL="CRITICAL";
-    STATE_CODE=2;
-}
-[ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && {
-    STATE_LABEL="WARNING";
-    STATE_CODE=1;
-}
-
 # Create message
 if [ "$LAST_SCAN_EPOCH" -gt 0 ]; then
     LAST_SCAN_HUMAN=$($DATE -d "@$LAST_SCAN_EPOCH" '+%Y-%m-%d %H:%M')
-    MSG="ESET $STATE_LABEL – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
+    MSG="ESET – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
 else
-    MSG="ESET $STATE_LABEL – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
+    MSG="ESET – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
 fi
 
+# Final state
+[ -n "$CRIT_MSG" ] && STATE_CODE=2;
+[ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && STATE_CODE=1;
+
 # Create message
-[ -n "$CRIT_MSG" ] && MSG="$MSG; $CRIT_MSG"
-[ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && MSG="$MSG; $WARN_MSG"
+[ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
+[ -z "$WARN_MSG" ] && MSG="$MSG; Warnin(s): $WARN_MSG"
 
 # Create perf data
-PERF="'engine_version'=${ENGINE_VER}"
+PERF="engine_version=${ENGINE_VER}"
 PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0"
 PERF="$PERF update_failed=${UPDATES_FAILED}"
 PERF="$PERF detections=${DETECTIONS_TOTAL}"
@@ -191,4 +184,4 @@ PERF="$PERF last_scan_files=${LAST_FILES}"
 
 # Show output
 printf '%s | %s\n' "$MSG" "$PERF"
-exit $EXIT
+exit $STATE_CODE
