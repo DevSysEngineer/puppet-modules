@@ -121,7 +121,7 @@ fi
 
 # On‑demand scan stats
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
-SCANS_TOTAL=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n +2 | $WC -l)
+SCANS_TOTAL=$($PRINTF '%s\n' "$SCAN_CSV" | $TAIL -n +2 | $WC -l) # \n Important for count
 LAST_LINE=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n 1)
 if [ -n "$LAST_LINE" ] && case "$LAST_LINE" in Time*) false;; *) true;; esac; then
     # Split CSV fields: STARTED, LAST_FILES, LAST_CLEAN, LAST_DET, DURATION
@@ -185,7 +185,7 @@ PERF="engine_version=${ENGINE_VER}"
 PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0"
 PERF="$PERF update_failed=${UPDATES_FAILED}"
 PERF="$PERF detections=${DETECTIONS_TOTAL}"
-PERF="$PERF scans_toal=${SCANS_TOTAL}"
+PERF="$PERF scans_total=${SCANS_TOTAL}"
 PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0"
 PERF="$PERF last_scan_cleaned=${LAST_CLEAN}"
 PERF="$PERF last_scan_detections=${LAST_DET}"
