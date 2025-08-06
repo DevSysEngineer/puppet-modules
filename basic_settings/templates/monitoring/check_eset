@@ -133,7 +133,10 @@ EOF
         IFS=':' read H M S <<EOF
 $DURATION
 EOF
-        LAST_SCAN_SECS=$((10#$H*3600 + 10#$M*60 + 10#$S))
+        H=${H#0}; [ -z "$H" ] && H=0
+        M=${M#0}; [ -z "$M" ] && M=0
+        S=${S#0}; [ -z "$S" ] && S=0
+        LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
     ;;
 esac
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
