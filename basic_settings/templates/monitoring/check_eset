@@ -123,22 +123,29 @@ fi
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
 SCANS_TOTAL=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n +2 | $WC -l)
 LAST_LINE=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n 1)
-case "$LAST_LINE" in Time*|'') : ;;
-    *)
-        IFS=',' read STARTED _ LAST_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
+if [ -n "$LAST_LINE" ] && case "$LAST_LINE" in Time*) false;; *) true;; esac; then
+    # Split CSV fields: STARTED, LAST_FILES, LAST_CLEAN, LAST_DET, DURATION
+    IFS=',' read -r STARTED _ LAST_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
 $LAST_LINE
 EOF
-        LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
-        LAST_SCAN_AGE=$(((NOW_EPOCH - LAST_SCAN_EPOCH) / 86400))
-        IFS=':' read H M S <<EOF
+
+    # Compute scan epoch time (seconds since 1970)
+    LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
+
+    # Calculate scan age in days
+    LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 ))
+
+    # Parse duration (HH:MM:SS) and strip leading zeros
+    IFS=':' read -r H M S <<EOF
 $DURATION
 EOF
-        H=${H#0}; [ -z "$H" ] && H=0
-        M=${M#0}; [ -z "$M" ] && M=0
-        S=${S#0}; [ -z "$S" ] && S=0
-        LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
-    ;;
-esac
+    H=${H#0}; [ -z "$H" ] && H=0
+    M=${M#0}; [ -z "$M" ] && M=0
+    S=${S#0}; [ -z "$S" ] && S=0
+
+    # Calculate total duration in seconds
+    LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
+fi
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
 [ "$LAST_SCAN_AGE" -ge "$WARN_NO_SCAN_DAYS" ] && [ "$LAST_SCAN_AGE" -lt "$CRIT_NO_SCAN_DAYS" ] && add_warn "no scan ${LAST_SCAN_AGE}d"
 [ "$LAST_DET" -gt 0 ] && add_crit "scan det=$LAST_DET"
