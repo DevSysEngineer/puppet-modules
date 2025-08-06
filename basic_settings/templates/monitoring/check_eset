@@ -129,11 +129,11 @@ case "$LAST_LINE" in Time*|'') : ;;
 $LAST_LINE
 EOF
         LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
-        LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 ))
+        LAST_SCAN_AGE=$(((NOW_EPOCH - LAST_SCAN_EPOCH) / 86400))
         IFS=':' read H M S <<EOF
 $DURATION
 EOF
-        LAST_SCAN_SECS=$(( 10#$H*3600 + 10#$M*60 + 10#$S ))
+        LAST_SCAN_SECS=$((10#$H*3600 + 10#$M*60 + 10#$S))
     ;;
 esac
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
@@ -157,9 +157,9 @@ UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application 
 # Create message
 if [ "$LAST_SCAN_EPOCH" -gt 0 ]; then
     LAST_SCAN_HUMAN=$($DATE -d "@$LAST_SCAN_EPOCH" '+%Y-%m-%d %H:%M')
-    MSG="ESET – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
+    MSG="ESET engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
 else
-    MSG="ESET – engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
+    MSG="ESET engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
 fi
 
 # Final state
@@ -168,7 +168,7 @@ fi
 
 # Create message
 [ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
-[ -z "$WARN_MSG" ] && MSG="$MSG; Warnin(s): $WARN_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; Warnin(s): $WARN_MSG"
 
 # Create perf data
 PERF="engine_version=${ENGINE_VER}"

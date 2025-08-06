@@ -91,7 +91,7 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
 fi
 
 # Parse group lines and build perfdata
-$GROUPS=$($PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
+GROUPS=$($PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     MB=$(( B / 1048576 ))
