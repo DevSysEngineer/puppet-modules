@@ -22,6 +22,14 @@ AWK=$(command -v awk 2>/dev/null)
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
 
+# Locate grep
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
+
+# Locate printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
+
 # Locate sed
 SED=$(command -v sed 2>/dev/null)
 [ -n "$SED" ] || die "sed not available"
@@ -62,6 +70,13 @@ $SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
 $PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
+# Check if we have error since boot
+ERROR_COUNT=$(journalctl -b -u auditd -u augenrules --no-pager 2>/dev/null | grep -ci 'Error')
+if [ "$ERROR_COUNT" -gt 0 ]; then
+    MSG="$MSG, but errors found since boot"
+    STATE_CODE=2
+fi
+
 # Get backlog / dropped counters
 AV_STAT=$($AUDITCTL -s 2>/dev/null)
 BACKLOG=$($PRINTF "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
@@ -72,7 +87,7 @@ BLIMIT=$($PRINTF "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
 if [ "$BACKLOG" -gt "$QUEUE_WARN" ]; then
     MSG="$MSG, backlog $BACKLOG"
-    STATE_CODE=1
+    [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 if [ "$LOST" -gt "$DROPPED_CRIT" ]; then
     MSG="$MSG, dropped $LOST"
@@ -119,12 +134,6 @@ fi
 
 
 <% if @systemd_enable -%>
-# Check if we have error since boot
-ERROR_COUNT=$(journalctl -b -u auditd -u augenrules --no-pager 2>/dev/null | grep -ci 'Error:')
-if [ "$ERROR_COUNT" -gt 0 ]; then
-    MSG="$MSG, error since boot"
-    STATE_CODE=2
-fi
 
 # Get boot reports
 NOW=$($DATE +%s)
@@ -167,7 +176,7 @@ EVENT_REPORT=$(aureport --start "$EVENT_START" --end now --event 2>/dev/null | $
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
 
 # Create perf data
-PERF=" acct_changes=${$ACCT};;1"
+PERF="acct_changes=${ACCT};;1"
 PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
 PERF="$PERF dropped=${LOST};;${DROPPED_CRIT}"
