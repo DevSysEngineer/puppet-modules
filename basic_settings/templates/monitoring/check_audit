@@ -71,7 +71,7 @@ $PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
 # Check if we have error since boot
-ERROR_COUNT=$(journalctl -b -u auditd -u augenrules --no-pager 2>/dev/null | grep -ci 'Error')
+ERROR_COUNT=$(journalctl -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -c 'Error')
 if [ "$ERROR_COUNT" -gt 0 ]; then
     MSG="$MSG, but errors found since boot"
     STATE_CODE=2
@@ -163,7 +163,7 @@ fi
 
 # Check if kernel version has changed
 KERNEL_CURRENT=$(uname -r)
-KERNEL_BOOT=$(journalctl -b -1 --no-pager 2>/dev/null | grep -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
+KERNEL_BOOT=$(journalctl -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
 if [ -n "$KERNEL_BOOT" ] && [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
     MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})" ;
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1 ;
