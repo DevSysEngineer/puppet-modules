@@ -567,7 +567,7 @@ class basic_settings::kernel (
 
     # Ignore current working directory records
     basic_settings::security_audit { 'kernel-cwd':
-      rules => ['-a always,exclude -F msgtype=CWD'],
+      rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
       order => 1,
     }
   }

@@ -121,8 +121,8 @@ class basic_settings::io (
   if (defined(Package['auditd'])) {
     basic_settings::security_audit { 'logrotate':
       rules => [
-        '-a always,exclude -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
-        '-a always,exclude -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
+        '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
+        '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
       ],
       order => 2,
     }

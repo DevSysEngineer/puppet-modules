@@ -124,33 +124,6 @@ class basic_settings::network (
     install_options => union($install_options, ['--no-install-recommends', '--no-install-suggests']),
   }
 
-  # Do things based oon antivirus package
-  case $antivirus_package { #lint:ignore:case_without_default
-    'eset': {
-      # Setup audit rules
-      if (defined(Package['auditd'])) {
-        basic_settings::security_audit { 'eset':
-          rules => [
-            '-a always,exclude -F exe=/opt/eset/efs/lib/odfeeder',
-            '-a always,exclude -F exe=/opt/eset/efs/lib/utild',
-          ],
-          order => 2,
-        }
-      }
-
-      # Setup needrestart rules
-      if (defined(Package['needrestart'])) {
-        file { '/etc/needrestart/conf.d/eset_efs.conf':
-          ensure  => file,
-          owner   => 'root',
-          group   => 'root',
-          mode    => '0600',
-          replace => false,
-        }
-      }
-    }
-  }
-
   # Remove unnecessary packages
   package { ['ifupdown', 'iw', 'netcat-traditional', 'wireless-tools']:
     ensure  => purged,

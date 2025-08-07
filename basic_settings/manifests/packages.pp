@@ -1,4 +1,5 @@
 class basic_settings::packages (
+  Optional[String]  $antivirus_package                          = undef,
   Boolean           $config_dir_enable                          = true,
   Boolean           $listchanges_dir_enable                     = true,
   Array             $unattended_upgrades_block_extra_packages   = [],
@@ -242,6 +243,20 @@ class basic_settings::packages (
     group   => 'root',
     mode    => '0600',
     require => Package['needrestart'],
+  }
+
+  # Setup virusscanner
+  case $antivirus_package { #lint:ignore:case_without_default
+    'eset': {
+      # Setup needrestart rules
+      file { '/etc/needrestart/conf.d/eset_efs.conf':
+        ensure  => file,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0600',
+        replace => false,
+      }
+    }
   }
 
   # Ensure that apt-daily timers is always running

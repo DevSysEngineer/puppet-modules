@@ -168,37 +168,37 @@ UNATTENDED_ACTIVE=0
 <% end -%>
 
 # Message
-OUTPUT_MSG="APT"
+MSG="APT"
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
     if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ]; then
         DAYS=$((LAST_UPDATE_AGE_SEC / 86400))
-        OUTPUT_MSG="$OUTPUT_MSG metadata ${DAYS} days old."
+        MSG="$MSG metadata ${DAYS} days old."
     fi
-    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
+    MSG="$MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
 else
-    OUTPUT_MSG="$OUTPUT_MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
+    MSG="$MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
 fi
 
 # Set messages
-[ "$TIMER_DAILY_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-daily.timer inactive!"
-[ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-daily-upgrade.timer inactive!"
-[ "$UNATTENDED_ACTIVE" -eq 0 ] && OUTPUT_MSG="$OUTPUT_MSG apt-daily-upgrade.timer inactive!"
+[ "$TIMER_DAILY_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily.timer inactive!"
+[ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
+[ "$UNATTENDED_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
 
 # Reboot
 if [ -e /var/run/reboot-required ]; then
-    OUTPUT_MSG="$OUTPUT_MSG Reboot required!"
+    MSG="$MSG Reboot required!"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=2
 fi
 
 # Blacklisted
 if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
-    OUTPUT_MSG="$OUTPUT_MSG ${UPDATES_BLACKLISTED} blacklisted."
+    MSG="$MSG ${UPDATES_BLACKLISTED} blacklisted."
 fi
 
 # Security‑packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
     SEC_CSV=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
-    OUTPUT_MSG="$OUTPUT_MSG Security packages: ${SEC_CSV}."
+    MSG="$MSG Security packages: ${SEC_CSV}."
 fi
 
 # Create perf data
@@ -208,5 +208,5 @@ PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0"
 PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0"
 
 # output
-"$PRINTF" '%s | %s\n' "$OUTPUT_MSG" "$PERF_DATA"
+"$PRINTF" '%s | %s\n' "$MSG" "$PERF_DATA"
 exit "$STATE_CODE"

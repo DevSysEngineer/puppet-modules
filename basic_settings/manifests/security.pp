@@ -20,16 +20,34 @@ class basic_settings::security (
     require => Package['apparmor'],
   }
 
-  # Enable apparmor service
+  # Enable auditd service
   service { 'auditd':
     ensure  => true,
     enable  => true,
     require => Package['auditd'],
   }
 
+  # Setup monitoring
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'audit':
+      content => template('basic_settings/monitoring/check_audit'),
+      timeout => 30,
+    }
+  }
+
   # Setup virusscanner
-  case $antivirus_package {
+  case $antivirus_package { #lint:ignore:case_without_default
     'eset': {
+      # Setup audit rules
+      basic_settings::security_audit { 'eset':
+        rules => [
+          '-a never,exit -F exe=/opt/eset/efs/lib/odfeeder',
+          '-a never,exit -F exe=/opt/eset/efs/lib/utild',
+        ],
+        order => 2,
+      }
+
+      # Setup monitoring
       if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
         basic_settings::monitoring_custom { 'antivirus':
           friendly => 'ESET Server Security',
@@ -80,8 +98,8 @@ class basic_settings::security (
   if (defined(Package['systemd-cron'])) {
     basic_settings::security_audit { 'systemd_exclude':
       rules   => [
-        '-a always,exclude -F arch=b32 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
-        '-a always,exclude -F arch=b64 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
+        '-a never,exit -F arch=b32 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
+        '-a never,exit -F arch=b64 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
       ],
       order   => 2,
       require => File['/etc/audit/rules.d'],
