@@ -1,5 +1,5 @@
 define rabbitmq::plugin (
-  Optional[CatalogEntry] $notify_target = undef,
+  Optional[Type] $notify_target = undef,
 ) {
   # Setup the plugin
   exec { "rabbitmq_plugin_${name}":
