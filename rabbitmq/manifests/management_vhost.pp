@@ -18,7 +18,7 @@ define rabbitmq::management_vhost (
       exec { "rabbitmq_management_vhost_${exec_name}":
         command => "/usr/sbin/rabbitmqctl add_vhost ${name} --default-queue-type ${type}",
         unless  => $find,
-        require => [Package['grep'], Exec['rabbitmq_management_plugin']],
+        require => [Package['grep'], Rabbitmq::Plugin['rabbitmq_management']],
       }
 
       # Check if type of the vhost is the same
@@ -33,7 +33,7 @@ define rabbitmq::management_vhost (
       exec { "rabbitmq_management_vhost_${exec_name}":
         onlyif  => $find,
         command => "/usr/sbin/rabbitmqctl --quiet delete_vhost ${name}",
-        require => [Package['grep'], Exec['rabbitmq_management_plugin']],
+        require => [Package['grep'], Rabbitmq::Plugin['rabbitmq_management']],
       }
     }
     default: {
