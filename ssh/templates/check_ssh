@@ -32,7 +32,7 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMDCTL" ] || die "systemctl not available"
 
 # Locate journalctl
-JOURNALCTL$(command -v journalctl 2>/dev/null)
+JOURNALCTL=$(command -v journalctl 2>/dev/null)
 [ -n "$JOURNALCTL" ] || die "journalctl not available"
 
 <% end -%>
@@ -139,7 +139,7 @@ EOF
 # Auth failure detection
 <% if @systemd_enable -%>
 PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_exchange_identification|userauth_pubkey'
-OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | AWK -v allow="$ALLOWED_USERS" -v pat="$PAT" '
+OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow="$ALLOWED_USERS" -v pat="$PAT" '
 BEGIN{
     split(allow,a,","); for(i in a) w[a[i]]=1
     f=0; sep=""; bad=""
