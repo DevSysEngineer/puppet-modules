@@ -41,43 +41,12 @@ $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
     exit 2
 }
 
-# Try to get last run & result 
-LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
-if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "0" ]; then
-    echo "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
-    exit 1
-fi
-
-# Get result
-RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
-EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
-
-# Perfdata
-LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
-NOW_TS=$($DATE +%s)
-if [ -n "$LAST_RUN_TS" ]; then
-    LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
-else
-    LAST_RUN_AGE=U
-fi
-PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
-
-# Output & exit
-case "${RESULT},${EXIT_CODE}" in
-    success,0)
-        echo "${SERVICE_UNIT} successful; last run: ${LAST_RUN} | ${PERFDATA}"
-        exit 0 ;;
-    *)
-        echo "${SERVICE_UNIT} failed (Result=${RESULT}, Exit=${EXIT_CODE}); last run: ${LAST_RUN} | ${PERFDATA}"
-        exit 2 ;;
-esac
-
 # Get result
 RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
 EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
 MAIN_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value)
 STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value)
-JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | $TR '\n' '|' | $SED 's/|$//')
+JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | $TR '\n' ' - ' | $SED 's/|$//')
 
 # Perfdata
 LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
@@ -88,11 +57,11 @@ PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 # Output & exitcode
 case "${RESULT},${EXIT_CODE}" in
     success,0)
-        printf '%s successful (%s); last run: %s; log: %s | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
+        printf '%s successful (%s); last run: %s; log: %s | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
         exit 0
         ;;
     *)
-        printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
+        printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
         exit 2
         ;;
 esac
