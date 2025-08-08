@@ -1,5 +1,5 @@
 class rabbitmq::management (
-  Boolean           $admin_enable           = true,
+  Boolean             $admin_enable           = true,
   String              $admin_config_path      = '/etc/rabbitmq/rabbitmqadmin.conf',
   String              $admin_password         = 'guest',
   String              $default_queue_type     = 'classic',
@@ -18,23 +18,8 @@ class rabbitmq::management (
   }
 
   # Setup the plugin
-  exec { 'rabbitmq_management_plugin':
-    command => '/usr/bin/bash -c "(umask 133 && /usr/sbin/rabbitmq-plugins --quiet enable rabbitmq_management)"', #lint:ignore:140chars # Important for rabbitmq to keep unmask 133
-    unless  => '/usr/sbin/rabbitmq-plugins --quiet is_enabled rabbitmq_management',
-    notify  => Exec['rabbitmq_management_plugin_guest'],
-    require => Package['rabbitmq-server'],
-  }
-
-  # Create enabled plugins file
-  file { 'rabbitmq_management_plugin_enable':
-    ensure  => file,
-    path    => '/etc/rabbitmq/enabled_plugins',
-    owner   => 'rabbitmq',
-    group   => 'rabbitmq',
-    mode    => '0600',
-    replace => false,
-    notify  => Service['rabbitmq-server'],
-    require => Exec['rabbitmq_management_plugin'],
+  rabbitmq::plugin { 'rabbitmq_management':
+    notify_target => Exec['rabbitmq_management_plugin_guest'],
   }
 
   # Check if all cert variables are given
@@ -108,7 +93,7 @@ class rabbitmq::management (
     rabbitmq::management_user { 'guest':
       password => $admin_password,
       tags     => ['administrator'],
-      require  => File['rabbitmq_management_plugin_enable'],
+      require  => Rabbitmq::Plugin['rabbitmq_management'],
     }
     rabbitmq::management_user_permissions { 'guest_default':
       user => 'guest',
