@@ -10,9 +10,21 @@ die() {
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
 
+# Locate sed
+SED=$(command -v sed 2>/dev/null)
+[ -n "$SED" ] || die "sed not available"
+
 # Locate systemctl
 SYSTEMCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMCTL" ] || die "systemctl not available"
+
+# Locate journalctl
+JOURNALCTL=$(command -v journalctl 2>/dev/null)
+[ -n "$JOURNALCTL" ] || die "journalctl not available"
+
+# Locate tr
+TR=$(command -v tr 2>/dev/null)
+[ -n "$TR" ] || die "tr not available"
 
 # Arguments
 TIMER_UNIT="$1"
@@ -65,6 +77,7 @@ RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
 EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
 MAIN_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value)
 STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value)
+JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | $TR '\n' '|' | $SED 's/|$//')
 
 # Perfdata
 LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
@@ -72,21 +85,14 @@ NOW_TS=$($DATE +%s)
 [ -n "$LAST_RUN_TS" ] && LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS)) || LAST_RUN_AGE=U
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 
-# Journal-snippet
-if [ -n "$JOURNALCTL" ]; then
-    JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | tr '\n' '|' | sed 's/|$//')
-else
-    JOURNAL=""
-fi
-
 # Output & exitcode
 case "${RESULT},${EXIT_CODE}" in
     success,0)
-        printf '%s successful; last run: %s; %s | %s\n' "$SERVICE_UNIT" "$LAST_RUN" "${STATUS_TEXT:-no StatusText}" "$PERFDATA"
+        printf '%s successful (%s); last run: %s; log: %s | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
         exit 0
         ;;
     *)
-        printf '%s failed (Result=%s, Exit=%s, Code=%s); %s; last run: %s; log: "%s"| %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
+        printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
         exit 2
         ;;
 esac
