@@ -10,7 +10,7 @@ define rabbitmq::plugin (
   }
 
   # Create enabled plugins file
-  if (!File(Package['rabbitmq_plugin_enable'])) {
+  if (!defined(File['rabbitmq_plugin_enable'])) {
     file { 'rabbitmq_plugin_enable':
       ensure  => file,
       path    => '/etc/rabbitmq/enabled_plugins',
