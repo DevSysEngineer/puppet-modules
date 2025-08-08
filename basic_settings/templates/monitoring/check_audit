@@ -10,9 +10,13 @@ die() {
 AUDITCTL=$(command -v auditctl 2>/dev/null)
 [ -n "$AUDITCTL" ] || die "auditctl not available"
 
-# Locate auditctl
+# Locate augenrules
 AUGENRULES=$(command -v augenrules 2>/dev/null)
 [ -n "$AUGENRULES" ] || die "augenrules not available"
+
+# Locate auditctl
+AUREPORT=$(command -v aureport 2>/dev/null)
+[ -n "$AUREPORT" ] || die "aureport not available"
 
 # Locate awk
 AWK=$(command -v awk 2>/dev/null)
@@ -38,6 +42,10 @@ SED=$(command -v sed 2>/dev/null)
 # Locate systemctl
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+
+# Locate journalctl
+JOURNALCTL$(command -v journalctl 2>/dev/null)
+[ -n "$JOURNALCTL" ] || die "journalctl not available"
 
 <% end -%>
 # Locate tr
@@ -71,10 +79,19 @@ $PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
 # Check if we have error since boot
-ERROR_COUNT=$(journalctl -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -c 'Error')
+ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -c 'Error')
 if [ "$ERROR_COUNT" -gt 0 ]; then
     MSG="$MSG, but errors found since boot"
     STATE_CODE=2
+fi
+
+# Get audit rules
+RULES_COUNT=$($AUDITCTL -l 2>/dev/null | $GREP '^-' | $AWK 'END{print NR+0}')
+if [ "$RULES_COUNT" -eq 0 ]; then
+    MSG="$MSG, rules 0"
+    STATE_CODE=2
+else
+    MSG="$MSG, rules $RULES_COUNT"
 fi
 
 # Get backlog / dropped counters
@@ -104,7 +121,7 @@ fi
 
 # Get audit report
 TODAY="$($DATE '+%Y-%m-%d 00:00:00')"
-SUM=$(aureport --summary --start "$TODAY" --end now 2>/dev/null)
+SUM=$($AUREPORT --summary --start "$TODAY" --end now 2>/dev/null)
 get(){ $PRINTF "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
 
 # Get values from report
@@ -132,12 +149,13 @@ if [ "$ANOM" -gt 0 ]; then
     STATE_CODE=2
 fi
 
+# Performances data
+FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
 
 <% if @systemd_enable -%>
-
 # Get boot reports
 NOW=$($DATE +%s)
-BOOT_SUM="$(journalctl --list-boots --no-pager 2>/dev/null)"
+BOOT_SUM="$($JOURNALCTL --list-boots --no-pager 2>/dev/null)"
 BOOT_STARTS="$($PRINTF "%s" "$BOOT_SUM" | $AWK 'NR>1{for(i=1;i<=NF-3;i++) if ($i ~ /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/){print $i, $(i+1), $(i+2), $(i+3); break}}')"
 REBOOT_FLAG=0
 SUSPICIOUS=""
@@ -163,7 +181,7 @@ fi
 
 # Check if kernel version has changed
 KERNEL_CURRENT=$(uname -r)
-KERNEL_BOOT=$(journalctl -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
+KERNEL_BOOT=$($JOURNALCTL -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
 if [ -n "$KERNEL_BOOT" ] && [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
     MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})" ;
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1 ;
@@ -172,7 +190,7 @@ fi
 
 # Events / sec
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
-EVENT_REPORT=$(aureport --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
+EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
 
 # Create perf data
@@ -182,7 +200,9 @@ PERF="$PERF cfg_changes=${CFG};;1"
 PERF="$PERF dropped=${LOST};;${DROPPED_CRIT}"
 PERF="$PERF errors=${ERROR_COUNT};;1"
 PERF="$PERF events_per_sec=${EVENT_RESULT}"
+PERF="$PERF failed_auth=${FAILED_AUTH}"
 PERF="$PERF failed_syscalls=${FAIL};;1"
+PERF="$PERF rules=${RULES_COUNT};;0;0"
 PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 
 # Show output

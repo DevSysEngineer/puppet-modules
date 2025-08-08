@@ -1,6 +1,7 @@
 class ssh (
   Array               $allow_users                    = [],
   String              $banner_text                    = "WARNING: You are entering a managed server!\nThis server should only be accessed by authorized users and must have a valid reason. Disconnect now if you do not comply with these rules.\nAll activity on this system is recorded and forwarded. Unauthorized access will be fully investigated and reported to law enforcement authorities.", #lint:ignore:140chars
+  Optional[Array]     $check_users                    = undef,
   Array               $host_key_algorithms            = [
     'ecdsa-sha2-nistp256',
     'ecdsa-sha2-nistp384',
@@ -12,7 +13,7 @@ class ssh (
   Boolean             $permit_root_login              = false,
   Integer             $port                           = 22,
   Optional[Integer]   $port_alternative               = undef,
-  Optional[Array]     $port_alternative_allow_users   = undef
+  Optional[Array]     $port_alternative_allow_users   = undef,
 ) {
   # Required packages for SSHD
   package { ['openssh-server', 'openssh-client']:
@@ -31,6 +32,16 @@ class ssh (
   } else {
     $port_alternative_allow_users_str = $allow_users_str
   }
+
+  # Get list of users to check
+  if ($check_users != undef) {
+    $check_users_complete = $check_users
+  } elsif ($port_alternative_allow_users != undef) {
+    $check_users_complete = flatten($allow_users, $port_alternative_allow_users)
+  } else {
+    $check_users_complete = $allow_users
+  }
+  $check_users_str = join($check_users_complete, ',')
 
   # Check if SSH used socket
   $systemd_enable = defined(Package['systemd'])
@@ -165,6 +176,7 @@ class ssh (
     basic_settings::monitoring_custom { 'ssh':
       content  => template('ssh/check_ssh'),
       friendly => 'SSH',
+      timeout  => 60,
     }
   }
 

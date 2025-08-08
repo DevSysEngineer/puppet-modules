@@ -59,3 +59,34 @@ case "${RESULT},${EXIT_CODE}" in
         echo "${SERVICE_UNIT} failed (Result=${RESULT}, Exit=${EXIT_CODE}); last run: ${LAST_RUN} | ${PERFDATA}"
         exit 2 ;;
 esac
+
+# Get result
+RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
+EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
+MAIN_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value)
+STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value)
+
+# Perfdata
+LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
+NOW_TS=$($DATE +%s)
+[ -n "$LAST_RUN_TS" ] && LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS)) || LAST_RUN_AGE=U
+PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
+
+# Journal-snippet
+if [ -n "$JOURNALCTL" ]; then
+    JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+else
+    JOURNAL=""
+fi
+
+# Output & exitcode
+case "${RESULT},${EXIT_CODE}" in
+    success,0)
+        printf '%s successful; last run: %s; %s | %s\n' "$SERVICE_UNIT" "$LAST_RUN" "${STATUS_TEXT:-no StatusText}" "$PERFDATA"
+        exit 0
+        ;;
+    *)
+        printf '%s failed (Result=%s, Exit=%s, Code=%s); %s; last run: %s; log: "%s"| %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-no StatusText}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
+        exit 2
+        ;;
+esac
