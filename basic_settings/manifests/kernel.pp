@@ -22,7 +22,7 @@ class basic_settings::kernel (
   $os_version = $facts['os']['release']['major']
 
   # Install extra packages when Ubuntu
-  if ($os_name == 'Ubuntu' and $os_version != '24.04') {
+  if ($os_name == 'Ubuntu' and $os_version != '26.04') {
     package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
