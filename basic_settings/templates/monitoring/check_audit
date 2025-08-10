@@ -22,6 +22,10 @@ AUREPORT=$(command -v aureport 2>/dev/null)
 AWK=$(command -v awk 2>/dev/null)
 [ -n "$AWK" ] || die "akw not available"
 
+# Locate cut
+CUT=$(command -v cut 2>/dev/null)
+[ -n "$CUT" ] || die "cut not available"
+
 # Locate date
 DATE=$(command -v date 2>/dev/null)
 [ -n "$DATE" ] || die "date not available"
@@ -55,6 +59,10 @@ TR=$(command -v tr 2>/dev/null)
 # Locate ps
 PS=$(command -v ps 2>/dev/null)
 [ -n "$PS" ] || die "ps not available"
+
+# Locate uname
+UNAME=$(command -v uname 2>/dev/null)
+[ -n "$UNAME" ] || die "uname not available"
 
 # Default values
 DROPPED_CRIT="1"
@@ -180,11 +188,14 @@ if [ "$REBOOT_FLAG" -eq 1 ]; then
 fi
 
 # Check if kernel version has changed
-KERNEL_CURRENT=$(uname -r)
-KERNEL_BOOT=$($JOURNALCTL -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
-if [ -n "$KERNEL_BOOT" ] && [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
-    MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})" ;
-    [ $STATE_CODE -lt 1 ] && STATE_CODE=1 ;
+UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
+if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
+  KERNEL_CURRENT=$($UNAME -r)
+  KERNEL_BOOT=$($JOURNALCTL -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
+  if [ -n "$KERNEL_BOOT" ] && [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
+      MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})"
+      [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+  fi
 fi
 <% end -%>
 
