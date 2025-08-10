@@ -23,7 +23,7 @@ class rabbitmq::management (
   }
 
   # Set some values
-  $systemd_enable = $rabbitmq::systemd::enable
+  $systemd_enable = $rabbitmq::systemd_enable
 
   # Check if all cert variables are given
   if ($ssl_ca_certificate != undef and $ssl_certificate != undef and $ssl_certificate_key != undef) {
