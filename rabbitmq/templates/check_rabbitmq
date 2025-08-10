@@ -23,7 +23,7 @@ RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null)
 [ -n "$RABBITMQCTL" ] || die "rabbitmqctl not available"
 
 <% if @systemd_enable -%>
-$SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
 [ -n "$SYSTEMDCTL" ] || die "systemctl not available"
 
 <% end -%>
@@ -47,7 +47,7 @@ warn() {
 # Configurable defaults
 WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
-RABBITMQADMCONF="/etc/rabbitmq/rabbitmqadmin.conf" # path to rabbitmqadmin config file (adjust as needed)
+RABBITMQADMCONF="<%= @admin_config_path %>" # path to rabbitmqadmin config file (adjust as needed)
 
 # Parse options
 while getopts 'w:c:C:' opt; do
