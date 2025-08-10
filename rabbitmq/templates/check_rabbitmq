@@ -1,0 +1,182 @@
+#!/bin/sh
+# Managed by puppet
+
+die() { 
+    echo "$*" >&2 
+    exit 3 
+}
+
+# Find awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "awk not available"
+
+# Find grep
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
+
+# Find rabbitmqadmin
+RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null)
+[ -n "$RABBITMQADMIN" ] || die "rabbitmqadmin not available"
+
+# Find rabbitmqctl
+RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null)
+[ -n "$RABBITMQCTL" ] || die "rabbitmqctl not available"
+
+<% if @systemd_enable -%>
+$SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+
+<% end -%>
+# Locate printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
+
+# Locate ps
+PS=$(command -v ps 2>/dev/null)
+[ -n "$PS" ] || die "ps not available"
+
+crit() { 
+    echo "$*"
+    exit 2 
+}
+warn() { 
+    echo "$*"
+    exit 1 
+}
+
+# Configurable defaults
+WARN="25" # warning threshold for queue backlog (can be set via -w)
+CRIT="30" # critical threshold for queue backlog (via -c)
+RABBITMQADMCONF="/etc/rabbitmq/rabbitmqadmin.conf" # path to rabbitmqadmin config file (adjust as needed)
+
+# Parse options
+while getopts 'w:c:C:' opt; do
+  case "$opt" in
+    w) WARN="$OPTARG" ;;
+    c) CRIT="$OPTARG" ;;
+    C) RABBITMQADMCONF="$OPTARG" ;;
+    *) die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]" ;;
+  esac
+done
+
+# Check RabbitMQ service status
+<% if @systemd_enable -%>
+$SYSTEMDCTL is-active --quiet "rabbitmq-server" || crit "RabbitMQ service is not active"
+<% else -%>
+$PS -C rabbitmq-server >/dev/null 2>&1 || crit "RabbitMQ service is not active"
+<% end -%>
+
+# Retrieve queue metrics
+QUEUE_DATA=$($RABBITMQCTL list_queues -q name messages_ready messages_unacknowledged consumers 2>/dev/null) || die "Failed to fetch queue data"
+
+# Initialize counters
+CRIT_COUNT=0
+LARGEST_ORPHAN_MSG=0
+LARGEST_ORPHAN_QUEUE=""
+MAX_MSG=0
+MAX_MSG_CRIT=0
+MAX_MSG_WARN=0
+MAX_QUEUE=""
+MAX_Q_CRIT=""
+MAX_Q_WARN=""
+NO_CONSUMER_COUNT=0
+QUEUE_COUNT=0
+TOTAL_CONSUMERS=0
+TOTAL_MSG=0
+TOTAL_READY=0
+TOTAL_UNACK=0
+WARN_COUNT=0
+
+# Parse queue data line by line (tab-separated)
+OLDIFS="$IFS"
+IFS="$($PRINTF '\t')"
+echo "$QUEUE_DATA" | while read -r QUEUE_NAME READY UNACK CONSUMERS; do
+    IFS="$($PRINTF '\t')" # ensure IFS remains tab inside loop
+    [ -z "$QUEUE_NAME" ] && continue
+    QUEUE_COUNT=$((QUEUE_COUNT + 1))
+
+    # Sum totals
+    READY=${READY:-0}
+    UNACK=${UNACK:-0}
+    CONSUMERS=${CONSUMERS:-0}
+    MESSAGES=$((READY + UNACK))
+    TOTAL_READY=$((TOTAL_READY + READY))
+    TOTAL_UNACK=$((TOTAL_UNACK + UNACK))
+    TOTAL_MSG=$((TOTAL_MSG + MESSAGES))
+    TOTAL_CONSUMERS=$((TOTAL_CONSUMERS + CONSUMERS))
+
+    # Track max queue depth
+    if [ "$MESSAGES" -gt "$MAX_MSG" ]; then
+        MAX_MSG=$MESSAGES
+        MAX_QUEUE="$QUEUE_NAME"
+    fi
+
+    # Check thresholds
+    if [ -n "$CRIT" ] && [ "$MESSAGES" -ge "$CRIT" ]; then
+        CRIT_COUNT=$((CRIT_COUNT + 1))
+        if [ "$MESSAGES" -gt "$MAX_MSG_CRIT" ]; then
+            MAX_MSG_CRIT=$MESSAGES
+            MAX_Q_CRIT="$QUEUE_NAME"
+        fi
+    elif [ -n "$WARN" ] && [ "$MESSAGES" -ge "$WARN" ]; then
+        WARN_COUNT=$((WARN_COUNT + 1))
+        if [ "$MESSAGES" -gt "$MAX_MSG_WARN" ]; then
+            MAX_MSG_WARN=$MESSAGES
+            MAX_Q_WARN="$QUEUE_NAME"
+        fi
+    fi
+
+    # Identify queues with messages but no consumers
+    if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
+        NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
+        if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
+            LARGEST_ORPHAN_MSG=$MESSAGES
+            LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
+        fi
+    fi
+done
+IFS="$OLDIFS"
+
+# Determine overall status and message
+STATE_CODE=0
+MSG="RabbitMQ running"
+if [ "$CRIT_COUNT" -gt 0 ]; then
+    STATE_CODE=2
+    MSG="$MSG, $CRIT_COUNT queue(s) over critical threshold (max: '$MAX_Q_CRIT'=$MAX_MSG_CRIT messages)"
+elif [ "$WARN_COUNT" -gt 0 ]; then
+    STATE_CODE=1
+    MSG="$MSG, $WARN_COUNT queue(s) over warning threshold (max: '$MAX_Q_WARN'=$MAX_MSG_WARN messages)"
+fi
+if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
+    # If no other issue is critical, treat orphan queues as warning
+    [ $STATE_CODE -lt 2 ] && STATE_CODE=$([ $STATE_CODE -lt 1 ] && echo 1 || echo $STATE_CODE)
+    MSG="$MSG, $NO_CONSUMER_COUNT queue(s) with messages but no consumers (e.g. '$LARGEST_ORPHAN_QUEUE' has $LARGEST_ORPHAN_MSG)"
+fi
+
+# Always include overall totals in the message
+MSG="$MSG, queues $QUEUE_COUNT, messages $TOTAL_MSG, consumers $TOTAL_CONSUMERS"
+
+# Calculate publish/deliver rates (sum across all queues via management API)
+RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv ${RABBITMQADMCONF:+--config "$RABBITMQADMCONF"} list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
+
+# Sum rates using awk
+RATE_SUM=$($PRINTF "%s" "$RATE_DATA" | $AWK -F '\t' '{pub+=$1; del+=$2} END {printf "%.2f %.2f", pub, del}')
+
+# Split the summed values
+set -- $RATE_SUM
+PUBLISH_RATE=${1:-0}
+DELIVER_RATE=${2:-0}
+
+# Prepare performance data
+PERF="total_messages=${TOTAL_MSG}"
+PERF="$PERF messages_ready=${TOTAL_READY}"
+PERF="$PERF messages_unack=${TOTAL_UNACK}"
+PERF="$PERF max_queue_depth=${MAX_MSG};${WARN:-};${CRIT:-};0"
+PERF="$PERF publish_rate=${PUBLISH_RATE}"
+PERF="$PERF deliver_rate=${DELIVER_RATE}"
+PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
+PERF="$PERF queues_total=${QUEUE_COUNT}"
+
+# Output Nagios plugin format
+$PRINTF '%s | %s\n' "${MSG#, }" "$PERF"
+exit $STATE_CODE

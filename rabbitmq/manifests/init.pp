@@ -7,6 +7,7 @@ class rabbitmq (
   Integer   $limit_file           = 10000
 ) {
   # Set some values
+  $systemd_enable = defined(Package['systemd'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
   # Install erlang
@@ -23,7 +24,7 @@ class rabbitmq (
   }
 
   # Disable service
-  if (defined(Package['systemd'])) {
+  if ($systemd_enable) {
     # Disable service
     service { 'rabbitmq-server':
       ensure  => undef,
@@ -85,7 +86,11 @@ class rabbitmq (
 
   # Create service check
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_service { 'rabbitmq-server': }
+    basic_settings::monitoring_custom { 'rabbitmq':
+      ensure   => present,
+      content  => template('rabbitmq/check_rabbitmq'),
+      friendly => 'RabbitMQ',
+    }
   }
 
   # Create config directory
