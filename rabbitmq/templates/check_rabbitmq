@@ -87,13 +87,20 @@ TOTAL_READY=0
 TOTAL_UNACK=0
 WARN_COUNT=0
 
-# Parse queue data line by line (tab-separated)
+# Parse data line by line, skip header, avoid subshell
 OLDIFS="$IFS"
 IFS="$($PRINTF '\t')"
-echo "$QUEUE_DATA" | while read -r QUEUE_NAME READY UNACK CONSUMERS; do
-    IFS="$($PRINTF '\t')" # ensure IFS remains tab inside loop
+while IFS="$($PRINTF '\t')" read -r QUEUE_NAME READY UNACK CONSUMERS; do
+    # Skip empty lines
     [ -z "$QUEUE_NAME" ] && continue
-    QUEUE_COUNT=$((QUEUE_COUNT + 1))
+
+    # Skip header line or any non-numeric row
+    case "$READY$UNACK$CONSUMERS" in
+      *[!0-9]* ) 
+        # If header present (e.g. "messages_ready"), skip
+        continue
+        ;;
+    esac
 
     # Sum totals
     READY=${READY:-0}
@@ -134,7 +141,9 @@ echo "$QUEUE_DATA" | while read -r QUEUE_NAME READY UNACK CONSUMERS; do
             LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
         fi
     fi
-done
+done <<EOF
+$QUEUE_DATA
+EOF
 IFS="$OLDIFS"
 
 # Determine overall status and message
