@@ -69,8 +69,10 @@ $PS -C rabbitmq-server >/dev/null 2>&1 || crit "RabbitMQ service is not active"
 # Retrieve queue metrics
 QUEUE_DATA=$($RABBITMQCTL list_queues -q name messages_ready messages_unacknowledged consumers 2>/dev/null) || die "Failed to fetch queue data"
 
-# Initialize counters
+# Set values
 CRIT_COUNT=0
+CRIT_LIST=""
+CRIT_SHOWN=0
 LARGEST_ORPHAN_MSG=0
 LARGEST_ORPHAN_QUEUE=""
 MAX_MSG=0
@@ -79,113 +81,141 @@ MAX_MSG_WARN=0
 MAX_QUEUE=""
 MAX_Q_CRIT=""
 MAX_Q_WARN=""
+MSG="RabbitMQ running"
 NO_CONSUMER_COUNT=0
+ORPHAN_LIST=""
+ORPHAN_SHOWN=0
 QUEUE_COUNT=0
+STATE_CODE=0
 TOTAL_CONSUMERS=0
 TOTAL_MSG=0
 TOTAL_READY=0
 TOTAL_UNACK=0
 WARN_COUNT=0
+WARN_LIST=""
+WARN_SHOWN=0
 
-# Parse data line by line, skip header, avoid subshell
-OLDIFS="$IFS"
-IFS="$($PRINTF '\t')"
-while IFS="$($PRINTF '\t')" read -r QUEUE_NAME READY UNACK CONSUMERS; do
-    # Skip empty lines
+append_item() {
+  # $1 = current list, $2 = item to append
+  if [ -z "$1" ]; then
+    $PRINTF "%s" "$2"
+  else
+    $PRINTF "%s, %s" "$1" "$2"
+  fi
+}
+
+# Read tab-separated lines; queue names may contain spaces, so TAB is the only separator.
+OLDIFS="$IFS"; IFS='	'  # single literal tab character
+while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
+    # Skip empty and header lines
     [ -z "$QUEUE_NAME" ] && continue
+    [ "$QUEUE_NAME" = "name" ] && continue
 
-    # Skip header line or any non-numeric row
-    case "$READY$UNACK$CONSUMERS" in
-      *[!0-9]* ) 
-        # If header present (e.g. "messages_ready"), skip
-        continue
-        ;;
-    esac
-
-    # Sum totals
+    # Default missing numeric fields to 0
     READY=${READY:-0}
     UNACK=${UNACK:-0}
     CONSUMERS=${CONSUMERS:-0}
+
+    # Guard: skip any line where numeric fields contain non-digits (robust against unexpected output)
+    case "$READY$UNACK$CONSUMERS" in *[!0-9]* ) continue ;; esac
+
+    QUEUE_COUNT=$((QUEUE_COUNT + 1))
     MESSAGES=$((READY + UNACK))
     TOTAL_READY=$((TOTAL_READY + READY))
     TOTAL_UNACK=$((TOTAL_UNACK + UNACK))
     TOTAL_MSG=$((TOTAL_MSG + MESSAGES))
     TOTAL_CONSUMERS=$((TOTAL_CONSUMERS + CONSUMERS))
 
-    # Track max queue depth
-    if [ "$MESSAGES" -gt "$MAX_MSG" ]; then
-        MAX_MSG=$MESSAGES
-        MAX_QUEUE="$QUEUE_NAME"
-    fi
+    # Track overall maximum queue depth for perfdata
+    if [ "$MESSAGES" -gt "$MAX_MSG" ]; then MAX_MSG=$MESSAGES; MAX_QUEUE="$QUEUE_NAME"; fi
 
-    # Check thresholds
-    if [ -n "$CRIT" ] && [ "$MESSAGES" -ge "$CRIT" ]; then
+    # Threshold evaluation
+    if [ "$MESSAGES" -ge "$CRIT" ]; then
         CRIT_COUNT=$((CRIT_COUNT + 1))
         if [ "$MESSAGES" -gt "$MAX_MSG_CRIT" ]; then
             MAX_MSG_CRIT=$MESSAGES
             MAX_Q_CRIT="$QUEUE_NAME"
         fi
-    elif [ -n "$WARN" ] && [ "$MESSAGES" -ge "$WARN" ]; then
+        ITEM="$QUEUE_NAME=$MESSAGES"
+        CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
+        CRIT_SHOWN=$((CRIT_SHOWN + 1))
+    elif [ "$MESSAGES" -ge "$WARN" ]; then
         WARN_COUNT=$((WARN_COUNT + 1))
         if [ "$MESSAGES" -gt "$MAX_MSG_WARN" ]; then
             MAX_MSG_WARN=$MESSAGES
             MAX_Q_WARN="$QUEUE_NAME"
         fi
+        ITEM="$QUEUE_NAME=$MESSAGES"
+        WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
+        WARN_SHOWN=$((WARN_SHOWN + 1))
     fi
 
-    # Identify queues with messages but no consumers
-    if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
-        NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
-        if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
-            LARGEST_ORPHAN_MSG=$MESSAGES
-            LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
-        fi
+  # Queues with messages but no consumers (informational only; does NOT affect status)
+  if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
+    NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
+    if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
+      LARGEST_ORPHAN_MSG=$MESSAGES
+      LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
     fi
+    ITEM="$QUEUE_NAME=$MESSAGES"
+    ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
+    ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
+  fi
 done <<EOF
 $QUEUE_DATA
 EOF
 IFS="$OLDIFS"
 
-# Determine overall status and message
-STATE_CODE=0
-MSG="RabbitMQ running"
+# Primary status based on thresholds
 if [ "$CRIT_COUNT" -gt 0 ]; then
-    STATE_CODE=2
-    MSG="$MSG, $CRIT_COUNT queue(s) over critical threshold (max: '$MAX_Q_CRIT'=$MAX_MSG_CRIT messages)"
+  STATE_CODE=2
+  MSG="$MSG, $CRIT_COUNT queue(s) over critical threshold"
+  MORE=$((CRIT_COUNT - CRIT_SHOWN))
+  [ -n "$CRIT_LIST" ] && MSG="$MSG: $CRIT_LIST"
+  [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 elif [ "$WARN_COUNT" -gt 0 ]; then
-    STATE_CODE=1
-    MSG="$MSG, $WARN_COUNT queue(s) over warning threshold (max: '$MAX_Q_WARN'=$MAX_MSG_WARN messages)"
-fi
-if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
-    # If no other issue is critical, treat orphan queues as warning
-    [ $STATE_CODE -lt 2 ] && STATE_CODE=$([ $STATE_CODE -lt 1 ] && echo 1 || echo $STATE_CODE)
-    MSG="$MSG, $NO_CONSUMER_COUNT queue(s) with messages but no consumers (e.g. '$LARGEST_ORPHAN_QUEUE' has $LARGEST_ORPHAN_MSG)"
+  STATE_CODE=1
+  MSG="$MSG, $WARN_COUNT queue(s) over warning threshold"
+  MORE=$((WARN_COUNT - WARN_SHOWN))
+  [ -n "$WARN_LIST" ] && MSG="$MSG: $WARN_LIST"
+  [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 fi
 
-# Always include overall totals in the message
+# Core totals
 MSG="$MSG, queues $QUEUE_COUNT, messages $TOTAL_MSG, consumers $TOTAL_CONSUMERS"
 
-# Calculate publish/deliver rates (sum across all queues via management API)
-RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv ${RABBITMQADMCONF:+--config "$RABBITMQADMCONF"} list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
+# Append informational note about queues without consumers (no status impact)
+if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
+  MORE=$((NO_CONSUMER_COUNT - ORPHAN_SHOWN))
+  if [ -n "$ORPHAN_LIST" ]; then
+    MSG="$MSG, queues with messages but no consumers: $ORPHAN_LIST"
+  else
+    MSG="$MSG, queues with messages but no consumers: $LARGEST_ORPHAN_QUEUE=$LARGEST_ORPHAN_MSG"
+  fi
+  [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
+fi
 
-# Sum rates using awk
-RATE_SUM=$($PRINTF "%s" "$RATE_DATA" | $AWK -F '\t' '{pub+=$1; del+=$2} END {printf "%.2f %.2f", pub, del}')
+# Sum per-queue rates into cluster-level publish/deliver rates.
+RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
 
-# Split the summed values
+# Sum columns 1 and 2 (tab-separated). If empty, default to 0.00 0.00.
+RATE_SUM=$($PRINTF "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
+
+# Split into positional parameters (POSIX sh trick; no arrays)
 set -- $RATE_SUM
 PUBLISH_RATE=${1:-0}
 DELIVER_RATE=${2:-0}
 
-# Prepare performance data
+# Perfdata
 PERF="total_messages=${TOTAL_MSG}"
 PERF="$PERF messages_ready=${TOTAL_READY}"
 PERF="$PERF messages_unack=${TOTAL_UNACK}"
-PERF="$PERF max_queue_depth=${MAX_MSG};${WARN:-};${CRIT:-};0"
+PERF="$PERF max_queue_depth=${MAX_MSG};${WARN};${CRIT};0"
 PERF="$PERF publish_rate=${PUBLISH_RATE}"
 PERF="$PERF deliver_rate=${DELIVER_RATE}"
 PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
 PERF="$PERF queues_total=${QUEUE_COUNT}"
 
-# Output Nagios plugin format
+# Show output
 $PRINTF '%s | %s\n' "${MSG#, }" "$PERF"
 exit $STATE_CODE
