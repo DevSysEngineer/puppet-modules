@@ -22,6 +22,9 @@ class rabbitmq::management (
     notify_target => Exec['rabbitmq_management_plugin_guest'],
   }
 
+  # Set some values
+  $systemd_enable = $rabbitmq::systemd::enable
+
   # Check if all cert variables are given
   if ($ssl_ca_certificate != undef and $ssl_certificate != undef and $ssl_certificate_key != undef) {
     $https_allow = true
@@ -125,6 +128,15 @@ class rabbitmq::management (
     # Remove unnecessary files
     file { '/usr/sbin/rabbitmqadmin':
       ensure => absent,
+    }
+  }
+
+  # Create service check
+  if ($rabbitmq::monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'rabbitmq':
+      ensure   => present,
+      content  => template('rabbitmq/check_rabbitmq'),
+      friendly => 'RabbitMQ',
     }
   }
 

@@ -84,15 +84,6 @@ class rabbitmq (
     }
   }
 
-  # Create service check
-  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_custom { 'rabbitmq':
-      ensure   => present,
-      content  => template('rabbitmq/check_rabbitmq'),
-      friendly => 'RabbitMQ',
-    }
-  }
-
   # Create config directory
   file { 'rabbitmq_config_dir':
     ensure  => directory,
