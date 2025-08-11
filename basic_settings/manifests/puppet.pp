@@ -31,8 +31,10 @@ class basic_settings::puppet (
   case $repo {
     'remote': {
       # Set some values
+      $package_etc_dir = '/etc/puppetlabs'
+      $agent_etc_dir = "${package_etc_dir}/agent"
       $server_dir = '/opt/puppetlabs/server'
-      $server_etc_dir = "/etc/puppetlabs/${server_dirname}"
+      $server_etc_dir = "${package_etc_dir}/${server_dirname}"
       $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
       $server_var_dir = "${server_dir}/data/${server_dirname}"
       $server_var_extra = "/var/lib/puppetlabs/${server_dirname}"
@@ -53,8 +55,10 @@ class basic_settings::puppet (
     }
     default: {
       # Set some values
+      $package_etc_dir = '/etc'
+      $agent_etc_dir = "${package_etc_dir}/puppet"
       $server_dir = "/var/lib/${server_dirname}"
-      $server_etc_dir = "/etc/${server_dirname}"
+      $server_etc_dir = "${package_etc_dir}/${server_dirname}"
       $server_report_dir = "/var/log/${server_dirname}/reports"
       $server_var_dir = $server_dir
       $server_var_extra = $server_var_dir
@@ -332,20 +336,20 @@ class basic_settings::puppet (
     if (defined(Package['auditd'])) {
       basic_settings::security_audit { 'puppet':
         rules => [
-          '-a always,exit -F arch=b32 -F path=/etc/puppet/ssl -F perm=wa -F key=puppet_ssl',
-          '-a always,exit -F arch=b64 -F path=/etc/puppet/ssl -F perm=wa -F key=puppet_ssl',
-          '-a always,exit -F arch=b32 -F path=/etc/puppet/code -F perm=r -F auid!=unset -F key=puppet_code',
-          '-a always,exit -F arch=b64 -F path=/etc/puppet/code -F perm=r -F auid!=unset -F key=puppet_code',
-          '-a always,exit -F arch=b32 -F path=/etc/puppet/code -F perm=wa -F key=puppet_code',
-          '-a always,exit -F arch=b64 -F path=/etc/puppet/code -F perm=wa -F key=puppet_code',
+          "-a always,exit -F arch=b32 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
+          "-a always,exit -F arch=b64 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
+          "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
+          "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
+          "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
+          "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
         ],
       }
     }
   } elsif (defined(Package['auditd'])) {
     basic_settings::security_audit { 'puppet':
       rules => [
-        '-a always,exit -F arch=b32 -F path=/etc/puppet/ssl -F perm=wa -F key=puppet_ssl',
-        '-a always,exit -F arch=b64 -F path=/etc/puppet/ssl -F perm=wa -F key=puppet_ssl',
+        "-a always,exit -F arch=b32 -F path=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
+        "-a always,exit -F arch=b64 -F path=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
       ],
     }
   }
