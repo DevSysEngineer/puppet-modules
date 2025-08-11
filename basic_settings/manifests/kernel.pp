@@ -29,6 +29,19 @@ class basic_settings::kernel (
   # Install extra packages when Ubuntu
   case $kernel_type {
     'generic': {
+      # Install raspi kernel
+      package { ['linux-raspi', 'linux-image-*-raspi']:
+        ensure          => purged,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+
+      # Install generic kernel
+      package { 'linux-generic':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+
+      # Install generic HWE kernel
       if ($os_name == 'Ubuntu' and $os_version != '26.04') {
         package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
           ensure          => installed,
@@ -38,16 +51,16 @@ class basic_settings::kernel (
     }
     'raspi': {
       # Remove generic kernel
-      package { ['linux-image-*-generic', 'linux-image-generic*']:
+      package { ['linux-generic', 'linux-image-generic*']:
         ensure          => purged,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
 
       # Install raspi kernel
-      package { ['linux-raspi', 'linux-firmware-raspi']:
+      package { ['linux-raspi']:
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-image-*-generic', 'linux-image-generic*'],
+        require         => Package['linux-generic', 'linux-image-generic*'],
       }
     }
   }
