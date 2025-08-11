@@ -39,6 +39,7 @@ class basic_settings::kernel (
       package { 'linux-generic':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['linux-raspi', 'linux-image-*-raspi'],
       }
 
       # Install generic HWE kernel
