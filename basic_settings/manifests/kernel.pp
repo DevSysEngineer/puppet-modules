@@ -41,7 +41,6 @@ class basic_settings::kernel (
       package { ['linux-image-*-generic', 'linux-image-generic*']:
         ensure          => purged,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-raspi', 'linux-firmware-raspi'],
       }
 
       # Install raspi kernel
