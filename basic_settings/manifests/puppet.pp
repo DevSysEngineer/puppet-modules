@@ -11,6 +11,7 @@ class basic_settings::puppet (
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  $systemd_enable = defined(Package['systemd'])
   if ($monitoring_enable) {
     $monitoring_package = $basic_settings::monitoring::package
   } else {
@@ -122,13 +123,18 @@ class basic_settings::puppet (
 
     # Create service check
     if ($monitoring_package != 'none') {
-      basic_settings::monitoring_service { 'puppet': }
+      basic_settings::monitoring_custom { 'puppet_agent':
+        content  => template('basic_settings/monitoring/puppet/check_agent'),
+        friendly => 'Puppet Agent',
+        timeout  => 60,
+        interval => 600,
+      }
     }
   } else {
     $unit = {}
   }
 
-  if (defined(Package['systemd'])) {
+  if ($systemd_enable) {
     # Create drop in for puppet service
     basic_settings::systemd_drop_in { 'puppet_settings':
       target_unit => 'puppet.service',

@@ -139,30 +139,30 @@ EOF
 # Auth failure detection
 <% if @systemd_enable -%>
 PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_exchange_identification|userauth_pubkey'
-OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow="$ALLOWED_USERS" -v pat="$PAT" '
+OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | | $AWK -v allow="$ALLOWED_USERS" -v pat="$PAT" '
 BEGIN{
     split(allow,a,","); for(i in a) w[a[i]]=1
     f=0; sep=""; bad=""
 }
 {
     msg=substr($0,index($0,": ")+2)
-    if(msg~pat) f++
-
+    if (msg ~ pat) f++
     u=""
-    if(msg~/Invalid user/){
-        match(msg,/Invalid user[[:space:]]+([[:alnum:]_.-]+)/,m); u=m[1]
-    } else if(msg~/Failed publickey for/){
-        match(msg,/Failed publickey for[[:space:]]+([[:alnum:]_.-]+)/,m); u=m[1]
+    if (match(msg,/Invalid user[[:space:]]+([[:alnum:]_.-]+)/,m)) {
+        u=m[1]
+    } else if (match(msg,/Failed (?:password|publickey) for (?:invalid user )?([[:alnum:]_.-]+)/,m)) {
+        u=m[1]
     }
-
-    if(u!="" && !(u in w)){
-        if(!(u in seen)){
-            bad=bad sep u; sep=","
+    if (u != "" && (u in w)) {
+        if (!(u in seen)) {
+            bad = bad sep u; sep=","
             seen[u]=1
         }
     }
 }
-END{print f ":" bad}')
+END{
+    print f ":" bad
+}')
 FAIL_COUNT=${OUT%%:*}
 BAD=${OUT#*:}
 <% else -%>
@@ -190,7 +190,7 @@ fi
 EXTRA=""
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
 [ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}age> ${MAX_AGE}m, "
-[ -n "$BAD" ] && EXTRA="${EXTRA}invalid login attempt by '$BAD', "
+[ -n "$BAD" ] && EXTRA="${EXTRA}failed login for '$BAD', "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
 [ "$FAIL_COUNT" -gt 0 ] && EXTRA="${EXTRA}${FAIL_COUNT} auth fails, "
 [ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "

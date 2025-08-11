@@ -1,0 +1,213 @@
+#!/bin/sh
+# Managed by puppet
+
+die() {
+    echo "$*" >&2
+    exit 3
+}
+
+# Locate awk
+AWK=$(command -v awk 2>/dev/null)
+[ -n "$AWK" ] || die "akw not available"
+
+# Locate date
+DATE=$(command -v date 2>/dev/null)
+[ -n "$DATE" ] || die "date not available"
+
+# Locate grep
+GREP=$(command -v grep 2>/dev/null)
+[ -n "$GREP" ] || die "grep not available"
+
+# Locate printf
+PRINTF=$(command -v printf 2>/dev/null)
+[ -n "$PRINTF" ] || die "printf not available"
+
+# Locate sed
+SED=$(command -v sed 2>/dev/null)
+[ -n "$SED" ] || die "sed not available"
+
+<% if @systemd_enable -%>
+# Locate systemctl
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
+[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+
+# Locate journalctl
+JOURNALCTL=$(command -v journalctl 2>/dev/null)
+[ -n "$JOURNALCTL" ] || die "journalctl not available"
+
+# Locate tr
+TR=$(command -v tr 2>/dev/null)
+[ -n "$TR" ] || die "tr not available"
+<% end -%>
+
+# Locate ps
+PS=$(command -v ps 2>/dev/null)
+[ -n "$PS" ] || die "ps not available"
+
+# Locate puppet
+PUPPET=$(command -v puppet 2>/dev/null)
+[ -n "$PUPPET" ] || die "puppet not available"
+
+# Defaults / thresholds
+CRIT_AGE=3600 # 60 minutes (your preference: >1h = critical)
+EXITCODE_STATE=0 # 0=OK, 1=WARNING, 2=CRITICAL
+LAST_RUN_AGE=U
+LAST_RUN_HUMAN="unknown"
+STATUS_DETAIL="no changes"
+WARN_AGE=2700 # 45 minutes
+
+# --- Options: tweak staleness thresholds ---
+while getopts "w:c:h" opt; do
+    case "$opt" in
+        w) WARN_AGE="$OPTARG" ;;
+        c) CRIT_AGE="$OPTARG" ;;
+        h) echo "Usage: $0 [-w warn_seconds] [-c crit_seconds]"; exit 3 ;;
+        *) echo "Unknown option: -$OPTARG"; exit 3 ;;
+    esac
+done
+
+# Service running
+<% if @systemd_enable -%>
+$SYSTEMDCTL is-active --quiet "puppet.service" || crit "Puppet service is not active"
+<% else -%>
+$PS -C efs >/dev/null 2>&1 || crit "Puppet service is not active"
+<% end -%>
+
+# Puppet state & public dirs
+STATEDIR="$($PUPPET config print statedir 2>/dev/null)"   || die "could not determine puppet statedir"
+PUBLICDIR="$($PUPPET config print publicdir 2>/dev/null)" || PUBLICDIR=""
+LOCKFILE="${STATEDIR}/agent_disabled.lock"
+
+# Check if agent is administratively disabled
+if [ -f "$LOCKFILE" ]; then
+    # Try to extract the disabled message from the JSON lock file
+    DISABLE_MSG=$($SED -n 's/.*"disabled_message"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' "$LOCKFILE")
+    [ -z "$DISABLE_MSG" ] && DISABLE_MSG="no message"
+    printf "puppet.service FAILED (agent disabled: %s)" "$DISABLE_MSG"
+    exit 2
+fi
+
+# Locate last_run_summary.yaml
+SUMMARY_FILE="$($PUPPET config print lastrunfile 2>/dev/null)"
+[ -z "$SUMMARY_FILE" ] && SUMMARY_FILE="${STATEDIR}/last_run_summary.yaml"
+if [ ! -f "$SUMMARY_FILE" ]; then
+    if [ -n "$PUBLICDIR" ] && [ -f "${PUBLICDIR}/last_run_summary.yaml" ]; then
+        SUMMARY_FILE="${PUBLICDIR}/last_run_summary.yaml"
+    elif [ -f "${STATEDIR}/last_run_summary.yaml" ]; then
+        SUMMARY_FILE="${STATEDIR}/last_run_summary.yaml"
+    fi
+fi
+if [ ! -f "$SUMMARY_FILE" ]; then
+    printf "puppet.service UNKNOWN (summary file not found)"
+    exit 3
+fi
+
+# AWK pass: parse all needed fields from YAML
+PARSED="$($AWK 'BEGIN{
+        OFS="|";
+        sect=""; last=""; rc=rf=rt=rs=es=ef=0; tt=0; cr=0
+    }
+    # top-level last_run
+    /^[[:space:]]*last_run:[[:space:]]*/ && sect=="" { gsub(/[^0-9]/,"",$2); last=$2; next }
+    # section switches
+    /^resources:/ { sect="resources"; next }
+    /^events:/    { sect="events";    next }
+    /^time:/      { sect="time";      next }
+    # leaving a section on new top-level key
+    /^[^[:space:]]/ { sect=""; }
+    # resources.*
+    sect=="resources" && /[[:space:]]changed:/ { gsub(/[^0-9]/,"",$2); rc=$2; next }
+    sect=="resources" && /[[:space:]]failed:/  { gsub(/[^0-9]/,"",$2); rf=$2; next }
+    sect=="resources" && /[[:space:]]total:/   { gsub(/[^0-9]/,"",$2); rt=$2; next }
+    sect=="resources" && /[[:space:]]skipped:/ { gsub(/[^0-9]/,"",$2); rs=$2; next }
+    # events.*
+    sect=="events" && /[[:space:]]successes:/  { gsub(/[^0-9]/,"",$2); es=$2; next }
+    sect=="events" && /[[:space:]]failures:/   { gsub(/[^0-9]/,"",$2); ef=$2; next }
+    # time.*
+    sect=="time" && /[[:space:]]total:/        { tt=$2; next }
+    sect=="time" && /[[:space:]]config_retrieval:/ { cr=$2; next }
+    sect=="time" && /[[:space:]]last_run:/     { if (last=="") { gsub(/[^0-9]/,"",$2); last=$2 } next }
+    END{ print last, rc, rf, rt, rs, es, ef, tt, cr }' "$SUMMARY_FILE"
+)"
+
+# Split parsed pipeline into shell vars (ensure IFS before splitting)
+IFS='|'
+set -- $PARSED
+IFS=' 	
+'
+[ $# -lt 9 ] && die "failed to parse summary: $PARSED"
+
+# Combined assignment with defaults (leave LAST_RUN_TS empty if missing)
+LAST_RUN_TS=$1
+RES_CHANGED=${2:-0}
+RES_FAILED=${3:-0}
+RES_TOTAL=${4:-0}
+RES_SKIPPED=${5:-0}
+EV_SUCC=${6:-0}
+EV_FAIL=${7:-0}
+TIME_TOTAL=${8:-0}
+TIME_CONF_RETR=${9:-0}
+
+# Derive totals
+EV_TOTAL=$((EV_SUCC + EV_FAIL))
+
+# Compute age and human-readable timestamp
+if [ -n "$LAST_RUN_TS" ]; then
+    NOW_TS=$($DATE +%s)
+    LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
+    LAST_RUN_HUMAN=$($DATE -d "@$LAST_RUN_TS" '+%F %T' 2>/dev/null)
+    [ -z "$LAST_RUN_HUMAN" ] && LAST_RUN_HUMAN="$LAST_RUN_TS"
+fi
+
+# Determine state
+[ "$RES_CHANGED" -gt 0 ] && STATUS_DETAIL="$RES_CHANGED change(s) applied"
+if [ "$RES_FAILED" -gt 0 ] || [ "$EV_FAIL" -gt 0 ]; then
+    STATUS_DETAIL="$STATUS_DETAIL, ${RES_FAILED} resource fail(s), ${EV_FAIL} event fail(s)"
+    EXITCODE_STATE=2
+fi
+
+if [ "$LAST_RUN_AGE" != "U" ]; then
+    if [ "$LAST_RUN_AGE" -ge "$CRIT_AGE" ]; then
+        EXITCODE_STATE=2
+        STATUS_DETAIL="$STATUS_DETAIL, last run ${LAST_RUN_AGE}s ago"
+    elif [ "$LAST_RUN_AGE" -ge "$WARN_AGE" ] && [ "$EXITCODE_STATE" -eq 0 ]; then
+        EXITCODE_STATE=1
+        STATUS_DETAIL="$STATUS_DETAIL, last run ${LAST_RUN_AGE}s ago"
+    fi
+fi
+
+# Recent logs (context, last 5 lines)
+<% if @systemd_enable -%>
+JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "puppet.service" --no-pager 2>/dev/null | $TR '\n' ' - ' | $SED 's/|$//')
+<% else -%>
+JOURNAL=""
+<% end -%>
+
+# Build perfdata (incremental style)
+# Ensure we do not append a unit to 'U'
+AGE_METRIC="$LAST_RUN_AGE"
+[ "$AGE_METRIC" != "U" ] && AGE_METRIC="${AGE_METRIC}s"
+
+# Set time metrics
+TIME_TOTAL_METRIC="${TIME_TOTAL}s"
+TIME_CONF_RETR_METRIC="${TIME_CONF_RETR}s"
+
+# exit_code: warn=1;crit=1; min=0;max=1
+# plugin_state: warn=1;crit=2; min=0;max=2
+PERF="last_run_age=${AGE_METRIC};${WARN_AGE};${CRIT_AGE};0"
+PERF="$PERF resources_total=${RES_TOTAL}"
+PERF="$PERF resources_changed=${RES_CHANGED}"
+PERF="$PERF resources_failed=${RES_FAILED}"
+PERF="$PERF resources_skipped=${RES_SKIPPED}"
+PERF="$PERF events_successes=${EV_SUCC}"
+PERF="$PERF events_failures=${EV_FAIL}"
+PERF="$PERF events_total=${EV_TOTAL}"
+PERF="$PERF time_total=${TIME_TOTAL_METRIC}"
+PERF="$PERF time_config_retrieval_s=${TIME_CONF_RETR_METRIC}"
+
+# Output with return code
+case "$EXITCODE_STATE" in
+  0) printf "puppet.service successful (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
+  1) printf "puppet.service WARNING (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
+  *) printf "puppet.service FAILED (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
+esac

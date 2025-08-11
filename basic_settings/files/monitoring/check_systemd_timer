@@ -41,6 +41,13 @@ $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
     exit 2
 }
 
+# Try to get last run & result 
+LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
+if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "0" ]; then
+    echo "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
+    exit 1
+fi
+
 # Get result
 RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
 EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
@@ -57,7 +64,7 @@ PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 # Output & exitcode
 case "${RESULT},${EXIT_CODE}" in
     success,0)
-        printf '%s successful (%s); last run: %s; log: %s | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
+        printf '%s successful (%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
         exit 0
         ;;
     *)
