@@ -17,7 +17,7 @@ define mysql::database (
       if ($import != undef) {
         # Import database from file
         exec { "mysql_database_import_${title}":
-          command     => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -D ${title} ' < ${import}",
+          command     => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -D ${title} < ${import}\"",
           refreshonly => true,
         }
         $notify = Exec["mysql_database_import_${title}"]
