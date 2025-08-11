@@ -20,12 +20,36 @@ class basic_settings::kernel (
   # Set variables
   $os_name = $facts['os']['name'];
   $os_version = $facts['os']['release']['major']
+  $kernel_type = $facts['kernelrelease'] ? {
+    /-raspi$/   => 'raspi',
+    /-generic$/ => 'generic',
+    default     => 'other',
+  }
 
   # Install extra packages when Ubuntu
-  if ($os_name == 'Ubuntu' and $os_version != '26.04') {
-    package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
+  case $kernel_type {
+    'generic': {
+      if ($os_name == 'Ubuntu' and $os_version != '26.04') {
+        package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      }
+    }
+    'raspi': {
+      # Remove generic kernel
+      package { ['linux-image-*-generic', 'linux-image-generic*']:
+        ensure          => purged,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['linux-raspi', 'linux-firmware-raspi'],
+      }
+
+      # Install raspi kernel
+      package { ['linux-raspi', 'linux-firmware-raspi']:
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['linux-image-*-generic', 'linux-image-generic*'],
+      }
     }
   }
 
