@@ -173,16 +173,16 @@ BAD=""
 # Determine state
 if [ "$ROOT_LOGIN" = true ] || [ "$AGE_CRIT" = true ]; then
     STATE_CODE=2
-elif [ "$ACTIVE" -ge "$CRIT_THRESH" ]; then
+elif [ "$ACTIVE_SESSIONS" -ge "$CRIT_THRESH" ]; then
     STATE_CODE=2
-elif [ "$ACTIVE" -ge "$WARN_THRESH" ]; then
+elif [ "$ACTIVE_SESSIONS" -ge "$WARN_THRESH" ]; then
     STATE_CODE=1
 fi
+
+# Escalate to WARN if not already WARNING/CRITICAL and we see issues
 if [ "$STATE_CODE" -lt 1 ]; then
-    if [ "$ZOMBIE_COUNT" -gt 0 ]; then
-        STATE=1
-    elif [ -n "$BAD" ]; then
-        STATE=1
+    if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD" ] || [ "$FAIL_COUNT" -gt 0 ]; then
+        STATE_CODE=1
     fi
 fi
 
