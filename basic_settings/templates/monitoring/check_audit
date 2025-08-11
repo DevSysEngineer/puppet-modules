@@ -6,63 +6,22 @@ die() {
     exit 3
 }
 
-# Locate auditctl
-AUDITCTL=$(command -v auditctl 2>/dev/null)
-[ -n "$AUDITCTL" ] || die "auditctl not available"
-
-# Locate augenrules
-AUGENRULES=$(command -v augenrules 2>/dev/null)
-[ -n "$AUGENRULES" ] || die "augenrules not available"
-
-# Locate auditctl
-AUREPORT=$(command -v aureport 2>/dev/null)
-[ -n "$AUREPORT" ] || die "aureport not available"
-
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
-
-# Locate cut
-CUT=$(command -v cut 2>/dev/null)
-[ -n "$CUT" ] || die "cut not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate grep
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
+# Binary checks
+AUDITCTL=$(command -v auditctl 2>/dev/null) || die "auditctl not available"
+AUGENRULES=$(command -v augenrules 2>/dev/null) || die "augenrules not available"
+AUREPORT=$(command -v aureport 2>/dev/null) || die "aureport not available"
+AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+CUT=$(command -v cut 2>/dev/null) || die "cut not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
-# Locate journalctl
-JOURNALCTL=$(command -v journalctl 2>/dev/null)
-[ -n "$JOURNALCTL" ] || die "journalctl not available"
-
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 <% end -%>
-# Locate tr
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
-
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
-
-# Locate uname
-UNAME=$(command -v uname 2>/dev/null)
-[ -n "$UNAME" ] || die "uname not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
+UNAME=$(command -v uname 2>/dev/null) || die "uname not available"
 
 # Default values
 DROPPED_CRIT="1"
@@ -89,7 +48,7 @@ $PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
 # Check if we have error since boot
 ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -c 'Error')
 if [ "$ERROR_COUNT" -gt 0 ]; then
-    MSG="$MSG, but errors found since boot"
+    MSG="$MSG, but started with error since boot"
     STATE_CODE=2
 fi
 
@@ -104,9 +63,9 @@ fi
 
 # Get backlog / dropped counters
 AV_STAT=$($AUDITCTL -s 2>/dev/null)
-BACKLOG=$($PRINTF "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
-LOST=$($PRINTF "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
-BLIMIT=$($PRINTF "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p'); : "${BLIMIT:=0}"
+BACKLOG=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
+LOST=$(printf "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
+BLIMIT=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p'); : "${BLIMIT:=0}"
 
 # Check result
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
@@ -130,7 +89,7 @@ fi
 # Get audit report
 TODAY="$($DATE '+%Y-%m-%d 00:00:00')"
 SUM=$($AUREPORT --summary --start "$TODAY" --end now 2>/dev/null)
-get(){ $PRINTF "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
+get(){ printf "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
 
 # Get values from report
 CFG=$(get "Number of changes in configuration:"); : "${CFG:=0}"
@@ -164,7 +123,7 @@ FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
 # Get boot reports
 NOW=$($DATE +%s)
 BOOT_SUM="$($JOURNALCTL --list-boots --no-pager 2>/dev/null)"
-BOOT_STARTS="$($PRINTF "%s" "$BOOT_SUM" | $AWK 'NR>1{for(i=1;i<=NF-3;i++) if ($i ~ /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/){print $i, $(i+1), $(i+2), $(i+3); break}}')"
+BOOT_STARTS="$(printf "%s" "$BOOT_SUM" | $AWK 'NR>1{for(i=1;i<=NF-3;i++) if ($i ~ /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)$/){print $i, $(i+1), $(i+2), $(i+3); break}}')"
 REBOOT_FLAG=0
 SUSPICIOUS=""
 
@@ -217,5 +176,5 @@ PERF="$PERF rules=${RULES_COUNT};;0;0"
 PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 
 # Show output
-$PRINTF '%s | %s\n' "${MSG#, }" "$PERF"
+printf '%s | %s\n' "${MSG#, }" "$PERF"
 exit $STATE_CODE

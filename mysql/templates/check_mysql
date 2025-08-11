@@ -6,24 +6,14 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Locate awk
-BC=$(command -v bc 2>/dev/null)
-[ -n "$BC" ] || die "bc not available"
-
-# Locate mysqladmin
-MYSQLADMIN=$(command -v mysqladmin 2>/dev/null)
-[ -n "$MYSQLADMIN" ] || die "mysqladmin not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+BC=$(command -v bc 2>/dev/null) || die "bc not available"
+MYSQLADMIN=$(command -v mysqladmin 2>/dev/null) || die "mysqladmin not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
+
 crit() {
     echo "$*" >&2
     exit 2

@@ -33,6 +33,7 @@ class basic_settings::puppet (
     'remote': {
       # Set some values
       $package_etc_dir = '/etc/puppetlabs'
+      $agent_bin_dir = '/opt/puppetlabs/bin'
       $agent_etc_dir = "${package_etc_dir}/puppet"
       $server_dir = '/opt/puppetlabs/server'
       $server_etc_dir = "${package_etc_dir}/${server_dirname}"
@@ -57,6 +58,7 @@ class basic_settings::puppet (
     default: {
       # Set some values
       $package_etc_dir = '/etc'
+      $agent_bin_dir = '/usr/bin'
       $agent_etc_dir = "${package_etc_dir}/puppet"
       $server_dir = "/var/lib/${server_dirname}"
       $server_etc_dir = "${package_etc_dir}/${server_dirname}"

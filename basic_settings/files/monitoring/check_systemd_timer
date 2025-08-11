@@ -6,25 +6,12 @@ die() {
     exit 3
 }
 
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
-# Locate systemctl
-SYSTEMCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMCTL" ] || die "systemctl not available"
-
-# Locate journalctl
-JOURNALCTL=$(command -v journalctl 2>/dev/null)
-[ -n "$JOURNALCTL" ] || die "journalctl not available"
-
-# Locate tr
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
+basic_settings/templates/monitoring/check_audit
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Arguments
 TIMER_UNIT="$1"

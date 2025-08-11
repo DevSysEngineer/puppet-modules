@@ -3,37 +3,14 @@
 
 die() { echo "$*" >&2; exit 3; }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate gitlab-ctl
-GITLAB_CTL=$(command -v gitlab-ctl 2>/dev/null)
-[ -n "$GITLAB_CTL" ] || die "gitlab-ctl not available"
-
-# Locate gitlab-rake
-GITLAB_RAKE=$(command -v gitlab-rake 2>/dev/null)
-[ -n "$GITLAB_RAKE" ] || die "gitlab-rake not available"
-
-# Locate gitlab-rails
-GITLAB_RAILS=$(command -v gitlab-rails 2>/dev/null)
-[ -n "$GITLAB_RAILS" ] || die "gitlab-rails not available"
-
-# Locate $printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
-# Locate tr
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GITLAB_CTL=$(command -v gitlab-ctl 2>/dev/null) || die "gitlab-ctl not available"
+GITLAB_RAKE=$(command -v gitlab-rake 2>/dev/null) || die "gitlab-rake not available"
+GITLAB_RAILS=$(command -v gitlab-rails 2>/dev/null) || die "gitlab-rails not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Defaults
 LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
@@ -43,8 +20,8 @@ PERF=""
 
 # Services
 SVC_RAW=$($GITLAB_CTL status 2>&1)
-DOWN=$($PRINTF '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
-[ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $($PRINTF '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
+DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
+[ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
 
 # Single rails‑runner for version‑check + group‑sizes
 RAILS_RAW=$($GITLAB_RAILS runner -e production '
@@ -66,9 +43,9 @@ RAILS_RAW=$($GITLAB_RAILS runner -e production '
 ' 2>/dev/null) || die "gitlab-rails runner failed"
 
 # Parse version block
-VC_RAW=$($PRINTF '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {sub(/^VC\|/, "", $0); print; exit}')
+VC_RAW=$(printf '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {sub(/^VC\|/, "", $0); print; exit}')
 if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
-    DATA=$($PRINTF '%s' "$VC_RAW" | $AWK '
+    DATA=$(printf '%s' "$VC_RAW" | $AWK '
         BEGIN{cv=0;ver="";sev=""}
         /"critical_vulnerability": *true/ {cv=1}
         match($0,/"version":"([^"]+)/,a){ver=a[1]}
@@ -91,11 +68,11 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
 fi
 
 # Parse group lines and build perfdata
-GROUPS=$($PRINTF '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
+GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     MB=$(( B / 1048576 ))
-    SAFE=$($PRINTF '%s' "$N" | sed "s/'/''/g")
+    SAFE=$(printf '%s' "$N" | sed "s/'/''/g")
 
     # Quote label if contains whitespace
     case $SAFE in *[[:space:]]*) SAFE="'$SAFE'";; esac
@@ -106,16 +83,16 @@ EOF
 
 # Licence info (skip on CE / no licence)
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
-if $PRINTF '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {exit 0} END{exit 1}'; then
+if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {exit 0} END{exit 1}'; then
   LIC_MODE="none"
 else
   LIC_MODE="ee"
 fi
 
 if [ "$LIC_MODE" = "ee" ]; then
-    CURR=$($PRINTF '%s\n' "$LIC_RAW" | $AWK -F': *' '/Current User Count/ {print $2}')
-    MAX=$($PRINTF '%s\n' "$LIC_RAW"  | $AWK -F': *' '/Max Users in License/ {print $2}')
-    EXP=$($PRINTF '%s\n' "$LIC_RAW" | $AWK -F': *' '/License valid until/ {print $2}')
+    CURR=$(printf '%s\n' "$LIC_RAW" | $AWK -F': *' '/Current User Count/ {print $2}')
+    MAX=$(printf '%s\n' "$LIC_RAW"  | $AWK -F': *' '/Max Users in License/ {print $2}')
+    EXP=$(printf '%s\n' "$LIC_RAW" | $AWK -F': *' '/License valid until/ {print $2}')
 
     # Expiry
     if [ -n "$EXP" ]; then
@@ -146,5 +123,5 @@ fi
 [ -n "$PERF" ] && OUT="$MSG |$PERF" || OUT="$MSG"
 
 # Show result
-$PRINTF '%s\n' "$OUT"
+printf '%s\n' "$OUT"
 exit $STATE_CODE

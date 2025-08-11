@@ -6,47 +6,18 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate grep
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
-# Locate journalctl
-JOURNALCTL=$(command -v journalctl 2>/dev/null)
-[ -n "$JOURNALCTL" ] || die "journalctl not available"
-
-# Locate tr
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 TR=$(command -v tr 2>/dev/null)
 [ -n "$TR" ] || die "tr not available"
 <% end -%>
-
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
-
-# Locate puppet
-PUPPET=$(command -v puppet 2>/dev/null)
-[ -n "$PUPPET" ] || die "puppet not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
 # Defaults / thresholds
 CRIT_AGE=3600 # 60 minutes (your preference: >1h = critical)
@@ -74,8 +45,8 @@ $PS -C puppet >/dev/null 2>&1 || die "Puppet service is not active"
 <% end -%>
 
 # Puppet state & public dirs
-STATEDIR="$($PUPPET config print statedir 2>/dev/null)"   || die "could not determine puppet statedir"
-PUBLICDIR="$($PUPPET config print publicdir 2>/dev/null)" || PUBLICDIR=""
+STATEDIR="$(<%= @agent_bin_dir %>/puppet config print statedir 2>/dev/null)"   || die "could not determine puppet statedir"
+PUBLICDIR="$(<%= @agent_bin_dir %>/puppet config print publicdir 2>/dev/null)" || PUBLICDIR=""
 LOCKFILE="${STATEDIR}/agent_disabled.lock"
 
 # Check if agent is administratively disabled
@@ -88,7 +59,7 @@ if [ -f "$LOCKFILE" ]; then
 fi
 
 # Locate last_run_summary.yaml
-SUMMARY_FILE="$($PUPPET config print lastrunfile 2>/dev/null)"
+SUMMARY_FILE="$(<%= @agent_bin_dir %>/puppet config print lastrunfile 2>/dev/null)"
 [ -z "$SUMMARY_FILE" ] && SUMMARY_FILE="${STATEDIR}/last_run_summary.yaml"
 if [ ! -f "$SUMMARY_FILE" ]; then
     if [ -n "$PUBLICDIR" ] && [ -f "${PUBLICDIR}/last_run_summary.yaml" ]; then
@@ -207,7 +178,7 @@ PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 
 # Output with return code
 case "$EXITCODE_STATE" in
-  0) printf "Puppet is running (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
-  1) printf "Puppet WARNING (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
-  *) printf "Puppet FAILED (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
+  0) printf "Puppet is running (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
+  1) printf "Puppet WARNING (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
+  *) printf "Puppet FAILED (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
 esac

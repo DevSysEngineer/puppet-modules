@@ -6,39 +6,16 @@ die() {
     exit 3
 }
 
-# Locate apt
-APT=$(command -v apt 2>/dev/null)
-[ -n "$APT" ] || die "apt not available"
-
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate find
-FIND=$(command -v find 2>/dev/null)
-[ -n "$FIND" ] || die "find not available"
-
-# Locate stat
-STAT=$(command -v stat 2>/dev/null)
-[ -n "$STAT" ] || die "stat not available"
-
-# Locate sort
-SORT=$(command -v sort 2>/dev/null)
-[ -n "$SORT" ] || die "sort not available"
-
+# Binary checks
+APT=$(command -v apt 2>/dev/null) || die "apt not available"
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+FIND=$(command -v find 2>/dev/null) || die "find not available"
+STAT=$(command -v stat 2>/dev/null) || die "stat not available"
+SORT=$(command -v sort 2>/dev/null) || die "sort not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMCTL" ] || die "systemctl not available"
-
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
 
 # Set some values
 BLACKLIST_FILE="<%= @apt_settings_file %>"
@@ -64,7 +41,7 @@ done
 # Stamp timestamp (if present)
 if [ -e "$STAMP_FILE" ]; then
     # %Y = seconds since epoch, integer
-    STAMP_TS=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null || $PRINTF '0')
+    STAMP_TS=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null || printf '0')
 fi
 
 # Latest mtime in /var/lib/apt/lists (exclude lock and partial)
@@ -105,7 +82,7 @@ BLACKLIST_PATTERNS=$("$AWK" '
 
 # APT simulation
 APT_SIM_OUTPUT=$(LC_ALL=C "$APT" -s -o Debug::NoLocking=1 dist-upgrade 2>&1) || die "APT simulation failed"
-APT_SIM_SUMMARY=$($PRINTF '%s' "$APT_SIM_OUTPUT" | $AWK '
+APT_SIM_SUMMARY=$(printf '%s' "$APT_SIM_OUTPUT" | $AWK '
     /^Inst /{
         total++; pkg=$2; pkgs[pkg]=1;
         if(tolower($0)~/security/){sec++; secpkgs[pkg]=1}
@@ -118,9 +95,9 @@ APT_SIM_SUMMARY=$($PRINTF '%s' "$APT_SIM_OUTPUT" | $AWK '
 ')
 
 # Set values
-UPDATES_TOTAL=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^TOT:/ {print $2}')
-UPDATES_SECURITY=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SEC:/ {print $2}')
-PKG_LIST=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^PKG:/ {print $2}')
+UPDATES_TOTAL=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^TOT:/ {print $2}')
+UPDATES_SECURITY=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SEC:/ {print $2}')
+PKG_LIST=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^PKG:/ {print $2}')
 
 # Count blacklisted
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
@@ -197,7 +174,7 @@ fi
 
 # Security‑packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$($PRINTF '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
+    SEC_CSV=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
     MSG="$MSG Security packages: ${SEC_CSV}."
 fi
 
@@ -208,5 +185,5 @@ PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0"
 PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0"
 
 # output
-"$PRINTF" '%s | %s\n' "$MSG" "$PERF_DATA"
+"printf" '%s | %s\n' "$MSG" "$PERF_DATA"
 exit "$STATE_CODE"

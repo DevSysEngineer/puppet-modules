@@ -6,46 +6,19 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate mktemp
-MKTEMP=$(command -v mktemp 2>/dev/null)
-[ -n "$MKTEMP" ] || die "mktemp not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
-# Locate tr
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
-
-# Locate rm
-RM=$(command -v rm 2>/dev/null)
-[ -n "$RM" ] || die "rm not available"
-
-# Locate mv
-MV=$(command -v mv 2>/dev/null)
-[ -n "$MV" ] || die "mv not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
+MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+RM=$(command -v rm 2>/dev/null) || die "rm not available"
+MV=$(command -v mv 2>/dev/null) || die "mv not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
 <% else -%>
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 
 crit() {

@@ -6,34 +6,15 @@ die() {
     exit 3 
 }
 
-# Find awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Find grep
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
-
-# Find rabbitmqadmin
-RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null)
-[ -n "$RABBITMQADMIN" ] || die "rabbitmqadmin not available"
-
-# Find rabbitmqctl
-RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null)
-[ -n "$RABBITMQCTL" ] || die "rabbitmqctl not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null) || die "rabbitmqadmin not available"
+RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null) || die "rabbitmqctl not available"
 <% if @systemd_enable -%>
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
 crit() { 
     echo "$*"
@@ -98,9 +79,9 @@ WARN_SHOWN=0
 append_item() {
   # $1 = current list, $2 = item to append
   if [ -z "$1" ]; then
-    $PRINTF "%s" "$2"
+    printf "%s" "$2"
   else
-    $PRINTF "%s, %s" "$1" "$2"
+    printf "%s, %s" "$1" "$2"
   fi
 }
 
@@ -199,7 +180,7 @@ fi
 RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
 
 # Sum columns 1 and 2 (tab-separated). If empty, default to 0.00 0.00.
-RATE_SUM=$($PRINTF "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
+RATE_SUM=$(printf "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
 
 # Split into positional parameters (POSIX sh trick; no arrays)
 set -- $RATE_SUM
@@ -217,5 +198,5 @@ PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
 PERF="$PERF queues_total=${QUEUE_COUNT}"
 
 # Show output
-$PRINTF '%s | %s\n' "${MSG#, }" "$PERF"
+printf '%s | %s\n' "${MSG#, }" "$PERF"
 exit $STATE_CODE

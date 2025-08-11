@@ -6,46 +6,20 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
-# Locate journalctl
-JOURNALCTL=$(command -v journalctl 2>/dev/null)
-[ -n "$JOURNALCTL" ] || die "journalctl not available"
-
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 <% end -%>
-# Locate wc
-WC=$(command -v wc 2>/dev/null)
-[ -n "$WC" ] || die "wc not available"
-
-# Locate who
-WHO=$(command -v who 2>/dev/null)
-[ -n "$WHO" ] || die "who not available"
+WC=$(command -v wc 2>/dev/null) || die "wc not available"
+WHO=$(command -v who 2>/dev/null) || die "who not available"
 
 crit() {
-    $PRINTF '%s\n' "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
@@ -115,7 +89,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
 
     # PS call
     TTY_PROCS=$($PS -t "$TTY" -o user=)
-    PROC_COUNT=$($PRINTF '%s\n' "$TTY_PROCS" | $WC -l)
+    PROC_COUNT=$(printf '%s\n' "$TTY_PROCS" | $WC -l)
 
     case "$TTY_PROCS" in
         *root*) ROOT_LOGIN=true ;;
@@ -229,5 +203,5 @@ PERF_DATA="$PERF_DATA fails_eff=${FAIL_EFF};;;;"
 PERF_DATA="$PERF_DATA age_crit=$([ "$AGE_CRIT" = true ] && echo 1 || echo 0);;;;"
 
 # Output
-$PRINTF '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
+printf '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
 exit "$STATE_CODE"

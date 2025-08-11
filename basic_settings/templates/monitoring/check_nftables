@@ -6,35 +6,15 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "awk not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate lsmod
-LSMOD=$(command -v lsmod 2>/dev/null)
-[ -n "$LSMOD" ] || die "lsmod not available"
-
-# Locate nft
-NFT=$(command -v nft 2>/dev/null)
-[ -n "$NFT" ] || die "nft not available"
-
-# Locate sort
-SORT=$(command -v sort 2>/dev/null)
-[ -n "$SORT" ] || die "sort not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+LSMOD=$(command -v lsmod 2>/dev/null) || die "lsmod not available"
+NFT=$(command -v nft 2>/dev/null) || die "nft not available"
+SORT=$(command -v sort 2>/dev/null) || die "sort not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMCTL" ] || die "systemctl not available"
-
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
-# Locate tr
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Set some default values
 BL_ITEMS=0
@@ -48,12 +28,12 @@ TABLE_PERF=""
 TOTAL_RULES=0
 
 crit() {
-    $PRINTF '%s\n' "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
 add_pd() {
-    LABEL_FORMAT=$($PRINTF '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
+    LABEL_FORMAT=$(printf '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
     PREF_LIST="${PREF_LIST}${LABEL_FORMAT} ${2:-0}\n"
 }
 
@@ -71,7 +51,7 @@ RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
 [ -z "$RULESET" ] && crit "Ruleset empty"
 
 # Analyze ruleset
-KEYVALS=$($PRINTF '%s' "$RULESET" | $AWK '
+KEYVALS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN {
     FS=" "; SUBSEP=SUBSEP; inside=0; tblkey=""; chainkey="";
 }
@@ -122,7 +102,7 @@ $KEYVALS
 EOF
 
 # Get dynamic sets
-DYNSETS=$($PRINTF '%s' "$RULESET" | $AWK '
+DYNSETS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn="" }
 {
     if ($1=="table") { fam=$2; tab=$3 }
@@ -158,7 +138,7 @@ EOF
 fi
 
 # Get named counters
-NAMED_CTRS=$($PRINTF '%s' "$RULESET" | $AWK '
+NAMED_CTRS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN {
     RS = "}"
     FS = "[[:space:]]+"
@@ -185,7 +165,7 @@ EOF
 fi
 
 # Inline counters 
-INLINE_CTRS=$($PRINTF '%s' "$RULESET" | $AWK '
+INLINE_CTRS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN { seq = 0 }
 {
     if ($0 ~ /counter[[:space:]]+packets[[:space:]]+[0-9]+/) {
@@ -226,7 +206,7 @@ EOF
 fi
 
 # Set performance data
-PREF_LIST=$($PRINTF '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
+PREF_LIST=$(printf '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
 
 # Check some values

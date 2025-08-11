@@ -6,50 +6,22 @@ die() {
     exit 3
 }
 
-# Locate awk
-AWK=$(command -v awk 2>/dev/null)
-[ -n "$AWK" ] || die "akw not available"
-
-# Locate cut
-CUT=$(command -v cut 2>/dev/null)
-[ -n "$CUT" ] || die "cut not available"
-
-# Locate date
-DATE=$(command -v date 2>/dev/null)
-[ -n "$DATE" ] || die "date not available"
-
-# Locate grep
-GREP=$(command -v grep 2>/dev/null)
-[ -n "$GREP" ] || die "grep not available"
-
-# Locate printf
-PRINTF=$(command -v printf 2>/dev/null)
-[ -n "$PRINTF" ] || die "printf not available"
-
-# Locate sed
-SED=$(command -v sed 2>/dev/null)
-[ -n "$SED" ] || die "sed not available"
-
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+CUT=$(command -v cut 2>/dev/null) || die "cut not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
-# Locate systemctl
-SYSTEMDCTL=$(command -v systemctl 2>/dev/null)
-[ -n "$SYSTEMDCTL" ] || die "systemctl not available"
-
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
 <% end -%>
-# Locate tail
-TAIL=$(command -v tail 2>/dev/null)
-[ -n "$TAIL" ] || die "tail not available"
-
-# Locate ps
-PS=$(command -v ps 2>/dev/null)
-[ -n "$PS" ] || die "ps not available"
-
-# Locate wc
-WC=$(command -v wc 2>/dev/null)
-[ -n "$WC" ] || die "wc not available"
+TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
+WC=$(command -v wc 2>/dev/null) || die "wc not available"
 
 crit() {
-    $PRINTF '%s\n' "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
@@ -116,13 +88,13 @@ fi
 # Detection engine version & age
 LINE=$($UPD -l 2>/dev/null | $GREP -m1 "Detection engine")
 if [ -n "$LINE" ]; then
-    ENGINE_VER=$($PRINTF '%s' "$LINE" | $AWK '{print $2}')
+    ENGINE_VER=$(printf '%s' "$LINE" | $AWK '{print $2}')
 fi
 
 # On‑demand scan stats
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
-SCANS_TOTAL=$($PRINTF '%s\n' "$SCAN_CSV" | $TAIL -n +2 | $WC -l) # \n Important for count
-LAST_LINE=$($PRINTF '%s' "$SCAN_CSV" | $TAIL -n 1)
+SCANS_TOTAL=$(printf '%s\n' "$SCAN_CSV" | $TAIL -n +2 | $WC -l) # \n Important for count
+LAST_LINE=$(printf '%s' "$SCAN_CSV" | $TAIL -n 1)
 if [ -n "$LAST_LINE" ] && case "$LAST_LINE" in Time*) false;; *) true;; esac; then
     # Split CSV fields: STARTED, LAST_FILES, LAST_CLEAN, LAST_DET, DURATION
     IFS=',' read -r STARTED _ LAST_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
@@ -156,7 +128,7 @@ DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{prin
 
 # Update gap
 LAST_OK=$( $LSLOG -c 2>/dev/null | grep -F "Detection Engine was successfully updated" | $TAIL -n 1 )
-[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$($PRINTF '%s' "$LAST_OK"| $CUT -d ',' -f1)" +%s))/60 ))
+[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$(printf '%s' "$LAST_OK"| $CUT -d ',' -f1)" +%s))/60 ))
 [ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "no upd $((UPDATE_AGE_MIN/60))h"
 [ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "upd gap $((UPDATE_AGE_MIN/60))h"
 
