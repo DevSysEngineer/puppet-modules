@@ -33,7 +33,7 @@ class basic_settings::puppet (
     'remote': {
       # Set some values
       $package_etc_dir = '/etc/puppetlabs'
-      $agent_etc_dir = "${package_etc_dir}/agent"
+      $agent_etc_dir = "${package_etc_dir}/puppet"
       $server_dir = '/opt/puppetlabs/server'
       $server_etc_dir = "${package_etc_dir}/${server_dirname}"
       $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
