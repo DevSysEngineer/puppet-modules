@@ -6,7 +6,7 @@ die() {
     exit 3
 }
 
-basic_settings/templates/monitoring/check_audit
+# Binary checks
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
