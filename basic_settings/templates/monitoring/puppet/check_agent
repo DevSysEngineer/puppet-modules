@@ -203,7 +203,7 @@ PERF="$PERF events_successes=${EV_SUCC}"
 PERF="$PERF events_failures=${EV_FAIL}"
 PERF="$PERF events_total=${EV_TOTAL}"
 PERF="$PERF time_total=${TIME_TOTAL_METRIC}"
-PERF="$PERF time_config_retrieval_s=${TIME_CONF_RETR_METRIC}"
+PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 
 # Output with return code
 case "$EXITCODE_STATE" in
