@@ -141,22 +141,23 @@ EOF
 PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_exchange_identification|userauth_pubkey'
 OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow="$ALLOWED_USERS" '
 BEGIN{
-    # whitelist
     split(allow,a,","); for(i in a) w[a[i]]=1
 }
 {
     idx = index($0, ": "); msg = (idx>0 ? substr($0, idx+2) : $0)
     pid = ""
-    if (match($0, /sshd\[([0-9]+)\]/, p)) pid = p[1]
-    if (match(msg, /Accepted (password|publickey) for ([[:alnum:]_.-]+)/, m)) {
+    if (match($0, /sshd\[([0-9]+)\]/, mPid)) pid = mPid[1]
+    if (match(msg, /Accepted (password|publickey) for ([[:alnum:]_.-]+)/, mAcc)) {
         acc[pid] = 1
     }
     user = ""
-    if (match(msg, /Invalid user[[:space:]]+([[:alnum:]_.-]+)/, m)) {
-        user = m[1]; if (pid!="") fails[pid]++; else fail_na++
+    if (match(msg, /Invalid user[[:space:]]+([[:alnum:]_.-]+)/, mInv)) {
+        user = mInv[1]
+        if (pid!="") fails[pid]++; else fail_na++
         if (user in w) wl_fail_pid_user[pid ":" user]=1
-    } else if (match(msg, /Failed (password|publickey) for (invalid user )?([[:alnum:]_.-]+)/, m)) {
-        user = m[3]; if (pid!="") fails[pid]++; else fail_na++
+    } else if (match(msg, /Failed (password|publickey) for (invalid user )?([[:alnum:]_.-]+)/, mFail)) {
+        user = mFail[3]
+        if (pid!="") fails[pid]++; else fail_na++
         if (user in w) wl_fail_pid_user[pid ":" user]=1
     } else if (msg ~ /authentication failure/) {
         if (pid!="") fails[pid]++; else fail_na++
@@ -167,14 +168,17 @@ BEGIN{
 END{
     raw = fail_na
     eff = fail_na
-    for (p in fails) {
-        raw += fails[p]
-        if (!(p in acc)) eff += fails[p]
+    for (pp in fails) {
+        raw += fails[pp]
+        if (!(pp in acc)) eff += fails[pp]
     }
     sep=""; bad=""
     for (k in wl_fail_pid_user) {
-        n = split(k, parts, ":"); p=parts[1]; u=parts[2]
-        if (!(p in acc) && !(u in seen)) { bad = bad sep u; sep=","; seen[u]=1 }
+        n = split(k, parts, ":"); pidk=parts[1]; userk=parts[2]
+        if (!(pidk in acc) && !(userk in seen)) {
+        bad = bad sep userk; sep=","
+        seen[userk]=1
+        }
     }
     print raw ":" eff ":" bad
 }')
@@ -212,7 +216,6 @@ EXTRA=""
 [ -n "$BAD" ] && EXTRA="${EXTRA}failed login for '$BAD', "
 [ "$FAIL_EFF" -gt 0 ] && EXTRA="${EXTRA}${FAIL_EFF} auth fails, "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
-[ "$FAIL_COUNT" -gt 0 ] && EXTRA="${EXTRA}${FAIL_COUNT} auth fails, "
 [ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
 EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA=" ($EXTRA)"
