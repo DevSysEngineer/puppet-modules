@@ -36,7 +36,7 @@ class basic_settings::kernel (
       }
 
       # Remove raspi kernel
-      package { ['linux-raspi', 'linux-image-*-raspi']:
+      package { ['linux-raspi', 'linux-image-*-raspi', 'linux-image-raspi']:
         ensure          => purged,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['linux-generic'],
@@ -52,13 +52,13 @@ class basic_settings::kernel (
     }
     'raspi': {
       # Install raspi kernel
-      package { ['linux-raspi']:
+      package { 'linux-raspi':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
 
       # Remove generic kernel
-      package { ['linux-generic', 'linux-image-generic*']:
+      package { ['linux-generic', 'linux-image-*-generic', 'linux-image-generic*']:
         ensure          => purged,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['linux-raspi'],
