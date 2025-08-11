@@ -68,9 +68,9 @@ done
 
 # Service running
 <% if @systemd_enable -%>
-$SYSTEMDCTL is-active --quiet "puppet.service" || crit "Puppet service is not active"
+$SYSTEMDCTL is-active --quiet "puppet.service" || die "Puppet service is not active"
 <% else -%>
-$PS -C efs >/dev/null 2>&1 || crit "Puppet service is not active"
+$PS -C puppet >/dev/null 2>&1 || die "Puppet service is not active"
 <% end -%>
 
 # Puppet state & public dirs
@@ -83,7 +83,7 @@ if [ -f "$LOCKFILE" ]; then
     # Try to extract the disabled message from the JSON lock file
     DISABLE_MSG=$($SED -n 's/.*"disabled_message"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' "$LOCKFILE")
     [ -z "$DISABLE_MSG" ] && DISABLE_MSG="no message"
-    printf "puppet.service FAILED (agent disabled: %s)" "$DISABLE_MSG"
+    printf "Puppet FAILED (agent disabled: %s)" "$DISABLE_MSG"
     exit 2
 fi
 
@@ -98,7 +98,7 @@ if [ ! -f "$SUMMARY_FILE" ]; then
     fi
 fi
 if [ ! -f "$SUMMARY_FILE" ]; then
-    printf "puppet.service UNKNOWN (summary file not found)"
+    printf "Puppet UNKNOWN (summary file not found)"
     exit 3
 fi
 
@@ -207,7 +207,7 @@ PERF="$PERF time_config_retrieval_s=${TIME_CONF_RETR_METRIC}"
 
 # Output with return code
 case "$EXITCODE_STATE" in
-  0) printf "puppet.service successful (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
-  1) printf "puppet.service WARNING (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
-  *) printf "puppet.service FAILED (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
+  0) printf "Puppet is running (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
+  1) printf "Puppet WARNING (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
+  *) printf "Puppet FAILED (%s); last run: %s; log: %s | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
 esac
