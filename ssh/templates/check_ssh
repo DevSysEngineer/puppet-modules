@@ -142,6 +142,7 @@ PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_ex
 OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow="$ALLOWED_USERS" '
 BEGIN{
     split(allow,a,","); for(i in a) w[a[i]]=1
+    fail_na=0; raw=0; eff=0
 }
 {
     idx = index($0, ": "); msg = (idx>0 ? substr($0, idx+2) : $0)
