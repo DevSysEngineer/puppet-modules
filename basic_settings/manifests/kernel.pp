@@ -58,7 +58,7 @@ class basic_settings::kernel (
       }
 
       # Remove generic kernel
-      package { ['linux-generic','linux-image-generic*']:
+      package { ['linux-generic', 'linux-image-generic*']:
         ensure          => purged,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
         require         => Package['linux-raspi'],

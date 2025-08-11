@@ -20,7 +20,7 @@ define mysql::database (
           command     => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -D ${title} ' < ${import}",
           refreshonly => true,
         }
-        $notify = Excec["mysql_database_import_${title}"]
+        $notify = Exec["mysql_database_import_${title}"]
       } else {
         $notify = undef
       }
