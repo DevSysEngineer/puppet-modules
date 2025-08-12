@@ -268,15 +268,6 @@ class basic_settings::network (
     }
   }
 
-  # Create lldpd config file
-  file { '/etc/default/lldpd':
-    ensure  => file,
-    content => template('basic_settings/network/lldpd'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-  }
-
   # Create RX buffer script
   file { '/usr/local/sbin/rxbuffer':
     ensure => file,
@@ -476,6 +467,25 @@ class basic_settings::network (
         services => ['dhcpcd'],
       }
     }
+  }
+
+  # Enable auditd service
+  service { 'lldpd':
+    ensure  => true,
+    enable  => true,
+    require => Package['lldpd'],
+  }
+
+  # Create lldpd config file
+  $platform = $facts['os']['distro']['description']
+  file { '/etc/lldpd.conf':
+    ensure  => file,
+    content => template('basic_settings/network/lldpd'),
+    owner   => '_lldpd',
+    group   => '_lldpd',
+    mode    => '0600',
+    notify  => Service['lldpd'],
+    require => Package['lldpd'],
   }
 
   # Setup audit rules
