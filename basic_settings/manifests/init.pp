@@ -512,12 +512,14 @@ class basic_settings (
   # Set network
   class { 'basic_settings::network':
     antivirus_package    => $antivirus_package,
+    configurator_package => $ip_configurator_package,
     dhcp_enable          => $ip_dhcp_enable,
     dns_dnssec           => $dns_dnssec,
+    environment          => $environment,
     firewall_package     => $firewall_package,
     firewall_remove      => $firewall_remove,
     install_options      => $backports_install_options,
-    configurator_package => $ip_configurator_package,
+    server_fdqn          => $server_fdqn,
     wireless_enable      => $wireless_enable,
     require              => [File['basic_settings_source'], Class['basic_settings::monitoring']],
   }

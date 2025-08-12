@@ -1,0 +1,2 @@
+configure system hostname <%= @server_fdqn %>
+configure system description <%= @environment %> server

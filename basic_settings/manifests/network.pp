@@ -10,10 +10,12 @@ class basic_settings::network (
     '2001:4860:4860::8888',
     '2001:4860:4860::8844',
   ],
+  String                                      $environment            = 'production',
   String                                      $firewall_path          = '/etc/firewall.conf',
   Boolean                                     $firewall_remove        = true,
   Array                                       $install_options        = [],
   String                                      $interfaces             = 'eth* ens* wlan*',
+  String                                      $server_fdqn            = $facts['networking']['fqdn'],
   Boolean                                     $wireless_enable        = false,
 ) {
   # Set some default values
@@ -264,6 +266,15 @@ class basic_settings::network (
         }
       }
     }
+  }
+
+  # Create lldpd config file
+  file { '/etc/default/lldpd':
+    ensure  => file,
+    content => template('basic_settings/network/lldpd'),
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
   }
 
   # Create RX buffer script
