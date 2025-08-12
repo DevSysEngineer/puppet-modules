@@ -30,8 +30,9 @@ class basic_settings::security (
   # Setup monitoring
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_custom { 'audit':
-      content => template('basic_settings/monitoring/check_audit'),
-      timeout => 30,
+      content  => template('basic_settings/monitoring/check_audit'),
+      timeout  => 300,
+      interval => 600,
     }
   }
 

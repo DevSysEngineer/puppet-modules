@@ -10,7 +10,7 @@ die() {
 AUDITCTL=$(command -v auditctl 2>/dev/null) || die "auditctl not available"
 AUGENRULES=$(command -v augenrules 2>/dev/null) || die "augenrules not available"
 AUREPORT=$(command -v aureport 2>/dev/null) || die "aureport not available"
-AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
@@ -31,11 +31,11 @@ QUEUE_WARN=""
 
 # Options 
 while getopts 'q:d' opt; do
-  case "$opt" in
-    q) QUEUE_WARN="$OPTARG" ;;
-    d) DROPPED_CRIT="$OPTARG" ;;
-    *) die "Usage: $0 [-q <int>] [-d <int>]" ;;
-  esac
+    case "$opt" in
+        q) QUEUE_WARN="$OPTARG" ;;
+        d) DROPPED_CRIT="$OPTARG" ;;
+        *) die "Usage: $0 [-q <int>] [-d <int>]" ;;
+    esac
 done
 
 # Service running
@@ -80,10 +80,10 @@ fi
 
 # Rules‑integriteit (augenrules --check)
 if $AUGENRULES --check >/dev/null 2>&1; then
-  MSG="$MSG, augenrules OK"
+    MSG="$MSG, augenrules OK"
 else
-  MSG="$MSG, augenrules diff"
-  [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+    MSG="$MSG, augenrules diff"
+    [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 
 # Get audit report
@@ -129,12 +129,12 @@ SUSPICIOUS=""
 
 # Check if boot starts are within 24 hours
 while IFS= read -r ts; do
-  [ -z "$ts" ] && continue
-  sec=$(date -d "$ts" +%s 2>/dev/null) || continue
-  if [ "$sec" -ge $((NOW-86400)) ]; then
-    REBOOT_FLAG=1;
-    SUSPICIOUS="${SUSPICIOUS}Boot on $ts,";
-  fi
+    [ -z "$ts" ] && continue
+    SEC=$(date -d "$ts" +%s 2>/dev/null) || continue
+    if [ "$SEC" -ge $((NOW-86400)) ]; then
+        REBOOT_FLAG=1;
+        SUSPICIOUS="${SUSPICIOUS}Boot on $ts,";
+    fi
 done <<EOF
 $BOOT_STARTS
 EOF
@@ -146,15 +146,24 @@ if [ "$REBOOT_FLAG" -eq 1 ]; then
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 
-# Check if kernel version has changed
+# Kernel change detection (previous boot)
 UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
 if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
-  KERNEL_CURRENT=$($UNAME -r)
-  KERNEL_BOOT=$($JOURNALCTL -b -1 --no-pager 2>/dev/null | $GREP -m1 -i 'Linux version' | $SED -n 's/.*Linux version \([^ ]*\).*/\1/p')
-  if [ -n "$KERNEL_BOOT" ] && [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
-      MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})"
-      [ $STATE_CODE -lt 1 ] && STATE_CODE=1
-  fi
+    # Try to extract the previous kernel version from the previous boot's journal.
+    KERNEL_CURRENT=$($UNAME -r)
+    KERNEL_BOOT=$($JOURNALCTL -b -1 -o cat --no-pager 2>/dev/null | $AWK 'BEGIN{IGNORECASE=1} /^Linux version[[:space:]]+/ {print $3; exit}')
+    if [ -n "$KERNEL_BOOT" ]; then
+        # Previous kernel found; only report if it differs from the current one.
+        if [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
+            MSG="$MSG, kernel change (${KERNEL_BOOT}→${KERNEL_CURRENT})"
+            [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+        fi
+    else
+        # No previous kernel detected in the journal. We cannot confirm the prior
+        # version, but a change may have occurred. Emit a warning without details.
+        MSG="$MSG, kernel change? (previous kernel not retrieved)"
+        [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+    fi
 fi
 <% end -%>
 

@@ -115,57 +115,79 @@ EOF
 PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_exchange_identification|userauth_pubkey'
 OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow="$ALLOWED_USERS" '
 BEGIN{
-    split(allow,a,","); for(i in a) w[a[i]]=1
-    fail_na=0; raw=0; eff=0
+    split(allow,a,","); for(i in a) if (a[i]!="") w[a[i]]=1
+    allow_set = (length(w) > 0)
+    fail_na=0; raw=0
+    wl_fail_na=0
+    nl_fail_na=0
 }
 {
     idx = index($0, ": "); msg = (idx>0 ? substr($0, idx+2) : $0)
-    pid = ""
-    if (match($0, /sshd\[([0-9]+)\]/, mPid)) pid = mPid[1]
+    pid=""
+    if (match($0, /sshd\[([0-9]+)\]/, mPid)) pid=mPid[1]
     if (match(msg, /Accepted (password|publickey) for ([[:alnum:]_.-]+)/, mAcc)) {
-        acc[pid] = 1
+        acc[pid]=1
     }
-    user = ""
+    user=""
     if (match(msg, /Invalid user[[:space:]]+([[:alnum:]_.-]+)/, mInv)) {
-        user = mInv[1]
-        if (pid!="") fails[pid]++; else fail_na++
-        if (user in w) wl_fail_pid_user[pid ":" user]=1
+        user=mInv[1]
+        if (pid!="") { fails[pid]++ } else { fail_na++ }
+        if (user in w) {
+            if (pid!="") wl_fails[pid]++; else wl_fail_na++
+            wl_fail_pid_user[pid ":" user]=1
+        } else {
+            if (user!="") { if (pid!="") nl_fails[pid]++; else nl_fail_na++ }
+        }
     } else if (match(msg, /Failed (password|publickey) for (invalid user )?([[:alnum:]_.-]+)/, mFail)) {
-        user = mFail[3]
-        if (pid!="") fails[pid]++; else fail_na++
-        if (user in w) wl_fail_pid_user[pid ":" user]=1
-    } else if (msg ~ /authentication failure/) {
-        if (pid!="") fails[pid]++; else fail_na++
-    } else if (msg ~ /kex_exchange_identification/) {
-        if (pid!="") fails[pid]++; else fail_na++
+        user=mFail[3]
+        if (pid!="") { fails[pid]++ } else { fail_na++ }
+        if (user in w) {
+            if (pid!="") wl_fails[pid]++; else wl_fail_na++
+            wl_fail_pid_user[pid ":" user]=1
+        } else {
+            if (user!="") { if (pid!="") nl_fails[pid]++; else nl_fail_na++ }
+        }
+    } else if (msg ~ /authentication failure/ || msg ~ /kex_exchange_identification/) {
+        if (pid!="") { fails[pid]++ } else { fail_na++ }
     }
 }
 END{
     raw = fail_na
-    eff = fail_na
-    for (pp in fails) {
-        raw += fails[pp]
-        if (!(pp in acc)) eff += fails[pp]
-    }
-    sep=""; bad=""
-    for (k in wl_fail_pid_user) {
-        n = split(k, parts, ":"); pidk=parts[1]; userk=parts[2]
-        if (!(pidk in acc) && !(userk in seen)) {
-        bad = bad sep userk; sep=","
-        seen[userk]=1
+    for (pp in fails) raw += fails[pp]
+    wl_eff = 0
+    bad = ""
+    if (allow_set) {
+        wl_eff = wl_fail_na
+        for (pp in wl_fails) if (!(pp in acc)) wl_eff += wl_fails[pp]
+        sep=""
+        for (k in wl_fail_pid_user) {
+            n = split(k, parts, ":"); pidk=parts[1]; userk=parts[2]
+            if (!(pidk in acc) && !(userk in seen)) {
+                bad = bad sep userk; sep=","; seen[userk]=1
+            }
         }
     }
-    print raw ":" eff ":" bad
+    nl_raw = 0
+    for (pp in nl_fails) nl_raw += nl_fails[pp]
+    nl_eff = 0
+    for (pp in nl_fails) if (!(pp in acc)) nl_eff += nl_fails[pp]
+    print raw ":" wl_eff ":" bad ":" nl_raw ":" nl_eff
 }')
-# Parse: raw:eff:bad
+# Parse: raw:wl_eff:bad:nl_raw:nl_eff
 FAIL_RAW=${OUT%%:*}
-TMP=${OUT#*:}
-FAIL_EFF=${TMP%%:*}
-BAD=${TMP#*:}
+REM=${OUT#*:}
+FAIL_EFF=${REM%%:*}
+REM=${REM#*:}
+BAD=${REM%%:*}
+REM=${REM#*:}
+FAIL_OTHER_RAW=${REM%%:*}
+FAIL_OTHER_EFF=${REM#*:}
 <% else -%>
 FAIL_RAW=0
 FAIL_EFF=0
 BAD=""
+FAIL_OTHER_RAW=0
+FAIL_OTHER_EFF=0
 <% end -%>
 
 # Determine state
@@ -198,8 +220,10 @@ EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
 # Create perfdata
 PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
 PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT};;;;"
-PERF_DATA="$PERF_DATA fails=${FAIL_RAW};;;;"
+PERF_DATA="$PERF_DATA fails_raw=${FAIL_RAW};;;;"
 PERF_DATA="$PERF_DATA fails_eff=${FAIL_EFF};;;;"
+PERF_DATA="$PERF_DATA fails_other_raw=${FAIL_OTHER_RAW};;;;"
+PERF_DATA="$PERF_DATA fails_other_eff=${FAIL_OTHER_EFF};;;;"
 PERF_DATA="$PERF_DATA age_crit=$([ "$AGE_CRIT" = true ] && echo 1 || echo 0);;;;"
 
 # Output
