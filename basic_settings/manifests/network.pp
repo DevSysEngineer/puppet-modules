@@ -134,6 +134,7 @@ class basic_settings::network (
       'dnsutils',
       'ethtool',
       'iputils-ping',
+      'lldpd',
       'mtr-tiny',
       'netcat-openbsd',
       'net-tools',
