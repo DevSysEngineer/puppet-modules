@@ -23,21 +23,19 @@ crit() {
     exit 2
 }
 
-# Default thresholds
+# Defaults / thresholds
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
-TIMEFRAME=10       # minutes to look back for auth failures
 MAX_IDLE=5         # minutes: session idle-time ≤ MAX_IDLE ⇒ active
-MAX_AGE=30         # minutes: session age   >  MAX_AGE  ⇒ CRITICAL
+MAX_AGE=30         # minutes: session age > MAX_AGE ⇒ CRITICAL
 STATE_CODE=0
 
 # Parse options
-while getopts 'c:w:t:i:a:' opt; do
+while getopts 'c:w:i:a:' opt; do
     case "$opt" in
         c) CRIT_THRESH="$OPTARG" ;;
         w) WARN_THRESH="$OPTARG" ;;
-        t) TIMEFRAME="$OPTARG" ;;
         i) MAX_IDLE="$OPTARG" ;;
         a) MAX_AGE="$OPTARG" ;;
         *) die "Usage: $0 [-c <crit>] [-w <warn>] [-t <fail-minutes>] [-i <max-idle>] [-a <max-age>]" ;;
@@ -51,7 +49,7 @@ $SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "SSH service is not acti
 $PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
 <% end -%>
 
-# Analyse current SSH sessions
+# Analyze current SSH sessions
 ACTIVE_SESSIONS=0
 AGE_CRIT=false
 NOW_EPOCH=$($DATE +%s)
@@ -63,22 +61,23 @@ WHO_OUTPUT=$($WHO -u)
 # Count zombie sshd processes
 ZOMBIE_COUNT=$($PS -C sshd -o stat= | $AWK '$0 ~ /Z/ {c++} END {print c+0}')
 
+# Parse who(1) output
 while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
-    # Skip users
+    # Skip malformed lines / missing TTY
     if [ -z "$USER" ] || [ ! -e "/dev/$TTY" ]; then
         continue
     fi
 
-    # Check root login
+    # Root session seen via who
     [ "$USER" = "root" ] && ROOT_LOGIN=true
 
-    # Add user to list
+    # Aggregate unique users for message
     case ",$USERS_LIST," in
         *,"$USER",*) ;;
         *) USERS_LIST="${USERS_LIST}${SEP}${USER}"; SEP="," ;;
     esac
 
-    # Determine idle minutes
+    # Determine idle minutes from who(1) IDLE column
     case "$IDLE" in
         '.')    IDLE_MIN=0 ;;
         'old')  IDLE_MIN=$((MAX_IDLE + 1)) ;;
@@ -87,20 +86,19 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
         *)      IDLE_MIN=$((MAX_IDLE + 1)) ;;
     esac
 
-    # PS call
+    # Count processes on TTY; also detect root-owned processes on same TTY
     TTY_PROCS=$($PS -t "$TTY" -o user=)
     PROC_COUNT=$(printf '%s\n' "$TTY_PROCS" | $WC -l)
-
     case "$TTY_PROCS" in
         *root*) ROOT_LOGIN=true ;;
     esac
 
-    # Count sessions
+    # Session considered active if there is at least one process on TTY or IDLE ≤ MAX_IDLE
     if [ "$PROC_COUNT" -ge 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
         ACTIVE_SESSIONS=$((ACTIVE_SESSIONS + 1))
     fi
 
-    # Age check
+    # Age check (CRIT if any session age exceeds MAX_AGE minutes)
     LOGIN_EPOCH=$($DATE -d "$LOGIN_DATE $LOGIN_TIME" +%s 2>/dev/null) || LOGIN_EPOCH=0
     if [ "$LOGIN_EPOCH" -ne 0 ]; then
         AGE_MIN=$(((NOW_EPOCH - LOGIN_EPOCH)/60))
@@ -110,12 +108,11 @@ done <<EOF
 $WHO_OUTPUT
 EOF
 
-# Auth failure detection
+# Auth failure detection (journalctl)
 <% if @systemd_enable -%>
-PAT='Failed password|Failed publickey|Invalid user|authentication failure|kex_exchange_identification|userauth_pubkey'
 OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow_users="$ALLOWED_USERS" '
 BEGIN {
-    # Parse allowlist
+    # Parse allowlist into a map for O(1) lookups
     split(allow_users, a, ","); has_allow=0
     for (i in a) if (a[i]!="") { allow_map[a[i]]=1; has_allow=1 }
 
@@ -127,16 +124,15 @@ BEGIN {
     nl_abort_total=0                   # non-allowlist "auth aborts"
 }
 {
-    # Extract message part and PID (if present)
+    # Extract message part and PID
     idx=index($0, ": "); msg=(idx>0?substr($0, idx+2):$0)
-
     pid=""
     if (match($0,/sshd\[([0-9]+)\]/,mPid)) pid=mPid[1]
 
-    # Mark successful authentications per PID and skip line
+    # Mark successful authentications per PID (skip line)
     if (match(msg,/Accepted (password|publickey) for ([[:alnum:]_.-]+)/,mA)) { accepted_pid[pid]=1; next }
 
-    # Count user-initiated aborts (client closed/reset before auth completes) – NOT failures
+    # User-initiated aborts (client closed/reset before auth completes) – NOT failures
     if (match(msg,/(Connection (closed|reset) by authenticating user|Disconnected from authenticating user)[[:space:]]+([[:alnum:]_.-]+)/,mAb)) {
         user=mAb[3]
         if (user in allow_map) wl_abort_total++; else nl_abort_total++
@@ -170,13 +166,13 @@ END {
     raw_fail_total=fail_no_pid_total
     for (pp in fail_by_pid) raw_fail_total+=fail_by_pid[pp]
 
-    # Allowlist effective failures = failures without a later Accepted for same PID, plus no-PID bucket
-    wl_fail_eff_total=0; bad_users=""
+    # Allowlist unmatched failures = failures without a later Accepted for same PID, plus no-PID bucket
+    wl_fail_unmatched_total=0; bad_users=""
     if (has_allow) {
-        wl_fail_eff_total=wl_fail_no_pid_total
-        for (pp in wl_fail_by_pid) if (!(pp in accepted_pid)) wl_fail_eff_total+=wl_fail_by_pid[pp]
+        wl_fail_unmatched_total=wl_fail_no_pid_total
+        for (pp in wl_fail_by_pid) if (!(pp in accepted_pid)) wl_fail_unmatched_total+=wl_fail_by_pid[pp]
 
-        # Build unique CSV of allowlist users that failed effectively
+        # Build unique list of allowlist users that failed (unmatched)
         sep=""
         for (k in wl_pid_user_flag) {
             n=split(k,parts,":"); pidk=parts[1]; userk=parts[2]
@@ -186,33 +182,36 @@ END {
         }
     }
 
-    # Non-allowlist totals (for noise/scan visibility; no status impact)
+    # Non-allowlist totals (mirror allowlist semantics; no status impact)
+    # RAW = all non-allowlist failures (with and without PID)
     nl_fail_raw_total=nl_fail_no_pid_total
     for (pp in nl_fail_by_pid) nl_fail_raw_total+=nl_fail_by_pid[pp]
 
-    nl_fail_eff_total=nl_fail_no_pid_total
-    for (pp in nl_fail_by_pid) if (!(pp in accepted_pid)) nl_fail_eff_total+=nl_fail_by_pid[pp]
+    # UNMATCHED = failures without a later Accepted for the same PID, plus the no-PID bucket
+    nl_fail_unmatched_total=nl_fail_no_pid_total
+    for (pp in nl_fail_by_pid) if (!(pp in accepted_pid)) nl_fail_unmatched_total+=nl_fail_by_pid[pp]
 
-    # Output fields (keep existing order expected by your parser):
-    # raw : wl_eff : bad : nl_raw : nl_eff : abort_wl : abort_nl
-    print raw_fail_total ":" wl_fail_eff_total ":" bad_users ":" \
-          nl_fail_raw_total ":" nl_fail_eff_total ":" wl_abort_total ":" nl_abort_total
+    # Output fields (order expected by the shell parser):
+    # total : wl_unmatched : bad_wl_users : oth_total : oth_unmatched : abort_wl : abort_oth
+    print raw_fail_total ":" wl_fail_unmatched_total ":" bad_users ":" \
+          nl_fail_raw_total ":" nl_fail_unmatched_total ":" wl_abort_total ":" nl_abort_total
 }
 ')
-# Parse
-FAIL_RAW=${OUT%%:*}; REM=${OUT#*:}
-FAIL_EFF=${REM%%:*}; REM=${REM#*:}
-BAD=${REM%%:*}; REM=${REM#*:}
-FAIL_OTHER_RAW=${REM%%:*}; REM=${REM#*:}
-FAIL_OTHER_EFF=${REM%%:*}; REM=${REM#*:}
-ABORT=${REM%%:*};
-ABORT_OTHER=${REM#*:}
+# Parse new names
+FAIL_TOTAL=${OUT%%:*}; REM=${OUT#*:}
+FAIL_WL_UNMATCHED=${REM%%:*}; REM=${REM#*:}
+BAD_WL_USERS=${REM%%:*}; REM=${REM#*:}
+FAIL_OTH_TOTAL=${REM%%:*}; REM=${REM#*:}
+FAIL_OTH_UNMATCHED=${REM%%:*}; REM=${REM#*:}
+ABORT_WL=${REM%%:*}; ABORT_OTH=${REM#*:}
 <% else -%>
-FAIL_RAW=0
-FAIL_EFF=0
-BAD=""
-FAIL_OTHER_RAW=0
-FAIL_OTHER_EFF=0
+FAIL_TOTAL=0
+FAIL_WL_UNMATCHED=0
+BAD_WL_USERS=""
+FAIL_OTH_TOTAL=0
+FAIL_OTH_UNMATCHED=0
+ABORT_WL=0
+ABORT_OTH=0
 <% end -%>
 
 # Determine state
@@ -224,33 +223,35 @@ elif [ "$ACTIVE_SESSIONS" -ge "$WARN_THRESH" ]; then
     STATE_CODE=1
 fi
 
-# Escalate to WARN if not already WARNING/CRITICAL and we see issues
+# Escalate to WARN if not already WARNING/CRITICAL and we see issues (allowlist only)
 if [ "$STATE_CODE" -lt 1 ]; then
-    if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD" ] || [ "$FAIL_EFF" -gt 0 ]; then
+    if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD_WL_USERS" ] || [ "$FAIL_WL_UNMATCHED" -gt 0 ] ; then
         STATE_CODE=1
     fi
 fi
 
-# Create message
+# Human-readable message
 EXTRA=""
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
 [ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}age> ${MAX_AGE}m, "
-[ -n "$BAD" ] && EXTRA="${EXTRA}failed login for '$BAD', "
-[ "$FAIL_EFF" -gt 0 ] && EXTRA="${EXTRA}${FAIL_EFF} auth fails, "
+[ -n "$BAD_WL_USERS" ] && EXTRA="${EXTRA}failed login for '$BAD_WL_USERS', "
+[ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched fails (allowlist), "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
 [ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
 EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA=" ($EXTRA)"
 
-# Create perfdata
+# Perfdata
 PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
 PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT};;;;"
-PERF_DATA="$PERF_DATA fails_raw=${FAIL_RAW};;;;"
-PERF_DATA="$PERF_DATA fails_eff=${FAIL_EFF};;;;"
-PERF_DATA="$PERF_DATA fails_other_raw=${FAIL_OTHER_RAW};;;;"
-PERF_DATA="$PERF_DATA fails_other_eff=${FAIL_OTHER_EFF};;;;"
+PERF_DATA="$PERF_DATA fail_total=${FAIL_TOTAL};;;;"
+PERF_DATA="$PERF_DATA fail_wl_unmatched=${FAIL_WL_UNMATCHED};;;;"
+PERF_DATA="$PERF_DATA fail_oth_total=${FAIL_OTH_TOTAL};;;;"
+PERF_DATA="$PERF_DATA fail_oth_unmatched=${FAIL_OTH_UNMATCHED};;;;"
+PERF_DATA="$PERF_DATA abort_wl=${ABORT_WL};;;;"
+PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH};;;;"
 PERF_DATA="$PERF_DATA age_crit=$([ "$AGE_CRIT" = true ] && echo 1 || echo 0);;;;"
 
-# Output
+# Output for monitoring
 printf '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
 exit "$STATE_CODE"
