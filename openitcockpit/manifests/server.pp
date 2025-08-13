@@ -5,6 +5,7 @@ class openitcockpit::server (
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
   Optional[String]  $smtp_server              = undef,
+  Array             $webserver_directives     = [],
   Optional[String]  $webserver_uid            = undef,
   Optional[String]  $webserver_gid            = undef,
 ) {
@@ -401,6 +402,16 @@ class openitcockpit::server (
   file { '/etc/nginx/openitc/ssl_cert.conf':
     ensure  => file,
     content => $ssl_content,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => File['/etc/nginx/openitc'],
+  }
+
+  # Create custom config file
+  file { '/etc/nginx/openitc/custom.conf':
+    ensure  => file,
+    content => template('openitcockpit/nginx/custom.conf'),
     owner   => 'root',
     group   => 'root',
     mode    => '0600',
