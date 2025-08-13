@@ -1,4 +1,5 @@
 # Managed by puppet
-configure system description "<%= @environment %> server"
+configure lldp status tx-only
+configure system description "<%= @description_correct %>"
 configure system hostname <%= @server_fdqn %>
 configure system platform "<%= @platform %>"

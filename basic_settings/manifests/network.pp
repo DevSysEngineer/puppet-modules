@@ -2,6 +2,7 @@ class basic_settings::network (
   Enum['nftables','iptables','firewalld']     $firewall_package,
   Optional[String]                            $antivirus_package      = undef,
   Enum['none','netplan.io']                   $configurator_package   = 'none',
+  Optional[String]                            $description            = undef,
   Boolean                                     $dhcp_enable            =  true,
   Enum['allow-downgrade','no']                $dns_dnssec             = 'allow-downgrade',
   Array                                       $dns_fallback           = [
@@ -38,6 +39,14 @@ class basic_settings::network (
     } else {
       $dhcp_enable = false
     }
+  }
+
+  # Get LLDP data
+  $platform = $facts['os']['distro']['description']
+  if ($description == undef) {
+    $description_correct = "${platform} server."
+  } else {
+    $description_correct = "${description}; ${platform} server."
   }
 
   # Default suspicious packages
@@ -469,7 +478,7 @@ class basic_settings::network (
     }
   }
 
-  # Enable auditd service
+  # Enable lldpd service
   service { 'lldpd':
     ensure  => true,
     enable  => true,
@@ -477,7 +486,6 @@ class basic_settings::network (
   }
 
   # Create lldpd config file
-  $platform = $facts['os']['distro']['description']
   file { '/etc/lldpd.conf':
     ensure  => file,
     content => template('basic_settings/network/lldpd'),
