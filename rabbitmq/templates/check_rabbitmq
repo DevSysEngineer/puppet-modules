@@ -107,41 +107,40 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
     TOTAL_MSG=$((TOTAL_MSG + MESSAGES))
     TOTAL_CONSUMERS=$((TOTAL_CONSUMERS + CONSUMERS))
 
-    # Track overall maximum queue depth for perfdata
-    if [ "$MESSAGES" -gt "$MAX_MSG" ]; then MAX_MSG=$MESSAGES; MAX_QUEUE="$QUEUE_NAME"; fi
-
-    # Threshold evaluation
-    if [ "$MESSAGES" -ge "$CRIT" ]; then
-        CRIT_COUNT=$((CRIT_COUNT + 1))
-        if [ "$MESSAGES" -gt "$MAX_MSG_CRIT" ]; then
-            MAX_MSG_CRIT=$MESSAGES
-            MAX_Q_CRIT="$QUEUE_NAME"
+    # Threshold evaluation (ignore queues without consumers)
+    if [ "$CONSUMERS" -gt 0 ]; then
+        if [ "$MESSAGES" -ge "$CRIT" ]; then
+            CRIT_COUNT=$((CRIT_COUNT + 1))
+            if [ "$MESSAGES" -gt "$MAX_MSG_CRIT" ]; then
+                MAX_MSG_CRIT=$MESSAGES
+                MAX_Q_CRIT="$QUEUE_NAME"
+            fi
+            ITEM="$QUEUE_NAME=$MESSAGES"
+            CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
+            CRIT_SHOWN=$((CRIT_SHOWN + 1))
+        elif [ "$MESSAGES" -ge "$WARN" ]; then
+            WARN_COUNT=$((WARN_COUNT + 1))
+            if [ "$MESSAGES" -gt "$MAX_MSG_WARN" ]; then
+                MAX_MSG_WARN=$MESSAGES
+                MAX_Q_WARN="$QUEUE_NAME"
+            fi
+            ITEM="$QUEUE_NAME=$MESSAGES"
+            WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
+            WARN_SHOWN=$((WARN_SHOWN + 1))
         fi
-        ITEM="$QUEUE_NAME=$MESSAGES"
-        CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
-        CRIT_SHOWN=$((CRIT_SHOWN + 1))
-    elif [ "$MESSAGES" -ge "$WARN" ]; then
-        WARN_COUNT=$((WARN_COUNT + 1))
-        if [ "$MESSAGES" -gt "$MAX_MSG_WARN" ]; then
-            MAX_MSG_WARN=$MESSAGES
-            MAX_Q_WARN="$QUEUE_NAME"
-        fi
-        ITEM="$QUEUE_NAME=$MESSAGES"
-        WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
-        WARN_SHOWN=$((WARN_SHOWN + 1))
     fi
 
-  # Queues with messages but no consumers (informational only; does NOT affect status)
-  if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
-    NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
-    if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
-      LARGEST_ORPHAN_MSG=$MESSAGES
-      LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
+    # Queues with messages but no consumers (informational only; no status impact)
+    if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
+        NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
+        if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
+            LARGEST_ORPHAN_MSG=$MESSAGES
+            LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
+        fi
+        ITEM="$QUEUE_NAME=$MESSAGES"
+        ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
+        ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
     fi
-    ITEM="$QUEUE_NAME=$MESSAGES"
-    ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
-    ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
-  fi
 done <<EOF
 $QUEUE_DATA
 EOF
