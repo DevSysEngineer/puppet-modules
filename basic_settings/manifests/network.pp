@@ -48,7 +48,7 @@ class basic_settings::network (
     $lldp_hostname = $lldp_platform.downcase()
     $lldp_fqdn = "${lldp_hostname}.${environment}.server"
   } else {
-    $lldp_hostname = $communication_name.downcase()
+    $lldp_hostname = regsubst($communication_name.downcase, '\s+', '-', 'G')
     $lldp_fqdn = "${communication_name}.${environment}.server"
   }
 
