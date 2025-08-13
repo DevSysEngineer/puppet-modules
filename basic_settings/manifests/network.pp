@@ -1,8 +1,8 @@
 class basic_settings::network (
   Enum['nftables','iptables','firewalld']     $firewall_package,
   Optional[String]                            $antivirus_package      = undef,
+  Optional[String]                            $communication_name     = undef,
   Enum['none','netplan.io']                   $configurator_package   = 'none',
-  Optional[String]                            $description            = undef,
   Boolean                                     $dhcp_enable            =  true,
   Enum['allow-downgrade','no']                $dns_dnssec             = 'allow-downgrade',
   Array                                       $dns_fallback           = [
@@ -42,11 +42,14 @@ class basic_settings::network (
   }
 
   # Get LLDP data
-  $platform = $facts['os']['distro']['description']
-  if ($description == undef) {
-    $description_correct = "${platform} server."
+  $lldp_platform = $facts['os']['name']
+  $lldp_description = "${lldp_platform} ${environment} server"
+  if ($communication_name == undef) {
+    $lldp_hostname = $lldp_platform.downcase()
+    $lldp_fqdn = "${lldp_hostname}.${environment}.server"
   } else {
-    $description_correct = "${description}; ${platform} server."
+    $lldp_hostname = $communication_name.downcase()
+    $lldp_fqdn = "${communication_name}.${environment}.server"
   }
 
   # Default suspicious packages

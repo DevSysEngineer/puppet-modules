@@ -1,5 +1,5 @@
 # Managed by puppet
 configure lldp status tx-only
-configure system description "<%= @description_correct %>"
-configure system hostname <%= @server_fdqn %>
-configure system platform "<%= @platform %>"
+configure system description "<%= @lldp_fqdn %>"
+configure system hostname <%= @lldp_fqdn %>
+configure system platform "<%= @lldp_platform %>"
