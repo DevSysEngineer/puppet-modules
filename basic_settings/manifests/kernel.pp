@@ -15,7 +15,10 @@ class basic_settings::kernel (
   Enum['initramfs','dracut']  $ram_disk_package           = 'initramfs',
   String                      $security_lockdown          = 'integrity',
   String                      $tcp_congestion_control     = 'brr',
-  Integer                     $tcp_fastopen               = 3
+  Integer                     $tcp_fastopen               = 3,
+  Array                       $usb_whitelist              = [],
+  Array                       $usb_expected               = [],
+  Array                       $usb_any_requirements       = [],
 ) {
   # Set variables
   $os_name = $facts['os']['name'];
@@ -25,46 +28,11 @@ class basic_settings::kernel (
     /-generic$/ => 'generic',
     default     => 'other',
   }
-
-  # Install extra packages when Ubuntu
-  case $kernel_type {
-    'generic': {
-      # Install generic kernel
-      package { 'linux-generic':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-      }
-
-      # Remove raspi kernel
-      package { ['linux-raspi', 'linux-image-raspi']:
-        ensure          => purged,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-generic'],
-      }
-
-      # Install generic HWE kernel
-      if ($os_name == 'Ubuntu' and $os_version != '26.04') {
-        package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
-          ensure          => installed,
-          install_options => ['--no-install-recommends', '--no-install-suggests'],
-        }
-      }
-    }
-    'raspi': {
-      # Install raspi kernel
-      package { 'linux-raspi':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-      }
-
-      # Remove generic kernel
-      package { ['linux-generic', 'linux-image-generic*']:
-        ensure          => purged,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-raspi'],
-      }
-    }
-  }
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  $systemd_enable = defined(Package['systemd'])
+  $usb_whitelist_correct = join($usb_whitelist, ' ')
+  $usb_expected_correct = join($usb_expected, ' ')
+  $usb_any_requirements_correct = join($usb_any_requirements, ' ')
 
   # Try to get some settings
   if ($facts['is_virtual']) {
@@ -121,8 +89,48 @@ class basic_settings::kernel (
     }
   }
 
+  # Install extra packages when Ubuntu
+  case $kernel_type {
+    'generic': {
+      # Install generic kernel
+      package { 'linux-generic':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+
+      # Remove raspi kernel
+      package { ['linux-raspi', 'linux-image-raspi']:
+        ensure          => purged,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['linux-generic'],
+      }
+
+      # Install generic HWE kernel
+      if ($os_name == 'Ubuntu' and $os_version != '26.04') {
+        package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      }
+    }
+    'raspi': {
+      # Install raspi kernel
+      package { 'linux-raspi':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+
+      # Remove generic kernel
+      package { ['linux-generic', 'linux-image-generic*']:
+        ensure          => purged,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['linux-raspi'],
+      }
+    }
+  }
+
   # Create group for hugetlb only when hugepages is given
-  if (defined(Package['systemd']) and $hugepages > 0) {
+  if ($systemd_enable and $hugepages > 0) {
     # Set variable 
     $hugepages_shm_group = 7000
 
@@ -578,6 +586,14 @@ class basic_settings::kernel (
       package { $guest_agent_package:
         ensure  => purged,
       }
+    }
+  }
+
+  # Setup monitoring
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'usb':
+      friendly => 'USB',
+      content  => template('basic_settings/monitoring/check_usb'),
     }
   }
 

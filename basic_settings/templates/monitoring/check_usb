@@ -1,0 +1,257 @@
+#!/bin/sh
+# Managed by puppet
+
+die() {
+    echo "$*" >&2
+    exit 3
+}
+
+# Binary checks (only what's used)
+TR=$(command -v tr 2>/dev/null)     || die "tr not available"
+SED=$(command -v sed 2>/dev/null)   || die "sed not available"
+WC=$(command -v wc 2>/dev/null)     || die "wc not available"
+
+# Defaults / state
+EXPECTED_IDS="" # -e: csv of iSerial and/or vendor:product
+EXPECTED_LIST="<%= @usb_expected_correct %>"
+EXPECTED_SERIALS=""
+EXPECTED_VP_IDS=""
+EXPECTED_LIST_MISSING=""
+EXPECTED_PRESENT_COUNT=0
+
+WHITELIST_IDS="" # -w: csv (prefer iSerial; vendor:product allowed)
+WHITELIST_LIST="<%= @usb_whitelist_correct %>"
+WHITELIST_SERIALS=""
+WHITELIST_VP_IDS=""
+WHITELISTED_COUNT=0
+WHITELISTED_DEV_LIST=""
+
+ANYREQ_IDS="" # -a: csv of iSerial and/or vendor:product (at least one must match)
+ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
+ANYREQ_SERIALS=""
+ANYREQ_VP_IDS=""
+ANYREQ_PRESENT_COUNT=0
+ANYREQ_MATCHED_LIST=""
+
+TOTAL_DEV=0
+UNAUTHORIZED_COUNT=0
+UNAUTHORIZED_DEV_LIST=""
+STATUS_CODE=0
+MSG=""
+
+# Parse options
+while getopts "w:e:a" OPT; do
+    case "$OPT" in
+        w) WHITELIST_IDS="$OPTARG" ;;
+        e) EXPECTED_IDS="$OPTARG" ;;
+        a) ANYREQ_IDS="$OPTARG" ;;
+        *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
+    esac
+done
+
+# Normalize CSV -> space-separated lists
+[ -n "$WHITELIST_IDS" ] && WHITELIST_LIST=$(printf '%s' "$WHITELIST_IDS" | $TR ',' ' ') || WHITELIST_LIST=""
+[ -n "$EXPECTED_IDS"  ] && EXPECTED_LIST=$(printf '%s' "$EXPECTED_IDS"  | $TR ',' ' ') || EXPECTED_LIST=""
+[ -n "$ANYREQ_IDS"    ] && ANYREQ_LIST=$(printf '%s' "$ANYREQ_IDS"    | $TR ',' ' ') || ANYREQ_LIST=""
+
+# Split expected into serials vs vendor:product
+for ITEM in $EXPECTED_LIST; do
+    case "$ITEM" in
+        *:*) EXPECTED_VP_IDS="$EXPECTED_VP_IDS $(printf '%s' "$ITEM" | $TR 'A-F' 'a-f')" ;;
+        *)   EXPECTED_SERIALS="$EXPECTED_SERIALS $ITEM" ;;
+    esac
+done
+
+# Split whitelist into serials vs vendor:product
+for ITEM in $WHITELIST_LIST; do
+    case "$ITEM" in
+        *:*) WHITELIST_VP_IDS="$WHITELIST_VP_IDS $(printf '%s' "$ITEM" | $TR 'A-F' 'a-f')" ;;
+        *)   WHITELIST_SERIALS="$WHITELIST_SERIALS $ITEM" ;;
+    esac
+done
+
+# Split any-required into serials vs vendor:product
+for ITEM in $ANYREQ_LIST; do
+    case "$ITEM" in
+        *:*) ANYREQ_VP_IDS="$ANYREQ_VP_IDS $(printf '%s' "$ITEM" | $TR 'A-F' 'a-f')" ;;
+        *)   ANYREQ_SERIALS="$ANYREQ_SERIALS $ITEM" ;;
+    esac
+done
+
+# Enumerate USB devices via sysfs (ignore host controllers vendor 1d6b)
+for DEVPATH in /sys/bus/usb/devices/*; do
+    [ -f "$DEVPATH/idVendor" ] || continue
+
+    VID=$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
+    PID=$(cat "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
+    [ "$VID" = "1d6b" ] && continue  # Linux Foundation root hub (USB host controller)
+
+    TOTAL_DEV=$(( TOTAL_DEV + 1 ))
+
+    SERIAL=$(cat "$DEVPATH/serial" 2>/dev/null)
+    PRODUCT=$(cat "$DEVPATH/product" 2>/dev/null)
+    MANUFACTURER=$(cat "$DEVPATH/manufacturer" 2>/dev/null)
+
+    # Human-friendly name for output
+    DEVNAME=""
+    [ -n "$MANUFACTURER" ] && DEVNAME="$MANUFACTURER"
+    [ -n "$PRODUCT" ] && DEVNAME="$DEVNAME $PRODUCT"
+    DEVNAME=$(printf '%s' "$DEVNAME" | $SED 's/^ //; s/ $//')
+    [ -z "$DEVNAME" ] && DEVNAME="$VID:$PID"
+
+    # Flags
+    IN_EXPECTED=0
+    IN_WHITELIST=0
+
+    # Expected by serial
+    if [ -n "$SERIAL" ]; then
+        for EXP_SER in $EXPECTED_SERIALS; do
+            [ "$SERIAL" = "$EXP_SER" ] && IN_EXPECTED=1 && break
+        done
+    fi
+    # Expected by vendor:product
+    if [ $IN_EXPECTED -eq 0 ]; then
+        for EXP_ID in $EXPECTED_VP_IDS; do
+            [ "$VID:$PID" = "$EXP_ID" ] && IN_EXPECTED=1 && break
+        done
+    fi
+
+    # Whitelist by serial
+    if [ -n "$SERIAL" ]; then
+        for WL_SER in $WHITELIST_SERIALS; do
+            [ "$SERIAL" = "$WL_SER" ] && IN_WHITELIST=1 && break
+        done
+    fi
+    # Whitelist by vendor:product
+    if [ $IN_WHITELIST -eq 0 ]; then
+        for WL_ID in $WHITELIST_VP_IDS; do
+            [ "$VID:$PID" = "$WL_ID" ] && IN_WHITELIST=1 && break
+        done
+    fi
+
+    # Any-required policy: match by serial or vendor:product
+    IN_ANYREQ=0
+    if [ -n "$SERIAL" ]; then
+        for AR_SER in $ANYREQ_SERIALS; do
+            [ "$SERIAL" = "$AR_SER" ] && IN_ANYREQ=1 && break
+        done
+    fi
+    if [ $IN_ANYREQ -eq 0 ]; then
+        for AR_ID in $ANYREQ_VP_IDS; do
+            [ "$VID:$PID" = "$AR_ID" ] && IN_ANYREQ=1 && break
+        done
+    fi
+    if [ $IN_ANYREQ -eq 1 ]; then
+        ANYREQ_PRESENT_COUNT=$(( ANYREQ_PRESENT_COUNT + 1 ))
+        ANYREQ_MATCHED_LIST="$ANYREQ_MATCHED_LIST, $DEVNAME"
+        [ -n "$SERIAL" ] && ANYREQ_MATCHED_LIST="$ANYREQ_MATCHED_LIST (SN: $SERIAL)"
+    fi
+
+    # Tally (expected devices are considered authorized; whitelist counted for visibility)
+    [ $IN_EXPECTED  -eq 1 ] && EXPECTED_PRESENT_COUNT=$(( EXPECTED_PRESENT_COUNT + 1 ))
+    [ $IN_WHITELIST -eq 1 ] && WHITELISTED_COUNT=$(( WHITELISTED_COUNT + 1 ))
+
+    if [ $IN_EXPECTED -eq 0 ] && [ $IN_WHITELIST -eq 0 ]; then
+        UNAUTHORIZED_COUNT=$(( UNAUTHORIZED_COUNT + 1 ))
+        UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST, $DEVNAME"
+        if [ -n "$SERIAL" ]; then
+            UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST (SN: $SERIAL)"
+        else
+            UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST (no serial)"
+        fi
+    fi
+
+    if [ $IN_WHITELIST -eq 1 ]; then
+        WHITELISTED_DEV_LIST="$WHITELISTED_DEV_LIST, $DEVNAME"
+        [ -n "$SERIAL" ] && WHITELISTED_DEV_LIST="$WHITELISTED_DEV_LIST (SN: $SERIAL)"
+    fi
+done
+
+# Check which expected entries are missing (serial-based)
+for EXP in $EXPECTED_SERIALS; do
+    FOUND=0
+    for DEVPATH in /sys/bus/usb/devices/*; do
+        [ -f "$DEVPATH/idVendor" ] || continue
+        [ "$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
+        SERIAL=$(cat "$DEVPATH/serial" 2>/dev/null)
+        [ -n "$SERIAL" ] && [ "$SERIAL" = "$EXP" ] && FOUND=1 && break
+    done
+    [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"
+done
+
+# Check which expected entries are missing (vendor:product-based)
+for EXP in $EXPECTED_VP_IDS; do
+    FOUND=0
+    for DEVPATH in /sys/bus/usb/devices/*; do
+        [ -f "$DEVPATH/idVendor" ] || continue
+        [ "$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
+        VID=$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
+        PID=$(cat "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
+        [ "$VID:$PID" = "$EXP" ] && FOUND=1 && break
+    done
+    [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"
+done
+
+# Trim leading comma+space
+WHITELISTED_DEV_LIST=$(printf '%s' "$WHITELISTED_DEV_LIST"   | $SED 's/^, //')
+UNAUTHORIZED_DEV_LIST=$(printf '%s' "$UNAUTHORIZED_DEV_LIST" | $SED 's/^, //')
+EXPECTED_LIST_MISSING=$(printf '%s' "$EXPECTED_LIST_MISSING" | $SED 's/^, //')
+ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST" | $SED 's/^, //')
+
+# Compose status and message for expected/unauthorized
+if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ -n "$EXPECTED_LIST_MISSING" ]; then
+    STATUS_CODE=2
+    [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="Unauthorized USB device(s) detected: $UNAUTHORIZED_DEV_LIST"
+    [ -n "$EXPECTED_LIST_MISSING" ] && MSG="${MSG} Expected USB device(s) missing: $EXPECTED_LIST_MISSING"
+else
+    if [ -n "$EXPECTED_LIST" ]; then
+        MSG="All expected USB device(s) present"
+    else
+        MSG="No unauthorized USB devices detected"
+    fi
+fi
+
+# Any-required policy evaluation
+ANYREQ_TOTAL_COUNT=0
+[ -n "$ANYREQ_SERIALS" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_SERIALS" | $WC -w) ))
+[ -n "$ANYREQ_VP_IDS" ]   && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_VP_IDS"   | $WC -w) ))
+
+if [ "$ANYREQ_TOTAL_COUNT" -gt 0 ] && [ "$ANYREQ_PRESENT_COUNT" -eq 0 ]; then
+    STATUS_CODE=2
+    if [ -n "$MSG" ]; then
+        MSG="$MSG Any-required policy not met (none present from provided list)."
+    else
+        MSG="Any-required policy not met (none present from provided list)."
+    fi
+fi
+
+# Add informative tails
+[ -n "$ANYREQ_MATCHED_LIST" ]  && MSG="$MSG Any-required matched: $ANYREQ_MATCHED_LIST."
+[ -n "$WHITELISTED_DEV_LIST" ] && MSG="$MSG Whitelisted attached: $WHITELISTED_DEV_LIST."
+
+# Count expected total items (for perfdata)
+EXPECTED_TOTAL_COUNT=0
+[ -n "$EXPECTED_SERIALS" ] && EXPECTED_TOTAL_COUNT=$(( EXPECTED_TOTAL_COUNT + $(printf '%s\n' "$EXPECTED_SERIALS" | $WC -w) ))
+[ -n "$EXPECTED_VP_IDS" ] && EXPECTED_TOTAL_COUNT=$(( EXPECTED_TOTAL_COUNT + $(printf '%s\n' "$EXPECTED_VP_IDS" | $WC -w) ))
+
+# Any-required OK flag (1 if satisfied or not configured, else 0)
+ANYREQ_OK=1
+if [ "$ANYREQ_TOTAL_COUNT" -gt 0 ] && [ "$ANYREQ_PRESENT_COUNT" -eq 0 ]; then
+    ANYREQ_OK=0
+fi
+
+# Create perf data (Nagios format; warn/crit/min/max as needed)
+PERF="usb_total=${TOTAL_DEV}"
+PERF="$PERF expected_present=${EXPECTED_PRESENT_COUNT}"
+PERF="$PERF expected_missing=$(( EXPECTED_TOTAL_COUNT - EXPECTED_PRESENT_COUNT ))"
+PERF="$PERF whitelisted_present=${WHITELISTED_COUNT}"
+# Critical if >=1 unauthorized present (warn empty, crit=1)
+PERF="$PERF unauthorized_count=${UNAUTHORIZED_COUNT};;1"
+# Any-required metrics
+PERF="$PERF any_required_total=${ANYREQ_TOTAL_COUNT}"
+PERF="$PERF any_required_present=${ANYREQ_PRESENT_COUNT}"
+PERF="$PERF any_required_ok=${ANYREQ_OK}"
+
+# Show output
+printf '%s | %s\n' "$MSG" "$PERF"
+exit $STATUS_CODE

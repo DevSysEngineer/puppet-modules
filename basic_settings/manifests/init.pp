@@ -73,6 +73,9 @@ class basic_settings (
     'php*',
     'rabbitmq-server',
   ],
+  Array                                 $usb_whitelist                              = [],
+  Array                                 $usb_expected                               = [],
+  Array                                 $usb_any_requirements                       = [],
   Boolean                               $wireless_enable                            = false,
   Boolean                               $voxpupuli_enable                           = false
 ) {
@@ -508,7 +511,10 @@ class basic_settings (
     ram_disk_package        => $kernel_ram_disk_package_correct,
     security_lockdown       => $kernel_security_lockdown,
     tcp_congestion_control  => $kernel_tcp_congestion_control,
-    tcp_fastopen            => $kernel_tcp_fastopen
+    tcp_fastopen            => $kernel_tcp_fastopen,
+    usb_whitelist           => $usb_whitelist,
+    usb_expected            => $usb_expected,
+    usb_any_requirements    => $usb_any_requirements
   }
 
   # Set network
