@@ -239,7 +239,7 @@ EXTRA=""
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
 [ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
 EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
-[ -n "$EXTRA" ] && EXTRA=" ($EXTRA)"
+[ -n "$EXTRA" ] && EXTRA="; $EXTRA"
 
 # Perfdata
 PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
