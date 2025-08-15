@@ -218,7 +218,7 @@ done
 WHITELISTED_DEV_LIST=$(printf '%s' "$WHITELISTED_DEV_LIST" | $SED 's/^, //')
 UNAUTHORIZED_DEV_LIST=$(printf '%s' "$UNAUTHORIZED_DEV_LIST" | $SED 's/^, //')
 EXPECTED_LIST_MISSING=$(printf '%s' "$EXPECTED_LIST_MISSING" | $SED 's/^, //')
-ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST"m| $SED 's/^, //')
+ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST" | $SED 's/^, //')
 
 # Status/message for expected/unauthorized
 if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ -n "$EXPECTED_LIST_MISSING" ]; then
