@@ -126,7 +126,7 @@ FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
 
 <% if @systemd_enable -%>
 NOW=$($DATE +%s)
-BTIME=$(awk '/btime/ {print $2}' /proc/stat 2>/dev/null)
+BTIME=$($AWK '/btime/ {print $2}' /proc/stat 2>/dev/null)
 if [ -n "$BTIME" ]; then
     BOOT_AGE=$(( NOW - BTIME ))
     if [ "$BOOT_AGE" -lt 86400 ]; then
