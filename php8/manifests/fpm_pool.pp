@@ -13,7 +13,7 @@ define php8::fpm_pool (
   String              $pm_procidle_timeout    = '10s',
   Integer             $pm_max_requests        = 0
 ) {
-  if (defined(Class['php::fpm'])) {
+  if (defined(Class['php8::fpm'])) {
     # Set variables from parent
     $minor_version = $php8::minor_version
     $skip_default_files = $php8::skip_default_files
