@@ -597,31 +597,28 @@ class basic_settings::kernel (
     }
   }
 
-  # Setup audit rules
-  if (defined(Package['auditd'])) {
-    # Create kernel rules
-    basic_settings::security_audit { 'kernel':
-      rules                    => [
-        '# Injection',
-        '# These rules watch for code injection by the ptrace facility.',
-        '# This could indicate someone trying to do something bad or just debugging',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
-        '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
-      ],
-      rule_suspicious_packages => $suspicious_packages,
-      order                    => 15,
-    }
+  # Create kernel rules
+  basic_settings::security_audit { 'kernel':
+    rules                    => [
+      '# Injection',
+      '# These rules watch for code injection by the ptrace facility.',
+      '# This could indicate someone trying to do something bad or just debugging',
+      '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
+      '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
+      '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
+      '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
+      '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
+      '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
+      '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
+      '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
+    ],
+    rule_suspicious_packages => $suspicious_packages,
+    order                    => 15,
+  }
 
-    # Ignore current working directory records
-    basic_settings::security_audit { 'kernel-cwd':
-      rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
-      order => 1,
-    }
+  # Ignore current working directory records
+  basic_settings::security_audit { 'kernel-cwd':
+    rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
+    order => 1,
   }
 }

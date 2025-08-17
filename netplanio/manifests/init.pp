@@ -40,13 +40,11 @@ class netplanio (
   }
 
   # Setup audit rules
-  if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'netplanio':
-      rules => [
-        '-a always,exit -F arch=b32 -F path=/etc/netplan -F perm=wa -F key=netplanio',
-        '-a always,exit -F arch=b64 -F path=/etc/netplan -F perm=wa -F key=netplanio',
-      ],
-      order => 20,
-    }
+  basic_settings::security_audit { 'netplanio':
+    rules => [
+      '-a always,exit -F arch=b32 -F path=/etc/netplan -F perm=wa -F key=netplanio',
+      '-a always,exit -F arch=b64 -F path=/etc/netplan -F perm=wa -F key=netplanio',
+    ],
+    order => 20,
   }
 }

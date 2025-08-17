@@ -69,11 +69,9 @@ class mysql (
     }
 
     # Setup audit rules
-    if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'mysql':
-        rule_suspicious_packages => $suspicious_packages,
-        rule_options             => ['-F auid!=unset'],
-      }
+    basic_settings::security_audit { 'mysql':
+      rule_suspicious_packages => $suspicious_packages,
+      rule_options             => ['-F auid!=unset'],
     }
 
     # Enable hugepages

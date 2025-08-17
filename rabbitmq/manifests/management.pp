@@ -141,10 +141,8 @@ class rabbitmq::management (
   }
 
   # Setup audit rules
-  if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'rabbitmq_management':
-      rule_suspicious_packages => $suspicious_packages,
-      rule_options             => ['-F auid!=unset'],
-    }
+  basic_settings::security_audit { 'rabbitmq_management':
+    rule_suspicious_packages => $suspicious_packages,
+    rule_options             => ['-F auid!=unset'],
   }
 }

@@ -68,6 +68,9 @@ class basic_settings::network (
     '/usr/sbin/route',
     '/usr/sbin/traceroute',
   ]
+  $default_packages_root = [
+    '/usr/bin/ip',
+  ]
 
   # Based on firewall package do special commands
   case $firewall_package { #lint:ignore:case_without_default
@@ -89,6 +92,7 @@ class basic_settings::network (
 
       # Create list of packages that is suspicious
       $suspicious_packages = flatten($default_packages, ['/usr/sbin/nft'])
+      $suspicious_packages_root = flatten($default_packages_root, ['/usr/sbin/nft'])
     }
     'iptables': {
       $firewall_command = "iptables-restore < ${firewall_path}"
@@ -100,6 +104,7 @@ class basic_settings::network (
 
       # Create list of packages that is suspicious
       $suspicious_packages = flatten($default_packages, ['/usr/sbin/iptables'])
+      $suspicious_packages_root = $default_packages_root
     }
     'firewalld': {
       $firewall_command = ''
@@ -117,6 +122,7 @@ class basic_settings::network (
 
           # Create list of packages that is suspicious
           $suspicious_packages = flatten($default_packages, ['/usr/bin/firewall-cmd', '/usr/sbin/nft'])
+          $suspicious_packages_root = $default_packages_root
         }
         default:  {
           if ($firewall_remove) {
@@ -127,6 +133,7 @@ class basic_settings::network (
 
           # Create list of packages that is suspicious
           $suspicious_packages = flatten($default_packages, ['/usr/bin/firewall-cmd'])
+          $suspicious_packages_root = $default_packages_root
         }
       }
     }
@@ -500,17 +507,15 @@ class basic_settings::network (
   }
 
   # Setup audit rules
-  if (defined(Package['auditd'])) {
-    $suspicious_filter = delete($suspicious_packages, '/usr/bin/ip')
-    basic_settings::security_audit { 'network':
-      rules                    => $networkd_rules,
-      rule_suspicious_packages => $suspicious_filter,
-      order                    => 20,
-    }
-    basic_settings::security_audit { 'network-root':
-      rule_suspicious_packages => delete($suspicious_packages, $suspicious_filter),
-      rule_options             => ['-F auid!=unset'],
-      order                    => 20,
-    }
+  $suspicious_filter = $suspicious_packages - $suspicious_packages_root
+  basic_settings::security_audit { 'network':
+    rules                    => $networkd_rules,
+    rule_suspicious_packages => $suspicious_filter,
+    order                    => 20,
+  }
+  basic_settings::security_audit { 'network-root':
+    rule_suspicious_packages => $suspicious_packages_root,
+    rule_options             => ['-F auid!=unset'],
+    order                    => 20,
   }
 }

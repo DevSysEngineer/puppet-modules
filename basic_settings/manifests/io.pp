@@ -118,16 +118,14 @@ class basic_settings::io (
   }
 
   # Setup audit rules
-  if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'logrotate':
-      rules => [
-        '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
-        '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
-      ],
-      order => 2,
-    }
-    basic_settings::security_audit { 'io':
-      rule_suspicious_packages    => $suspicious_packages,
-    }
+  basic_settings::security_audit { 'logrotate':
+    rules => [
+      '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
+      '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
+    ],
+    order => 2,
+  }
+  basic_settings::security_audit { 'io':
+    rule_suspicious_packages    => $suspicious_packages,
   }
 }

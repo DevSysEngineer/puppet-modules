@@ -341,19 +341,17 @@ class basic_settings::puppet (
     }
 
     # Setup audit rules
-    if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'puppet':
-        rules => [
-          "-a always,exit -F arch=b32 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
-          "-a always,exit -F arch=b64 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
-          "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
-          "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
-          "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
-          "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
-        ],
-      }
+    basic_settings::security_audit { 'puppet':
+      rules => [
+        "-a always,exit -F arch=b32 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
+        "-a always,exit -F arch=b64 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
+        "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
+        "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
+        "-a always,exit -F arch=b32 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
+        "-a always,exit -F arch=b64 -F path=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
+      ],
     }
-  } elsif (defined(Package['auditd'])) {
+  } else {
     basic_settings::security_audit { 'puppet':
       rules => [
         "-a always,exit -F arch=b32 -F path=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",

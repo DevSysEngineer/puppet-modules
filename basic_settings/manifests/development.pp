@@ -58,9 +58,7 @@ class basic_settings::development (
   }
 
   # Setup audit rules
-  if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'development':
-      rule_suspicious_packages => $suspicious_packages,
-    }
+  basic_settings::security_audit { 'development':
+    rule_suspicious_packages => $suspicious_packages,
   }
 }

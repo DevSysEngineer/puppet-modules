@@ -143,6 +143,15 @@ class openitcockpit::agent (
       }
     }
 
+    # Setup security audit rules
+    basic_settings::security_audit { 'logrotate':
+      rules => [
+        '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+        '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+      ],
+      order => 2,
+    }
+
     # Create root directory
     file { 'monitoring_location':
       ensure => directory,
