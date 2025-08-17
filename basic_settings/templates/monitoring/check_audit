@@ -62,7 +62,7 @@ KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
 
 # Check if we have any events
 if [ "$ACCT" -eq 0 ] || [ "$ANOM" -eq 0 ] || [ "$CFG" -eq 0 ] || [ "$FAIL" -eq 0 ] || [ "$KEYS" -eq 0 ]; then
-    MSG="Strange behavior observed"
+    MSG="Strange audit behavior observed"
     STATE_CODE=2
 fi
 
