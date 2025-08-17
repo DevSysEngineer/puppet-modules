@@ -3,7 +3,7 @@ class php8::fpm (
   Hash                $ini_settings   = {},
   Optional[String]    $pidfile        = undef
 ) {
-  if (defined(Class['php'])) {
+  if (defined(Class['php8'])) {
     # Merge given init settings with default settings
     if (defined(Class['basic_settings::timezone'])) {
       $correct_ini_settings = stdlib::merge({
