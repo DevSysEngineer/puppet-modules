@@ -117,15 +117,6 @@ class basic_settings::monitoring (
             require => Package['openitcockpit-agent'],
           }
         }
-
-        # Setup security audit rules
-        basic_settings::security_audit { 'monitoring':
-          rules => [
-            '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-            '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-          ],
-          order => 2,
-        }
       }
 
       # Create root directory

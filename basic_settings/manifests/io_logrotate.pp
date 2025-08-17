@@ -13,6 +13,14 @@ define basic_settings::io_logrotate (
   Boolean                             $skip_empty     = true,
   Boolean                             $skip_missing   = true,
 ) {
+  # Check if logrotate package is not defined
+  if (!defined(Package['logrotate'])) {
+    package { 'logrotate':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Check if this dir is not already managed by puppet
   if (!defined(File['/etc/logrotate.d'])) {
     file { '/etc/logrotate.d':
