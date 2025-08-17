@@ -29,7 +29,7 @@ define basic_settings::systemd_drop_in (
       owner   => 'root',
       group   => 'root',
       mode    => '0755', # See issue https://github.com/systemd/systemd/issues/770
-      rquire  => Package['systemd'],
+      require => Package['systemd'],
     }
   }
 
