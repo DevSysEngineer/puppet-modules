@@ -7,8 +7,16 @@ class basic_settings::security (
   $systemd_enable = defined(Package['systemd'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
+  # Check if auditd package is not defined
+  if (!defined(Package['auditd'])) {
+    package { 'auditd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Install default security packages
-  package { ['apparmor', 'auditd', 'pwgen']:
+  package { ['apparmor', 'pwgen']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -64,7 +72,6 @@ class basic_settings::security (
   # Create service check
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_service { 'apparmor': }
-    basic_settings::monitoring_service { 'auditd': }
   }
 
   # Create auditd config file */
@@ -78,12 +85,14 @@ class basic_settings::security (
   }
 
   # Create rules dir
-  file { '/etc/audit/rules.d':
-    ensure  => directory,
-    recurse => true,
-    force   => true,
-    purge   => true,
-    mode    => '0700',
+  if (!defined(File['/etc/audit/rules.d'])) {
+    file { '/etc/audit/rules.d':
+      ensure  => directory,
+      recurse => true,
+      force   => true,
+      purge   => true,
+      mode    => '0700',
+    }
   }
 
   # Create default audit rule file */
