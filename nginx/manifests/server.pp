@@ -217,6 +217,6 @@ define nginx::server (
       }
     }
   } else {
-    fail('The netplanio class must be included before using the netplanio::wifi defined type.')
+    fail('The nginx class must be included before using the nginx::server defined type.')
   }
 }

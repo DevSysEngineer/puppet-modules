@@ -50,12 +50,34 @@ $SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
 $PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
+# Get audit report
+SUM=$($AUREPORT --summary -ts today 00:00:00 --end now 2>/dev/null)
+get(){ printf "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
+ACCT=$(get "Number of changes to accounts, groups, or roles:"); : "${ACCT:=0}"
+ANOM=$(get "Number of anomaly events:"); : "${ANOM:=0}"
+CFG=$(get "Number of changes in configuration:"); : "${CFG:=0}"
+FAIL=$(get "Number of failed syscalls:"); : "${FAIL:=0}"
+FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
+KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
+
+# Check if we have any events
+if [ "$ACCT" -eq 0 ] || [ "$ANOM" -eq 0 ] || [ "$CFG" -eq 0 ] || [ "$FAIL" -eq 0 ] || [ "$KEYS" -eq 0 ]; then
+    MSG="Strange behavior observed"
+    STATE_CODE=2
+fi
+
+<% if @systemd_enable -%>
 # Check if we have error since boot
 ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -c 'Error')
 if [ "$ERROR_COUNT" -gt 0 ]; then
-    MSG="$MSG, but started with error since boot"
+    if [ $STATE_CODE -lt 2 ]; then
+        MSG="$MSG, but was started with an error since boot"
+    else
+        MSG="$MSG and started with an error since boot"
+    fi
     STATE_CODE=2
 fi
+<% end -%>
 
 # Get audit rules
 RULES_COUNT=$($AUDITCTL -l 2>/dev/null | $GREP '^-' | $AWK 'END{print NR+0}')
@@ -91,40 +113,7 @@ else
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 
-# Get audit report
-TODAY="$($DATE '+%Y-%m-%d 00:00:00')"
-SUM=$($AUREPORT --summary --start "$TODAY" --end now 2>/dev/null)
-get(){ printf "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
-
-# Get values from report
-CFG=$(get "Number of changes in configuration:"); : "${CFG:=0}"
-if [ "$CFG" -gt 0 ]; then
-    MSG="$MSG, cfg_changes $CFG"
-    STATE_CODE=2
-fi
-
-ACCT=$(get "Number of changes to accounts, groups, or roles:"); : "${ACCT:=0}"
-if [ "$ACCT" -gt 0 ]; then
-    MSG="$MSG, acct_changes $ACCT"
-    STATE_CODE=2
-fi
-
-FAIL=$(get "Number of failed syscalls:"); : "${FAIL:=0}"
-if [ "$FAIL" -gt 0 ]; then
-    MSG="$MSG, failed_syscalls $FAIL"
-    STATE_CODE=2
-fi
-
-ANOM=$(get "Number of anomaly events:"); : "${ANOM:=0}"
-if [ "$ANOM" -gt 0 ]; then
-    MSG="$MSG, anomaly_events $ANOM"
-    STATE_CODE=2
-fi
-
-# Performances data
-FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
-
-<% if @systemd_enable -%>
+# Check for boot time
 NOW=$($DATE +%s)
 BTIME=$($AWK '/btime/ {print $2}' /proc/stat 2>/dev/null)
 if [ -n "$BTIME" ]; then
@@ -143,6 +132,7 @@ elif [ -r /proc/uptime ]; then
     fi
 fi
 
+<% if @systemd_enable -%>
 # Kernel change detection (previous boot)
 UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
 if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
@@ -178,6 +168,7 @@ PERF="$PERF errors=${ERROR_COUNT};;1"
 PERF="$PERF events_per_sec=${EVENT_RESULT}"
 PERF="$PERF failed_auth=${FAILED_AUTH}"
 PERF="$PERF failed_syscalls=${FAIL};;1"
+PERF="$PERF keys=${KEYS};;1"
 PERF="$PERF rules=${RULES_COUNT};;0;0"
 PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 
