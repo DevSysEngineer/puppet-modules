@@ -30,6 +30,7 @@ define basic_settings::security_audit (
       force   => true,
       purge   => true,
       mode    => '0700',
+      require => Package['auditd'],
     }
   }
 

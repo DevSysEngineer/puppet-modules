@@ -11,6 +11,15 @@ define basic_settings::systemd_service (
   Hash                      $service              = {},
   Hash                      $unit                 = {},
 ) {
+  # Check if systemd package is not defined
+  if (!defined(Package['systemd'])) {
+    package { 'systemd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Create systemd service file
   file { "/etc/systemd/system/${title}.service":
     ensure  => $ensure,
     content => template('basic_settings/systemd/service'),
@@ -20,6 +29,7 @@ define basic_settings::systemd_service (
     notify  => Exec[$daemon_reload],
     require => Package['systemd'],
   }
+
   # Set service
   if ($ensure == present) {
     # Enable service

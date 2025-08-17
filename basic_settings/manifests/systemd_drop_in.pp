@@ -11,6 +11,14 @@ define basic_settings::systemd_drop_in (
   Hash                      $timer              = {},
   Hash                      $unit               = {}
 ) {
+  # Check if systemd package is not defined
+  if (!defined(Package['systemd'])) {
+    package { 'systemd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Check if this dir is not already managed by puppet
   if (!defined(File["${path}/${target_unit}.d"])) {
     file { "${path}/${target_unit}.d":
@@ -21,6 +29,7 @@ define basic_settings::systemd_drop_in (
       owner   => 'root',
       group   => 'root',
       mode    => '0755', # See issue https://github.com/systemd/systemd/issues/770
+      rquire  => Package['systemd'],
     }
   }
 
@@ -33,7 +42,8 @@ define basic_settings::systemd_drop_in (
       replace => false,
       owner   => 'root',
       group   => 'root',
-      mode    => '0644' # See issue https://github.com/systemd/systemd/issues/770
+      mode    => '0644', # See issue https://github.com/systemd/systemd/issues/770
+      require => Package['systemd'],
     }
   }
 

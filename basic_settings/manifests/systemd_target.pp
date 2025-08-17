@@ -7,6 +7,15 @@ define basic_settings::systemd_target (
   Hash                      $unit                   = {},
   Hash                      $install                = {}
 ) {
+  # Check if systemd package is not defined
+  if (!defined(Package['systemd'])) {
+    package { 'systemd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Create systemd target file
   file { "/etc/systemd/system/${title}.target":
     ensure  => $ensure,
     content => template('basic_settings/systemd/target'),

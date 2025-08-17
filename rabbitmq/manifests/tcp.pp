@@ -21,23 +21,27 @@ class rabbitmq::tcp (
     'ECDHE-RSA-CHACHA20-POLY1305',
   ]
 ) {
-  # Check if all cert variables are given
-  if ($ssl_ca_certificate != undef and $ssl_certificate != undef and $ssl_certificate_key != undef) {
-    $tls_allow = true
-    $tcp_enable_correct = $tcp_enable
-  } else {
-    $tls_allow = false
-    $tcp_enable_correct = true
-  }
+  if (defined(Class['rabbitmq'])) {
+    # Check if all cert variables are given
+    if ($ssl_ca_certificate != undef and $ssl_certificate != undef and $ssl_certificate_key != undef) {
+      $tls_allow = true
+      $tcp_enable_correct = $tcp_enable
+    } else {
+      $tls_allow = false
+      $tcp_enable_correct = true
+    }
 
-  # Create management config file
-  file { '/etc/rabbitmq/conf.d/tcp.conf':
-    ensure  => file,
-    content => template('rabbitmq/tcp.conf'),
-    owner   => 'rabbitmq',
-    group   => 'rabbitmq',
-    mode    => '0600',
-    notify  => Service['rabbitmq-server'],
-    require => File['rabbitmq_config_dir'],
+    # Create management config file
+    file { '/etc/rabbitmq/conf.d/tcp.conf':
+      ensure  => file,
+      content => template('rabbitmq/tcp.conf'),
+      owner   => 'rabbitmq',
+      group   => 'rabbitmq',
+      mode    => '0600',
+      notify  => Service['rabbitmq-server'],
+      require => File['rabbitmq_config_dir'],
+    }
+  } else {
+    fail('The rabbitmq class must be included before using the rabbitmq::tcp class type.')
   }
 }

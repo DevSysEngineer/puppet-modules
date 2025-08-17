@@ -12,6 +12,14 @@ define basic_settings::systemd_timer (
   Hash                                  $timer                = {},
   Hash                                  $unit                 = {},
 ) {
+  # Check if systemd package is not defined
+  if (!defined(Package['systemd'])) {
+    package { 'systemd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Create timer file
   file { "/etc/systemd/system/${title}.timer":
     ensure  => $ensure,

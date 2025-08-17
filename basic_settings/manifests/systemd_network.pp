@@ -5,6 +5,15 @@ define basic_settings::systemd_network (
   Hash                      $ipv6_accept_ra = {},
   Hash                      $network        = {},
 ) {
+  # Check if systemd package is not defined
+  if (!defined(Package['systemd'])) {
+    package { 'systemd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Create netwotk config
   file { "/etc/systemd/network/${title}.network":
     ensure  => $ensure,
     content => template('basic_settings/systemd/network'),
