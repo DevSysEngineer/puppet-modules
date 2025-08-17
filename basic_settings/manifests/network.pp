@@ -70,6 +70,9 @@ class basic_settings::network (
   ]
   $default_packages_root = [
     '/usr/bin/ip',
+    '/usr/bin/ping',
+    '/usr/bin/ping4',
+    '/usr/bin/ping6',
   ]
 
   # Based on firewall package do special commands
