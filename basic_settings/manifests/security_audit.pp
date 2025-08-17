@@ -5,17 +5,20 @@ define basic_settings::security_audit (
   Array                     $rule_suspicious_packages   = [],
   Array                     $rules                      = []
 ) {
+  # Check if auditd package is not defined
+  if (!defined(Package['auditd'])) {
+    package { 'auditd':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
   # Enable auditd service
   if (!defined(Service['auditd'])) {
     service { 'auditd':
       ensure  => true,
       enable  => true,
       require => Package['auditd'],
-    }
-
-    # Create service check
-    if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'auditd': }
     }
   }
 

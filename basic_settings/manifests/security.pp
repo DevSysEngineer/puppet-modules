@@ -21,10 +21,12 @@ class basic_settings::security (
   }
 
   # Enable auditd service
-  service { 'auditd':
-    ensure  => true,
-    enable  => true,
-    require => Package['auditd'],
+  if (!defined(Service['auditd'])) {
+    service { 'auditd':
+      ensure  => true,
+      enable  => true,
+      require => Package['auditd'],
+    }
   }
 
   # Setup monitoring
