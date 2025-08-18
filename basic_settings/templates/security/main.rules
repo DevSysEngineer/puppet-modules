@@ -23,7 +23,7 @@
 -a always,exit -F arch=b64 -F path=/usr/sbin/auditctl -F perm=x -F auid!=unset -F key=audit_tools
 -a always,exit -F arch=b32 -F path=/usr/sbin/auditd -F perm=x -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/auditd -F perm=x -F key=audit_tools
--a always,exit -F arch=b32 -F path=/usr/sbin/augenrules -F perm=x -F auid!=unset-F key=audit_tools
+-a always,exit -F arch=b32 -F path=/usr/sbin/augenrules -F perm=x -F auid!=unset -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/augenrules -F perm=x -F auid!=unset -F key=audit_tools
 -a always,exit -F arch=b32 -F path=/usr/sbin/aulastlog -F perm=x -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/aulastlog -F perm=x -F key=audit_tools
