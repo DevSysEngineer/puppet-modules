@@ -5,7 +5,12 @@ class basic_settings::io (
   Boolean $nfs_server_enable = false
 ) {
   # Create list of packages that is suspicious
-  $suspicious_packages = ['/usr/bin/rsync']
+  $default_packages = [
+    '/usr/bin/rsync',
+    '/usr/sbin/fdisk',
+    '/usr/sbin/parted',
+    '/usr/bin/lsblk',
+  ]
 
   # Install default development packages
   package { ['fuse', 'logrotate', 'pbzip2', 'pigz', 'rsync', 'unzip', 'xz-utils']:
@@ -20,14 +25,67 @@ class basic_settings::io (
 
   # Check if we need LVM
   if ($lvm_enable) {
+    # Install LVM2 package
     package { 'lvm2':
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
+
+    # Set suspicious packages
+    $suspicious_packages = flatten($default_packages, [
+        '/usr/sbin/fsadm',
+        '/usr/sbin/lvchange',
+        '/usr/sbin/lvconvert',
+        '/usr/sbin/lvcreate',
+        '/usr/sbin/lvdisplay',
+        '/usr/sbin/lvextend',
+        '/usr/sbin/lvm',
+        '/usr/sbin/lvmconfig',
+        '/usr/sbin/lvmdiskscan',
+        '/usr/sbin/lvmdump',
+        '/usr/sbin/lvmpolld',
+        '/usr/sbin/lvmsadc',
+        '/usr/sbin/lvmsar',
+        '/usr/sbin/lvreduce',
+        '/usr/sbin/lvremove',
+        '/usr/sbin/lvrename',
+        '/usr/sbin/lvresize',
+        '/usr/sbin/lvs',
+        '/usr/sbin/lvscan',
+        '/usr/sbin/pvchange',
+        '/usr/sbin/pvck',
+        '/usr/sbin/pvcreate',
+        '/usr/sbin/pvdisplay',
+        '/usr/sbin/pvmove',
+        '/usr/sbin/pvremove',
+        '/usr/sbin/pvresize',
+        '/usr/sbin/pvs',
+        '/usr/sbin/pvscan',
+        '/usr/sbin/vgcfgbackup',
+        '/usr/sbin/vgcfgrestore',
+        '/usr/sbin/vgchange',
+        '/usr/sbin/vgck',
+        '/usr/sbin/vgconvert',
+        '/usr/sbin/vgcreate',
+        '/usr/sbin/vgdisplay',
+        '/usr/sbin/vgexport',
+        '/usr/sbin/vgextend',
+        '/usr/sbin/vgimport',
+        '/usr/sbin/vgimportclone',
+        '/usr/sbin/vgmerge',
+        '/usr/sbin/vgmknodes',
+        '/usr/sbin/vgreduce',
+        '/usr/sbin/vgremove',
+        '/usr/sbin/vgrename',
+        '/usr/sbin/vgs',
+        '/usr/sbin/vgscan',
+        '/usr/sbin/vgsplit',
+    ])
   } else {
     package { 'lvm2':
       ensure  => purged,
     }
+    $suspicious_packages = $default_packages
   }
 
   # Check if we need multipatp
@@ -118,14 +176,16 @@ class basic_settings::io (
   }
 
   # Setup audit rules
-  basic_settings::security_audit { 'logrotate':
-    rules => [
-      '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
-      '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
-    ],
-    order => 2,
-  }
-  basic_settings::security_audit { 'io':
-    rule_suspicious_packages    => $suspicious_packages,
+  if (defined(Package['auditd'])) {
+    basic_settings::security_audit { 'logrotate':
+      rules => [
+        '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
+        '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
+      ],
+      order => 2,
+    }
+    basic_settings::security_audit { 'io':
+      rule_suspicious_packages    => $suspicious_packages,
+    }
   }
 }

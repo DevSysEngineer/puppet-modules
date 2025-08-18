@@ -157,17 +157,21 @@ class basic_settings::packages (
     $suspicious_packages = ['/usr/bin/do-release-upgrade']
 
     # Setup audit rules
-    basic_settings::security_audit { 'packages':
-      rules                    => flatten($default_rules, $snap_rules),
-      rule_suspicious_packages => $suspicious_packages,
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { 'packages':
+        rules                    => flatten($default_rules, $snap_rules),
+        rule_suspicious_packages => $suspicious_packages,
+      }
     }
   } else {
     # Create list of packages that is suspicious
     $suspicious_packages = []
 
     # Setup audit rules
-    basic_settings::security_audit { 'packages':
-      rules => flatten($default_rules, $snap_rules),
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { 'packages':
+        rules => flatten($default_rules, $snap_rules),
+      }
     }
   }
 

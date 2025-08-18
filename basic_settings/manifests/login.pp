@@ -14,7 +14,7 @@ class basic_settings::login (
   }
 
   # Install packages
-  package { ['screen', 'libpam-modules']:
+  package { ['login', 'screen', 'libpam-modules']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -227,30 +227,41 @@ class basic_settings::login (
   }
 
   # Setup audit rules
-  basic_settings::security_audit { 'login':
-    rules                    => [
-      '# User configuration',
-      '-a always,exit -F arch=b32 -F path=/etc/security/limits.conf -F perm=wa  -F key=limits',
-      '-a always,exit -F arch=b64 -F path=/etc/security/limits.conf -F perm=wa  -F key=limits',
-      '-a always,exit -F arch=b32 -F path=/etc/security/namespace.conf -F perm=wa -F key=namespace',
-      '-a always,exit -F arch=b64 -F path=/etc/security/namespace.conf -F perm=wa -F key=namespace',
-      '-a always,exit -F arch=b32 -F path=/etc/security/namespace.init -F perm=wa -F key=namespace',
-      '-a always,exit -F arch=b64 -F path=/etc/security/namespace.init -F perm=wa -F key=namespace',
-      '# PAM configuration',
-      '-a always,exit -F arch=b32 -F path=/etc/pam.d -F perm=wa -F key=pam',
-      '-a always,exit -F arch=b64 -F path=/etc/pam.d -F perm=wa -F key=pam',
-      '-a always,exit -F arch=b32 -F path=/etc/security/pam_env.conf -F perm=wa -F key=pam',
-      '-a always,exit -F arch=b64 -F path=/etc/security/pam_env.conf -F perm=wa -F key=pam',
-      '# Sudoers configuration',
-      '-a always,exit -F arch=b32 -F path=/etc/sudoers -F perm=r -F auid!=unset -F key=sudoers',
-      '-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=r -F auid!=unset -F key=sudoers',
-      '-a always,exit -F arch=b32 -F path=/etc/sudoers.d -F perm=r -F auid!=unset -F key=sudoers',
-      '-a always,exit -F arch=b64 -F path=/etc/sudoers.d -F perm=r -F auid!=unset -F key=sudoers',
-      '-a always,exit -F arch=b32 -F path=/etc/sudoers -F perm=wa -F key=sudoers',
-      '-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=wa -F key=sudoers',
-      '-a always,exit -F arch=b32 -F path=/etc/sudoers.d -F perm=wa -F key=sudoers',
-      '-a always,exit -F arch=b64 -F path=/etc/sudoers.d -F perm=wa -F key=sudoers',
-    ],
-    rule_suspicious_packages => $suspicious_packages,
+  if (defined(Package['auditd'])) {
+    basic_settings::security_audit { 'login':
+      rules                    => [
+        '# Login',
+        '-a always,exit -F arch=b32 -F path=/etc/login.defs -F perm=wa -F key=login',
+        '-a always,exit -F arch=b64 -F path=/etc/login.defs -F perm=wa -F key=login',
+        '-a always,exit -F arch=b32 -F path=/var/log/faillog -F perm=wa -F key=login',
+        '-a always,exit -F arch=b64 -F path=/var/log/faillog -F perm=wa -F key=login',
+        '-a always,exit -F arch=b32 -F path=/var/log/lastlog -F perm=wa -F key=login',
+        '-a always,exit -F arch=b64 -F path=/var/log/lastlog -F perm=wa -F key=login',
+        '-a always,exit -F arch=b32 -F path=/var/log/auth.log -F perm=wa -F key=login',
+        '-a always,exit -F arch=b64 -F path=/var/log/auth.log -F perm=wa -F key=login',
+        '# User configuration',
+        '-a always,exit -F arch=b32 -F path=/etc/security/limits.conf -F perm=wa  -F key=limits',
+        '-a always,exit -F arch=b64 -F path=/etc/security/limits.conf -F perm=wa  -F key=limits',
+        '-a always,exit -F arch=b32 -F path=/etc/security/namespace.conf -F perm=wa -F key=namespace',
+        '-a always,exit -F arch=b64 -F path=/etc/security/namespace.conf -F perm=wa -F key=namespace',
+        '-a always,exit -F arch=b32 -F path=/etc/security/namespace.init -F perm=wa -F key=namespace',
+        '-a always,exit -F arch=b64 -F path=/etc/security/namespace.init -F perm=wa -F key=namespace',
+        '# PAM configuration',
+        '-a always,exit -F arch=b32 -F path=/etc/pam.d -F perm=wa -F key=pam',
+        '-a always,exit -F arch=b64 -F path=/etc/pam.d -F perm=wa -F key=pam',
+        '-a always,exit -F arch=b32 -F path=/etc/security/pam_env.conf -F perm=wa -F key=pam',
+        '-a always,exit -F arch=b64 -F path=/etc/security/pam_env.conf -F perm=wa -F key=pam',
+        '# Sudoers configuration',
+        '-a always,exit -F arch=b32 -F path=/etc/sudoers -F perm=r -F auid!=unset -F key=sudoers',
+        '-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=r -F auid!=unset -F key=sudoers',
+        '-a always,exit -F arch=b32 -F path=/etc/sudoers.d -F perm=r -F auid!=unset -F key=sudoers',
+        '-a always,exit -F arch=b64 -F path=/etc/sudoers.d -F perm=r -F auid!=unset -F key=sudoers',
+        '-a always,exit -F arch=b32 -F path=/etc/sudoers -F perm=wa -F key=sudoers',
+        '-a always,exit -F arch=b64 -F path=/etc/sudoers -F perm=wa -F key=sudoers',
+        '-a always,exit -F arch=b32 -F path=/etc/sudoers.d -F perm=wa -F key=sudoers',
+        '-a always,exit -F arch=b64 -F path=/etc/sudoers.d -F perm=wa -F key=sudoers',
+      ],
+      rule_suspicious_packages => $suspicious_packages,
+    }
   }
 }

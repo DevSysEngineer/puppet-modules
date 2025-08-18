@@ -196,14 +196,16 @@ define basic_settings::login_user (
     }
 
     # Create audit rules
-    basic_settings::security_audit { "${name}-ssh":
-      ensure => $ensure,
-      rules  => [
-        "-a always,exit -F arch=b32 -F path=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
-        "-a always,exit -F arch=b64 -F path=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
-        "-a always,exit -F arch=b32 -F path=${home}/.ssh -F perm=wa -F key=ssh",
-        "-a always,exit -F arch=b64 -F path=${home}/.ssh -F perm=wa -F key=ssh",
-      ],
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { "${name}-ssh":
+        ensure => $ensure,
+        rules  => [
+          "-a always,exit -F arch=b32 -F path=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
+          "-a always,exit -F arch=b64 -F path=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
+          "-a always,exit -F arch=b32 -F path=${home}/.ssh -F perm=wa -F key=ssh",
+          "-a always,exit -F arch=b64 -F path=${home}/.ssh -F perm=wa -F key=ssh",
+        ],
+      }
     }
   }
 }

@@ -510,15 +510,17 @@ class basic_settings::network (
   }
 
   # Setup audit rules
-  $suspicious_filter = $suspicious_packages - $suspicious_packages_root
-  basic_settings::security_audit { 'network':
-    rules                    => $networkd_rules,
-    rule_suspicious_packages => $suspicious_filter,
-    order                    => 20,
-  }
-  basic_settings::security_audit { 'network-root':
-    rule_suspicious_packages => $suspicious_packages_root,
-    rule_options             => ['-F auid!=unset'],
-    order                    => 20,
+  if (defined(Package['auditd'])) {
+    $suspicious_filter = $suspicious_packages - $suspicious_packages_root
+    basic_settings::security_audit { 'network':
+      rules                    => $networkd_rules,
+      rule_suspicious_packages => $suspicious_filter,
+      order                    => 20,
+    }
+    basic_settings::security_audit { 'network-root':
+      rule_suspicious_packages => $suspicious_packages_root,
+      rule_options             => ['-F auid!=unset'],
+      order                    => 20,
+    }
   }
 }

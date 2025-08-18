@@ -143,15 +143,6 @@ class openitcockpit::agent (
       }
     }
 
-    # Setup security audit rules
-    basic_settings::security_audit { 'monitoring':
-      rules => [
-        '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-        '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-      ],
-      order => 2,
-    }
-
     # Create root directory
     file { 'monitoring_location':
       ensure => directory,
@@ -197,5 +188,16 @@ class openitcockpit::agent (
     mode    => '0600',
     notify  => Service['monitoring_service'],
     require => File['monitoring_location'],
+  }
+
+  # Setup security audit rules
+  if (defined(Package['auditd'])) {
+    basic_settings::security_audit { 'monitoring':
+      rules => [
+        '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+        '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+      ],
+      order => 2,
+    }
   }
 }

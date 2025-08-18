@@ -142,9 +142,11 @@ class rabbitmq::management (
     }
 
     # Setup audit rules
-    basic_settings::security_audit { 'rabbitmq_management':
-      rule_suspicious_packages => $suspicious_packages,
-      rule_options             => ['-F auid!=unset'],
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { 'rabbitmq_management':
+        rule_suspicious_packages => $suspicious_packages,
+        rule_options             => ['-F auid!=unset'],
+      }
     }
   } else {
     fail('The rabbitmq class must be included before using the rabbitmq::management class.')

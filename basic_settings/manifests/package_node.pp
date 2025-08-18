@@ -24,8 +24,10 @@ class basic_settings::package_node (
     $suspicious_packages = ['/usr/local/npm']
 
     # Setup audit rules
-    basic_settings::security_audit { 'node':
-      rule_suspicious_packages => $suspicious_packages,
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { 'node':
+        rule_suspicious_packages => $suspicious_packages,
+      }
     }
   } else {
     # Remove nodejs package

@@ -19,7 +19,7 @@
 -a always,exit -F arch=b64 -F path=/usr/bin/aulast -F perm=x -F key=audit_tools
 -a always,exit -F arch=b32 -F path=/usr/bin/auvirt -F perm=x -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/bin/auvirt -F perm=x -F key=audit_tools
--a always,exit -F arch=b32 -F path=/usr/sbin/auditctl -F perm=x -F auid!=unset-F key=audit_tools
+-a always,exit -F arch=b32 -F path=/usr/sbin/auditctl -F perm=x -F auid!=unset -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/auditctl -F perm=x -F auid!=unset -F key=audit_tools
 -a always,exit -F arch=b32 -F path=/usr/sbin/auditd -F perm=x -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/auditd -F perm=x -F key=audit_tools
@@ -32,29 +32,17 @@
 -a always,exit -F arch=b32 -F path=/usr/sbin/ausearch -F perm=x -F key=audit_tools
 -a always,exit -F arch=b64 -F path=/usr/sbin/ausearch -F perm=x -F key=audit_tools
 
-# Kernel parameters
--a always,exit -F arch=b32 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl
--a always,exit -F arch=b64 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl
--a always,exit -F arch=b32 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl
--a always,exit -F arch=b64 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl
--a always,exit -F arch=b32 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl
--a always,exit -F arch=b64 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl
+# File Permission Changes (chmod family)
+-a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid!=unset -F key=perm_mod
 
-# Kernel modules
--a always,exit -F arch=b32 -S init_module -S delete_module -F key=modules
--a always,exit -F arch=b64 -S init_module -S delete_module -F key=modules
--a always,exit -F arch=b32 -F path=/usr/sbin/insmod -F perm=x -F key=modules
--a always,exit -F arch=b64 -F path=/usr/sbin/insmod -F perm=x -F key=modules
--a always,exit -F arch=b32 -F path=/usr/sbin/rmmod -F perm=x -F key=modules
--a always,exit -F arch=b64 -F path=/usr/sbin/rmmod -F perm=x -F key=modules
--a always,exit -F arch=b32 -F path=/usr/sbin/modprobe -F perm=x -F key=modules
--a always,exit -F arch=b64 -F path=/usr/sbin/modprobe -F perm=x -F key=modules
+# File Ownership Changes (chown family)
+-a always,exit -F arch=b32 -S chownå,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
 
-# Modprobe configuration
--a always,exit -F arch=b32 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe
--a always,exit -F arch=b64 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe
--a always,exit -F arch=b32 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe
--a always,exit -F arch=b64 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe
+# Extended Attribute Changes (setting/removing attributes like setuid, file capabilities)
+-a always,exit -F arch=b32 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid!=unset -F key=perm_mod
 
 # Special files
 -a always,exit -F arch=b32 -S mknod -S mknodat -F auid!=unset -F key=special_files
@@ -147,16 +135,6 @@
 -a always,exit -F arch=b64 -F path=/etc/shadow -F perm=wa -F key=identity
 -a always,exit -F arch=b32 -F path=/etc/security/opasswd -F perm=wa -F key=identity
 -a always,exit -F arch=b64 -F path=/etc/security/opasswd -F perm=wa -F key=identity
-
-# Login configuration and information
--a always,exit -F arch=b32 -F path=/etc/login.defs -F perm=wa -F key=login
--a always,exit -F arch=b64 -F path=/etc/login.defs -F perm=wa -F key=login
--a always,exit -F arch=b32 -F path=/var/log/faillog -F perm=wa -F key=login
--a always,exit -F arch=b64 -F path=/var/log/faillog -F perm=wa -F key=login
--a always,exit -F arch=b32 -F path=/var/log/lastlog -F perm=wa -F key=login
--a always,exit -F arch=b64 -F path=/var/log/lastlog -F perm=wa -F key=login
--a always,exit -F arch=b32 -F path=/var/log/auth.log -F perm=wa -F key=login
--a always,exit -F arch=b64 -F path=/var/log/auth.log -F perm=wa -F key=login
 
 # Shell/profile configurations
 -a always,exit -F arch=b32 -F path=/etc/profile.d -F perm=wa -F key=shell_profiles

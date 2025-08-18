@@ -278,6 +278,14 @@ class basic_settings::kernel (
   }
 
   # Install system package
+  if (!defined(Package['usbutils'])) {
+    package { 'usbutils':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Install system package
   if (!defined(Package['util-linux'])) {
     package { 'util-linux':
       ensure          => installed,
@@ -510,7 +518,21 @@ class basic_settings::kernel (
   }
 
   # Create list of packages that is suspicious
-  $suspicious_packages = flatten($bootloader_packages, ['/bin/su']);
+  $suspicious_packages = flatten($bootloader_packages, [
+      '/bin/su',
+      '/usr/bin/depmod',
+      '/usr/bin/kmod',
+      '/usr/bin/lsmod',
+      '/usr/bin/lsusb',
+      '/usr/bin/usb-devices',
+      '/usr/bin/usbhid-dump',
+      '/usr/bin/usbreset',
+      '/usr/sbin/insmod',
+      '/usr/sbin/lsmod',
+      '/usr/sbin/modinfo',
+      '/usr/sbin/modprobe',
+      '/usr/sbin/rmmod',
+  ]);
 
   # Setup TCP
   case $tcp_congestion_control {
@@ -598,27 +620,44 @@ class basic_settings::kernel (
   }
 
   # Create kernel rules
-  basic_settings::security_audit { 'kernel':
-    rules                    => [
-      '# Injection',
-      '# These rules watch for code injection by the ptrace facility.',
-      '# This could indicate someone trying to do something bad or just debugging',
-      '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
-      '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
-      '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
-      '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
-      '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
-      '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
-      '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
-      '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
-    ],
-    rule_suspicious_packages => $suspicious_packages,
-    order                    => 15,
-  }
+  if (defined(Package['auditd'])) {
+    basic_settings::security_audit { 'kernel':
+      rules                    => [
+        '# Injection',
+        '# These rules watch for code injection by the ptrace facility.',
+        '# This could indicate someone trying to do something bad or just debugging',
+        '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
+        '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
+        '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
+        '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
+        '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
+        '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
+        '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
+        '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
+        '# Kernel parameters',
+        '-a always,exit -F arch=b32 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
+        '-a always,exit -F arch=b64 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
+        '-a always,exit -F arch=b32 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
+        '-a always,exit -F arch=b64 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
+        '-a always,exit -F arch=b32 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
+        '-a always,exit -F arch=b64 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
+        '# Kernel modules',
+        '-a always,exit -F arch=b32 -S init_module -S delete_module -F key=kernel_modules',
+        '-a always,exit -F arch=b64 -S init_module -S delete_module -F key=kernel_modules',
+        '# Modprobe configuration',
+        '-a always,exit -F arch=b32 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
+        '-a always,exit -F arch=b64 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
+        '-a always,exit -F arch=b32 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
+        '-a always,exit -F arch=b64 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
+      ],
+      rule_suspicious_packages => $suspicious_packages,
+      order                    => 15,
+    }
 
-  # Ignore current working directory records
-  basic_settings::security_audit { 'kernel-cwd':
-    rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
-    order => 1,
+    # Ignore current working directory records
+    basic_settings::security_audit { 'kernel-cwd':
+      rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
+      order => 1,
+    }
   }
 }
