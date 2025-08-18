@@ -37,7 +37,7 @@
 -a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid!=unset -F key=perm_mod
 
 # File Ownership Changes (chown family)
--a always,exit -F arch=b32 -S chownå,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
 -a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
 
 # Extended Attribute Changes (setting/removing attributes like setuid, file capabilities)
