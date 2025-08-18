@@ -72,7 +72,7 @@ GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); p
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     MB=$(( B / 1048576 ))
-    SAFE=$(printf '%s' "$N" | sed "s/'/''/g")
+    SAFE=$(printf '%s' "$N" | $SED "s/'/''/g")
 
     # Quote label if contains whitespace
     case $SAFE in *[[:space:]]*) SAFE="'$SAFE'";; esac
@@ -113,7 +113,7 @@ if [ "$LIC_MODE" = "ee" ]; then
             PCT=$(( OVER * 100 / MAX ))
             if [ "$PCT" -gt 10 ]; then STATE_CODE=2; else [ $STATE_CODE -lt 1 ] && STATE_CODE=1; fi
             MSG="${MSG}${MSG:+; }Over licence: +${OVER} users"
-            PERF="${PERF} overage=${OVER};;;0;"
+            PERF="${PERF} overage=${OVER};;;0"
         fi
     fi
 fi

@@ -206,7 +206,7 @@ EOF
 fi
 
 # Set performance data
-PREF_LIST=$(printf '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%sc ", $1, $2}')
+PREF_LIST=$(printf '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
 
 # Check some values

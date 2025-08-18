@@ -169,8 +169,8 @@ OUTPUT_MSG="${OUTPUT_MSG}Hit ${HIT_RATE_PCT}%)"
 # Set perform data
 PERF="curr_connections=${THREADS_CONNECTED};${WARN_CURR_ABS};${CRIT_CURR_ABS};0;${MAX_CONNECTIONS} "
 PERF="${PERF}max_used_connections=${MAX_USED_CONN};${WARN_PEAK_ABS};${CRIT_PEAK_ABS};0;${MAX_CONNECTIONS} "
-PERF="${PERF}threads_running=${THREADS_RUNNING};;;0; "
-PERF="${PERF}slow_queries=${SLOW_QUERIES};;;0; "
+PERF="${PERF}threads_running=${THREADS_RUNNING};;;0 "
+PERF="${PERF}slow_queries=${SLOW_QUERIES};;;0 "
 PERF="${PERF}hit_rate_pct=${HIT_RATE_PCT}%;${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 "
 PERF="${PERF}innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_TOTAL}"
 
