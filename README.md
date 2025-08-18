@@ -13,11 +13,12 @@ Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geï
 Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies (zoals [Fedora](https://discussion.fedoraproject.org/t/f40-change-proposal-systemd-security-hardening-system-wide/96423/11)) worden toegepast, kies ik ervoor om deze aanpassingen ook in Puppet op te nemen. Dit is omdat niet alle distributies altijd de meest recente versie van de software gebruiken en er altijd een kans bestaat dat een specifieke beveiligingsaanpassing niet is doorgevoerd.
 
 ## Monitoring
-Binnen de verschillende onderdelen heb ik diverse monitoringtools en -scripts geïmplementeerd. Wanneer je via de `Basic settings`-class de optie `monitoring_package` invult met een ondersteund monitoringpakket, zorg ik ervoor dat er op meerdere plaatsen automatisch configuratiebestanden worden aangemaakt voor dat specifieke pakket. Gebruik je de basisinstellingen niet, dan is het altijd mogelijk om de ingebouwde monitoringtools en -scripts handmatig te activeren vanuit andere onderdelen.
+Binnen de verschillende onderdelen zijn diverse monitoringtools en -scripts beschikbaar. Wanneer je in de `basic_settings`-class de optie `monitoring_package` instelt met een ondersteund monitoringpakket, worden automatisch configuratiebestanden voor dat pakket aangemaakt. Gebruik je basic_settings niet, dan kun je de ingebouwde monitoringtools en -scripts altijd handmatig activeren vanuit andere onderdelen.
 
-Voor sommige processen, zoals de firewall of SSH, is het niet voldoende om alleen te controleren of het proces actief is. Je wilt ook inhoudelijk kunnen verifiëren of het correct functioneert én performancegegevens kunnen uitlezen.
+Voor sommige processen, zoals firewall of SSH, is het niet voldoende om alleen te controleren of een proces draait. Vaak wil je ook verifiëren of het correct functioneert én performancegegevens kunnen uitlezen. Daarom zijn er voor bepaalde processen uitgebreide checks toegevoegd.
 
-Op dit moment ondersteun ik alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent. Hieronder een voorbeeld van hoe je deze instelt:
+Op dit moment wordt alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent ondersteund. Hieronder vind je een voorbeeldconfiguratie:
+
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
@@ -439,6 +440,22 @@ node 'webserver.dev.xxxx.nl' {
     }
 }
 ```
+
+## Checks
+Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.
+
+- [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
+- [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)
+- [check_eset](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_eset)
+- [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/templates/check_gitlab)
+- [check_mysql](https://github.com/DevSysEngineer/puppet-modules/blob/main/mysql/templates/check_mysql)
+- [check_nftables](https://en.wikipedia.org/wiki/Headless_computer)
+- [check_puppet_agent](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/puppet/check_agent)
+- [check_rabbitmq](https://github.com/DevSysEngineer/puppet-modules/blob/main/rabbitmq/templates/check_rabbitmq)
+- [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
+- [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
+- [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb)
+
 
 ## Contributie
 Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.
