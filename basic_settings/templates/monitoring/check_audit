@@ -69,7 +69,7 @@ fi
 
 <% if @systemd_enable -%>
 # Check if we have error since boot
-ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP grep -cE 'Error|Unknown')
+ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -cE 'Error|Unknown')
 if [ "$ERROR_COUNT" -gt 0 ]; then
     if [ $STATE_CODE -lt 2 ]; then
         MSG="$MSG, but was started with an error since boot"
