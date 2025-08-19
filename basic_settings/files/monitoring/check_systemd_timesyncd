@@ -125,10 +125,10 @@ MSG="Server ${SERVER:-unknown}; time offset ${ABS_OFFSET}s"
 [ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
 
 # Perfdata
-PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0 "
-PERF="$PERF jitter=${JITTER_SEC}s;${JITTER_WARN};${JITTER_CRIT};0 "
-PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5 "
-PERF="$PERF delay=${DELAY_SEC}s;;;0; "
+PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"
+PERF="$PERF jitter=${JITTER_SEC}s;${JITTER_WARN};${JITTER_CRIT};0"
+PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5"
+PERF="$PERF delay=${DELAY_SEC}s;;;0;"
 PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
 # Show output
