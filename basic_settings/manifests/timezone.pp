@@ -49,7 +49,7 @@ class basic_settings::timezone (
       content => template('basic_settings/systemd/timesyncd.conf'),
       owner   => 'root',
       group   => 'root',
-      mode    => '0600',
+      mode    => '0644',
       notify  => Exec['systemd_timezone_daemon_reload'],
       require => Package['systemd-timesyncd'],
     }
