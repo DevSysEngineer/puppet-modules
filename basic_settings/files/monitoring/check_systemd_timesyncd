@@ -1,0 +1,136 @@
+#!/bin/sh
+# Managed by puppet
+
+die() {
+    echo "$*" >&2
+    exit 3
+}
+
+# Binaries
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
+
+crit() {
+    echo "$*" >&2
+    exit 2
+}
+
+add_crit() {
+    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
+}
+
+add_warn() {
+    WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1";
+}
+
+ge() {
+    $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}';
+}
+
+get_num_unit() {
+  $PRINTF '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
+}
+
+# Thresholds (seconds) – tune as needed
+CRIT_MSG=""
+JITTER_CRIT=0.2 # 200ms
+JITTER_WARN=0.1 # 100ms
+OFFSET_CRIT=0.125 # 125ms
+OFFSET_WARN=0.05 # 50ms
+ROOT_CRIT=5 # 5s (timesyncd RootDistanceMaxSec default)
+ROOT_WARN=0.5 # 500ms
+STATE_CODE=0
+STRAT_CRIT=15 # >15 ~= unsynchronised
+STRAT_WARN=10
+WARN_MSG=""
+
+# Service active?
+$SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "timesyncd service is not active"
+
+# Clock synchronised?
+NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null)
+case "$NTPSYNC" in
+  yes|1) : ;;
+  no|0|"") add_crit "clock not synchronised" ;;
+esac
+
+# Read timesync metrics
+TIMESYNC="$($TIMEDATECTL timesync-status 2>/dev/null)" || die "timesync-status not available"
+
+# Extract chosen server (first 'Server:' line)
+SERVER=$($PRINTF '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:]]*Server:[[:space:]]*/,""); print; exit}')
+
+# Convert to seconds
+set_to_sec() {
+  read val || return 1
+  read u || u="s"
+  $AWK -v v="$val" -v u="$u" 'BEGIN{
+    if(u=="ms") printf "%.6f", v/1000;
+    else if(u=="us") printf "%.6f", v/1000000;
+    else printf "%.6f", v;
+  }'
+}
+
+# Offset
+OFF_LU=$(get_num_unit "Offset")
+OFFSET_SEC=$(printf '%s\n' "$OFF_LU" | set_to_sec 2>/dev/null)
+[ -z "$OFFSET_SEC" ] && OFFSET_SEC=0
+ABS_OFFSET=$($AWK -v o="$OFFSET_SEC" 'BEGIN{if(o<0) printf "%.6f",-o; else printf "%.6f",o}')
+
+# Jitter
+JIT_LU=$(get_num_unit "Jitter")
+JITTER_SEC=$(printf '%s\n' "$JIT_LU" | set_to_sec 2>/dev/null)
+[ -z "$JITTER_SEC" ] && JITTER_SEC=0
+
+# Root distance
+RD_LU=$(get_num_unit "Root distance")
+ROTDIST_SEC=$(printf '%s\n' "$RD_LU" | set_to_sec 2>/dev/null)
+[ -z "$ROTDIST_SEC" ] && ROTDIST_SEC=0
+
+# Delay (extra perfdata)
+DLY_LU=$(get_num_unit "Delay")
+DELAY_SEC=$(printf '%s\n' "$DLY_LU" | set_to_sec 2>/dev/null)
+[ -z "$DELAY_SEC" ] && DELAY_SEC=0
+
+# Stratum
+STRAT=$($PRINTF '%s' "$TIMESYNC" | $SED -n 's/.*Stratum:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+[ -z "$STRAT" ] && STRAT=0
+
+# Threshold checks
+ge "$ABS_OFFSET" "$OFFSET_CRIT" && add_crit "offset ${ABS_OFFSET}s"
+[ -z "$CRIT_MSG" ] && ge "$ABS_OFFSET" "$OFFSET_WARN" && add_warn "offset ${ABS_OFFSET}s"
+
+ge "$JITTER_SEC" "$JITTER_CRIT" && add_crit "jitter ${JITTER_SEC}s"
+[ -z "$CRIT_MSG" ] && ge "$JITTER_SEC" "$JITTER_WARN" && add_warn "jitter ${JITTER_SEC}s"
+
+ge "$ROTDIST_SEC" "$ROOT_CRIT" && add_crit "root_distance ${ROTDIST_SEC}s"
+[ -z "$CRIT_MSG" ] && ge "$ROTDIST_SEC" "$ROOT_WARN" && add_warn "root_distance ${ROTDIST_SEC}s"
+
+if [ "$STRAT" -gt "$STRAT_CRIT" ]; then
+  add_crit "stratum $STRAT"
+elif [ "$STRAT" -ge "$STRAT_WARN" ]; then
+  add_warn "stratum $STRAT"
+fi
+
+# Final state & message
+[ -n "$CRIT_MSG" ] && STATE_CODE=2
+[ $STATE_CODE -eq 0 ] && [ -n "$WARN_MSG" ] && STATE_CODE=1
+
+MSG="Server ${SERVER:-unknown}; time offset ${ABS_OFFSET}s"
+[ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
+
+# Perfdata
+PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0 "
+PERF="$PERF jitter=${JITTER_SEC}s;${JITTER_WARN};${JITTER_CRIT};0 "
+PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5 "
+PERF="$PERF delay=${DELAY_SEC}s;;;0; "
+PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
+
+# Show output
+printf '%s | %s\n' "$MSG" "$PERF"
+exit $STATE_CODE

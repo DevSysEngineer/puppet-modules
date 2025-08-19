@@ -3,6 +3,10 @@ class basic_settings::timezone (
   Array               $ntp_extra_pools = [],
   Array               $install_options = [],
 ) {
+  # Get some values
+  $monitoring_enable = defined(Class['basic_settings::monitoring']);
+
+  # Check if systemd is installed
   if (defined(Package['systemd'])) {
     # Reload systemd deamon
     exec { 'systemd_timezone_daemon_reload':
@@ -63,8 +67,10 @@ class basic_settings::timezone (
     }
 
     # Create service check
-    if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'systemd-timesyncd': }
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+      basic_settings::monitoring_custom { 'systemd_timesyncd':
+        source => 'puppet:///modules/basic_settings/monitoring/check_systemd_timesyncd',
+      }
     }
 
     # Remove unnecessary packages
