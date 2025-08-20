@@ -88,6 +88,7 @@ ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
 ERROR_COUNT=${ERR_COMBINED%%|*}
 ERROR_SNIPPET=${ERR_COMBINED#*|}
 
+# Check if we have any errors
 if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
     if [ $STATE_CODE -lt 2 ]; then
         MSG="$MSG, error since boot: ${ERROR_SNIPPET:-unknown}"
@@ -96,6 +97,8 @@ if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
     fi
     STATE_CODE=2
 fi
+<% else -%>
+ERROR_COUNT=0
 <% end -%>
 
 # Get audit rules
@@ -193,9 +196,6 @@ fi
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
 EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
-
-# Ensure ERROR_COUNT defined (non-systemd case)
-: "${ERROR_COUNT:=0}"
 
 # Create perf data
 PERF="acct_changes=${ACCT};;1"
