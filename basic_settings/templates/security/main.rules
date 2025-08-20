@@ -156,21 +156,21 @@
 
 # Capture all failures to access on critical elements
 -a always,exit -F arch=b32 -S open -F dir=/etc -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/etc -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/etc -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/bin -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/bin -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/bin -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/sbin -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/sbin -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/sbin -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/usr/bin -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/usr/bin -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/usr/bin -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/usr/sbin -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/usr/sbin -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/usr/sbin -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/var -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/var -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/var -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/home -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/home -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/home -F success=0 -F key=unauthed_file_acess
 -a always,exit -F arch=b32 -S open -F dir=/srv -F success=0 -F key=unauthed_file_acess
--a always,exit -F arch=b64 -S open -F dir=/srv -F success=0 -F key=unauthed_file_acess
+-a always,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/srv -F success=0 -F key=unauthed_file_acess
 
 # Cron configuration and scheduled jobs
 -a always,exit -F arch=b32 -F path=/etc/cron.allow -F perm=wa -F key=cron
