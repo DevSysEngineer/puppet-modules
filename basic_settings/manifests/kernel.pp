@@ -532,7 +532,10 @@ class basic_settings::kernel (
       '/usr/sbin/modinfo',
       '/usr/sbin/modprobe',
       '/usr/sbin/rmmod',
-  ]);
+  ])
+  $suspicious_packages_root = [
+    '/usr/bin/kmod',
+  ]
 
   # Setup TCP
   case $tcp_congestion_control {
@@ -621,6 +624,7 @@ class basic_settings::kernel (
 
   # Create kernel rules
   if (defined(Package['auditd'])) {
+    $suspicious_filter = $suspicious_packages - $suspicious_packages_root
     basic_settings::security_audit { 'kernel':
       rules                    => [
         '# Injection',
@@ -650,8 +654,13 @@ class basic_settings::kernel (
         '-a always,exit -F arch=b32 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
         '-a always,exit -F arch=b64 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
       ],
-      rule_suspicious_packages => $suspicious_packages,
+      rule_suspicious_packages => $suspicious_filter,
       order                    => 15,
+    }
+    basic_settings::security_audit { 'kernel-root':
+      rule_suspicious_packages => $suspicious_packages_root,
+      rule_options             => ['-F auid!=unset'],
+      order                    => 10,
     }
 
     # Ignore current working directory records

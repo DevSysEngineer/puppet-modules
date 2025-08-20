@@ -11,6 +11,9 @@ class basic_settings::io (
     '/usr/sbin/parted',
     '/usr/bin/lsblk',
   ]
+  $default_packages_root = [
+    '/usr/bin/lsblk',
+  ]
 
   # Install default development packages
   package { ['fuse', 'logrotate', 'pbzip2', 'pigz', 'rsync', 'unzip', 'xz-utils']:
@@ -81,11 +84,13 @@ class basic_settings::io (
         '/usr/sbin/vgscan',
         '/usr/sbin/vgsplit',
     ])
+    $suspicious_packages_root = $default_packages_root
   } else {
     package { 'lvm2':
       ensure  => purged,
     }
     $suspicious_packages = $default_packages
+    $suspicious_packages_root = $default_packages_root
   }
 
   # Check if we need multipatp
@@ -184,8 +189,15 @@ class basic_settings::io (
       ],
       order => 2,
     }
+    $suspicious_filter = $suspicious_packages - $suspicious_packages_root
     basic_settings::security_audit { 'io':
-      rule_suspicious_packages    => $suspicious_packages,
+      rules                    => $networkd_rules,
+      rule_suspicious_packages => $suspicious_filter,
+    }
+    basic_settings::security_audit { 'io-root':
+      rule_suspicious_packages => $suspicious_packages_root,
+      rule_options             => ['-F auid!=unset'],
+      order                    => 20,
     }
   }
 }

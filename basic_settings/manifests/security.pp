@@ -53,6 +53,7 @@ class basic_settings::security (
       basic_settings::security_audit { 'eset':
         rules => [
           '-a never,exit -F exe=/opt/eset/efs/lib/odfeeder',
+          '-a never,exit -F exe=/opt/eset/efs/lib/schedd',
           '-a never,exit -F exe=/opt/eset/efs/lib/utild',
         ],
         order => 2,

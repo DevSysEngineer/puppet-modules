@@ -45,8 +45,8 @@
 -a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid!=unset -F key=perm_mod
 
 # Special files
--a always,exit -F arch=b32 -S mknod -S mknodat -F auid!=unset -F key=special_files
--a always,exit -F arch=b64 -S mknod -S mknodat -F auid!=unset -F key=special_files
+-a always,exit -F arch=b32 -S mknodat -F auid!=unset -F key=special_files
+-a always,exit -F arch=b64 -S mknodat -F auid!=unset -F key=special_files
 
 # Mount operations
 -a always,exit -F arch=b32 -S mount -S umount -S umount2 -F auid!=unset -F key=mount
