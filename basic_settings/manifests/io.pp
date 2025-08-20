@@ -191,7 +191,6 @@ class basic_settings::io (
     }
     $suspicious_filter = $suspicious_packages - $suspicious_packages_root
     basic_settings::security_audit { 'io':
-      rules                    => $networkd_rules,
       rule_suspicious_packages => $suspicious_filter,
     }
     basic_settings::security_audit { 'io-root':
