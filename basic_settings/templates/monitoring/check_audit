@@ -48,7 +48,7 @@ done
 <% if @systemd_enable -%>
 $SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
 <% else -%>
-$PS -C efs >/dev/null 2>&1 || crit "Auditd service is not active"
+$PS -C auditd >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
 # Get audit report
@@ -68,13 +68,31 @@ if [ "$ACCT" -gt 0 ] || [ "$ANOM" -gt 0 ] || [ "$CFG" -gt 0 ] || [ "$FAIL" -gt 0
 fi
 
 <% if @systemd_enable -%>
-# Check if we have error since boot
-ERROR_COUNT=$($JOURNALCTL -b -u auditd -u augenrules --no-pager 2>/dev/null | $GREP -cE 'Error|Unknown')
-if [ "$ERROR_COUNT" -gt 0 ]; then
+# Errors since boot
+JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o cat 2>/dev/null)
+ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
+    {
+        line=$0
+        l=tolower(line)
+        if (l ~ /(error|unknown)/) {
+            c++
+            prev=last
+            last=line
+        }
+    }
+    END{
+        if (c==0) { print "0|"; exit }
+        if (prev) printf "%d|%s; %s", c, prev, last;
+        else      printf "%d|%s",      c, last
+    }')
+ERROR_COUNT=${ERR_COMBINED%%|*}
+ERROR_SNIPPET=${ERR_COMBINED#*|}
+
+if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
     if [ $STATE_CODE -lt 2 ]; then
-        MSG="$MSG, but was started with an error since boot"
+        MSG="$MSG, error since boot: ${ERROR_SNIPPET:-unknown}"
     else
-        MSG="$MSG and started with an error since boot"
+        MSG="$MSG; error since boot: ${ERROR_SNIPPET:-unknown}"
     fi
     STATE_CODE=2
 fi
@@ -106,7 +124,7 @@ if [ "$LOST" -gt "$DROPPED_CRIT" ]; then
     STATE_CODE=2 
 fi
 
-# Rules‑integriteit (augenrules --check)
+# Rules-integriteit (augenrules --check)
 if $AUGENRULES --check >/dev/null 2>&1; then
     MSG="$MSG, augenrules OK"
 else
@@ -139,7 +157,11 @@ UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
 if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
     # Try to extract the previous kernel version from the previous boot's journal.
     KERNEL_CURRENT=$($UNAME -r)
-    KERNEL_BOOT=$($JOURNALCTL -b -1 -o cat --no-pager 2>/dev/null | $AWK 'BEGIN{IGNORECASE=1} /^Linux version[[:space:]]+/ {print $3; exit}')
+    KERNEL_BOOT=$($JOURNALCTL -b -1 -o cat --no-pager 2>/dev/null | $AWK '
+        BEGIN{found=0}
+        {
+            if ($0 ~ /^Linux version[[:space:]]+/) { print $3; found=1; exit }
+        }')
     if [ -n "$KERNEL_BOOT" ]; then
         # Previous kernel found; only report if it differs from the current one.
         if [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
@@ -155,13 +177,13 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
 fi
 <% end -%>
 
-# Check if we have any events
+# Check if we have any events (last_keys)
 if [ "$KEYS" -gt 0 ]; then
     LAST_KEYS=$($AUSEARCH --start 'today 00:00:00' --end now 2>/dev/null | $GREP -o 'key="[^"]\+"' | $SED 's/^key="//; s/"$//' | $AWK 'NF && $0!="(null)"{k[n++]=$0}
         END{
             for(i=n-1;i>=0 && c<5; i--) if(!seen[k[i]]++) list[c++]=k[i];
             for(i=c-1;i>=0;i--) printf "%s%s", list[i], (i? ", ":"")
-    }')
+        }')
     if [ -n "$LAST_KEYS" ]; then
         MSG="$MSG, last_keys: $LAST_KEYS"
     fi
@@ -171,6 +193,9 @@ fi
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
 EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
+
+# Ensure ERROR_COUNT defined (non-systemd case)
+: "${ERROR_COUNT:=0}"
 
 # Create perf data
 PERF="acct_changes=${ACCT};;1"
