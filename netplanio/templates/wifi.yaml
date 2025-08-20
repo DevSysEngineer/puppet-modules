@@ -16,7 +16,7 @@ network:
             key-management: psk
 <% else -%>
             key-management: <%= object['key_management'] %>
-<% end -%>       
+<% end -%>
             password: "<%= object['password'] %>"
 <% end -%>
 <% else -%>
