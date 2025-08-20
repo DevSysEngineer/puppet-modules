@@ -34,11 +34,11 @@
 
 # File Permission Changes (chmod family)
 -a always,exit -F arch=b32 -S chmod,fchmod,fchmodat -F auid!=unset -F key=perm_mod
--a always,exit -F arch=b64 -S chmod,fchmod,fchmodat -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b64 -S fchmod,fchmodat -F auid!=unset -F key=perm_mod
 
 # File Ownership Changes (chown family)
 -a always,exit -F arch=b32 -S chown,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
--a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
+-a always,exit -F arch=b64 -S fchown,fchownat,lchown -F auid!=unset -F key=perm_mod
 
 # Extended Attribute Changes (setting/removing attributes like setuid, file capabilities)
 -a always,exit -F arch=b32 -S setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F auid!=unset -F key=perm_mod
@@ -49,8 +49,8 @@
 -a always,exit -F arch=b64 -S mknodat -F auid!=unset -F key=special_files
 
 # Mount operations
--a always,exit -F arch=b32 -S mount -S umount -S umount2 -F auid!=unset -F key=mount
--a always,exit -F arch=b64 -S mount -S umount2 -F auid!=unset -F key=mount
+-a always,exit -F arch=b32 -S mount,umount2 -F auid!=unset -F key=mount
+-a always,exit -F arch=b64 -S mount,umount,umount2 -F auid!=unset -F key=mount
 
 # Changes to the time
 -a always,exit -F arch=b32 -S adjtimex -S settimeofday -F key=time
