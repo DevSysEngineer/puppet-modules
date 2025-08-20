@@ -50,7 +50,7 @@
 
 # Mount operations
 -a always,exit -F arch=b32 -S mount,umount2 -F auid!=unset -F key=mount
--a always,exit -F arch=b64 -S mount,umount,umount2 -F auid!=unset -F key=mount
+-a always,exit -F arch=b64 -S mount,umount2 -F auid!=unset -F key=mount
 
 # Changes to the time
 -a always,exit -F arch=b32 -S adjtimex -S settimeofday -F key=time
