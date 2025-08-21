@@ -219,8 +219,8 @@ EOF
 
     # Per-interface perfdata
     PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
-    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}B;;;0"
-    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}B;;;0"
+    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}c;;;0"
+    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}c;;;0"
     [ -n "$RX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
     [ -n "$TX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
     [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
