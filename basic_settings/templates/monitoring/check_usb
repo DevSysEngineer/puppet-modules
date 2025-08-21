@@ -13,6 +13,14 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null)   || die "tr not available"
 WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 
+hm2min() {
+    H=${1%:*}
+    M=${1#*:}
+    [ -z "$H" ] && H=0
+    [ -z "$M" ] && M=0
+    echo $((10#$H*60 + 10#$M))
+}
+
 # Defaults / state
 AANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
@@ -42,14 +50,6 @@ WHITELIST_IDS="" # -w CSV
 WHITELIST_LIST="<%= @usb_whitelist_correct %>"
 WHITELIST_SERIALS_ACTIVE=""
 WHITELIST_VP_IDS_ACTIVE=""
-
-hm2min() {
-    H=${1%:*}
-    M=${1#*:}
-    [ -z "$H" ] && H=0
-    [ -z "$M" ] && M=0
-    echo $((10#$H*60 + 10#$M))
-}
 
 in_window() {
     WIN="$1"
