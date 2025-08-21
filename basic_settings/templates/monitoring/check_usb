@@ -16,8 +16,12 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 hm2min() {
     H=${1%:*}
     M=${1#*:}
-    H=$(printf '%d\n' "$H")
-    M=$(printf '%d\n' "$M")
+    H=$(printf '%s' "$H" | $SED 's/^0\+//')
+    M=$(printf '%s' "$M" | $SED 's/^0\+//')
+    [ -z "$H" ] && H=0
+    [ -z "$M" ] && M=0
+    case "$H" in (*[!0-9]*) H=0 ;; esac
+    case "$M" in (*[!0-9]*) M=0 ;; esac
     echo $(( H*60 + M ))
 }
 
