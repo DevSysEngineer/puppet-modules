@@ -20,15 +20,15 @@ crit() {
 }
 
 add_crit() {
-    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
+    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"
 }
 
 add_warn() {
-    WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1";
+    WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1"
 }
 
 ge() {
-    $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}';
+    $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}'
 }
 
 get_num_unit() {

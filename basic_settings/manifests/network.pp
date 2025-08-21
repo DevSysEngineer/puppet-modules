@@ -459,17 +459,11 @@ class basic_settings::network (
       }
     }
 
-    # Create service check
-    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-      if ($dhcp_state) {
-        basic_settings::monitoring_service { 'network':
-          services => ['dhcpcd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher'],
-        }
-      } else {
-        basic_settings::monitoring_service { 'network':
-          services => ['systemd-networkd', 'systemd-resolved', 'networkd-dispatcher'],
-        }
-      }
+    # Get service list
+    if ($dhcp_state) {
+      $services = ['dhcpcd', 'lldpd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher']
+    } else {
+      $services = ['lldpd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher']
     }
 
     # Create symlink to network service
@@ -483,12 +477,7 @@ class basic_settings::network (
     }
   } else {
     $networkd_rules = []
-    if ($monitoring_enable and $basic_settings::monitoring::package != 'none' and $dhcp_state) {
-      # Create service check
-      basic_settings::monitoring_service { 'network':
-        services => ['dhcpcd'],
-      }
-    }
+    $services = ['dhcpcd', 'lldpd']
   }
 
   # Enable lldpd service
@@ -507,6 +496,15 @@ class basic_settings::network (
     mode    => '0600',
     notify  => Service['lldpd'],
     require => Package['lldpd'],
+  }
+
+  # Create service check
+  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    $service_str = join($services, ' ')
+    basic_settings::monitoring_custom { 'network':
+      content  => template('basic_settings/monitoring/check_network'),
+      interval => 600 # 10 minutes
+    }
   }
 
   # Setup audit rules

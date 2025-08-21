@@ -1,0 +1,293 @@
+#!/bin/sh
+# Managed by puppet
+
+die() {
+    echo "$*" >&2
+    exit 3
+}
+
+# Check binaries
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+CAT=$(command -v cat 2>/dev/null) || die "cat not available"
+DIG=$(command -v dig 2>/dev/null) || die "dig not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+IP=$(command -v ip 2>/dev/null) || die "ip not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+<% if @systemd_enable -%>
+SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+<% else -%>
+PS=$(command -v ps 2>/dev/null) || die "ps not available"
+<% end -%>
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+
+# Defaults values
+CRIT_MSG=""
+DOWN_COUNT=0
+DOWN_LIST=""
+IF_SUMMARY=""
+IF_SUMMARY_COUNT=0
+IF_SUMMARY_MAX=8  # limit interface summary in the status line
+IPV4_CGNAT=0
+IPV4_LINK=0
+IPV4_LOOP=0
+IPV4_PRIVATE=0
+IPV4_PUBLIC=0
+IPV4_TOTAL=0
+IPV6_GUA=0
+IPV6_HOST=0
+IPV6_LINK=0
+IPV6_SCOPE_GLOBAL=0
+IPV6_TOTAL=0
+IPV6_ULA=0
+SERVICES_IDS=""
+SERVICES_LIST="<%= @service_str %>"
+STATE_CODE=0
+SVC_ACTIVE=0
+SVC_DOWN_LIST=""
+SVC_INACTIVE=0
+SVC_TOTAL=0
+UP_COUNT=0
+WARN_MSG=""
+
+crit() {
+    printf '%s\n' "$*" >&2
+    exit 2
+}
+add_crit() {
+    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"
+}
+sanitize_label() {
+    printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
+}
+
+# Options 
+while getopts 's:' opt; do
+  case "$opt" in
+    s) SERVICES="$OPTARG" ;;
+    *) die "Usage: $0 [-s <list>]" ;;
+  esac
+done
+
+# Convert comma-separated list to space-separated
+if [ -n "$SERVICES_IDS" ]; then
+    SERVICES_LIST=$(printf '%s' "$SERVICES_IDS" | $TR ',' ' ')
+fi
+
+# Check if services are given
+if [ -n "$SERVICES_LIST" ]; then
+    for SVC in $SERVICES_LIST; do
+        SVC_TOTAL=$((SVC_TOTAL + 1))
+<% if @systemd_enable -%>
+        if $SYSTEMDCTL is-active --quiet "$SVC"; then
+<% else -%>
+        if $PS -C "$SVC" >/dev/null 2>&1; then
+<% end -%>
+            SVC_ACTIVE=$((SVC_ACTIVE + 1))
+        else
+            SVC_INACTIVE=$((SVC_INACTIVE + 1))
+            SVC_DOWN_LIST="${SVC_DOWN_LIST:+$SVC_DOWN_LIST,}$SVC"
+        fi
+    done
+    [ -n "$SVC_DOWN_LIST" ] && add_crit "services down: $SVC_DOWN_LIST"
+fi
+
+# Enumerate interfaces (exclude loopback 'lo')
+IFS='
+'
+INTERFACES=$($IP -o link show | $AWK -F': ' '{print $2}')
+for IFACE in $INTERFACES; do
+    [ "$IFACE" = "lo" ] && continue
+
+    # Determine UP/DOWN state from 'ip link show dev'
+    if $IP link show dev "$IFACE" 2>/dev/null | $GREP -q "state UP"; then
+        IS_UP=1
+        UP_COUNT=$((UP_COUNT + 1))
+    else
+        IS_UP=0
+        DOWN_COUNT=$((DOWN_COUNT + 1))
+        [ -z "$DOWN_LIST" ] && DOWN_LIST="$IFACE" || DOWN_LIST="$DOWN_LIST,$IFACE"
+    fi
+
+    # Collect IPv4/IPv6 addresses for brief status (include link-local for IPv6)
+    V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
+    V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
+
+    if [ $IF_SUMMARY_COUNT -lt $IF_SUMMARY_MAX ]; then
+        STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
+        ADDRS=""
+        [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+        [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+        ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
+        IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+; $ADDRS}]"
+        IF_SUMMARY_COUNT=$((IF_SUMMARY_COUNT + 1))
+    fi
+
+    # Per-interface perfdata from sysfs when available
+    RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
+    BASE="/sys/class/net/$IFACE"
+    [ -r "$BASE/statistics/rx_bytes" ] && RX_BYTES=$($CAT "$BASE/statistics/rx_bytes" 2>/dev/null)
+    [ -r "$BASE/statistics/tx_bytes" ] && TX_BYTES=$($CAT "$BASE/statistics/tx_bytes" 2>/dev/null)
+    [ -r "$BASE/statistics/rx_errors" ] && RX_ERRS=$($CAT "$BASE/statistics/rx_errors" 2>/dev/null)
+    [ -r "$BASE/statistics/tx_errors" ] && TX_ERRS=$($CAT "$BASE/statistics/tx_errors" 2>/dev/null)
+    [ -r "$BASE/mtu" ] && MTU=$($CAT "$BASE/mtu" 2>/dev/null)
+    [ -r "$BASE/speed" ] && SPEED=$($CAT "$BASE/speed" 2>/dev/null)
+
+    # Set label
+    IF_LBL=$(sanitize_label "$IFACE")
+
+    # IPv4 classification per interface
+    V4_KV=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '
+        BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
+        {
+            split($4,a,"/"); ip=a[1]
+            if (ip ~ /^169\.254\./) ll++
+            else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
+            else if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./) cgn++
+            else pub++
+            t++
+        }
+        END{
+            printf "total=%d\npublic=%d\nprivate=%d\ncgnat=%d\nlink=%d\n", t,pub,priv,cgn,ll
+        }')
+
+    # Parse key=val without subshell; here-doc keeps assignments in current shell
+    while IFS='=' read -r K V; do
+        case "$K" in
+            total) V4_T=$V ;;
+            public) V4_PUB=$V ;;
+            private)V4_PRIV=$V ;;
+            cgnat) V4_CGNAT=$V ;;
+            link) V4_LINK=$V ;;
+        esac
+    done <<EOF
+$V4_KV
+EOF
+
+    # Accumulate globals
+    IPV4_TOTAL=$((IPV4_TOTAL + V4_T))
+    IPV4_PUBLIC=$((IPV4_PUBLIC + V4_PUB))
+    IPV4_PRIVATE=$((IPV4_PRIVATE + V4_PRIV))
+    IPV4_CGNAT=$((IPV4_CGNAT + V4_CGNAT))
+    IPV4_LINK=$((IPV4_LINK + V4_LINK))
+
+    # IPv6 classification per interface
+    V6_GLOB=0
+    V6_GUA_I=0
+    V6_HST=0
+    V6_LNK=0
+    V6_T=0
+    V6_ULA_I=0
+    V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
+        BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
+        {
+            split($4,a,"/"); ip=a[1]; sc=""
+            for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
+            if (sc=="link") lnk++
+            else if (sc=="host") hst++
+            else if (sc=="global") {
+                glob++
+                if (ip ~ /^(fc|fd)/) ula++
+                else if (ip ~ /^[23]/) gua++   # 2000::/3 (2xxx/3xxx)
+            }
+            t++
+        }
+        END{
+            printf "total=%d\nscope_global=%d\nlink=%d\nhost=%d\ngua=%d\nula=%d\n", t,glob,lnk,hst,gua,ula
+        }')
+
+    # Parse key=val without subshell
+    while IFS='=' read -r K V; do
+        case "$K" in
+            total) V6_T=$V ;;
+            scope_global) V6_GLOB=$V ;;
+            link) V6_LNK=$V ;;
+            host) V6_HST=$V ;;
+            gua) V6_GUA_I=$V ;;
+            ula) V6_ULA_I=$V ;;
+        esac
+    done <<EOF
+$V6_KV
+EOF
+
+    # Accumulate globals
+    IPV6_TOTAL=$((IPV6_TOTAL + V6_T))
+    IPV6_SCOPE_GLOBAL=$((IPV6_SCOPE_GLOBAL + V6_GLOB))
+    IPV6_LINK=$((IPV6_LINK + V6_LNK))
+    IPV6_HOST=$((IPV6_HOST + V6_HST))
+    IPV6_GUA=$((IPV6_GUA + V6_GUA_I))
+    IPV6_ULA=$((IPV6_ULA + V6_ULA_I))
+
+    # Per-interface perfdata
+    PERF="${PERF:+$PERF }'if_${IF_LBL}_up'=${IS_UP};;;0;1"
+    [ -n "$RX_BYTES" ] && PERF="$PERF 'if_${IF_LBL}_rx_bytes'=${RX_BYTES}B;;;0;"
+    [ -n "$TX_BYTES" ] && PERF="$PERF 'if_${IF_LBL}_tx_bytes'=${TX_BYTES}B;;;0;"
+    [ -n "$RX_ERRS" ]  && PERF="$PERF 'if_${IF_LBL}_rx_errors'=${RX_ERRS};;;0;"
+    [ -n "$TX_ERRS" ]  && PERF="$PERF 'if_${IF_LBL}_tx_errors'=${TX_ERRS};;;0;"
+    [ -n "$MTU" ]      && PERF="$PERF 'if_${IF_LBL}_mtu'=${MTU};;;0;"
+    [ -n "$SPEED" ]    && PERF="$PERF 'if_${IF_LBL}_speed'=${SPEED};;;0;"
+
+    # Per-interface IPv4/IPv6 address class counts
+    PERF="$PERF 'if_${IF_LBL}_v4_total'=${V4_T};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v4_public'=${V4_PUB};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v4_private'=${V4_PRIV};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v4_cgnat'=${V4_CGNAT};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v4_link_local'=${V4_LINK};;;0;"
+
+    PERF="$PERF 'if_${IF_LBL}_v6_total'=${V6_T};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v6_scope_global'=${V6_GLOB};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v6_link_local'=${V6_LNK};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v6_host'=${V6_HST};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v6_gua'=${V6_GUA_I};;;0;"
+    PERF="$PERF 'if_${IF_LBL}_v6_ula'=${V6_ULA_I};;;0;"
+done
+
+# Also count IPv4 loopback (lo) addresses explicitly
+IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
+  BEGIN{c=0}
+  { split($4,a,"/"); ip=a[1]; if (ip ~ /^127\./) c++ }
+  END{print c}
+')
+
+# Public IP via Google DNS TXT (strip quotes)
+PUBIP=$($DIG @ns1.google.com TXT o-o.myaddr.l.google.com +short 2>/dev/null | $SED 's/"//g')
+[ -z "$PUBIP" ] && PUBIP="unknown"
+
+# Critical conditions
+[ "$DOWN_COUNT" -gt 0 ] && add_crit "Interface down: $DOWN_LIST"
+[ "$UP_COUNT" -eq 0 ] && add_crit "No interfaces up"
+
+# Compose status message (compact)
+MSG="Public IP: $PUBIP;"
+MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, cgnat=$IPV4_CGNAT, link-local=$IPV4_LINK, loop=$IPV4_LOOP);"
+MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
+[ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
+[ -n "$SERVICES" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
+
+# Finalize state code
+[ -n "$CRIT_MSG" ] && STATE_CODE=2
+[ -n "$CRIT_MSG" ] && MSG="$CRIT_MSG; $MSG"
+
+# Global perfdata
+INTERFACES_TOTAL=$((UP_COUNT + DOWN_COUNT))
+PERF_GLOBAL="interfaces_total=${INTERFACES_TOTAL};;;0"
+PERF_GLOBAL="$PERF_GLOBAL interfaces_up=${UP_COUNT};;;0"
+PERF_GLOBAL="$PERF_GLOBAL interfaces_down=${DOWN_COUNT};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_total=${IPV4_TOTAL};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_public=${IPV4_PUBLIC};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_private=${IPV4_PRIVATE};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_cgnat=${IPV4_CGNAT};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_link_local=${IPV4_LINK};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv4_loopback=${IPV4_LOOP};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_total=${IPV6_TOTAL};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_scope_global=${IPV6_SCOPE_GLOBAL};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_gua=${IPV6_GUA};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_ula=${IPV6_ULA};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_link_local=${IPV6_LINK};;;0"
+PERF_GLOBAL="$PERF_GLOBAL ipv6_host=${IPV6_HOST};;;0"
+
+# Merge global and per-interface perfdata
+PERF="$PERF_GLOBAL${PERF:+ $PERF}"
+
+# Show output
+printf '%s | %s\n' "$MSG" "$PERF"
+exit $STATE_CODE
