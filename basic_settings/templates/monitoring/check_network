@@ -218,27 +218,31 @@ EOF
     IPV6_ULA=$((IPV6_ULA + V6_ULA_I))
 
     # Per-interface perfdata
-    PERF="${PERF:+$PERF }'if_${IF_LBL}_up'=${IS_UP};;;0;1"
-    [ -n "$RX_BYTES" ] && PERF="$PERF 'if_${IF_LBL}_rx_bytes'=${RX_BYTES}B;;;0;"
-    [ -n "$TX_BYTES" ] && PERF="$PERF 'if_${IF_LBL}_tx_bytes'=${TX_BYTES}B;;;0;"
-    [ -n "$RX_ERRS" ]  && PERF="$PERF 'if_${IF_LBL}_rx_errors'=${RX_ERRS};;;0;"
-    [ -n "$TX_ERRS" ]  && PERF="$PERF 'if_${IF_LBL}_tx_errors'=${TX_ERRS};;;0;"
-    [ -n "$MTU" ]      && PERF="$PERF 'if_${IF_LBL}_mtu'=${MTU};;;0;"
-    [ -n "$SPEED" ]    && PERF="$PERF 'if_${IF_LBL}_speed'=${SPEED};;;0;"
+    PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
+    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}B;;;0"
+    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}B;;;0"
+    [ -n "$RX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
+    [ -n "$TX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
+    [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
+
+    # Link speed in /sys is Mb/s; convert to Bytes/s for perfdata
+    if [ -n "$SPEED" ] && printf '%s' "$SPEED" | $GREP -Eq '^[0-9]+$' && [ "$SPEED" -gt 0 ]; then
+        SPEED_BYTES=$($AWK -v m="$SPEED" 'BEGIN{printf "%.0f", m*1000000/8}')
+        PERF="$PERF 'if_${IF_LBL}_speed_bytes'=${SPEED_BYTES}B;;;0"
+    fi
 
     # Per-interface IPv4/IPv6 address class counts
-    PERF="$PERF 'if_${IF_LBL}_v4_total'=${V4_T};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v4_public'=${V4_PUB};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v4_private'=${V4_PRIV};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v4_cgnat'=${V4_CGNAT};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v4_link_local'=${V4_LINK};;;0;"
-
-    PERF="$PERF 'if_${IF_LBL}_v6_total'=${V6_T};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v6_scope_global'=${V6_GLOB};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v6_link_local'=${V6_LNK};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v6_host'=${V6_HST};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v6_gua'=${V6_GUA_I};;;0;"
-    PERF="$PERF 'if_${IF_LBL}_v6_ula'=${V6_ULA_I};;;0;"
+    PERF="$PERF if_${IF_LBL}_v4_total=${V4_T};;;0"
+    PERF="$PERF if_${IF_LBL}_v4_public=${V4_PUB};;;0"
+    PERF="$PERF if_${IF_LBL}_v4_private=${V4_PRIV};;;0"
+    PERF="$PERF if_${IF_LBL}_v4_cgnat=${V4_CGNAT};;;0"
+    PERF="$PERF if_${IF_LBL}_v4_link_local=${V4_LINK};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_total=${V6_T};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_scope_global=${V6_GLOB};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_link_local=${V6_LNK};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_host=${V6_HST};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_gua=${V6_GUA_I};;;0"
+    PERF="$PERF if_${IF_LBL}_v6_ula=${V6_ULA_I};;;0"
 done
 
 # Also count IPv4 loopback (lo) addresses explicitly
