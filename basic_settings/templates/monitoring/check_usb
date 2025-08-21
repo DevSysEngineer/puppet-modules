@@ -21,7 +21,7 @@ hm2min() {
     echo $((10#$H*60 + 10#$M))
 }
 
-# Defaults / state
+# Defaults values
 AANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
 ANYREQ_MATCHED_LIST=""
