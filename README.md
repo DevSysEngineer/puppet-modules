@@ -456,7 +456,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
 - [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
 - [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
-- [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb)
+- [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # serialid, serialid:vendorid, serialid@08:00-17:00, serialid:vendorid@08:00-17:00
 
 ## Contributie
 Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.
