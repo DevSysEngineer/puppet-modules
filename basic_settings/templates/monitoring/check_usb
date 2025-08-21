@@ -16,9 +16,9 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 hm2min() {
     H=${1%:*}
     M=${1#*:}
-    [ -z "$H" ] && H=0
-    [ -z "$M" ] && M=0
-    echo $((10#$H*60 + 10#$M))
+    H=$(printf '%d\n' "$H")
+    M=$(printf '%d\n' "$M")
+    echo $(( H*60 + M ))
 }
 
 # Defaults values
