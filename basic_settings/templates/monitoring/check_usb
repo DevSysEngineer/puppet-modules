@@ -156,8 +156,8 @@ done
 for DEVPATH in /sys/bus/usb/devices/*; do
     [ -f "$DEVPATH/idVendor" ] || continue
 
-    VID=$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
-    PID=$(cat "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
+    VID=$($CAT "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
+    PID=$($CAT "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
     [ "$VID" = "1d6b" ] && continue  # Linux Foundation root hub (USB host controller)
 
     TOTAL_DEV=$(( TOTAL_DEV + 1 ))
@@ -168,8 +168,8 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     else
         SERIAL=""
     fi
-    PRODUCT=$(cat "$DEVPATH/product" 2>/dev/null)
-    MANUFACTURER=$(cat "$DEVPATH/manufacturer" 2>/dev/null)
+    PRODUCT=$($CAT "$DEVPATH/product" 2>/dev/null)
+    MANUFACTURER=$($CAT "$DEVPATH/manufacturer" 2>/dev/null)
 
     # Friendly name
     DEVNAME=""
@@ -249,7 +249,7 @@ for EXP in $EXPECTED_SERIALS_ACTIVE; do
     FOUND=0
     for DEVPATH in /sys/bus/usb/devices/*; do
         [ -f "$DEVPATH/idVendor" ] || continue
-        [ "$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
+        [ "$($CAT "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
         SERIAL=$(tr -d '\r' < "$DEVPATH/serial" 2>/dev/null)
         [ -n "$SERIAL" ] && [ "$SERIAL" = "$EXP" ] && FOUND=1 && break
     done
@@ -260,9 +260,9 @@ for EXP in $EXPECTED_VP_IDS_ACTIVE; do
     FOUND=0
     for DEVPATH in /sys/bus/usb/devices/*; do
         [ -f "$DEVPATH/idVendor" ] || continue
-        [ "$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
-        VID=$(cat "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
-        PID=$(cat "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
+        [ "$($CAT "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
+        VID=$($CAT "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')
+        PID=$($CAT "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
         [ "$VID:$PID" = "$EXP" ] && FOUND=1 && break
     done
     [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"
