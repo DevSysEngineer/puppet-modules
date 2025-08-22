@@ -6,7 +6,7 @@ die() {
     exit 3
 }
 
-# Check binaries
+# Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 DIG=$(command -v dig 2>/dev/null) || die "dig not available"
@@ -20,60 +20,98 @@ PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Defaults values
+# Defaults / state
 CRIT_MSG=""
+WARN_MSG=""
+STATE_CODE=0
+
 DOWN_COUNT=0
 DOWN_LIST=""
+UP_COUNT=0
+
+# Compact interface summary in status line
 IF_SUMMARY=""
 IF_SUMMARY_COUNT=0
-IF_SUMMARY_MAX=8  # limit interface summary in the status line
+IF_SUMMARY_MAX=8
+
+# IPv4/IPv6 global counters
+IPV4_TOTAL=0
+IPV4_PUBLIC=0
+IPV4_PRIVATE=0
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
-IPV4_PRIVATE=0
-IPV4_PUBLIC=0
-IPV4_TOTAL=0
-IPV6_GUA=0
-IPV6_HOST=0
-IPV6_LINK=0
-IPV6_SCOPE_GLOBAL=0
+
 IPV6_TOTAL=0
+IPV6_SCOPE_GLOBAL=0
+IPV6_LINK=0
+IPV6_HOST=0
+IPV6_GUA=0
 IPV6_ULA=0
+
+# Services input (Puppet / CLI)
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
-STATE_CODE=0
-SVC_ACTIVE=0
-SVC_DOWN_LIST=""
-SVC_INACTIVE=0
+
+# Interface filters (Puppet / CLI)
+IF_FILTERS="<%= @interfaces_str %>"
+IF_LIST=""
+
+# Services counters
 SVC_TOTAL=0
-UP_COUNT=0
-WARN_MSG=""
+SVC_ACTIVE=0
+SVC_INACTIVE=0
+SVC_DOWN_LIST=""
 
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
-add_crit() {
-    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"
-}
-sanitize_label() {
-    printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
+# Failover tracking (Wi-Fi vs wired)
+WIFI_UP_COUNT=0
+WIFI_UP_LIST=""
+WIRED_UP_COUNT=0
+WIRED_UP_LIST=""
+WIRED_DOWN_COUNT=0
+WIRED_DOWN_LIST=""
+FAILOVER_NOTE=""
+
+# Helpers
+crit() { printf '%s\n' "$*" >&2; exit 2; }
+add_crit() { CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"; }
+sanitize_label() { printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'; }
+
+# Return 0 if iface name matches any pattern in $IF_LIST (space-separated glob list); 1 otherwise
+iface_matches() {
+    [ -z "$IF_LIST" ] && return 0
+    _name=$1
+    for _pat in $IF_LIST; do
+        case "$_name" in
+            $_pat) return 0 ;;
+        esac
+    done
+    return 1
 }
 
-# Options 
-while getopts 's:' opt; do
+# Options
+# -s "<svcs...>" : space-separated service names
+# -i "<globs...>": space- or comma-separated iface globs (e.g., "eth* ens* wlan*" or "ens*,wlan*")
+while getopts 's:i:' opt; do
   case "$opt" in
     s) SERVICES="$OPTARG" ;;
-    *) die "Usage: $0 [-s <list>]" ;;
+    i) IF_FILTERS="$OPTARG" ;;
+    *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
   esac
 done
 
-# Convert comma-separated list to space-separated
+# Normalize services (CLI takes precedence, SERVICES_IDS allows comma list)
+[ -n "$SERVICES" ] && SERVICES_LIST="$SERVICES"
 if [ -n "$SERVICES_IDS" ]; then
     SERVICES_LIST=$(printf '%s' "$SERVICES_IDS" | $TR ',' ' ')
 fi
 
-# Check if services are given
+# Normalize interface filters (allow commas or multiple spaces)
+if [ -n "$IF_FILTERS" ]; then
+    IF_LIST=$(printf '%s' "$IF_FILTERS" | $TR ',' ' ' | $SED 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
+fi
+
+# Optional: services check
 if [ -n "$SERVICES_LIST" ]; then
     for SVC in $SERVICES_LIST; do
         SVC_TOTAL=$((SVC_TOTAL + 1))
@@ -91,24 +129,48 @@ if [ -n "$SERVICES_LIST" ]; then
     [ -n "$SVC_DOWN_LIST" ] && add_crit "services down: $SVC_DOWN_LIST"
 fi
 
-# Enumerate interfaces (exclude loopback 'lo')
+# Enumerate interfaces (exclude 'lo' by default)
+ORIG_IFS=$IFS
 IFS='
 '
 INTERFACES=$($IP -o link show | $AWK -F': ' '{print $2}')
+MATCHED_IF_COUNT=0
 for IFACE in $INTERFACES; do
     [ "$IFACE" = "lo" ] && continue
 
-    # Determine UP/DOWN state from 'ip link show dev'
+    # Apply filters; if none supplied, accept all
+    if ! iface_matches "$IFACE"; then
+        continue
+    fi
+    MATCHED_IF_COUNT=$((MATCHED_IF_COUNT + 1))
+
+    # Detect Wi-Fi by sysfs presence
+    IS_WIFI=0
+    [ -d "/sys/class/net/$IFACE/wireless" ] && IS_WIFI=1
+
+    # Determine UP/DOWN
     if $IP link show dev "$IFACE" 2>/dev/null | $GREP -q "state UP"; then
         IS_UP=1
         UP_COUNT=$((UP_COUNT + 1))
+        if [ $IS_WIFI -eq 1 ]; then
+            WIFI_UP_COUNT=$((WIFI_UP_COUNT + 1))
+            WIFI_UP_LIST="${WIFI_UP_LIST:+$WIFI_UP_LIST,}$IFACE"
+        else
+            WIRED_UP_COUNT=$((WIRED_UP_COUNT + 1))
+            WIRED_UP_LIST="${WIRED_UP_LIST:+$WIRED_UP_LIST,}$IFACE"
+        fi
     else
         IS_UP=0
         DOWN_COUNT=$((DOWN_COUNT + 1))
         [ -z "$DOWN_LIST" ] && DOWN_LIST="$IFACE" || DOWN_LIST="$DOWN_LIST,$IFACE"
+        # Track wired down for failover policy
+        if [ $IS_WIFI -eq 0 ]; then
+            WIRED_DOWN_COUNT=$((WIRED_DOWN_COUNT + 1))
+            WIRED_DOWN_LIST="${WIRED_DOWN_LIST:+$WIRED_DOWN_LIST,}$IFACE"
+        fi
     fi
 
-    # Collect IPv4/IPv6 addresses for brief status (include link-local for IPv6)
+    # Address lists for compact summary (IPv6 includes link-local)
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
@@ -122,7 +184,7 @@ for IFACE in $INTERFACES; do
         IF_SUMMARY_COUNT=$((IF_SUMMARY_COUNT + 1))
     fi
 
-    # Per-interface perfdata from sysfs when available
+    # Per-interface stats from sysfs (if available)
     RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
     BASE="/sys/class/net/$IFACE"
     [ -r "$BASE/statistics/rx_bytes" ] && RX_BYTES=$($CAT "$BASE/statistics/rx_bytes" 2>/dev/null)
@@ -132,84 +194,71 @@ for IFACE in $INTERFACES; do
     [ -r "$BASE/mtu" ] && MTU=$($CAT "$BASE/mtu" 2>/dev/null)
     [ -r "$BASE/speed" ] && SPEED=$($CAT "$BASE/speed" 2>/dev/null)
 
-    # Set label
     IF_LBL=$(sanitize_label "$IFACE")
 
-    # IPv4 classification per interface
+    # IPv4 classification per interface (key=value AWK)
+    V4_T=0 V4_PUB=0 V4_PRIV=0 V4_CGNAT=0 V4_LINK=0
     V4_KV=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '
-        BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
-        {
-            split($4,a,"/"); ip=a[1]
-            if (ip ~ /^169\.254\./) ll++
-            else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
-            else if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./) cgn++
-            else pub++
-            t++
-        }
-        END{
-            printf "total=%d\npublic=%d\nprivate=%d\ncgnat=%d\nlink=%d\n", t,pub,priv,cgn,ll
-        }')
-
-    # Parse key=val without subshell; here-doc keeps assignments in current shell
+    BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
+    {
+        split($4,a,"/"); ip=a[1]
+        if (ip ~ /^169\.254\./) ll++
+        else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
+        else if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./) cgn++
+        else pub++
+        t++
+    }
+    END{printf "total=%d\npublic=%d\nprivate=%d\ncgnat=%d\nlink=%d\n", t,pub,priv,cgn,ll}')
     while IFS='=' read -r K V; do
         case "$K" in
-            total) V4_T=$V ;;
+            total)  V4_T=$V ;;
             public) V4_PUB=$V ;;
-            private)V4_PRIV=$V ;;
-            cgnat) V4_CGNAT=$V ;;
-            link) V4_LINK=$V ;;
+            private) V4_PRIV=$V ;;
+            cgnat)  V4_CGNAT=$V ;;
+            link)   V4_LINK=$V ;;
         esac
     done <<EOF
 $V4_KV
 EOF
 
-    # Accumulate globals
+    # Accumulate v4 globals
     IPV4_TOTAL=$((IPV4_TOTAL + V4_T))
     IPV4_PUBLIC=$((IPV4_PUBLIC + V4_PUB))
     IPV4_PRIVATE=$((IPV4_PRIVATE + V4_PRIV))
     IPV4_CGNAT=$((IPV4_CGNAT + V4_CGNAT))
     IPV4_LINK=$((IPV4_LINK + V4_LINK))
 
-    # IPv6 classification per interface
-    V6_GLOB=0
-    V6_GUA_I=0
-    V6_HST=0
-    V6_LNK=0
-    V6_T=0
-    V6_ULA_I=0
+    # IPv6 classification per interface (key=value AWK)
+    V6_GLOB=0 V6_GUA_I=0 V6_HST=0 V6_LNK=0 V6_T=0 V6_ULA_I=0
     V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
-        BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
-        {
-            split($4,a,"/"); ip=a[1]; sc=""
-            for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
-            if (sc=="link") lnk++
-            else if (sc=="host") hst++
-            else if (sc=="global") {
-                glob++
-                if (ip ~ /^(fc|fd)/) ula++
-                else if (ip ~ /^[23]/) gua++   # 2000::/3 (2xxx/3xxx)
-            }
-            t++
+    BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
+    {
+        split($4,a,"/"); ip=a[1]; sc=""
+        for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
+        if (sc=="link") lnk++
+        else if (sc=="host") hst++
+        else if (sc=="global") {
+            glob++
+            if (ip ~ /^(fc|fd)/) ula++
+            else if (ip ~ /^[23]/) gua++   # 2000::/3
         }
-        END{
-            printf "total=%d\nscope_global=%d\nlink=%d\nhost=%d\ngua=%d\nula=%d\n", t,glob,lnk,hst,gua,ula
-        }')
-
-    # Parse key=val without subshell
+        t++
+    }
+    END{printf "total=%d\nscope_global=%d\nlink=%d\nhost=%d\ngua=%d\nula=%d\n", t,glob,lnk,hst,gua,ula}')
     while IFS='=' read -r K V; do
         case "$K" in
-            total) V6_T=$V ;;
-            scope_global) V6_GLOB=$V ;;
-            link) V6_LNK=$V ;;
-            host) V6_HST=$V ;;
-            gua) V6_GUA_I=$V ;;
-            ula) V6_ULA_I=$V ;;
+            total)         V6_T=$V ;;
+            scope_global)  V6_GLOB=$V ;;
+            link)          V6_LNK=$V ;;
+            host)          V6_HST=$V ;;
+            gua)           V6_GUA_I=$V ;;
+            ula)           V6_ULA_I=$V ;;
         esac
     done <<EOF
 $V6_KV
 EOF
 
-    # Accumulate globals
+    # Accumulate v6 globals
     IPV6_TOTAL=$((IPV6_TOTAL + V6_T))
     IPV6_SCOPE_GLOBAL=$((IPV6_SCOPE_GLOBAL + V6_GLOB))
     IPV6_LINK=$((IPV6_LINK + V6_LNK))
@@ -223,12 +272,12 @@ EOF
     [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}c;;;0"
     [ -n "$RX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
     [ -n "$TX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
-    [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
+    [ -n "$MTU" ]      && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
 
-    # Link speed in /sys is Mb/s; convert to Bytes/s for perfdata
+    # /sys speed is Mb/s; convert to Bytes/s for perfdata (UOM=B)
     if [ -n "$SPEED" ] && printf '%s' "$SPEED" | $GREP -Eq '^[0-9]+$' && [ "$SPEED" -gt 0 ]; then
         SPEED_BYTES=$($AWK -v m="$SPEED" 'BEGIN{printf "%.0f", m*1000000/8}')
-        PERF="$PERF 'if_${IF_LBL}_speed_bytes'=${SPEED_BYTES}B;;;0"
+        PERF="$PERF if_${IF_LBL}_speed_bytes=${SPEED_BYTES}B;;;0"
     fi
 
     # Per-interface IPv4/IPv6 address class counts
@@ -244,8 +293,14 @@ EOF
     PERF="$PERF if_${IF_LBL}_v6_gua=${V6_GUA_I};;;0"
     PERF="$PERF if_${IF_LBL}_v6_ula=${V6_ULA_I};;;0"
 done
+IFS=$ORIG_IFS
 
-# Also count IPv4 loopback (lo) addresses explicitly
+# If filters were provided but no interfaces matched, report critical
+if [ -n "$IF_FILTERS" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then
+    add_crit "no interfaces matched filters: $IF_FILTERS"
+fi
+
+# Count IPv4 loopback addresses explicitly
 IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
   BEGIN{c=0}
   { split($4,a,"/"); ip=a[1]; if (ip ~ /^127\./) c++ }
@@ -256,20 +311,36 @@ IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
 PUBIP=$($DIG @ns1.google.com TXT o-o.myaddr.l.google.com +short 2>/dev/null | $SED 's/"//g')
 [ -z "$PUBIP" ] && PUBIP="unknown"
 
-# Critical conditions
-[ "$DOWN_COUNT" -gt 0 ] && add_crit "Interface down: $DOWN_LIST"
-[ "$UP_COUNT" -eq 0 ] && add_crit "No interfaces up"
+# Failover policy for interface-down conditions
+# If Wi-Fi is UP, no wired is UP, and there ARE wired interfaces DOWN:
+# treat this as expected failover: do NOT add crit/warn; add note only.
+if [ "$WIFI_UP_COUNT" -gt 0 ] && [ "$WIRED_UP_COUNT" -eq 0 ] && [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
+    FAILOVER_NOTE="failover active via Wi-Fi (${WIFI_UP_LIST}); ignoring wired down: ${WIRED_DOWN_LIST}"
+else
+    # In all other cases, if there are wired interfaces down, add critical
+    if [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
+        add_crit "wired interfaces down: ${WIRED_DOWN_LIST}"
+    fi
+fi
+
+# Critical if absolutely nothing is up
+[ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
 # Compose status message (compact)
 MSG="Public IP: $PUBIP;"
 MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, cgnat=$IPV4_CGNAT, link-local=$IPV4_LINK, loop=$IPV4_LOOP);"
 MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
-[ -n "$SERVICES" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
+[ -n "$SERVICES_LIST" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
+[ -n "$FAILOVER_NOTE" ] && MSG="$MSG; NOTE: $FAILOVER_NOTE"
 
-# Finalize state code
+# Finalize state code & prefix
 [ -n "$CRIT_MSG" ] && STATE_CODE=2
-[ -n "$CRIT_MSG" ] && MSG="$CRIT_MSG; $MSG"
+case "$STATE_CODE" in
+  2) MSG="CRITICAL: $CRIT_MSG; $MSG" ;;
+  1) MSG="WARNING: $WARN_MSG; $MSG" ;;
+  *) MSG="OK: $MSG" ;;
+esac
 
 # Global perfdata
 INTERFACES_TOTAL=$((UP_COUNT + DOWN_COUNT))
@@ -288,10 +359,11 @@ PERF_GLOBAL="$PERF_GLOBAL ipv6_gua=${IPV6_GUA};;;0"
 PERF_GLOBAL="$PERF_GLOBAL ipv6_ula=${IPV6_ULA};;;0"
 PERF_GLOBAL="$PERF_GLOBAL ipv6_link_local=${IPV6_LINK};;;0"
 PERF_GLOBAL="$PERF_GLOBAL ipv6_host=${IPV6_HOST};;;0"
+PERF_GLOBAL="$PERF_GLOBAL wifi_up=${WIFI_UP_COUNT};;;0"
+PERF_GLOBAL="$PERF_GLOBAL wired_up=${WIRED_UP_COUNT};;;0"
+PERF_GLOBAL="$PERF_GLOBAL wired_down=${WIRED_DOWN_COUNT};;;0"
 
-# Merge global and per-interface perfdata
+# Merge perfdata & output
 PERF="$PERF_GLOBAL${PERF:+ $PERF}"
-
-# Show output
 printf '%s | %s\n' "$MSG" "$PERF"
 exit $STATE_CODE

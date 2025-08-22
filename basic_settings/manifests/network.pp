@@ -16,7 +16,7 @@ class basic_settings::network (
   String                                      $firewall_path          = '/etc/firewall.conf',
   Boolean                                     $firewall_remove        = true,
   Array                                       $install_options        = [],
-  String                                      $interfaces             = 'eth* ens* wlan*',
+  Array                                       $interfaces             = ['eth*', 'ens*', 'wlan*'],
   String                                      $server_fdqn            = $facts['networking']['fqdn'],
   Boolean                                     $wireless_enable        = false,
 ) {
@@ -24,6 +24,7 @@ class basic_settings::network (
   $kernel_enable = defined(Class['basic_settings::kernel'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $systemd_enable = defined(Package['systemd'])
+  $interfaces_str = join($interfaces, ' ')
 
   # Get IP data
   if ($kernel_enable) {
@@ -301,9 +302,9 @@ class basic_settings::network (
 
   if ($systemd_enable) {
     # If DHCP is disabled, force system not to use DHCP
-    if ($interfaces != '' and !$dhcp_enable) {
+    if ($interfaces_str != '' and !$dhcp_enable) {
       basic_settings::systemd_network { '90-dhcpc':
-        interface     => $interfaces,
+        interface     => $interfaces_str,
         network       => {
           'DHCP' => 'no',
         },
@@ -317,11 +318,11 @@ class basic_settings::network (
     }
 
     # Setup default router advertisement settings
-    if ($interfaces != '') {
+    if ($interfaces_str != '') {
       if ($ip_ra_enable) {
         $ip_learn_prefix = bool2str($basic_settings::kernel::ip_ra_learn_prefix, 'yes', 'no')
         basic_settings::systemd_network { '90-router-advertisement':
-          interface      => $interfaces,
+          interface      => $interfaces_str,
           ipv6_accept_ra => {
             'UseAutonomousPrefix' => $ip_learn_prefix,
             'UseOnLinkPrefix'     => $ip_learn_prefix,
@@ -334,7 +335,7 @@ class basic_settings::network (
         }
       } else {
         basic_settings::systemd_network { '90-router-advertisement':
-          interface     => $interfaces,
+          interface     => $interfaces_str,
           network       => {
             'IPv6AcceptRA'        => 'no',
             'LinkLocalAddressing' => 'no',
