@@ -22,48 +22,33 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Defaults / state
 CRIT_MSG=""
-WARN_MSG=""
 STATE_CODE=0
-
 DOWN_COUNT=0
 DOWN_LIST=""
 UP_COUNT=0
-
-# Compact interface summary in status line
 IF_SUMMARY=""
 IF_SUMMARY_COUNT=0
 IF_SUMMARY_MAX=8
-
-# IPv4/IPv6 global counters
 IPV4_TOTAL=0
 IPV4_PUBLIC=0
 IPV4_PRIVATE=0
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
-
 IPV6_TOTAL=0
 IPV6_SCOPE_GLOBAL=0
 IPV6_LINK=0
 IPV6_HOST=0
 IPV6_GUA=0
 IPV6_ULA=0
-
-# Services input (Puppet / CLI)
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
-
-# Interface filters (Puppet / CLI)
-IF_FILTERS="<%= @interfaces_str %>"
-IF_LIST=""
-
-# Services counters
+IF_FILTERS=""
+IF_LIST="<%= @interfaces_str %>"
 SVC_TOTAL=0
 SVC_ACTIVE=0
 SVC_INACTIVE=0
 SVC_DOWN_LIST=""
-
-# Failover tracking (Wi-Fi vs wired)
 WIFI_UP_COUNT=0
 WIFI_UP_LIST=""
 WIRED_UP_COUNT=0
@@ -72,26 +57,32 @@ WIRED_DOWN_COUNT=0
 WIRED_DOWN_LIST=""
 FAILOVER_NOTE=""
 
-# Helpers
-crit() { printf '%s\n' "$*" >&2; exit 2; }
-add_crit() { CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"; }
-sanitize_label() { printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'; }
-
-# Return 0 if iface name matches any pattern in $IF_LIST (space-separated glob list); 1 otherwise
+add_crit() {
+    CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
+}
+sanitize_label() {
+    printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
+}
 iface_matches() {
+    # Match all when no filters provided
     [ -z "$IF_LIST" ] && return 0
+
     _name=$1
+    _OLDIFS=$IFS
+    IFS=' ' # split IF_LIST on spaces (we normalized to single spaces)
     for _pat in $IF_LIST; do
         case "$_name" in
-            $_pat) return 0 ;;
+            $_pat)
+                IFS=$_OLDIFS # restore IFS before returning
+                return 0
+                ;;
         esac
     done
+    IFS=$_OLDIFS # restore IFS if no match
     return 1
 }
 
 # Options
-# -s "<svcs...>" : space-separated service names
-# -i "<globs...>": space- or comma-separated iface globs (e.g., "eth* ens* wlan*" or "ens*,wlan*")
 while getopts 's:i:' opt; do
   case "$opt" in
     s) SERVICES="$OPTARG" ;;
@@ -296,8 +287,8 @@ done
 IFS=$ORIG_IFS
 
 # If filters were provided but no interfaces matched, report critical
-if [ -n "$IF_FILTERS" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then
-    add_crit "no interfaces matched filters: $IF_FILTERS"
+if [ -n "$IF_LIST" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then
+    add_crit "no interfaces matched filters: $IF_LIST"
 fi
 
 # Count IPv4 loopback addresses explicitly
@@ -334,13 +325,11 @@ MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GU
 [ -n "$SERVICES_LIST" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
 [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; NOTE: $FAILOVER_NOTE"
 
-# Finalize state code & prefix
-[ -n "$CRIT_MSG" ] && STATE_CODE=2
-case "$STATE_CODE" in
-  2) MSG="CRITICAL: $CRIT_MSG; $MSG" ;;
-  1) MSG="WARNING: $WARN_MSG; $MSG" ;;
-  *) MSG="OK: $MSG" ;;
-esac
+# Finalize message
+if [ -n "$CRIT_MSG" ]; then
+    MSG="$CRIT_MSG; $MSG"
+    STATE_CODE=2
+fi
 
 # Global perfdata
 INTERFACES_TOTAL=$((UP_COUNT + DOWN_COUNT))
