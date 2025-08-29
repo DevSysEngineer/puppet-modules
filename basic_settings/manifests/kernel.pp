@@ -437,6 +437,7 @@ class basic_settings::kernel (
   case $ram_disk_package { #lint:ignore:case_without_default
     'dracut': {
       # Install packages
+      $ram_disk_require = ['dracut', 'dracut-core']
       package {['dracut', 'dracut-core']:
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
@@ -452,18 +453,21 @@ class basic_settings::kernel (
       # Install packages 
       if ($os_name == 'Ubuntu') {
         if ($os_version == '24.04') {
-          package {['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']:
+          $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']
+          package { $ram_disk_require:
             ensure          => installed,
             install_options => ['--no-install-recommends', '--no-install-suggests'],
           }
         } else {
-          package {['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']:
+          $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']
+          package { $ram_disk_require:
             ensure          => installed,
             install_options => ['--no-install-recommends', '--no-install-suggests'],
           }
         }
       } else {
-        package {['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']:
+        $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']
+        package { $ram_disk_require:
           ensure          => installed,
           install_options => ['--no-install-recommends', '--no-install-suggests'],
         }
@@ -473,6 +477,20 @@ class basic_settings::kernel (
       package {['dracut', 'dracut-core']:
         ensure  => purged,
         require => Package['initramfs-tools-core'],
+      }
+    }
+  }
+
+  # Set boot options
+  case $kernel_type {
+    'raspi': {
+      file { '/boot/firmware/config.txt':
+        ensure  => file,
+        content => template('basic_settings/kernel/boot.txt'),
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0755', # Important
+        require => Package[$ram_disk_require],
       }
     }
   }

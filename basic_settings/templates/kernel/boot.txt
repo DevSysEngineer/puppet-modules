@@ -1,0 +1,34 @@
+# Managed by puppet
+[all]
+# Start kernel in 64bit
+arm_64bit=1
+
+# Kernel file
+kernel=vmlinuz
+
+# Kernel command
+cmdline=cmdline.txt
+
+# Load kernel in ram
+initramfs initrd.img followkernel
+
+# Disable KMS
+disable_fw_kms_setup=1
+
+# Disable splash screen
+disable_splash=1
+
+# Enable audio
+dtparam=audio=on
+dtparam=i2c_arm=on
+dtparam=spi=on
+
+# Firmware to load a named Device Tree overlay
+dtoverlay=vc4-kms-v3d,dwc2
+
+# Enable the serial pins
+enable_uart=1
+
+# Autoload overlays for any recognized cameras or displays that are attached to the CSI/DSI ports.
+camera_auto_detect=1
+display_auto_detect=1
