@@ -22,40 +22,43 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Defaults / state
 CRIT_MSG=""
-STATE_CODE=0
+DIG_OPTS="+short +time=1 +tries=1"
 DOWN_COUNT=0
 DOWN_LIST=""
-UP_COUNT=0
+FAILOVER_NOTE=""
+HAS_V4=0
+HAS_V6=0
+IF_FILTERS=""
+IF_LIST="<%= @interfaces_str %>"
 IF_SUMMARY=""
 IF_SUMMARY_COUNT=0
 IF_SUMMARY_MAX=8
-IPV4_TOTAL=0
-IPV4_PUBLIC=0
-IPV4_PRIVATE=0
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
-IPV6_TOTAL=0
-IPV6_SCOPE_GLOBAL=0
-IPV6_LINK=0
-IPV6_HOST=0
+IPV4_PRIVATE=0
+IPV4_PUBLIC=0
+IPV4_TOTAL=0
 IPV6_GUA=0
+IPV6_HOST=0
+IPV6_LINK=0
+IPV6_SCOPE_GLOBAL=0
+IPV6_TOTAL=0
 IPV6_ULA=0
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
-IF_FILTERS=""
-IF_LIST="<%= @interfaces_str %>"
-SVC_TOTAL=0
+STATE_CODE=0
 SVC_ACTIVE=0
-SVC_INACTIVE=0
 SVC_DOWN_LIST=""
+SVC_INACTIVE=0
+SVC_TOTAL=0
+UP_COUNT=0
 WIFI_UP_COUNT=0
 WIFI_UP_LIST=""
-WIRED_UP_COUNT=0
-WIRED_UP_LIST=""
 WIRED_DOWN_COUNT=0
 WIRED_DOWN_LIST=""
-FAILOVER_NOTE=""
+WIRED_UP_COUNT=0
+WIRED_UP_LIST=""
 
 add_crit() {
     CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
@@ -219,6 +222,12 @@ EOF
     IPV4_CGNAT=$((IPV4_CGNAT + V4_CGNAT))
     IPV4_LINK=$((IPV4_LINK + V4_LINK))
 
+    # Family-availability flag for IPv4 (short-circuit once set)
+    if [ "$HAS_V4" -eq 0 ]; then
+        V4_HAS=$((V4_PUB + V4_PRIV + V4_CGNAT))
+        [ "$V4_HAS" -gt 0 ] && HAS_V4=1
+    fi
+
     # IPv6 classification per interface (key=value AWK)
     V6_GLOB=0 V6_GUA_I=0 V6_HST=0 V6_LNK=0 V6_T=0 V6_ULA_I=0
     V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
@@ -257,6 +266,9 @@ EOF
     IPV6_GUA=$((IPV6_GUA + V6_GUA_I))
     IPV6_ULA=$((IPV6_ULA + V6_ULA_I))
 
+    # Family-availability flag for IPv6
+    [ "$HAS_V6" -eq 0 ] && [ "$V6_GLOB" -gt 0 ] && HAS_V6=1
+
     # Per-interface perfdata
     PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
     [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}c;;;0"
@@ -293,14 +305,30 @@ fi
 
 # Count IPv4 loopback addresses explicitly
 IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
-  BEGIN{c=0}
-  { split($4,a,"/"); ip=a[1]; if (ip ~ /^127\./) c++ }
-  END{print c}
+    BEGIN{c=0}
+    { split($4,a,"/"); ip=a[1]; if (ip ~ /^127\./) c++ }
+    END{print c}
 ')
 
-# Public IP via Google DNS TXT (strip quotes)
-PUBIP=$($DIG @ns1.google.com TXT o-o.myaddr.l.google.com +short 2>/dev/null | $SED 's/"//g')
-[ -z "$PUBIP" ] && PUBIP="unknown"
+# IPv4 public IP
+if [ "$HAS_V4" -eq 1 ]; then
+    PUBIP_V4=$($DIG -4 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' \ | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
+    if [ -z "$PUBIP_V4" ] || [ "$PUBIP_V4" = "0.0.0.0" ]; then # Fallback via Cloudflare IPv4
+        PUBIP_V4=$( $DIG -4 TXT ch whoami.cloudflare @1.1.1.1 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
+    fi
+fi
+
+# IPv6 public IP
+if [ "$HAS_V6" -eq 1 ]; then
+    PUBIP_V6=$($DIG -6 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/:/{print; exit}')
+    if [ -z "$PUBIP_V6" ] || [ "$PUBIP_V6" = "::" ]; then # Fallback via Cloudflare IPv6
+        PUBIP_V6=$($DIG -6 TXT ch whoami.cloudflare @2606:4700:4700::1111 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/:/{print; exit}')
+    fi
+fi
+
+PUBIP_DISPLAY_V4=$([ "$HAS_V4" -eq 1 ] && printf '%s' "${PUBIP_V4:-n/a}" || printf 'n/a')
+PUBIP_DISPLAY_V6=$([ "$HAS_V6" -eq 1 ] && printf '%s' "${PUBIP_V6:-n/a}" || printf 'n/a')
+PUBIP_COMBINED="v4=${PUBIP_DISPLAY_V4}, v6=${PUBIP_DISPLAY_V6}"
 
 # Failover policy for interface-down conditions
 # If Wi-Fi is UP, no wired is UP, and there ARE wired interfaces DOWN:
@@ -318,7 +346,7 @@ fi
 [ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
 # Compose status message (compact)
-MSG="Public IP: $PUBIP;"
+MSG="Public IP: $PUBIP_COMBINED;"
 MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, cgnat=$IPV4_CGNAT, link-local=$IPV4_LINK, loop=$IPV4_LOOP);"
 MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
