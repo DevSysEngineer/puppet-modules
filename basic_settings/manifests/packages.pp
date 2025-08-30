@@ -283,7 +283,8 @@ class basic_settings::packages (
     value   => 'Readline',
   }
 
-  if ($systemd_enable and $monitoring_enable) {
+  # Check if we have systemd
+  if ($systemd_enable) {
     # Reload systemd deamon
     exec { 'packages_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
@@ -291,22 +292,34 @@ class basic_settings::packages (
       require     => Package['systemd'],
     }
 
-    # Create drop in for APT service
-    basic_settings::systemd_drop_in { 'apt_daily_notify_failed':
-      target_unit   => 'apt-daily.service',
-      unit          => {
-        'OnFailure' => 'notify-failed@%i.service',
+    # Create drop in for APT upgrade service
+    basic_settings::systemd_drop_in { 'apt_daily_upgrade_settings':
+      target_unit   => 'apt-daily-upgrade.service',
+      timer         => {
+        'OnCalendar'         => ['', '*-*-* 2:00'],
+        'RandomizedDelaySec' => 30,
       },
       daemon_reload => 'packages_systemd_daemon_reload',
     }
 
-    # Create drop in for APT upgrade service
-    basic_settings::systemd_drop_in { 'apt_daily_upgrade_notify_failed':
-      target_unit   => 'apt-daily-upgrade.service',
-      unit          => {
-        'OnFailure' => 'notify-failed@%i.service',
-      },
-      daemon_reload => 'packages_systemd_daemon_reload',
+    if ($monitoring_enable) {
+      # Create drop in for APT service
+      basic_settings::systemd_drop_in { 'apt_daily_notify_failed':
+        target_unit   => 'apt-daily.service',
+        unit          => {
+          'OnFailure' => 'notify-failed@%i.service',
+        },
+        daemon_reload => 'packages_systemd_daemon_reload',
+      }
+
+      # Create drop in for APT upgrade service
+      basic_settings::systemd_drop_in { 'apt_daily_upgrade_notify_failed':
+        target_unit   => 'apt-daily-upgrade.service',
+        unit          => {
+          'OnFailure' => 'notify-failed@%i.service',
+        },
+        daemon_reload => 'packages_systemd_daemon_reload',
+      }
     }
   }
 
