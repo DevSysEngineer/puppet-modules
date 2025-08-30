@@ -294,7 +294,7 @@ class basic_settings::packages (
 
     # Create drop in for APT upgrade service
     basic_settings::systemd_drop_in { 'apt_daily_upgrade_settings':
-      target_unit   => 'apt-daily-upgrade.service',
+      target_unit   => 'apt-daily-upgrade.timer',
       timer         => {
         'OnCalendar'         => ['', '*-*-* 2:00'],
         'RandomizedDelaySec' => 30,
