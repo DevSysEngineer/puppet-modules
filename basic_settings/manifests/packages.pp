@@ -2,14 +2,9 @@ class basic_settings::packages (
   Optional[String]  $antivirus_package                          = undef,
   Boolean           $config_dir_enable                          = true,
   Boolean           $listchanges_dir_enable                     = true,
-  Array             $unattended_upgrades_block_extra_packages   = [],
-  Array             $unattended_upgrades_block_packages         = [
-    'libmysql*',
-    'mysql*',
-    'nginx',
-    'nodejs',
-    'php*',
-  ],
+  Optional[Array]   $unattended_upgrades_block_packages         = undef,
+  Array             $unattended_upgrades_block_packages_extra   = [],
+  Boolean           $unattended_upgrades_reboot                 = false,
   String            $server_fdqn                                = $facts['networking']['fqdn'],
   Optional[String]  $systemd_default_target                     = undef,
   Boolean           $snap_enable                                = false,
@@ -30,6 +25,25 @@ class basic_settings::packages (
   } else {
     $systemd_default_target_correct = $systemd_default_target
   }
+
+  # Get correct list
+  if ($unattended_upgrades_block_packages == undef) {
+    $unattended_upgrades_block_packages_correct = [
+      'libmysql*',
+      'mysql*',
+      'nginx',
+      'nodejs',
+      'php*',
+      'python*',
+      'rabbitmq-server',
+    ]
+  } else {
+    $unattended_upgrades_block_packages_correct = $unattended_upgrades_block_packages
+  }
+
+  # Set unattended_upgrades
+  $unattended_upgrades_block_packages_all = flatten($unattended_upgrades_block_packages_extra, $unattended_upgrades_block_packages_correct)
+  $unattended_upgrades_reboot_str = bool2str($unattended_upgrades_reboot)
 
   # Install apt package
   if (!defined(Package['apt'])) {
@@ -99,9 +113,6 @@ class basic_settings::packages (
     '-a always,exit -F arch=b32 -F path=/usr/bin/apt-get -F perm=x -F auid!=unset -F key=software_mgmt',
     '-a always,exit -F arch=b64 -F path=/usr/bin/apt-get -F perm=x -F auid!=unset -F key=software_mgmt',
   ]
-
-  # Set unattended_upgrades
-  $unattended_upgrades_block_all_packages = flatten($unattended_upgrades_block_extra_packages, $unattended_upgrades_block_packages);
 
   # Check if we need snap
   if (!$snap_enable) {
