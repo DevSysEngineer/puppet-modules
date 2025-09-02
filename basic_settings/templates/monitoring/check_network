@@ -6,7 +6,7 @@ die() {
     exit 3
 }
 
-# Binary checks
+# --- Binary checks (hard requirements) ---
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 DIG=$(command -v dig 2>/dev/null) || die "dig not available"
@@ -20,36 +20,48 @@ PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-TIMEOUT_BIN=$(command -v timeout 2>/dev/null)
+# --- Optional (best-effort) ---
+NETWORKCTL=$(command -v networkctl 2>/dev/null)   # may be empty; SSID will be skipped if missing
+
+# --- Defaults / state ---
 CRIT_MSG=""
 DIG_OPTS="+short +time=1 +tries=1"
+
 DOWN_COUNT=0
 DOWN_LIST=""
 FAILOVER_NOTE=""
+
 HAS_V4=0
 HAS_V6=0
+
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
+
 IF_SUMMARY=""
+
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
 IPV4_PRIVATE=0
 IPV4_PUBLIC=0
 IPV4_TOTAL=0
+
 IPV6_GUA=0
 IPV6_HOST=0
 IPV6_LINK=0
 IPV6_SCOPE_GLOBAL=0
 IPV6_TOTAL=0
 IPV6_ULA=0
+
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
+
 STATE_CODE=0
 SVC_ACTIVE=0
 SVC_DOWN_LIST=""
 SVC_INACTIVE=0
 SVC_TOTAL=0
+
 UP_COUNT=0
 WIFI_UP_COUNT=0
 WIFI_UP_LIST=""
@@ -58,19 +70,6 @@ WIRED_DOWN_LIST=""
 WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
-# Debug controls (inline in output)
-DEBUG=1
-DEBUG_MSG="" # accumulated debug text to include in the status line
-
-dbg() {
-    # Append a short debug fragment to DEBUG_MSG when -d is used
-    [ "$DEBUG" -eq 1 ] || return 0
-    _t="$*"
-    # collapse newlines -> spaces
-    _t=$(printf '%s' "$_t" | $TR '\n' ' ')
-    DEBUG_MSG="${DEBUG_MSG:+$DEBUG_MSG; }$_t"
-}
-
 add_crit() {
     CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
 }
@@ -78,14 +77,13 @@ sanitize_label() {
     # Replace any non [A-Za-z0-9_] by underscore to produce valid perfdata labels
     printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
 }
-
 iface_matches() {
     # Return 0 if iface matches any glob in IF_LIST (match all if IF_LIST empty)
     [ -z "$IF_LIST" ] && return 0
 
     _NAME=$1
     _OLDIFS=$IFS
-    IFS=' ' # split IF_LIST on spaces (we normalized to single spaces)
+    IFS=' ' # split IF_LIST on spaces (normalized to single spaces)
     for _pat in $IF_LIST; do
         case "$_NAME" in
             $_pat)
@@ -98,79 +96,26 @@ iface_matches() {
     return 1
 }
 
-# Return SSID for a Wi-Fi interface using wpa_cli.
-# Best-effort: prints nothing on failure. Adds detailed steps to DEBUG_MSG.
+# Get Wi-Fi SSID for interface strictly via `networkctl status`.
+# On failure: print nothing, return 0 (non-fatal).
 wifi_ssid() {
     _if="$1"
-    _wpa=$(command -v wpa_cli 2>/dev/null) || { dbg "wpa_cli missing"; return 0; }
-
-    # Show tool paths
-    dbg "wpa_cli=$_wpa timeout=${TIMEOUT_BIN:-none}"
-
-    # Thin wrapper to cap runtime if timeout exists
-    _run() {
-        if [ -n "$TIMEOUT_BIN" ]; then
-            "$TIMEOUT_BIN" 2s "$_wpa" "$@" 2>/dev/null
-        else
-            "$_wpa" "$@" 2>/dev/null
-        fi
-    }
-
-    # Socket hints
-    [ -S "/run/wpa_supplicant/$_if" ]       && dbg "sock:/run/wpa_supplicant/$_if"
-    [ -S "/var/run/wpa_supplicant/$_if" ]   && dbg "sock:/var/run/wpa_supplicant/$_if"
-    [ -S "/run/wpa_supplicant/global" ]     && dbg "sock:/run/wpa_supplicant/global"
-    [ -S "/var/run/wpa_supplicant/global" ] && dbg "sock:/var/run/wpa_supplicant/global"
-
-    # Try 1: default search path
-    _out=$(_run -i "$_if" status); _rc=$?
-    _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
-    _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
-    dbg "wpa_cli -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
-    [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
-
-    # Try 2: explicit per-dir control paths
-    for _dir in /run/wpa_supplicant /var/run/wpa_supplicant; do
-        [ -d "$_dir" ] || { dbg "skip:$_dir(no dir)"; continue; }
-        _out=$(_run -p "$_dir" -i "$_if" status); _rc=$?
-        _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
-        _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
-        dbg "wpa_cli -p $_dir -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
-        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
-    done
-
-    # Try 3: global control
-    for _g in /run/wpa_supplicant /var/run/wpa_supplicant; do
-        [ -S "$_g/global" ] || { dbg "no-global:$_g"; continue; }
-        _out=$(_run -g "$_g" -i "$_if" status); _rc=$?
-        _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
-        _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
-        dbg "wpa_cli -g $_g -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
-        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
-    done
-
-    # Fallback: parse CURRENT from list_networks (some wpa versions don’t show ssid in status)
-    _out=$(_run -i "$_if" list_networks); _rc=$?
-    _ssid=$(printf '%s\n' "$_out" \
-        | awk 'BEGIN{FS="\t"} NR>1 && $0 ~ /\[CURRENT\]/ {print $2; exit}')
-    dbg "wpa_cli -i $_if list_networks rc=$_rc ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
-    [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
-
-    dbg "ssid:$_if not found"
+    [ -n "$NETWORKCTL" ] || return 0
+    _out=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 "$NETWORKCTL" status "$_if" --no-pager 2>/dev/null) || return 0
+    _ssid=$(printf '%s\n' "$_out" | $AWK -F': *' '/^[[:space:]]*SSID[[:space:]]*:/ {print $2; exit}')
+    [ -n "$_ssid" ] || return 0
+    printf '%s' "$_ssid" | $SED 's/"/\\"/g'
     return 0
 }
-
 
 # --- Options ---
 # -s "<svcs...>" : space-separated services
 # -i "<globs...>": space- or comma-separated iface globs (e.g., "eth* ens* wlan*")
-# -d             : enable inline debug in output ("DEBUG: ...")
-while getopts 's:i:d' opt; do
+while getopts 's:i:' opt; do
   case "$opt" in
     s) SERVICES="$OPTARG" ;;
     i) IF_FILTERS="$OPTARG" ;;
-    d) DEBUG=1 ;;
-    *) die "Usage: $0 [-s <services>] [-i <iface globs>] [-d]" ;;
+    *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
   esac
 done
 
@@ -179,13 +124,11 @@ done
 if [ -n "$SERVICES_IDS" ]; then
     SERVICES_LIST=$(printf '%s' "$SERVICES_IDS" | $TR ',' ' ')
 fi
-dbg "services:'$SERVICES_LIST'"
 
 # Normalize interface filters (allow commas or multiple spaces)
 if [ -n "$IF_FILTERS" ]; then
     IF_LIST=$(printf '%s' "$IF_FILTERS" | $TR ',' ' ' | $SED 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
 fi
-dbg "filters:'$IF_LIST'"
 
 # Optional: services check
 if [ -n "$SERVICES_LIST" ]; then
@@ -216,7 +159,6 @@ for IFACE in $INTERFACES; do
 
     # Apply filters; if none supplied, accept all
     if ! iface_matches "$IFACE"; then
-        dbg "skip:$IFACE (no-match)"
         continue
     fi
     MATCHED_IF_COUNT=$((MATCHED_IF_COUNT + 1))
@@ -247,33 +189,23 @@ for IFACE in $INTERFACES; do
             WIRED_DOWN_LIST="${WIRED_DOWN_LIST:+$WIRED_DOWN_LIST,}$IFACE"
         fi
     fi
-    dbg "iface:$IFACE wifi=$IS_WIFI up=$IS_UP"
 
-    # Address lists for summary (IPv6 includes link-local)
+    # Address lists for compact summary (IPv6 includes link-local)
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
     # Compose compact iface summary
     STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
-    
-    # IPv4 / IPv6 address lists (compact)
     ADDRS=""
     [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
-    # If Wi-Fi and UP: append SSID (best-effort) + explicit debug at call site
+    # If Wi-Fi and UP: append SSID strictly via networkctl (best-effort)
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
-        dbg "ssid:call $IFACE"
         SSID_VAL=$(wifi_ssid "$IFACE")
-        if [ -n "$SSID_VAL" ]; then
-            ADDRS="$ADDRS SSID:\"$SSID_VAL\""
-            dbg "ssid:$IFACE ok"
-        else
-            dbg "ssid:$IFACE empty"
-        fi
+        [ -n "$SSID_VAL" ] && ADDRS="$ADDRS SSID:\"$SSID_VAL\""
     fi
 
-    # Trim and append to summary
     ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
     IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+: $ADDRS}]"
 
@@ -314,14 +246,12 @@ for IFACE in $INTERFACES; do
 $V4_KV
 EOF
 
-    # Accumulate v4 globals
     IPV4_TOTAL=$((IPV4_TOTAL + V4_T))
     IPV4_PUBLIC=$((IPV4_PUBLIC + V4_PUB))
     IPV4_PRIVATE=$((IPV4_PRIVATE + V4_PRIV))
     IPV4_CGNAT=$((IPV4_CGNAT + V4_CGNAT))
     IPV4_LINK=$((IPV4_LINK + V4_LINK))
 
-    # Family-availability flag for IPv4 (short-circuit once set)
     if [ "$HAS_V4" -eq 0 ]; then
         V4_HAS=$((V4_PUB + V4_PRIV + V4_CGNAT))
         [ "$V4_HAS" -gt 0 ] && HAS_V4=1
@@ -357,7 +287,6 @@ EOF
 $V6_KV
 EOF
 
-    # Accumulate v6 globals
     IPV6_TOTAL=$((IPV6_TOTAL + V6_T))
     IPV6_SCOPE_GLOBAL=$((IPV6_SCOPE_GLOBAL + V6_GLOB))
     IPV6_LINK=$((IPV6_LINK + V6_LNK))
@@ -365,7 +294,6 @@ EOF
     IPV6_GUA=$((IPV6_GUA + V6_GUA_I))
     IPV6_ULA=$((IPV6_ULA + V6_ULA_I))
 
-    # Family-availability flag for IPv6
     [ "$HAS_V6" -eq 0 ] && [ "$V6_GLOB" -gt 0 ] && HAS_V6=1
 
     # Per-interface perfdata
@@ -416,14 +344,12 @@ if [ "$HAS_V4" -eq 1 ]; then
         | $SED -n 's/^"\(.*\)"$/\1/p' \
         | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}'
     )
-    [ -z "$PUBIP_V4" ] && dbg "dig v4 google: empty"
     if [ -z "$PUBIP_V4" ] || [ "$PUBIP_V4" = "0.0.0.0" ]; then
         PUBIP_V4=$(
             $DIG -4 TXT ch whoami.cloudflare @1.1.1.1 $DIG_OPTS 2>/dev/null \
             | $SED -n 's/^"\(.*\)"$/\1/p' \
             | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}'
         )
-        [ -n "$PUBIP_V4" ] && dbg "dig v4 cloudflare: hit" || dbg "dig v4 cloudflare: empty"
     fi
 fi
 
@@ -434,14 +360,12 @@ if [ "$HAS_V6" -eq 1 ]; then
         | $SED -n 's/^"\(.*\)"$/\1/p' \
         | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}'
     )
-    [ -z "$PUBIP_V6" ] && dbg "dig v6 google: empty"
     if [ -z "$PUBIP_V6" ] || [ "$PUBIP_V6" = "::" ]; then
         PUBIP_V6=$(
             $DIG -6 TXT ch whoami.cloudflare @2606:4700:4700::1111 $DIG_OPTS 2>/dev/null \
             | $SED -n 's/^"\(.*\)"$/\1/p' \
             | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}'
         )
-        [ -n "$PUBIP_V6" ] && dbg "dig v6 cloudflare: hit" || dbg "dig v6 cloudflare: empty"
     fi
 fi
 
@@ -466,7 +390,6 @@ fi
 
 # Compose status message (compact)
 MSG="Public IP: $PUBIP_COMBINED;"
-[ "$DEBUG" -eq 1 ] && [ -n "$DEBUG_MSG" ] && MSG="$MSG; DEBUG: $DEBUG_MSG"
 MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, cgnat=$IPV4_CGNAT, link-local=$IPV4_LINK, loop=$IPV4_LOOP);"
 MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
