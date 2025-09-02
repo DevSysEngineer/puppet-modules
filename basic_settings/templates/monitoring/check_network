@@ -87,6 +87,7 @@ iface_matches() {
 
 # Get Wi-Fi SSID
 wifi_info() {
+    # Set values
     _IF="$1"
     _SSID=""
     _BSSID=""
@@ -97,10 +98,9 @@ wifi_info() {
     if [ -n "$_LINE" ]; then
         # Extract BSSID only if the last (...) looks like a MAC (exactly 17 chars: xx:xx:xx:xx:xx:xx)
         _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$/\1/p')
+
         # SSID is whatever is left after stripping the trailing "(MAC)"
-        _SSID=$(printf '%s' "$_LINE" \
-            | $SED -e 's/(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$//' \
-                    -e 's/[[:space:]]*$//')
+        _SSID=$(printf '%s' "$_LINE" | $SED -e 's/(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$//' -e 's/[[:space:]]*$//')
 
         # Normalize placeholders
         [ "$_SSID" = "(null)" ] && _SSID=""
