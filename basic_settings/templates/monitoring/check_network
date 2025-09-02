@@ -86,7 +86,7 @@ wifi_ssid() {
     _INTERFACE="$1"
 
     # Resolve wpa_cli on demand; silently succeed if missing
-    WPA_CLI=$(command -v wpa_cli 2>/dev/null) || || printf "vreemd1" #|| return 0
+    WPA_CLI=$(command -v wpa_cli 2>/dev/null) || printf "vreemd1" #|| return 0
 
     # Query and extract SSID
     _SSID=$($WPA_CLI -i "$_INTERFACE" status 2>/dev/null || printf "vreemd2"  #| $AWK -F= '/^ssid=/{print $2; exit}')
@@ -356,7 +356,7 @@ PUBIP_COMBINED="v4=${PUBIP_DISPLAY_V4}, v6=${PUBIP_DISPLAY_V6}"
 # If Wi-Fi is UP, no wired is UP, and there ARE wired interfaces DOWN:
 # treat this as expected failover: do NOT add crit/warn; add note only.
 if [ "$WIFI_UP_COUNT" -gt 0 ] && [ "$WIRED_UP_COUNT" -eq 0 ] && [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
-    FAILOVER_NOTE="failover active via Wi-Fi (${WIFI_UP_LIST}); ignoring wired down: ${WIRED_DOWN_LIST}"
+    FAILOVER_NOTE="Failover active via Wi-Fi (${WIFI_UP_LIST}); ignoring wired down: ${WIRED_DOWN_LIST}"
 else
     # In all other cases, if there are wired interfaces down, add critical
     if [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
@@ -373,7 +373,7 @@ MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, c
 MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
 [ -n "$SERVICES_LIST" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
-[ -n "$FAILOVER_NOTE" ] && MSG="$MSG; NOTE: $FAILOVER_NOTE"
+[ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"
 
 # Finalize message
 if [ -n "$CRIT_MSG" ]; then
