@@ -23,45 +23,36 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 # --- Optional (best-effort) ---
 NETWORKCTL=$(command -v networkctl 2>/dev/null)   # may be empty; SSID will be skipped if missing
 
-# --- Defaults / state ---
+# Defaults / state
 CRIT_MSG=""
 DIG_OPTS="+short +time=1 +tries=1"
-
 DOWN_COUNT=0
 DOWN_LIST=""
 FAILOVER_NOTE=""
-
 HAS_V4=0
 HAS_V6=0
-
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
-
 IF_SUMMARY=""
-
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
 IPV4_PRIVATE=0
 IPV4_PUBLIC=0
 IPV4_TOTAL=0
-
 IPV6_GUA=0
 IPV6_HOST=0
 IPV6_LINK=0
 IPV6_SCOPE_GLOBAL=0
 IPV6_TOTAL=0
 IPV6_ULA=0
-
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
-
 STATE_CODE=0
 SVC_ACTIVE=0
 SVC_DOWN_LIST=""
 SVC_INACTIVE=0
 SVC_TOTAL=0
-
 UP_COUNT=0
 WIFI_UP_COUNT=0
 WIFI_UP_LIST=""
@@ -98,19 +89,33 @@ iface_matches() {
 
 # Get Wi-Fi SSID for interface strictly via `networkctl status`.
 # On failure: print nothing, return 0 (non-fatal).
-wifi_ssid() {
+wifi_ap_info() {
     _if="$1"
     [ -n "$NETWORKCTL" ] || return 0
     _out=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 "$NETWORKCTL" status "$_if" --no-pager 2>/dev/null) || return 0
+
+    # Prefer modern "WiFi access point: <ssid> (<bssid>)"
+    _line=$(printf '%s\n' "$_out" | $AWK '/^[[:space:]]*WiFi access point:/ {sub(/^[[:space:]]*WiFi access point:[[:space:]]*/, "", $0); print; exit}')
+    if [ -n "$_line" ]; then
+        _ssid=$(printf '%s' "$_line" | $SED 's/ *(.*)//')                              # strip " (BSSID)"
+        _bssid=$(printf '%s' "$_line" | $SED -n 's/.*(\(.*\)).*/\1/p')                  # capture content inside (...)
+        _ssid=$(printf '%s' "$_ssid" | $SED 's/"/\\"/g')
+        [ -n "$_ssid" ] && { printf '%s|%s' "$_ssid" "$_bssid"; return 0; }
+    fi
+
+    # Fallback to older "SSID: <ssid>"
     _ssid=$(printf '%s\n' "$_out" | $AWK -F': *' '/^[[:space:]]*SSID[[:space:]]*:/ {print $2; exit}')
-    [ -n "$_ssid" ] || return 0
-    printf '%s' "$_ssid" | $SED 's/"/\\"/g'
+    if [ -n "$_ssid" ]; then
+        _ssid=$(printf '%s' "$_ssid" | $SED 's/"/\\"/g')
+        printf '%s|' "$_ssid"
+        return 0
+    fi
+
+    # Nothing found
     return 0
 }
 
-# --- Options ---
-# -s "<svcs...>" : space-separated services
-# -i "<globs...>": space- or comma-separated iface globs (e.g., "eth* ens* wlan*")
+# Options
 while getopts 's:i:' opt; do
   case "$opt" in
     s) SERVICES="$OPTARG" ;;
@@ -182,7 +187,7 @@ for IFACE in $INTERFACES; do
         IS_UP=0
         DOWN_COUNT=$((DOWN_COUNT + 1))
         [ -z "$DOWN_LIST" ] && DOWN_LIST="$IFACE" || DOWN_LIST="$DOWN_LIST,$IFACE"
-        
+
         # Track wired down for failover policy
         if [ $IS_WIFI -eq 0 ]; then
             WIRED_DOWN_COUNT=$((WIRED_DOWN_COUNT + 1))
@@ -200,10 +205,15 @@ for IFACE in $INTERFACES; do
     [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
-    # If Wi-Fi and UP: append SSID strictly via networkctl (best-effort)
+    # If Wi-Fi and UP: append AP info (SSID + BSSID) via networkctl
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
-        SSID_VAL=$(wifi_ssid "$IFACE")
-        [ -n "$SSID_VAL" ] && ADDRS="$ADDRS SSID:\"$SSID_VAL\""
+        APINFO=$(wifi_ap_info "$IFACE")
+        if [ -n "$APINFO" ]; then
+            SSID_VAL=${APINFO%%|*}
+            BSSID_VAL=${APINFO#*|}
+            [ -n "$SSID_VAL" ]  && ADDRS="$ADDRS AP:\"$SSID_VAL\""
+            [ -n "$BSSID_VAL" ] && ADDRS="$ADDRS BSSID:$BSSID_VAL"
+        fi
     fi
 
     ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
@@ -224,16 +234,17 @@ for IFACE in $INTERFACES; do
     # IPv4 classification per interface
     V4_T=0 V4_PUB=0 V4_PRIV=0 V4_CGNAT=0 V4_LINK=0
     V4_KV=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '
-      BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
-      {
-        split($4,a,"/"); ip=a[1]
-        if (ip ~ /^169\.254\./) ll++
-        else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
-        else if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./) cgn++
-        else pub++
-        t++
-      }
-      END{printf "total=%d\npublic=%d\nprivate=%d\ncgnat=%d\nlink=%d\n", t,pub,priv,cgn,ll}')
+        BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
+        {
+            split($4,a,"/"); ip=a[1]
+            if (ip ~ /^169\.254\./) ll++
+            else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
+            else if (ip ~ /^100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\./) cgn++
+            else pub++
+            t++
+        }
+        END{printf "total=%d\npublic=%d\nprivate=%d\ncgnat=%d\nlink=%d\n", t,pub,priv,cgn,ll}
+    ')
     while IFS='=' read -r K V; do
         case "$K" in
             total)  V4_T=$V ;;
@@ -260,20 +271,21 @@ EOF
     # IPv6 classification per interface
     V6_GLOB=0 V6_GUA_I=0 V6_HST=0 V6_LNK=0 V6_T=0 V6_ULA_I=0
     V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
-      BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
-      {
-        split($4,a,"/"); ip=a[1]; sc=""
-        for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
-        if (sc=="link") lnk++
-        else if (sc=="host") hst++
-        else if (sc=="global") {
-          glob++
-          if (ip ~ /^(fc|fd)/) ula++
-          else if (ip ~ /^[23]/) gua++   # 2000::/3
+        BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
+        {
+            split($4,a,"/"); ip=a[1]; sc=""
+            for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
+            if (sc=="link") lnk++
+            else if (sc=="host") hst++
+            else if (sc=="global") {
+                glob++
+                if (ip ~ /^(fc|fd)/) ula++
+                else if (ip ~ /^[23]/) gua++   # 2000::/3
+            }
+            t++
         }
-        t++
-      }
-      END{printf "total=%d\nscope_global=%d\nlink=%d\nhost=%d\ngua=%d\nula=%d\n", t,glob,lnk,hst,gua,ula}')
+        END{printf "total=%d\nscope_global=%d\nlink=%d\nhost=%d\ngua=%d\nula=%d\n", t,glob,lnk,hst,gua,ula}
+    ')
     while IFS='=' read -r K V; do
         case "$K" in
             total)         V6_T=$V ;;
