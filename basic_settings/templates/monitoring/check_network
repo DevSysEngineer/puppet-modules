@@ -15,13 +15,11 @@ IP=$(command -v ip 2>/dev/null) || die "ip not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+NETWORKCTL=$(command -v networkctl 2>/dev/null)  || die "networkctl not available"
 <% else -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
-
-# --- Optional (best-effort) ---
-NETWORKCTL=$(command -v networkctl 2>/dev/null)   # may be empty; SSID will be skipped if missing
 
 # Defaults / state
 CRIT_MSG=""
@@ -87,41 +85,46 @@ iface_matches() {
     return 1
 }
 
-# Get Wi-Fi SSID for interface strictly via `networkctl status`.
-# On failure: print nothing, return 0 (non-fatal).
-wifi_ap_info() {
-    _if="$1"
-    [ -n "$NETWORKCTL" ] || return 0
-    _out=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 "$NETWORKCTL" status "$_if" --no-pager 2>/dev/null) || return 0
+# Get Wi-Fi SSID
+wifi_info() {
+    _IF="$1"
+    _SSID=""
+    _BSSID=""
 
-    # Prefer modern "WiFi access point: <ssid> (<bssid>)"
-    _line=$(printf '%s\n' "$_out" | $AWK '/^[[:space:]]*WiFi access point:/ {sub(/^[[:space:]]*WiFi access point:[[:space:]]*/, "", $0); print; exit}')
-    if [ -n "$_line" ]; then
-        _ssid=$(printf '%s' "$_line" | $SED 's/ *(.*)//')                              # strip " (BSSID)"
-        _bssid=$(printf '%s' "$_line" | $SED -n 's/.*(\(.*\)).*/\1/p')                  # capture content inside (...)
-        _ssid=$(printf '%s' "$_ssid" | $SED 's/"/\\"/g')
-        [ -n "$_ssid" ] && { printf '%s|%s' "$_ssid" "$_bssid"; return 0; }
+<% if @systemd_enable -%>
+    _OUT=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 "$NETWORKCTL" status "$_IF" --no-pager 2>/dev/null)
+    _LINE=$(printf '%s\n' "$_OUT" | $AWK '/^[[:space:]]*WiFi access point:/ {sub(/^[[:space:]]*WiFi access point:[[:space:]]*/, "", $0); print; exit}')
+    if [ -n "$_LINE" ]; then
+        # Extract BSSID only if the last (...) looks like a MAC (exactly 17 chars: xx:xx:xx:xx:xx:xx)
+        _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$/\1/p')
+        # SSID is whatever is left after stripping the trailing "(MAC)"
+        _SSID=$(printf '%s' "$_LINE" \
+            | $SED -e 's/(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$//' \
+                    -e 's/[[:space:]]*$//')
+
+        # Normalize placeholders
+        [ "$_SSID" = "(null)" ] && _SSID=""
+        [ "$_BSSID" = "00:00:00:00:00:00" ] && _BSSID=""
     fi
+<% end -%>
 
-    # Fallback to older "SSID: <ssid>"
-    _ssid=$(printf '%s\n' "$_out" | $AWK -F': *' '/^[[:space:]]*SSID[[:space:]]*:/ {print $2; exit}')
-    if [ -n "$_ssid" ]; then
-        _ssid=$(printf '%s' "$_ssid" | $SED 's/"/\\"/g')
-        printf '%s|' "$_ssid"
-        return 0
+    # Escape any quotes in SSID to keep summary neat
+    [ -n "$_SSID" ] && _SSID=$(printf '%s' "$_SSID" | $SED 's/"/\\"/g')
+
+    # Output only if we have something useful
+    if [ -n "$_SSID" ] || [ -n "$_BSSID" ]; then
+        printf '%s|%s' "$_SSID" "$_BSSID"
     fi
-
-    # Nothing found
     return 0
 }
 
 # Options
 while getopts 's:i:' opt; do
-  case "$opt" in
-    s) SERVICES="$OPTARG" ;;
-    i) IF_FILTERS="$OPTARG" ;;
-    *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
-  esac
+    case "$opt" in
+        s) SERVICES="$OPTARG" ;;
+        i) IF_FILTERS="$OPTARG" ;;
+        *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
+    esac
 done
 
 # Normalize services (CLI takes precedence, SERVICES_IDS allows comma list)
@@ -207,7 +210,7 @@ for IFACE in $INTERFACES; do
 
     # If Wi-Fi and UP: append AP info (SSID + BSSID) via networkctl
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
-        APINFO=$(wifi_ap_info "$IFACE")
+        APINFO=$(wifi_info "$IFACE")
         if [ -n "$APINFO" ]; then
             SSID_VAL=${APINFO%%|*}
             BSSID_VAL=${APINFO#*|}
@@ -247,11 +250,11 @@ for IFACE in $INTERFACES; do
     ')
     while IFS='=' read -r K V; do
         case "$K" in
-            total)  V4_T=$V ;;
+            total) V4_T=$V ;;
             public) V4_PUB=$V ;;
             private) V4_PRIV=$V ;;
-            cgnat)  V4_CGNAT=$V ;;
-            link)   V4_LINK=$V ;;
+            cgnat) V4_CGNAT=$V ;;
+            link) V4_LINK=$V ;;
         esac
     done <<EOF
 $V4_KV
@@ -288,12 +291,12 @@ EOF
     ')
     while IFS='=' read -r K V; do
         case "$K" in
-            total)         V6_T=$V ;;
-            scope_global)  V6_GLOB=$V ;;
-            link)          V6_LNK=$V ;;
-            host)          V6_HST=$V ;;
-            gua)           V6_GUA_I=$V ;;
-            ula)           V6_ULA_I=$V ;;
+            total) V6_T=$V ;;
+            scope_global) V6_GLOB=$V ;;
+            link) V6_LNK=$V ;;
+            host) V6_HST=$V ;;
+            gua) V6_GUA_I=$V ;;
+            ula) V6_ULA_I=$V ;;
         esac
     done <<EOF
 $V6_KV
@@ -312,9 +315,9 @@ EOF
     PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
     [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}c;;;0"
     [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}c;;;0"
-    [ -n "$RX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
-    [ -n "$TX_ERRS" ]  && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
-    [ -n "$MTU" ]      && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
+    [ -n "$RX_ERRS" ] && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
+    [ -n "$TX_ERRS" ] && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
+    [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
 
     # /sys speed is Mb/s; convert to Bytes/s for perfdata (UOM=B)
     if [ -n "$SPEED" ] && printf '%s' "$SPEED" | $GREP -Eq '^[0-9]+$' && [ "$SPEED" -gt 0 ]; then
@@ -351,33 +354,17 @@ IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
 
 # IPv4 public IP (only if the host actually has v4 addressing)
 if [ "$HAS_V4" -eq 1 ]; then
-    PUBIP_V4=$(
-        $DIG -4 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null \
-        | $SED -n 's/^"\(.*\)"$/\1/p' \
-        | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}'
-    )
+    PUBIP_V4=$($DIG -4 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
     if [ -z "$PUBIP_V4" ] || [ "$PUBIP_V4" = "0.0.0.0" ]; then
-        PUBIP_V4=$(
-            $DIG -4 TXT ch whoami.cloudflare @1.1.1.1 $DIG_OPTS 2>/dev/null \
-            | $SED -n 's/^"\(.*\)"$/\1/p' \
-            | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}'
-        )
+        PUBIP_V4=$($DIG -4 TXT ch whoami.cloudflare @1.1.1.1 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
     fi
 fi
 
 # IPv6 public IP (only if v6 addressing is actually present)
 if [ "$HAS_V6" -eq 1 ]; then
-    PUBIP_V6=$(
-        $DIG -6 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null \
-        | $SED -n 's/^"\(.*\)"$/\1/p' \
-        | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}'
-    )
+    PUBIP_V6=$($DIG -6 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}')
     if [ -z "$PUBIP_V6" ] || [ "$PUBIP_V6" = "::" ]; then
-        PUBIP_V6=$(
-            $DIG -6 TXT ch whoami.cloudflare @2606:4700:4700::1111 $DIG_OPTS 2>/dev/null \
-            | $SED -n 's/^"\(.*\)"$/\1/p' \
-            | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}'
-        )
+        PUBIP_V6=$($DIG -6 TXT ch whoami.cloudflare @2606:4700:4700::1111 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}')
     fi
 fi
 
