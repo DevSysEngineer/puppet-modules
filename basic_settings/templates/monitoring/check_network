@@ -86,10 +86,10 @@ wifi_ssid() {
     _INTERFACE="$1"
 
     # Resolve wpa_cli on demand; silently succeed if missing
-    WPA_CLI=$(command -v wpa_cli 2>/dev/null) || return 0
+    WPA_CLI=$(command -v wpa_cli 2>/dev/null) || || printf "vreemd1" #|| return 0
 
     # Query and extract SSID
-    _SSID=$($WPA_CLI -i "$_INTERFACE" status 2>/dev/null || printf "vreemd"  #| $AWK -F= '/^ssid=/{print $2; exit}')
+    _SSID=$($WPA_CLI -i "$_INTERFACE" status 2>/dev/null || printf "vreemd2"  #| $AWK -F= '/^ssid=/{print $2; exit}')
 
     # Nothing to print? still return 0 (best-effort)
     [ -z "$_SSID" ] && return 0
