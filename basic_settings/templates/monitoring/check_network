@@ -31,8 +31,6 @@ HAS_V6=0
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
 IF_SUMMARY=""
-IF_SUMMARY_COUNT=0
-IF_SUMMARY_MAX=8
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
@@ -70,11 +68,11 @@ iface_matches() {
     # Match all when no filters provided
     [ -z "$IF_LIST" ] && return 0
 
-    _name=$1
+    _NAME=$1
     _OLDIFS=$IFS
     IFS=' ' # split IF_LIST on spaces (we normalized to single spaces)
     for _pat in $IF_LIST; do
-        case "$_name" in
+        case "$_NAME" in
             $_pat)
                 IFS=$_OLDIFS # restore IFS before returning
                 return 0
@@ -83,6 +81,22 @@ iface_matches() {
     done
     IFS=$_OLDIFS # restore IFS if no match
     return 1
+}
+wifi_ssid() {
+    _INTERFACE="$1"
+
+    # Resolve wpa_cli on demand; silently succeed if missing
+    WPA_CLI=$(command -v wpa_cli 2>/dev/null) || return 0
+
+    # Query and extract SSID
+    _SSID=$("$WPA_CLI" -i "$_INTERFACE" status 2>/dev/null | $AWK -F= '/^ssid=/{print $2; exit}')
+
+    # Nothing to print? still return 0 (best-effort)
+    [ -z "$_SSID" ] && return 0
+
+    # Escape quotes to keep summary formatting intact
+    printf '%s' "$_SSID" | $SED 's/"/\\"/g'
+    return 0
 }
 
 # Options
@@ -168,15 +182,23 @@ for IFACE in $INTERFACES; do
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
-    if [ $IF_SUMMARY_COUNT -lt $IF_SUMMARY_MAX ]; then
-        STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
-        ADDRS=""
-        [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
-        [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
-        ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
-        IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+; $ADDRS}]"
-        IF_SUMMARY_COUNT=$((IF_SUMMARY_COUNT + 1))
+    # Set state
+    STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
+    
+    # IPv4 / IPv6 address lists (compact)
+    ADDRS=""
+    [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+    [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+
+    # If this is a Wi-Fi iface and it's UP: append SSID from wpa_cli (if available)
+    if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
+        SSID_VAL=$(wifi_ssid "$IFACE")
+        [ -n "$SSID_VAL" ] && ADDRS="$ADDRS SSID:\"$SSID_VAL\""
     fi
+
+    # Trim and append to summary
+    ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
+    IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+; $ADDRS}]"
 
     # Per-interface stats from sysfs (if available)
     RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
