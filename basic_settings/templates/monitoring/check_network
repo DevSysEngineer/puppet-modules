@@ -98,14 +98,16 @@ iface_matches() {
     return 1
 }
 
-# Return SSID for a Wi-Fi interface using wpa_cli (best-effort).
-# Tries default path, explicit control dirs, then global control socket.
-# Prints nothing on failure (no warnings), but logs attempt flow in DEBUG_MSG when -d is used.
+# Return SSID for a Wi-Fi interface using wpa_cli.
+# Best-effort: prints nothing on failure. Adds detailed steps to DEBUG_MSG.
 wifi_ssid() {
     _if="$1"
     _wpa=$(command -v wpa_cli 2>/dev/null) || { dbg "wpa_cli missing"; return 0; }
 
-    # Small wrapper to cap per-call runtime if timeout exists
+    # Show tool paths
+    dbg "wpa_cli=$_wpa timeout=${TIMEOUT_BIN:-none}"
+
+    # Thin wrapper to cap runtime if timeout exists
     _run() {
         if [ -n "$TIMEOUT_BIN" ]; then
             "$TIMEOUT_BIN" 2s "$_wpa" "$@" 2>/dev/null
@@ -114,39 +116,50 @@ wifi_ssid() {
         fi
     }
 
-    # Show socket hints (only in debug)
-    [ -S "/run/wpa_supplicant/$_if" ]     && dbg "sock:/run/wpa_supplicant/$_if"
-    [ -S "/var/run/wpa_supplicant/$_if" ] && dbg "sock:/var/run/wpa_supplicant/$_if"
+    # Socket hints
+    [ -S "/run/wpa_supplicant/$_if" ]       && dbg "sock:/run/wpa_supplicant/$_if"
+    [ -S "/var/run/wpa_supplicant/$_if" ]   && dbg "sock:/var/run/wpa_supplicant/$_if"
     [ -S "/run/wpa_supplicant/global" ]     && dbg "sock:/run/wpa_supplicant/global"
     [ -S "/var/run/wpa_supplicant/global" ] && dbg "sock:/var/run/wpa_supplicant/global"
 
-    # 1) Default
+    # Try 1: default search path
     _out=$(_run -i "$_if" status); _rc=$?
-    _ssid=$(printf '%s\n' "$_out" | $AWK -F= '/^ssid=/{print $2; exit}')
-    dbg "wpa_cli -i $_if rc=${_rc} ssid=${_ssid:+set}"
-    [ -n "$_ssid" ] && { printf '%s' "$_ssid" | $SED 's/"/\\"/g'; return 0; }
+    _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
+    _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
+    dbg "wpa_cli -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
+    [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
 
-    # 2) Explicit per-dir control paths
+    # Try 2: explicit per-dir control paths
     for _dir in /run/wpa_supplicant /var/run/wpa_supplicant; do
         [ -d "$_dir" ] || { dbg "skip:$_dir(no dir)"; continue; }
         _out=$(_run -p "$_dir" -i "$_if" status); _rc=$?
-        _ssid=$(printf '%s\n' "$_out" | $AWK -F= '/^ssid=/{print $2; exit}')
-        dbg "wpa_cli -p $_dir -i $_if rc=${_rc} ssid=${_ssid:+set}"
-        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | $SED 's/"/\\"/g'; return 0; }
+        _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
+        _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
+        dbg "wpa_cli -p $_dir -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
+        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
     done
 
-    # 3) Global control
+    # Try 3: global control
     for _g in /run/wpa_supplicant /var/run/wpa_supplicant; do
         [ -S "$_g/global" ] || { dbg "no-global:$_g"; continue; }
         _out=$(_run -g "$_g" -i "$_if" status); _rc=$?
-        _ssid=$(printf '%s\n' "$_out" | $AWK -F= '/^ssid=/{print $2; exit}')
-        dbg "wpa_cli -g $_g -i $_if rc=${_rc} ssid=${_ssid:+set}"
-        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | $SED 's/"/\\"/g'; return 0; }
+        _len=$(printf '%s' "$_out" | wc -c | awk '{print $1}')
+        _ssid=$(printf '%s\n' "$_out" | awk -F= '/^ssid=/{print $2; exit}')
+        dbg "wpa_cli -g $_g -i $_if status rc=$_rc bytes=$_len ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
+        [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
     done
+
+    # Fallback: parse CURRENT from list_networks (some wpa versions don’t show ssid in status)
+    _out=$(_run -i "$_if" list_networks); _rc=$?
+    _ssid=$(printf '%s\n' "$_out" \
+        | awk 'BEGIN{FS="\t"} NR>1 && $0 ~ /\[CURRENT\]/ {print $2; exit}')
+    dbg "wpa_cli -i $_if list_networks rc=$_rc ssid=$([ -n "$_ssid" ] && echo set || echo '-')"
+    [ -n "$_ssid" ] && { printf '%s' "$_ssid" | sed 's/"/\\"/g'; return 0; }
 
     dbg "ssid:$_if not found"
     return 0
 }
+
 
 # --- Options ---
 # -s "<svcs...>" : space-separated services
@@ -248,10 +261,16 @@ for IFACE in $INTERFACES; do
     [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
-    # If Wi-Fi and UP: append SSID (best-effort) + debug flow already added inside wifi_ssid()
+    # If Wi-Fi and UP: append SSID (best-effort) + explicit debug at call site
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
+        dbg "ssid:call $IFACE"
         SSID_VAL=$(wifi_ssid "$IFACE")
-        [ -n "$SSID_VAL" ] && ADDRS="$ADDRS SSID:\"$SSID_VAL\""
+        if [ -n "$SSID_VAL" ]; then
+            ADDRS="$ADDRS SSID:\"$SSID_VAL\""
+            dbg "ssid:$IFACE ok"
+        else
+            dbg "ssid:$IFACE empty"
+        fi
     fi
 
     # Trim and append to summary
@@ -447,12 +466,12 @@ fi
 
 # Compose status message (compact)
 MSG="Public IP: $PUBIP_COMBINED;"
+[ "$DEBUG" -eq 1 ] && [ -n "$DEBUG_MSG" ] && MSG="$MSG; DEBUG: $DEBUG_MSG"
 MSG="$MSG IPv4 total: $IPV4_TOTAL (public=$IPV4_PUBLIC, private=$IPV4_PRIVATE, cgnat=$IPV4_CGNAT, link-local=$IPV4_LINK, loop=$IPV4_LOOP);"
 MSG="$MSG IPv6 total: $IPV6_TOTAL (scope_global=$IPV6_SCOPE_GLOBAL, gua=$IPV6_GUA, ula=$IPV6_ULA, link-local=$IPV6_LINK, host=$IPV6_HOST)"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; IFs:$IF_SUMMARY"
 [ -n "$SERVICES_LIST" ] && MSG="$MSG; services up=$SVC_ACTIVE, down=$SVC_INACTIVE"
 [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"
-[ "$DEBUG" -eq 1 ] && [ -n "$DEBUG_MSG" ] && MSG="$MSG; DEBUG: $DEBUG_MSG"
 
 # Finalize message/state
 if [ -n "$CRIT_MSG" ]; then
