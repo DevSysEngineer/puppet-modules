@@ -93,17 +93,23 @@ wifi_info() {
     _BSSID=""
 
 <% if @systemd_enable -%>
-    _OUT=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 "$NETWORKCTL" status "$_IF" --no-pager 2>/dev/null)
-    _LINE=$(printf '%s\n' "$_OUT" | $AWK '/^[[:space:]]*WiFi access point:/ {sub(/^[[:space:]]*WiFi access point:[[:space:]]*/, "", $0); print; exit}')
+    # Accept both "WiFi access point:" and "Wi-Fi access point:" (hyphen optional)
+    _OUT=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 $NETWORKCTL status "$_IF" --no-pager 2>/dev/null)
+    _LINE=$(printf '%s\n' "$_OUT" | $AWK '
+        /^[[:space:]]*(WiFi|Wi-?Fi)[[:space:]]+access[[:space:]]+point:/ {
+            sub(/^[[:space:]]*(WiFi|Wi-?Fi)[[:space:]]+access[[:space:]]+point:[[:space:]]*/, "", $0)
+            print; exit
+        }')
+
     if [ -n "$_LINE" ]; then
-        # Extract BSSID only if the last (...) looks like a MAC (exactly 17 chars: xx:xx:xx:xx:xx:xx)
-        _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$/\1/p')
+        # Extract trailing BSSID only if last "(xx:xx:xx:xx:xx:xx)" looks like a MAC
+        _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f]\{2\}(:[0-9A-Fa-f]\{2\}\)\{5\}))[[:space:]]*$/\1/p')
 
-        # SSID is whatever is left after stripping the trailing "(MAC)"
-        _SSID=$(printf '%s' "$_LINE" | $SED -e 's/(\([0-9A-Fa-f:]\{17\}\))[[:space:]]*$//' -e 's/[[:space:]]*$//')
+        # SSID is the remainder after stripping " (MAC)" at the end; trim trailing spaces
+        _SSID=$(printf '%s' "$_LINE" | $SED -e 's/(\([0-9A-Fa-f]\{2\}(:[0-9A-Fa-f]\{2\}\)\{5\}))[[:space:]]*$//'  -e 's/[[:space:]]*$//')
 
-        # Normalize placeholders
-        [ "$_SSID" = "(null)" ] && _SSID=""
+        # Normalize placeholders sometimes seen in older outputs
+        [ "$_SSID"  = "(null)" ] && _SSID=""
         [ "$_BSSID" = "00:00:00:00:00:00" ] && _BSSID=""
     fi
 <% end -%>
@@ -208,7 +214,7 @@ for IFACE in $INTERFACES; do
     [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
-    # If Wi-Fi and UP: append AP info (SSID + BSSID) via networkctl
+    # If Wi-Fi and UP: append AP info (SSID + BSSID)
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
         APINFO=$(wifi_info "$IFACE")
         if [ -n "$APINFO" ]; then
@@ -223,7 +229,7 @@ for IFACE in $INTERFACES; do
     IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+: $ADDRS}]"
 
     # Per-interface stats from sysfs (if available)
-    RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
+    RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SP EED=""
     BASE="/sys/class/net/$IFACE"
     [ -r "$BASE/statistics/rx_bytes" ] && RX_BYTES=$($CAT "$BASE/statistics/rx_bytes" 2>/dev/null)
     [ -r "$BASE/statistics/tx_bytes" ] && TX_BYTES=$($CAT "$BASE/statistics/tx_bytes" 2>/dev/null)
