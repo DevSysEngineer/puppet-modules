@@ -229,7 +229,7 @@ for IFACE in $INTERFACES; do
     IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+: $ADDRS}]"
 
     # Per-interface stats from sysfs (if available)
-    RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SP EED=""
+    RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
     BASE="/sys/class/net/$IFACE"
     [ -r "$BASE/statistics/rx_bytes" ] && RX_BYTES=$($CAT "$BASE/statistics/rx_bytes" 2>/dev/null)
     [ -r "$BASE/statistics/tx_bytes" ] && TX_BYTES=$($CAT "$BASE/statistics/tx_bytes" 2>/dev/null)
