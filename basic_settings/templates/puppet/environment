@@ -6,7 +6,16 @@
 JAVA_BIN="/usr/bin/java"
 
 # Modify this if you'd like to change the memory allocation, enable JMX, etc
+<% case @jvm_memory 
+   when '512mb' %>
+JAVA_ARGS="-Xms512m -Xmx512m -Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger -Djava.io.tmpdir=<%= @server_var_extra %>/temp"
+<% when '1gb' %>
+JAVA_ARGS="-Xms1g -Xmx1g -Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger -Djava.io.tmpdir=<%= @server_var_extra %>/temp"
+<% when '2gb' %>
 JAVA_ARGS="-Xms2g -Xmx2g -Djruby.logger.class=com.puppetlabs.jruby_utils.jruby.Slf4jLogger -Djava.io.tmpdir=<%= @server_var_extra %>/temp"
+<% else %>
+<% raise "Unsupported value: #{@jvm_memory}" %>
+<% end %>
 
 # Modify this as you would JAVA_ARGS but for non-service related subcommands
 JAVA_ARGS_CLI="${JAVA_ARGS_CLI:-}"

@@ -54,6 +54,7 @@ class basic_settings (
   Boolean                               $proxmox_enable                             = false,
   Optional[Enum['distro','remote']]     $puppet_repo                                = undef,
   Boolean                               $puppetserver_enable                        = false,
+  Enum['512mb','1gb','2gb']             $puppetserver_jvm_memory                    = '2gb',
   Enum['openvox','perforce']            $puppetserver_source                        = 'perforce',
   Boolean                               $rabbitmq_enable                            = false,
   String                                $server_fdqn                                = $facts['networking']['fqdn'],
@@ -854,10 +855,11 @@ class basic_settings (
 
   # Setup Puppet
   class { 'basic_settings::puppet':
-    repo           => $puppet_repo_correct,
-    server_dirname => $puppetserver_dirname,
-    server_enable  => $puppetserver_enable,
-    server_package => $puppetserver_package,
+    jvm_memory      => $puppetserver_jvm_memory,
+    repo            => $puppet_repo_correct,
+    server_dirname  => $puppetserver_dirname,
+    server_enable   => $puppetserver_enable,
+    server_package  => $puppetserver_package,
   }
 
   # Setup login
