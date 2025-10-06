@@ -28,14 +28,22 @@ crit() {
     printf '%s\n' "$*" >&2
     exit 2
 }
+trim_file() {
+    [ -r "$1" ] || return 1
+    val=$($SED -n '1{s/[[:space:]]\+$//;p;q}' "$1" 2>/dev/null | $TR -d '\000\r\n') || return 1
+    [ -n "$val" ] || return 1
+    printf '%s' "$val"
+}
 
-# Default values
+# Defaults values
+DMI_DIR="/sys/devices/virtual/dmi/id"
 DROPPED_CRIT="1"
+HW_SEG=""
 MSG="Auditd running"
-STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 QUEUE_WARN=""
+STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 
-# Options 
+# Options
 while getopts 'q:d' opt; do
     case "$opt" in
         q) QUEUE_WARN="$OPTARG" ;;
@@ -51,7 +59,7 @@ $SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
 $PS -C auditd >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
-# Get audit report
+# Audit report (today)
 SUM=$($AUREPORT --summary --start today 00:00:00 --end now 2>/dev/null)
 get(){ printf "%s" "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'; }
 ACCT=$(get "Number of changes to accounts, groups, or roles:"); : "${ACCT:=0}"
@@ -61,7 +69,7 @@ FAIL=$(get "Number of failed syscalls:"); : "${FAIL:=0}"
 FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
 KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
 
-# Check if we have any events
+# Raise state on notable events
 if [ "$ACCT" -gt 0 ] || [ "$ANOM" -gt 0 ] || [ "$CFG" -gt 0 ] || [ "$FAIL" -gt 0 ] || [ "$KEYS" -gt 0 ]; then
     MSG="Strange audit behavior observed"
     STATE_CODE=2
@@ -101,7 +109,7 @@ fi
 ERROR_COUNT=0
 <% end -%>
 
-# Get audit rules
+# Rules count
 RULES_COUNT=$($AUDITCTL -l 2>/dev/null | $GREP '^-' | $AWK 'END{print NR+0}')
 if [ "$RULES_COUNT" -eq 0 ]; then
     MSG="$MSG, rules 0"
@@ -110,7 +118,7 @@ else
     MSG="$MSG, rules $RULES_COUNT"
 fi
 
-# Get backlog / dropped counters
+# Queue/backlog stats
 AV_STAT=$($AUDITCTL -s 2>/dev/null)
 BACKLOG=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
 LOST=$(printf "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
@@ -124,10 +132,10 @@ if [ "$BACKLOG" -gt "$QUEUE_WARN" ]; then
 fi
 if [ "$LOST" -gt "$DROPPED_CRIT" ]; then
     MSG="$MSG, dropped $LOST"
-    STATE_CODE=2 
+    STATE_CODE=2
 fi
 
-# Rules-integriteit (augenrules --check)
+# Rules integrity (augenrules --check)
 if $AUGENRULES --check >/dev/null 2>&1; then
     MSG="$MSG, augenrules OK"
 else
@@ -135,7 +143,7 @@ else
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 
-# Check for boot time
+# Boot time
 NOW=$($DATE +%s)
 BTIME=$($AWK '/btime/ {print $2}' /proc/stat 2>/dev/null)
 if [ -n "$BTIME" ]; then
@@ -148,7 +156,7 @@ if [ -n "$BTIME" ]; then
 elif [ -r /proc/uptime ]; then
     UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
     if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
-        BOOT_HUMAN=$($DATE -d "@$((NOW - UPTIME_SEC))" '+%a %Y-%m-%d %H:%M:%S %Z')
+        BOOT_HUMAN=$($DATE -d "@$(($NOW - UPTIME_SEC))" '+%a %Y-%m-%d %H:%M:%S %Z')
         MSG="$MSG, reboot <24h (Boot on $BOOT_HUMAN)"
         [ $STATE_CODE -lt 1 ] && STATE_CODE=1
     fi
@@ -180,24 +188,58 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
 fi
 <% end -%>
 
-# Check if we have any events (last_keys)
+# Check if we have audit keys
 if [ "$KEYS" -gt 0 ]; then
     LAST_KEYS=$($AUSEARCH --start 'today 00:00:00' --end now 2>/dev/null | $GREP -o 'key="[^"]\+"' | $SED 's/^key="//; s/"$//' | $AWK 'NF && $0!="(null)"{k[n++]=$0}
         END{
             for(i=n-1;i>=0 && c<5; i--) if(!seen[k[i]]++) list[c++]=k[i];
             for(i=c-1;i>=0;i--) printf "%s%s", list[i], (i? ", ":"")
         }')
-    if [ -n "$LAST_KEYS" ]; then
-        MSG="$MSG, last_keys: $LAST_KEYS"
+    [ -n "$LAST_KEYS" ] && MSG="$MSG, last_keys: $LAST_KEYS"
+fi
+
+# Read DMI info if available
+if [ -d "$DMI_DIR" ]; then
+    # Read DMI information
+    CHASSIS_SERIAL=$(trim_file "$DMI_DIR/chassis_serial" 2>/dev/null)
+    BOARD_SERIAL=$(trim_file "$DMI_DIR/board_serial" 2>/dev/null)
+    PRODUCT_SERIAL=$(trim_file "$DMI_DIR/product_serial" 2>/dev/null)
+    BIOS_VENDOR=$(trim_file "$DMI_DIR/bios_vendor" 2>/dev/null)
+    BIOS_VERSION=$(trim_file "$DMI_DIR/bios_version" 2>/dev/null)
+    BIOS_DATE=$(trim_file "$DMI_DIR/bios_date" 2>/dev/null)
+
+    # Build hardware segment
+    [ -n "$CHASSIS_SERIAL" ] && HW_SEG="$HW_SEG, chs:$CHASSIS_SERIAL"
+    [ -n "$BOARD_SERIAL" ] && HW_SEG="$HW_SEG, brd:$BOARD_SERIAL"
+    [ -n "$PRODUCT_SERIAL" ] && HW_SEG="$HW_SEG, prod:$PRODUCT_SERIAL"
+
+    # BIOS summary
+    if [ -n "$BIOS_VENDOR$BIOS_VERSION$BIOS_DATE" ]; then
+        BIOS_SUM="$BIOS_VENDOR${BIOS_VERSION:+ }$BIOS_VERSION${BIOS_DATE:+ ($BIOS_DATE)}"
+        HW_SEG="$HW_SEG, bios:$BIOS_SUM"
     fi
 fi
 
-# Events / sec
+# Fallback for device-tree platforms (e.g., Raspberry Pi)
+if [ -z "$HW_SEG" ] && [ -d /proc/device-tree ]; then
+    DT_MODEL=$(trim_file /proc/device-tree/model 2>/dev/null)
+    DT_SERIAL=$(trim_file /proc/device-tree/serial-number 2>/dev/null)
+    [ -n "$DT_SERIAL" ] && HW_SEG="$HW_SEG, serial:$DT_SERIAL"
+    [ -n "$DT_MODEL" ] && HW_SEG="$HW_SEG, model:$DT_MODEL"
+fi
+
+# Append hardware summary if present
+if [ -n "$HW_SEG" ]; then
+    HW_SEG=${HW_SEG#, }
+    MSG="$MSG, hw[$HW_SEG]"
+fi
+
+# Events per second (last 5 minutes)
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
 EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
 
-# Create perf data
+# Perf data
 PERF="acct_changes=${ACCT};;1"
 PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
@@ -210,6 +252,6 @@ PERF="$PERF keys=${KEYS};;1"
 PERF="$PERF rules=${RULES_COUNT};;0;0"
 PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 
-# Show output
+# Output
 printf '%s | %s\n' "${MSG#, }" "$PERF"
 exit $STATE_CODE

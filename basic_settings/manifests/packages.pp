@@ -186,6 +186,17 @@ class basic_settings::packages (
     }
   }
 
+  # Setup audit rules to exclude APT
+  basic_settings::security_audit { 'apt_exclude':
+    rules => [
+      '-a never,exit -F arch=b32 -F exe=/usr/bin/apt-config -F auid=unset',
+      '-a never,exit -F arch=b64 -F exe=/usr/bin/apt-config -F auid=unset',
+      '-a never,exit -F arch=b32 -F exe=/usr/lib/apt/apt-helper -F auid=unset',
+      '-a never,exit -F arch=b64 -F exe=/usr/lib/apt/apt-helper -F auid=unset',
+    ],
+    order => 2,
+  }
+
   # Setup APT config dir
   if ($config_dir_enable) {
     file { '/etc/apt/apt.conf.d':
