@@ -209,14 +209,14 @@ if [ -d "$DMI_DIR" ]; then
     BIOS_DATE=$(trim_file "$DMI_DIR/bios_date" 2>/dev/null)
 
     # Build hardware segment
-    [ -n "$CHASSIS_SERIAL" ] && HW_SEG="$HW_SEG, chs:$CHASSIS_SERIAL"
-    [ -n "$BOARD_SERIAL" ] && HW_SEG="$HW_SEG, brd:$BOARD_SERIAL"
-    [ -n "$PRODUCT_SERIAL" ] && HW_SEG="$HW_SEG, prod:$PRODUCT_SERIAL"
+    [ -n "$CHASSIS_SERIAL" ] && HW_SEG="$HW_SEG, chs: $CHASSIS_SERIAL"
+    [ -n "$BOARD_SERIAL" ] && HW_SEG="$HW_SEG, brd: $BOARD_SERIAL"
+    [ -n "$PRODUCT_SERIAL" ] && HW_SEG="$HW_SEG, prod: $PRODUCT_SERIAL"
 
     # BIOS summary
     if [ -n "$BIOS_VENDOR$BIOS_VERSION$BIOS_DATE" ]; then
         BIOS_SUM="$BIOS_VENDOR${BIOS_VERSION:+ }$BIOS_VERSION${BIOS_DATE:+ ($BIOS_DATE)}"
-        HW_SEG="$HW_SEG, bios:$BIOS_SUM"
+        HW_SEG="$HW_SEG, bios: $BIOS_SUM"
     fi
 fi
 
@@ -224,8 +224,8 @@ fi
 if [ -z "$HW_SEG" ] && [ -d /proc/device-tree ]; then
     DT_MODEL=$(trim_file /proc/device-tree/model 2>/dev/null)
     DT_SERIAL=$(trim_file /proc/device-tree/serial-number 2>/dev/null)
-    [ -n "$DT_SERIAL" ] && HW_SEG="$HW_SEG, serial:$DT_SERIAL"
-    [ -n "$DT_MODEL" ] && HW_SEG="$HW_SEG, model:$DT_MODEL"
+    [ -n "$DT_SERIAL" ] && HW_SEG="$HW_SEG, serial: $DT_SERIAL"
+    [ -n "$DT_MODEL" ] && HW_SEG="$HW_SEG, model: $DT_MODEL"
 fi
 
 # Append hardware summary if present
