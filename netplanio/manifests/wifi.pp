@@ -7,7 +7,7 @@ define netplanio::wifi (
   Optional[String]          $ip_version      = undef,
 ) {
   if (defined(Class['netplanio'])) {
-    if ($ensure) {
+    if ($ensure == present) {
       # Check if wpasupplicant is not installed
       if (!defined(Package['wpasupplicant'])) {
         # Install wpasupplicant package
