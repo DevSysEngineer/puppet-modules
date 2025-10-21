@@ -77,7 +77,8 @@ define netplanio::wifi (
     } else {
       # Remove config
       file { "/etc/netplan/${name}.yaml":
-        ensure  => absent,
+        ensure => absent,
+        notify => Exec['netplanio_apply'],
       }
     }
   } else {
