@@ -11,6 +11,7 @@ class basic_settings::package_mysql (
   } else {
     $file = '/etc/apt/sources.list.d/mysql.list'
   }
+  $file_preference = '/etc/apt/preferences.d/90-mysql'
 
   # Set keyrings file
   $key = '/usr/share/keyrings/mysql.gpg'
@@ -54,6 +55,29 @@ class basic_settings::package_mysql (
       command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "[ -e ${file} ]",
       require => [Package['apt', 'apt-transport-https', 'curl', 'gnupg'], File['package_mysql_key_filename']],
+    }
+
+    # Set source
+    exec { 'package_mysql_source':
+      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "[ -e ${file} ]",
+      require => [Package['apt', 'apt-transport-https', 'curl', 'gnupg'], File['package_mysql_key_filename']],
+    }
+
+    # Set source
+    exec { 'package_mysql_preference':
+      command => "/usr/bin/printf \"# Managed by puppet\nPackage: mysql*\nPin: origin repo.mysql.com\nPin-Priority: 990\" > ${file_preference}; chmod 644 ${file_preference}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "[ -e ${file_preference} ]",
+      require => Exec['package_mysql_source'],
+    }
+
+    # Install default locale file
+    file { '/etc/default/locale':
+      ensure  => file,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0644',
+      content => "Package: mysql*\nPin: release o=MySQL,a=noble",
     }
   } else {
     # Remove mysql repo

@@ -50,12 +50,8 @@ class mysql (
 
   # Get version
   if (defined(Class['basic_settings::package_mysql'])) {
-    $install_options = ['-t', "'o=MySQL'"]
-    $require = Exec['package_mysql_source']
     $version = $basic_settings::package_mysql::version
   } else {
-    $install_options = []
-    $require = undef
     $version = $package_version
   }
 
@@ -69,9 +65,7 @@ class mysql (
 
     # Install MySQL server
     package { 'mysql-server':
-      ensure          => present,
-      install_options => $install_options,
-      require         => $require,
+      ensure => present,
     }
 
     # Setup audit rules
