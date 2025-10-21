@@ -66,7 +66,7 @@ class basic_settings::package_mysql (
 
     # Set source
     exec { 'package_mysql_preference':
-      command => "/usr/bin/printf \"# Managed by puppet\nPackage: mysql*\nPin: origin repo.mysql.com\nPin-Priority: 990\" > ${file_preference}; chmod 644 ${file_preference}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf \"# Managed by puppet\nPackage: mysql*\nPin: origin repo.mysql.com\nPin-Priority: 990\n\" > ${file_preference}; chmod 644 ${file_preference}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "[ -e ${file_preference} ]",
       require => Exec['package_mysql_source'],
     }
