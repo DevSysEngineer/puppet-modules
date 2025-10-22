@@ -1,13 +1,14 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
     echo "$*" >&2
     exit 3
 }
 
 # Binary checks
-APT=$(command -v apt 2>/dev/null) || die "apt not available"
+APTGET=$(command -v apt-get 2>/dev/null) || die "apt-get not available"
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 FIND=$(command -v find 2>/dev/null) || die "find not available"
@@ -17,7 +18,7 @@ SORT=$(command -v sort 2>/dev/null) || die "sort not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 
-# Set some values
+# Defaults
 BLACKLIST_FILE="<%= @apt_settings_file %>"
 UPDATES_BLACKLISTED=0
 UPDATES_TOTAL=0
@@ -28,9 +29,9 @@ STAMP_TS=0
 LISTS_TS=0
 LAST_UPDATE_TIMESTAMP=""
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
-GRACE=172800 # 48 hours in seconds
+GRACE=172800 # 48h
 
-# Extra options
+# Options
 while getopts "c:" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
@@ -38,19 +39,17 @@ while getopts "c:" opt; do
     esac
 done
 
-# Stamp timestamp (if present)
+# Stamp timestamp
 if [ -e "$STAMP_FILE" ]; then
-    # %Y = seconds since epoch, integer
     STAMP_TS=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null || printf '0')
 fi
 
 # Latest mtime in /var/lib/apt/lists (exclude lock and partial)
 if [ -d /var/lib/apt/lists ]; then
-    # %T@ = float seconds; cast to integer in awk
     LISTS_TS=$("$FIND" /var/lib/apt/lists -type f ! -name lock ! -path '*/partial/*' -printf '%T@\n' 2>/dev/null | "$SORT" -n | "$AWK" 'END { if ($0 ~ /^[0-9.]+$/) printf "%d", $0; else print 0 }')
 fi
 
-# Choose the newest of both
+# Choose newest
 case "${STAMP_TS:-0}" in (*[!0-9]*) STAMP_TS=0 ;; esac
 case "${LISTS_TS:-0}" in (*[!0-9]*) LISTS_TS=0 ;; esac
 if [ "$STAMP_TS" -ge "$LISTS_TS" ]; then
@@ -73,6 +72,35 @@ if [ "$LAST_UPDATE_AGE_SEC" -le 0 ] || [ "$LAST_UPDATE_SEC" -gt "$CURRENT_TIME" 
     TIMESTAMP_UNKNOWN=1
 fi
 
+# Run simulation
+APT_SIM_CMD="$APTGET -s -o Debug::NoLocking=1 -o APT::Get::Show-Upgraded=true -o Debug::pkgProblemResolver=yes dist-upgrade"
+APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive sh -c "$APT_SIM_CMD" 2>&1)
+APT_SIM_RC=$?
+
+# On failure: include simulation output in message (stdout), single line
+if [ $APT_SIM_RC -ne 0 ]; then
+    # Build lock hint
+    LOCK_HINT=""
+    if [ -e /var/lib/dpkg/lock-frontend ] || [ -e /var/lib/dpkg/lock ]; then
+        LOCK_HINT=" dpkg locks present"
+    fi
+    
+    # Extract first 10 error/warning lines
+    APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
+        BEGIN{c=0}
+        /^(E:|Err:|W:)/{gsub(/\r/,""); sub(/^[[:space:]]+/, ""); lines[++c]=$0}
+        END{
+            if(c==0){print "no apt errors in output"; exit}
+            max=(c>10?10:c);
+            for(i=1;i<=max;i++){printf "%s%s", (i>1?" ":""), lines[i]}
+        }
+    ')
+
+    # Show output
+    printf 'APT simulation failed (rc=%s)%s. %s | last_update_age=%ss;;%s;0\n' "$APT_SIM_RC" "$LOCK_HINT" "$APT_SIM_ERR" "$LAST_UPDATE_AGE_SEC" "$GRACE"
+    exit 3
+fi
+
 # Read blacklist patterns
 BLACKLIST_PATTERNS=$("$AWK" '
     /^[[:space:]]*Package-Blacklist/ {inblk=1; next}
@@ -80,8 +108,7 @@ BLACKLIST_PATTERNS=$("$AWK" '
     inblk && match($0, /"[^"]+"/) { print substr($0, RSTART+1, RLENGTH-2) }
 ' "$BLACKLIST_FILE" 2>/dev/null || true)
 
-# APT simulation
-APT_SIM_OUTPUT=$(LC_ALL=C "$APT" -s -o Debug::NoLocking=1 dist-upgrade 2>&1) || die "APT simulation failed"
+# Parse simulation summary
 APT_SIM_SUMMARY=$(printf '%s' "$APT_SIM_OUTPUT" | $AWK '
     /^Inst /{
         total++; pkg=$2; pkgs[pkg]=1;
@@ -159,7 +186,7 @@ fi
 # Set messages
 [ "$TIMER_DAILY_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily.timer inactive!"
 [ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
-[ "$UNATTENDED_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
+[ "$UNATTENDED_ACTIVE" -eq 0 ] && MSG="$MSG unattended-upgrades.service inactive!"
 
 # Reboot
 if [ -e /var/run/reboot-required ]; then
@@ -172,18 +199,18 @@ if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
     MSG="$MSG ${UPDATES_BLACKLISTED} blacklisted."
 fi
 
-# Security‑packages
+# Security packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
     SEC_CSV=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
     MSG="$MSG Security packages: ${SEC_CSV}."
 fi
 
-# Create perf data
+# Perf data
 PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0"
 PERF_DATA="$PERF_DATA security_updates=${UPDATES_SECURITY};;1;0"
 PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0"
 PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0"
 
-# output
-"printf" '%s | %s\n' "$MSG" "$PERF_DATA"
+# Output
+printf '%s | %s\n' "$MSG" "$PERF_DATA"
 exit "$STATE_CODE"
