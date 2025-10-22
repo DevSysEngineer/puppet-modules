@@ -9,17 +9,23 @@ die() {
 # Binary checks
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Arguments
-TIMER_UNIT="$1"
-[ -n "$TIMER_UNIT" ] || die "No timer given"
-SERVICE_UNIT="${TIMER_UNIT%.timer}.service"
+# Config
+WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
+MAXLOG=${MAXLOG:-1000} # max characters of joined log output
 
-# Existence & state checks
-$SYSTEMCTL list-unit-files | grep -q "^${TIMER_UNIT}" || {
+# Arguments
+TIMER_UNIT=${1:-}
+[ -n "$TIMER_UNIT" ] || die "No timer given"
+SERVICE_UNIT=${TIMER_UNIT%.timer}.service
+
+# Ensure units exist and are active
+$SYSTEMCTL show "$TIMER_UNIT" >/dev/null 2>&1 || {
     echo "${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
     exit 2
 }
@@ -28,34 +34,78 @@ $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
     exit 2
 }
 
-# Try to get last run & result 
-LAST_RUN=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value | xargs)
-if [ -z "$LAST_RUN" ] || [ "$LAST_RUN" = "0" ]; then
+# Get last trigger timestamp from the timer
+LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value)
+if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
     echo "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
     exit 1
 fi
 
-# Get result
-RESULT=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value)
-EXIT_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value)
-MAIN_CODE=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value)
-STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value)
-JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "$SERVICE_UNIT" --no-pager 2>/dev/null | $TR '\n' ' - ' | $SED 's/|$//')
+# Convert to epoch
+LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
+NOW_TS=$($DATE +%s)
+[ -n "${LAST_RUN_TS:-}" ] || {
+    echo "${TIMER_UNIT} last run could not be parsed | last_run_age=U exit_code=U"
+    exit 1
+}
+
+LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
+UNTIL_TS=$((LAST_RUN_TS + WINDOW))
+
+# Pull journal scoped to this timer run window
+JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
+
+# Determine exit status from this window
+# Prefer explicit "status=N" patterns; fall back to unit properties if absent
+LAST_STATUS=$(printf "%s\n" "$JOURNAL_RAW" | $SED -n 's/.*status=\([0-9][0-9]*\).*/\1/p' | tail -n1)
+RESULT_LINE=$(printf "%s\n" "$JOURNAL_RAW" | $GREP -E 'Failed with result|finished with (result|exit code)' | tail -n1)
+
+EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || echo "U")
+RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || echo "unknown")
+MAIN_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value 2>/dev/null || echo "U")
+STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value 2>/dev/null || echo "")
+
+# Normalize exit code decision
+EXIT_CODE=U
+RESULT="unknown"
+
+if [ -n "${LAST_STATUS:-}" ]; then
+    EXIT_CODE=$LAST_STATUS
+    if [ "${EXIT_CODE}" = "0" ]; then
+        RESULT="success"
+    else
+        RESULT="exit-code"
+    fi
+else
+    # No explicit status within window; fall back to unit properties
+    EXIT_CODE=$EXIT_CODE_PROP
+    RESULT=$RESULT_PROP
+fi
+
+# Join and trim journal for output
+JOURNAL_JOINED=$(printf "%s" "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g' | $CUT -c1-${MAXLOG})
 
 # Perfdata
-LAST_RUN_TS=$($DATE -d "$LAST_RUN" +%s 2>/dev/null)
-NOW_TS=$($DATE +%s)
-[ -n "$LAST_RUN_TS" ] && LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS)) || LAST_RUN_AGE=U
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 
-# Output & exitcode
-case "${RESULT},${EXIT_CODE}" in
-    success,0)
-        printf '%s successful (%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
-        exit 0
-        ;;
-    *)
-        printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "$EXIT_CODE" "$MAIN_CODE" "${STATUS_TEXT:-unknown}" "$LAST_RUN" "$JOURNAL" "$PERFDATA"
-        exit 2
-        ;;
-esac
+# Output & exit code
+if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
+    printf '%s successful (%s); last run: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 0
+fi
+
+# If the window contained any failure markers, force CRITICAL even if current unit props say success
+if printf "%s\n" "$RESULT_LINE" | $GREP -qi 'Failed with result\|status=[1-9]'; then
+    printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "exit-code" "${EXIT_CODE}" "${MAIN_CODE_PROP}" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 2
+fi
+
+# Default: use properties outcome
+printf '%s %s (Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "${EXIT_CODE}" "${MAIN_CODE_PROP}" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+
+case "${EXIT_CODE}" in
+    0) exit 0 ;;
+    U) exit 1 ;;
+    *) exit 2 ;;
+ esac

@@ -7,9 +7,9 @@ class basic_settings::package_mysql (
 ) {
   # Check if we need newer format for APT
   if ($deb_version == '822') {
-    $file = '/etc/apt/sources.list.d/mysql.sources'
+    $source_file = '/etc/apt/sources.list.d/mysql.sources'
   } else {
-    $file = '/etc/apt/sources.list.d/mysql.list'
+    $source_file = '/etc/apt/sources.list.d/mysql.list'
   }
   $file_preference = '/etc/apt/preferences.d/90-mysql'
 
@@ -35,9 +35,9 @@ class basic_settings::package_mysql (
 
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:${key}\n"
+      $source_content  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:${key}\n"
     } else {
-      $source = "deb [signed-by=${key}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
+      $source_content = "deb [signed-by=${key}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
     }
 
     # Create MySQL key
@@ -52,12 +52,12 @@ class basic_settings::package_mysql (
 
     # Set source
     exec { 'package_mysql_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
-      unless  => "[ -e ${file} ]",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source_content}\" > ${source_file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "[ -e ${source_file} ]",
       require => [Package['apt', 'apt-transport-https', 'curl', 'gnupg'], File['package_mysql_key_filename']],
     }
 
-    # Set source
+    # Set preference
     exec { 'package_mysql_preference':
       command => "/usr/bin/printf \"# Managed by puppet\nPackage: mysql*\nPin: origin repo.mysql.com\nPin-Priority: 990\n\" > ${file_preference}; chmod 644 ${file_preference}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "[ -e ${file_preference} ]",
@@ -66,8 +66,15 @@ class basic_settings::package_mysql (
   } else {
     # Remove mysql repo
     exec { 'package_mysql_source':
-      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
-      onlyif  => "[ -e ${file} ]",
+      command => "/usr/bin/bash -c '/usr/bin/rm ${source_file} && /usr/bin/apt-get update'",
+      onlyif  => "[ -e ${source_file} ]",
+      require => Package['apt'],
+    }
+
+    # Remove mysql preference
+    exec { 'package_mysql_preference':
+      command => "/usr/bin/bash -c '/usr/bin/rm ${file_preference} && /usr/bin/apt-get update'",
+      onlyif  => "[ -e ${file_preference} ]",
       require => Package['apt'],
     }
 
