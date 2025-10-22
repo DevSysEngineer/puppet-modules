@@ -45,13 +45,7 @@ APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive sh -c "$APT_SIM_CMD" 2>
 APT_SIM_RC=$?
 
 # Check for simulation errors
-if [ $APT_SIM_RC -ne 0 ]; then
-    # Build lock hint
-    LOCK_HINT=""
-    if [ -e /var/lib/dpkg/lock-frontend ] || [ -e /var/lib/dpkg/lock ]; then
-        LOCK_HINT=" dpkg locks present"
-    fi
-    
+if [ $APT_SIM_RC -ne 0 ]; then    
     # Extract first 10 error/warning lines
     APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
         BEGIN{c=0}
@@ -64,7 +58,7 @@ if [ $APT_SIM_RC -ne 0 ]; then
     ')
 
     # Show output
-    printf 'APT simulation failed (rc=%s)%s. %s\n' "$APT_SIM_RC" "$LOCK_HINT" "$APT_SIM_ERR"
+    printf 'APT simulation failed (rc=%s). %s\n' "$APT_SIM_RC" "$APT_SIM_ERR"
     exit 3
 fi
 
