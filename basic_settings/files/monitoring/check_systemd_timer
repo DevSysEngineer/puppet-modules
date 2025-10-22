@@ -7,12 +7,13 @@ die() {
 }
 
 # Binary checks
-DATE=$(command -v date 2>/dev/null) || die "date not available"
-SED=$(command -v sed 2>/dev/null) || die "sed not available"
-GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
-SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Config
@@ -57,8 +58,8 @@ JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "
 
 # Determine exit status from this window
 # Prefer explicit "status=N" patterns; fall back to unit properties if absent
-LAST_STATUS=$(printf "%s\n" "$JOURNAL_RAW" | $SED -n 's/.*status=\([0-9][0-9]*\).*/\1/p' | tail -n1)
-RESULT_LINE=$(printf "%s\n" "$JOURNAL_RAW" | $GREP -E 'Failed with result|finished with (result|exit code)' | tail -n1)
+LAST_STATUS=$(printf "%s\n" "$JOURNAL_RAW" | $SED -n 's/.*status=\([0-9][0-9]*\).*/\1/p' | $TAIL -n1)
+RESULT_LINE=$(printf "%s\n" "$JOURNAL_RAW" | $GREP -E 'Failed with result|finished with (result|exit code)' | $TAIL -n1)
 
 EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || echo "U")
 RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || echo "unknown")
