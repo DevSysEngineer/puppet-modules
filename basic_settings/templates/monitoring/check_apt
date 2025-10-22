@@ -39,6 +39,35 @@ while getopts "c:" opt; do
     esac
 done
 
+# Run simulation
+APT_SIM_CMD="$APTGET -s -o Debug::NoLocking=1 -o APT::Get::Show-Upgraded=true -o Debug::pkgProblemResolver=yes dist-upgrade"
+APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive sh -c "$APT_SIM_CMD" 2>&1)
+APT_SIM_RC=$?
+
+# Check for simulation errors
+if [ $APT_SIM_RC -ne 0 ]; then
+    # Build lock hint
+    LOCK_HINT=""
+    if [ -e /var/lib/dpkg/lock-frontend ] || [ -e /var/lib/dpkg/lock ]; then
+        LOCK_HINT=" dpkg locks present"
+    fi
+    
+    # Extract first 10 error/warning lines
+    APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
+        BEGIN{c=0}
+        /^(E:|Err:|W:)/{gsub(/\r/,""); sub(/^[[:space:]]+/, ""); lines[++c]=$0}
+        END{
+            if(c==0){print "no apt errors in output"; exit}
+            max=(c>10?10:c);
+            for(i=1;i<=max;i++){printf "%s%s", (i>1?" ":""), lines[i]}
+        }
+    ')
+
+    # Show output
+    printf 'APT simulation failed (rc=%s)%s. %s\n' "$APT_SIM_RC" "$LOCK_HINT" "$APT_SIM_ERR"
+    exit 3
+fi
+
 # Stamp timestamp
 if [ -e "$STAMP_FILE" ]; then
     STAMP_TS=$("$STAT" -c %Y "$STAMP_FILE" 2>/dev/null || printf '0')
@@ -70,35 +99,6 @@ fi
 # Invalid / skewed timestamp → UNKNOWN
 if [ "$LAST_UPDATE_AGE_SEC" -le 0 ] || [ "$LAST_UPDATE_SEC" -gt "$CURRENT_TIME" ]; then
     TIMESTAMP_UNKNOWN=1
-fi
-
-# Run simulation
-APT_SIM_CMD="$APTGET -s -o Debug::NoLocking=1 -o APT::Get::Show-Upgraded=true -o Debug::pkgProblemResolver=yes dist-upgrade"
-APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive sh -c "$APT_SIM_CMD" 2>&1)
-APT_SIM_RC=$?
-
-# On failure: include simulation output in message (stdout), single line
-if [ $APT_SIM_RC -ne 0 ]; then
-    # Build lock hint
-    LOCK_HINT=""
-    if [ -e /var/lib/dpkg/lock-frontend ] || [ -e /var/lib/dpkg/lock ]; then
-        LOCK_HINT=" dpkg locks present"
-    fi
-    
-    # Extract first 10 error/warning lines
-    APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
-        BEGIN{c=0}
-        /^(E:|Err:|W:)/{gsub(/\r/,""); sub(/^[[:space:]]+/, ""); lines[++c]=$0}
-        END{
-            if(c==0){print "no apt errors in output"; exit}
-            max=(c>10?10:c);
-            for(i=1;i<=max;i++){printf "%s%s", (i>1?" ":""), lines[i]}
-        }
-    ')
-
-    # Show output
-    printf 'APT simulation failed (rc=%s)%s. %s | last_update_age=%ss;;%s;0\n' "$APT_SIM_RC" "$LOCK_HINT" "$APT_SIM_ERR" "$LAST_UPDATE_AGE_SEC" "$GRACE"
-    exit 3
 fi
 
 # Read blacklist patterns
