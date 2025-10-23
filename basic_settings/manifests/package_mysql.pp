@@ -14,7 +14,8 @@ class basic_settings::package_mysql (
   $file_preference = '/etc/apt/preferences.d/90-mysql'
 
   # Set keyrings file
-  $key = '/usr/share/keyrings/mysql.gpg'
+  $key_file = '/usr/share/keyrings/mysql.gpg'
+  $key_rebuild = "cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key_file} >/dev/null; chmod 644 ${key_file}; /usr/bin/apt-get update" #lint:ignore:140chars
 
   if ($enable) {
     # Get source name
@@ -35,9 +36,17 @@ class basic_settings::package_mysql (
 
     # Get source
     if ($deb_version == '822') {
-      $source_content  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:${key}\n"
+      $source_content  = "Types: deb\nURIs: https://repo.mysql.com/apt/${os_parent}\nSuites: ${os_name}\nComponents: mysql-${version_correct}\nSigned-By:${key_file}\n"
     } else {
-      $source_content = "deb [signed-by=${key}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
+      $source_content = "deb [signed-by=${key_file}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\n"
+    }
+
+    # Rebuild key
+    exec { 'package_mysql_key_build':
+      command     => $key_rebuild,
+      onlyif      => "[ -e ${key_file} ]",
+      refreshonly => true,
+      require     => Package['apt', 'apt-transport-https', 'gnupg'],
     }
 
     # Create MySQL key
@@ -48,13 +57,14 @@ class basic_settings::package_mysql (
       owner  => 'root',
       group  => 'root',
       mode   => '0600',
+      notify => Exec['package_mysql_key_build'],
     }
 
     # Set source
     exec { 'package_mysql_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source_content}\" > ${source_file}; cat /usr/share/keyrings/mysql.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf \"# Managed by puppet\n${source_content}\" > ${source_file}; ${key_rebuild}", #lint:ignore:140chars
       unless  => "[ -e ${source_file} ]",
-      require => [Package['apt', 'apt-transport-https', 'curl', 'gnupg'], File['package_mysql_key_filename']],
+      require => [Package['apt', 'apt-transport-https', 'gnupg'], File['package_mysql_key_filename']],
     }
 
     # Set preference
