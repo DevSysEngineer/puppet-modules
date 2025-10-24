@@ -95,7 +95,7 @@ class basic_settings::package_mysql (
     }
     file { 'package_mysql_key':
       ensure => absent,
-      path   => $key,
+      path   => $key_file,
     }
   }
 }
