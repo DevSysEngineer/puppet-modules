@@ -152,6 +152,9 @@ class basic_settings::login (
       force   => true,
       require => Package['sudo'],
     }
+    $sudoers_prefix = ''
+  } else {
+    $sudoers_prefix = 'z'
   }
 
   # Check if OS is Ubuntu
@@ -234,7 +237,7 @@ class basic_settings::login (
     case $vulnerabilities_package { #lint:ignore:case_without_default
       'rapid7': {
         # Create sudoers file
-        file { '/etc/sudoers.d/z90-vulnerabilities':
+        file { "/etc/sudoers.d/${sudoers_prefix}90-vulnerabilities":
           ensure  => file,
           owner   => 'root',
           group   => 'root',

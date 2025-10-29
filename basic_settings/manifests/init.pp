@@ -443,12 +443,13 @@ class basic_settings (
 
   # Setup message
   class { 'basic_settings::monitoring':
-    mail_to         => $systemd_notify_mail,
-    mail_package    => $mail_package,
-    package         => $monitoring_package,
-    package_install => $monitoring_package_install,
-    server_fdqn     => $server_fdqn,
-    require         => $monitoring_requirements,
+    mail_to            => $systemd_notify_mail,
+    mail_package       => $mail_package,
+    package            => $monitoring_package,
+    package_install    => $monitoring_package_install,
+    server_fdqn        => $server_fdqn,
+    sudoers_dir_enable => $sudoers_dir_enable,
+    require            => $monitoring_requirements,
   }
 
   # Setup security

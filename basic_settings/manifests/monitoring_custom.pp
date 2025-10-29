@@ -22,8 +22,17 @@ define basic_settings::monitoring_custom (
     } else {
       $package_correct = $package
     }
+    $sudoers_dir_enable = $basic_settings::monitoring::sudoers_dir_enable
   } else {
     $package_correct = 'none'
+    $sudoers_dir_enable = false
+  }
+
+  # Get sudoers prefix
+  if ($sudoers_dir_enable) {
+    $sudoers_prefix = ''
+  } else {
+    $sudoers_prefix = 'z'
   }
 
   # Check if sudo package is not defined
@@ -75,7 +84,7 @@ define basic_settings::monitoring_custom (
     # Create sudo
     if ($root_required and $uid != 'root') {
       $sudo_cmnd = regsubst("monitoring_plugin_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
-      file { "/etc/sudoers.d/monitoring_plugin_${name}":
+      file { "/etc/sudoers.d/${sudoers_prefix}25-monitoring_plugin_${name}":
         ensure  => $file_ensure,
         owner   => 'root',
         group   => 'root',

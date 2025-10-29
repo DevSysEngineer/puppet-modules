@@ -52,32 +52,14 @@ class openitcockpit::server (
     $server_fdqn_correct = $server_fdqn
   }
 
-  # Check if sudo package is not defined
-  if (!defined(Package['sudo'])) {
-    package { 'sudo':
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
-    }
+  # Create sudo rule for cake
+  basic_settings::login_sudo { 'openitc_cake':
+    rule => "Cmnd_Alias OPENITC_CAKE_CMD = /opt/openitc/frontend/bin/cake *\nDefaults!OPENITC_CAKE_CMD !mail_always\nDefaults!OPENITC_CAKE_CMD root_sudo\nroot ALL = (ALL) SETENV: OPENITC_CAKE_CMD",
   }
 
-  # Create sudoers file
-  file { '/etc/sudoers.d/z90-openitc_cake':
-    ensure  => file,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0440',
-    content => "# Managed by puppet\nCmnd_Alias OPENITC_CAKE_CMD = /opt/openitc/frontend/bin/cake *\nDefaults!OPENITC_CAKE_CMD !mail_always\nDefaults!OPENITC_CAKE_CMD root_sudo\nroot ALL = (ALL) SETENV: OPENITC_CAKE_CMD\n",
-    require => Package['sudo'],
-  }
-
-  # Create sudoers file
-  file { '/etc/sudoers.d/z90-openitc_nagios':
-    ensure  => file,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0440',
-    content => "# Managed by puppet\nCmnd_Alias OPENITC_NAGIOS_CMD = /opt/openitc/nagios/bin/nagios -v /opt/openitc/nagios/etc/nagios.cfg\nDefaults!OPENITC_NAGIOS_CMD !mail_always\nDefaults!OPENITC_NAGIOS_CMD root_sudo\nnagios ALL = (root) OPENITC_NAGIOS_CMD\n",
-    require => Package['sudo'],
+  # Create sudo rule for nagios
+  basic_settings::login_sudo { 'openitc_nagios':
+    rule => "Cmnd_Alias OPENITC_NAGIOS_CMD = /opt/openitc/nagios/bin/nagios -v /opt/openitc/nagios/etc/nagios.cfg\nDefaults!OPENITC_NAGIOS_CMD !mail_always\nDefaults!OPENITC_NAGIOS_CMD root_sudo\nnagios ALL = (root) OPENITC_NAGIOS_CMD",
   }
 
   # Check if installation dir is given

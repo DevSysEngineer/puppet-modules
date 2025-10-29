@@ -17,8 +17,17 @@ define basic_settings::monitoring_timer (
     } else {
       $package_correct = $package
     }
+    $sudoers_dir_enable = $basic_settings::monitoring::sudoers_dir_enable
   } else {
     $package_correct = 'none'
+    $sudoers_dir_enable = false
+  }
+
+  # Get sudoers prefix
+  if ($sudoers_dir_enable) {
+    $sudoers_prefix = ''
+  } else {
+    $sudoers_prefix = 'z'
   }
 
   # Check if sudo package is not defined
@@ -71,7 +80,7 @@ define basic_settings::monitoring_timer (
     # Create sudo
     if ($uid != 'root') {
       $sudo_cmnd = regsubst("monitoring_timer_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
-      file { "/etc/sudoers.d/monitoring_timer_${name}":
+      file { "/etc/sudoers.d/${sudoers_prefix}25-monitoring_timer_${name}":
         ensure  => $file_ensure,
         owner   => 'root',
         group   => $gid,
