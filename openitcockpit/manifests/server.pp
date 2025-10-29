@@ -61,7 +61,7 @@ class openitcockpit::server (
   }
 
   # Create sudoers file
-  file { '/etc/sudoers.d/openitc_cake':
+  file { '/etc/sudoers.d/z90-openitc_cake':
     ensure  => file,
     owner   => 'root',
     group   => 'root',
@@ -71,7 +71,7 @@ class openitcockpit::server (
   }
 
   # Create sudoers file
-  file { '/etc/sudoers.d/openitc_nagios':
+  file { '/etc/sudoers.d/z90-openitc_nagios':
     ensure  => file,
     owner   => 'root',
     group   => 'root',

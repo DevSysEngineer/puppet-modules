@@ -72,6 +72,8 @@ class basic_settings (
   Array                                 $usb_whitelist                              = [],
   Array                                 $usb_expected                               = [],
   Array                                 $usb_any_requirements                       = [],
+  Optional[String]                      $vulnerabilities_package                    = undef,
+  Optional[String]                      $vulnerabilities_user                       = undef,
   Boolean                               $wireless_enable                            = false,
   Boolean                               $voxpupuli_enable                           = false
 ) {
@@ -864,11 +866,13 @@ class basic_settings (
 
   # Setup login
   class { 'basic_settings::login':
-    environment        => $environment,
-    getty_enable       => $getty_enable,
-    gui_mode           => $gui_mode,
-    mail_to            => $systemd_notify_mail,
-    server_fdqn        => $server_fdqn,
-    sudoers_dir_enable => $sudoers_dir_enable,
+    environment             => $environment,
+    getty_enable            => $getty_enable,
+    gui_mode                => $gui_mode,
+    mail_to                 => $systemd_notify_mail,
+    server_fdqn             => $server_fdqn,
+    sudoers_dir_enable      => $sudoers_dir_enable,
+    vulnerabilities_package => $vulnerabilities_package,
+    vulnerabilities_user    => $vulnerabilities_user,
   }
 }

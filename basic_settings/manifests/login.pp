@@ -1,12 +1,14 @@
 class basic_settings::login (
-  String                                $environment            = 'production',
-  Boolean                               $getty_enable           = false,
-  Enum['none','kiosk','adwaita-icon']   $gui_mode               = 'none',
-  String                                $hostname               = $facts['networking']['hostname'],
-  String                                $mail_to                = 'root',
-  String                                $server_fdqn            = $facts['networking']['fqdn'],
-  String                                $sudoers_banner_text    = "WARNING: You are running this command with elevated privileges.\nThis action is registered and sent to the server administrator(s). Unauthorized access will be fully investigated and reported to law enforcement authorities.",
-  Boolean                               $sudoers_dir_enable     = false
+  String                                $environment              = 'production',
+  Boolean                               $getty_enable             = false,
+  Enum['none','kiosk','adwaita-icon']   $gui_mode                 = 'none',
+  String                                $hostname                 = $facts['networking']['hostname'],
+  String                                $mail_to                  = 'root',
+  String                                $server_fdqn              = $facts['networking']['fqdn'],
+  String                                $sudoers_banner_text      = "WARNING: You are running this command with elevated privileges.\nThis action is registered and sent to the server administrator(s). Unauthorized access will be fully investigated and reported to law enforcement authorities.",
+  Boolean                               $sudoers_dir_enable       = false,
+  Optional[String]                      $vulnerabilities_package  = undef,
+  Optional[String]                      $vulnerabilities_user     = undef,
 ) {
   # Remove unnecessary packages
   package { ['tmux', 'xdg-user-dirs', 'xauth', 'x11-utils']:
@@ -148,6 +150,7 @@ class basic_settings::login (
       purge   => true,
       recurse => true,
       force   => true,
+      require => Package['sudo'],
     }
   }
 
@@ -223,6 +226,34 @@ class basic_settings::login (
         'ConditionPathExists' => '/dev/%I',
       },
       daemon_reload => 'login_systemd_daemon_reload',
+    }
+  }
+
+  # Check if we have vulnerabilities package and user
+  if ($vulnerabilities_package != undef and $vulnerabilities_user != undef) {
+    case $vulnerabilities_package { #lint:ignore:case_without_default
+      'rapid7': {
+        # Create sudoers file
+        file { '/etc/sudoers.d/z90-vulnerabilities':
+          ensure  => file,
+          owner   => 'root',
+          group   => 'root',
+          mode    => '0440',
+          content => "# Managed by puppet\nUser_Alias R7 = ${vulnerabilities_user}\nCmnd_Alias R7_BASH_CMD = /bin/bash, /bin/bash -c *\nR7 ALL=(ALL) ALL, NOMAIL: R7_BASH_CMD\n",
+          require => Package['sudo'],
+        }
+
+        # Setup audit rules
+        basic_settings::security_audit { 'login_vulnerabilities':
+          rules => [
+            "-a never,exit -F arch=b32 -S connect -F exe=/bin/bash -F auid=${vulnerabilities_user}",
+            "-a never,exit -F arch=b64 -S connect -F exe=/bin/bash -F auid=${vulnerabilities_user}",
+            "-a never,exit -F arch=b32 -S connect -F exe=/usr/bin/bash -F auid=${vulnerabilities_user}",
+            "-a never,exit -F arch=b64 -S connect -F exe=/usr/bin/bash -F auid=${vulnerabilities_user}",
+          ],
+          order => 2,
+        }
+      }
     }
   }
 

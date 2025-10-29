@@ -1,7 +1,7 @@
 class basic_settings::security (
-  Optional[String]  $antivirus_package  = undef,
-  String            $mail_to            = 'root',
-  String            $server_fdqn        = $facts['networking']['fqdn']
+  Optional[String]  $antivirus_package        = undef,
+  String            $mail_to                  = 'root',
+  String            $server_fdqn              = $facts['networking']['fqdn']
 ) {
   # Set some values
   $systemd_enable = defined(Package['systemd'])

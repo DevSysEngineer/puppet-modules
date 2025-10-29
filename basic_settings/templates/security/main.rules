@@ -145,10 +145,10 @@
 -a always,exit -F arch=b64 -F path=/etc/shells -F perm=wa -F key=shell_profiles
 
 # Detect remote shell use
--a always,exit -F arch=b32 -F exe=/bin/bash -F success=1 -S connect -F key=remote_shell
--a always,exit -F arch=b64 -F exe=/bin/bash -F success=1 -S connect -F key=remote_shell
--a always,exit -F arch=b32 -F exe=/usr/bin/bash -F success=1 -S connect -F key=remote_shell
--a always,exit -F arch=b64 -F exe=/usr/bin/bash -F success=1 -S connect -F key=remote_shell
+-a always,exit -F arch=b32 -F exe=/bin/bash -S connect -F key=remote_shell
+-a always,exit -F arch=b64 -F exe=/bin/bash -S connect -F key=remote_shell
+-a always,exit -F arch=b32 -F exe=/usr/bin/bash -S connect -F key=remote_shell
+-a always,exit -F arch=b64 -F exe=/usr/bin/bash -S connect -F key=remote_shell
 
 # Log all commands executed by an effective id of 0 aka root
 -a always,exit -F arch=b32 -F euid=0 -S execve -F auid!=unset -F key=root_cmd
