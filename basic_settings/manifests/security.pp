@@ -50,7 +50,7 @@ class basic_settings::security (
   case $antivirus_package { #lint:ignore:case_without_default
     'eset': {
       # Setup audit rules
-      basic_settings::security_audit { 'eset':
+      basic_settings::security_audit { 'antivirus':
         rules => [
           '-a never,exit -F exe=/opt/eset/efs/lib/odfeeder',
           '-a never,exit -F exe=/opt/eset/efs/lib/schedd',
