@@ -217,7 +217,33 @@ class basic_settings (
       $os_url_security = 'http://deb.debian.org/debian-security/'
 
       # Do thing based on version
-      if ($facts['os']['release']['major'] == '12') {
+      if ($facts['os']['release']['major'] == '13') {
+        $backports_allow = false
+        $deb_version = 'list'
+        $docker_allow = true
+        $gcc_version = undef
+        $gitlab_allow = true
+        $mongodb_allow = true
+        $mozilla_allow = true
+        if ($facts['os']['architecture'] == 'amd64') {
+          $mysql_allow = true
+        } else {
+          $mysql_allow = false
+        }
+        $nginx_allow = true
+        $nodejs_allow = true
+        $openitcockpit_allow = true
+        $openjdk_allow = true
+        $os_name = 'trixie'
+        $ram_disk_package = 'initramfs'
+        $rabbitmq_allow = true
+        $proxmox_allow = false
+        $puppetserver_dirname = 'puppetserver'
+        $puppetserver_jdk = true
+        $puppetserver_package = "${puppetserver_prefix}server"
+        $sury_allow = true
+        $voxpupuli_allow = true
+      } elsif ($facts['os']['release']['major'] == '12') {
         $backports_allow = false
         $deb_version = 'list'
         $docker_allow = true
