@@ -40,7 +40,7 @@ class basic_settings::login (
       $require = Package['wtmpdb', 'libpam-wtmpdb']
     }
     default: {
-      $mesg_disable = true
+      $mesg_disable = false
       $require = undef
     }
   }

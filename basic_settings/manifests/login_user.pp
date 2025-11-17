@@ -20,8 +20,15 @@ define basic_settings::login_user (
   String                              $shell              = '/bin/bash'
 ) {
   # Set variables
-  $environment = $basic_settings::login::environment
-  $hostname = $basic_settings::login::hostname
+  if (defined(Class['basic_settings::login'])) {
+    $environment = $basic_settings::login::environment
+    $hostname = $basic_settings::login::hostname
+    $mesg_disable = $basic_settings::login::mesg_disable
+  } else {
+    $environment = 'production'
+    $hostname = $facts['networking']['hostname']
+    $mesg_disable = true
+  }
 
   # Set authorized keys state
   if ($authorized_keys != undef) {
