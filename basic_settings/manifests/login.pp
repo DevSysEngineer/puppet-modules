@@ -36,9 +36,11 @@ class basic_settings::login (
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
+      $mesg_disable = true
       $require = Package['wtmpdb', 'libpam-wtmpdb']
     }
     default: {
+      $mesg_disable = true
       $require = undef
     }
   }
