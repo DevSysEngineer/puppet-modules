@@ -29,6 +29,20 @@ class basic_settings::login (
     }
   }
 
+  # Install wtmpdb packages
+  case $facts['os']['release']['major'] {
+    '13': {
+      package { ['wtmpdb', 'libpam-wtmpdb']:
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
+      $require = Package['wtmpdb', 'libpam-wtmpdb']
+    }
+    default: {
+      $require = undef
+    }
+  }
+
   # Create group wheel
   group { 'wheel':
     system => true,
@@ -197,7 +211,8 @@ class basic_settings::login (
     content => template('basic_settings/login/login-notify.sh'),
     owner   => 'root',
     group   => 'root',
-    mode    => '0755', # Important, not only root are executing this rule
+    mode    => '0755', # Important, not only root are executing this rule,
+    require => $require,
   }
 
   # Ensure that getty is stopped or running
