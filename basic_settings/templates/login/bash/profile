@@ -9,4 +9,6 @@ else
     fi
 fi
 
+<% if ! @mesg_disable -%>
 mesg n
+<% end -%>
