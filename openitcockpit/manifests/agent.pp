@@ -2,6 +2,7 @@ class openitcockpit::agent (
   Boolean                     $cpustats_enable      = true,
   Boolean                     $diskstats_enable     = true,
   Boolean                     $dockerstats_enable   = true,
+  Enum['present','absent']    $ensure               = present,
   Boolean                     $libvirt_enable       = true,
   Boolean                     $memory_enable        = true,
   Boolean                     $netstats_enable      = true,
@@ -63,107 +64,128 @@ class openitcockpit::agent (
   $userstats_string = bool2str($userstats_enable, 'True', 'False')
   $push_string = bool2str($push_correct, 'True', 'False')
 
-  # Install OpenITCockpit agent
-  if (!defined(Package['openitcockpit-agent'])) {
-    package { 'openitcockpit-agent':
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
+  # Check if we need to setup the agent
+  if ($ensure == present) {
+    # Install OpenITCockpit agent
+    if (!defined(Package['openitcockpit-agent'])) {
+      package { 'openitcockpit-agent':
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      }
     }
-  }
 
-  # Check if monitoring package is not configured
-  if ($monitoring_package == 'none') {
-    if ($systemd_enable) {
-      # Disable service
-      service { 'monitoring_service':
-        ensure  => undef,
-        name    => 'openitcockpit-agent',
-        enable  => false,
-        require => Package['openitcockpit-agent'],
-      }
+    # Check if monitoring package is not configured
+    if ($monitoring_package == 'none') {
+      if ($systemd_enable) {
+        # Disable service
+        service { 'monitoring_service':
+          ensure  => undef,
+          name    => 'openitcockpit-agent',
+          enable  => false,
+          require => Package['openitcockpit-agent'],
+        }
 
-      # Reload systemd deamon
-      exec { 'openitcockpit_agent_systemd_daemon_reload':
-        command     => '/usr/bin/systemctl daemon-reload',
-        refreshonly => true,
-        require     => Package['systemd'],
-      }
+        # Reload systemd deamon
+        exec { 'openitcockpit_agent_systemd_daemon_reload':
+          command     => '/usr/bin/systemctl daemon-reload',
+          refreshonly => true,
+          require     => Package['systemd'],
+        }
 
-      # Create drop in for x target
-      if (defined(Class['basic_settings::systemd'])) {
-        basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
-            'BindsTo'   => 'openitcockpit-agent.service',
+        # Create drop in for x target
+        if (defined(Class['basic_settings::systemd'])) {
+          basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
+            target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+            unit          => {
+              'BindsTo'   => 'openitcockpit-agent.service',
+            },
+            daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
+            require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          }
+        }
+
+        # Get unit
+        if ($monitoring_enable) {
+          $unit = {
+            'OnFailure' => 'notify-failed@%i.service',
+          }
+        } else {
+          $unit = {}
+        }
+
+        # Create symlink
+        file { '/usr/lib/systemd/system/openitcockpit-agent.service':
+          ensure  => 'link',
+          target  => '/etc/openitcockpit-agent/init/openitcockpit-agent.service',
+          force   => true,
+          notify  => Exec['openitcockpit_agent_systemd_daemon_reload'],
+          require => Package['openitcockpit-agent'],
+        }
+
+        # Create drop in for ncpa service
+        basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
+          target_unit   => 'openitcockpit-agent.service',
+          unit          => $unit,
+          service       => {
+            'PrivateDevices' => 'true',
+            'PrivateTmp'     => 'true',
+            'ProtectHome'    => 'true',
+            'ProtectSystem'  => 'full',
+            'ReadWritePaths' => '/etc/openitcockpit-agent',
           },
           daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
-        }
-      }
-
-      # Get unit
-      if ($monitoring_enable) {
-        $unit = {
-          'OnFailure' => 'notify-failed@%i.service',
+          require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
         }
       } else {
-        $unit = {}
+        # Enable service
+        service { 'monitoring_service':
+          ensure  => true,
+          name    => 'openitcockpit-agent',
+          enable  => true,
+          require => Package['openitcockpit-agent'],
+        }
       }
 
-      # Create symlink
-      file { '/usr/lib/systemd/system/openitcockpit-agent.service':
-        ensure  => 'link',
-        target  => '/etc/openitcockpit-agent/init/openitcockpit-agent.service',
-        force   => true,
-        notify  => Exec['openitcockpit_agent_systemd_daemon_reload'],
-        require => Package['openitcockpit-agent'],
+      # Create root directory
+      file { 'monitoring_location':
+        ensure => directory,
+        path   => '/etc/openitcockpit-agent',
+        mode   => '0755', # Important
+        owner  => 'root',
+        group  => 'root',
       }
 
-      # Create drop in for ncpa service
-      basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
-        target_unit   => 'openitcockpit-agent.service',
-        unit          => $unit,
-        service       => {
-          'PrivateDevices' => 'true',
-          'PrivateTmp'     => 'true',
-          'ProtectHome'    => 'true',
-          'ProtectSystem'  => 'full',
-          'ReadWritePaths' => '/etc/openitcockpit-agent',
-        },
-        daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
-        require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
+      # Create plugin directory
+      file { 'monitoring_location_plugins':
+        ensure  => directory,
+        path    => '/etc/openitcockpit-agent/plugins',
+        mode    => '0700',
+        owner   => 'root',
+        group   => 'root',
+        require => File['monitoring_location'],
       }
-    } else {
-      # Enable service
-      service { 'monitoring_service':
-        ensure  => true,
-        name    => 'openitcockpit-agent',
-        enable  => true,
-        require => Package['openitcockpit-agent'],
+
+      # Create config config
+      concat { '/etc/openitcockpit-agent/customchecks.ini':
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0600',
+        notify  => Service['monitoring_service'],
+        require => File['monitoring_location'],
+      }
+
+      # Create fragment 
+      concat::fragment { 'monitoring_customchecks_default':
+        target  => '/etc/openitcockpit-agent/customchecks.ini',
+        content => "# Managed by puppet\n[default]\n",
+        order   => '01',
       }
     }
 
-    # Create root directory
-    file { 'monitoring_location':
-      ensure => directory,
-      path   => '/etc/openitcockpit-agent',
-      mode   => '0755', # Important
-      owner  => 'root',
-      group  => 'root',
-    }
-
-    # Create plugin directory
-    file { 'monitoring_location_plugins':
-      ensure  => directory,
-      path    => '/etc/openitcockpit-agent/plugins',
-      mode    => '0700',
-      owner   => 'root',
-      group   => 'root',
-      require => File['monitoring_location'],
-    }
-
-    # Create config config
-    concat { '/etc/openitcockpit-agent/customchecks.ini':
+    # Create config file
+    file { '/etc/openitcockpit-agent/config.ini':
+      ensure  => file,
+      content => template('openitcockpit/agent/config.ini'),
       owner   => 'root',
       group   => 'root',
       mode    => '0600',
@@ -171,33 +193,20 @@ class openitcockpit::agent (
       require => File['monitoring_location'],
     }
 
-    # Create fragment 
-    concat::fragment { 'monitoring_customchecks_default':
-      target  => '/etc/openitcockpit-agent/customchecks.ini',
-      content => "# Managed by puppet\n[default]\n",
-      order   => '01',
+    # Setup security audit rules
+    if (defined(Package['auditd'])) {
+      basic_settings::security_audit { 'monitoring':
+        rules => [
+          '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+          '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
+        ],
+        order => 2,
+      }
     }
-  }
-
-  # Create config file
-  file { '/etc/openitcockpit-agent/config.ini':
-    ensure  => file,
-    content => template('openitcockpit/agent/config.ini'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    notify  => Service['monitoring_service'],
-    require => File['monitoring_location'],
-  }
-
-  # Setup security audit rules
-  if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'monitoring':
-      rules => [
-        '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-        '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
-      ],
-      order => 2,
+  } else {
+    # Remove OpenITCockpit agent
+    package { 'openitcockpit-agent':
+      ensure => purged,
     }
   }
 }
