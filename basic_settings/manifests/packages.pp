@@ -1,6 +1,7 @@
 class basic_settings::packages (
   Optional[String]  $antivirus_package                          = undef,
   Boolean           $config_dir_enable                          = true,
+  Enum['all','4']   $ip_version                                 = 'all',
   Boolean           $listchanges_dir_enable                     = true,
   Optional[Array]   $unattended_upgrades_block_packages         = undef,
   Array             $unattended_upgrades_block_packages_extra   = [],
@@ -14,6 +15,16 @@ class basic_settings::packages (
   # Set some values
   $systemd_enable = defined(Package['systemd'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
+
+  # Get IP versions
+  case $ip_version {
+    '4': {
+      $ip_force = '4'
+    }
+    default: {
+      $ip_force = undef
+    }
+  }
 
   # Try to get systemd default target
   if (defined(Class['basic_settings::systemd'])) {

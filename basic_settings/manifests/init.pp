@@ -495,6 +495,7 @@ class basic_settings (
   # Setup APT
   class { 'basic_settings::packages':
     antivirus_package                        => $antivirus_package,
+    ip_version                               => $ip_version,
     unattended_upgrades_block_packages       => $unattended_upgrades_block_packages,
     unattended_upgrades_block_packages_extra => $unattended_upgrades_block_packages_extra,
     unattended_upgrades_reboot               => $unattended_upgrades_reboot,
