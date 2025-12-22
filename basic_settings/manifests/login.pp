@@ -16,7 +16,7 @@ class basic_settings::login (
   }
 
   # Install packages
-  package { ['login', 'screen', 'libpam-modules']:
+  package { ['login', 'screen', 'libpam-modules', 'nscd']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -91,6 +91,13 @@ class basic_settings::login (
     package { 'session-migration':
       ensure  => purged,
     }
+  }
+
+  # Ensure that nscd is always running
+  service { 'nscd':
+    ensure  => running,
+    enable  => true,
+    require => Package['nscd'],
   }
 
   # Create script dir
