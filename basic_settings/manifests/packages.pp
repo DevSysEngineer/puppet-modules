@@ -3,14 +3,16 @@ class basic_settings::packages (
   Boolean           $config_dir_enable                          = true,
   Enum['all','4']   $ip_version                                 = 'all',
   Boolean           $listchanges_dir_enable                     = true,
-  Optional[Array]   $unattended_upgrades_block_packages         = undef,
-  Array             $unattended_upgrades_block_packages_extra   = [],
-  Boolean           $unattended_upgrades_reboot                 = false,
+  Optional[String]  $proxy_http                                 = undef,
+  Optional[String]  $proxy_https                                = undef,
+  String            $mail_to                                    = 'root',
+  Boolean           $needrestart_dir_enable                     = true,
   String            $server_fdqn                                = $facts['networking']['fqdn'],
   Optional[String]  $systemd_default_target                     = undef,
   Boolean           $snap_enable                                = false,
-  String            $mail_to                                    = 'root',
-  Boolean           $needrestart_dir_enable                     = true
+  Optional[Array]   $unattended_upgrades_block_packages         = undef,
+  Array             $unattended_upgrades_block_packages_extra   = [],
+  Boolean           $unattended_upgrades_reboot                 = false,
 ) {
   # Set some values
   $systemd_enable = defined(Package['systemd'])

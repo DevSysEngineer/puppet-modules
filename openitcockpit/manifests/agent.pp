@@ -8,6 +8,7 @@ class openitcockpit::agent (
   Boolean                     $netstats_enable      = true,
   Boolean                     $ntp_enable           = true,
   Boolean                     $processstats_enable  = true,
+  Optional[String]            $proxy                = undef,
   Optional[Boolean]           $sensorstats_enable   = undef,
   Boolean                     $services_enable      = true,
   Boolean                     $swap_enable          = true,

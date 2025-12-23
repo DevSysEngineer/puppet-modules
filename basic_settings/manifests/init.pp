@@ -42,6 +42,8 @@ class basic_settings (
   Optional[String]                      $openitcockpit_license                      = undef,
   Boolean                               $openitcockpit_nightly                      = false,
   Enum['agent','server']                $openitcockpit_package                      = 'agent',
+  Optional[String]                      $proxy_http                                 = undef,
+  Optional[String]                      $proxy_https                                = undef,
   Array                                 $network_interfaces                         = ['eth*', 'ens*', 'wlan*'],
   Boolean                               $nginx_enable                               = false,
   Boolean                               $nodejs_enable                              = false,
@@ -496,12 +498,14 @@ class basic_settings (
   class { 'basic_settings::packages':
     antivirus_package                        => $antivirus_package,
     ip_version                               => $ip_version,
+    mail_to                                  => $systemd_notify_mail,
+    server_fdqn                              => $server_fdqn,
+    snap_enable                              => $snap_correct,
+    proxy_http                               => $proxy_http,
+    proxy_https                              => $proxy_https,
     unattended_upgrades_block_packages       => $unattended_upgrades_block_packages,
     unattended_upgrades_block_packages_extra => $unattended_upgrades_block_packages_extra,
     unattended_upgrades_reboot               => $unattended_upgrades_reboot,
-    server_fdqn                              => $server_fdqn,
-    snap_enable                              => $snap_correct,
-    mail_to                                  => $systemd_notify_mail,
     require                                  => [
       File['/etc/apt/sources.list'],
       Class['basic_settings::monitoring']
