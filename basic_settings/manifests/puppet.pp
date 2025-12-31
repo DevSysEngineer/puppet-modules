@@ -36,6 +36,7 @@ class basic_settings::puppet (
       $package_etc_dir = '/etc/puppetlabs'
       $agent_bin_dir = '/opt/puppetlabs/bin'
       $agent_etc_dir = "${package_etc_dir}/puppet"
+      $ruby_bin = '/opt/puppetlabs/puppet/bin/ruby'
       $server_dir = '/opt/puppetlabs/server'
       $server_etc_dir = "${package_etc_dir}/${server_dirname}"
       $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
@@ -61,6 +62,7 @@ class basic_settings::puppet (
       $package_etc_dir = '/etc'
       $agent_bin_dir = '/usr/bin'
       $agent_etc_dir = "${package_etc_dir}/puppet"
+      $ruby_bin = '/usr/bin/ruby'
       $server_dir = "/var/lib/${server_dirname}"
       $server_etc_dir = "${package_etc_dir}/${server_dirname}"
       $server_report_dir = "/var/log/${server_dirname}/reports"
@@ -343,7 +345,14 @@ class basic_settings::puppet (
 
     # Setup audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'puppet':
+      basic_settings::security_audit { 'puppet_exclude':
+        rules => [
+          "-a never,exit -F arch=b32 -S all -F dir=${server_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
+          "-a never,exit -F arch=b64 -S all -F dir=${server_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
+        ],
+        order => 2,
+      }
+      basic_settings::security_audit { 'puppet_general':
         rules => [
           "-a always,exit -F arch=b32 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
           "-a always,exit -F arch=b64 -F path=${server_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
@@ -355,7 +364,14 @@ class basic_settings::puppet (
       }
     }
   } elsif (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'puppet':
+    basic_settings::security_audit { 'puppet_exclude':
+      rules => [
+        "-a never,exit -F arch=b32 -S all -F dir=${agent_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
+        "-a never,exit -F arch=b64 -S all -F dir=${agent_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
+      ],
+      order => 2,
+    }
+    basic_settings::security_audit { 'puppet_general':
       rules => [
         "-a always,exit -F arch=b32 -F path=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
         "-a always,exit -F arch=b64 -F path=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",

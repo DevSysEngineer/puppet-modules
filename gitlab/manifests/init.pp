@@ -151,6 +151,8 @@ class gitlab (
         '-a never,exit -F arch=b64 -S adjtimex -F gid=gitlab-prometheus',
         '-a never,exit -F arch=b32 -S chmod -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F auid=unset',
         '-a never,exit -F arch=b64 -S chmod -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F auid=unset',
+        '-a never,exit -F arch=b32 -S open,openat,open_by_handle_at -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F gid=git',
+        '-a never,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F gid=git',
       ],
       order   => 2,
       require => Exec['gitlab_install'],
