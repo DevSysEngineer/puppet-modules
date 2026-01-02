@@ -95,8 +95,8 @@
 # Apparmor configuration
 -a always,exit -F arch=b32 -F path=/etc/apparmor -F perm=wa -F key=apparmor_config
 -a always,exit -F arch=b64 -F path=/etc/apparmor -F perm=wa -F key=apparmor_config
--a always,exit -F arch=b32 -F path=/etc/apparmor.d -F perm=wa -F key=apparmor_config
--a always,exit -F arch=b64 -F path=/etc/apparmor.d -F perm=wa -F key=apparmor_config
+-a always,exit -F arch=b32 -F dir=/etc/apparmor.d -F perm=wa -F key=apparmor_config
+-a always,exit -F arch=b64 -F dir=/etc/apparmor.d -F perm=wa -F key=apparmor_config
 
 # Apparmor tools
 -a always,exit -F arch=b32 -F path=/usr/sbin/aa-complain -F perm=x -F auid!=unset -F key=apparmor_tools
@@ -114,10 +114,10 @@
 # Systemd configuration
 -a always,exit -F arch=b32 -F path=/bin/systemctl -F perm=x -F auid!=unset -F key=systemd
 -a always,exit -F arch=b64 -F path=/bin/systemctl -F perm=x -F auid!=unset -F key=systemd
--a always,exit -F arch=b32 -F path=/etc/systemd -F perm=wa -F key=systemd
--a always,exit -F arch=b64 -F path=/etc/systemd -F perm=wa -F key=systemd
--a always,exit -F arch=b32 -F path=/usr/lib/systemd -F perm=wa -F key=systemd
--a always,exit -F arch=b64 -F path=/usr/lib/systemd -F perm=wa -F key=systemd
+-a always,exit -F arch=b32 -F dir=/etc/systemd -F perm=wa -F key=systemd
+-a always,exit -F arch=b64 -F dir=/etc/systemd -F perm=wa -F key=systemd
+-a always,exit -F arch=b32 -F dir=/usr/lib/systemd -F perm=wa -F key=systemd
+-a always,exit -F arch=b64 -F dir=/usr/lib/systemd -F perm=wa -F key=systemd
 
 # Detect journalctl use
 -a always,exit -F arch=b32 -F path=/bin/journalctl -F perm=x -F auid!=unset -F key=journalctl
@@ -137,8 +137,8 @@
 -a always,exit -F arch=b64 -F path=/etc/security/opasswd -F perm=wa -F key=identity
 
 # Shell/profile configurations
--a always,exit -F arch=b32 -F path=/etc/profile.d -F perm=wa -F key=shell_profiles
--a always,exit -F arch=b64 -F path=/etc/profile.d -F perm=wa -F key=shell_profiles
+-a always,exit -F arch=b32 -F dir=/etc/profile.d -F perm=wa -F key=shell_profiles
+-a always,exit -F arch=b64 -F dir=/etc/profile.d -F perm=wa -F key=shell_profiles
 -a always,exit -F arch=b32 -F path=/etc/profile -F perm=wa -F key=shell_profiles
 -a always,exit -F arch=b64 -F path=/etc/profile -F perm=wa -F key=shell_profiles
 -a always,exit -F arch=b32 -F path=/etc/shells -F perm=wa -F key=shell_profiles
@@ -181,16 +181,16 @@
 -a always,exit -F arch=b64 -F path=/etc/cron.allow -F perm=wa -F key=cron
 -a always,exit -F arch=b32 -F path=/etc/cron.deny -F perm=wa -F key=cron
 -a always,exit -F arch=b64 -F path=/etc/cron.deny -F perm=wa -F key=cron
--a always,exit -F arch=b32 -F path=/etc/cron.d -F perm=wa -F key=cron
--a always,exit -F arch=b64 -F path=/etc/cron.d -F perm=wa -F key=cron
--a always,exit -F arch=b32 -F path=/etc/cron.daily -F perm=wa -F key=cron
--a always,exit -F arch=b64 -F path=/etc/cron.daily -F perm=wa -F key=cron
--a always,exit -F arch=b32 -F path=/etc/cron.hourly -F perm=wa -F key=cron
--a always,exit -F arch=b64 -F path=/etc/cron.hourly -F perm=wa -F key=cron
--a always,exit -F arch=b32 -F path=/etc/cron.monthly -F perm=wa -F key=cron
--a always,exit -F arch=b64 -F path=/etc/cron.monthly -F perm=wa -F key=cron
--a always,exit -F arch=b32 -F path=/etc/cron.weekly -F perm=wa -F key=cron
--a always,exit -F arch=b64 -F path=/etc/cron.weekly -F perm=wa -F key=cron
+-a always,exit -F arch=b32 -F dir=/etc/cron.d -F perm=wa -F key=cron
+-a always,exit -F arch=b64 -F dir=/etc/cron.d -F perm=wa -F key=cron
+-a always,exit -F arch=b32 -F dir=/etc/cron.daily -F perm=wa -F key=cron
+-a always,exit -F arch=b64 -F dir=/etc/cron.daily -F perm=wa -F key=cron
+-a always,exit -F arch=b32 -F dir=/etc/cron.hourly -F perm=wa -F key=cron
+-a always,exit -F arch=b64 -F dir=/etc/cron.hourly -F perm=wa -F key=cron
+-a always,exit -F arch=b32 -F dir=/etc/cron.monthly -F perm=wa -F key=cron
+-a always,exit -F arch=b64 -F dir=/etc/cron.monthly -F perm=wa -F key=cron
+-a always,exit -F arch=b32 -F dir=/etc/cron.weekly -F perm=wa -F key=cron
+-a always,exit -F arch=b64 -F dir=/etc/cron.weekly -F perm=wa -F key=cron
 -a always,exit -F arch=b32 -F path=/etc/crontab -F perm=wa -F key=cron
 -a always,exit -F arch=b64 -F path=/etc/crontab -F perm=wa -F key=cron
 -a always,exit -F arch=b32 -F path=/var/spool/cron/crontabs -F perm=wa -F key=cron
