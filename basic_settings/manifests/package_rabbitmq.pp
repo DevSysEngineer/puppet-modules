@@ -36,7 +36,7 @@ class basic_settings::package_rabbitmq (
 
     # Install Rabbitmq server repo
     exec { 'package_rabbitmq_server_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source_server}\" >  ${file_server}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server} >/dev/null; chmod 644 ${key_server}; /usr/bin/apt-get update",
+      command => "/usr/bin/printf \"# Managed by puppet\n${source_server}\" > ${file_server}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server} >/dev/null; chmod 644 ${key_server}; /usr/bin/apt-get update",
       unless  => "[ -e  ${file_server} ]",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
