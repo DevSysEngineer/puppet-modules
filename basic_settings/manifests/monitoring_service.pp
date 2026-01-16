@@ -54,7 +54,7 @@ define basic_settings::monitoring_service (
       # Check services
       if ($services != undef) {
         $services_correct = $services
-        if (stdlib::count($services) == 1) {
+        if (length($services) == 1) {
           $parent_force = true
         }
       } else {
