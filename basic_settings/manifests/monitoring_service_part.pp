@@ -13,7 +13,7 @@ define basic_settings::monitoring_service_part (
       if ($ensure == present) {
         # Build some values
         if ($parent == $name) {
-          $friendly_correct = $script_name
+          $friendly_correct = $friendly
           $script_name = "check_${name}"
         } else {
           $friendly_correct = "${friendly} ${name}"
