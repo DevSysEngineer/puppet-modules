@@ -1,6 +1,7 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
     echo "$*" >&2
     exit 3
@@ -25,6 +26,73 @@ hm2min() {
     echo $(( H*60 + M ))
 }
 
+# Day helpers (1=Mon .. 7=Sun)
+day2num() {
+    D=$(printf '%s' "$1" | $TR 'A-Z' 'a-z')
+    case "$D" in
+        1|mon|monday) echo 1 ;;
+        2|tue|tues|tuesday) echo 2 ;;
+        3|wed|wednesday) echo 3 ;;
+        4|thu|thur|thurs|thursday) echo 4 ;;
+        5|fri|friday) echo 5 ;;
+        6|sat|saturday) echo 6 ;;
+        7|sun|sunday) echo 7 ;;
+        *) echo "" ;;
+    esac
+}
+
+# Spec examples: "Mon-Fri", "1-5", "Mon,Wed,Fri", "Sat,Sun"
+# Empty spec => always active
+in_days() {
+    SPEC="$1"
+    [ -z "$SPEC" ] && echo 1 && return
+
+    TODAY_DOW="$2"
+    [ -z "$TODAY_DOW" ] && TODAY_DOW=$($DATE +%u)
+
+    # remove whitespace
+    SPEC=$(printf '%s' "$SPEC" | $SED 's/[[:space:]]//g')
+
+    OLDIFS=$IFS
+    IFS=','
+    for PART in $SPEC; do
+        [ -z "$PART" ] && continue
+
+        case "$PART" in
+            *-*)
+                START=${PART%-*}
+                END=${PART#*-}
+                S=$(day2num "$START")
+                E=$(day2num "$END")
+                ;;
+            *)
+                S=$(day2num "$PART")
+                E="$S"
+                ;;
+        esac
+
+        [ -z "$S" ] && continue
+        [ -z "$E" ] && E="$S"
+
+        if [ "$S" -le "$E" ]; then
+            if [ "$TODAY_DOW" -ge "$S" ] && [ "$TODAY_DOW" -le "$E" ]; then
+                IFS=$OLDIFS
+                echo 1
+                return
+            fi
+        else
+            # wrap range, e.g. "Fri-Mon"
+            if [ "$TODAY_DOW" -ge "$S" ] || [ "$TODAY_DOW" -le "$E" ]; then
+                IFS=$OLDIFS
+                echo 1
+                return
+            fi
+        fi
+    done
+    IFS=$OLDIFS
+    echo 0
+}
+
 # Defaults values
 AANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
@@ -44,6 +112,7 @@ EXPECTED_VP_IDS_ACTIVE=""
 MSG=""
 NOW_HM=$($DATE +%H:%M)
 NOW_MIN=$(hm2min "$NOW_HM")
+TODAY_DOW=$($DATE +%u)  # 1=Mon .. 7=Sun
 STATUS_CODE=0
 TOTAL_DEV=0
 UNAUTHORIZED_COUNT=0
@@ -72,6 +141,22 @@ parse_item() {
     ITEM="$1"
     PARSE_BASE="$ITEM"
     PARSE_WIN=""
+    PARSE_DAYS=""
+
+    # Days are expressed with "/" at the end:
+    #   SERIAL/Mon-Fri
+    #   SERIAL@08:00-17:00/Mon-Fri
+    #   0781:5567@08:00-17:00/1-5
+    case "$ITEM" in
+        */*)
+            PARSE_BASE=${ITEM%%/*}
+            PARSE_DAYS=${ITEM#*/}
+            ITEM="$PARSE_BASE"
+            ;;
+        *) : ;;
+    esac
+
+    # Existing time-window logic (@HH:MM-HH:MM or :HH:MM-HH:MM)
     case "$ITEM" in
         *@*)
             PARSE_BASE=${ITEM%%@*}
@@ -106,15 +191,21 @@ done
 [ -n "$EXPECTED_IDS"  ] && EXPECTED_LIST=$(printf '%s' "$EXPECTED_IDS"  | $TR ',' ' ')
 [ -n "$ANYREQ_IDS"    ] && ANYREQ_LIST=$(printf '%s' "$ANYREQ_IDS"    | $TR ',' ' ')
 
-# Build ACTIVE lists (respect time windows)
+# Build ACTIVE lists (respect time windows + day specs)
 # Expected
 for ITEM in $EXPECTED_LIST; do
     parse_item "$ITEM"
-    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; ACTIVE=1
+    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; DAYS="$PARSE_DAYS"; ACTIVE=1
     case "$WIN" in
         ??:??-??:??) ACTIVE=$(in_window "$WIN") ;;
         *) ACTIVE=1 ;;
     esac
+    [ "$ACTIVE" -ne 1 ] && continue
+    if [ -n "$DAYS" ]; then
+        ACTIVE=$(in_days "$DAYS" "$TODAY_DOW")
+    else
+        ACTIVE=1
+    fi
     [ "$ACTIVE" -ne 1 ] && continue
     case "$BASE" in
         *:*) EXPECTED_VP_IDS_ACTIVE="$EXPECTED_VP_IDS_ACTIVE $(printf '%s' "$BASE" | $TR 'A-F' 'a-f')" ;;
@@ -127,11 +218,17 @@ done
 # Whitelist
 for ITEM in $WHITELIST_LIST; do
     parse_item "$ITEM"
-    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; ACTIVE=1
+    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; DAYS="$PARSE_DAYS"; ACTIVE=1
     case "$WIN" in
         ??:??-??:??) ACTIVE=$(in_window "$WIN") ;;
         *) ACTIVE=1 ;;
     esac
+    [ "$ACTIVE" -ne 1 ] && continue
+    if [ -n "$DAYS" ]; then
+        ACTIVE=$(in_days "$DAYS" "$TODAY_DOW")
+    else
+        ACTIVE=1
+    fi
     [ "$ACTIVE" -ne 1 ] && continue
     case "$BASE" in
         *:*) WHITELIST_VP_IDS_ACTIVE="$WHITELIST_VP_IDS_ACTIVE $(printf '%s' "$BASE" | $TR 'A-F' 'a-f')" ;;
@@ -142,11 +239,17 @@ done
 # Any-required
 for ITEM in $ANYREQ_LIST; do
     parse_item "$ITEM"
-    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; ACTIVE=1
+    BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; DAYS="$PARSE_DAYS"; ACTIVE=1
     case "$WIN" in
         ??:??-??:??) ACTIVE=$(in_window "$WIN") ;;
         *) ACTIVE=1 ;;
     esac
+    [ "$ACTIVE" -ne 1 ] && continue
+    if [ -n "$DAYS" ]; then
+        ACTIVE=$(in_days "$DAYS" "$TODAY_DOW")
+    else
+        ACTIVE=1
+    fi
     [ "$ACTIVE" -ne 1 ] && continue
     case "$BASE" in
         *:*) ANYREQ_VP_IDS_ACTIVE="$ANYREQ_VP_IDS_ACTIVE $(printf '%s' "$BASE" | $TR 'A-F' 'a-f')" ;;

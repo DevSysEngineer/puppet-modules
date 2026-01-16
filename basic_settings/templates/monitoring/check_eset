@@ -1,6 +1,7 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
     echo "$*" >&2
     exit 3

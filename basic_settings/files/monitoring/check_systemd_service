@@ -1,0 +1,362 @@
+#!/bin/sh
+# Managed by puppet
+
+# Fail helper
+die() {
+    echo "$*" >&2
+    exit 3
+}
+
+# Binary checks
+CUT=$(command -v cut 2>/dev/null) || die "cut not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+
+usage() {
+    die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
+}
+
+hm2min() {
+    H=${1%:*}
+    M=${1#*:}
+    H=$(printf '%s' "$H" | $SED 's/^0\+//')
+    M=$(printf '%s' "$M" | $SED 's/^0\+//')
+    [ -z "$H" ] && H=0
+    [ -z "$M" ] && M=0
+    case "$H" in (*[!0-9]*) H=0 ;; esac
+    case "$M" in (*[!0-9]*) M=0 ;; esac
+    echo $(( H*60 + M ))
+}
+
+in_window() {
+    WIN="$1"
+    START=${WIN%-*}
+    END=${WIN#*-}
+    S=$(hm2min "$START")
+    E=$(hm2min "$END")
+
+    if [ "$S" -le "$E" ]; then
+        if [ "$NOW_MIN" -ge "$S" ] && [ "$NOW_MIN" -le "$E" ]; then
+            echo 1
+        else
+            echo 0
+        fi
+    else
+        # window spans midnight
+        if [ "$NOW_MIN" -ge "$S" ] || [ "$NOW_MIN" -le "$E" ]; then
+            echo 1
+        else
+            echo 0
+        fi
+    fi
+}
+
+day_to_num() {
+    d=$(printf '%s' "$1" | $TR 'A-Z' 'a-z')
+    case "$d" in
+        1|mon|monday) echo 1 ;;
+        2|tue|tues|tuesday) echo 2 ;;
+        3|wed|weds|wednesday) echo 3 ;;
+        4|thu|thur|thurs|thursday) echo 4 ;;
+        5|fri|friday) echo 5 ;;
+        6|sat|saturday) echo 6 ;;
+        0|7|sun|sunday) echo 7 ;;
+        *) echo "" ;;
+    esac
+}
+
+day_in_spec() {
+    SPEC="$1"
+    [ -z "$SPEC" ] && { echo 1; return; }
+    SPEC_N=$(printf '%s' "$SPEC" | $TR ',' ' ')
+
+    for PART in $SPEC_N; do
+        PART_L=$(printf '%s' "$PART" | $TR 'A-Z' 'a-z')
+        case "$PART_L" in
+            *-*)
+                S=${PART_L%-*}
+                E=${PART_L#*-}
+                SN=$(day_to_num "$S")
+                EN=$(day_to_num "$E")
+                [ -n "$SN" ] && [ -n "$EN" ] || continue
+
+                if [ "$SN" -le "$EN" ]; then
+                    if [ "$DOW" -ge "$SN" ] && [ "$DOW" -le "$EN" ]; then
+                        echo 1
+                        return
+                    fi
+                else
+                    # range wraps across week boundary
+                    if [ "$DOW" -ge "$SN" ] || [ "$DOW" -le "$EN" ]; then
+                        echo 1
+                        return
+                    fi
+                fi
+                ;;
+            *)
+                PN=$(day_to_num "$PART_L")
+                [ -n "$PN" ] && [ "$DOW" -eq "$PN" ] && { echo 1; return; }
+                ;;
+        esac
+    done
+    echo 0
+}
+
+# Config (override via env and/or CLI opts)
+WINDOW=${WINDOW:-600}                # seconds of journal to scan (default 10m)
+MAXLOG=${MAXLOG:-1000}               # max characters of joined log output
+REQUIRE_ACTIVE=${REQUIRE_ACTIVE:-1}  # 1=service must be active, 0=oneshot-style allowed
+SCAN_LOGS=${SCAN_LOGS:-1}            # 1=scan journal, 0=skip
+
+# Schedule controls
+ACTIVE_WINDOWS=${ACTIVE_WINDOWS:-""}            # e.g. "08:00-18:00" or "08:00-12:00,13:00-17:00"
+ACTIVE_DAYS=${ACTIVE_DAYS:-""}                  # e.g. "Mon-Fri" or "1-5" or "Mon,Wed,Fri"
+SCAN_LOGS_OUTSIDE=${SCAN_LOGS_OUTSIDE:-1}       # 1=still scan logs outside schedule
+ACTIVE_ALERT_OUTSIDE=${ACTIVE_ALERT_OUTSIDE:-0} # 1=CRITICAL if service is active outside schedule
+IN_SCHEDULE=1
+SUPPRESS_REASON=""
+SCHEDULE_DEFINED=0
+OUTSIDE_SUPPRESS=0
+
+# Log patterns (extended regex). Tune per service via env.
+FAIL_RE=${FAIL_RE:-'Failed with result|status=[1-9][0-9]*|segfault|core dumped|fatal|panic'}
+WARN_RE=${WARN_RE:-''} # keep empty by default (avoid noisy WARNINGs)
+
+# CLI options (override env)
+while getopts "W:D:a" OPT; do
+    case "$OPT" in
+        W) ACTIVE_WINDOWS="$OPTARG" ;;
+        D) ACTIVE_DAYS="$OPTARG" ;;
+        a) ACTIVE_ALERT_OUTSIDE=1 ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# Argument: service unit
+UNIT=${1:-}
+[ -n "$UNIT" ] || usage
+case "$UNIT" in
+    *.service) SERVICE_UNIT="$UNIT" ;;
+    *)         SERVICE_UNIT="${UNIT}.service" ;;
+esac
+
+# Determine whether schedule is configured
+if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then
+    SCHEDULE_DEFINED=1
+fi
+
+# Current time info
+NOW_TS=$($DATE +%s)
+NOW_HM=$($DATE +%H:%M)
+DOW=$($DATE +%u 2>/dev/null || echo 0)  # 1=Mon .. 7=Sun
+NOW_MIN=$(hm2min "$NOW_HM")
+
+# Check active days
+if [ -n "$ACTIVE_DAYS" ] && [ "$(day_in_spec "$ACTIVE_DAYS")" != "1" ]; then
+    IN_SCHEDULE=0
+    SUPPRESS_REASON="day-outside"
+fi
+
+# Check active windows
+if [ "$IN_SCHEDULE" = "1" ] && [ -n "$ACTIVE_WINDOWS" ]; then
+    WINS=$(printf '%s' "$ACTIVE_WINDOWS" | $TR ',' ' ')
+    ACTIVE_NOW=0
+
+    for WIN in $WINS; do
+        case "$WIN" in
+            ??:??-??:??) : ;;
+            *) continue ;;
+        esac
+        [ "$(in_window "$WIN")" = "1" ] && { ACTIVE_NOW=1; break; }
+    done
+
+    [ "$ACTIVE_NOW" -eq 1 ] || { IN_SCHEDULE=0; SUPPRESS_REASON="outside-window"; }
+fi
+
+# Determine if we should suppress outside-schedule checks
+if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then
+    OUTSIDE_SUPPRESS=1
+fi
+
+# Helper: extract property from a cached `systemctl show` blob
+get_prop() {
+    # $1 = key
+    printf '%s\n' "$SHOW" | $GREP "^$1=" | $CUT -d= -f2-
+}
+
+# Helper: parse a systemd timestamp (text) to epoch, or empty
+parse_ts() {
+    # $1 = text (e.g. "Fri 2026-01-16 08:55:12 CET" or "n/a")
+    [ -n "${1:-}" ] || return 1
+    [ "$1" = "n/a" ] && return 1
+    $DATE -d "$1" +%s 2>/dev/null
+}
+
+# Pull all needed properties in one go (fast for Nagios)
+SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
+    -p LoadState -p ActiveState -p SubState -p Result \
+    -p MainPID -p NRestarts \
+    -p ExecMainStatus -p ExecMainCode -p StatusText \
+    -p ActiveEnterTimestamp -p InactiveEnterTimestamp -p StateChangeTimestamp \
+    2>/dev/null)
+LOAD_STATE=$(get_prop LoadState)
+
+# Check existence and load state
+if [ -z "$LOAD_STATE" ] || [ "$LOAD_STATE" = "not-found" ]; then
+    echo "${SERVICE_UNIT} does not exist | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    exit 2
+fi
+
+# Not loaded
+if [ "$OUTSIDE_SUPPRESS" = "1" ] && [ "$LOAD_STATE" != "loaded" ]; then
+    echo "${SERVICE_UNIT} OK - outside schedule (${SUPPRESS_REASON:-outside}); unit not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    exit 0
+elif [ "$LOAD_STATE" != "loaded" ]; then
+    echo "${SERVICE_UNIT} not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    exit 2
+fi
+
+# Get other properties
+ACTIVE_STATE=$(get_prop ActiveState)
+SUB_STATE=$(get_prop SubState)
+RESULT_PROP=$(get_prop Result)
+MAIN_PID=$(get_prop MainPID)
+NRESTARTS=$(get_prop NRestarts)
+EXEC_STATUS=$(get_prop ExecMainStatus)
+EXEC_CODE=$(get_prop ExecMainCode)
+STATUS_TEXT=$(get_prop StatusText)
+ACTIVE_ENTER=$(get_prop ActiveEnterTimestamp)
+STATE_CHANGE=$(get_prop StateChangeTimestamp)
+
+# If we are outside schedule and using -a, only alert when active; otherwise OK suppressed
+if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
+    printf '%s OK - outside schedule (%s); state=%s/%s result=%s; last change: %s; status: %s | in_schedule=%s\n' \
+        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${STATE_CHANGE:-unknown}" "${STATUS_TEXT:-unknown}" "${IN_SCHEDULE}"
+    exit 0
+fi
+
+# Compute ages
+NOW_TS=$($DATE +%s)
+ACTIVE_ENTER_TS=""
+STATE_CHANGE_TS=""
+LAST_CHANGE_TEXT="${STATE_CHANGE:-}"
+
+# Parse timestamps
+if ts=$(parse_ts "$ACTIVE_ENTER" 2>/dev/null); then ACTIVE_ENTER_TS="$ts"; fi
+if ts=$(parse_ts "$STATE_CHANGE" 2>/dev/null); then STATE_CHANGE_TS="$ts"; fi
+
+# Calculate ages
+ACTIVE_AGE=U
+LAST_CHANGE_AGE=U
+if [ -n "$ACTIVE_ENTER_TS" ] && [ "$ACTIVE_ENTER_TS" -le "$NOW_TS" ]; then
+    ACTIVE_AGE=$((NOW_TS - ACTIVE_ENTER_TS))
+fi
+if [ -n "$STATE_CHANGE_TS" ] && [ "$STATE_CHANGE_TS" -le "$NOW_TS" ]; then
+    LAST_CHANGE_AGE=$((NOW_TS - STATE_CHANGE_TS))
+fi
+
+# Set variables for journal scan
+JOURNAL_RAW=""
+FAIL_LINE=""
+WARN_LINE=""
+SINCE_TS=$((NOW_TS - WINDOW))
+REF_TS=$SINCE_TS
+
+# Determine reference timestamp for journal scan
+if [ "$ACTIVE_STATE" = "active" ] && [ -n "$ACTIVE_ENTER_TS" ] && [ "$ACTIVE_ENTER_TS" -gt "$SINCE_TS" ]; then
+    REF_TS=$ACTIVE_ENTER_TS
+elif [ "$ACTIVE_STATE" != "active" ] && [ -n "$STATE_CHANGE_TS" ] && [ "$STATE_CHANGE_TS" -gt "$SINCE_TS" ]; then
+    REF_TS=$STATE_CHANGE_TS
+fi
+
+# Pull journal entries since reference timestamp
+JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null || true)
+if [ -n "$JOURNAL_RAW" ]; then
+    FAIL_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$FAIL_RE" | $TAIL -n1)
+    if [ -n "$WARN_RE" ]; then
+        WARN_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$WARN_RE" | $TAIL -n1)
+    fi
+fi
+
+# Join and trim journal for output
+JOURNAL_JOINED=$(printf '%s' "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g' | $CUT -c1-${MAXLOG})
+[ -n "$JOURNAL_JOINED" ] || JOURNAL_JOINED="-"
+
+# Perfdata
+PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
+
+# Outside schedule (no -a): always OK, but include full status/perfdata
+if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then
+    printf '%s OK - outside schedule (%s); state=%s/%s result=%s; last change: %s; status: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 0
+fi
+
+# Outside schedule alerting (only when -a AND active)
+if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" = "active" ]; then
+    printf '%s CRITICAL - active outside schedule (%s); state=%s/%s result=%s; since: %s; pid=%s; status: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "$ACTIVE_STATE" "$SUB_STATE" "${RESULT_PROP:-unknown}" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 2
+fi
+
+# Hard failure states
+if [ "$ACTIVE_STATE" = "failed" ]; then
+    printf '%s CRITICAL - state=%s/%s result=%s exit=%s code=%s; last change: %s; status: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "$ACTIVE_STATE" "$SUB_STATE" "$RESULT_PROP" "${EXEC_STATUS:-U}" "${EXEC_CODE:-U}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 2
+fi
+
+# Not-active handling (default DevOps: must be active)
+if [ "$REQUIRE_ACTIVE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
+    case "$ACTIVE_STATE" in
+        activating|deactivating)
+            printf '%s WARNING - state=%s/%s; last change: %s; status: %s; log: "%s" | %s\n' \
+                "$SERVICE_UNIT" "$ACTIVE_STATE" "$SUB_STATE" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            exit 1
+            ;;
+        inactive)
+            printf '%s CRITICAL - inactive (result=%s exit=%s code=%s); last change: %s; status: %s; log: "%s" | %s\n' \
+                "$SERVICE_UNIT" "$RESULT_PROP" "${EXEC_STATUS:-U}" "${EXEC_CODE:-U}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            exit 2
+            ;;
+        *)
+            printf '%s UNKNOWN - state=%s/%s; last change: %s; status: %s; log: "%s" | %s\n' \
+                "$SERVICE_UNIT" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            exit 3
+            ;;
+    esac
+fi
+
+# Check if there were failure markers in the logs
+if [ -n "$FAIL_LINE" ]; then
+    printf '%s CRITICAL - active but failure marker in logs: "%s"; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "$FAIL_LINE" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 2
+fi
+
+# Check if there were warning markers in the logs
+if [ -n "$WARN_LINE" ]; then
+    printf '%s WARNING - warning marker in logs: "%s"; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
+        "$SERVICE_UNIT" "$WARN_LINE" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    exit 1
+fi
+
+# OK (oneshot-style handling)
+if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
+    if [ "${EXEC_STATUS:-U}" = "0" ] && { [ "$RESULT_PROP" = "success" ] || [ "$RESULT_PROP" = "" ] || [ "$RESULT_PROP" = "n/a" ]; }; then
+        printf '%s OK - not active (oneshot) but last result success; last change: %s; status: %s; log: "%s" | %s\n' \
+            "$SERVICE_UNIT" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+        exit 0
+    fi
+fi
+
+# Show final OK
+printf '%s OK - state=%s/%s result=%s; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
+    "$SERVICE_UNIT" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+exit 0

@@ -1,8 +1,10 @@
 define basic_settings::monitoring_service (
-  Enum['present','absent']  $ensure     = present,
-  Optional[String]          $friendly   = undef,
-  Optional[Array]           $services   = undef,
-  Optional[String]          $package    = undef
+  Enum['present','absent']  $ensure         = present,
+  Optional[String]          $active_windows = undef,
+  Optional[String]          $active_days    = undef,
+  Optional[String]          $friendly       = undef,
+  Optional[Array]           $services       = undef,
+  Optional[String]          $package        = undef
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -18,21 +20,91 @@ define basic_settings::monitoring_service (
     } else {
       $package_correct = $package
     }
+    $sudoers_dir_enable = $basic_settings::monitoring::sudoers_dir_enable
   } else {
     $package_correct = 'none'
+    $sudoers_dir_enable = false
+  }
+
+  # Get sudoers prefix
+  if ($sudoers_dir_enable) {
+    $sudoers_prefix = ''
+  } else {
+    $sudoers_prefix = 'z'
+  }
+
+  # Check if sudo package is not defined
+  if (!defined(Package['sudo'])) {
+    package { 'sudo':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
   }
 
   # Do thing based on package
   $file_ensure = $ensure ? { 'present' => 'file', default => $ensure }
   case $package_correct {
     'openitcockpit': {
-      # Checks can be selected in GUI portal
+      # Set some values
+      $script_name = "check_${name}"
+      $script_path = '/etc/openitcockpit-agent/plugins/check_systemd_service'
+      $script_exists = defined(File[$script_path])
+      $uid = 'root'
+      $gid = 'root'
+
+      # Create fragment for plugin
+      if ($ensure == present) {
+        # Build active window parameter
+        if ($active_windows != undef) {
+          $script_active_window = "-W ${active_windows} "
+        } else {
+          $script_active_window = ''
+        }
+        # Build active days parameter
+        if ($active_days != undef) {
+          $script_active_days = "-D ${active_days} "
+        } else {
+          $script_active_days = ''
+        }
+
+        # Add fragment
+        concat::fragment { "monitoring_service_${name}":
+          target  => '/etc/openitcockpit-agent/customchecks.ini',
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${script_active_window}${script_active_days}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          order   => '10',
+        }
+      }
     }
     default: {
       $script_path = undef
       $script_exists = true
       $uid = undef
       $gid = undef
+    }
+  }
+
+  # Check if script path is not defined
+  if (!$script_exists) {
+    # Create script
+    file { $script_path:
+      ensure => $file_ensure,
+      source => 'puppet:///modules/basic_settings/monitoring/check_systemd_service',
+      owner  => $uid,
+      group  => $gid,
+      mode   => '0700',
+    }
+
+    # Create sudo
+    if ($uid != 'root') {
+      $sudo_cmnd = regsubst("monitoring_service_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
+      file { "/etc/sudoers.d/${sudoers_prefix}25-monitoring_service_${name}":
+        ensure  => $file_ensure,
+        owner   => 'root',
+        group   => $gid,
+        mode    => '0440',
+        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always\n${uid} ALL=(root) NOPASSWD: ${sudo_cmnd}\n",
+        require => Package['sudo'],
+      }
     }
   }
 }
