@@ -1,8 +1,9 @@
 define basic_settings::monitoring_service_part (
   String                    $friendly,
   String                    $package,
-  String                    $parent,
+  String                    $parent_name,
   String                    $script_path,
+  Enum['present','absent']  $parent_force   = false,
   Enum['present','absent']  $ensure         = present,
   Optional[String]          $active_windows = undef,
   Optional[String]          $active_days    = undef,
@@ -12,19 +13,21 @@ define basic_settings::monitoring_service_part (
       # Create fragment for plugin
       if ($ensure == present) {
         # Build some values
-        if ($parent == $name) {
+        if ($parent_name == $name or $parent_force) {
           $friendly_correct = $friendly
-          $script_name = "check_${name}"
+          $script_name = "check_${parent_name}"
         } else {
           $friendly_correct = "${friendly} ${name}"
-          $script_name = "check_${name}_${name}"
+          $script_name = "check_${parent_name}_${name}"
         }
+
         # Build active window parameter
         if ($active_windows != undef) {
           $script_active_window = "-W ${active_windows} "
         } else {
           $script_active_window = ''
         }
+
         # Build active days parameter
         if ($active_days != undef) {
           $script_active_days = "-D ${active_days} "

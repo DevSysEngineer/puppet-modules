@@ -52,17 +52,22 @@ define basic_settings::monitoring_service (
       $gid = 'root'
 
       # Check services
-      if ($services == undef) {
-        $services_correct = $name
-      } else {
+      if ($services != undef) {
         $services_correct = $services
+        if (stdlib::count($services) == 1) {
+          $parent_force = true
+        }
+      } else {
+        $services_correct = $name
+        $parent_force = false
       }
 
       # Create monitoring service parts
       basic_settings::monitoring_service_part { $services_correct:
         ensure         => $ensure,
         package        => 'openitcockpit',
-        parent         => $name,
+        parent_force   => $parent_force,
+        parent_name    => $name,
         script_path    => $script_path,
         friendly       => $friendly_correct,
         active_windows => $active_windows,
