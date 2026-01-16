@@ -70,7 +70,7 @@ define basic_settings::monitoring_service (
         # Add fragment
         concat::fragment { "monitoring_service_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${script_active_window}${script_active_days}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n",
           order   => '10',
         }
       }
