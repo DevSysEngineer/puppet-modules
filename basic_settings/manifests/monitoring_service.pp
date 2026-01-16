@@ -46,33 +46,27 @@ define basic_settings::monitoring_service (
   case $package_correct {
     'openitcockpit': {
       # Set some values
-      $script_name = "check_${name}"
       $script_path = '/etc/openitcockpit-agent/plugins/check_systemd_service'
       $script_exists = defined(File[$script_path])
       $uid = 'root'
       $gid = 'root'
 
-      # Create fragment for plugin
-      if ($ensure == present) {
-        # Build active window parameter
-        if ($active_windows != undef) {
-          $script_active_window = "-W ${active_windows} "
-        } else {
-          $script_active_window = ''
-        }
-        # Build active days parameter
-        if ($active_days != undef) {
-          $script_active_days = "-D ${active_days} "
-        } else {
-          $script_active_days = ''
-        }
+      # Check services
+      if ($services == undef) {
+        $services_correct = $name
+      } else {
+        $services_correct = $services
+      }
 
-        # Add fragment
-        concat::fragment { "monitoring_service_${name}":
-          target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n",
-          order   => '10',
-        }
+      # Create monitoring service parts
+      basic_settings::monitoring_service_part { $services_correct:
+        ensure         => $ensure,
+        package        => 'openitcockpit',
+        parent         => $name,
+        script_path    => $script_path,
+        friendly       => $friendly_correct,
+        active_windows => $active_windows,
+        active_days    => $active_days,
       }
     }
     default: {
