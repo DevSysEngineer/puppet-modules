@@ -4,7 +4,7 @@ define netplanio::ethernet (
   Enum['present','absent']  $ensure          = present,
   Optional[String]          $interface       = undef,
   Optional[String]          $ip_version      = undef,
-  Optional[Array]           $routes          = undef,
+  Optional[Hash]            $routes          = undef,
 ) {
   if (defined(Class['netplanio'])) {
     if ($ensure) {
