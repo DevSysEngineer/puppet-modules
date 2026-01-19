@@ -27,11 +27,11 @@ network:
 <% end -%>
 <% end -%>
 <% if !@routes.nil? -%>
-    routes:
+      routes:
 <% @routes.each do |route, object| -%>
 <% if !object.nil? and !object.empty? and !object['via'].nil? and !object['via'].empty? -%>
-      - to: <%= route %>
-        via: <%= object['via'] %>
+        - to: <%= route %>
+          via: <%= object['via'] %>
 <% end -%>
 <% end -%>
 <% end -%>
