@@ -1,10 +1,11 @@
 class mysql (
   String            $automysqlbackup_backupdir  = '/var/lib/automysqlbackup',
+  Hash              $automysqlbackup_settings   = {},
   Integer           $nice_level                 = 12,
   String            $package_name               = 'mysql',
   Float             $package_version            = 8.0,
   Optional[String]  $root_password              = undef,
-  Hash              $settings                   = {}
+  Hash              $settings                   = {},
 ) {
   # Use systemd settings
   $basic_settings_enable = defined(Class['basic_settings'])
@@ -42,8 +43,16 @@ class mysql (
     'thread_stack'                  => '2M',
   }
 
+  # Set automysqlbackup default values
+  $automysqlbackup_values = {
+    'mysql_dump_compression'        => 'bzip2',
+    'mysql_dump_single_transaction' => 'yes',
+    'mysql_dump_skip_lock_tables'   => 'yes',
+  }
+
   # Merge default settings with user settings
   $mysqld_default = stdlib::merge($default_values, $settings)
+  $automysqlbackup_default = stdlib::merge($automysqlbackup_values, $automysqlbackup_settings)
 
   # Basic variable
   $script_path = '/usr/local/lib/puppet/mysql-grant.sh'
@@ -196,18 +205,24 @@ class mysql (
   }
 
   # Install package for automysqlbackup
-  if (!defined(Package['pigz'])) {
-    package { 'pigz':
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
+  case $backup_default['mysql_dump_compression'] {
+    'gzip': {
+      # Install package for automysqlbackup
+      if (!defined(Package['pigz'])) {
+        package { 'pigz':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      }
     }
-  }
-
-  # Install package for automysqlbackup
-  if (!defined(Package['pbzip2'])) {
-    package { 'pbzip2':
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    'bzip2': {
+      # Install package for automysqlbackup
+      if (!defined(Package['pbzip2'])) {
+        package { 'pbzip2':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      }
     }
   }
 

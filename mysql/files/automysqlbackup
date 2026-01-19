@@ -80,6 +80,7 @@ load_default_config() {
     CONFIG_mysql_dump_latest_clean_filenames='no'
     CONFIG_mysql_dump_max_allowed_packet=''
     CONFIG_mysql_dump_single_transaction='no'
+    CONFIG_mysql_dump_skip_lock_tables='no'
     CONFIG_mysql_dump_master_data=
     CONFIG_mysql_dump_full_schema='yes'
     CONFIG_mysql_dump_dbstatus='yes'
@@ -472,6 +473,10 @@ parse_configuration () {
     [[ "${CONFIG_mysql_dump_single_transaction}" = "yes" ]] && {
         opt=( "${opt[@]}" '--single-transaction' )
         opt_fullschema=( "${opt_fullschema[@]}" '--single-transaction' )
+    }
+    [[ "${CONFIG_mysql_dump_skip_lock_tables}" = "yes" ]] && {
+        opt=( "${opt[@]}" '--skip-lock-tables' )
+        opt_fullschema=( "${opt_fullschema[@]}" '--skip-lock-tables' )
     }
     [[ "${CONFIG_mysql_dump_commcomp}" = "yes" ]]   && {
         opt=( "${opt[@]}" '--compress' )
