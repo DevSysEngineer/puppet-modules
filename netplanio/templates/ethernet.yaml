@@ -26,3 +26,11 @@ network:
       accept-ra: <%= @ip_ra_string %>
 <% end -%>
 <% end -%>
+<% if !@routes.nil? -%>
+    routes:
+<% @routes.each do |route, object| -%>
+<% if !object.nil? and !object.empty? and !object['via'].nil? and !object['via'].empty? -%>
+      - to: <%= route %>
+        via: <%= object['via'] %>
+<% end -%>
+<% end -%>
