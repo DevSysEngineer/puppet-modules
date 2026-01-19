@@ -205,7 +205,7 @@ class mysql (
   }
 
   # Install package for automysqlbackup
-  case $backup_default['mysql_dump_compression'] {
+  case $automysqlbackup_default['mysql_dump_compression'] {
     'gzip': {
       # Install package for automysqlbackup
       if (!defined(Package['pigz'])) {
