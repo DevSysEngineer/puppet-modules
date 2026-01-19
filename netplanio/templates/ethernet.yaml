@@ -34,3 +34,4 @@ network:
         via: <%= object['via'] %>
 <% end -%>
 <% end -%>
+<% end -%>
