@@ -26,12 +26,21 @@ network:
       accept-ra: <%= @ip_ra_string %>
 <% end -%>
 <% end -%>
+<% if !@nameservers.nil? and !@nameservers['addresses'].empty? and !@nameservers['addresses'].nil? and !@nameservers['addresses'].empty? -%>
+      nameservers:
+        addresses:
+<% @nameservers['addresses'].each do |addresses| -%>
+          - <%= address %>
+<% end -%>
+<% end -%>
 <% if !@routes.nil? -%>
       routes:
 <% @routes.each do |route, object| -%>
 <% if !object.nil? and !object.empty? and !object['via'].nil? and !object['via'].empty? -%>
         - to: <%= route %>
-          via: <%= object['via'] %>
+<% object.each do |key, value| -%>
+          <%= key %>: <%= value.is_a?(TrueClass) || value.is_a?(FalseClass) ? value.to_s : value %>
+<% end -%>
 <% end -%>
 <% end -%>
 <% end -%>
