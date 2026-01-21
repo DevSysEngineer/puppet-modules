@@ -16,7 +16,7 @@ class basic_settings::security (
   }
 
   # Install default security packages
-  package { ['apparmor', 'pwgen']:
+  package { ['aide-common', 'apparmor', 'pwgen']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
@@ -203,6 +203,15 @@ class basic_settings::security (
         'OnCalendar' => '*-*-* 0:30',
       },
       daemon_reload => 'security_systemd_daemon_reload',
+    }
+
+    # Create default aide file */
+    file { '/etc/default/aide':
+      ensure  => file,
+      content => template('basic_settings/security/aide'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0700', # Only root
     }
   }
 }
