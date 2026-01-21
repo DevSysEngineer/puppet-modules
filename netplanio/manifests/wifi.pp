@@ -5,6 +5,7 @@ define netplanio::wifi (
   Enum['present','absent']  $ensure          = present,
   Optional[String]          $interface       = undef,
   Optional[String]          $ip_version      = undef,
+  Boolean                   $optional        = false,
 ) {
   if (defined(Class['netplanio'])) {
     if ($ensure == present) {
