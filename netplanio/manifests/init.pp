@@ -39,6 +39,13 @@ class netplanio (
     require     => Package['netplan.io'],
   }
 
+  # Remove cloud init file
+  file { '/etc/netplan/50-cloud-init.yaml':
+    ensure  => absent,
+    notify  => Exec['netplanio_apply'],
+    require => Package['netplan.io'],
+  }
+
   # Setup audit rules
   if (defined(Package['auditd'])) {
     basic_settings::security_audit { 'netplanio':

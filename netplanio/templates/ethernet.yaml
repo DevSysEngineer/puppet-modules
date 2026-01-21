@@ -33,6 +33,7 @@ network:
           - <%= address %>
 <% end -%>
 <% end -%>
+      optional: <%= @optional.to_s %>:
 <% if !@routes.nil? -%>
       routes:
 <% @routes.each do |route, object| -%>

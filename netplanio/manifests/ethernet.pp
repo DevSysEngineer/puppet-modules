@@ -1,4 +1,5 @@
 define netplanio::ethernet (
+  Boolean                   $optional        = false,
   Optional[Array]           $addresses       = undef,
   Optional[Boolean]         $dhcp_enable     = undef,
   Enum['present','absent']  $ensure          = present,
