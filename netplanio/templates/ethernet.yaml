@@ -29,7 +29,7 @@ network:
 <% if !@nameservers.nil? and !@nameservers['addresses'].empty? and !@nameservers['addresses'].nil? and !@nameservers['addresses'].empty? -%>
       nameservers:
         addresses:
-<% @nameservers['addresses'].each do |addresses| -%>
+<% @nameservers['addresses'].each do |address| -%>
           - <%= address %>
 <% end -%>
 <% end -%>
