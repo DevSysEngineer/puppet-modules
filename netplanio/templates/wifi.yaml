@@ -43,3 +43,4 @@ network:
       accept-ra: <%= @ip_ra_string %>
 <% end -%>
 <% end -%>
+      optional: <%= @optional.to_s %>
