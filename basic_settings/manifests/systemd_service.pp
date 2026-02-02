@@ -11,6 +11,7 @@ define basic_settings::systemd_service (
   Optional[String]          $monitoring_active_windows  = undef,
   Optional[String]          $monitoring_active_days     = undef,
   Hash                      $service                    = {},
+  Optional[Array]           $service_subscribe          = undef,
   Hash                      $unit                       = {},
 ) {
   # Check if systemd package is not defined
@@ -36,8 +37,9 @@ define basic_settings::systemd_service (
   if ($ensure == present) {
     # Enable service
     service { $title:
-      enable  => $enable,
-      require => File["/etc/systemd/system/${title}.service"],
+      enable    => $enable,
+      require   => File["/etc/systemd/system/${title}.service"],
+      subscribe => $service_subscribe,
     }
 
     # Check if we need to monitoring this service
