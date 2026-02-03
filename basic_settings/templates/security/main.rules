@@ -1,7 +1,7 @@
 # Managed by puppet
 
 # Ignore audit for AIDE itself
--a never,exit -F arch=b64 -S open,openat,openat2,open_by_handle_at -F exe=/usr/bin/aide -F auid=unset
+-a never,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F exe=/usr/bin/aide -F auid=unset
 -a never,exit -F arch=b32 -S open -F exe=/usr/bin/aide -F auid=unset
 
 # This rule will detect any use of the 32 bit syscalls because this might be a sign of someone exploiting a hole in the 32bit ABI.
