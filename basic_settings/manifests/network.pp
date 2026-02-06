@@ -29,17 +29,25 @@ class basic_settings::network (
   # Get IP data
   if ($kernel_enable) {
     $ip_version = $basic_settings::kernel::ip_version
-    if ($basic_settings::kernel::ip_version_v6 and $dhcp_enable and $basic_settings::kernel::ip_ra_enable) {
-      $ip_ra_enable = true
+    if ($basic_settings::kernel::ip_version_v6 and $dhcp_enable) {
+      $ip_dhcp_v6 = true
+      if ($basic_settings::kernel::ip_ra_enable) {
+        $ip_ra_enable = true
+      } else {
+        $ip_ra_enable = false
+      }
     } else {
+      $ip_dhcp_v6 = false
       $ip_ra_enable = false
     }
   } else {
     $ip_version = 'all'
     if ($dhcp_enable) {
+      $ip_dhcp_v6 = true
       $ip_ra_enable = true
     } else {
-      $dhcp_enable = false
+      $ip_dhcp_v6 = false
+      $ip_ra_enable = false
     }
   }
 
@@ -48,9 +56,9 @@ class basic_settings::network (
   $lldp_platform = $facts['os']['name']
   $lldp_description = "${lldp_platform} ${environment} server"
   if ($communication_name == undef) {
-    $lldp_hostname = "${lldp_platform.downcase()}-${environment}"
+    $communication_hostname = "${lldp_platform.downcase()}-${environment}"
   } else {
-    $lldp_hostname = regsubst($communication_name.downcase, '\s+', '-', 'G')
+    $communication_hostname = regsubst($communication_name.downcase, '\s+', '-', 'G')
   }
 
   # Default suspicious packages
@@ -199,7 +207,17 @@ class basic_settings::network (
     }
 
     # DHCP is disabled, but we need dhcpd package because kernel package
-    if (!$dhcp_enable and $kernel_enable) {
+    if ($dhcp_enable) {
+      # Create config file
+      file { '/etc/dhcpcd.conf':
+        ensure  => file,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0600',
+        content => template('basic_settings/network/dhcpcd.conf'),
+        notify  => Service['dhcpcd'],
+      }
+    } else if ($kernel_enable) {
       # Create config file
       file { '/etc/dhcpcd.conf':
         ensure  => file,

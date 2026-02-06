@@ -2,5 +2,5 @@
 configure lldp status tx-only
 configure system capabilities enabled <%= @lldp_capabilities %>
 configure system description "<%= @lldp_description %>"
-configure system hostname <%= @lldp_hostname %>
+configure system hostname <%= @communication_hostname %>
 configure system platform "<%= @lldp_platform %>"
