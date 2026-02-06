@@ -8,6 +8,7 @@ class basic_settings::kernel (
   Integer                     $hugepages                  = 0,
   Array                       $install_options            = [],
   Enum['all','4']             $ip_version                 = 'all',
+  String                      $ip_regdom                  = 'NL',
   Boolean                     $ip_ra_enable               = true,
   Boolean                     $ip_ra_learn_prefix         = true,
   String                      $network_mode               = 'strict',
@@ -100,9 +101,8 @@ class basic_settings::kernel (
 
       # Remove raspi kernel
       package { ['linux-raspi', 'linux-image-raspi', 'linux-headers-raspi']:
-        ensure          => purged,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-generic'],
+        ensure  => purged,
+        require => Package['linux-generic'],
       }
 
       # Install generic HWE kernel
@@ -492,46 +492,66 @@ class basic_settings::kernel (
         mode    => '0755', # Important
         require => Package[$ram_disk_require],
       }
-    }
-  }
 
-  # Setup TCP
-  case $bootloader {
-    'grub': {
-      # Set boot loader packages
-      $bootloader_packages = ['/usr/sbin/update-grub']
-
-      # Install package
-      package { 'grub2-common':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['initramfs-tools-core'],
-      }
-
-      # Remove unnecessary packages
-      package { 'systemd-boot':
-        ensure  => purged,
-        require => Package['grub2-common'],
-      }
-
-      # Reload sysctl deamon
-      exec { 'kernel_grub_update':
-        command     => '/usr/sbin/update-grub',
-        refreshonly => true,
-      }
-
-      # Create custom grub config
-      file { '/etc/default/grub':
+      # Kernel params
+      $ip_version_v6_disable = bool2str($ip_version_v6, '0', '1')
+      file { '/boot/firmware/cmdline.txt':
         ensure  => file,
-        content => template('basic_settings/kernel/grub'),
+        content => template('basic_settings/kernel/cmdline.txt'),
         owner   => 'root',
         group   => 'root',
-        mode    => '0600',
-        notify  => Exec['kernel_grub_update'],
+        mode    => '0755', # Important
+        require => Package[$ram_disk_require],
       }
+
+      # Purge bootloaders
+      package { ['grub2-common', 'systemd-boot']:
+        ensure => purged,
+      }
+
+      # No bootloader
+      $bootloader_packages = []
     }
     default: {
-      $bootloader_packages = []
+      # Setup bootloader
+      case $bootloader {
+        'grub': {
+          # Set boot loader packages
+          $bootloader_packages = ['/usr/sbin/update-grub']
+
+          # Install package
+          package { 'grub2-common':
+            ensure          => installed,
+            install_options => ['--no-install-recommends', '--no-install-suggests'],
+            require         => Package['initramfs-tools-core'],
+          }
+
+          # Remove unnecessary packages
+          package { 'systemd-boot':
+            ensure  => purged,
+            require => Package['grub2-common'],
+          }
+
+          # Reload sysctl deamon
+          exec { 'kernel_grub_update':
+            command     => '/usr/sbin/update-grub',
+            refreshonly => true,
+          }
+
+          # Create custom grub config
+          file { '/etc/default/grub':
+            ensure  => file,
+            content => template('basic_settings/kernel/grub'),
+            owner   => 'root',
+            group   => 'root',
+            mode    => '0600',
+            notify  => Exec['kernel_grub_update'],
+          }
+        }
+        default: {
+          $bootloader_packages = []
+        }
+      }
     }
   }
 
