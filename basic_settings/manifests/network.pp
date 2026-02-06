@@ -206,9 +206,9 @@ class basic_settings::network (
       require => Package['dhcpcd'],
     }
 
-    # DHCP is disabled, but we need dhcpd package because kernel package
+    # Setup DHCP config
     if ($dhcp_enable) {
-      # Create config file
+      # DHCP is enabled
       file { '/etc/dhcpcd.conf':
         ensure  => file,
         owner   => 'root',
@@ -217,8 +217,8 @@ class basic_settings::network (
         content => template('basic_settings/network/dhcpcd.conf'),
         notify  => Service['dhcpcd'],
       }
-    } else if ($kernel_enable) {
-      # Create config file
+    } elsif ($kernel_enable) {
+      # DHCP is disabled, but we need dhcpd package because kernel package
       file { '/etc/dhcpcd.conf':
         ensure  => file,
         owner   => 'root',
