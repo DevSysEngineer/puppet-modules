@@ -335,7 +335,14 @@ class basic_settings (
 
   # Get IP RA state
   if ($ip_dhcp_enable and $ip_ra_enable) {
-    $ip_ra_enable_correct = $ip_ra_enable
+    case $ip_version {
+      '4': {
+        $ip_ra_enable_correct = false
+      }
+      default: {
+        $ip_ra_enable_correct = $ip_ra_enable
+      }
+    }
   } else {
     $ip_ra_enable_correct = false
   }
