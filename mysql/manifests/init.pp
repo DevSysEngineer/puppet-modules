@@ -1,4 +1,5 @@
 class mysql (
+  Sensitive[String] $automysqlbackup_password,
   String            $automysqlbackup_backupdir  = '/var/lib/automysqlbackup',
   Hash              $automysqlbackup_settings   = {},
   Integer           $nice_level                 = 12,
@@ -45,6 +46,8 @@ class mysql (
 
   # Set automysqlbackup default values
   $automysqlbackup_values = {
+    'encrypt'                       => 'no',
+    'encrypt_password'              => '',
     'mysql_dump_compression'        => 'bzip2',
     'mysql_dump_single_transaction' => 'yes',
     'mysql_dump_skip_lock_tables'   => 'yes',
@@ -249,7 +252,7 @@ class mysql (
   # Set config file
   file { '/etc/default/automysqlbackup.conf':
     ensure  => file,
-    content => template('mysql/automysqlbackup.config'),
+    content => Sensitive.new(template('mysql/automysqlbackup.config')),
     owner   => 'root',
     group   => 'root',
     mode    => '0600', # Only root
@@ -338,7 +341,7 @@ class mysql (
     # Create config cnf
     file { 'mysql_debian_cnf':
       path    => $defaults_file,
-      content => template('mysql/debian.cnf'),
+      content => Sensitive.new(template('mysql/debian.cnf')),
       owner   => 'mysql',
       group   => 'mysql',
       mode    => '0600', # Only readably for user mysql
