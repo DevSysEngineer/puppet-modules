@@ -75,6 +75,12 @@ define netplanio::wifi (
         notify  => Exec['netplanio_apply'],
         require => Package['netplan.io'],
       }
+
+      # Forceer runtime power management van de WiFi device op "on"
+      exec { "netplan_${name}_runtime_pm":
+        command => "/usr/bin/bash -c 'echo \"on\" > /sys/class/net/${name}/device/power/control'",
+        onlyif  => "/usr/bin/bash -c 'test -e /sys/class/net/${name}/device/power/control && [ \"$(cat /sys/class/net/${name}/device/power/control)\" != \"on\" ]'",
+      }
     } else {
       # Remove config
       file { "/etc/netplan/${name}.yaml":
