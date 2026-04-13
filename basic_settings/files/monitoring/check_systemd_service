@@ -109,7 +109,7 @@ day_in_spec() {
 
 # Config (override via env and/or CLI opts)
 WINDOW=${WINDOW:-600}                # seconds of journal to scan (default 10m)
-MAXLOG=${MAXLOG:-1000}               # max characters of joined log output
+MAXLOG=${MAXLOG:-1000}               # max characters per journal line in long output
 REQUIRE_ACTIVE=${REQUIRE_ACTIVE:-1}  # 1=service must be active, 0=oneshot-style allowed
 SCAN_LOGS=${SCAN_LOGS:-1}            # 1=scan journal, 0=skip
 
@@ -203,7 +203,7 @@ emit_check() {
     # $1 = summary/status line, $2 = perfdata
     printf '%s | %s\n' "$1" "$2"
     if [ -n "${JOURNAL_JOINED:-}" ]; then
-        printf 'journal: %s\n' "$JOURNAL_JOINED"
+        printf '%s\n' "$JOURNAL_JOINED"
     fi
 }
 
@@ -293,8 +293,12 @@ if [ -n "$JOURNAL_RAW" ]; then
     fi
 fi
 
-# Join and trim journal for output
-JOURNAL_JOINED=$(printf '%s' "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g')
+# Render journal for long output
+JOURNAL_JOINED=$(
+    printf '%s\n' "$JOURNAL_RAW" \
+    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
+    | $CUT -c1-${MAXLOG}
+)
 
 # Perfdata
 PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"

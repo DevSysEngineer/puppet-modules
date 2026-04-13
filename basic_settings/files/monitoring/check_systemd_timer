@@ -14,16 +14,16 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
-TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Config
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
+MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
     printf '%s | %s\n' "$1" "$2"
     if [ -n "${JOURNAL_JOINED:-}" ]; then
-        printf 'journal: %s\n' "$JOURNAL_JOINED"
+        printf '%s\n' "$JOURNAL_JOINED"
     fi
 }
 
@@ -90,8 +90,12 @@ else
     RESULT=$RESULT_PROP
 fi
 
-# Join and trim journal for output
-JOURNAL_JOINED=$(printf "%s" "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g')
+# Render journal for long output
+JOURNAL_JOINED=$(
+    printf '%s\n' "$JOURNAL_RAW" \
+    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
+    | $CUT -c1-${MAXLOG}
+)
 
 # Perfdata
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
