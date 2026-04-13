@@ -61,8 +61,8 @@ define basic_settings::systemd_service (
   }
 
   # Check if service is using node executable in ExecStart
-  if (has_key($service, 'ExecStart') and $service['ExecStart'] =~ /^(?:node|\.{1,2}\/node|\/(?:[^\/\s]+\/)+node)\s+/) {
-    if (has_key($service, 'WorkingDirectory')) {
+  if ('ExecStart' in $service and $service['ExecStart'] =~ String and $service['ExecStart'] =~ /^(?:node|\.{1,2}\/node|\/(?:[^\/\s]+\/)+node)\s+/) {
+    if ('WorkingDirectory' in $service and $service['WorkingDirectory'] =~ String) {
       basisc_settings::monitoring_npm_audit { $name:
         ensure  => $monitoring_ensure,
         dir     => $service['WorkingDirectory'],
