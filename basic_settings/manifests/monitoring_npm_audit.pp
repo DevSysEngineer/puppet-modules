@@ -44,7 +44,7 @@ define basic_settings::monitoring_npm_audit (
   case $package_correct {
     'openitcockpit': {
       # Set some values
-      $script_name = "check_${name}"
+      $script_name = "check_${name}_npm_audit"
       $script_path = '/etc/openitcockpit-agent/plugins/check_npm_audit'
       $script_exists = defined(File[$script_path])
       $uid = 'root'
