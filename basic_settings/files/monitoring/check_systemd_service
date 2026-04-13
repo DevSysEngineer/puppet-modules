@@ -198,6 +198,15 @@ parse_ts() {
     $DATE -d "$1" +%s 2>/dev/null
 }
 
+# Helper: emit a check line with optional journal info
+emit_check() {
+    # $1 = summary/status line, $2 = perfdata
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "${JOURNAL_JOINED:-}" ]; then
+        printf 'journal: %s\n' "$JOURNAL_JOINED"
+    fi
+}
+
 # Pull all needed properties in one go (fast for Nagios)
 SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p LoadState -p ActiveState -p SubState -p Result \
@@ -285,30 +294,32 @@ if [ -n "$JOURNAL_RAW" ]; then
 fi
 
 # Join and trim journal for output
-JOURNAL_JOINED=$(printf '%s' "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g' | $CUT -c1-${MAXLOG})
-[ -n "$JOURNAL_JOINED" ] || JOURNAL_JOINED="-"
+JOURNAL_JOINED=$(printf '%s' "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g')
 
 # Perfdata
 PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
 
 # Outside schedule (no -a): always OK, but include full status/perfdata
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then
-    printf '%s OK - outside schedule (%s); state=%s/%s result=%s; last change: %s; status: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT OK - outside schedule (${SUPPRESS_REASON:-outside}); state=${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} result=${RESULT_PROP:-unknown}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+        "$PERFDATA"
     exit 0
 fi
 
 # Outside schedule alerting (only when -a AND active)
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" = "active" ]; then
-    printf '%s CRITICAL - active outside schedule (%s); state=%s/%s result=%s; since: %s; pid=%s; status: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "$ACTIVE_STATE" "$SUB_STATE" "${RESULT_PROP:-unknown}" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT CRITICAL - active outside schedule (${SUPPRESS_REASON:-outside}); state=$ACTIVE_STATE/$SUB_STATE result=${RESULT_PROP:-unknown}; since: ${ACTIVE_ENTER:-unknown}; pid=${MAIN_PID:-0}; status: ${STATUS_TEXT:-unknown}" \
+        "$PERFDATA"
     exit 2
 fi
 
 # Hard failure states
 if [ "$ACTIVE_STATE" = "failed" ]; then
-    printf '%s CRITICAL - state=%s/%s result=%s exit=%s code=%s; last change: %s; status: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "$ACTIVE_STATE" "$SUB_STATE" "$RESULT_PROP" "${EXEC_STATUS:-U}" "${EXEC_CODE:-U}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT CRITICAL - state=$ACTIVE_STATE/$SUB_STATE result=$RESULT_PROP exit=${EXEC_STATUS:-U} code=${EXEC_CODE:-U}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+        "$PERFDATA"
     exit 2
 fi
 
@@ -316,18 +327,21 @@ fi
 if [ "$REQUIRE_ACTIVE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
     case "$ACTIVE_STATE" in
         activating|deactivating)
-            printf '%s WARNING - state=%s/%s; last change: %s; status: %s; log: "%s" | %s\n' \
-                "$SERVICE_UNIT" "$ACTIVE_STATE" "$SUB_STATE" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            emit_check \
+                "$SERVICE_UNIT WARNING - state=$ACTIVE_STATE/$SUB_STATE; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+                "$PERFDATA"
             exit 1
             ;;
         inactive)
-            printf '%s CRITICAL - inactive (result=%s exit=%s code=%s); last change: %s; status: %s; log: "%s" | %s\n' \
-                "$SERVICE_UNIT" "$RESULT_PROP" "${EXEC_STATUS:-U}" "${EXEC_CODE:-U}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            emit_check \
+                "$SERVICE_UNIT CRITICAL - inactive (result=$RESULT_PROP exit=${EXEC_STATUS:-U} code=${EXEC_CODE:-U}); last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+                "$PERFDATA"
             exit 2
             ;;
         *)
-            printf '%s UNKNOWN - state=%s/%s; last change: %s; status: %s; log: "%s" | %s\n' \
-                "$SERVICE_UNIT" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+            emit_check \
+                "$SERVICE_UNIT UNKNOWN - state=${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+                "$PERFDATA"
             exit 3
             ;;
     esac
@@ -335,28 +349,32 @@ fi
 
 # Check if there were failure markers in the logs
 if [ -n "$FAIL_LINE" ]; then
-    printf '%s CRITICAL - active but failure marker in logs: "%s"; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "$FAIL_LINE" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT CRITICAL - active but failure marker in logs: \"$FAIL_LINE\"; since: ${ACTIVE_ENTER:-unknown}; pid=${MAIN_PID:-0} restarts=${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
+        "$PERFDATA"
     exit 2
 fi
 
 # Check if there were warning markers in the logs
 if [ -n "$WARN_LINE" ]; then
-    printf '%s WARNING - warning marker in logs: "%s"; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "$WARN_LINE" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT WARNING - warning marker in logs: \"$WARN_LINE\"; since: ${ACTIVE_ENTER:-unknown}; pid=${MAIN_PID:-0} restarts=${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
+        "$PERFDATA"
     exit 1
 fi
 
 # OK (oneshot-style handling)
 if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
     if [ "${EXEC_STATUS:-U}" = "0" ] && { [ "$RESULT_PROP" = "success" ] || [ "$RESULT_PROP" = "" ] || [ "$RESULT_PROP" = "n/a" ]; }; then
-        printf '%s OK - not active (oneshot) but last result success; last change: %s; status: %s; log: "%s" | %s\n' \
-            "$SERVICE_UNIT" "${LAST_CHANGE_TEXT:-unknown}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+        emit_check \
+            "$SERVICE_UNIT OK - not active (oneshot) but last result success; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
+            "$PERFDATA"
         exit 0
     fi
 fi
 
 # Show final OK
-printf '%s OK - state=%s/%s result=%s; since: %s; pid=%s restarts=%s; status: %s; log: "%s" | %s\n' \
-    "$SERVICE_UNIT" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${ACTIVE_ENTER:-unknown}" "${MAIN_PID:-0}" "${NRESTARTS:-U}" "${STATUS_TEXT:-unknown}" "$JOURNAL_JOINED" "$PERFDATA"
+emit_check \
+    "$SERVICE_UNIT OK - state=${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} result=${RESULT_PROP:-unknown}; since: ${ACTIVE_ENTER:-unknown}; pid=${MAIN_PID:-0} restarts=${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
+    "$PERFDATA"
 exit 0

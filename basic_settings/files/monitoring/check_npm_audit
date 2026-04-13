@@ -9,47 +9,83 @@ die() {
 
 # Binary checks
 BASENAME=$(command -v basename 2>/dev/null) || die "basename not available"
-CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 JQ=$(command -v jq 2>/dev/null) || die "jq not available"
-MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
 NPM=$(command -v npm 2>/dev/null) || die "npm not available"
-RM=$(command -v rm 2>/dev/null) || die "rm not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 
 # Defaults
 AUDIT_EXIT=0
+AUDIT_ERR=""
+AUDIT_JSON=""
 CHECK_DIR=""
 CHECK_NAME=""
-DETAIL_FILE=""
-ERR_FILE=""
-JSON_FILE=""
-PARSE_ERR_FILE=""
+DETAILS=""
+NL='
+'
+PARSE_ERR=""
+SEP="__CHECK_NPM_AUDIT_SPLIT_$$__"
 STATE_CODE=3
 
 # Read the first useful diagnostic line from a file
 first_line() {
-    [ -r "$1" ] || return 1
-    LINE=$("$SED" -n '1{s/[[:space:]]\+$//;p;q;}' "$1" 2>/dev/null)
+    [ -n "$1" ] || return 1
+    LINE=$(printf '%s' "$1" | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}' 2>/dev/null)
     [ -n "$LINE" ] || return 1
     printf '%s' "$LINE"
 }
 
 # Prefer a compact message from JSON, stderr or jq parse errors
 report_error() {
-    LINE=$("$JQ" -r '.error.summary // .error.message // .message // empty' "$JSON_FILE" 2>/dev/null | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}')
+    LINE=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r '.error.summary // .error.message // .message // empty' 2>/dev/null | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}')
     if [ -n "$LINE" ]; then
         printf '%s' "$LINE"
         return 0
     fi
-    LINE=$(first_line "$ERR_FILE") && {
+    LINE=$(first_line "$AUDIT_ERR") && {
         printf '%s' "$LINE"
         return 0
     }
-    LINE=$(first_line "$PARSE_ERR_FILE") && {
+    LINE=$(first_line "$PARSE_ERR") && {
         printf '%s' "$LINE"
         return 0
     }
     printf '%s' 'npm audit did not return a usable JSON report'
+}
+
+run_jq() {
+    JQ_PAYLOAD=$(
+        {
+            JQ_ERROR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r "$1" 2>&1 1>&3)
+            JQ_STATUS=$?
+            printf '\n%s\n%s\n%s' "$SEP" "$JQ_STATUS" "$JQ_ERROR"
+        } 3>&1
+    )
+
+    case "$JQ_PAYLOAD" in
+        *"$NL$SEP$NL"*)
+            JQ_OUTPUT=${JQ_PAYLOAD%"$NL$SEP$NL"*}
+            JQ_META=${JQ_PAYLOAD#*"$NL$SEP$NL"}
+            JQ_OUTPUT=${JQ_OUTPUT%"$NL"}
+            case "$JQ_META" in
+                *"$NL"*)
+                    JQ_STATUS=${JQ_META%%"$NL"*}
+                    JQ_ERROR=${JQ_META#*"$NL"}
+                    ;;
+                *)
+                    JQ_STATUS=$JQ_META
+                    JQ_ERROR=""
+                    ;;
+            esac
+            ;;
+        *)
+            JQ_OUTPUT=""
+            JQ_STATUS=1
+            JQ_ERROR="unable to capture jq output"
+            ;;
+    esac
+
+    PARSE_ERR=$JQ_ERROR
+    [ "$JQ_STATUS" -eq 0 ]
 }
 
 usage() {
@@ -78,149 +114,158 @@ fi
 # Check if this looks like a Node.js project
 [ -f "$CHECK_DIR/package.json" ] || die "$CHECK_NAME: package.json not found in '$CHECK_DIR'"
 
-# Temporary files for JSON, stderr and rendered details
-JSON_FILE=$("$MKTEMP") || die "$CHECK_NAME: unable to create temporary json file"
-ERR_FILE=$("$MKTEMP") || die "$CHECK_NAME: unable to create temporary stderr file"
-DETAIL_FILE=$("$MKTEMP") || die "$CHECK_NAME: unable to create temporary detail file"
-PARSE_ERR_FILE=$("$MKTEMP") || die "$CHECK_NAME: unable to create temporary parse file"
-
-# Always cleanup temporary files
-cleanup() {
-    [ -n "$JSON_FILE" ] && "$RM" -f "$JSON_FILE"
-    [ -n "$ERR_FILE" ] && "$RM" -f "$ERR_FILE"
-    [ -n "$DETAIL_FILE" ] && "$RM" -f "$DETAIL_FILE"
-    [ -n "$PARSE_ERR_FILE" ] && "$RM" -f "$PARSE_ERR_FILE"
-}
-trap cleanup EXIT HUP INT TERM
-
-# Run npm audit inside the requested project directory
+# Run npm audit inside the requested project directory and keep stdout/stderr in memory
 cd "$CHECK_DIR" || die "$CHECK_NAME: unable to cd to '$CHECK_DIR'"
-"$NPM" audit --json >"$JSON_FILE" 2>"$ERR_FILE"
-AUDIT_EXIT=$?
-
-# npm audit may return non-zero on findings; only invalid JSON should become UNKNOWN
-"$JQ" -e . "$JSON_FILE" >/dev/null 2>"$PARSE_ERR_FILE" || die "$CHECK_NAME: $(report_error)"
-
-# Reject responses that do not expose the expected audit metadata
-REPORT_STATUS=$(
-    "$JQ" -r '
-        def vuln_total:
-            (.metadata.vulnerabilities.total // (
-                (.metadata.vulnerabilities.info // 0)
-                + (.metadata.vulnerabilities.low // 0)
-                + (.metadata.vulnerabilities.moderate // 0)
-                + (.metadata.vulnerabilities.high // 0)
-                + (.metadata.vulnerabilities.critical // 0)
-            ));
-        if (.metadata.vulnerabilities? | type) != "object" then
-            "invalid"
-        elif (vuln_total > 0 and ((.vulnerabilities? | type) != "object") and ((.advisories? | type) != "object")) then
-            "invalid"
-        else
-            "ok"
-        end
-    ' "$JSON_FILE" 2>"$PARSE_ERR_FILE"
+AUDIT_PAYLOAD=$(
+    {
+        AUDIT_ERR=$("$NPM" audit --json 2>&1 1>&3)
+        AUDIT_EXIT=$?
+        printf '\n%s\n%s\n%s' "$SEP" "$AUDIT_EXIT" "$AUDIT_ERR"
+    } 3>&1
 )
 
+case "$AUDIT_PAYLOAD" in
+    *"$NL$SEP$NL"*)
+        AUDIT_JSON=${AUDIT_PAYLOAD%"$NL$SEP$NL"*}
+        AUDIT_META=${AUDIT_PAYLOAD#*"$NL$SEP$NL"}
+        case "$AUDIT_META" in
+            *"$NL"*)
+                AUDIT_EXIT=${AUDIT_META%%"$NL"*}
+                AUDIT_ERR=${AUDIT_META#*"$NL"}
+                ;;
+            *)
+                AUDIT_EXIT=$AUDIT_META
+                AUDIT_ERR=""
+                ;;
+        esac
+        ;;
+    *)
+        die "$CHECK_NAME: unable to capture npm audit output"
+        ;;
+esac
+
+# npm audit may return non-zero on findings; only invalid JSON should become UNKNOWN
+PARSE_ERR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -e . 2>&1 >/dev/null)
+[ $? -eq 0 ] || die "$CHECK_NAME: $(report_error)"
+
+# Reject responses that do not expose the expected audit metadata
+run_jq '
+    def vuln_total:
+        (.metadata.vulnerabilities.total // (
+            (.metadata.vulnerabilities.info // 0)
+            + (.metadata.vulnerabilities.low // 0)
+            + (.metadata.vulnerabilities.moderate // 0)
+            + (.metadata.vulnerabilities.high // 0)
+            + (.metadata.vulnerabilities.critical // 0)
+        ));
+    if (.metadata.vulnerabilities? | type) != "object" then
+        "invalid"
+    elif (vuln_total > 0 and ((.vulnerabilities? | type) != "object") and ((.advisories? | type) != "object")) then
+        "invalid"
+    else
+        "ok"
+    end
+' || die "$CHECK_NAME: $(report_error)"
+REPORT_STATUS=$JQ_OUTPUT
 [ "$REPORT_STATUS" = "ok" ] || die "$CHECK_NAME: $(report_error)"
 
 # Extract vulnerability counts, dependency totals and package-level counters
-PARSED=$(
-    "$JQ" -r '
-        def sev_rank($severity):
-            if $severity == "critical" then 5
-            elif $severity == "high" then 4
-            elif $severity == "moderate" then 3
-            elif $severity == "low" then 2
-            elif $severity == "info" then 1
-            else 0
-            end;
-        def vuln_total:
-            (.metadata.vulnerabilities.total // (
-                (.metadata.vulnerabilities.info // 0)
-                + (.metadata.vulnerabilities.low // 0)
-                + (.metadata.vulnerabilities.moderate // 0)
-                + (.metadata.vulnerabilities.high // 0)
-                + (.metadata.vulnerabilities.critical // 0)
-            ));
-        def dep_prod:
-            if (.metadata.dependencies? | type) == "object" then
+run_jq '
+    def sev_rank($severity):
+        if $severity == "critical" then 5
+        elif $severity == "high" then 4
+        elif $severity == "moderate" then 3
+        elif $severity == "low" then 2
+        elif $severity == "info" then 1
+        else 0
+        end;
+    def vuln_total:
+        (.metadata.vulnerabilities.total // (
+            (.metadata.vulnerabilities.info // 0)
+            + (.metadata.vulnerabilities.low // 0)
+            + (.metadata.vulnerabilities.moderate // 0)
+            + (.metadata.vulnerabilities.high // 0)
+            + (.metadata.vulnerabilities.critical // 0)
+        ));
+    def dep_prod:
+        if (.metadata.dependencies? | type) == "object" then
+            (.metadata.dependencies.prod // 0)
+        else
+            (.metadata.dependencies // 0)
+        end;
+    def dep_dev:
+        if (.metadata.dependencies? | type) == "object" then
+            (.metadata.dependencies.dev // 0)
+        else
+            (.metadata.devDependencies // 0)
+        end;
+    def dep_total:
+        if (.metadata.dependencies? | type) == "object" then
+            (.metadata.dependencies.total // (
                 (.metadata.dependencies.prod // 0)
-            else
-                (.metadata.dependencies // 0)
-            end;
-        def dep_dev:
-            if (.metadata.dependencies? | type) == "object" then
-                (.metadata.dependencies.dev // 0)
-            else
-                (.metadata.devDependencies // 0)
-            end;
-        def dep_total:
-            if (.metadata.dependencies? | type) == "object" then
-                (.metadata.dependencies.total // (
-                    (.metadata.dependencies.prod // 0)
-                    + (.metadata.dependencies.dev // 0)
-                    + (.metadata.dependencies.optional // 0)
-                    + (.metadata.dependencies.peer // 0)
-                    + (.metadata.dependencies.peerOptional // 0)
-                ))
-            else
-                (.metadata.totalDependencies // .metadata.dependencies // 0)
-            end;
-        def package_records:
-            if (.vulnerabilities? | type) == "object" then
-                (.vulnerabilities // {})
-                | to_entries
-                | map(
-                    .key as $name
-                    | .value as $v
-                    | {
-                        name: $name,
-                        severity: ($v.severity // "unknown"),
-                        is_direct: ($v.isDirect // false),
-                        fixable: (($v.fixAvailable // false) != false)
-                    }
-                )
-            elif (.advisories? | type) == "object" then
-                (.advisories // {})
-                | to_entries
-                | group_by(.value.module_name // .key)
-                | map(
-                    . as $group
-                    | {
-                        name: ($group[0].value.module_name // $group[0].key),
-                        severity: (($group | max_by(sev_rank(.value.severity // "unknown"))).value.severity // "unknown"),
-                        is_direct: ([ $group[] | .value.findings[]? | .paths[]? | (contains(">") | not) ] | index(true) != null),
-                        fixable: ([ $group[] | .value.patched_versions? | select(. != null and . != "" and . != "<0.0.0") ] | length > 0)
-                    }
-                )
-            else
-                []
-            end;
-        . as $root
-        | ($root | package_records) as $packages
-        | [
-            ($root.metadata.vulnerabilities.info // 0),
-            ($root.metadata.vulnerabilities.low // 0),
-            ($root.metadata.vulnerabilities.moderate // 0),
-            ($root.metadata.vulnerabilities.high // 0),
-            ($root.metadata.vulnerabilities.critical // 0),
-            ($root | vuln_total),
-            ($root | dep_prod),
-            ($root | dep_dev),
-            ($root | dep_total),
-            ($packages | length),
-            ($packages | map(select(.is_direct == true)) | length),
-            ($packages | map(select(.is_direct != true)) | length),
-            ($packages | map(select(.fixable == true)) | length)
-        ]
-        | map(tostring)
-        | join("|")
-    ' "$JSON_FILE" 2>"$PARSE_ERR_FILE"
-) || die "$CHECK_NAME: $(report_error)"
+                + (.metadata.dependencies.dev // 0)
+                + (.metadata.dependencies.optional // 0)
+                + (.metadata.dependencies.peer // 0)
+                + (.metadata.dependencies.peerOptional // 0)
+            ))
+        else
+            (.metadata.totalDependencies // .metadata.dependencies // 0)
+        end;
+    def package_records:
+        if (.vulnerabilities? | type) == "object" then
+            (.vulnerabilities // {})
+            | to_entries
+            | map(
+                .key as $name
+                | .value as $v
+                | {
+                    name: $name,
+                    severity: ($v.severity // "unknown"),
+                    is_direct: ($v.isDirect // false),
+                    fixable: (($v.fixAvailable // false) != false)
+                }
+            )
+        elif (.advisories? | type) == "object" then
+            (.advisories // {})
+            | to_entries
+            | group_by(.value.module_name // .key)
+            | map(
+                . as $group
+                | {
+                    name: ($group[0].value.module_name // $group[0].key),
+                    severity: (($group | max_by(sev_rank(.value.severity // "unknown"))).value.severity // "unknown"),
+                    is_direct: ([ $group[] | .value.findings[]? | .paths[]? | (contains(">") | not) ] | index(true) != null),
+                    fixable: ([ $group[] | .value.patched_versions? | select(. != null and . != "" and . != "<0.0.0") ] | length > 0)
+                }
+            )
+        else
+            []
+        end;
+    . as $root
+    | ($root | package_records) as $packages
+    | [
+        ($root.metadata.vulnerabilities.info // 0),
+        ($root.metadata.vulnerabilities.low // 0),
+        ($root.metadata.vulnerabilities.moderate // 0),
+        ($root.metadata.vulnerabilities.high // 0),
+        ($root.metadata.vulnerabilities.critical // 0),
+        ($root | vuln_total),
+        ($root | dep_prod),
+        ($root | dep_dev),
+        ($root | dep_total),
+        ($packages | length),
+        ($packages | map(select(.is_direct == true)) | length),
+        ($packages | map(select(.is_direct != true)) | length),
+        ($packages | map(select(.fixable == true)) | length)
+    ]
+    | map(tostring)
+    | join("|")
+' || die "$CHECK_NAME: $(report_error)"
+PARSED=$JQ_OUTPUT
+[ -n "$PARSED" ] || die "$CHECK_NAME: $(report_error)"
 
 # Render detail lines per affected package for troubleshooting
-"$JQ" -r '
+run_jq '
     def clean($value):
         ($value // "no advisory title returned")
         | tostring
@@ -324,7 +369,8 @@ PARSED=$(
       + .fix_label
       + "] - "
       + (.advisories | join("; "))
-' "$JSON_FILE" >"$DETAIL_FILE" 2>"$PARSE_ERR_FILE" || die "$CHECK_NAME: $(report_error)"
+' || die "$CHECK_NAME: $(report_error)"
+DETAILS=$JQ_OUTPUT
 
 # Split the jq summary into shell variables
 OLD_IFS=$IFS
@@ -349,7 +395,7 @@ FIXABLE=${13}
 # Severity mapping for monitoring states
 if [ "$HIGH_COUNT" -gt 0 ] || [ "$CRITICAL_COUNT" -gt 0 ]; then
     STATE_CODE=2
-elif [ "$MODERATE_COUNT" -gt 0 ]; then
+elif [ "$LOW_COUNT" -gt 0 ] || [ "$MODERATE_COUNT" -gt 0 ]; then
     STATE_CODE=1
 else
     STATE_CODE=0
@@ -361,28 +407,28 @@ case "$PKG_TOTAL" in
     1) PKG_TEXT='1 vulnerable package' ;;
     *) PKG_TEXT="${PKG_TOTAL} vulnerable packages" ;;
 esac
-SUMMARY="${CHECK_NAME}: ${PKG_TEXT}, severity: moderate=${MODERATE_COUNT} high=${HIGH_COUNT} critical=${CRITICAL_COUNT}"
-PERF_DATA="vuln_total=${VULN_TOTAL};;;;"
-PERF_DATA="$PERF_DATA vuln_info=${INFO_COUNT};;;;"
-PERF_DATA="$PERF_DATA vuln_low=${LOW_COUNT};;;;"
-PERF_DATA="$PERF_DATA vuln_moderate=${MODERATE_COUNT};;;;"
-PERF_DATA="$PERF_DATA vuln_high=${HIGH_COUNT};;;;"
-PERF_DATA="$PERF_DATA vuln_critical=${CRITICAL_COUNT};;;;"
-PERF_DATA="$PERF_DATA pkg_total=${PKG_TOTAL};;;;"
-PERF_DATA="$PERF_DATA pkg_direct=${PKG_DIRECT};;;;"
-PERF_DATA="$PERF_DATA pkg_transitive=${PKG_TRANSITIVE};;;;"
-PERF_DATA="$PERF_DATA fixable=${FIXABLE};;;;"
-PERF_DATA="$PERF_DATA dep_prod=${DEP_PROD};;;;"
-PERF_DATA="$PERF_DATA dep_dev=${DEP_DEV};;;;"
-PERF_DATA="$PERF_DATA dep_total=${DEP_TOTAL};;;;"
-PERF_DATA="$PERF_DATA audit_exit=${AUDIT_EXIT};;;;"
+SUMMARY="${CHECK_NAME}: ${PKG_TEXT}, severity: low=${LOW_COUNT} moderate=${MODERATE_COUNT} high=${HIGH_COUNT} critical=${CRITICAL_COUNT}"
+PERF_DATA="vuln_total=${VULN_TOTAL};"
+PERF_DATA="$PERF_DATA vuln_info=${INFO_COUNT};"
+PERF_DATA="$PERF_DATA vuln_low=${LOW_COUNT};"
+PERF_DATA="$PERF_DATA vuln_moderate=${MODERATE_COUNT};"
+PERF_DATA="$PERF_DATA vuln_high=${HIGH_COUNT};"
+PERF_DATA="$PERF_DATA vuln_critical=${CRITICAL_COUNT};"
+PERF_DATA="$PERF_DATA pkg_total=${PKG_TOTAL};"
+PERF_DATA="$PERF_DATA pkg_direct=${PKG_DIRECT};"
+PERF_DATA="$PERF_DATA pkg_transitive=${PKG_TRANSITIVE};"
+PERF_DATA="$PERF_DATA fixable=${FIXABLE};"
+PERF_DATA="$PERF_DATA dep_prod=${DEP_PROD};"
+PERF_DATA="$PERF_DATA dep_dev=${DEP_DEV};"
+PERF_DATA="$PERF_DATA dep_total=${DEP_TOTAL};"
+PERF_DATA="$PERF_DATA audit_exit=${AUDIT_EXIT};"
 
 # Show first line for monitoring and optional detail lines below
 printf '%s | %s\n' "$SUMMARY" "$PERF_DATA"
 
 # Show details if available for troubleshooting
-if [ -s "$DETAIL_FILE" ]; then
-    "$CAT" "$DETAIL_FILE"
+if [ -n "$DETAILS" ]; then
+    printf '%s\n' "$DETAILS"
 fi
 
 # Exit with the appropriate monitoring state

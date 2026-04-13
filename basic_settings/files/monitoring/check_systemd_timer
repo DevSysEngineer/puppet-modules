@@ -18,7 +18,14 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Config
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
-MAXLOG=${MAXLOG:-1000} # max characters of joined log output
+
+emit_check() {
+    # $1 = summary/status line, $2 = perfdata
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "${JOURNAL_JOINED:-}" ]; then
+        printf 'journal: %s\n' "$JOURNAL_JOINED"
+    fi
+}
 
 # Arguments
 TIMER_UNIT=${1:-}
@@ -84,26 +91,31 @@ else
 fi
 
 # Join and trim journal for output
-JOURNAL_JOINED=$(printf "%s" "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g' | $CUT -c1-${MAXLOG})
+JOURNAL_JOINED=$(printf "%s" "$JOURNAL_RAW" | $TR '\n' ' ' | $SED 's/  */ /g')
 
 # Perfdata
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 
 # Output & exit code
 if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
-    printf '%s successful (%s); last run: %s; log: "%s" | %s\n' \
-        "$SERVICE_UNIT" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT successful (${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
+        "$PERFDATA"
     exit 0
 fi
 
 # If the window contained any failure markers, force CRITICAL even if current unit props say success
 if printf "%s\n" "$RESULT_LINE" | $GREP -qi 'Failed with result\|status=[1-9]'; then
-    printf '%s failed (Result=%s, Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "exit-code" "${EXIT_CODE}" "${MAIN_CODE_PROP}" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+    emit_check \
+        "$SERVICE_UNIT failed (Result=exit-code, Exit=${EXIT_CODE}, Code=${MAIN_CODE_PROP}, Status=${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
+        "$PERFDATA"
     exit 2
 fi
 
 # Default: use properties outcome
-printf '%s %s (Exit=%s, Code=%s, Status=%s); last run: %s; log: "%s" | %s\n' "$SERVICE_UNIT" "$RESULT" "${EXIT_CODE}" "${MAIN_CODE_PROP}" "${STATUS_TEXT:-unknown}" "$LAST_RUN_TEXT" "$JOURNAL_JOINED" "$PERFDATA"
+emit_check \
+    "$SERVICE_UNIT $RESULT (Exit=${EXIT_CODE}, Code=${MAIN_CODE_PROP}, Status=${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
+    "$PERFDATA"
 
 case "${EXIT_CODE}" in
     0) exit 0 ;;
