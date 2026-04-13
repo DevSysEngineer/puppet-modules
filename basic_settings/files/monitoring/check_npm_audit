@@ -361,7 +361,7 @@ case "$PKG_TOTAL" in
     1) PKG_TEXT='1 vulnerable package' ;;
     *) PKG_TEXT="${PKG_TOTAL} vulnerable packages" ;;
 esac
-SUMMARY="$${CHECK_NAME}: ${PKG_TEXT}, severity: moderate=${MODERATE_COUNT} high=${HIGH_COUNT} critical=${CRITICAL_COUNT}"
+SUMMARY="${CHECK_NAME}: ${PKG_TEXT}, severity: moderate=${MODERATE_COUNT} high=${HIGH_COUNT} critical=${CRITICAL_COUNT}"
 PERF_DATA="vuln_total=${VULN_TOTAL};;;;"
 PERF_DATA="$PERF_DATA vuln_info=${INFO_COUNT};;;;"
 PERF_DATA="$PERF_DATA vuln_low=${LOW_COUNT};;;;"

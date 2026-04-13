@@ -54,7 +54,7 @@ define basic_settings::monitoring_npm_audit (
       if ($ensure == present) {
         concat::fragment { "monitoring_npm_audit_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} -d ${dir} -u ${name}\ninterval = 300\ntimeout = 10\nenabled = true\n",
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} -d ${dir} -n ${name}\ninterval = 300\ntimeout = 10\nenabled = true\n",
           order   => '10',
         }
       }
