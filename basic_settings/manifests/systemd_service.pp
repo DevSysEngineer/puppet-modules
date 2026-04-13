@@ -23,7 +23,7 @@ define basic_settings::systemd_service (
   }
 
   # Create systemd service file
-  file { "/etc/systemd/system/${title}.service":
+  file { "/etc/systemd/system/${name}.service":
     ensure  => $ensure,
     content => template('basic_settings/systemd/service'),
     owner   => 'root',
@@ -36,28 +36,44 @@ define basic_settings::systemd_service (
   # Set service
   if ($ensure == present) {
     # Enable service
-    service { $title:
+    service { $name:
       enable    => $enable,
-      require   => File["/etc/systemd/system/${title}.service"],
+      require   => File["/etc/systemd/system/${name}.service"],
       subscribe => $service_subscribe,
     }
 
     # Check if we need to monitoring this service
     if ($monitoring_enable != undef and $monitoring_package != 'none') {
       $monitoring_ensure = $monitoring_enable ? { true => 'present', default => absent }
-      basic_settings::monitoring_service { $title:
-        ensure         => $monitoring_ensure,
-        package        => $monitoring_package,
-        active_windows => $monitoring_active_windows,
-        active_days    => $monitoring_active_days,
-      }
+    } else {
+      $monitoring_ensure = absent
     }
   } elsif ($monitoring_package != 'none') {
-    basic_settings::monitoring_service { $title:
-      ensure         => $monitoring_ensure,
-      package        => $monitoring_package,
-      active_windows => $monitoring_active_windows,
-      active_days    => $monitoring_active_days,
+    $monitoring_ensure = absent
+  }
+
+  # Setup monitoring for this service
+  basic_settings::monitoring_service { $name:
+    ensure         => $monitoring_ensure,
+    package        => $monitoring_package,
+    active_windows => $monitoring_active_windows,
+    active_days    => $monitoring_active_days,
+  }
+
+  # Check if service is using node executable in ExecStart
+  if (has_key($service, 'ExecStart') and $service['ExecStart'] =~ /^(?:node|\.{1,2}\/node|\/(?:[^\/\s]+\/)+node)\s+/) {
+    if (has_key($service, 'WorkingDirectory')) {
+      basisc_settings::monitoring_npm_audit { $name:
+        ensure  => $monitoring_ensure,
+        dir     => $service['WorkingDirectory'],
+        package => $monitoring_package,
+      }
+    } else {
+      basisc_settings::monitoring_npm_audit { $name:
+        ensure  => absent,
+        dir     => '',
+        package => $monitoring_package,
+      }
     }
   }
 }

@@ -358,7 +358,7 @@ class basic_settings (
   }
 
   # Basic system packages; This packages needed to be installed first
-  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'curl', 'dpkg', 'findutils', 'grep', 'gnupg', 'lsb-release', 'kmod', 'sed', 'util-linux']:
+  package { ['apt', 'apt-transport-https', 'bc', 'coreutils', 'curl', 'dpkg', 'findutils', 'grep', 'gnupg', 'jq', 'lsb-release', 'kmod', 'sed', 'util-linux']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }

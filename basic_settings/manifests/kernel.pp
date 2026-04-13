@@ -246,6 +246,14 @@ class basic_settings::kernel (
   }
 
   # Install system package
+  if (!defined(Package['jq'])) {
+    package { 'jq':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Install system package
   if (!defined(Package['lsb-release'])) {
     package { 'lsb-release':
       ensure          => installed,

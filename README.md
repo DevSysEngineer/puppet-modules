@@ -451,6 +451,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_mirth_connect](https://github.com/DevSysEngineer/puppet-modules/blob/main/openitcockpit/templates/agent/check_mirth_connect)
 - [check_mysql](https://github.com/DevSysEngineer/puppet-modules/blob/main/mysql/templates/check_mysql)
 - [check_nftables](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_nftables)
+- [check_npm_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_npm_audit)
 - [check_puppet_agent](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/puppet/check_agent)
 - [check_rabbitmq](https://github.com/DevSysEngineer/puppet-modules/blob/main/rabbitmq/templates/check_rabbitmq)
 - [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
