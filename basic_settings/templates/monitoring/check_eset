@@ -39,6 +39,7 @@ LAST_SCAN_AGE=9999
 LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
 NOW_EPOCH=`$DATE +%s`
+SCAN_HISTORY_LIMIT=5
 STATE_CODE=0
 UPDATE_AGE_MIN=999999
 UPD=/opt/eset/efs/bin/upd
@@ -64,6 +65,57 @@ add_crit() {
 
 add_warn() {
     WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1"
+}
+
+emit_check() {
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "${LONG_OUTPUT:-}" ]; then
+        printf '%s\n' "$LONG_OUTPUT"
+    fi
+}
+
+parse_scan_csv() {
+    printf '%s\n' "$1" | $AWK -F',' -v limit="$SCAN_HISTORY_LIMIT" '
+        NR == 1 { next }
+        NF < 6 { next }
+        {
+            triggered = (NF >= 7 ? $7 : "")
+            for (i = 8; i <= NF; i++) {
+                triggered = triggered FS $i
+            }
+
+            total++
+            idx = ((total - 1) % limit) + 1
+            started[idx] = $1
+            progress[idx] = $2
+            scanned[idx] = $3
+            cleaned[idx] = $4
+            detections[idx] = $5
+            duration[idx] = $6
+            triggered_by[idx] = triggered
+
+            last_started = $1
+            last_scanned = $3
+            last_cleaned = $4
+            last_detections = $5
+            last_duration = $6
+        }
+        END {
+            printf "TOTAL\t%d\n", total
+            if (total == 0) {
+                exit
+            }
+
+            printf "LAST\t%s\t%s\t%s\t%s\t%s\n", last_started, last_scanned, last_cleaned, last_detections, last_duration
+
+            count = total < limit ? total : limit
+            for (i = total; i > total - count; i--) {
+                idx = ((i - 1) % limit) + 1
+                printf "HISTORY\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", \
+                    started[idx], progress[idx], scanned[idx], cleaned[idx], detections[idx], duration[idx], triggered_by[idx]
+            }
+        }
+    '
 }
 
 # Service running
@@ -92,33 +144,60 @@ if [ -n "$LINE" ]; then
     ENGINE_VER=$(printf '%s' "$LINE" | $AWK '{print $2}')
 fi
 
-# On‑demand scan stats
+# Reuse log output where possible
+LOG_CSV=$($LSLOG -c 2>/dev/null)
+
+# On‑demand scan stats and long output
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
-SCANS_TOTAL=$(printf '%s\n' "$SCAN_CSV" | $TAIL -n +2 | $WC -l) # \n Important for count
-LAST_LINE=$(printf '%s' "$SCAN_CSV" | $TAIL -n 1)
-if [ -n "$LAST_LINE" ] && case "$LAST_LINE" in Time*) false;; *) true;; esac; then
-    # Split CSV fields: STARTED, LAST_FILES, LAST_CLEAN, LAST_DET, DURATION
-    IFS=',' read -r STARTED _ LAST_FILES LAST_CLEAN LAST_DET DURATION _ <<EOF
-$LAST_LINE
-EOF
+SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
+SCANS_TOTAL=0
+SCAN_HISTORY=""
+TAB=$($PRINTF '\t')
 
-    # Compute scan epoch time (seconds since 1970)
-    LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
+while IFS="$TAB" read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
+    case "$KIND" in
+        TOTAL)
+            SCANS_TOTAL=$COL1
+            ;;
+        LAST)
+            STARTED=$COL1
+            LAST_FILES=$COL2
+            LAST_CLEAN=$COL3
+            LAST_DET=$COL4
+            DURATION=$COL5
 
-    # Calculate scan age in days
-    LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 ))
+            LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
+            case "$LAST_SCAN_EPOCH" in
+                ''|*[!0-9]*) LAST_SCAN_EPOCH=0 ;;
+                *) LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 )) ;;
+            esac
 
-    # Parse duration (HH:MM:SS) and strip leading zeros
-    IFS=':' read -r H M S <<EOF
+            IFS=':' read -r H M S <<EOF
 $DURATION
 EOF
-    H=${H#0}; [ -z "$H" ] && H=0
-    M=${M#0}; [ -z "$M" ] && M=0
-    S=${S#0}; [ -z "$S" ] && S=0
+            H=${H#0}; [ -z "$H" ] && H=0
+            M=${M#0}; [ -z "$M" ] && M=0
+            S=${S#0}; [ -z "$S" ] && S=0
+            LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
+            ;;
+        HISTORY)
+            DETAIL_LINE="- ${COL1} | ${COL2} | scanned=${COL3} cleaned=${COL4} det=${COL5} duration=${COL6}"
+            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE | ${COL7}"
+            SCAN_HISTORY="${SCAN_HISTORY:+$SCAN_HISTORY
+}$DETAIL_LINE"
+            ;;
+    esac
+done <<EOF
+$SCAN_PARSE
+EOF
 
-    # Calculate total duration in seconds
-    LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
+if [ -n "$SCAN_HISTORY" ]; then
+    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans:
+$SCAN_HISTORY"
+else
+    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans: none"
 fi
+
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
 [ "$LAST_SCAN_AGE" -ge "$WARN_NO_SCAN_DAYS" ] && [ "$LAST_SCAN_AGE" -lt "$CRIT_NO_SCAN_DAYS" ] && add_warn "no scan ${LAST_SCAN_AGE}d"
 [ "$LAST_DET" -gt 0 ] && add_crit "scan det=$LAST_DET"
@@ -128,13 +207,13 @@ fi
 DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{print $1}')
 
 # Update gap
-LAST_OK=$( $LSLOG -c 2>/dev/null | grep -F "Detection Engine was successfully updated" | $TAIL -n 1 )
+LAST_OK=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Detection Engine was successfully updated" | $TAIL -n 1)
 [ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$(printf '%s' "$LAST_OK"| $CUT -d ',' -f1)" +%s))/60 ))
 [ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "no upd $((UPDATE_AGE_MIN/60))h"
 [ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "upd gap $((UPDATE_AGE_MIN/60))h"
 
 # Update error
-UPDATES_FAILED=$($LSLOG -c 2>/dev/null | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}' | while read TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
+UPDATES_FAILED=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}' | while read -r TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
 [ "$UPDATES_FAILED" -gt 0 ] && add_warn "$UPDATES_FAILED update errors (1h)"
  
 # Create message
@@ -166,5 +245,5 @@ PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s"
 PERF="$PERF last_scan_files=${LAST_FILES}"
 
 # Show output
-printf '%s | %s\n' "$MSG" "$PERF"
+emit_check "$MSG" "$PERF"
 exit $STATE_CODE
