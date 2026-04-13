@@ -181,8 +181,8 @@ EOF
             LAST_SCAN_SECS=$(( H * 3600 + M * 60 + S ))
             ;;
         HISTORY)
-            DETAIL_LINE="- ${COL1} | ${COL2} | scanned=${COL3} cleaned=${COL4} det=${COL5} duration=${COL6}"
-            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE | ${COL7}"
+            DETAIL_LINE="- ${COL1}: status=${COL2}, scanned=${COL3}, cleaned=${COL4}, det=${COL5}, duration=${COL6}"
+            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered_by=${COL7}"
             SCAN_HISTORY="${SCAN_HISTORY:+$SCAN_HISTORY
 }$DETAIL_LINE"
             ;;
