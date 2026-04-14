@@ -3,23 +3,35 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
 # Binary checks
 APTGET=$(command -v apt-get 2>/dev/null) || die "apt-get not available"
+APTCACHE=$(command -v apt-cache 2>/dev/null) || die "apt-cache not available"
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 FIND=$(command -v find 2>/dev/null) || die "find not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
 STAT=$(command -v stat 2>/dev/null) || die "stat not available"
 SORT=$(command -v sort 2>/dev/null) || die "sort not available"
+TIMEOUT=$(command -v timeout 2>/dev/null || true)
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+CHMOD=$(command -v chmod 2>/dev/null || true)
 <% if @systemd_enable -%>
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 
 # Defaults
 BLACKLIST_FILE="<%= @apt_settings_file %>"
+CHANGELOG_CACHE_DIR=/var/cache/check_apt/changelogs
+CHANGELOG_FETCH_TIMEOUT=6
+CHANGELOG_MAX_LINES=120
+CHANGELOG_TOTAL_BUDGET=20
+LONG_OUTPUT=""
 UPDATES_BLACKLISTED=0
 UPDATES_TOTAL=0
 UPDATES_SECURITY=0
@@ -28,8 +40,15 @@ STAMP_FILE=/var/lib/apt/periodic/update-success-stamp
 STAMP_TS=0
 LISTS_TS=0
 LAST_UPDATE_TIMESTAMP=""
+LAST_UPDATE_SEC=0
+LAST_UPDATE_AGE_SEC=0
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 GRACE=172800 # 48h
+NL=$(printf '\n_')
+NL=${NL%_}
+TAB=$(printf '\t_')
+TAB=${TAB%_}
+CHECK_START=$("$DATE" +%s)
 
 # Options
 while getopts "c:" opt; do
@@ -38,6 +57,72 @@ while getopts "c:" opt; do
         *) die "Usage: $0 [-c <seconds>]" ;;
     esac
 done
+
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${NL}$1"
+    fi
+}
+
+emit_check() {
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        printf '%s\n' "$LONG_OUTPUT"
+    fi
+}
+
+sanitize_key() {
+    printf '%s' "$1" | "$TR" -c 'A-Za-z0-9._-' '_'
+}
+
+ensure_cache_dir() {
+    [ -d "$CHANGELOG_CACHE_DIR" ] || "$MKDIR" -p "$CHANGELOG_CACHE_DIR" 2>/dev/null || return 1
+    if [ -n "$CHMOD" ]; then
+        "$CHMOD" 0700 "$CHANGELOG_CACHE_DIR" 2>/dev/null || true
+    fi
+    return 0
+}
+
+resolve_source_pkg() {
+    pkg=$1
+    version=$2
+    source_pkg=$("$APTCACHE" show --no-all-versions "${pkg}=${version}" 2>/dev/null | "$AWK" '
+        /^Source:/ { print $2; found=1; exit }
+        /^Package:/ && pkg == "" { pkg=$2 }
+        END {
+            if (!found && pkg != "") {
+                print pkg
+            }
+        }
+    ')
+
+    [ -n "$source_pkg" ] || source_pkg=$pkg
+    printf '%s\n' "$source_pkg"
+}
+
+filter_changelog_since() {
+    installed_version=$1
+    "$AWK" -v installed="$installed_version" '
+        /^[^[:space:]][^()]* \([^)]+\)/ {
+            version=$0
+            sub(/^[^(]*\(/, "", version)
+            sub(/\).*/, "", version)
+            if (installed != "" && version == installed) {
+                exit
+            }
+        }
+        { print }
+    '
+}
+
+truncate_changelog() {
+    "$AWK" -v max="$CHANGELOG_MAX_LINES" '
+        NR <= max { print; next }
+        NR == max + 1 { print "... (truncated)"; exit }
+    '
+}
 
 # Run simulation
 APT_SIM_CMD="$APTGET -s -o Debug::NoLocking=1 -o APT::Get::Show-Upgraded=true -o Debug::pkgProblemResolver=yes dist-upgrade"
@@ -103,22 +188,55 @@ BLACKLIST_PATTERNS=$("$AWK" '
 ' "$BLACKLIST_FILE" 2>/dev/null || true)
 
 # Parse simulation summary
-APT_SIM_SUMMARY=$(printf '%s' "$APT_SIM_OUTPUT" | $AWK '
+APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | "$AWK" '
     /^Inst /{
-        total++; pkg=$2; pkgs[pkg]=1;
-        if(tolower($0)~/security/){sec++; secpkgs[pkg]=1}
+        total++
+        pkg=$2
+        line=$0
+        old=""
+        new=""
+
+        if (!(pkg in seen_pkg)) {
+            seen_pkg[pkg]=1
+            pkg_order[++pkg_n]=pkg
+        }
+
+        if (match(line, /\[[^][]+\]/)) {
+            old=substr(line, RSTART+1, RLENGTH-2)
+        }
+
+        sub(/^[^(]*\(/, "", line)
+        new=line
+        sub(/[[:space:]].*$/, "", new)
+
+        if (tolower($0) ~ /security/) {
+            sec++
+            if (!(pkg in seen_sec)) {
+                seen_sec[pkg]=1
+                sec_order[++sec_n]=pkg
+                sec_old[pkg]=old
+                sec_new[pkg]=new
+            }
+        }
     }
     END{
-        for(p in pkgs)    printf "PKG:%s\n",p;
-        for(s in secpkgs) printf "SECPKG:%s\n",s;
-        printf "TOT:%d\nSEC:%d\n",total,sec;
+        for(i=1;i<=pkg_n;i++){
+            pkg=pkg_order[i]
+            printf "PKG:%s\n",pkg
+        }
+        for(i=1;i<=sec_n;i++){
+            pkg=sec_order[i]
+            printf "SECPKG:%s\n",pkg
+            printf "SECINFO\t%s\t%s\t%s\n",pkg,sec_old[pkg],sec_new[pkg]
+        }
+        printf "TOT:%d\nSEC:%d\n",total,sec
     }
 ')
 
 # Set values
-UPDATES_TOTAL=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^TOT:/ {print $2}')
-UPDATES_SECURITY=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SEC:/ {print $2}')
-PKG_LIST=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^PKG:/ {print $2}')
+UPDATES_TOTAL=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^TOT:/ {print $2}')
+UPDATES_SECURITY=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^SEC:/ {print $2}')
+PKG_LIST=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^PKG:/ {print $2}')
 
 # Count blacklisted
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
@@ -195,8 +313,124 @@ fi
 
 # Security packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$(printf '%s' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
+    SEC_CSV=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
     MSG="$MSG Security packages: ${SEC_CSV}."
+
+    # Keep this flow inline; it is only used once and sits next to the summary
+    # output that depends on it.
+    if [ -n "$TIMEOUT" ]; then
+        SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F '\t' '$1 == "SECINFO" { print $2 "\t" $3 "\t" $4 }')
+        if [ -n "$SECURITY_META" ]; then
+            GROUP_INPUT=""
+            while IFS="$TAB" read -r pkg oldver newver; do
+                [ -n "$pkg" ] || continue
+                source_pkg=$(resolve_source_pkg "$pkg" "$newver")
+                GROUP_INPUT="${GROUP_INPUT}${GROUP_INPUT:+$NL}${source_pkg}${TAB}${pkg}${TAB}${oldver}${TAB}${newver}"
+            done <<EOF
+$SECURITY_META
+EOF
+
+            if [ -n "$GROUP_INPUT" ]; then
+                # Group binary packages by source package so one changelog fetch can
+                # cover related packages such as vim/vim-runtime/xxd or kernel sets.
+                SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | "$AWK" -F '\t' '
+                    {
+                        key=$1 "\t" $4
+                        if (!seen[key]++) {
+                            order[++n]=key
+                            source[key]=$1
+                            first_pkg[key]=$2
+                            first_old[key]=$3
+                            newver[key]=$4
+                            packages[key]=$2
+                        } else {
+                            packages[key]=packages[key] ", " $2
+                        }
+                    }
+                    END {
+                        for (i = 1; i <= n; i++) {
+                            key=order[i]
+                            printf "%s\t%s\t%s\t%s\t%s\n", source[key], first_pkg[key], first_old[key], newver[key], packages[key]
+                        }
+                    }
+                ')
+
+                if [ -n "$SECURITY_GROUPS" ]; then
+                    if ensure_cache_dir; then
+                        append_long "Security changelogs:"
+                        while IFS="$TAB" read -r source_pkg first_pkg oldver newver packages; do
+                            [ -n "$source_pkg" ] || continue
+
+                            NOW=$("$DATE" +%s)
+                            ELAPSED=$((NOW - CHECK_START))
+                            if [ "$ELAPSED" -ge "$CHANGELOG_TOTAL_BUDGET" ]; then
+                                append_long ""
+                                append_long "  Remaining changelogs skipped after ${CHANGELOG_TOTAL_BUDGET}s runtime budget."
+                                break
+                            fi
+
+                            CACHE_KEY=$(sanitize_key "${source_pkg}_${newver}")
+                            CACHE_FILE="${CHANGELOG_CACHE_DIR}/${CACHE_KEY}.txt"
+                            FETCH_ERR=""
+                            FETCH_RC=0
+
+                            if [ -r "$CACHE_FILE" ]; then
+                                RAW_CHANGELOG=$("$SED" -n '1,2000p' "$CACHE_FILE" 2>/dev/null)
+                            else
+                                RAW_CHANGELOG=$(PAGER=cat LC_ALL=C DEBIAN_FRONTEND=noninteractive "$TIMEOUT" "$CHANGELOG_FETCH_TIMEOUT" "$APTGET" changelog "${first_pkg}=${newver}" 2>&1)
+                                FETCH_RC=$?
+
+                                case "$FETCH_RC" in
+                                    0)
+                                        OLD_UMASK=$(umask)
+                                        umask 077
+                                        printf '%s\n' "$RAW_CHANGELOG" > "$CACHE_FILE" 2>/dev/null || true
+                                        umask "$OLD_UMASK"
+                                        ;;
+                                    124)
+                                        FETCH_ERR="timeout after ${CHANGELOG_FETCH_TIMEOUT}s"
+                                        ;;
+                                    *)
+                                        FETCH_ERR="fetch failed (rc=${FETCH_RC})"
+                                        ;;
+                                esac
+                            fi
+
+                            append_long ""
+                            if [ -n "$oldver" ]; then
+                                append_long "[${source_pkg}] ${packages} (${oldver} -> ${newver})"
+                            else
+                                append_long "[${source_pkg}] ${packages} (not installed -> ${newver})"
+                            fi
+
+                            if [ "$FETCH_RC" -ne 0 ] || [ -z "$RAW_CHANGELOG" ]; then
+                                if [ -n "$FETCH_ERR" ]; then
+                                    append_long "  Changelog unavailable: ${FETCH_ERR}."
+                                else
+                                    append_long "  Changelog unavailable."
+                                fi
+                                continue
+                            fi
+
+                            FILTERED_CHANGELOG=$(printf '%s\n' "$RAW_CHANGELOG" | filter_changelog_since "$oldver" | truncate_changelog | "$SED" 's/^/  /')
+                            if [ -z "$FILTERED_CHANGELOG" ]; then
+                                append_long "  No newer changelog entries found."
+                                continue
+                            fi
+
+                            append_long "$FILTERED_CHANGELOG"
+                        done <<EOF
+$SECURITY_GROUPS
+EOF
+                    else
+                        append_long "Security changelogs: cache directory could not be created."
+                    fi
+                fi
+            fi
+        fi
+    else
+        append_long "Security changelogs: skipped because 'timeout' is unavailable."
+    fi
 fi
 
 # Perf data
@@ -206,5 +440,5 @@ PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0"
 PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0"
 
 # Output
-printf '%s | %s\n' "$MSG" "$PERF_DATA"
+emit_check "$MSG" "$PERF_DATA"
 exit "$STATE_CODE"

@@ -10,7 +10,6 @@ die() {
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
 
@@ -32,7 +31,7 @@ ge() {
 }
 
 get_num_unit() {
-    $PRINTF '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
+    printf '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
 }
 
 # Thresholds (seconds) – tune as needed
@@ -62,7 +61,7 @@ esac
 TIMESYNC="$($TIMEDATECTL timesync-status 2>/dev/null)" || die "timesync-status not available"
 
 # Extract chosen server (first 'Server:' line)
-SERVER=$($PRINTF '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:]]*Server:[[:space:]]*/,""); print; exit}')
+SERVER=$(printf '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:]]*Server:[[:space:]]*/,""); print; exit}')
 
 # Convert to seconds
 set_to_sec() {
@@ -97,7 +96,7 @@ DELAY_SEC=$(printf '%s\n' "$DLY_LU" | set_to_sec 2>/dev/null)
 [ -z "$DELAY_SEC" ] && DELAY_SEC=0
 
 # Stratum
-STRAT=$($PRINTF '%s' "$TIMESYNC" | $SED -n 's/.*Stratum:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
+STRAT=$(printf '%s' "$TIMESYNC" | $SED -n 's/.*Stratum:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
 [ -z "$STRAT" ] && STRAT=0
 
 # Threshold checks

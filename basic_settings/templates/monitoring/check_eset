@@ -12,7 +12,6 @@ AWK=$(command -v awk 2>/dev/null) || die "akw not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
@@ -47,6 +46,8 @@ WAP_FLAG=/opt/eset/efs/etc/WAP_DISABLED
 WARN_MSG=""
 WARN_NO_SCAN_DAYS=7   # WARNING if no on‑demand scan in >7 days
 WARN_UPDATE_MIN=720   # WARNING if no engine update for >12h
+NL=$(printf '\n_')
+NL=${NL%_}
 
 # Options 
 while getopts 'n:N:s:S:u:U:h' opt; do
@@ -79,6 +80,16 @@ parse_scan_csv() {
         NR == 1 { next }
         NF < 6 { next }
         {
+            for (i = 1; i <= NF; i++) {
+                gsub(/\r/, "", $i)
+                sub(/^[[:space:]]+/, "", $i)
+                sub(/[[:space:]]+$/, "", $i)
+            }
+
+            if ($1 == "") {
+                next
+            }
+
             triggered = (NF >= 7 ? $7 : "")
             for (i = 8; i <= NF; i++) {
                 triggered = triggered FS $i
@@ -152,7 +163,7 @@ SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
 SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
 SCANS_TOTAL=0
 SCAN_HISTORY=""
-TAB=$($PRINTF '\t')
+TAB=$(printf '\t')
 
 while IFS="$TAB" read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
     case "$KIND" in
@@ -172,9 +183,13 @@ while IFS="$TAB" read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
                 *) LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 )) ;;
             esac
 
-            IFS=':' read -r H M S <<EOF
-$DURATION
-EOF
+            OLD_IFS=$IFS
+            IFS=':'
+            set -- $DURATION
+            IFS=$OLD_IFS
+            H=${1:-0}
+            M=${2:-0}
+            S=${3:-0}
             H=${H#0}; [ -z "$H" ] && H=0
             M=${M#0}; [ -z "$M" ] && M=0
             S=${S#0}; [ -z "$S" ] && S=0
@@ -183,8 +198,7 @@ EOF
         HISTORY)
             DETAIL_LINE="- ${COL1}: status=${COL2}, scanned=${COL3}, cleaned=${COL4}, det=${COL5}, duration=${COL6}"
             [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered_by=${COL7}"
-            SCAN_HISTORY="${SCAN_HISTORY:+$SCAN_HISTORY
-}$DETAIL_LINE"
+            SCAN_HISTORY="${SCAN_HISTORY:+$SCAN_HISTORY$NL}$DETAIL_LINE"
             ;;
     esac
 done <<EOF
@@ -192,8 +206,7 @@ $SCAN_PARSE
 EOF
 
 if [ -n "$SCAN_HISTORY" ]; then
-    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans:
-$SCAN_HISTORY"
+    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans:${NL}${SCAN_HISTORY}"
 else
     LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans: none"
 fi

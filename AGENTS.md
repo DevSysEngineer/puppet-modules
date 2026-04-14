@@ -187,6 +187,9 @@ Shell conventions already visible in this repository:
 
 - monitoring checks generally use `#!/bin/sh`
 - dependencies are discovered with `command -v`
+- use shell builtins such as `printf` directly instead of resolving them with `command -v`
+- keep single-use shell logic inline instead of wrapping it in a function unless that function materially improves reuse or readability
+- prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`
 - error helpers are small and direct
 - scripts are operationally minimal and avoid unnecessary layers
 - monitoring checks should return standard Nagios-style status codes
@@ -196,6 +199,7 @@ Shell safety requirements:
 
 - Quote variables consistently.
 - Use `printf` instead of relying on non-portable `echo` behavior.
+- When code needs embedded line breaks inside generated output or variables, represent them explicitly with `\n` or a dedicated newline variable. Do not embed literal line breaks inside quoted strings, interpolations, or concatenations.
 - Keep command dependencies explicit.
 - Keep scripts readable; these files are operational tooling, not generic libraries.
 - Only mark real executables as executable.
