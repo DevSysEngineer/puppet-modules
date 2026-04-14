@@ -93,21 +93,36 @@ in_days() {
     echo 0
 }
 
-# Defaults values
+# Rule model:
+# - expected: every active item must be present
+# - whitelist: matching active item is allowed but not required
+# - any-required: at least one active item from the set must be present
+#
+# "configured" keeps every known USB identifier from the config, regardless of
+# time/day. "active" keeps only the subset that is relevant right now.
+# Unauthorized detection uses the configured expected/any lists so a known
+# device does not suddenly become unauthorized outside its active window.
+# Missing/required checks use the active lists so alerts only happen when the
+# current time/day says the rule matters.
+# Default values
 AANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
 ANYREQ_MATCHED_LIST=""
 ANYREQ_OK=1
 ANYREQ_PRESENT_COUNT=0
+ANYREQ_SERIALS_CONFIGURED=""
 ANYREQ_SERIALS_ACTIVE=""
 ANYREQ_TOTAL_COUNT=0
+ANYREQ_VP_IDS_CONFIGURED=""
 ANYREQ_VP_IDS_ACTIVE=""
 EXPECTED_IDS="" # -e CSV
 EXPECTED_LIST="<%= @usb_expected_correct %>"
 EXPECTED_LIST_MISSING=""
 EXPECTED_PRESENT_COUNT=0
+EXPECTED_SERIALS_CONFIGURED=""
 EXPECTED_SERIALS_ACTIVE=""
 EXPECTED_TOTAL_COUNT=0
+EXPECTED_VP_IDS_CONFIGURED=""
 EXPECTED_VP_IDS_ACTIVE=""
 MSG=""
 NOW_HM=$($DATE +%H:%M)
@@ -137,6 +152,16 @@ in_window() {
     fi
 }
 
+# Parse a USB rule into:
+# - base identifier: serial or VID:PID
+# - optional time window
+# - optional day filter
+#
+# Supported examples:
+# - 00000001
+# - 00000001@08:00-17:00
+# - 00000001@08:00-17:00/1-5
+# - 0781:5567/Mon-Fri
 parse_item() {
     ITEM="$1"
     PARSE_BASE="$ITEM"
@@ -191,11 +216,17 @@ done
 [ -n "$EXPECTED_IDS"  ] && EXPECTED_LIST=$(printf '%s' "$EXPECTED_IDS"  | $TR ',' ' ')
 [ -n "$ANYREQ_IDS"    ] && ANYREQ_LIST=$(printf '%s' "$ANYREQ_IDS"    | $TR ',' ' ')
 
-# Build ACTIVE lists (respect time windows + day specs)
+# Build the active lists for "now".
+# For expected/any-required we also keep the configured lists so those devices
+# stay authorized outside their active window.
 # Expected
 for ITEM in $EXPECTED_LIST; do
     parse_item "$ITEM"
     BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; DAYS="$PARSE_DAYS"; ACTIVE=1
+    case "$BASE" in
+        *:*) EXPECTED_VP_IDS_CONFIGURED="$EXPECTED_VP_IDS_CONFIGURED $(printf '%s' "$BASE" | $TR 'A-F' 'a-f')" ;;
+        *)   EXPECTED_SERIALS_CONFIGURED="$EXPECTED_SERIALS_CONFIGURED $BASE" ;;
+    esac
     case "$WIN" in
         ??:??-??:??) ACTIVE=$(in_window "$WIN") ;;
         *) ACTIVE=1 ;;
@@ -240,6 +271,10 @@ done
 for ITEM in $ANYREQ_LIST; do
     parse_item "$ITEM"
     BASE="$PARSE_BASE"; WIN="$PARSE_WIN"; DAYS="$PARSE_DAYS"; ACTIVE=1
+    case "$BASE" in
+        *:*) ANYREQ_VP_IDS_CONFIGURED="$ANYREQ_VP_IDS_CONFIGURED $(printf '%s' "$BASE" | $TR 'A-F' 'a-f')" ;;
+        *)   ANYREQ_SERIALS_CONFIGURED="$ANYREQ_SERIALS_CONFIGURED $BASE" ;;
+    esac
     case "$WIN" in
         ??:??-??:??) ACTIVE=$(in_window "$WIN") ;;
         *) ACTIVE=1 ;;
@@ -259,7 +294,9 @@ done
 [ -n "$ANYREQ_SERIALS_ACTIVE" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_SERIALS_ACTIVE" | $WC -w) ))
 [ -n "$ANYREQ_VP_IDS_ACTIVE" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_VP_IDS_ACTIVE" | $WC -w) ))
 
-# Enumerate USB devices via sysfs (ignore host controllers vendor 1d6b)
+# Enumerate attached USB devices via sysfs.
+# Linux Foundation root hubs (vendor 1d6b) are host controllers, not endpoint
+# devices, so they are ignored for this check.
 for DEVPATH in /sys/bus/usb/devices/*; do
     [ -f "$DEVPATH/idVendor" ] || continue
 
@@ -285,12 +322,29 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     DEVNAME=$(printf '%s' "$DEVNAME" | $SED 's/^ //; s/ $//')
     [ -z "$DEVNAME" ] && DEVNAME="$VID:$PID"
 
-    # Flags
+    # "_ALLOWED" answers "is this a known device from the config?"
+    # "_EXPECTED"/"_ANYREQ" answer "does it currently satisfy an active rule?"
     IN_EXPECTED=0
+    IN_EXPECTED_ALLOWED=0
     IN_WHITELIST=0
     IN_ANYREQ=0
+    IN_ANYREQ_ALLOWED=0
 
-    # Expected?
+    # Timed expected rules only require presence in their active window, but
+    # matching devices must remain authorized outside that window.
+    if [ -n "$SERIAL" ]; then
+        for EXP_SER in $EXPECTED_SERIALS_CONFIGURED; do
+            [ "$SERIAL" = "$EXP_SER" ] && IN_EXPECTED_ALLOWED=1 && break
+        done
+    fi
+    if [ $IN_EXPECTED_ALLOWED -eq 0 ]; then
+        for EXP_ID in $EXPECTED_VP_IDS_CONFIGURED; do
+            [ "$VID:$PID" = "$EXP_ID" ] && IN_EXPECTED_ALLOWED=1 && break
+        done
+    fi
+
+    # Active expected match. This is what counts toward "missing expected"
+    # and the expected perfdata.
     if [ -n "$SERIAL" ]; then
         for EXP_SER in $EXPECTED_SERIALS_ACTIVE; do
             [ "$SERIAL" = "$EXP_SER" ] && IN_EXPECTED=1 && break
@@ -302,7 +356,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Whitelisted?
+    # Active whitelist match. Whitelist remains a pure allow-list.
     if [ -n "$SERIAL" ]; then
         for WL_SER in $WHITELIST_SERIALS_ACTIVE; do
             [ "$SERIAL" = "$WL_SER" ] && IN_WHITELIST=1 && break
@@ -314,7 +368,21 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Any-required?
+    # Timed any-required rules only enforce "at least one present" in their
+    # active window, but matching devices must remain authorized outside it.
+    if [ -n "$SERIAL" ]; then
+        for AR_SER in $ANYREQ_SERIALS_CONFIGURED; do
+            [ "$SERIAL" = "$AR_SER" ] && IN_ANYREQ_ALLOWED=1 && break
+        done
+    fi
+    if [ $IN_ANYREQ_ALLOWED -eq 0 ]; then
+        for AR_ID in $ANYREQ_VP_IDS_CONFIGURED; do
+            [ "$VID:$PID" = "$AR_ID" ] && IN_ANYREQ_ALLOWED=1 && break
+        done
+    fi
+
+    # Active any-required match. This is only used for the "at least one
+    # present" policy inside the current active window.
     if [ -n "$SERIAL" ]; then
         for AR_SER in $ANYREQ_SERIALS_ACTIVE; do
             [ "$SERIAL" = "$AR_SER" ] && IN_ANYREQ=1 && break
@@ -326,7 +394,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Tallies
+    # Tally only active requirement matches. Authorization is evaluated below.
     [ $IN_EXPECTED  -eq 1 ] && EXPECTED_PRESENT_COUNT=$(( EXPECTED_PRESENT_COUNT + 1 ))
     if [ $IN_WHITELIST -eq 1 ]; then
         WHITELISTED_COUNT=$(( WHITELISTED_COUNT + 1 ))
@@ -339,8 +407,10 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         [ -n "$SERIAL" ] && ANYREQ_MATCHED_LIST="$ANYREQ_MATCHED_LIST (SN: $SERIAL)"
     fi
 
-    # Unauthorized only if unmatched everywhere
-    if [ $IN_EXPECTED -eq 0 ] && [ $IN_WHITELIST -eq 0 ] && [ $IN_ANYREQ -eq 0 ]; then
+    # Unauthorized only if the device is unknown to every allow source.
+    # Expected/any-required use the configured lists here, not the active
+    # lists, so a known timed device does not alert outside its own window.
+    if [ $IN_EXPECTED_ALLOWED -eq 0 ] && [ $IN_WHITELIST -eq 0 ] && [ $IN_ANYREQ_ALLOWED -eq 0 ]; then
         UNAUTHORIZED_COUNT=$(( UNAUTHORIZED_COUNT + 1 ))
         UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST, $DEVNAME"
         if [ -n "$SERIAL" ]; then
@@ -351,7 +421,8 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     fi
 done
 
-# Expected missing (only ACTIVE expected items)
+# Only active expected items can be missing. Expected rules outside their
+# window/day are intentionally ignored here.
 for EXP in $EXPECTED_SERIALS_ACTIVE; do
     FOUND=0
     for DEVPATH in /sys/bus/usb/devices/*; do
@@ -381,7 +452,10 @@ UNAUTHORIZED_DEV_LIST=$(printf '%s' "$UNAUTHORIZED_DEV_LIST" | $SED 's/^, //')
 EXPECTED_LIST_MISSING=$(printf '%s' "$EXPECTED_LIST_MISSING" | $SED 's/^, //')
 ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST" | $SED 's/^, //')
 
-# Status / message
+# Status combines:
+# - unknown attached devices
+# - active expected devices that are missing
+# - active any-required policy failures
 if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ -n "$EXPECTED_LIST_MISSING" ]; then
     STATUS_CODE=2
     [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="Unauthorized USB device(s) detected: $UNAUTHORIZED_DEV_LIST. "
