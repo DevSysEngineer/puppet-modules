@@ -191,7 +191,9 @@ node 'webserver.dev.xxxx.nl' {
 
 ## MySQL
 
-MySQL is een populair open-source relationeel databasebeheersysteem (RDBMS). Het wordt veel gebruikt voor het opslaan, ophalen en beheren van gegevens voor websites en applicaties. Dit onderdeel maakt het mogelijk om een MySQL-database server op te zetten en te configureren. Wanneer in `basic settings` de MySQL APT-repo is geactiveerd, probeert dit onderdeel de geselecteerde MySQL-versie te installeren in plaats van de standaardversie of databasevariant zoals MariaDB die vanuit het besturingssysteem wordt aangeboden. Indien `basic settings` of `security` subonderdelen van `basic package` wordt gebruikt, worden verdachte commando's gemonitord door auditd.
+MySQL is een populair open-source relationeel databasebeheersysteem (RDBMS). Het wordt veel gebruikt voor het opslaan, ophalen en beheren van gegevens voor websites en applicaties. Dit onderdeel maakt het mogelijk om een MySQL-database server op te zetten en te configureren. Wanneer in `basic settings` de MySQL APT-repo is geactiveerd, probeert dit onderdeel de geselecteerde MySQL-versie te installeren in plaats van de standaardversie of databasevariant zoals MariaDB die vanuit het besturingssysteem wordt aangeboden. Indien `basic_settings` of het `security`-subonderdeel daarvan wordt gebruikt, worden verdachte commando's gemonitord door auditd.
+
+Binnen het MySQL-onderdeel zit een ingebouwd back-upscript, dat is geforkt van [automysqlbackup](https://sourceforge.net/projects/automysqlbackup/). Dit back-upscript is op meerdere punten verbeterd. Standaard worden back-ups versleuteld met OpenSSL, waarbij PBKDF2 wordt gebruikt voor de sleutelafleiding. Back-ups kunnen handmatig worden ontsleuteld met het .enc-bestand en het bijbehorende wachtwoord. Het commando hiervoor is: `openssl enc -d -aes-256-cbc -pbkdf2 -in backup.sql.enc -out backup.sql -pass pass:..`.
 
 ### Voorbeeld
 Hieronder een voorbeeld hoe je MySQL database opzet in je Puppet omgeving:

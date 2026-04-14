@@ -236,6 +236,7 @@ Meaningful changes include:
 README rules for this repository:
 
 - Write README updates in Dutch.
+- Keep generated config files, config templates, and inline config comments in English unless the managed software clearly requires another language.
 - Match the current README's tone, structure, and sectioning.
 - Keep the style consistent with the existing `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern.
 - Add or update example Puppet snippets when behavior changes materially.
