@@ -37,32 +37,12 @@ class php8::cli (
 
     # Check if we need to install composer
     if ($composer_enable) {
-      # Install composer
-      exec { "php8_${minor_version}_composer_fetch_installer":
-        command => '/usr/bin/curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php',
+      # Download, verify, and install Composer in a root-only temp directory that is always removed.
+      exec { "php8_${minor_version}_composer_install":
+        environment => 'COMPOSER_HOME=/usr/local/bin',
+        command => "/usr/bin/bash -c 'set -e; umask 077; tmpdir=$(/usr/bin/mktemp -d /root/php8-composer.XXXXXX) || exit 1; trap \"rm -rf \\\"$tmpdir\\\"\" EXIT; /usr/bin/curl -fsSL https://getcomposer.org/installer -o \"$tmpdir/composer-setup.php\"; /usr/bin/curl -fsSL https://composer.github.io/installer.sig -o \"$tmpdir/composer_hash\"; php -r \"if (hash_file(\\\"SHA384\\\", \\\"$tmpdir/composer-setup.php\\\") !== trim(file_get_contents(\\\"$tmpdir/composer_hash\\\"))) { exit(1); }\"; php \"$tmpdir/composer-setup.php\" --quiet --install-dir=/usr/local/bin --filename=composer'", #lint:ignore:140chars
         unless  => '[ -e /usr/local/bin/composer ]',
         require => [Package['curl'], Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
-      }
-      -> exec { "php8_${minor_version}_composer_fetch_hash":
-        command => '/usr/bin/curl -fsSL https://composer.github.io/installer.sig -o /tmp/composer_hash',
-        onlyif  => 'test -f /tmp/composer-setup.php',
-        require => [Package['curl'], Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
-      }
-      -> exec { "php8_${minor_version}_composer_fetch_check_hash":
-        command => 'php -r "if (hash_file(\'SHA384\', \'/tmp/composer-setup.php\') !== trim(file_get_contents(\'/tmp/composer_hash\'))) { unlink(\'/tmp/composer-setup.php\'); unlink(\'/tmp/composer_hash\'); exit(1); }"', #lint:ignore:140chars
-        onlyif  => ['test -f /tmp/composer-setup.php', 'test -f /tmp/composer_hash'],
-        require => [Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
-      }
-      -> exec { "php8_${minor_version}_composer_install":
-        environment => 'COMPOSER_HOME=/usr/local/bin',
-        command     => 'php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer',
-        onlyif      => 'test -f /tmp/composer-setup.php',
-        require     => [Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
-      }
-      -> exec { "php8_${minor_version}_composer_cleanup":
-        command => 'php -r "unlink(\'/tmp/composer-setup.php\'); unlink(\'/tmp/composer_hash\');"',
-        onlyif  => ['test -f /tmp/composer-setup.php', 'test -f /tmp/composer_hash'],
-        require => [Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
       }
     }
   } else {

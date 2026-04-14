@@ -107,7 +107,7 @@ class rabbitmq::management (
       file { 'rabbitmq_management_admin_config':
         ensure  => file,
         path    => $admin_config_path,
-        content => template('rabbitmq/rabbitmqadmin.conf'),
+        content => Sensitive.new(template('rabbitmq/rabbitmqadmin.conf')),
         owner   => 'rabbitmq',
         group   => 'rabbitmq',
         mode    => '0600',

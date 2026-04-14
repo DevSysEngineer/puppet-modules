@@ -151,6 +151,9 @@ Follow these Puppet conventions:
 - When installer-generated files must survive, the existing style uses `replace => false`. Preserve that behavior where it matters.
 - Keep file modes and ownership explicit.
 - Keep monitoring and audit wiring close to the managed resource so operational visibility changes with the feature.
+- Keep parameter lists and similar aligned assignments vertically when the surrounding module already uses that style, including aligning the `=` signs into one visual column.
+- Add a short comment above non-obvious Puppet resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone.
+- This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
 
 Use local modules as integration points instead of importing foreign architecture. For example, if a service needs a systemd unit, timer, sudo rule, OpenITCOCKPIT check, or logrotate config, prefer the existing `basic_settings` helpers over adding a new external abstraction.
 

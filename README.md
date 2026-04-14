@@ -10,6 +10,8 @@ Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Pu
 ## Beveiligingsaanpassingen
 Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geïmplementeerd, ook wel bekend als [hardening](https://en.wikipedia.org/wiki/Hardening_(computing)). Dit kan leiden tot afwijkend gedrag van softwarepakketten ten opzichte van de oorspronkelijke verwachtingen. Voorbeelden hiervan zijn extra opties in systemd zoals `PrivateTmp: true`, `ProtectHome: true` en `ProtectSystem: full`, en aanpassingen aan GRUB zodat de kernel bij het opstarten in een hardening modus draait. Ook zijn PAM-instellingen zo aangepast dat bestanden via umask 0077 worden aangemaakt. Ik wil madaidan en zijn pagina [linux-hardening](https://madaidans-insecurities.github.io/guides/linux-hardening.html) bedanken voor de waardevolle tips; een groot deel van deze informatie heb ik als inspiratie gebruikt.
 
+Daarnaast worden gevoelige lokale hulpbestanden, zoals APT-authenticatie voor OpenITCOCKPIT, tijdelijke installer-downloads en het lokale Grafana-beheerwachtwoord, zoveel mogelijk root-only opgeslagen om onnodige blootstelling aan lokale gebruikers te beperken.
+
 Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies (zoals [Fedora](https://discussion.fedoraproject.org/t/f40-change-proposal-systemd-security-hardening-system-wide/96423/11)) worden toegepast, kies ik ervoor om deze aanpassingen ook in Puppet op te nemen. Dit is omdat niet alle distributies altijd de meest recente versie van de software gebruiken en er altijd een kans bestaat dat een specifieke beveiligingsaanpassing niet is doorgevoerd.
 
 ## Monitoring
@@ -38,6 +40,22 @@ node 'webserver.dev.xxxx.nl' {
         push_url           => 'https://monitoring.xxxx.nl',
         push_apikey        => Sensitive('XXXXXXX'), #lint:ignore:140chars
         require            => Class['basic_settings'],
+    }
+}
+```
+
+Standaard is de OpenITCOCKPIT-agent nu conservatiever geconfigureerd: de ingebouwde webserver bindt standaard op `127.0.0.1`, Prometheus-export staat standaard uit en in push-mode wordt het TLS-certificaat van de server standaard gecontroleerd. Gebruik je pull-based monitoring of wil je de exporter bewust publiceren, stel dit dan expliciet in.
+
+### Voorbeeld
+
+Hieronder een voorbeeld wanneer je de agent bewust op het netwerk wilt laten luisteren:
+
+```puppet
+node 'webserver.dev.xxxx.nl' {
+    class { 'openitcockpit::agent':
+        bind_address              => '0.0.0.0',
+        prometheus_enable         => true,
+        verify_server_certificate => true,
     }
 }
 ```

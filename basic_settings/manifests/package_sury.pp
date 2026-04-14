@@ -36,6 +36,7 @@ class basic_settings::package_sury (
     # Add sury PHP repo
     case $os_parent {
       'ubuntu': {
+        # Write the repo definition and import the signing key directly for Ubuntu systems.
         exec { 'package_sury_source':
           command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6' | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
           unless  => "[ -e ${file} ]",
@@ -43,8 +44,9 @@ class basic_settings::package_sury (
         }
       }
       default: {
+        # Install the archive keyring through a root-only tempfile and always clean it up on exit.
         exec { 'package_sury_source':
-          command => "/usr/bin/curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb; dpkg -i /tmp/debsuryorg-archive-keyring.deb; printf \"${source}\" > ${file}; /usr/bin/apt-get update",
+          command => "/usr/bin/bash -c 'set -e; umask 077; tmpfile=$(/usr/bin/mktemp /root/debsuryorg-archive-keyring.XXXXXX.deb) || exit 1; trap \"rm -f \\\"$tmpfile\\\"\" EXIT; /usr/bin/curl -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o \"$tmpfile\"; dpkg -i \"$tmpfile\"; printf \"%b\" \"${source}\" > ${file}; /usr/bin/apt-get update'", #lint:ignore:140chars
           unless  => "[ -e ${file} ]",
           require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }

@@ -62,8 +62,8 @@ class basic_settings::package_openitcockpit (
       path    => '/etc/apt/auth.conf.d/openitcockpit.conf',
       owner   => 'root',
       group   => 'root',
-      mode    => '0644',
-      content => "machine packages5.openitcockpit.io login secret password ${license_correct}\n",
+      mode    => '0600',
+      content => Sensitive.new("machine packages5.openitcockpit.io login secret password ${license_correct}\n"),
       require => Package['apt', 'apt-transport-https'],
     }
 

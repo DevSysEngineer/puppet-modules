@@ -1,21 +1,24 @@
 class openitcockpit::agent (
-  Boolean                     $cpustats_enable      = true,
-  Boolean                     $diskstats_enable     = true,
-  Boolean                     $dockerstats_enable   = true,
-  Enum['present','absent']    $ensure               = present,
-  Boolean                     $libvirt_enable       = true,
-  Boolean                     $memory_enable        = true,
-  Boolean                     $netstats_enable      = true,
-  Boolean                     $ntp_enable           = true,
-  Boolean                     $processstats_enable  = true,
-  Optional[String]            $proxy                = undef,
-  Optional[Boolean]           $sensorstats_enable   = undef,
-  Boolean                     $services_enable      = true,
-  Boolean                     $swap_enable          = true,
-  Boolean                     $userstats_enable     = true,
-  Boolean                     $push_enable          = false,
-  Optional[String]            $push_url             = undef,
-  Optional[Sensitive[String]] $push_apikey          = undef,
+  String                      $bind_address               = '127.0.0.1',
+  Boolean                     $cpustats_enable            = true,
+  Boolean                     $diskstats_enable           = true,
+  Boolean                     $dockerstats_enable         = true,
+  Enum['present','absent']    $ensure                     = present,
+  Boolean                     $libvirt_enable             = true,
+  Boolean                     $memory_enable              = true,
+  Boolean                     $netstats_enable            = true,
+  Boolean                     $ntp_enable                 = true,
+  Boolean                     $processstats_enable        = true,
+  Optional[String]            $proxy                      = undef,
+  Boolean                     $prometheus_enable          = false,
+  Optional[Boolean]           $sensorstats_enable         = undef,
+  Boolean                     $services_enable            = true,
+  Boolean                     $swap_enable                = true,
+  Boolean                     $userstats_enable           = true,
+  Boolean                     $push_enable                = false,
+  Optional[String]            $push_url                   = undef,
+  Optional[Sensitive[String]] $push_apikey                = undef,
+  Boolean                     $verify_server_certificate  = true,
 ) {
   # Set variables
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
@@ -64,6 +67,8 @@ class openitcockpit::agent (
   $swap_string = bool2str($swap_enable, 'True', 'False')
   $userstats_string = bool2str($userstats_enable, 'True', 'False')
   $push_string = bool2str($push_correct, 'True', 'False')
+  $prometheus_string = bool2str($prometheus_enable, 'True', 'False')
+  $verify_server_certificate_string = bool2str($verify_server_certificate, 'True', 'False')
 
   # Check if we need to setup the agent
   if ($ensure == present) {

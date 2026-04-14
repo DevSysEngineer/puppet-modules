@@ -22,7 +22,7 @@ define rabbitmq::management_user (
             fail("User ${name} not present")
           }
         } else {
-          $user_addd = "/usr/sbin/rabbitmqctl add_user ${name} ${password}" # Important, don't use --quiet here
+          $user_addd = Sensitive.new("/usr/sbin/rabbitmqctl add_user ${name} ${password}") # Important, don't use --quiet here
           $user_require = Rabbitmq::Plugin['rabbitmq_management']
         }
 
