@@ -32,7 +32,7 @@ ge() {
 }
 
 get_num_unit() {
-  $PRINTF '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
+    $PRINTF '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
 }
 
 # Thresholds (seconds) – tune as needed
@@ -54,8 +54,8 @@ $SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "timesyncd servic
 # Clock synchronised?
 NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null)
 case "$NTPSYNC" in
-  yes|1) : ;;
-  no|0|"") add_crit "clock not synchronised" ;;
+    yes|1) : ;;
+    no|0|"") add_crit "clock not synchronised" ;;
 esac
 
 # Read timesync metrics
@@ -66,13 +66,13 @@ SERVER=$($PRINTF '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space
 
 # Convert to seconds
 set_to_sec() {
-  read val || return 1
-  read u || u="s"
-  $AWK -v v="$val" -v u="$u" 'BEGIN{
-    if(u=="ms") printf "%.6f", v/1000;
-    else if(u=="us") printf "%.6f", v/1000000;
-    else printf "%.6f", v;
-  }'
+    read val || return 1
+    read u || u="s"
+    $AWK -v v="$val" -v u="$u" 'BEGIN{
+        if(u=="ms") printf "%.6f", v/1000;
+        else if(u=="us") printf "%.6f", v/1000000;
+        else printf "%.6f", v;
+    }'
 }
 
 # Offset

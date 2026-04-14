@@ -12,12 +12,19 @@ DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
+CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
-TR=$(command -v tr 2>/dev/null)
-[ -n "$TR" ] || die "tr not available"
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
+
+emit_check() {
+    # $1 = summary/status line, $2 = perfdata
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "${JOURNAL_JOINED:-}" ]; then
+        printf '%s\n' "$JOURNAL_JOINED"
+    fi
+}
 
 # Defaults / thresholds
 CRIT_AGE=3600 # 60 minutes (your preference: >1h = critical)
@@ -26,6 +33,8 @@ LAST_RUN_AGE=U
 LAST_RUN_HUMAN="unknown"
 STATUS_DETAIL="no changes"
 WARN_AGE=2700 # 45 minutes
+LOG_LINES=20
+MAXLOG=1000
 
 # --- Options: tweak staleness thresholds ---
 while getopts "w:c:h" opt; do
@@ -147,11 +156,16 @@ if [ "$LAST_RUN_AGE" != "U" ]; then
     fi
 fi
 
-# Recent logs (context, last 5 lines)
+# Recent logs for long output
 <% if @systemd_enable -%>
-JOURNAL=$($JOURNALCTL -n 5 -o short-iso -u "puppet.service" --no-pager 2>/dev/null | $TR '\n' ' - ' | $SED 's/|$//')
+JOURNAL_RAW=$($JOURNALCTL -n "$LOG_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+JOURNAL_JOINED=$(
+    printf '%s\n' "$JOURNAL_RAW" \
+    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
+    | $CUT -c1-${MAXLOG}
+)
 <% else -%>
-JOURNAL=""
+JOURNAL_JOINED=""
 <% end -%>
 
 # Build perfdata (incremental style)
@@ -178,7 +192,7 @@ PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 
 # Output with return code
 case "$EXITCODE_STATE" in
-  0) printf "Puppet is running (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 0 ;;
-  1) printf "Puppet WARNING (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 1 ;;
-  *) printf "Puppet FAILED (%s); last run: %s; log: "%s" | %s\n" "$STATUS_DETAIL" "$LAST_RUN_HUMAN" "$JOURNAL" "$PERF"; exit 2 ;;
+  0) emit_check "Puppet is running (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 0 ;;
+  1) emit_check "Puppet WARNING (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;
+  *) emit_check "Puppet FAILED (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 2 ;;
 esac
