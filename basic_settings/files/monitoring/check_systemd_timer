@@ -91,11 +91,7 @@ else
 fi
 
 # Render journal for long output
-JOURNAL_JOINED=$(
-    printf '%s\n' "$JOURNAL_RAW" \
-    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
-    | $CUT -c1-${MAXLOG}
-)
+JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
 
 # Perfdata
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"

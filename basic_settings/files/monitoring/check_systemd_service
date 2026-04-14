@@ -294,11 +294,7 @@ if [ -n "$JOURNAL_RAW" ]; then
 fi
 
 # Render journal for long output
-JOURNAL_JOINED=$(
-    printf '%s\n' "$JOURNAL_RAW" \
-    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
-    | $CUT -c1-${MAXLOG}
-)
+JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
 
 # Perfdata
 PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"

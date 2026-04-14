@@ -12,7 +12,6 @@ DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
-CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 <% end -%>
@@ -34,7 +33,6 @@ LAST_RUN_HUMAN="unknown"
 STATUS_DETAIL="no changes"
 WARN_AGE=2700 # 45 minutes
 LOG_LINES=20
-MAXLOG=1000
 
 # --- Options: tweak staleness thresholds ---
 while getopts "w:c:h" opt; do
@@ -159,11 +157,7 @@ fi
 # Recent logs for long output
 <% if @systemd_enable -%>
 JOURNAL_RAW=$($JOURNALCTL -n "$LOG_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
-JOURNAL_JOINED=$(
-    printf '%s\n' "$JOURNAL_RAW" \
-    | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' \
-    | $CUT -c1-${MAXLOG}
-)
+JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
 <% else -%>
 JOURNAL_JOINED=""
 <% end -%>
