@@ -40,7 +40,7 @@ class php8::cli (
       # Download, verify, and install Composer in a root-only temp directory that is always removed.
       exec { "php8_${minor_version}_composer_install":
         environment => 'COMPOSER_HOME=/usr/local/bin',
-        command => "/usr/bin/bash -c 'set -e; umask 077; tmpdir=$(/usr/bin/mktemp -d /root/php8-composer.XXXXXX) || exit 1; trap \"rm -rf \\\"$tmpdir\\\"\" EXIT; /usr/bin/curl -fsSL https://getcomposer.org/installer -o \"$tmpdir/composer-setup.php\"; /usr/bin/curl -fsSL https://composer.github.io/installer.sig -o \"$tmpdir/composer_hash\"; php -r \"if (hash_file(\\\"SHA384\\\", \\\"$tmpdir/composer-setup.php\\\") !== trim(file_get_contents(\\\"$tmpdir/composer_hash\\\"))) { exit(1); }\"; php \"$tmpdir/composer-setup.php\" --quiet --install-dir=/usr/local/bin --filename=composer'", #lint:ignore:140chars
+        command => "/usr/bin/bash -c 'set -e; umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/php8-composer.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; /usr/bin/curl -fsSL https://getcomposer.org/installer -o \"\$tmpdir/composer-setup.php\"; /usr/bin/curl -fsSL https://composer.github.io/installer.sig -o \"\$tmpdir/composer_hash\"; php -r \"if (hash_file(\\\"SHA384\\\", \\\"\$tmpdir/composer-setup.php\\\") !== trim(file_get_contents(\\\"\$tmpdir/composer_hash\\\"))) { exit(1); }\"; php \"\$tmpdir/composer-setup.php\" --quiet --install-dir=/usr/local/bin --filename=composer'", #lint:ignore:140chars
         unless  => '[ -e /usr/local/bin/composer ]',
         require => [Package['curl'], Package["php8.${minor_version}-cli"], Exec['php_set_default_version']],
       }

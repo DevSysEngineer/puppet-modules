@@ -46,7 +46,7 @@ class basic_settings::package_sury (
       default: {
         # Install the archive keyring through a root-only tempfile and always clean it up on exit.
         exec { 'package_sury_source':
-          command => "/usr/bin/bash -c 'set -e; umask 077; tmpfile=$(/usr/bin/mktemp /root/debsuryorg-archive-keyring.XXXXXX.deb) || exit 1; trap \"rm -f \\\"$tmpfile\\\"\" EXIT; /usr/bin/curl -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o \"$tmpfile\"; dpkg -i \"$tmpfile\"; printf \"%b\" \"${source}\" > ${file}; /usr/bin/apt-get update'", #lint:ignore:140chars
+          command => "/usr/bin/bash -c 'set -e; umask 077; tmpfile=\$(/usr/bin/mktemp /root/debsuryorg-archive-keyring.XXXXXX.deb) || exit 1; trap \"rm -f \\\"\$tmpfile\\\"\" EXIT; /usr/bin/curl -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o \"\$tmpfile\"; dpkg -i \"\$tmpfile\"; printf \"%b\" \"${source}\" > ${file}; /usr/bin/apt-get update'", #lint:ignore:140chars
           unless  => "[ -e ${file} ]",
           require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }

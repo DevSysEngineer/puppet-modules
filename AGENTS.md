@@ -154,6 +154,7 @@ Follow these Puppet conventions:
 - Keep parameter lists and similar aligned assignments vertically when the surrounding module already uses that style, including aligning the `=` signs into one visual column.
 - Add a short comment above non-obvious Puppet resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone.
 - This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
+- When embedding shell snippets inside Puppet double-quoted strings, always escape shell variables and command substitutions meant for the runtime shell, such as `\$tmpdir`, `\$1`, and `\$(...)`, so Puppet does not treat them as Puppet interpolation.
 
 Use local modules as integration points instead of importing foreign architecture. For example, if a service needs a systemd unit, timer, sudo rule, OpenITCOCKPIT check, or logrotate config, prefer the existing `basic_settings` helpers over adding a new external abstraction.
 

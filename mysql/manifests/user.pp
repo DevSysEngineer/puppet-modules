@@ -29,7 +29,7 @@ define mysql::user (
           $password_command = "ALTER USER '${username}'@'${hostname}' IDENTIFIED BY '${password}';"
         }
         # Verify credentials through a root-only temp dir so the password check leaves no shared /tmp files behind.
-        $unless_field = "/usr/bin/bash -c 'umask 077; tmpdir=$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 1; trap \"rm -rf \\\"$tmpdir\\\"\" EXIT; printf \"%b\" \"[client]\\npassword=${password}\" > \"$tmpdir/mysql.cnf\"; current_user=$(mysql --defaults-file=${mysql::defaults_file} -NBe \"system mysql --defaults-file=$tmpdir/mysql.cnf -u ${username} -NBe \\\"SELECT CURRENT_USER()\\\"\" 2>/dev/null); [ \"$current_user\" = \"${username}@${hostname}\" ]'" #lint:ignore:140chars
+        $unless_field = "/usr/bin/bash -c 'umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; printf \"%b\" \"[client]\\npassword=${password}\" > \"\$tmpdir/mysql.cnf\"; current_user=\$(mysql --defaults-file=${mysql::defaults_file} -NBe \"system mysql --defaults-file=\$tmpdir/mysql.cnf -u ${username} -NBe \\\"SELECT CURRENT_USER()\\\"\" 2>/dev/null); [ \"\$current_user\" = \"${username}@${hostname}\" ]'" #lint:ignore:140chars
       }
       default: {
         $password_field = 'password'
