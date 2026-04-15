@@ -131,6 +131,54 @@ Repository-specific security conventions to preserve:
 
 If you must weaken a permission, sandbox, or trust model, document the reason in the code and update the README when the operational expectation changes.
 
+## Data Sanitization Before External Use
+
+Before using any external system, the internet, or any tool outside the IDE or local repository context, treat the material as potentially sensitive first.
+
+Mandatory rule:
+
+- Never send raw code, configuration, logs, stack traces, screenshots, or operational data externally before checking whether they contain sensitive information.
+- Remove, mask, or anonymize sensitive information before sharing anything outside the local workspace.
+- Apply this rule to web searches, browser-based tools, external AI services, issue trackers, paste services, chat tools, e-mail, vendor support portals, documentation sites, and any other external system.
+
+Sensitive information that must never be shared in raw form includes at minimum:
+
+- passwords
+- API keys
+- access tokens
+- session tokens
+- private keys
+- SSH keys
+- certificates and certificate material
+- secrets from `.env` files
+- connection strings
+- database credentials
+- internal hostnames
+- internal IP addresses
+- private URLs
+- customer or patient data
+- personal data
+- tenant identifiers
+- internal project identifiers that are not needed for the question
+
+Required working method before sending anything outside the IDE:
+
+- Review the exact content that will be shared.
+- Remove all secrets, credentials, keys, tokens, certificates, and identifying values.
+- Anonymize names, domains, hostnames, IP addresses, usernames, IDs, and business-specific details where they are not strictly required.
+- Reduce the shared material to the smallest possible reproducible example.
+- Prefer a rewritten or synthetic example over real production data.
+- Re-check the final sanitized version before sending it.
+
+Hard rules:
+
+- Never share raw `.env` files, private certificates, private keys, token files, kubeconfigs, database dumps, or production configuration files externally.
+- Never copy full logs externally without first checking them for secrets and identifying information.
+- Never assume a technical or incomplete snippet is safe by default.
+- If there is any doubt whether content is sensitive, do not send it until it has been sanitized.
+
+Default to caution. Sanitization is mandatory before any external sharing.
+
 ## Puppet Style
 
 Derive style from the first-party modules already in this repository.
