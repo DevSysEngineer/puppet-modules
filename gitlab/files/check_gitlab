@@ -1,7 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
-die() { echo "$*" >&2; exit 3; }
+# Fail helper
+die() {
+    printf '%s\n' "$*" >&2
+    exit 3
+}
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
@@ -23,7 +27,7 @@ SVC_RAW=$($GITLAB_CTL status 2>&1)
 DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
 [ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
 
-# Single rails‑runner for version‑check + group‑sizes
+# Single rails-runner for version-check and group sizes
 RAILS_RAW=$($GITLAB_RAILS runner -e production '
     # Trigger remote version check (async), wait, output result prefixed VC|
     Gitlab::Version::VersionCheckCronWorker.new.perform
@@ -52,15 +56,15 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
         match($0,/"severity":"([^"]+)/,b){sev=b[1]}
         END{printf "%d|%s|%s",cv,ver,sev}'
     )
-    CV=$(echo "$DATA" | $AWK -F'|' '{print $1}')
-    NEW_VER=$(echo "$DATA" | $AWK -F'|' '{print $2}')
-    SEV=$(echo "$DATA" | $AWK -F'|' '{print $3}')
+    CV=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $1}')
+    NEW_VER=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $2}')
+    SEV=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $3}')
     
     if [ "$CV" -eq 1 ]; then
         STATE_CODE=2
-        MSG="${MSG}${MSG:+; }GitLab critical security update available (→ $NEW_VER)"
+        MSG="${MSG}${MSG:+; }GitLab critical security update available (-> $NEW_VER)"
     elif [ "$SEV" = "success" ] || [ -z "$NEW_VER" ]; then
-        : # Up‑to‑date
+        : # Up-to-date
     else
         [ $STATE_CODE -lt 1 ] && STATE_CODE=1
         MSG="${MSG}${MSG:+; }GitLab update available ($SEV: $NEW_VER)"
@@ -96,8 +100,8 @@ if [ "$LIC_MODE" = "ee" ]; then
 
     # Expiry
     if [ -n "$EXP" ]; then
-        NOW=$(date +%s)
-        EXP_S=$(date -d "$EXP" +%s 2>/dev/null || echo 0)
+        NOW=$($DATE +%s)
+        EXP_S=$($DATE -d "$EXP" +%s 2>/dev/null || printf '0')
         if [ "$EXP_S" -gt 0 ]; then
             DLEFT=$(( (EXP_S - NOW) / 86400 ))
             if [ "$DLEFT" -le 0 ]; then STATE_CODE=1; MSG="${MSG}${MSG:+; }License expired";

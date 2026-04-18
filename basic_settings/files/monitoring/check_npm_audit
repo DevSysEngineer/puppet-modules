@@ -17,13 +17,16 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 AUDIT_EXIT=0
 AUDIT_ERR=""
 AUDIT_JSON=""
+AUDIT_META=""
+AUDIT_PAYLOAD=""
 CHECK_DIR=""
 CHECK_NAME=""
 DETAILS=""
-NL='
-'
+JQ_META=""
+JQ_PAYLOAD=""
 PARSE_ERR=""
-SEP="__CHECK_NPM_AUDIT_SPLIT_$$__"
+SEP_ERR="__CHECK_NPM_AUDIT_ERR_$$__"
+SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
 STATE_CODE=3
 
 # Read the first useful diagnostic line from a file
@@ -52,30 +55,22 @@ report_error() {
     printf '%s' 'npm audit did not return a usable JSON report'
 }
 
+# Run jq while capturing both stdout and stderr for later reporting.
 run_jq() {
     JQ_PAYLOAD=$(
         {
             JQ_ERROR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r "$1" 2>&1 1>&3)
             JQ_STATUS=$?
-            printf '\n%s\n%s\n%s' "$SEP" "$JQ_STATUS" "$JQ_ERROR"
+            printf '%s%s%s%s' "$SEP_STATUS" "$JQ_STATUS" "$SEP_ERR" "$JQ_ERROR"
         } 3>&1
     )
 
     case "$JQ_PAYLOAD" in
-        *"$NL$SEP$NL"*)
-            JQ_OUTPUT=${JQ_PAYLOAD%"$NL$SEP$NL"*}
-            JQ_META=${JQ_PAYLOAD#*"$NL$SEP$NL"}
-            JQ_OUTPUT=${JQ_OUTPUT%"$NL"}
-            case "$JQ_META" in
-                *"$NL"*)
-                    JQ_STATUS=${JQ_META%%"$NL"*}
-                    JQ_ERROR=${JQ_META#*"$NL"}
-                    ;;
-                *)
-                    JQ_STATUS=$JQ_META
-                    JQ_ERROR=""
-                    ;;
-            esac
+        *"$SEP_STATUS"*"$SEP_ERR"*)
+            JQ_OUTPUT=${JQ_PAYLOAD%"$SEP_STATUS"*}
+            JQ_META=${JQ_PAYLOAD#*"$SEP_STATUS"}
+            JQ_STATUS=${JQ_META%%"$SEP_ERR"*}
+            JQ_ERROR=${JQ_META#*"$SEP_ERR"}
             ;;
         *)
             JQ_OUTPUT=""
@@ -88,6 +83,7 @@ run_jq() {
     [ "$JQ_STATUS" -eq 0 ]
 }
 
+# Print usage help for invalid command-line arguments.
 usage() {
     die "Usage: $0 -d <directory> [-n <name>]"
 }
@@ -120,24 +116,16 @@ AUDIT_PAYLOAD=$(
     {
         AUDIT_ERR=$("$NPM" audit --json 2>&1 1>&3)
         AUDIT_EXIT=$?
-        printf '\n%s\n%s\n%s' "$SEP" "$AUDIT_EXIT" "$AUDIT_ERR"
+        printf '%s%s%s%s' "$SEP_STATUS" "$AUDIT_EXIT" "$SEP_ERR" "$AUDIT_ERR"
     } 3>&1
 )
 
 case "$AUDIT_PAYLOAD" in
-    *"$NL$SEP$NL"*)
-        AUDIT_JSON=${AUDIT_PAYLOAD%"$NL$SEP$NL"*}
-        AUDIT_META=${AUDIT_PAYLOAD#*"$NL$SEP$NL"}
-        case "$AUDIT_META" in
-            *"$NL"*)
-                AUDIT_EXIT=${AUDIT_META%%"$NL"*}
-                AUDIT_ERR=${AUDIT_META#*"$NL"}
-                ;;
-            *)
-                AUDIT_EXIT=$AUDIT_META
-                AUDIT_ERR=""
-                ;;
-        esac
+    *"$SEP_STATUS"*"$SEP_ERR"*)
+        AUDIT_JSON=${AUDIT_PAYLOAD%"$SEP_STATUS"*}
+        AUDIT_META=${AUDIT_PAYLOAD#*"$SEP_STATUS"}
+        AUDIT_EXIT=${AUDIT_META%%"$SEP_ERR"*}
+        AUDIT_ERR=${AUDIT_META#*"$SEP_ERR"}
         ;;
     *)
         die "$CHECK_NAME: unable to capture npm audit output"

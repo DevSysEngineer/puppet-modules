@@ -1,8 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -18,6 +19,7 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
 WHO=$(command -v who 2>/dev/null) || die "who not available"
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
     printf '%s\n' "$*" >&2
     exit 2
@@ -27,8 +29,8 @@ crit() {
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
-MAX_IDLE=5         # minutes: session idle-time ≤ MAX_IDLE ⇒ active
-MAX_AGE=30         # minutes: session age > MAX_AGE ⇒ CRITICAL
+MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
+MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
 
 # Parse options
@@ -93,7 +95,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
         *root*) ROOT_LOGIN=true ;;
     esac
 
-    # Session considered active if there is at least one process on TTY or IDLE ≤ MAX_IDLE
+    # Session considered active if there is at least one process on TTY or IDLE <= MAX_IDLE
     if [ "$PROC_COUNT" -ge 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
         ACTIVE_SESSIONS=$((ACTIVE_SESSIONS + 1))
     fi
@@ -132,7 +134,7 @@ BEGIN {
     # Mark successful authentications per PID (skip line)
     if (match(msg,/Accepted (password|publickey) for ([[:alnum:]_.-]+)/,mA)) { accepted_pid[pid]=1; next }
 
-    # User-initiated aborts (client closed/reset before auth completes) – NOT failures
+    # User-initiated aborts (client closed/reset before auth completes) - not failures
     if (match(msg,/(Connection (closed|reset) by authenticating user|Disconnected from authenticating user)[[:space:]]+([[:alnum:]_.-]+)/,mAb)) {
         user=mAb[3]
         if (user in allow_map) wl_abort_total++; else nl_abort_total++
@@ -238,10 +240,12 @@ EXTRA=""
 [ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched fails (allowlist), "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
 [ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
-EXTRA=$(echo "$EXTRA" | $SED 's/, $//')
+EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA="; $EXTRA"
 
 # Perfdata
+AGE_CRIT_METRIC=0
+[ "$AGE_CRIT" = true ] && AGE_CRIT_METRIC=1
 PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
 PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT};;;;"
 PERF_DATA="$PERF_DATA fail_total=${FAIL_TOTAL};;;;"
@@ -250,7 +254,7 @@ PERF_DATA="$PERF_DATA fail_oth_total=${FAIL_OTH_TOTAL};;;;"
 PERF_DATA="$PERF_DATA fail_oth_unmatched=${FAIL_OTH_UNMATCHED};;;;"
 PERF_DATA="$PERF_DATA abort_wl=${ABORT_WL};;;;"
 PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH};;;;"
-PERF_DATA="$PERF_DATA age_crit=$([ "$AGE_CRIT" = true ] && echo 1 || echo 0);;;;"
+PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC};;;;"
 
 # Output for monitoring
 printf '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"

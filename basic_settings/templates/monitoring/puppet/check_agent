@@ -1,13 +1,14 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
 # Binary checks
-AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
@@ -17,6 +18,7 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
+# Emit the summary line and optional long output.
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
     printf '%s | %s\n' "$1" "$2"
@@ -39,8 +41,8 @@ while getopts "w:c:h" opt; do
     case "$opt" in
         w) WARN_AGE="$OPTARG" ;;
         c) CRIT_AGE="$OPTARG" ;;
-        h) echo "Usage: $0 [-w warn_seconds] [-c crit_seconds]"; exit 3 ;;
-        *) echo "Unknown option: -$OPTARG"; exit 3 ;;
+        h) printf '%s\n' "Usage: $0 [-w warn_seconds] [-c crit_seconds]"; exit 3 ;;
+        *) printf '%s\n' "Unknown option: -$OPTARG"; exit 3 ;;
     esac
 done
 
@@ -61,7 +63,7 @@ if [ -f "$LOCKFILE" ]; then
     # Try to extract the disabled message from the JSON lock file
     DISABLE_MSG=$($SED -n 's/.*"disabled_message"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' "$LOCKFILE")
     [ -z "$DISABLE_MSG" ] && DISABLE_MSG="no message"
-    printf "Puppet FAILED (agent disabled: %s)" "$DISABLE_MSG"
+    printf 'Puppet FAILED (agent disabled: %s)\n' "$DISABLE_MSG"
     exit 2
 fi
 
@@ -76,7 +78,7 @@ if [ ! -f "$SUMMARY_FILE" ]; then
     fi
 fi
 if [ ! -f "$SUMMARY_FILE" ]; then
-    printf "Puppet UNKNOWN (summary file not found)"
+    printf '%s\n' "Puppet UNKNOWN (summary file not found)"
     exit 3
 fi
 
@@ -109,10 +111,10 @@ PARSED="$($AWK 'BEGIN{
 )"
 
 # Split parsed pipeline into shell vars (ensure IFS before splitting)
+OLD_IFS=$IFS
 IFS='|'
 set -- $PARSED
-IFS=' 	
-'
+IFS=$OLD_IFS
 [ $# -lt 9 ] && die "failed to parse summary: $PARSED"
 
 # Combined assignment with defaults (leave LAST_RUN_TS empty if missing)

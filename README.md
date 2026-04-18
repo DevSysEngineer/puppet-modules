@@ -475,6 +475,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_puppet_agent](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/puppet/check_agent)
 - [check_rabbitmq](https://github.com/DevSysEngineer/puppet-modules/blob/main/rabbitmq/templates/check_rabbitmq)
 - [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
+- [check_systemd_config](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_config)
 - [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
 - [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
 - [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # ID, ID@HH:MM-HH:MM, VID:PID@HH:MM-HH:MM, of ID:HH:MM-HH:MM

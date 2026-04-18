@@ -1,0 +1,898 @@
+#!/bin/sh
+# Managed by puppet
+
+# Fail helper used for missing runtime dependencies.
+die() {
+    printf '%s\n' "$*" >&2
+    exit 3
+}
+
+# Binary checks required by this monitoring check.
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+FIND=$(command -v find 2>/dev/null) || die "find not available"
+GREP=$(command -v grep 2>/dev/null) || die "grep not available"
+SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
+SYSTEMD_ANALYZE=$(command -v systemd-analyze 2>/dev/null) || die "systemd-analyze not available"
+
+# Runtime options that control boot grace, output volume, and stricter reload handling.
+BOOT_GRACE=300
+MAX_VERIFY_LINES=80
+QUIET=0
+SHOW_RAW_VERIFY=0
+STRICT_RELOAD=0
+
+# Formatting sequences used when building multi-line detail sections.
+LINE_BREAK='\n'
+INDENT='    '
+
+# Search roots used to locate backing files, symlinks, or textual references for missing units.
+REFERENCE_SEARCH_ROOTS='/etc/systemd/system,/run/systemd/system,/run/systemd/generator,/run/systemd/generator.early,/run/systemd/generator.late,/usr/lib/systemd/system,/lib/systemd/system'
+
+# Known runtime quirk rules that should be treated as contextual findings.
+# Add a rule ID below and define its CLASS, UNIT, REFERENCE_PATTERN, and
+# optional REQUIRED_FILE variables to extend the matcher without new functions.
+KNOWN_RUNTIME_QUIRK_IDS='NETPLAN_OVS,RABBITMQ_EPMD'
+QUIRK_NETPLAN_OVS_CLASS='netplan-ovs-generated-reference'
+QUIRK_NETPLAN_OVS_UNIT='ovsdb-server.service'
+QUIRK_NETPLAN_OVS_REFERENCE_PATTERN='^/run/systemd/system/(systemd-networkd[.]service[.]wants/)?netplan-ovs-cleanup[.]service([:]|$)'
+QUIRK_NETPLAN_OVS_REQUIRED_FILE=''
+QUIRK_RABBITMQ_EPMD_CLASS='rabbitmq-epmd-socket-mismatch'
+QUIRK_RABBITMQ_EPMD_UNIT='epmd@0.0.0.0.socket'
+QUIRK_RABBITMQ_EPMD_REFERENCE_PATTERN='^/(usr/lib|lib)/systemd/system/rabbitmq-server[.]service([:]|$)'
+QUIRK_RABBITMQ_EPMD_REQUIRED_FILE='epmd.socket'
+
+# Collected systemd manager context and top-level state used in summary and perfdata.
+BOOT_GRACE_ACTIVE=U
+BAD_LOAD_UNITS=U
+CONTEXTUAL_NOT_FOUND_UNITS=0
+DAEMON_RELOAD_METRIC=U
+DEFAULT_TARGET=unknown
+DEFAULT_TARGET_VALID=0
+DEFAULT_TARGET_LOAD_STATE=unknown
+KNOWN_RUNTIME_QUIRK_COUNT=0
+MANAGER_STATE=unknown
+MANAGER_STATE_CODE=7
+NEED_DAEMON_RELOAD=unknown
+UPTIME_SECONDS=U
+
+# Verification state for `systemd-analyze verify` and the rendered detail output.
+VERIFY_COMMAND_MODE='verify'
+VERIFY_EXIT_NONZERO=U
+VERIFY_MESSAGES=U
+VERIFY_OUTPUT=''
+
+# Aggregated reasons collected while determining the final Nagios status.
+CRITICAL_REASONS=''
+UNKNOWN_REASONS=''
+WARNING_REASONS=''
+
+# Filter settings and grouped detail output for load and parser style failures.
+BAD_UNIT_FILTER='error,not-found,bad-setting'
+ACTIVE_DEPENDENCY_UNITS=''
+ACTIONABLE_BAD_SETTING_DETAILS=''
+ACTIONABLE_ERROR_DETAILS=''
+ACTIONABLE_NOT_FOUND_DETAILS=''
+ACTIONABLE_OTHER_DETAILS=''
+CONTEXTUAL_BAD_SETTING_DETAILS=''
+CONTEXTUAL_ERROR_DETAILS=''
+CONTEXTUAL_NOT_FOUND_DETAILS=''
+CONTEXTUAL_OTHER_DETAILS=''
+
+# Transient match state used while classifying known runtime quirks.
+MATCHED_RUNTIME_QUIRK_CLASS=''
+
+# Return codes captured from the external commands the check relies on.
+DEFAULT_TARGET_RC=U
+DEPENDENCY_TREE_RC=U
+LOAD_STATE_RC=U
+LIST_UNITS_RC=U
+MANAGER_STATE_RC=U
+NEED_DAEMON_RELOAD_RC=U
+VERIFY_RC=U
+
+# Print usage help for invalid command-line invocations.
+usage() {
+    printf '%s\n' "Usage: $0 [-g seconds] [-m lines] [-q] [--strict-reload] [--show-raw-verify]" >&2
+    exit 3
+}
+
+# Check whether a value contains only decimal digits.
+is_number() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Append a semicolon-separated reason to an existing summary string.
+append_reason() {
+    CURRENT_TEXT=$1
+    NEW_TEXT=$2
+
+    if [ -n "$CURRENT_TEXT" ]; then
+        printf '%s; %s\n' "$CURRENT_TEXT" "$NEW_TEXT"
+    else
+        printf '%s\n' "$NEW_TEXT"
+    fi
+}
+
+# Add one rendered unit line to the correct grouped detail bucket.
+append_detail_line() {
+    TARGET_NAME=$1
+    TARGET_LOAD=$2
+    TARGET_LINE=$3
+
+    case "$TARGET_LOAD" in
+        not-found)
+            TARGET_BUCKET='NOT_FOUND'
+            ;;
+        error)
+            TARGET_BUCKET='ERROR'
+            ;;
+        bad-setting)
+            TARGET_BUCKET='BAD_SETTING'
+            ;;
+        *)
+            TARGET_BUCKET='OTHER'
+            ;;
+    esac
+
+    case "$TARGET_NAME" in
+        actionable)
+            case "$TARGET_BUCKET" in
+                NOT_FOUND)
+                    if [ -n "$ACTIONABLE_NOT_FOUND_DETAILS" ]; then
+                        ACTIONABLE_NOT_FOUND_DETAILS="${ACTIONABLE_NOT_FOUND_DETAILS},${TARGET_LINE}"
+                    else
+                        ACTIONABLE_NOT_FOUND_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                ERROR)
+                    if [ -n "$ACTIONABLE_ERROR_DETAILS" ]; then
+                        ACTIONABLE_ERROR_DETAILS="${ACTIONABLE_ERROR_DETAILS},${TARGET_LINE}"
+                    else
+                        ACTIONABLE_ERROR_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                BAD_SETTING)
+                    if [ -n "$ACTIONABLE_BAD_SETTING_DETAILS" ]; then
+                        ACTIONABLE_BAD_SETTING_DETAILS="${ACTIONABLE_BAD_SETTING_DETAILS},${TARGET_LINE}"
+                    else
+                        ACTIONABLE_BAD_SETTING_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                *)
+                    if [ -n "$ACTIONABLE_OTHER_DETAILS" ]; then
+                        ACTIONABLE_OTHER_DETAILS="${ACTIONABLE_OTHER_DETAILS},${TARGET_LINE}"
+                    else
+                        ACTIONABLE_OTHER_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+            esac
+            ;;
+        contextual)
+            case "$TARGET_BUCKET" in
+                NOT_FOUND)
+                    if [ -n "$CONTEXTUAL_NOT_FOUND_DETAILS" ]; then
+                        CONTEXTUAL_NOT_FOUND_DETAILS="${CONTEXTUAL_NOT_FOUND_DETAILS},${TARGET_LINE}"
+                    else
+                        CONTEXTUAL_NOT_FOUND_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                ERROR)
+                    if [ -n "$CONTEXTUAL_ERROR_DETAILS" ]; then
+                        CONTEXTUAL_ERROR_DETAILS="${CONTEXTUAL_ERROR_DETAILS},${TARGET_LINE}"
+                    else
+                        CONTEXTUAL_ERROR_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                BAD_SETTING)
+                    if [ -n "$CONTEXTUAL_BAD_SETTING_DETAILS" ]; then
+                        CONTEXTUAL_BAD_SETTING_DETAILS="${CONTEXTUAL_BAD_SETTING_DETAILS},${TARGET_LINE}"
+                    else
+                        CONTEXTUAL_BAD_SETTING_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+                *)
+                    if [ -n "$CONTEXTUAL_OTHER_DETAILS" ]; then
+                        CONTEXTUAL_OTHER_DETAILS="${CONTEXTUAL_OTHER_DETAILS},${TARGET_LINE}"
+                    else
+                        CONTEXTUAL_OTHER_DETAILS=$TARGET_LINE
+                    fi
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+# Record a CRITICAL summary reason.
+add_critical() {
+    CRITICAL_REASONS=$(append_reason "$CRITICAL_REASONS" "$1")
+}
+
+# Record a WARNING summary reason.
+add_warning() {
+    WARNING_REASONS=$(append_reason "$WARNING_REASONS" "$1")
+}
+
+# Record an UNKNOWN summary reason.
+add_unknown() {
+    UNKNOWN_REASONS=$(append_reason "$UNKNOWN_REASONS" "$1")
+}
+
+# Map Nagios exit codes to their human-readable labels.
+status_label() {
+    case "$1" in
+        0) printf '%s\n' 'OK' ;;
+        1) printf '%s\n' 'WARNING' ;;
+        2) printf '%s\n' 'CRITICAL' ;;
+        *) printf '%s\n' 'UNKNOWN' ;;
+    esac
+}
+
+# Return the first whitespace-delimited word from command output.
+print_first_word() {
+    printf '%s\n' "$1" | "$AWK" 'NF { print $1; exit }'
+}
+
+# Normalise empty metrics to Nagios unknown marker `U`.
+metric_value() {
+    if [ -n "$1" ]; then
+        printf '%s' "$1"
+    else
+        printf '%s' 'U'
+    fi
+}
+
+# Append one unique reference path to the current comma-separated list.
+append_reference_path() {
+    NEW_REFERENCE=$1
+
+    case "$UNIT_REFERENCE_PATHS" in
+        '')
+            UNIT_REFERENCE_PATHS=$NEW_REFERENCE
+            ;;
+        *,"$NEW_REFERENCE",*|"$NEW_REFERENCE"|"$NEW_REFERENCE",*|*,"$NEW_REFERENCE")
+            ;;
+        *)
+            UNIT_REFERENCE_PATHS="${UNIT_REFERENCE_PATHS},${NEW_REFERENCE}"
+            ;;
+    esac
+}
+
+# Collect filesystem or content references that still mention the current unit.
+collect_reference_paths() {
+    OLD_IFS=$IFS
+    UNIT_REFERENCE_PATHS=''
+    IFS=','
+
+    for SEARCH_ROOT in $REFERENCE_SEARCH_ROOTS; do
+        [ -d "$SEARCH_ROOT" ] || continue
+
+        FOUND_NAME_PATHS=$("$FIND" "$SEARCH_ROOT" \( -type f -o -type l \) \( -name "$UNIT_NAME" -o -lname "*$UNIT_NAME" \) 2>/dev/null | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+        if [ -n "$FOUND_NAME_PATHS" ]; then
+            for FOUND_PATH in $FOUND_NAME_PATHS; do
+                [ -n "$FOUND_PATH" ] || continue
+                append_reference_path "$FOUND_PATH"
+            done
+        fi
+    done
+
+    if [ -n "$UNIT_REFERENCE_PATHS" ]; then
+        IFS=$OLD_IFS
+        return
+    fi
+
+    for SEARCH_ROOT in $REFERENCE_SEARCH_ROOTS; do
+        [ -d "$SEARCH_ROOT" ] || continue
+
+        FOUND_CONTENT_PATHS=$("$GREP" -R -n -F "$UNIT_NAME" "$SEARCH_ROOT" 2>/dev/null | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+        if [ -n "$FOUND_CONTENT_PATHS" ]; then
+            for FOUND_PATH in $FOUND_CONTENT_PATHS; do
+                [ -n "$FOUND_PATH" ] || continue
+                append_reference_path "$FOUND_PATH"
+            done
+        fi
+    done
+
+    IFS=$OLD_IFS
+}
+
+# Render the collected reference list as an indented multiline bullet block.
+format_reference_paths() {
+    if [ -n "$1" ]; then
+        printf '%s\n' "$1" | "$AWK" -F',' -v indent="$INDENT" '
+            {
+                for (field_index = 1; field_index <= NF; field_index++) {
+                    if ($field_index == "") {
+                        continue
+                    }
+                    if (count > 0) {
+                        printf "\\n"
+                    }
+                    printf "%s- %s", indent, $field_index
+                    count++
+                }
+            }
+        '
+    fi
+}
+
+# Print a comma-separated detail bucket as individual rendered lines.
+print_detail_block() {
+    OLD_IFS=$IFS
+    IFS=','
+
+    for DETAIL_LINE in $1; do
+        [ -n "$DETAIL_LINE" ] || continue
+        printf '%b\n' "$DETAIL_LINE"
+    done
+
+    IFS=$OLD_IFS
+}
+
+# Extract one named property from `systemctl show` style key=value output.
+get_show_property() {
+    printf '%s\n' "$1" | "$AWK" -v key="$2" 'index($0, key "=") == 1 { sub(/^[^=]*=/, ""); print; exit }'
+}
+
+# Check whether every collected reference path matches the supplied AWK regex.
+reference_paths_match_pattern() {
+    [ -n "$UNIT_REFERENCE_PATHS" ] || return 1
+
+    printf '%s\n' "$UNIT_REFERENCE_PATHS" | "$AWK" -F',' -v pattern="$1" '
+        {
+            for (field_index = 1; field_index <= NF; field_index++) {
+                if ($field_index == "") {
+                    continue
+                }
+                count++
+                if ($field_index !~ pattern) {
+                    bad = 1
+                }
+            }
+        }
+        END {
+            exit(count > 0 && !bad ? 0 : 1)
+        }
+    '
+}
+
+# Check whether a helper file exists in any configured systemd search root.
+search_roots_contain_file() {
+    OLD_IFS=$IFS
+    IFS=','
+    for SEARCH_ROOT in $REFERENCE_SEARCH_ROOTS; do
+        if [ -f "${SEARCH_ROOT}/$1" ]; then
+            IFS=$OLD_IFS
+            return 0
+        fi
+    done
+    IFS=$OLD_IFS
+    return 1
+}
+
+# Match the current unit against the configurable list of known runtime quirks.
+match_known_runtime_quirk() {
+    OLD_IFS=$IFS
+    MATCHED_RUNTIME_QUIRK_CLASS=''
+    IFS=','
+
+    for QUIRK_ID in $KNOWN_RUNTIME_QUIRK_IDS; do
+        [ -n "$QUIRK_ID" ] || continue
+
+        eval "QUIRK_CLASS=\${QUIRK_${QUIRK_ID}_CLASS}"
+        eval "QUIRK_UNIT=\${QUIRK_${QUIRK_ID}_UNIT}"
+        eval "QUIRK_REFERENCE_PATTERN=\${QUIRK_${QUIRK_ID}_REFERENCE_PATTERN}"
+        eval "QUIRK_REQUIRED_FILE=\${QUIRK_${QUIRK_ID}_REQUIRED_FILE}"
+
+        [ "$UNIT_NAME" = "$QUIRK_UNIT" ] || continue
+
+        if [ -n "$QUIRK_REQUIRED_FILE" ]; then
+            search_roots_contain_file "$QUIRK_REQUIRED_FILE" || continue
+        fi
+
+        reference_paths_match_pattern "$QUIRK_REFERENCE_PATTERN" || continue
+        MATCHED_RUNTIME_QUIRK_CLASS=$QUIRK_CLASS
+        IFS=$OLD_IFS
+        return 0
+    done
+
+    IFS=$OLD_IFS
+    return 1
+}
+
+# Render grouped detail buckets with optional suppression of duplicate headers.
+print_grouped_details() {
+    GROUP_NOT_FOUND=$1
+    GROUP_ERROR=$2
+    GROUP_BAD_SETTING=$3
+    GROUP_OTHER=$4
+    SUPPRESS_SINGLE_NOT_FOUND_HEADER=$5
+    GROUP_COUNT=0
+
+    [ -n "$GROUP_NOT_FOUND" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
+    [ -n "$GROUP_ERROR" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
+    [ -n "$GROUP_BAD_SETTING" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
+    [ -n "$GROUP_OTHER" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
+
+    if [ -n "$GROUP_NOT_FOUND" ]; then
+        printf '%s\n' ""
+        if [ "$SUPPRESS_SINGLE_NOT_FOUND_HEADER" != '1' ] || [ "$GROUP_COUNT" -gt 1 ]; then
+            printf '%s\n' 'not-found:'
+        fi
+        print_detail_block "$GROUP_NOT_FOUND"
+    fi
+
+    if [ -n "$GROUP_ERROR" ]; then
+        printf '%s\n' ""
+        printf '%s\n' 'error:'
+        print_detail_block "$GROUP_ERROR"
+    fi
+
+    if [ -n "$GROUP_BAD_SETTING" ]; then
+        printf '%s\n' ""
+        printf '%s\n' 'bad-setting:'
+        print_detail_block "$GROUP_BAD_SETTING"
+    fi
+
+    if [ -n "$GROUP_OTHER" ]; then
+        printf '%s\n' ""
+        printf '%s\n' 'other:'
+        print_detail_block "$GROUP_OTHER"
+    fi
+}
+
+# Check whether the verify output explicitly mentions the current unit.
+verify_mentions_unit() {
+    [ -n "$VERIFY_OUTPUT" ] || return 1
+    printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" -v unit="$1" 'index($0, unit) { found = 1; exit } END { exit(found ? 0 : 1) }'
+}
+
+# Check whether the default target dependency tree includes the current unit.
+dependency_tree_mentions_unit() {
+    [ -n "$ACTIVE_DEPENDENCY_UNITS" ] || return 1
+    printf '%s\n' "$ACTIVE_DEPENDENCY_UNITS" | "$AWK" -F',' -v unit="$1" '
+        {
+            for (field_index = 1; field_index <= NF; field_index++) {
+                if ($field_index == unit) {
+                    found = 1
+                    exit
+                }
+            }
+        }
+        END { exit(found ? 0 : 1) }
+    '
+}
+
+# Recognise systemd special placeholder units that are expected to be missing.
+is_special_placeholder_unit() {
+    case "$1" in
+        display-manager.service|syslog.service|syslog.socket|syslog.target)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Recognise enable states that indicate an explicitly configured unit reference.
+is_explicit_enable_state() {
+    case "$1" in
+        enabled|enabled-runtime|linked|linked-runtime|generated|transient)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Inspect each bad-load unit and classify it as actionable or contextual.
+inspect_bad_units() {
+    OLD_IFS=$IFS
+    IFS=','
+
+    for UNIT_LINE in $LIST_UNITS_RAW; do
+        UNIT_NAME=$(printf '%s\n' "$UNIT_LINE" | "$AWK" 'NF { print $1; exit }')
+        [ -n "$UNIT_NAME" ] || continue
+
+        UNIT_LIST_LOAD_STATE=$(printf '%s\n' "$UNIT_LINE" | "$AWK" 'NF { print $2; exit }')
+        UNIT_SHOW=$("$SYSTEMCTL" show "$UNIT_NAME" -p LoadState -p FragmentPath -p SourcePath -p Where -p What 2>/dev/null || true)
+        UNIT_ENABLE_STATE_RAW=$("$SYSTEMCTL" is-enabled "$UNIT_NAME" 2>/dev/null || true)
+
+        UNIT_LOAD_STATE=$(get_show_property "$UNIT_SHOW" LoadState)
+        [ -n "$UNIT_LOAD_STATE" ] || UNIT_LOAD_STATE=$UNIT_LIST_LOAD_STATE
+        UNIT_FRAGMENT_PATH=$(get_show_property "$UNIT_SHOW" FragmentPath)
+        UNIT_SOURCE_PATH=$(get_show_property "$UNIT_SHOW" SourcePath)
+        UNIT_WHERE=$(get_show_property "$UNIT_SHOW" Where)
+        UNIT_WHAT=$(get_show_property "$UNIT_SHOW" What)
+        UNIT_ENABLE_STATE=$(print_first_word "$UNIT_ENABLE_STATE_RAW")
+        UNIT_SUFFIX=${UNIT_NAME##*.}
+        UNIT_CLASS='actionable'
+        UNIT_ACTIONABLE=1
+        UNIT_REFERENCE_PATHS=''
+
+        case "$UNIT_LOAD_STATE" in
+            error)
+                UNIT_CLASS='load-error'
+                ;;
+            bad-setting)
+                UNIT_CLASS='bad-setting'
+                ;;
+            not-found)
+                if is_special_placeholder_unit "$UNIT_NAME"; then
+                    UNIT_CLASS='special-placeholder'
+                    UNIT_ACTIONABLE=0
+                elif [ "$UNIT_SUFFIX" = 'mount' ] && [ -z "$UNIT_FRAGMENT_PATH$UNIT_SOURCE_PATH$UNIT_WHERE$UNIT_WHAT" ]; then
+                    UNIT_CLASS='implicit-mount-dependency'
+                    UNIT_ACTIONABLE=0
+                elif verify_mentions_unit "$UNIT_NAME"; then
+                    UNIT_CLASS='verify-reference'
+                elif [ -n "$UNIT_FRAGMENT_PATH" ] || [ -n "$UNIT_SOURCE_PATH" ]; then
+                    UNIT_CLASS='missing-fragment'
+                elif is_explicit_enable_state "$UNIT_ENABLE_STATE"; then
+                    UNIT_CLASS='enabled-missing-unit'
+                elif dependency_tree_mentions_unit "$UNIT_NAME"; then
+                    UNIT_CLASS='dependency-not-found'
+                else
+                    UNIT_CLASS='unbacked-not-found'
+                    UNIT_ACTIONABLE=0
+                fi
+                ;;
+            *)
+                UNIT_CLASS='unexpected-load-state'
+                ;;
+        esac
+
+        if [ -z "$UNIT_FRAGMENT_PATH$UNIT_SOURCE_PATH" ]; then
+            collect_reference_paths
+        fi
+
+        if [ "$UNIT_LOAD_STATE" = 'not-found' ] && [ "$UNIT_ACTIONABLE" -eq 1 ]; then
+            if match_known_runtime_quirk; then
+                UNIT_CLASS=$MATCHED_RUNTIME_QUIRK_CLASS
+                UNIT_ACTIONABLE=0
+                KNOWN_RUNTIME_QUIRK_COUNT=$((KNOWN_RUNTIME_QUIRK_COUNT + 1))
+            fi
+        fi
+
+        UNIT_DETAIL="- ${UNIT_NAME}; class=${UNIT_CLASS}"
+        if [ -n "$UNIT_REFERENCE_PATHS" ]; then
+            UNIT_DETAIL="${UNIT_DETAIL}; referenced_by:${LINE_BREAK}$(format_reference_paths "$UNIT_REFERENCE_PATHS")"
+        fi
+
+        if [ "$UNIT_ACTIONABLE" -eq 1 ]; then
+            BAD_LOAD_UNITS=$((BAD_LOAD_UNITS + 1))
+            append_detail_line actionable "$UNIT_LOAD_STATE" "$UNIT_DETAIL"
+        else
+            CONTEXTUAL_NOT_FOUND_UNITS=$((CONTEXTUAL_NOT_FOUND_UNITS + 1))
+            append_detail_line contextual "$UNIT_LOAD_STATE" "$UNIT_DETAIL"
+        fi
+    done
+
+    IFS=$OLD_IFS
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -g)
+            [ $# -ge 2 ] || usage
+            BOOT_GRACE=$2
+            shift 2
+            ;;
+        -m)
+            [ $# -ge 2 ] || usage
+            MAX_VERIFY_LINES=$2
+            shift 2
+            ;;
+        -q)
+            QUIET=1
+            shift
+            ;;
+        --strict-reload)
+            STRICT_RELOAD=1
+            shift
+            ;;
+        --show-raw-verify)
+            SHOW_RAW_VERIFY=1
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            usage
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+[ $# -eq 0 ] || usage
+is_number "$BOOT_GRACE" || usage
+is_number "$MAX_VERIFY_LINES" || usage
+
+if [ -r /proc/uptime ]; then
+    IFS=' ' read -r UPTIME_RAW _ </proc/uptime
+    case "$UPTIME_RAW" in
+        ''|*[!0-9.]*)
+            UPTIME_SECONDS=U
+            BOOT_GRACE_ACTIVE=U
+            ;;
+        *)
+            UPTIME_SECONDS=${UPTIME_RAW%%.*}
+            if [ -n "$UPTIME_SECONDS" ] && is_number "$UPTIME_SECONDS"; then
+                if [ "$UPTIME_SECONDS" -lt "$BOOT_GRACE" ]; then
+                    BOOT_GRACE_ACTIVE=1
+                else
+                    BOOT_GRACE_ACTIVE=0
+                fi
+            else
+                UPTIME_SECONDS=U
+                BOOT_GRACE_ACTIVE=U
+            fi
+            ;;
+    esac
+fi
+
+MANAGER_STATE_RAW=$("$SYSTEMCTL" is-system-running 2>/dev/null)
+MANAGER_STATE_RC=$?
+MANAGER_STATE=$(print_first_word "$MANAGER_STATE_RAW")
+[ -n "$MANAGER_STATE" ] || MANAGER_STATE=unknown
+
+case "$MANAGER_STATE" in
+    running) MANAGER_STATE_CODE=0 ;;
+    degraded) MANAGER_STATE_CODE=1 ;;
+    starting) MANAGER_STATE_CODE=2 ;;
+    initializing) MANAGER_STATE_CODE=3 ;;
+    stopping) MANAGER_STATE_CODE=4 ;;
+    maintenance) MANAGER_STATE_CODE=5 ;;
+    offline) MANAGER_STATE_CODE=6 ;;
+    unknown) MANAGER_STATE_CODE=7 ;;
+    *) MANAGER_STATE_CODE=8 ;;
+esac
+
+if [ -z "$MANAGER_STATE_RAW" ] && [ "$MANAGER_STATE_RC" -ne 0 ]; then
+    add_unknown 'manager state unavailable'
+fi
+
+DEFAULT_TARGET_RAW=$("$SYSTEMCTL" get-default 2>/dev/null)
+DEFAULT_TARGET_RC=$?
+DEFAULT_TARGET=$(print_first_word "$DEFAULT_TARGET_RAW")
+
+if [ "$DEFAULT_TARGET_RC" -ne 0 ] || [ -z "$DEFAULT_TARGET" ]; then
+    DEFAULT_TARGET=unknown
+    add_unknown 'default target unavailable'
+else
+    case "$DEFAULT_TARGET" in
+        *.target)
+            DEFAULT_TARGET_VALID=1
+            ;;
+        *)
+            add_critical "default target invalid (${DEFAULT_TARGET})"
+            ;;
+    esac
+fi
+
+if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
+    LOAD_STATE_RAW=$("$SYSTEMCTL" show -p LoadState --value "$DEFAULT_TARGET" 2>/dev/null)
+    LOAD_STATE_RC=$?
+    DEFAULT_TARGET_LOAD_STATE=$(print_first_word "$LOAD_STATE_RAW")
+
+    if [ "$LOAD_STATE_RC" -ne 0 ] || [ -z "$DEFAULT_TARGET_LOAD_STATE" ]; then
+        DEFAULT_TARGET_LOAD_STATE=unknown
+        add_unknown 'default target LoadState unavailable'
+    elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
+        add_critical "default target load=${DEFAULT_TARGET_LOAD_STATE}"
+    fi
+
+    NEED_DAEMON_RELOAD_RAW=$("$SYSTEMCTL" show -p NeedDaemonReload --value "$DEFAULT_TARGET" 2>/dev/null)
+    NEED_DAEMON_RELOAD_RC=$?
+    NEED_DAEMON_RELOAD=$(print_first_word "$NEED_DAEMON_RELOAD_RAW")
+
+    case "$NEED_DAEMON_RELOAD" in
+        yes)
+            DAEMON_RELOAD_METRIC=1
+            if [ "$STRICT_RELOAD" -eq 1 ]; then
+                add_critical 'daemon_reload=yes'
+            else
+                add_warning 'daemon_reload=yes'
+            fi
+            ;;
+        no)
+            DAEMON_RELOAD_METRIC=0
+            ;;
+        *)
+            NEED_DAEMON_RELOAD=unknown
+            add_unknown 'NeedDaemonReload unavailable'
+            ;;
+    esac
+fi
+
+# Fall back to plain verify on older systemd releases that lack
+# --recursive-errors=yes, while preferring the stricter path when available.
+VERIFY_HELP=$("$SYSTEMD_ANALYZE" verify --help 2>&1 || true)
+printf '%s\n' "$VERIFY_HELP" | "$AWK" 'index($0, "recursive-errors") { found = 1 } END { exit(found ? 0 : 1) }'
+if [ $? -eq 0 ]; then
+    VERIFY_COMMAND_MODE='verify --recursive-errors=yes'
+    VERIFY_SUPPORTS_RECURSIVE=1
+else
+    VERIFY_COMMAND_MODE='verify'
+    VERIFY_SUPPORTS_RECURSIVE=0
+fi
+
+if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
+    if [ "$VERIFY_SUPPORTS_RECURSIVE" -eq 1 ]; then
+        VERIFY_OUTPUT=$("$SYSTEMD_ANALYZE" verify --recursive-errors=yes "$DEFAULT_TARGET" 2>&1)
+    else
+        VERIFY_OUTPUT=$("$SYSTEMD_ANALYZE" verify "$DEFAULT_TARGET" 2>&1)
+    fi
+    VERIFY_RC=$?
+
+    if [ "$VERIFY_RC" -ne 0 ]; then
+        VERIFY_EXIT_NONZERO=1
+        add_critical 'verify failed'
+    else
+        VERIFY_EXIT_NONZERO=0
+    fi
+
+    VERIFY_MESSAGES=$(printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" 'NF { count++ } END { print count + 0 }')
+fi
+
+if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
+    ACTIVE_DEPENDENCY_RAW=$("$SYSTEMCTL" list-dependencies --plain --all --no-legend "$DEFAULT_TARGET" 2>/dev/null)
+    DEPENDENCY_TREE_RC=$?
+    if [ "$DEPENDENCY_TREE_RC" -eq 0 ]; then
+        ACTIVE_DEPENDENCY_UNITS=$(printf '%s\n' "$ACTIVE_DEPENDENCY_RAW" | "$AWK" 'NF { if (count) printf ","; printf "%s", $1; count++ }')
+    fi
+fi
+
+# This scan is intentionally limited to load and parser style failures, not
+# general runtime state, to keep the check scoped to systemd configuration.
+LIST_UNITS_OUTPUT=$("$SYSTEMCTL" list-units --all --plain --no-legend --no-pager --state="$BAD_UNIT_FILTER" 2>/dev/null)
+LIST_UNITS_RC=$?
+LIST_UNITS_RAW=$(printf '%s\n' "$LIST_UNITS_OUTPUT" | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+
+if [ "$LIST_UNITS_RC" -ne 0 ]; then
+    add_unknown 'bad-load unit scan failed'
+else
+    BAD_LOAD_UNITS=0
+    inspect_bad_units
+    if [ "$BAD_LOAD_UNITS" -gt 0 ]; then
+        add_critical 'load/config errors detected'
+    fi
+fi
+
+# Manager state is contextual only here. Boot grace softens transitional states,
+# but never suppresses real config or load errors collected above.
+case "$MANAGER_STATE" in
+    degraded|maintenance)
+        add_warning "manager_state=${MANAGER_STATE}"
+        ;;
+    starting|initializing|stopping)
+        if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
+            :
+        else
+            add_warning "manager_state=${MANAGER_STATE}"
+        fi
+        ;;
+    offline|unknown)
+        if [ -n "$UNKNOWN_REASONS" ]; then
+            :
+        else
+            add_warning "manager_state=${MANAGER_STATE}"
+        fi
+        ;;
+    running)
+        :
+        ;;
+    *)
+        add_warning "manager_state=${MANAGER_STATE}"
+        ;;
+esac
+
+if [ -n "$CRITICAL_REASONS" ]; then
+    STATE=2
+    SUMMARY_BASE='systemd configuration invalid'
+    SUMMARY_REASONS=$CRITICAL_REASONS
+    if [ -n "$WARNING_REASONS" ]; then
+        SUMMARY_REASONS=$(append_reason "$SUMMARY_REASONS" "$WARNING_REASONS")
+    fi
+elif [ -n "$UNKNOWN_REASONS" ]; then
+    STATE=3
+    SUMMARY_BASE='systemd configuration check inconclusive'
+    SUMMARY_REASONS=$UNKNOWN_REASONS
+    if [ -n "$WARNING_REASONS" ]; then
+        SUMMARY_REASONS=$(append_reason "$SUMMARY_REASONS" "$WARNING_REASONS")
+    fi
+elif [ -n "$WARNING_REASONS" ]; then
+    STATE=1
+    SUMMARY_BASE='systemd configuration needs attention'
+    SUMMARY_REASONS=$WARNING_REASONS
+else
+    STATE=0
+    SUMMARY_BASE='systemd configuration valid'
+    SUMMARY_REASONS=''
+fi
+
+if [ -n "$SUMMARY_REASONS" ]; then
+    SUMMARY="${SUMMARY_BASE}; ${SUMMARY_REASONS}"
+else
+    SUMMARY=$SUMMARY_BASE
+fi
+
+PERFDATA="manager_state_code=$(metric_value "$MANAGER_STATE_CODE")"
+PERFDATA="${PERFDATA} bad_load_units=$(metric_value "$BAD_LOAD_UNITS")"
+PERFDATA="${PERFDATA} contextual_not_found_units=$(metric_value "$CONTEXTUAL_NOT_FOUND_UNITS")"
+PERFDATA="${PERFDATA} known_runtime_quirks=$(metric_value "$KNOWN_RUNTIME_QUIRK_COUNT")"
+PERFDATA="${PERFDATA} daemon_reload=$(metric_value "$DAEMON_RELOAD_METRIC")"
+PERFDATA="${PERFDATA} verify_exit_nonzero=$(metric_value "$VERIFY_EXIT_NONZERO")"
+PERFDATA="${PERFDATA} verify_messages=$(metric_value "$VERIFY_MESSAGES")"
+PERFDATA="${PERFDATA} boot_grace_active=$(metric_value "$BOOT_GRACE_ACTIVE")"
+PERFDATA="${PERFDATA} uptime_seconds=$(metric_value "$UPTIME_SECONDS")"
+
+printf '%s - %s | %s\n' "$(status_label "$STATE")" "$SUMMARY" "$PERFDATA"
+
+if [ "$QUIET" -eq 1 ]; then
+    exit "$STATE"
+fi
+
+if is_number "$UPTIME_SECONDS"; then
+    UPTIME_TEXT="${UPTIME_SECONDS}s"
+else
+    UPTIME_TEXT='unknown'
+fi
+
+case "$BOOT_GRACE_ACTIVE" in
+    0) BOOT_GRACE_TEXT="no (threshold ${BOOT_GRACE}s)" ;;
+    1) BOOT_GRACE_TEXT="yes (threshold ${BOOT_GRACE}s)" ;;
+    *) BOOT_GRACE_TEXT="unknown (threshold ${BOOT_GRACE}s)" ;;
+esac
+
+printf '%s\n' "Manager state: ${MANAGER_STATE}"
+printf '%s\n' "Uptime: ${UPTIME_TEXT}"
+printf '%s\n' "Boot grace active: ${BOOT_GRACE_TEXT}"
+printf '%s\n' "Default target: ${DEFAULT_TARGET}"
+printf '%s\n' "Default target LoadState: ${DEFAULT_TARGET_LOAD_STATE}"
+printf '%s\n' "Need daemon reload: ${NEED_DAEMON_RELOAD}"
+printf '%s\n' "Unit state filter: ${BAD_UNIT_FILTER}"
+printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
+printf '%s\n' ""
+
+if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$BAD_LOAD_UNITS" -gt 0 ]; then
+    printf '%s\n' "Actionable units with load/config errors (${BAD_LOAD_UNITS}):"
+    print_grouped_details "$ACTIONABLE_NOT_FOUND_DETAILS" "$ACTIONABLE_ERROR_DETAILS" "$ACTIONABLE_BAD_SETTING_DETAILS" "$ACTIONABLE_OTHER_DETAILS" 0
+elif [ "$LIST_UNITS_RC" -eq 0 ]; then
+    printf '%s\n' 'Actionable units with load/config errors: none'
+else
+    printf '%s\n' 'Actionable units with load/config errors: unavailable'
+fi
+
+if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
+    printf '%s\n' ""
+    printf '%s\n' "Contextual not-found units not counted as config errors (${CONTEXTUAL_NOT_FOUND_UNITS}):"
+    print_grouped_details "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
+fi
+
+printf '%s\n' ""
+
+if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
+    printf '%s\n' 'systemd-analyze verify output: skipped because the default target is invalid'
+elif [ "$VERIFY_MESSAGES" = 'U' ]; then
+    printf '%s\n' 'systemd-analyze verify output: unavailable'
+elif [ "$VERIFY_MESSAGES" -eq 0 ]; then
+    printf '%s\n' 'systemd-analyze verify output: no messages'
+elif [ "$SHOW_RAW_VERIFY" -eq 1 ] || [ "$VERIFY_MESSAGES" -le "$MAX_VERIFY_LINES" ]; then
+    printf '%s\n' "systemd-analyze verify output (${VERIFY_MESSAGES} lines):"
+    printf '%s\n' "$VERIFY_OUTPUT"
+else
+    printf '%s\n' "systemd-analyze verify output (first ${MAX_VERIFY_LINES} of ${VERIFY_MESSAGES} lines):"
+    printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
+    printf '%s\n' '[truncated]'
+fi
+
+exit "$STATE"

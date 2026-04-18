@@ -1,8 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -14,26 +15,30 @@ MYSQLADMIN=$(command -v mysqladmin 2>/dev/null) || die "mysqladmin not available
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
+# Run a command quietly and return its original exit code.
 run() {
     "$@" 2>/dev/null
 }
 
+# Convert empty or non-numeric input to zero.
 parse_to_int() {
     case "$1" in
-        ''|*[!0-9]*) echo 0 ;;
-        *)           echo "$1" ;;
+        ''|*[!0-9]*) printf '%s\n' 0 ;;
+        *)           printf '%s\n' "$1" ;;
     esac
 }
 
+# Extract one mysqladmin field by name from a pipe table.
 get_field() {
     NEEDLE="$1"
     INPUT="$2"
-    echo "$INPUT" | $AWK -F'|' -v n="$NEEDLE" '
+    printf '%s\n' "$INPUT" | $AWK -F'|' -v n="$NEEDLE" '
     {
         gsub(/^ +| +$/, "", $2)  # trim column
         gsub(/^ +| +$/, "", $3)  # trim value
@@ -41,17 +46,20 @@ get_field() {
     }'
 }
 
+# Read one extended-status field from the cached output.
 sf()  { get_field "$1" "$STATUS_OUT"; }
+
+# Read one variables field from the cached output.
 var() { get_field "$1" "$VAR_OUT"; }
 
 # Set some values
 DEFAULTS_FILE="/etc/mysql/debian.cnf"
-WARN_CONN_CURR_PCT=90   # WARNING when current connections ≥90 %
-CRIT_CONN_CURR_PCT=95   # CRITICAL at 95 %
-WARN_CONN_PEAK_PCT=90   # WARNING when historical peak ≥90 %
-CRIT_CONN_PEAK_PCT=95   # CRITICAL at 95 %
-WARN_HIT_PCT=95         # WARNING when buffer‑hit <95 %
-CRIT_HIT_PCT=90         # CRITICAL when buffer‑hit <90 %
+WARN_CONN_CURR_PCT=90   # WARNING when current connections >= 90%
+CRIT_CONN_CURR_PCT=95   # CRITICAL at 95%
+WARN_CONN_PEAK_PCT=90   # WARNING when historical peak >= 90%
+CRIT_CONN_PEAK_PCT=95   # CRITICAL at 95%
+WARN_HIT_PCT=95         # WARNING when buffer hit < 95%
+CRIT_HIT_PCT=90         # CRITICAL when buffer hit < 90%
 STATE_CODE=0
 ISSUES=""
 
@@ -72,11 +80,11 @@ $SYSTEMDCTL is-active --quiet "mysql.service" || crit "MySQL service is not acti
 
 <% end -%>
 # Check if mysql is running
-run $MYSQLADMIN --defaults-file="$DEFAULTS_FILE" ping >/dev/null || crit "MySQL service running but not responding"
+run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" ping >/dev/null || crit "MySQL service running but not responding"
 
 # Try to get data
-STATUS_OUT=$(run $MYSQLADMIN --defaults-file="$DEFAULTS_FILE" extended-status) || die "Cannot read extended-status"
-VAR_OUT=$(run $MYSQLADMIN --defaults-file="$DEFAULTS_FILE" variables)        || die "Cannot read variables"
+STATUS_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" extended-status) || die "Cannot read extended-status"
+VAR_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" variables) || die "Cannot read variables"
 
 # Parse data
 THREADS_CONNECTED=$(parse_to_int "$(sf Threads_connected)")
@@ -93,7 +101,7 @@ BUF_PAGES_TOTAL=$(parse_to_int "$(sf Innodb_buffer_pool_pages_total)")
 
 # Derive metrics
 if [ "$BUF_READ_REQ" -gt 0 ]; then
-    HIT_RATE_PCT=$(echo "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
+    HIT_RATE_PCT=$(printf '%s\n' "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
 else
     HIT_RATE_PCT="N/A"
 fi
@@ -125,14 +133,14 @@ if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     CRIT_PEAK_ABS=$((MAX_CONNECTIONS * CRIT_CONN_PEAK_PCT / 100))
 else
     STATE_CODE=3
-    ISSUES="Max connection is zero (UNKN))."
+    ISSUES="Max connection is zero (UNKNOWN)."
     WARN_CURR_ABS=""
     CRIT_CURR_ABS=""
     WARN_PEAK_ABS=""
     CRIT_PEAK_ABS=""
 fi
 
-# Check if hit ratw is given
+# Check if hit rate is given
 if [ "$HIT_RATE_PCT" != "N/A" ]; then
     INT_HIT=${HIT_RATE_PCT%.*}
     if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then

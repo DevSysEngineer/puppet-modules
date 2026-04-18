@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -17,10 +17,12 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
+# Print usage and exit with UNKNOWN.
 usage() {
     die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
 }
 
+# Convert HH:MM to minutes since midnight.
 hm2min() {
     H=${1%:*}
     M=${1#*:}
@@ -30,9 +32,10 @@ hm2min() {
     [ -z "$M" ] && M=0
     case "$H" in (*[!0-9]*) H=0 ;; esac
     case "$M" in (*[!0-9]*) M=0 ;; esac
-    echo $(( H*60 + M ))
+    printf '%s\n' "$(( H*60 + M ))"
 }
 
+# Check whether the current time falls within one window.
 in_window() {
     WIN="$1"
     START=${WIN%-*}
@@ -42,37 +45,39 @@ in_window() {
 
     if [ "$S" -le "$E" ]; then
         if [ "$NOW_MIN" -ge "$S" ] && [ "$NOW_MIN" -le "$E" ]; then
-            echo 1
+            printf '%s\n' 1
         else
-            echo 0
+            printf '%s\n' 0
         fi
     else
         # window spans midnight
         if [ "$NOW_MIN" -ge "$S" ] || [ "$NOW_MIN" -le "$E" ]; then
-            echo 1
+            printf '%s\n' 1
         else
-            echo 0
+            printf '%s\n' 0
         fi
     fi
 }
 
+# Convert a day name or number to systemd weekday numbering.
 day_to_num() {
     d=$(printf '%s' "$1" | $TR 'A-Z' 'a-z')
     case "$d" in
-        1|mon|monday) echo 1 ;;
-        2|tue|tues|tuesday) echo 2 ;;
-        3|wed|weds|wednesday) echo 3 ;;
-        4|thu|thur|thurs|thursday) echo 4 ;;
-        5|fri|friday) echo 5 ;;
-        6|sat|saturday) echo 6 ;;
-        0|7|sun|sunday) echo 7 ;;
-        *) echo "" ;;
+        1|mon|monday) printf '%s\n' 1 ;;
+        2|tue|tues|tuesday) printf '%s\n' 2 ;;
+        3|wed|weds|wednesday) printf '%s\n' 3 ;;
+        4|thu|thur|thurs|thursday) printf '%s\n' 4 ;;
+        5|fri|friday) printf '%s\n' 5 ;;
+        6|sat|saturday) printf '%s\n' 6 ;;
+        0|7|sun|sunday) printf '%s\n' 7 ;;
+        *) printf '\n' ;;
     esac
 }
 
+# Check whether the current weekday matches one dayspec token list.
 day_in_spec() {
     SPEC="$1"
-    [ -z "$SPEC" ] && { echo 1; return; }
+    [ -z "$SPEC" ] && { printf '%s\n' 1; return; }
     SPEC_N=$(printf '%s' "$SPEC" | $TR ',' ' ')
 
     for PART in $SPEC_N; do
@@ -87,24 +92,24 @@ day_in_spec() {
 
                 if [ "$SN" -le "$EN" ]; then
                     if [ "$DOW" -ge "$SN" ] && [ "$DOW" -le "$EN" ]; then
-                        echo 1
+                        printf '%s\n' 1
                         return
                     fi
                 else
                     # range wraps across week boundary
                     if [ "$DOW" -ge "$SN" ] || [ "$DOW" -le "$EN" ]; then
-                        echo 1
+                        printf '%s\n' 1
                         return
                     fi
                 fi
                 ;;
             *)
                 PN=$(day_to_num "$PART_L")
-                [ -n "$PN" ] && [ "$DOW" -eq "$PN" ] && { echo 1; return; }
+                [ -n "$PN" ] && [ "$DOW" -eq "$PN" ] && { printf '%s\n' 1; return; }
                 ;;
         esac
     done
-    echo 0
+    printf '%s\n' 0
 }
 
 # Config (override via env and/or CLI opts)
@@ -154,7 +159,7 @@ fi
 # Current time info
 NOW_TS=$($DATE +%s)
 NOW_HM=$($DATE +%H:%M)
-DOW=$($DATE +%u 2>/dev/null || echo 0)  # 1=Mon .. 7=Sun
+DOW=$($DATE +%u 2>/dev/null || printf '0')  # 1=Mon .. 7=Sun
 NOW_MIN=$(hm2min "$NOW_HM")
 
 # Check active days
@@ -218,16 +223,16 @@ LOAD_STATE=$(get_prop LoadState)
 
 # Check existence and load state
 if [ -z "$LOAD_STATE" ] || [ "$LOAD_STATE" = "not-found" ]; then
-    echo "${SERVICE_UNIT} does not exist | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    printf '%s\n' "${SERVICE_UNIT} does not exist | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 
 # Not loaded
 if [ "$OUTSIDE_SUPPRESS" = "1" ] && [ "$LOAD_STATE" != "loaded" ]; then
-    echo "${SERVICE_UNIT} OK - outside schedule (${SUPPRESS_REASON:-outside}); unit not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    printf '%s\n' "${SERVICE_UNIT} OK - outside schedule (${SUPPRESS_REASON:-outside}); unit not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 0
 elif [ "$LOAD_STATE" != "loaded" ]; then
-    echo "${SERVICE_UNIT} not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    printf '%s\n' "${SERVICE_UNIT} not loaded (LoadState=${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 

@@ -6,6 +6,9 @@ class basic_settings::monitoring (
   String                        $server_fdqn          = $facts['networking']['fqdn'],
   Boolean                       $sudoers_dir_enable   = false,
 ) {
+  # Set some default values
+  $systemd_enable = defined(Package['systemd'])
+
   # Install package
   package { [$mail_package, 'mailutils']:
     ensure          => installed,
@@ -29,7 +32,7 @@ class basic_settings::monitoring (
     require => Package[$mail_package],
   }
 
-  if (defined(Package['systemd'])) {
+  if ($systemd_enable) {
     # Reload systemd deamon
     exec { 'monitoring_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
@@ -72,7 +75,7 @@ class basic_settings::monitoring (
         }
 
         # Check if we have systemd
-        if (defined(Package['systemd'])) {
+        if ($systemd_enable) {
           # Disable service
           service { 'monitoring_service':
             ensure  => undef,
@@ -154,6 +157,15 @@ class basic_settings::monitoring (
         content => "# Managed by puppet\n[default]\n",
         order   => '01',
       }
+    }
+  }
+
+  # Validate the active systemd configuration from the default target.
+  if ($systemd_enable) {
+    basic_settings::monitoring_custom { 'systemd_config':
+      friendly => 'Systemd config',
+      source   => 'puppet:///modules/basic_settings/monitoring/check_systemd_config',
+      timeout  => 60,
     }
   }
 

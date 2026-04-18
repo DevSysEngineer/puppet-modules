@@ -3,12 +3,12 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
 # Binary checks
-AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
@@ -20,6 +20,7 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
     printf '%s\n' "$*" >&2
     exit 2
@@ -37,14 +38,14 @@ LAST_SCAN_EPOCH=0
 LAST_SCAN_AGE=9999
 LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
-NOW_EPOCH=`$DATE +%s`
+NOW_EPOCH=$($DATE +%s)
 SCAN_HISTORY_LIMIT=5
 STATE_CODE=0
 UPDATE_AGE_MIN=999999
 UPD=/opt/eset/efs/bin/upd
 WAP_FLAG=/opt/eset/efs/etc/WAP_DISABLED
 WARN_MSG=""
-WARN_NO_SCAN_DAYS=7   # WARNING if no on‑demand scan in >7 days
+WARN_NO_SCAN_DAYS=7   # WARNING if no on-demand scan in >7 days
 WARN_UPDATE_MIN=720   # WARNING if no engine update for >12h
 NL=$(printf '\n_')
 NL=${NL%_}
@@ -60,14 +61,17 @@ while getopts 'n:N:s:S:u:U:h' opt; do
   esac
 done
 
+# Append one critical reason to the summary.
 add_crit() {
     CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"
 }
 
+# Append one warning reason to the summary.
 add_warn() {
     WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1"
 }
 
+# Emit the summary line and optional long output.
 emit_check() {
     printf '%s | %s\n' "$1" "$2"
     if [ -n "${LONG_OUTPUT:-}" ]; then
@@ -75,6 +79,7 @@ emit_check() {
     fi
 }
 
+# Parse the scan CSV into a compact tab-separated summary.
 parse_scan_csv() {
     printf '%s\n' "$1" | $AWK -F',' -v limit="$SCAN_HISTORY_LIMIT" '
         NR == 1 { next }
@@ -158,7 +163,7 @@ fi
 # Reuse log output where possible
 LOG_CSV=$($LSLOG -c 2>/dev/null)
 
-# On‑demand scan stats and long output
+# On-demand scan stats and long output
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
 SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
 SCANS_TOTAL=0

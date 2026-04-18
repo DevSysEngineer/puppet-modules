@@ -58,6 +58,7 @@ while getopts "c:" opt; do
     esac
 done
 
+# Append one line to the long output buffer.
 append_long() {
     if [ -z "$LONG_OUTPUT" ]; then
         LONG_OUTPUT=$1
@@ -66,6 +67,7 @@ append_long() {
     fi
 }
 
+# Emit the summary line and optional long output.
 emit_check() {
     printf '%s | %s\n' "$1" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
@@ -73,10 +75,12 @@ emit_check() {
     fi
 }
 
+# Sanitize arbitrary text into a safe cache-key fragment.
 sanitize_key() {
     printf '%s' "$1" | "$TR" -c 'A-Za-z0-9._-' '_'
 }
 
+# Create the changelog cache directory with restrictive permissions.
 ensure_cache_dir() {
     [ -d "$CHANGELOG_CACHE_DIR" ] || "$MKDIR" -p "$CHANGELOG_CACHE_DIR" 2>/dev/null || return 1
     if [ -n "$CHMOD" ]; then
@@ -85,6 +89,7 @@ ensure_cache_dir() {
     return 0
 }
 
+# Resolve the source package name for a binary package/version pair.
 resolve_source_pkg() {
     pkg=$1
     version=$2
@@ -102,6 +107,7 @@ resolve_source_pkg() {
     printf '%s\n' "$source_pkg"
 }
 
+# Trim a changelog to entries newer than the installed version.
 filter_changelog_since() {
     installed_version=$1
     "$AWK" -v installed="$installed_version" '
@@ -117,6 +123,7 @@ filter_changelog_since() {
     '
 }
 
+# Cap changelog output to a predictable number of lines.
 truncate_changelog() {
     "$AWK" -v max="$CHANGELOG_MAX_LINES" '
         NR <= max { print; next }
@@ -175,7 +182,7 @@ else
     LAST_UPDATE_AGE_SEC=0
 fi
 
-# Invalid / skewed timestamp → UNKNOWN
+# Invalid / skewed timestamp -> UNKNOWN
 if [ "$LAST_UPDATE_AGE_SEC" -le 0 ] || [ "$LAST_UPDATE_SEC" -gt "$CURRENT_TIME" ]; then
     TIMESTAMP_UNKNOWN=1
 fi

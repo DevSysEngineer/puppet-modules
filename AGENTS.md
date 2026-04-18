@@ -191,6 +191,7 @@ Follow these Puppet conventions:
 - Reuse `basic_settings` shared defined types instead of creating one-off service, timer, logrotate, sudoers, monitoring, or audit resources in every module.
 - Preserve explicit `require`, `notify`, and `subscribe` relationships. This codebase relies on visible ordering more than implicit resource autorequires.
 - When a defined type requires a parent class, guard it with `defined(Class['...'])` and fail clearly if the class is missing.
+- When the same `defined(...)` check for a class, package, or other resource would be used multiple times in one manifest, evaluate it once into a clearly named variable and reuse that variable instead of repeating the call.
 - Use ERB templates via `template(...)`. This repository currently uses `templates/` plus ERB, not EPP.
 - Use `files/` plus `puppet:///modules/...` for static assets.
 - Prefer predictable paths and resource titles. Do not introduce surprising naming schemes.
@@ -235,19 +236,30 @@ Shell conventions already visible in this repository:
 
 - monitoring checks generally use `#!/bin/sh`
 - dependencies are discovered with `command -v`
+- required shell binaries should be resolved in the same direct style as the existing checks, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`
+- do not introduce a generic binary lookup helper such as `find_bin` when the script can follow the existing direct `command -v` pattern
+- place shell variable blocks after the fail helper and binary checks so the script setup order matches the existing monitoring checks
 - use shell builtins such as `printf` directly instead of resolving them with `command -v`
+- bundle related shell variables together instead of scattering them through one large declaration block
+- place a short comment directly above each shell variable block so it is clear what that group of variables is for
+- place a short comment directly above each shell function that explains what the function does
+- never assign shell variables with literal embedded newlines, and do not synthesize newline variables with trimming hacks such as `NL=$(printf '\n_'); NL=${NL%_}`
+- prefer direct `printf` formatting with escaped `\n`, and when metadata must be serialized through command substitution use explicit sentinel tokens instead of newline-marker tricks
+- when a shell variable represents a list of values, store it as a comma-separated list instead of a literal newline-separated block
 - keep single-use shell logic inline instead of wrapping it in a function unless that function materially improves reuse or readability
 - prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`
 - error helpers are small and direct
 - scripts are operationally minimal and avoid unnecessary layers
 - monitoring checks should return standard Nagios-style status codes
 - checks often emit a single summary line and optional perfdata / long output
+- keep the monitoring summary text cause-oriented and do not duplicate raw numeric counters that are already present in perfdata
 
 Shell safety requirements:
 
 - Quote variables consistently.
 - Use `printf` instead of relying on non-portable `echo` behavior.
-- When code needs embedded line breaks inside generated output or variables, represent them explicitly with `\n` or a dedicated newline variable. Do not embed literal line breaks inside quoted strings, interpolations, or concatenations.
+- When code needs embedded line breaks inside generated output or variables, represent them explicitly with `\n` and direct `printf` formatting. Do not embed literal line breaks inside quoted strings, interpolations, or concatenations.
+- Do not store shell lists as literal multiline variable blocks; use comma-separated values and split them deliberately where needed.
 - Keep command dependencies explicit.
 - Keep scripts readable; these files are operational tooling, not generic libraries.
 - Only mark real executables as executable.

@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -14,6 +14,7 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null)   || die "tr not available"
 WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 
+# Convert HH:MM to minutes since midnight.
 hm2min() {
     H=${1%:*}
     M=${1#*:}
@@ -23,21 +24,21 @@ hm2min() {
     [ -z "$M" ] && M=0
     case "$H" in (*[!0-9]*) H=0 ;; esac
     case "$M" in (*[!0-9]*) M=0 ;; esac
-    echo $(( H*60 + M ))
+    printf '%s\n' "$(( H*60 + M ))"
 }
 
 # Day helpers (1=Mon .. 7=Sun)
 day2num() {
     D=$(printf '%s' "$1" | $TR 'A-Z' 'a-z')
     case "$D" in
-        1|mon|monday) echo 1 ;;
-        2|tue|tues|tuesday) echo 2 ;;
-        3|wed|wednesday) echo 3 ;;
-        4|thu|thur|thurs|thursday) echo 4 ;;
-        5|fri|friday) echo 5 ;;
-        6|sat|saturday) echo 6 ;;
-        7|sun|sunday) echo 7 ;;
-        *) echo "" ;;
+        1|mon|monday) printf '%s\n' 1 ;;
+        2|tue|tues|tuesday) printf '%s\n' 2 ;;
+        3|wed|wednesday) printf '%s\n' 3 ;;
+        4|thu|thur|thurs|thursday) printf '%s\n' 4 ;;
+        5|fri|friday) printf '%s\n' 5 ;;
+        6|sat|saturday) printf '%s\n' 6 ;;
+        7|sun|sunday) printf '%s\n' 7 ;;
+        *) printf '\n' ;;
     esac
 }
 
@@ -45,7 +46,10 @@ day2num() {
 # Empty spec => always active
 in_days() {
     SPEC="$1"
-    [ -z "$SPEC" ] && echo 1 && return
+    if [ -z "$SPEC" ]; then
+        printf '%s\n' 1
+        return
+    fi
 
     TODAY_DOW="$2"
     [ -z "$TODAY_DOW" ] && TODAY_DOW=$($DATE +%u)
@@ -77,20 +81,20 @@ in_days() {
         if [ "$S" -le "$E" ]; then
             if [ "$TODAY_DOW" -ge "$S" ] && [ "$TODAY_DOW" -le "$E" ]; then
                 IFS=$OLDIFS
-                echo 1
+                printf '%s\n' 1
                 return
             fi
         else
             # wrap range, e.g. "Fri-Mon"
             if [ "$TODAY_DOW" -ge "$S" ] || [ "$TODAY_DOW" -le "$E" ]; then
                 IFS=$OLDIFS
-                echo 1
+                printf '%s\n' 1
                 return
             fi
         fi
     done
     IFS=$OLDIFS
-    echo 0
+    printf '%s\n' 0
 }
 
 # Rule model:
@@ -139,6 +143,7 @@ WHITELIST_LIST="<%= @usb_whitelist_correct %>"
 WHITELIST_SERIALS_ACTIVE=""
 WHITELIST_VP_IDS_ACTIVE=""
 
+# Check whether the current time falls within one window.
 in_window() {
     WIN="$1"
     START=${WIN%-*}
@@ -146,9 +151,17 @@ in_window() {
     S=$(hm2min "$START")
     E=$(hm2min "$END")
     if [ "$S" -le "$E" ]; then
-        [ "$NOW_MIN" -ge "$S" ] && [ "$NOW_MIN" -le "$E" ] && echo 1 || echo 0
+        if [ "$NOW_MIN" -ge "$S" ] && [ "$NOW_MIN" -le "$E" ]; then
+            printf '%s\n' 1
+        else
+            printf '%s\n' 0
+        fi
     else
-        [ "$NOW_MIN" -ge "$S" ] || [ "$NOW_MIN" -le "$E" ] && echo 1 || echo 0
+        if [ "$NOW_MIN" -ge "$S" ] || [ "$NOW_MIN" -le "$E" ]; then
+            printf '%s\n' 1
+        else
+            printf '%s\n' 0
+        fi
     fi
 }
 

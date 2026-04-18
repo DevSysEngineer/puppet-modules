@@ -1,8 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -13,28 +14,33 @@ GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
+# Append one critical reason to the summary.
 add_crit() {
     CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1"
 }
 
+# Append one warning reason to the summary.
 add_warn() {
     WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1"
 }
 
+# Compare two numeric values using awk for floating-point support.
 ge() {
     $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}'
 }
 
+# Extract a numeric value and its unit from timedatectl output.
 get_num_unit() {
     printf '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
 }
 
-# Thresholds (seconds) – tune as needed
+# Thresholds (seconds) - tune as needed
 CRIT_MSG=""
 JITTER_CRIT=0.2 # 200ms
 JITTER_WARN=0.1 # 100ms

@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -60,13 +60,18 @@ WIRED_DOWN_LIST=""
 WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
+# Append one critical reason to the summary.
 add_crit() {
     CRIT_MSG="${CRIT_MSG:+$CRIT_MSG; }$1";
 }
+
+# Sanitize an interface name into a safe perfdata label.
 sanitize_label() {
     # Replace any non [A-Za-z0-9_] by underscore to produce valid perfdata labels
     printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
 }
+
+# Return success when the interface matches one configured filter.
 iface_matches() {
     # Return 0 if iface matches any glob in IF_LIST (match all if IF_LIST empty)
     [ -z "$IF_LIST" ] && return 0
@@ -166,8 +171,8 @@ fi
 
 # Enumerate interfaces (exclude 'lo' by default)
 ORIG_IFS=$IFS
-IFS='
-'
+IFS=$(printf '\n_')
+IFS=${IFS%_}
 INTERFACES=$($IP -o link show | $AWK -F': ' '{print $2}')
 MATCHED_IF_COUNT=0
 for IFACE in $INTERFACES; do

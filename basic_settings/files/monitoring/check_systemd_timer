@@ -1,8 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -19,6 +20,7 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 
+# Emit the summary line and optional long output.
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
     printf '%s | %s\n' "$1" "$2"
@@ -34,18 +36,18 @@ SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
 # Ensure units exist and are active
 $SYSTEMCTL show "$TIMER_UNIT" >/dev/null 2>&1 || {
-    echo "${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
+    printf '%s\n' "${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
     exit 2
 }
 $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
-    echo "${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
+    printf '%s\n' "${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
     exit 2
 }
 
 # Get last trigger timestamp from the timer
 LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value)
 if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
-    echo "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
+    printf '%s\n' "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
     exit 1
 fi
 
@@ -53,7 +55,7 @@ fi
 LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
 NOW_TS=$($DATE +%s)
 [ -n "${LAST_RUN_TS:-}" ] || {
-    echo "${TIMER_UNIT} last run could not be parsed | last_run_age=U exit_code=U"
+    printf '%s\n' "${TIMER_UNIT} last run could not be parsed | last_run_age=U exit_code=U"
     exit 1
 }
 
@@ -68,10 +70,10 @@ JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "
 LAST_STATUS=$(printf "%s\n" "$JOURNAL_RAW" | $SED -n 's/.*status=\([0-9][0-9]*\).*/\1/p' | $TAIL -n1)
 RESULT_LINE=$(printf "%s\n" "$JOURNAL_RAW" | $GREP -E 'Failed with result|finished with (result|exit code)' | $TAIL -n1)
 
-EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || echo "U")
-RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || echo "unknown")
-MAIN_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value 2>/dev/null || echo "U")
-STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value 2>/dev/null || echo "")
+EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || printf 'U')
+RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || printf 'unknown')
+MAIN_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value 2>/dev/null || printf 'U')
+STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value 2>/dev/null || printf '')
 
 # Normalize exit code decision
 EXIT_CODE=U

@@ -1,15 +1,15 @@
 #!/bin/sh
 # Managed by puppet
 
+# Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
 # Binary checks
-AWK=$(command -v awk 2>/dev/null) || die "akw not available"
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
-PRINTF=$(command -v printf 2>/dev/null) || die "printf not available"
 MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
@@ -21,8 +21,9 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
-    $PRINTF '%s\n' "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 2
 }
 
@@ -39,7 +40,7 @@ STATE_FILE="/tmp/mirth_queue_state.txt"
 STATUS_ISSUES=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
-WARN_Q=25 # queued‑message threshold
+WARN_Q=25 # queued-message threshold
 
 # Options 
 while getopts 'c:t:w:' opt; do
@@ -63,13 +64,13 @@ WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
 # Stats
-$PRINTF 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
+printf 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "mccommand stats failed"
 [ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand stats"
 
-# Parse stats → C/T
-OUTPUT_CLEAN=$($PRINTF '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
-$PRINTF '%s\n' "$OUTPUT_CLEAN" | $AWK '
+# Parse stats into channel and total records.
+OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
+printf '%s\n' "$OUTPUT_CLEAN" | $AWK '
   function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
   function emit(){
     if (chan!="") {
@@ -91,13 +92,13 @@ $AWK -F'|' '/^C\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_channe
 $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals.txt"
 
 # Status
-$PRINTF 'status\n' >"$WORK_DIR/cli_status.cmd"
+printf 'status\n' >"$WORK_DIR/cli_status.cmd"
 STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die "mccommand status failed"
 [ -n "$STATUS_RAW" ] || crit "Empty output from mccommand status"
 
-# status_map.txt → name|Status
-STATUS_CLEAN=$($PRINTF '%s\n' "$STATUS_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
-$PRINTF '%s\n' "$STATUS_CLEAN" | $AWK '
+# Build a name|status map from the CLI output.
+STATUS_CLEAN=$(printf '%s\n' "$STATUS_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
+printf '%s\n' "$STATUS_CLEAN" | $AWK '
   BEGIN{in_tbl=0}
   /^ID[[:space:]]+Status[[:space:]]+Name/ { in_tbl=1; next }
   in_tbl==0 { next }
@@ -124,7 +125,7 @@ while IFS='|' read -r _c chan q recv sent; do
     if [ "${q:-0}" -gt "$WARN_Q" ]; then
         FIRST=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$STATE_IN")
         [ -z "$FIRST" ] && FIRST=$NOW
-        $PRINTF '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
+        printf '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
         # If the queue is above the threshold for longer than the grace period, set critical
         [ $((NOW - FIRST)) -ge "$GRACE" ] && QUEUE_CRIT=1
@@ -158,9 +159,9 @@ if [ "$STATUS_ISSUES" -gt 0 ]; then
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
     crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF_DATA}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    echo "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF_DATA}"
+    printf '%s\n' "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF_DATA}"
     exit 1
 fi
 
-echo "${TOTAL_CHANS} channel(s) OK | ${PERF_DATA}"
+printf '%s\n' "${TOTAL_CHANS} channel(s) OK | ${PERF_DATA}"
 exit 0

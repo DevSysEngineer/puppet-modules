@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 3
 }
 
@@ -28,11 +28,13 @@ TABLE_EMPTY=""
 TABLE_PERF=""
 TOTAL_RULES=0
 
+# Emit a CRITICAL result and stop immediately.
 crit() {
     printf '%s\n' "$*" >&2
     exit 2
 }
 
+# Add one perfdata item to the sortable buffer.
 add_pd() {
     LABEL_FORMAT=$(printf '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
     PREF_LIST="${PREF_LIST}${LABEL_FORMAT} ${2:-0}\n"
@@ -44,7 +46,7 @@ $SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 
 <% end -%>
 
-# Kernel‑check
+# Kernel check
 $LSMOD | $AWK '/\bnf_tables\b/' >/dev/null 2>&1 || crit "nf_tables kernel module not loaded"
 
 # Try to get ruleset
@@ -190,7 +192,7 @@ BEGIN { seq = 0 }
         }
 
         gsub(/[^A-Za-z0-9_]+/, "_", lbl)
-        lbl = tolower(lbl)                    # <── nieuwe regel
+        lbl = tolower(lbl)
         isdrop = (index($0, " drop") > 0) ? 1 : 0
         print lbl, val, isdrop
     }
@@ -215,5 +217,5 @@ PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
 [ -n "$TABLE_EMPTY" ] && crit "No rules in table(s): $TABLE_EMPTY | $PERF_DATA"
 
 # Show output
-echo "$TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS | $PERF_DATA"
+printf '%s | %s\n' "$TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS" "$PERF_DATA"
 exit 0

@@ -1,9 +1,10 @@
 #!/bin/sh
 # Managed by puppet
 
-die() { 
-    echo "$*" >&2 
-    exit 3 
+# Fail helper
+die() {
+    printf '%s\n' "$*" >&2
+    exit 3
 }
 
 # Binary checks
@@ -16,13 +17,16 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
-crit() { 
-    echo "$*"
-    exit 2 
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*"
+    exit 2
 }
-warn() { 
-    echo "$*"
-    exit 1 
+
+# Emit a WARNING result and stop immediately.
+warn() {
+    printf '%s\n' "$*"
+    exit 1
 }
 
 # Configurable defaults
@@ -76,6 +80,7 @@ WARN_COUNT=0
 WARN_LIST=""
 WARN_SHOWN=0
 
+# Append one queue item to a comma-separated list.
 append_item() {
   # $1 = current list, $2 = item to append
   if [ -z "$1" ]; then
@@ -106,6 +111,10 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
     TOTAL_UNACK=$((TOTAL_UNACK + UNACK))
     TOTAL_MSG=$((TOTAL_MSG + MESSAGES))
     TOTAL_CONSUMERS=$((TOTAL_CONSUMERS + CONSUMERS))
+    if [ "$MESSAGES" -gt "$MAX_MSG" ]; then
+        MAX_MSG=$MESSAGES
+        MAX_QUEUE="$QUEUE_NAME"
+    fi
 
     # Threshold evaluation (ignore queues without consumers)
     if [ "$CONSUMERS" -gt 0 ]; then
