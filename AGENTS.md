@@ -77,25 +77,25 @@ The systemd target ladder created by `basic_settings::systemd` is a core composi
 
 When a service module integrates with `basic_settings`, it usually:
 
-- disables the vendor service's default enablement
-- adds a `basic_settings::systemd_drop_in`
-- binds the service to one of the shared targets above
-- adds `OnFailure=notify-failed@%i.service` when monitoring is active
+- Disables the vendor service's default enablement.
+- Adds a `basic_settings::systemd_drop_in`.
+- Binds the service to one of the shared targets above.
+- Adds `OnFailure=notify-failed@%i.service` when monitoring is active.
 
 Monitoring is centralized around the OpenITCOCKPIT agent model:
 
-- `basic_settings::monitoring` prepares `/etc/openitcockpit-agent`
-- checks are installed under `/etc/openitcockpit-agent/plugins`
-- `concat` and `concat::fragment` are used to build `customchecks.ini`
-- service and timer checks are generated through shared defined types instead of duplicating plugin registration logic in every module
+- The `basic_settings::monitoring` class prepares `/etc/openitcockpit-agent`.
+- Checks are installed under `/etc/openitcockpit-agent/plugins`.
+- The `concat` and `concat::fragment` types are used to build `customchecks.ini`.
+- Service and timer checks are generated through shared defined types instead of duplicating plugin registration logic in every module.
 
 Examples of module composition that should guide future changes:
 
-- `nginx`, `rabbitmq`, `gitlab`, `mysql`, `php8::fpm`, `letsencrypt`, `naemon`, `openitcockpit::agent`, and `openitcockpit::server` all hook into shared systemd and monitoring primitives when available.
-- `mysql` integrates with `php8::fpm` and `puppet` via systemd drop-ins rather than external dependency modules.
-- `openitcockpit::server` assumes tight local integration with Nginx, PHP-FPM, Naemon paths, and several service-specific systemd drop-ins.
-- `netplanio` reads network/kernel state from `basic_settings` when present instead of inventing a second configuration source.
-- `ssh`, `login`, `network`, `security`, and `packages` add audit coverage through `basic_settings::security_audit` rather than ad hoc audit files.
+- The `nginx`, `rabbitmq`, `gitlab`, `mysql`, `php8::fpm`, `letsencrypt`, `naemon`, `openitcockpit::agent`, and `openitcockpit::server` modules all hook into shared systemd and monitoring primitives when available.
+- The `mysql` module integrates with `php8::fpm` and `puppet` via systemd drop-ins rather than external dependency modules.
+- The `openitcockpit::server` class assumes tight local integration with Nginx, PHP-FPM, Naemon paths, and several service-specific systemd drop-ins.
+- The `netplanio` module reads network and kernel state from `basic_settings` when present instead of inventing a second configuration source.
+- The `ssh`, `login`, `network`, `security`, and `packages` classes add audit coverage through `basic_settings::security_audit` rather than ad hoc audit files.
 
 ## Security-By-Design Rules
 
@@ -143,23 +143,23 @@ Mandatory rule:
 
 Sensitive information that must never be shared in raw form includes at minimum:
 
-- passwords
+- Passwords
 - API keys
-- access tokens
-- session tokens
-- private keys
+- Access tokens
+- Session tokens
+- Private keys
 - SSH keys
-- certificates and certificate material
-- secrets from `.env` files
-- connection strings
-- database credentials
-- internal hostnames
-- internal IP addresses
-- private URLs
-- customer or patient data
-- personal data
-- tenant identifiers
-- internal project identifiers that are not needed for the question
+- Certificates and certificate material
+- Secrets from `.env` files
+- Connection strings
+- Database credentials
+- Internal hostnames
+- Internal IP addresses
+- Private URLs
+- Customer or patient data
+- Personal data
+- Tenant identifiers
+- Internal project identifiers that are not needed for the question
 
 Required working method before sending anything outside the IDE:
 
@@ -211,8 +211,8 @@ If you add a new first-party module, follow the existing module layout:
 
 - `manifests/`
 - `templates/`
-- `files/` when needed
-- `metadata.json` aligned with the rest of the first-party modules
+- Include `files/` when needed.
+- Keep `metadata.json` aligned with the rest of the first-party modules.
 
 ## Shell Script Rules
 
@@ -227,32 +227,32 @@ Do not assume Bash features unless the repository clearly and explicitly require
 
 When touching an existing Bash script:
 
-- keep Bash only if the implementation truly needs it
-- otherwise prefer a safe migration to POSIX syntax
-- do not copy Bash-only idioms into new scripts
-- if a Bash-only exception must remain, keep the reason explicit in the code review or final handoff
+- Keep Bash only if the implementation truly needs it.
+- Otherwise prefer a safe migration to POSIX syntax.
+- Do not copy Bash-only idioms into new scripts.
+- If a Bash-only exception must remain, keep the reason explicit in the code review or final handoff.
 
 Shell conventions already visible in this repository:
 
-- monitoring checks generally use `#!/bin/sh`
-- dependencies are discovered with `command -v`
-- required shell binaries should be resolved in the same direct style as the existing checks, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`
-- do not introduce a generic binary lookup helper such as `find_bin` when the script can follow the existing direct `command -v` pattern
-- place shell variable blocks after the fail helper and binary checks so the script setup order matches the existing monitoring checks
-- use shell builtins such as `printf` directly instead of resolving them with `command -v`
-- bundle related shell variables together instead of scattering them through one large declaration block
-- place a short comment directly above each shell variable block so it is clear what that group of variables is for
-- place a short comment directly above each shell function that explains what the function does
-- never assign shell variables with literal embedded newlines, and do not synthesize newline variables with trimming hacks such as `NL=$(printf '\n_'); NL=${NL%_}`
-- prefer direct `printf` formatting with escaped `\n`, and when metadata must be serialized through command substitution use explicit sentinel tokens instead of newline-marker tricks
-- when a shell variable represents a list of values, store it as a comma-separated list instead of a literal newline-separated block
-- keep single-use shell logic inline instead of wrapping it in a function unless that function materially improves reuse or readability
-- prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`
-- error helpers are small and direct
-- scripts are operationally minimal and avoid unnecessary layers
-- monitoring checks should return standard Nagios-style status codes
-- checks often emit a single summary line and optional perfdata / long output
-- keep the monitoring summary text cause-oriented and do not duplicate raw numeric counters that are already present in perfdata
+- Monitoring checks generally use `#!/bin/sh`.
+- Dependencies are discovered with `command -v`.
+- Required shell binaries should be resolved in the same direct style as the existing checks, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
+- Do not introduce a generic binary lookup helper such as `find_bin` when the script can follow the existing direct `command -v` pattern.
+- Place shell variable blocks after the fail helper and binary checks so the script setup order matches the existing monitoring checks.
+- Use shell builtins such as `printf` directly instead of resolving them with `command -v`.
+- Bundle related shell variables together instead of scattering them through one large declaration block.
+- Place a short comment directly above each shell variable block so it is clear what that group of variables is for.
+- Place a short comment directly above each shell function that explains what the function does.
+- Never assign shell variables with literal embedded newlines, and do not synthesize newline variables with trimming hacks such as `NL=$(printf '\n_'); NL=${NL%_}`.
+- Prefer direct `printf` formatting with escaped `\n`, and when metadata must be serialized through command substitution use explicit sentinel tokens instead of newline-marker tricks.
+- When a shell variable represents a list of values, store it as a comma-separated list instead of a literal newline-separated block.
+- Keep single-use shell logic inline instead of wrapping it in a function unless that function materially improves reuse or readability.
+- Prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`.
+- Error helpers are small and direct.
+- Scripts are operationally minimal and avoid unnecessary layers.
+- Monitoring checks should return standard Nagios-style status codes.
+- Checks often emit a single summary line and optional perfdata or long output.
+- Keep the monitoring summary text cause-oriented and do not duplicate raw numeric counters that are already present in perfdata.
 
 Shell safety requirements:
 
@@ -287,21 +287,22 @@ Whenever you add a new module or make a meaningful change to an existing module,
 
 Meaningful changes include:
 
-- new functionality
-- removed functionality
-- changed behavior
-- new parameters users are expected to set
-- changed integration points between modules
-- changed operational assumptions
-- new monitoring checks
-- changed security expectations
-- changed install or usage flow
+- New functionality
+- Removed functionality
+- Changed behavior
+- New parameters users are expected to set
+- Changed integration points between modules
+- Changed operational assumptions
+- New monitoring checks
+- Changed security expectations
+- Changed install or usage flow
 
 README rules for this repository:
 
 - Write README updates in Dutch.
 - Keep generated config files, config templates, and inline config comments in English unless the managed software clearly requires another language.
 - Match the current README's tone, structure, and sectioning.
+- Start prose list items with a capital letter for consistency. If a list item is only an exact code identifier, module name, class name, path, or other literal, keep its original case.
 - Keep the style consistent with the existing `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern.
 - Add or update example Puppet snippets when behavior changes materially.
 - If you add or rename a monitoring check, update the `## Checks` section.
@@ -315,12 +316,12 @@ There is no first-party test suite or CI structure in the custom modules at the 
 
 At minimum:
 
-- validate changed Puppet manifests for syntax and obvious relationship errors
-- verify changed class / defined-type guards still match actual inclusion order
-- syntax-check changed shell scripts with `sh -n` when they are POSIX
-- syntax-check changed Bash exceptions with `bash -n` only when Bash is intentionally required
-- review file modes, ownership, and `Sensitive` handling for every touched resource
-- verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names
-- review whether a README update was required and completed
+- Validate changed Puppet manifests for syntax and obvious relationship errors.
+- Verify changed class and defined-type guards still match actual inclusion order.
+- Syntax-check changed shell scripts with `sh -n` when they are POSIX.
+- Syntax-check changed Bash exceptions with `bash -n` only when Bash is intentionally required.
+- Review file modes, ownership, and `Sensitive` handling for every touched resource.
+- Verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names.
+- Review whether a README update was required and completed.
 
 If you could not run an important validation step, say so explicitly in your final handoff.
