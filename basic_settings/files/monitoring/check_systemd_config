@@ -14,9 +14,10 @@ GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 SYSTEMD_ANALYZE=$(command -v systemd-analyze 2>/dev/null) || die "systemd-analyze not available"
 
-# Runtime options that control boot grace, output volume, and stricter reload handling.
+# Runtime options that control boot grace, output limits, and stricter reload handling.
 BOOT_GRACE=300
-MAX_VERIFY_LINES=80
+MAX_DETAIL_LINES=10
+MAX_VERIFY_LINES=10
 QUIET=0
 SHOW_RAW_VERIFY=0
 STRICT_RELOAD=0
@@ -92,7 +93,7 @@ VERIFY_RC=U
 
 # Print usage help for invalid command-line invocations.
 usage() {
-    printf '%s\n' "Usage: $0 [-g seconds] [-m lines] [-q] [--strict-reload] [--show-raw-verify]" >&2
+    printf '%s\n' "Usage: $0 [-g seconds] [-m verify-lines] [-d detail-lines] [-q] [--strict-reload] [--show-raw-verify]" >&2
     exit 3
 }
 
@@ -443,6 +444,49 @@ print_grouped_details() {
     fi
 }
 
+# Count how many rendered lines a grouped detail section would emit.
+count_grouped_detail_lines() {
+    print_grouped_details "$1" "$2" "$3" "$4" "$5" | "$AWK" 'END { print NR + 0 }'
+}
+
+# Print a grouped detail section with a maximum rendered line limit.
+print_grouped_details_limited() {
+    print_grouped_details "$1" "$2" "$3" "$4" "$5" | "$AWK" -v max="$6" '
+        NR <= max { print }
+        END {
+            if (NR > max) {
+                print "[truncated after " max " lines]"
+            }
+        }
+    '
+}
+
+# Print one detail section heading and apply the configured truncation policy.
+print_detail_section() {
+    SECTION_TITLE=$1
+    SECTION_COUNT=$2
+    GROUP_NOT_FOUND=$3
+    GROUP_ERROR=$4
+    GROUP_BAD_SETTING=$5
+    GROUP_OTHER=$6
+    SUPPRESS_SINGLE_NOT_FOUND_HEADER=$7
+
+    if [ "$SECTION_COUNT" -eq 0 ]; then
+        printf '%s\n' "${SECTION_TITLE}: none"
+        return
+    fi
+
+    SECTION_TOTAL_LINES=$(count_grouped_detail_lines "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER")
+
+    if [ "$SECTION_TOTAL_LINES" -gt "$MAX_DETAIL_LINES" ]; then
+        printf '%s\n' "${SECTION_TITLE} (${SECTION_COUNT}, showing first ${MAX_DETAIL_LINES} of ${SECTION_TOTAL_LINES} lines):"
+        print_grouped_details_limited "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER" "$MAX_DETAIL_LINES"
+    else
+        printf '%s\n' "${SECTION_TITLE} (${SECTION_COUNT}):"
+        print_grouped_details "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER"
+    fi
+}
+
 # Check whether the verify output explicitly mentions the current unit.
 verify_mentions_unit() {
     [ -n "$VERIFY_OUTPUT" ] || return 1
@@ -587,6 +631,11 @@ while [ $# -gt 0 ]; do
             MAX_VERIFY_LINES=$2
             shift 2
             ;;
+        -d)
+            [ $# -ge 2 ] || usage
+            MAX_DETAIL_LINES=$2
+            shift 2
+            ;;
         -q)
             QUIET=1
             shift
@@ -614,6 +663,7 @@ done
 
 [ $# -eq 0 ] || usage
 is_number "$BOOT_GRACE" || usage
+is_number "$MAX_DETAIL_LINES" || usage
 is_number "$MAX_VERIFY_LINES" || usage
 
 if [ -r /proc/uptime ]; then
@@ -861,23 +911,7 @@ printf '%s\n' "Default target LoadState: ${DEFAULT_TARGET_LOAD_STATE}"
 printf '%s\n' "Need daemon reload: ${NEED_DAEMON_RELOAD}"
 printf '%s\n' "Unit state filter: ${BAD_UNIT_FILTER}"
 printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
-printf '%s\n' ""
-
-if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$BAD_LOAD_UNITS" -gt 0 ]; then
-    printf '%s\n' "Actionable units with load/config errors (${BAD_LOAD_UNITS}):"
-    print_grouped_details "$ACTIONABLE_NOT_FOUND_DETAILS" "$ACTIONABLE_ERROR_DETAILS" "$ACTIONABLE_BAD_SETTING_DETAILS" "$ACTIONABLE_OTHER_DETAILS" 0
-elif [ "$LIST_UNITS_RC" -eq 0 ]; then
-    printf '%s\n' 'Actionable units with load/config errors: none'
-else
-    printf '%s\n' 'Actionable units with load/config errors: unavailable'
-fi
-
-if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
-    printf '%s\n' ""
-    printf '%s\n' "Contextual not-found units not counted as config errors (${CONTEXTUAL_NOT_FOUND_UNITS}):"
-    print_grouped_details "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
-fi
-
+printf '%s\n' "Max detail lines per section: ${MAX_DETAIL_LINES}"
 printf '%s\n' ""
 
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
@@ -893,6 +927,19 @@ else
     printf '%s\n' "systemd-analyze verify output (first ${MAX_VERIFY_LINES} of ${VERIFY_MESSAGES} lines):"
     printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
     printf '%s\n' '[truncated]'
+fi
+
+printf '%s\n' ""
+
+if [ "$LIST_UNITS_RC" -eq 0 ]; then
+    print_detail_section 'Actionable units with load/config errors' "$BAD_LOAD_UNITS" "$ACTIONABLE_NOT_FOUND_DETAILS" "$ACTIONABLE_ERROR_DETAILS" "$ACTIONABLE_BAD_SETTING_DETAILS" "$ACTIONABLE_OTHER_DETAILS" 0
+else
+    printf '%s\n' 'Actionable units with load/config errors: unavailable'
+fi
+
+if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
+    printf '%s\n' ""
+    print_detail_section 'Contextual not-found units not counted as config errors' "$CONTEXTUAL_NOT_FOUND_UNITS" "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
 fi
 
 exit "$STATE"
