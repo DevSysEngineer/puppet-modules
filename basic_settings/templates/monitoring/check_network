@@ -170,12 +170,8 @@ if [ -n "$SERVICES_LIST" ]; then
 fi
 
 # Enumerate interfaces (exclude 'lo' by default)
-ORIG_IFS=$IFS
-IFS=$(printf '\n_')
-IFS=${IFS%_}
-INTERFACES=$($IP -o link show | $AWK -F': ' '{print $2}')
 MATCHED_IF_COUNT=0
-for IFACE in $INTERFACES; do
+for IFACE in $($IP -o link show | $AWK -F': ' '{print $2}'); do
     [ "$IFACE" = "lo" ] && continue
 
     # Apply filters; if none supplied, accept all
@@ -351,7 +347,6 @@ EOF
     PERF="$PERF if_${IF_LBL}_v6_gua=${V6_GUA_I};;;0"
     PERF="$PERF if_${IF_LBL}_v6_ula=${V6_ULA_I};;;0"
 done
-IFS=$ORIG_IFS
 
 # If filters were provided but no interfaces matched, report critical
 if [ -n "$IF_LIST" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then

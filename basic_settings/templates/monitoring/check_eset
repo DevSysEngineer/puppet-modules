@@ -38,6 +38,7 @@ LAST_SCAN_EPOCH=0
 LAST_SCAN_AGE=9999
 LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
+LONG_OUTPUT=""
 NOW_EPOCH=$($DATE +%s)
 SCAN_HISTORY_LIMIT=5
 STATE_CODE=0
@@ -47,8 +48,6 @@ WAP_FLAG=/opt/eset/efs/etc/WAP_DISABLED
 WARN_MSG=""
 WARN_NO_SCAN_DAYS=7   # WARNING if no on-demand scan in >7 days
 WARN_UPDATE_MIN=720   # WARNING if no engine update for >12h
-NL=$(printf '\n_')
-NL=${NL%_}
 
 # Options 
 while getopts 'n:N:s:S:u:U:h' opt; do
@@ -79,7 +78,7 @@ emit_check() {
     fi
 }
 
-# Parse the scan CSV into a compact tab-separated summary.
+# Parse the scan CSV into a compact pipe-separated summary.
 parse_scan_csv() {
     printf '%s\n' "$1" | $AWK -F',' -v limit="$SCAN_HISTORY_LIMIT" '
         NR == 1 { next }
@@ -117,17 +116,17 @@ parse_scan_csv() {
             last_duration = $6
         }
         END {
-            printf "TOTAL\t%d\n", total
+            printf "TOTAL|%d\n", total
             if (total == 0) {
                 exit
             }
 
-            printf "LAST\t%s\t%s\t%s\t%s\t%s\n", last_started, last_scanned, last_cleaned, last_detections, last_duration
+            printf "LAST|%s|%s|%s|%s|%s\n", last_started, last_scanned, last_cleaned, last_detections, last_duration
 
             count = total < limit ? total : limit
             for (i = total; i > total - count; i--) {
                 idx = ((i - 1) % limit) + 1
-                printf "HISTORY\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", \
+                printf "HISTORY|%s|%s|%s|%s|%s|%s|%s\n", \
                     started[idx], progress[idx], scanned[idx], cleaned[idx], detections[idx], duration[idx], triggered_by[idx]
             }
         }
@@ -168,9 +167,8 @@ SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
 SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
 SCANS_TOTAL=0
 SCAN_HISTORY=""
-TAB=$(printf '\t')
 
-while IFS="$TAB" read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
+while IFS='|' read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
     case "$KIND" in
         TOTAL)
             SCANS_TOTAL=$COL1
@@ -203,7 +201,11 @@ while IFS="$TAB" read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
         HISTORY)
             DETAIL_LINE="- ${COL1}: status=${COL2}, scanned=${COL3}, cleaned=${COL4}, det=${COL5}, duration=${COL6}"
             [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered_by=${COL7}"
-            SCAN_HISTORY="${SCAN_HISTORY:+$SCAN_HISTORY$NL}$DETAIL_LINE"
+            if [ -z "$SCAN_HISTORY" ]; then
+                SCAN_HISTORY=$DETAIL_LINE
+            else
+                SCAN_HISTORY=$(printf '%s\n%s' "$SCAN_HISTORY" "$DETAIL_LINE")
+            fi
             ;;
     esac
 done <<EOF
@@ -211,7 +213,7 @@ $SCAN_PARSE
 EOF
 
 if [ -n "$SCAN_HISTORY" ]; then
-    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans:${NL}${SCAN_HISTORY}"
+    LONG_OUTPUT=$(printf 'Last %s scans:\n%s' "$SCAN_HISTORY_LIMIT" "$SCAN_HISTORY")
 else
     LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans: none"
 fi

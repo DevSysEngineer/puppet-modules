@@ -11,6 +11,7 @@ die() {
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
+MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 RM=$(command -v rm 2>/dev/null) || die "rm not available"
@@ -36,7 +37,8 @@ NOW=$($DATE +%s)
 QUEUE_CRIT=0
 QUEUE_ISSUES=0
 MAX_Q=0
-STATE_FILE="/tmp/mirth_queue_state.txt"
+STATE_DIR="/etc/openitcockpit-agent/state"
+STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
 STATUS_ISSUES=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
@@ -51,6 +53,18 @@ while getopts 'c:t:w:' opt; do
         *) die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]" ;;
     esac
 done
+
+#
+# Keep the persistent queue state inside the agent tree so root does not read
+# or write a predictable file in /tmp.
+#
+OLD_UMASK=$(umask)
+umask 077
+"$MKDIR" -p "$STATE_DIR" 2>/dev/null || {
+    umask "$OLD_UMASK"
+    die "state directory ${STATE_DIR} could not be created"
+}
+umask "$OLD_UMASK"
 
 # Service running
 <% if @systemd_enable -%>

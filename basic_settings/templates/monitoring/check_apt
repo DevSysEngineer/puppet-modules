@@ -32,6 +32,7 @@ CHANGELOG_FETCH_TIMEOUT=6
 CHANGELOG_MAX_LINES=120
 CHANGELOG_TOTAL_BUDGET=20
 LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_APT_NL__"
 UPDATES_BLACKLISTED=0
 UPDATES_TOTAL=0
 UPDATES_SECURITY=0
@@ -44,10 +45,6 @@ LAST_UPDATE_SEC=0
 LAST_UPDATE_AGE_SEC=0
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 GRACE=172800 # 48h
-NL=$(printf '\n_')
-NL=${NL%_}
-TAB=$(printf '\t_')
-TAB=${TAB%_}
 CHECK_START=$("$DATE" +%s)
 
 # Options
@@ -63,7 +60,7 @@ append_long() {
     if [ -z "$LONG_OUTPUT" ]; then
         LONG_OUTPUT=$1
     else
-        LONG_OUTPUT="${LONG_OUTPUT}${NL}$1"
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
 }
 
@@ -71,7 +68,14 @@ append_long() {
 emit_check() {
     printf '%s | %s\n' "$1" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
-        printf '%s\n' "$LONG_OUTPUT"
+        "$AWK" -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    printf "%s\n", lines[i]
+                }
+            }
+        '
     fi
 }
 
@@ -326,13 +330,17 @@ if [ "$UPDATES_SECURITY" -gt 0 ]; then
     # Keep this flow inline; it is only used once and sits next to the summary
     # output that depends on it.
     if [ -n "$TIMEOUT" ]; then
-        SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F '\t' '$1 == "SECINFO" { print $2 "\t" $3 "\t" $4 }')
+        SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | "$AWK" -F '\t' '$1 == "SECINFO" { print $2 "|" $3 "|" $4 }')
         if [ -n "$SECURITY_META" ]; then
             GROUP_INPUT=""
-            while IFS="$TAB" read -r pkg oldver newver; do
+            while IFS='|' read -r pkg oldver newver; do
                 [ -n "$pkg" ] || continue
                 source_pkg=$(resolve_source_pkg "$pkg" "$newver")
-                GROUP_INPUT="${GROUP_INPUT}${GROUP_INPUT:+$NL}${source_pkg}${TAB}${pkg}${TAB}${oldver}${TAB}${newver}"
+                if [ -z "$GROUP_INPUT" ]; then
+                    GROUP_INPUT="${source_pkg}|${pkg}|${oldver}|${newver}"
+                else
+                    GROUP_INPUT=$(printf '%s\n%s|%s|%s|%s' "$GROUP_INPUT" "$source_pkg" "$pkg" "$oldver" "$newver")
+                fi
             done <<EOF
 $SECURITY_META
 EOF
@@ -340,9 +348,9 @@ EOF
             if [ -n "$GROUP_INPUT" ]; then
                 # Group binary packages by source package so one changelog fetch can
                 # cover related packages such as vim/vim-runtime/xxd or kernel sets.
-                SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | "$AWK" -F '\t' '
+                SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | "$AWK" -F '|' '
                     {
-                        key=$1 "\t" $4
+                        key=$1 "|" $4
                         if (!seen[key]++) {
                             order[++n]=key
                             source[key]=$1
@@ -357,7 +365,7 @@ EOF
                     END {
                         for (i = 1; i <= n; i++) {
                             key=order[i]
-                            printf "%s\t%s\t%s\t%s\t%s\n", source[key], first_pkg[key], first_old[key], newver[key], packages[key]
+                            printf "%s|%s|%s|%s|%s\n", source[key], first_pkg[key], first_old[key], newver[key], packages[key]
                         }
                     }
                 ')
@@ -365,7 +373,7 @@ EOF
                 if [ -n "$SECURITY_GROUPS" ]; then
                     if ensure_cache_dir; then
                         append_long "Security changelogs:"
-                        while IFS="$TAB" read -r source_pkg first_pkg oldver newver packages; do
+                        while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
                             [ -n "$source_pkg" ] || continue
 
                             NOW=$("$DATE" +%s)

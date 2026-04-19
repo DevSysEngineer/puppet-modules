@@ -29,12 +29,34 @@ SEP_ERR="__CHECK_NPM_AUDIT_ERR_$$__"
 SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
 STATE_CODE=3
 
-# Read the first useful diagnostic line from a file
+# Read the first useful diagnostic line and ignore npm notice noise
 first_line() {
     [ -n "$1" ] || return 1
-    LINE=$(printf '%s' "$1" | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}' 2>/dev/null)
+    LINE=$(printf '%s\n' "$1" | "$SED" -n '
+        s/[[:space:]]\+$//
+        /^[[:space:]]*$/d
+        /^npm notice\( \|$\)/d
+        p
+        q
+    ' 2>/dev/null)
     [ -n "$LINE" ] || return 1
     printf '%s' "$LINE"
+}
+
+# Strip leading npm log chatter when audit JSON is prefixed by notices
+normalize_audit_json() {
+    [ -n "$1" ] || return 1
+
+    printf '%s' "$1" | "$JQ" -e . >/dev/null 2>&1 && {
+        printf '%s' "$1"
+        return 0
+    }
+
+    NORMALIZED=$(printf '%s\n' "$1" | "$SED" -n '/^[[:space:]]*[{[]/,$p' 2>/dev/null)
+    [ -n "$NORMALIZED" ] || return 1
+
+    printf '%s' "$NORMALIZED" | "$JQ" -e . >/dev/null 2>&1 || return 1
+    printf '%s' "$NORMALIZED"
 }
 
 # Prefer a compact message from JSON, stderr or jq parse errors
@@ -132,6 +154,9 @@ case "$AUDIT_PAYLOAD" in
         ;;
 esac
 
+# Newer npm versions may prefix the JSON report with informational notice lines
+NORMALIZED_JSON=$(normalize_audit_json "$AUDIT_JSON") && AUDIT_JSON=$NORMALIZED_JSON
+
 # npm audit may return non-zero on findings; only invalid JSON should become UNKNOWN
 PARSE_ERR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -e . 2>&1 >/dev/null)
 [ $? -eq 0 ] || die "$CHECK_NAME: $(report_error)"
@@ -154,7 +179,7 @@ run_jq '
         "ok"
     end
 ' || die "$CHECK_NAME: $(report_error)"
-REPORT_STATUS=$JQ_OUTPUT
+REPORT_STATUS=$(first_line "$JQ_OUTPUT")
 [ "$REPORT_STATUS" = "ok" ] || die "$CHECK_NAME: $(report_error)"
 
 # Extract vulnerability counts, dependency totals and package-level counters
@@ -249,7 +274,7 @@ run_jq '
     | map(tostring)
     | join("|")
 ' || die "$CHECK_NAME: $(report_error)"
-PARSED=$JQ_OUTPUT
+PARSED=$(first_line "$JQ_OUTPUT")
 [ -n "$PARSED" ] || die "$CHECK_NAME: $(report_error)"
 
 # Render detail lines per affected package for troubleshooting

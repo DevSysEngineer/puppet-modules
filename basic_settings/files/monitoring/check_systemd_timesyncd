@@ -71,8 +71,8 @@ SERVER=$(printf '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:
 
 # Convert to seconds
 set_to_sec() {
-    read val || return 1
-    read u || u="s"
+    IFS= read -r val || return 1
+    IFS= read -r u || u="s"
     $AWK -v v="$val" -v u="$u" 'BEGIN{
         if(u=="ms") printf "%.6f", v/1000;
         else if(u=="us") printf "%.6f", v/1000000;
@@ -138,4 +138,4 @@ PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
 # Show output
 printf '%s | %s\n' "$MSG" "$PERF"
-exit $STATE_CODE
+exit "$STATE_CODE"

@@ -171,6 +171,16 @@ class openitcockpit::agent (
         require => File['monitoring_location'],
       }
 
+      # Keep persistent check state root-only inside the agent tree.
+      file { 'monitoring_location_state':
+        ensure  => directory,
+        path    => '/etc/openitcockpit-agent/state',
+        mode    => '0700',
+        owner   => 'root',
+        group   => 'root',
+        require => File['monitoring_location'],
+      }
+
       # Create config config
       concat { '/etc/openitcockpit-agent/customchecks.ini':
         owner   => 'root',
