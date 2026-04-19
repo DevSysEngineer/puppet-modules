@@ -7,9 +7,14 @@ die() {
     exit 3
 }
 
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*"
+    exit 2
+}
+
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
-LSMOD=$(command -v lsmod 2>/dev/null) || die "lsmod not available"
 NFT=$(command -v nft 2>/dev/null) || die "nft not available"
 SORT=$(command -v sort 2>/dev/null) || die "sort not available"
 <% if @systemd_enable -%>
@@ -17,30 +22,21 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Set some default values
+# Output buffers and counters
 BL_ITEMS=0
 CHAIN_EMPTY=""
 FILTER_SECTION_COUNT=0
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_NFT_NL__"
-PREF_LIST=""
-RULES_TOTAL=0
-SEQ=0
+PERFDATA_BUFFER=""
 TABLE_COUNT=0
 TABLE_EMPTY=""
-TABLE_PERF=""
 TOTAL_RULES=0
-
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
 
 # Add one perfdata item to the sortable buffer.
 add_pd() {
-    LABEL_FORMAT=$(printf '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
-    PREF_LIST="${PREF_LIST}${LABEL_FORMAT} ${2:-0}\n"
+    label_format=$(printf '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
+    PERFDATA_BUFFER="${PERFDATA_BUFFER}${label_format} ${2:-0}\n"
 }
 
 # Append one line to the long output buffer.
@@ -68,7 +64,7 @@ emit_check() {
 }
 
 # Read one IP set and serialize its items as a comma-separated list.
-collect_ip_set_csv() {
+collect_set_items_csv() {
     $NFT list set "$1" "$2" "$3" 2>/dev/null | $AWK '
         BEGIN { done=0; in_elements=0; data="" }
         done { next }
@@ -122,30 +118,12 @@ collect_ip_set_csv() {
     '
 }
 
-# Count the number of comma-separated set items.
-count_csv_items() {
-    if [ -n "$1" ]; then
-        printf '%s' "$1" | $AWK -F',' '{print NF}'
-    else
-        printf '0'
-    fi
-}
-
-# Check whether a family/table/set key is used in a blocking rule.
-is_blocking_set() {
-    printf '%s\n' "$BLOCKING_SET_KEYS" | $AWK -v key="$1" '
-        $0 == key { found=1; exit }
-        END { exit(found ? 0 : 1) }
-    '
-}
-
 # Render one filter-set section in the long output.
 append_filter_section() {
     label=$1
     set_name=$2
-    items_csv=$3
-
-    item_count=$(count_csv_items "$items_csv")
+    item_count=$3
+    items_csv=$4
 
     append_long "${label} addresses in ${set_name} filter (${item_count}):"
     if [ "$item_count" -eq 0 ]; then
@@ -168,49 +146,84 @@ $SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 
 <% end -%>
 
-# Kernel check
-$LSMOD | $AWK '/\bnf_tables\b/' >/dev/null 2>&1 || crit "nf_tables kernel module not loaded"
-
-# Try to get ruleset
+# Reading the live ruleset validates nft access without assuming a loadable kernel module.
 RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
 [ -z "$RULESET" ] && crit "Ruleset empty"
 
-# Analyze ruleset
-KEYVALS=$(printf '%s' "$RULESET" | $AWK '
+# Analyze ruleset structure
+RULESET_STATS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN {
-    FS=" "; SUBSEP=SUBSEP; inside=0; tblkey=""; chainkey="";
+    FS=" "
+    inside_chain=0
+    table_key=""
+    chain_key=""
 }
 {
-    if ($1 == "table") { fam=$2; tab=$3; tblkey=fam SUBSEP tab; next }
-    if ($1 == "chain") { inside=1; ch=$2; chainkey=tblkey SUBSEP ch; chain_seen[chainkey]=1; next }
-    if (inside && $0 ~ /^[[:space:]]*}/) { inside=0; next }
-    if (inside) {
+    if ($1 == "table") {
+        table_key=$2 SUBSEP $3
+        table_seen[table_key]=1
+        inside_chain=0
+        next
+    }
+    if ($1 == "chain") {
+        chain_key=table_key SUBSEP $2
+        chain_seen[chain_key]=1
+        inside_chain=1
+        next
+    }
+    if (inside_chain && $0 ~ /^[[:space:]]*}/) {
+        inside_chain=0
+        next
+    }
+    if (inside_chain) {
         if ($0 ~ /^[[:space:]]*$/) next
         if ($0 ~ /^[[:space:]]*#/) next
-        if ($1 == "type" || $1 == "policy") { chain_has_meta[chainkey]=1; next }
+        if ($1 == "type" || $1 == "policy") { chain_has_meta[chain_key]=1; next }
         if ($1 ~ /^(set|counter|flags|elements|size|timeout)$/) next
-        rules_in_chain[chainkey]++
+        rules_in_chain[chain_key]++
     }
 }
 END {
-    total_rules=0; perf=""; empty_tables=""; empty_chains="";
-    for (ck in chain_seen) {
-        split(ck,a,SUBSEP); fam=a[1]; tab=a[2]; ch=a[3];
-        rc = (ck in rules_in_chain) ? rules_in_chain[ck] : 0;
-        if (!rc && !(ck in chain_has_meta)) empty_chains = empty_chains " " fam"/"tab"/"ch;
-        table_key=fam SUBSEP tab; table_rules[table_key]+=rc;
+    total_rules=0
+    table_count=0
+    empty_tables=""
+    empty_chains=""
+
+    for (chain_key in chain_seen) {
+        split(chain_key, chain_parts, SUBSEP)
+        fam=chain_parts[1]
+        tab=chain_parts[2]
+        chain=chain_parts[3]
+        rules=(chain_key in rules_in_chain) ? rules_in_chain[chain_key] : 0
+
+        if (!rules && !(chain_key in chain_has_meta)) {
+            empty_chains = empty_chains " " fam "/" tab "/" chain
+        }
+
+        table_rules[fam SUBSEP tab] += rules
     }
-    for (t in table_rules) {
-        split(t,b,SUBSEP); fam=b[1]; tab=b[2]; rc=table_rules[t];
-        perf = perf "table_"fam"_"tab"=" rc " ";
-        if (!rc) empty_tables = empty_tables " " fam"/"tab;
-        total_rules+=rc; tblcount++;
+
+    for (table_key in table_seen) {
+        split(table_key, table_parts, SUBSEP)
+        fam=table_parts[1]
+        tab=table_parts[2]
+        rules=(table_key in table_rules) ? table_rules[table_key] : 0
+
+        if (!rules) {
+            empty_tables = empty_tables " " fam "/" tab
+        }
+
+        total_rules += rules
+        table_count++
     }
+
+    sub(/^ /, "", empty_tables)
+    sub(/^ /, "", empty_chains)
+
     printf "rules_total=%d\n", total_rules;
-    printf "table_count=%d\n", tblcount;
-    printf "table_perf=%s\n",  perf;
+    printf "table_count=%d\n", table_count;
     printf "table_empty=%s\n", empty_tables;
-    printf "chain_empty=%s\n",  empty_chains;
+    printf "chain_empty=%s\n", empty_chains;
 }')
 
 # Parse keyvals
@@ -218,99 +231,156 @@ while IFS='=' read -r K V; do
     case "$K" in
         rules_total) TOTAL_RULES=$V ;;
         table_count) TABLE_COUNT=$V ;;
-        table_perf)  TABLE_PERF=$V  ;;
         table_empty) TABLE_EMPTY=$V ;;
         chain_empty) CHAIN_EMPTY=$V ;;
     esac
 done <<EOF
-$KEYVALS
+$RULESET_STATS
 EOF
 
-# Get dynamic set references used in drop/reject rules
-BLOCKING_SET_KEYS=$(printf '%s' "$RULESET" | $AWK '
-BEGIN { RS="\n"; fam=""; tab=""; inside=0 }
+# Collect inet/filter dynamic sets referenced by blocking rules
+FILTER_SETS=$(printf '%s' "$RULESET" | $AWK '
+BEGIN {
+    FS=" "
+    current_table=""
+    inside_chain=0
+    inside_set=0
+    set_key=""
+    set_type=""
+    dynamic=0
+}
 {
     line=$0
 
-    if ($1=="table") { fam=$2; tab=$3; next }
-    if ($1=="chain") { inside=1; next }
-    if (inside && $0 ~ /^[[:space:]]*}/) { inside=0; next }
-    if (!inside) next
-
-    gsub(/comment[[:space:]]+"[^"]*"/, "", line)
-    if (line !~ /(^|[[:space:]])(drop|reject)([[:space:]]|$)/) next
-
-    while (match(line, /@[[:alnum:]_.-]+/)) {
-        setn = substr(line, RSTART + 1, RLENGTH - 1)
-        key = fam "|" tab "|" setn
-        if (!seen[key]++) print key
-        line = substr(line, RSTART + RLENGTH)
+    if ($1 == "table") {
+        current_table=$2 SUBSEP $3
+        inside_chain=0
+        next
     }
-}')
+    if ($1 == "chain") {
+        inside_chain=1
+        next
+    }
+    if (inside_chain && $0 ~ /^[[:space:]]*}/) {
+        inside_chain=0
+        next
+    }
+    if (inside_chain) {
+        scrub=line
+        gsub(/comment[[:space:]]+"[^"]*"/, "", scrub)
 
-# Get dynamic sets
-DYNSETS=$(printf '%s' "$RULESET" | $AWK '
-BEGIN { RS="\n"; fam=""; tab=""; inst=0; dyn=0; setn=""; settype="" }
-{
-    if ($1=="table") { fam=$2; tab=$3 }
-    if ($1=="set")   { setn=$2; dyn=(index($0,"dynamic")>0); inst=1; settype=""; next }
-    if (inst) {
+        if (scrub ~ /(^|[[:space:]])(drop|reject)([[:space:]]|$)/) {
+            while (match(scrub, /@[[:alnum:]_.-]+/)) {
+                blocking[current_table SUBSEP substr(scrub, RSTART + 1, RLENGTH - 1)]=1
+                scrub=substr(scrub, RSTART + RLENGTH)
+            }
+        }
+
+        next
+    }
+
+    if ($1 == "set") {
+        inside_set=1
+        set_key=current_table SUBSEP $2
+        set_type=""
+        dynamic=(index($0, "dynamic") > 0)
+        next
+    }
+    if (inside_set) {
         if ($1=="type" || $1=="typeof") {
-            settype=$0
-            sub(/^[[:space:]]+/, "", settype)
+            set_type=$0
+            sub(/^[[:space:]]+/, "", set_type)
         }
-        if (index($0,"dynamic")>0) dyn=1
         if ($0 ~ /}/) {
-            if (dyn) print fam "|" tab "|" setn "|" settype
-            inst=0; dyn=0; settype=""
+            if (dynamic) {
+                set_types[set_key]=set_type
+            }
+            inside_set=0
+            dynamic=0
+            set_key=""
+            set_type=""
+            next
+        }
+        if (index($0, "dynamic") > 0) {
+            dynamic=1
         }
     }
-}')
+}
+END {
+    for (set_key in set_types) {
+        if (!(set_key in blocking)) {
+            continue
+        }
 
-# Read dynamic IP set data used by blocking rules and render matching inet/filter sets.
-if [ -n "$BLOCKING_SET_KEYS" ] && [ -n "$DYNSETS" ]; then
-    while IFS='|' read -r FAM TAB SET SET_TYPE; do
-        [ -z "$FAM" ] && continue
-        SET_KEY="${FAM}|${TAB}|${SET}"
-        is_blocking_set "$SET_KEY" || continue
-        [ "$FAM" = "inet" ] || continue
-        [ "$TAB" = "filter" ] || continue
+        split(set_key, parts, SUBSEP)
+        fam=parts[1]
+        tab=parts[2]
+        set_name=parts[3]
 
-        ITEMS_CSV=$(collect_ip_set_csv "$FAM" "$TAB" "$SET")
-        CNT=$(count_csv_items "$ITEMS_CSV")
-        BL_ITEMS=$((BL_ITEMS + CNT))
+        if (fam != "inet" || tab != "filter") {
+            continue
+        }
 
-        case "$SET_TYPE" in
-            type\ ipv4_addr*|typeof\ ip\ saddr*)
-                [ "$FILTER_SECTION_COUNT" -gt 0 ] && append_long ""
-                append_filter_section "IPv4" "$SET" "$ITEMS_CSV"
-                FILTER_SECTION_COUNT=$((FILTER_SECTION_COUNT + 1))
-                ;;
-            type\ ipv6_addr*|typeof\ ip6\ saddr*)
-                [ "$FILTER_SECTION_COUNT" -gt 0 ] && append_long ""
-                append_filter_section "IPv6" "$SET" "$ITEMS_CSV"
-                FILTER_SECTION_COUNT=$((FILTER_SECTION_COUNT + 1))
-                ;;
-        esac
+        if (set_types[set_key] ~ /^type ipv4_addr/ || set_types[set_key] ~ /^typeof ip saddr/) {
+            printf "IPv4|%s|%s|%s\n", fam, tab, set_name
+        } else if (set_types[set_key] ~ /^type ipv6_addr/ || set_types[set_key] ~ /^typeof ip6 saddr/) {
+            printf "IPv6|%s|%s|%s\n", fam, tab, set_name
+        }
+    }
+}' | $SORT -t '|' -k1,1 -k4,4)
+
+# Read matching blocking sets and render them in the long output.
+if [ -n "$FILTER_SETS" ]; then
+    while IFS='|' read -r LABEL FAM TAB SET_NAME; do
+        [ -n "$LABEL" ] || continue
+
+        ITEMS_CSV=$(collect_set_items_csv "$FAM" "$TAB" "$SET_NAME")
+
+        old_ifs=$IFS
+        IFS=','
+        if [ -n "$ITEMS_CSV" ]; then
+            set -- $ITEMS_CSV
+        else
+            set --
+        fi
+        IFS=$old_ifs
+
+        BL_ITEMS=$((BL_ITEMS + $#))
+
+        if [ "$FILTER_SECTION_COUNT" -gt 0 ]; then
+            append_long ""
+        fi
+
+        append_filter_section "$LABEL" "$SET_NAME" "$#" "$ITEMS_CSV"
+        FILTER_SECTION_COUNT=$((FILTER_SECTION_COUNT + 1))
     done <<EOF
-$DYNSETS
+$FILTER_SETS
 EOF
 fi
 
 # Get named counters
 NAMED_CTRS=$(printf '%s' "$RULESET" | $AWK '
-BEGIN {
-    RS = "}"
-    FS = "[[:space:]]+"
-}
-/^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+[[:space:]]+packets/ {
-    if ($2 == "packets") next
-    for (i = 1; i <= NF; i++) {
-        if ($i == "packets" && (i + 1) <= NF) {
-            pkt_val = $(i + 1)
-            if (pkt_val > 0)
-                print $2, pkt_val
-            break
+BEGIN { RS = "}" }
+{
+    if ($0 !~ /^[[:space:]]*counter[[:space:]]+[A-Za-z0-9_]+/) {
+        next
+    }
+
+    block=$0
+    sub(/^[[:space:]]*counter[[:space:]]+/, "", block)
+    split(block, fields, /[[:space:]]+/)
+    counter_name=fields[1]
+
+    if (counter_name == "" || counter_name == "packets") {
+        next
+    }
+
+    if (match($0, /packets[[:space:]]+[0-9]+/)) {
+        pkt_val=substr($0, RSTART, RLENGTH)
+        sub(/^packets[[:space:]]+/, "", pkt_val)
+
+        if (pkt_val > 0) {
+            print counter_name, pkt_val
         }
     }
 }')
@@ -366,8 +436,9 @@ EOF
 fi
 
 # Set performance data
-PREF_LIST=$(printf '%b' "$PREF_LIST" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
-PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS $PREF_LIST"
+PERFDATA_BUFFER=$(printf '%b' "$PERFDATA_BUFFER" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
+PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
+[ -n "$PERFDATA_BUFFER" ] && PERF_DATA="$PERF_DATA $PERFDATA_BUFFER"
 
 # Check some values
 if [ -n "$CHAIN_EMPTY" ]; then

@@ -256,6 +256,19 @@ Shell conventions already visible in this repository:
 - When a monitoring check emits multiple long-output sections, print the most diagnostically important section first.
 - Long monitoring detail sections should have a configurable line limit and must say explicitly when output was truncated.
 
+Shell refactoring expectations:
+
+- When touching a shell script, do not stop at the narrow requested fix. Also review whether nearby logic has become duplicated, brittle, overly stateful, or unnecessarily hard to extend.
+- Prefer a bounded refactor when it leaves the script materially simpler, clearer, or easier to extend, even if that makes the change somewhat larger than the original request.
+- Collapse repeated parsing of the same input where practical. If one ruleset, config dump, or command output is being scanned multiple times for closely related facts, first check whether that can be reduced to fewer well-structured passes without making the parser harder to trust.
+- Prefer validating the real source of truth over proxy checks. If the primary command already proves the needed state, avoid extra pre-checks that can fail on valid systems and create false negatives.
+- Preserve the external contract unless the task explicitly asks to change it. For monitoring checks this includes exit codes, summary-line shape, perfdata keys, option flags, and generated path names.
+- Keep data collection, status evaluation, perfdata generation, and long-output rendering as distinct steps so future changes can extend one area without destabilizing the others.
+- Remove stale variables, helper functions, and intermediate formats when they no longer pay for their complexity. Do not keep scaffolding that only exists because of older incremental patches.
+- Prefer deterministic output ordering when the script emits lists, sections, or perfdata that operators will read or compare over time.
+- For monitoring checks, keep the summary line compact and move diagnostic detail to long output unless the extra detail is required to understand the alert immediately.
+- When a script change exposes a deeper structural weakness, leave the file in a better shape now if the rewrite can still be kept well-bounded and well-validated. Do not knowingly stack another local patch on top of avoidable technical debt.
+
 Shell safety requirements:
 
 - Quote variables consistently.
@@ -322,6 +335,8 @@ At minimum:
 - Verify changed class and defined-type guards still match actual inclusion order.
 - Syntax-check changed shell scripts with `sh -n` when they are POSIX.
 - Syntax-check changed Bash exceptions with `bash -n` only when Bash is intentionally required.
+- Render changed ERB shell templates in the relevant modes before syntax-checking them so the validation covers the actual generated script, not only the template source.
+- When a shell change affects parsing, monitoring output, or status handling, run at least one small representative functional check with synthetic or stubbed input, and include an error-path check when practical.
 - Review file modes, ownership, and `Sensitive` handling for every touched resource.
 - Verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names.
 - Review whether a README update was required and completed.
