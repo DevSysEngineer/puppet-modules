@@ -252,6 +252,7 @@ Shell conventions already visible in this repository:
 - Scripts are operationally minimal and avoid unnecessary layers.
 - Monitoring checks should return standard Nagios-style status codes.
 - Checks often emit a single summary line and optional perfdata or long output.
+- Keep the human-visible monitoring summary line natural and operator-readable; do not embed perfdata-style `key=value` fragments in the summary text.
 - Keep the monitoring summary text cause-oriented and do not duplicate raw numeric counters that are already present in perfdata.
 - When a monitoring check emits multiple long-output sections, print the most diagnostically important section first.
 - Long monitoring detail sections should have a configurable line limit and must say explicitly when output was truncated.

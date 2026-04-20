@@ -450,6 +450,15 @@ if [ -n "$TABLE_EMPTY" ]; then
     exit 2
 fi
 
+# Build a human-readable blacklist summary for the visible monitoring status line.
+if [ "$BL_ITEMS" -eq 0 ]; then
+    BLACKLIST_SUMMARY="no IP addresses in blacklist"
+elif [ "$BL_ITEMS" -eq 1 ]; then
+    BLACKLIST_SUMMARY="blacklist contains 1 IP address"
+else
+    BLACKLIST_SUMMARY="blacklist contains $BL_ITEMS IP addresses"
+fi
+
 # Show output
-emit_check "$TOTAL_RULES rules in $TABLE_COUNT table(s), blacklist=$BL_ITEMS" "$PERF_DATA"
+emit_check "$TOTAL_RULES rules in $TABLE_COUNT table(s), $BLACKLIST_SUMMARY" "$PERF_DATA"
 exit 0
