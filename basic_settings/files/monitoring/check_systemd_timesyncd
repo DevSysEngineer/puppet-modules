@@ -14,6 +14,19 @@ GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
 
+# Thresholds (seconds) - tune as needed
+CRIT_MSG=""
+JITTER_CRIT=0.2 # 200ms
+JITTER_WARN=0.1 # 100ms
+OFFSET_CRIT=0.125 # 125ms
+OFFSET_WARN=0.05 # 50ms
+ROOT_CRIT=5 # 5s (timesyncd RootDistanceMaxSec default)
+ROOT_WARN=0.5 # 500ms
+STATE_CODE=0
+STRAT_CRIT=15 # >15 ~= unsynchronised
+STRAT_WARN=10
+WARN_MSG=""
+
 # Emit a CRITICAL result and stop immediately.
 crit() {
     printf '%s\n' "$*" >&2
@@ -39,19 +52,6 @@ ge() {
 get_num_unit() {
     printf '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
 }
-
-# Thresholds (seconds) - tune as needed
-CRIT_MSG=""
-JITTER_CRIT=0.2 # 200ms
-JITTER_WARN=0.1 # 100ms
-OFFSET_CRIT=0.125 # 125ms
-OFFSET_WARN=0.05 # 50ms
-ROOT_CRIT=5 # 5s (timesyncd RootDistanceMaxSec default)
-ROOT_WARN=0.5 # 500ms
-STATE_CODE=0
-STRAT_CRIT=15 # >15 ~= unsynchronised
-STRAT_WARN=10
-WARN_MSG=""
 
 # Service active?
 $SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "timesyncd service is not active"
@@ -125,9 +125,9 @@ fi
 [ -n "$CRIT_MSG" ] && STATE_CODE=2
 [ $STATE_CODE -eq 0 ] && [ -n "$WARN_MSG" ] && STATE_CODE=1
 
-MSG="Server ${SERVER:-unknown}; time offset ${ABS_OFFSET}s"
-[ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
-[ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
+MSG="Time synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
+[ -n "$CRIT_MSG" ] && MSG="$MSG; critical: $CRIT_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; warning: $WARN_MSG"
 
 # Perfdata
 PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"

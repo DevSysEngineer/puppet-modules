@@ -18,7 +18,13 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 
 # Config
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
+LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
+
+# Arguments
+TIMER_UNIT=${1:-}
+[ -n "$TIMER_UNIT" ] || die "No timer given"
+SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
 # Emit the summary line and optional long output.
 emit_check() {
@@ -28,11 +34,6 @@ emit_check() {
         printf '%s\n' "$JOURNAL_JOINED"
     fi
 }
-
-# Arguments
-TIMER_UNIT=${1:-}
-[ -n "$TIMER_UNIT" ] || die "No timer given"
-SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
 # Ensure units exist and are active
 $SYSTEMCTL show "$TIMER_UNIT" >/dev/null 2>&1 || {
@@ -92,8 +93,26 @@ else
     RESULT=$RESULT_PROP
 fi
 
-# Render journal for long output
-JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+# Render journal for long output with a predictable line cap.
+JOURNAL_LINE_COUNT=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d' | $SED -n '$=')
+case "$JOURNAL_LINE_COUNT" in
+    ''|*[!0-9]*) JOURNAL_LINE_COUNT=0 ;;
+esac
+
+if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
+    if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
+        JOURNAL_JOINED=$(
+            {
+                printf '%s\n' "- Showing last ${LOG_LINES} journal lines from this timer run"
+                printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' | $TAIL -n "$LOG_LINES"
+            }
+        )
+    else
+        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+    fi
+else
+    JOURNAL_JOINED=""
+fi
 
 # Perfdata
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"

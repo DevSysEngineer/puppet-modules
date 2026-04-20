@@ -19,12 +19,6 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
 WHO=$(command -v who 2>/dev/null) || die "who not available"
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
-
 # Defaults / thresholds
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
@@ -43,6 +37,12 @@ while getopts 'c:w:i:a:' opt; do
         *) die "Usage: $0 [-c <crit>] [-w <warn>] [-t <fail-minutes>] [-i <max-idle>] [-a <max-age>]" ;;
     esac
 done
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*" >&2
+    exit 2
+}
 
 # Service check
 <% if @systemd_enable -%>
@@ -235,11 +235,11 @@ fi
 # Human-readable message
 EXTRA=""
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
-[ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}age> ${MAX_AGE}m, "
-[ -n "$BAD_WL_USERS" ] && EXTRA="${EXTRA}failed login for '$BAD_WL_USERS', "
-[ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched fails (allowlist), "
+[ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age over ${MAX_AGE}m, "
+[ -n "$BAD_WL_USERS" ] && EXTRA="${EXTRA}failed logins for '$BAD_WL_USERS', "
+[ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched allowlist failures, "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
-[ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users=$USERS_LIST, "
+[ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users: $USERS_LIST, "
 EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA="; $EXTRA"
 
@@ -257,5 +257,5 @@ PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH};;;;"
 PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC};;;;"
 
 # Output for monitoring
-printf '%s active SSH session(s)%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
+printf 'SSH sessions active: %s%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
 exit "$STATE_CODE"

@@ -20,12 +20,6 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
-
 # Default values
 CRIT_MSG=""
 CRIT_NO_SCAN_DAYS=14  # CRITICAL if >14 days
@@ -59,6 +53,12 @@ while getopts 'n:N:s:S:u:U:h' opt; do
     *) die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]" ;;
   esac
 done
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*" >&2
+    exit 2
+}
 
 # Append one critical reason to the summary.
 add_crit() {
@@ -250,7 +250,7 @@ fi
 
 # Create message
 [ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
-[ -n "$WARN_MSG" ] && MSG="$MSG; Warnin(s): $WARN_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
 
 # Create perf data
 PERF="engine_version=${ENGINE_VER}"

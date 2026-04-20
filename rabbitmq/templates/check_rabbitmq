@@ -17,18 +17,6 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*"
-    exit 2
-}
-
-# Emit a WARNING result and stop immediately.
-warn() {
-    printf '%s\n' "$*"
-    exit 1
-}
-
 # Configurable defaults
 WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
@@ -43,6 +31,12 @@ while getopts 'w:c:C:' opt; do
     *) die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]" ;;
   esac
 done
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*"
+    exit 2
+}
 
 # Check RabbitMQ service status
 <% if @systemd_enable -%>
@@ -87,7 +81,12 @@ append_item() {
     printf "%s" "$2"
   else
     printf "%s, %s" "$1" "$2"
-  fi
+    fi
+}
+
+# Render one queue name and depth pair for the summary line.
+queue_item() {
+    printf '%s (%s msgs)' "$1" "$2"
 }
 
 # Read tab-separated lines; queue names may contain spaces, so TAB is the only separator.
@@ -124,7 +123,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
                 MAX_MSG_CRIT=$MESSAGES
                 MAX_Q_CRIT="$QUEUE_NAME"
             fi
-            ITEM="$QUEUE_NAME=$MESSAGES"
+            ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
             CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
             CRIT_SHOWN=$((CRIT_SHOWN + 1))
         elif [ "$MESSAGES" -ge "$WARN" ]; then
@@ -133,7 +132,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
                 MAX_MSG_WARN=$MESSAGES
                 MAX_Q_WARN="$QUEUE_NAME"
             fi
-            ITEM="$QUEUE_NAME=$MESSAGES"
+            ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
             WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
             WARN_SHOWN=$((WARN_SHOWN + 1))
         fi
@@ -146,7 +145,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
             LARGEST_ORPHAN_MSG=$MESSAGES
             LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
         fi
-        ITEM="$QUEUE_NAME=$MESSAGES"
+        ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
         ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
         ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
     fi
@@ -171,7 +170,7 @@ elif [ "$WARN_COUNT" -gt 0 ]; then
 fi
 
 # Core totals
-MSG="$MSG, queues $QUEUE_COUNT, messages $TOTAL_MSG, consumers $TOTAL_CONSUMERS"
+MSG="$MSG, ${QUEUE_COUNT} queue(s), ${TOTAL_MSG} message(s), ${TOTAL_CONSUMERS} consumer(s)"
 
 # Append informational note about queues without consumers (no status impact)
 if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
@@ -179,7 +178,7 @@ if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
   if [ -n "$ORPHAN_LIST" ]; then
     MSG="$MSG, queues with messages but no consumers: $ORPHAN_LIST"
   else
-    MSG="$MSG, queues with messages but no consumers: $LARGEST_ORPHAN_QUEUE=$LARGEST_ORPHAN_MSG"
+    MSG="$MSG, queues with messages but no consumers: $(queue_item "$LARGEST_ORPHAN_QUEUE" "$LARGEST_ORPHAN_MSG")"
   fi
   [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 fi

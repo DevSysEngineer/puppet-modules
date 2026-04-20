@@ -239,6 +239,8 @@ Shell conventions already visible in this repository:
 - Required shell binaries should be resolved in the same direct style as the existing checks, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
 - Do not introduce a generic binary lookup helper such as `find_bin` when the script can follow the existing direct `command -v` pattern.
 - Place shell variable blocks after the fail helper and binary checks so the script setup order matches the existing monitoring checks.
+- Keep script-wide default/config/global variable blocks above non-fail helper functions. In practice the preferred order for monitoring checks is: fail helper, binary checks, default/config variables, option parsing, helper functions, then main logic.
+- Do not insert new helper functions between the binary checks and the main default/config variable block; add new globals to the existing variable block instead of scattering them near first use.
 - Use shell builtins such as `printf` directly instead of resolving them with `command -v`.
 - Bundle related shell variables together instead of scattering them through one large declaration block.
 - Place a short comment directly above each shell variable block so it is clear what that group of variables is for.

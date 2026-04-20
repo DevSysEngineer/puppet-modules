@@ -7,12 +7,6 @@ die() {
     exit 3
 }
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*"
-    exit 2
-}
-
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 NFT=$(command -v nft 2>/dev/null) || die "nft not available"
@@ -32,6 +26,12 @@ PERFDATA_BUFFER=""
 TABLE_COUNT=0
 TABLE_EMPTY=""
 TOTAL_RULES=0
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*"
+    exit 2
+}
 
 # Add one perfdata item to the sortable buffer.
 add_pd() {

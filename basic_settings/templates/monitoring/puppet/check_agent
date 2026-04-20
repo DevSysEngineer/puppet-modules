@@ -10,33 +10,26 @@ die() {
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
-GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 <% if @systemd_enable -%>
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
-# Emit the summary line and optional long output.
-emit_check() {
-    # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$1" "$2"
-    if [ -n "${JOURNAL_JOINED:-}" ]; then
-        printf '%s\n' "$JOURNAL_JOINED"
-    fi
-}
-
-# Defaults / thresholds
+# Default values
 CRIT_AGE=3600 # 60 minutes (your preference: >1h = critical)
 EXITCODE_STATE=0 # 0=OK, 1=WARNING, 2=CRITICAL
+JOURNAL_JOINED=""
 LAST_RUN_AGE=U
 LAST_RUN_HUMAN="unknown"
 STATUS_DETAIL="no changes"
 WARN_AGE=2700 # 45 minutes
-LOG_LINES=20
+LOG_LINES=${LOG_LINES:-20}
+LOG_SCAN_LINES=${LOG_SCAN_LINES:-100}
 
-# --- Options: tweak staleness thresholds ---
+# Options
 while getopts "w:c:h" opt; do
     case "$opt" in
         w) WARN_AGE="$OPTARG" ;;
@@ -45,6 +38,34 @@ while getopts "w:c:h" opt; do
         *) printf '%s\n' "Unknown option: -$OPTARG"; exit 3 ;;
     esac
 done
+
+# Emit the summary line and optional long output.
+emit_check() {
+    # $1 = summary/status line, $2 = perfdata
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "$JOURNAL_JOINED" ]; then
+        printf '%s\n' "$JOURNAL_JOINED"
+    fi
+}
+
+# Keep only Puppet-tagged journal lines plus relevant systemd unit messages.
+filter_puppet_journal() {
+    printf '%s\n' "$1" | "$AWK" '
+        NF == 0 { next }
+        {
+            ident = $3
+
+            if (ident ~ /^puppet([-.[:alnum:]_]+)?(\[[0-9]+\])?:$/) {
+                print
+                next
+            }
+
+            if (ident ~ /^systemd\[[0-9]+\]:$/ && index($0, "puppet.service") > 0) {
+                print
+            }
+        }
+    '
+}
 
 # Service running
 <% if @systemd_enable -%>
@@ -158,8 +179,32 @@ fi
 
 # Recent logs for long output
 <% if @systemd_enable -%>
-JOURNAL_RAW=$($JOURNALCTL -n "$LOG_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
-JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+JOURNAL_RAW=$($JOURNALCTL -n "$LOG_SCAN_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+JOURNAL_FILTERED=$(filter_puppet_journal "$JOURNAL_RAW")
+JOURNAL_FILTERED_COUNT=$(printf '%s\n' "$JOURNAL_FILTERED" | "$AWK" 'NF { count++ } END { print count + 0 }')
+
+if [ "$JOURNAL_FILTERED_COUNT" -gt 0 ]; then
+    JOURNAL_TRUNCATED=0
+    if [ "$JOURNAL_FILTERED_COUNT" -gt "$LOG_LINES" ]; then
+        JOURNAL_FILTERED=$(printf '%s\n' "$JOURNAL_FILTERED" | "$TAIL" -n "$LOG_LINES")
+        JOURNAL_TRUNCATED=1
+    fi
+
+    if [ "$JOURNAL_TRUNCATED" -eq 1 ]; then
+        JOURNAL_JOINED=$(
+            {
+                printf '%s\n' "- Showing last ${LOG_LINES} Puppet journal lines (filtered from ${JOURNAL_FILTERED_COUNT} matches in the last ${LOG_SCAN_LINES} unit log lines)"
+                printf '%s\n' "$JOURNAL_FILTERED" | "$SED" '/^$/d; s/[[:space:]]\+$//; s/^/- /'
+            }
+        )
+    else
+        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_FILTERED" | "$SED" '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+    fi
+elif [ -n "$JOURNAL_RAW" ]; then
+    JOURNAL_JOINED="- No Puppet-tagged journal lines found in the last ${LOG_SCAN_LINES} unit log lines"
+else
+    JOURNAL_JOINED=""
+fi
 <% else -%>
 JOURNAL_JOINED=""
 <% end -%>

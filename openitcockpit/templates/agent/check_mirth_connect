@@ -22,12 +22,6 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
-
 # Defaults
 CONFIG="/opt/mirthconnect/conf/mirth-cli-config.properties"
 CRIT_Q=30
@@ -53,6 +47,12 @@ while getopts 'c:t:w:' opt; do
         *) die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]" ;;
     esac
 done
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*" >&2
+    exit 2
+}
 
 #
 # Keep the persistent queue state inside the agent tree so root does not read

@@ -21,6 +21,7 @@ AUDIT_META=""
 AUDIT_PAYLOAD=""
 CHECK_DIR=""
 CHECK_NAME=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-20}
 DETAILS=""
 JQ_META=""
 JQ_PAYLOAD=""
@@ -29,7 +30,21 @@ SEP_ERR="__CHECK_NPM_AUDIT_ERR_$$__"
 SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
 STATE_CODE=3
 
-# Read the first useful diagnostic line and ignore npm notice noise
+# Options
+while getopts 'd:n:' opt; do
+    case "$opt" in
+        d) CHECK_DIR="$OPTARG" ;;
+        n) CHECK_NAME="$OPTARG" ;;
+        *) die "Usage: $0 -d <directory> [-n <name>]" ;;
+    esac
+done
+
+# Validate options
+[ -n "$CHECK_DIR" ] || die "Usage: $0 -d <directory> [-n <name>]"
+[ -d "$CHECK_DIR" ] || die "directory '$CHECK_DIR' does not exist"
+[ -r "$CHECK_DIR" ] || die "directory '$CHECK_DIR' is not readable"
+
+# Read the first useful diagnostic line and ignore npm notice noise.
 first_line() {
     [ -n "$1" ] || return 1
     LINE=$(printf '%s\n' "$1" | "$SED" -n '
@@ -43,7 +58,7 @@ first_line() {
     printf '%s' "$LINE"
 }
 
-# Strip leading npm log chatter when audit JSON is prefixed by notices
+# Strip leading npm log chatter when audit JSON is prefixed by notices.
 normalize_audit_json() {
     [ -n "$1" ] || return 1
 
@@ -59,7 +74,7 @@ normalize_audit_json() {
     printf '%s' "$NORMALIZED"
 }
 
-# Prefer a compact message from JSON, stderr or jq parse errors
+# Prefer a compact message from JSON, stderr or jq parse errors.
 report_error() {
     LINE=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r '.error.summary // .error.message // .message // empty' 2>/dev/null | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}')
     if [ -n "$LINE" ]; then
@@ -104,25 +119,6 @@ run_jq() {
     PARSE_ERR=$JQ_ERROR
     [ "$JQ_STATUS" -eq 0 ]
 }
-
-# Print usage help for invalid command-line arguments.
-usage() {
-    die "Usage: $0 -d <directory> [-n <name>]"
-}
-
-# Options
-while getopts 'd:n:' opt; do
-    case "$opt" in
-        d) CHECK_DIR="$OPTARG" ;;
-        n) CHECK_NAME="$OPTARG" ;;
-        *) usage ;;
-    esac
-done
-
-# Validate options
-[ -n "$CHECK_DIR" ] || usage
-[ -d "$CHECK_DIR" ] || die "directory '$CHECK_DIR' does not exist"
-[ -r "$CHECK_DIR" ] || die "directory '$CHECK_DIR' is not readable"
 
 # Check if check name is not provided
 if [ -z "$CHECK_NAME" ]; then
@@ -385,6 +381,22 @@ run_jq '
 ' || die "$CHECK_NAME: $(report_error)"
 DETAILS=$JQ_OUTPUT
 
+# Keep the long output bounded and say explicitly when it was truncated.
+DETAIL_LINES=$(printf '%s\n' "$DETAILS" | "$SED" '/^$/d' | "$SED" -n '$=')
+case "$DETAIL_LINES" in
+    ''|*[!0-9]*) DETAIL_LINES=0 ;;
+esac
+
+if [ "$DETAIL_LINES" -gt "$DETAIL_LIMIT" ]; then
+    DETAILS=$(
+        {
+            printf '%s\n' "- Showing first ${DETAIL_LIMIT} vulnerable package lines"
+            printf '%s\n' "$DETAILS" | "$SED" -n "1,${DETAIL_LIMIT}p"
+            printf '%s\n' "[truncated after ${DETAIL_LIMIT} lines]"
+        }
+    )
+fi
+
 # Split the jq summary into shell variables
 OLD_IFS=$IFS
 IFS='|'
@@ -420,7 +432,7 @@ case "$PKG_TOTAL" in
     1) PKG_TEXT='1 vulnerable package' ;;
     *) PKG_TEXT="${PKG_TOTAL} vulnerable packages" ;;
 esac
-SUMMARY="${CHECK_NAME}: ${PKG_TEXT}, severity: low=${LOW_COUNT} moderate=${MODERATE_COUNT} high=${HIGH_COUNT} critical=${CRITICAL_COUNT}"
+SUMMARY="${CHECK_NAME}: ${PKG_TEXT}; low ${LOW_COUNT}, moderate ${MODERATE_COUNT}, high ${HIGH_COUNT}, critical ${CRITICAL_COUNT}"
 PERF_DATA="vuln_total=${VULN_TOTAL};"
 PERF_DATA="$PERF_DATA vuln_info=${INFO_COUNT};"
 PERF_DATA="$PERF_DATA vuln_low=${LOW_COUNT};"

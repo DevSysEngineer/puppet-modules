@@ -14,6 +14,62 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null)   || die "tr not available"
 WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 
+# Rule model:
+# - expected: every active item must be present
+# - whitelist: matching active item is allowed but not required
+# - any-required: at least one active item from the set must be present
+#
+# "configured" keeps every known USB identifier from the config, regardless of
+# time/day. "active" keeps only the subset that is relevant right now.
+# Unauthorized detection uses the configured expected/any lists so a known
+# device does not suddenly become unauthorized outside its active window.
+# Missing/required checks use the active lists so alerts only happen when the
+# current time/day says the rule matters.
+# Default values
+AANYREQ_IDS="" # -a CSV
+ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
+ANYREQ_MATCHED_LIST=""
+ANYREQ_OK=1
+ANYREQ_PRESENT_COUNT=0
+ANYREQ_SERIALS_CONFIGURED=""
+ANYREQ_SERIALS_ACTIVE=""
+ANYREQ_TOTAL_COUNT=0
+ANYREQ_VP_IDS_CONFIGURED=""
+ANYREQ_VP_IDS_ACTIVE=""
+EXPECTED_IDS="" # -e CSV
+EXPECTED_LIST="<%= @usb_expected_correct %>"
+EXPECTED_LIST_MISSING=""
+EXPECTED_PRESENT_COUNT=0
+EXPECTED_SERIALS_CONFIGURED=""
+EXPECTED_SERIALS_ACTIVE=""
+EXPECTED_TOTAL_COUNT=0
+EXPECTED_VP_IDS_CONFIGURED=""
+EXPECTED_VP_IDS_ACTIVE=""
+MSG=""
+NOW_HM=""
+NOW_MIN=0
+TODAY_DOW=0
+STATUS_CODE=0
+TOTAL_DEV=0
+UNAUTHORIZED_COUNT=0
+UNAUTHORIZED_DEV_LIST=""
+WHITELISTED_COUNT=0
+WHITELISTED_DEV_LIST=""
+WHITELIST_IDS="" # -w CSV
+WHITELIST_LIST="<%= @usb_whitelist_correct %>"
+WHITELIST_SERIALS_ACTIVE=""
+WHITELIST_VP_IDS_ACTIVE=""
+
+# Parse options (each expects an argument)
+while getopts "w:e:a:" OPT; do
+    case "$OPT" in
+        w) WHITELIST_IDS="$OPTARG" ;;
+        e) EXPECTED_IDS="$OPTARG"  ;;
+        a) ANYREQ_IDS="$OPTARG"    ;;
+        *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
+    esac
+done
+
 # Convert HH:MM to minutes since midnight.
 hm2min() {
     H=${1%:*}
@@ -97,52 +153,6 @@ in_days() {
     printf '%s\n' 0
 }
 
-# Rule model:
-# - expected: every active item must be present
-# - whitelist: matching active item is allowed but not required
-# - any-required: at least one active item from the set must be present
-#
-# "configured" keeps every known USB identifier from the config, regardless of
-# time/day. "active" keeps only the subset that is relevant right now.
-# Unauthorized detection uses the configured expected/any lists so a known
-# device does not suddenly become unauthorized outside its active window.
-# Missing/required checks use the active lists so alerts only happen when the
-# current time/day says the rule matters.
-# Default values
-AANYREQ_IDS="" # -a CSV
-ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
-ANYREQ_MATCHED_LIST=""
-ANYREQ_OK=1
-ANYREQ_PRESENT_COUNT=0
-ANYREQ_SERIALS_CONFIGURED=""
-ANYREQ_SERIALS_ACTIVE=""
-ANYREQ_TOTAL_COUNT=0
-ANYREQ_VP_IDS_CONFIGURED=""
-ANYREQ_VP_IDS_ACTIVE=""
-EXPECTED_IDS="" # -e CSV
-EXPECTED_LIST="<%= @usb_expected_correct %>"
-EXPECTED_LIST_MISSING=""
-EXPECTED_PRESENT_COUNT=0
-EXPECTED_SERIALS_CONFIGURED=""
-EXPECTED_SERIALS_ACTIVE=""
-EXPECTED_TOTAL_COUNT=0
-EXPECTED_VP_IDS_CONFIGURED=""
-EXPECTED_VP_IDS_ACTIVE=""
-MSG=""
-NOW_HM=$($DATE +%H:%M)
-NOW_MIN=$(hm2min "$NOW_HM")
-TODAY_DOW=$($DATE +%u)  # 1=Mon .. 7=Sun
-STATUS_CODE=0
-TOTAL_DEV=0
-UNAUTHORIZED_COUNT=0
-UNAUTHORIZED_DEV_LIST=""
-WHITELISTED_COUNT=0
-WHITELISTED_DEV_LIST=""
-WHITELIST_IDS="" # -w CSV
-WHITELIST_LIST="<%= @usb_whitelist_correct %>"
-WHITELIST_SERIALS_ACTIVE=""
-WHITELIST_VP_IDS_ACTIVE=""
-
 # Check whether the current time falls within one window.
 in_window() {
     WIN="$1"
@@ -214,20 +224,15 @@ parse_item() {
     esac
 }
 
-# Parse options (each expects an argument)
-while getopts "w:e:a:" OPT; do
-    case "$OPT" in
-        w) WHITELIST_IDS="$OPTARG" ;;
-        e) EXPECTED_IDS="$OPTARG"  ;;
-        a) ANYREQ_IDS="$OPTARG"    ;;
-        *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
-    esac
-done
-
 # Normalize CSV -> space-separated lists (only if provided)
 [ -n "$WHITELIST_IDS" ] && WHITELIST_LIST=$(printf '%s' "$WHITELIST_IDS" | $TR ',' ' ')
 [ -n "$EXPECTED_IDS"  ] && EXPECTED_LIST=$(printf '%s' "$EXPECTED_IDS"  | $TR ',' ' ')
 [ -n "$ANYREQ_IDS"    ] && ANYREQ_LIST=$(printf '%s' "$ANYREQ_IDS"    | $TR ',' ' ')
+
+# Capture the current time once for time-window and weekday rules.
+NOW_HM=$($DATE +%H:%M)
+NOW_MIN=$(hm2min "$NOW_HM")
+TODAY_DOW=$($DATE +%u)  # 1=Mon .. 7=Sun
 
 # Build the active lists for "now".
 # For expected/any-required we also keep the configured lists so those devices
@@ -503,5 +508,5 @@ PERF="$PERF any_required_present=${ANYREQ_PRESENT_COUNT}"
 PERF="$PERF any_required_ok=${ANYREQ_OK}"
 
 # Output
-printf '%s| %s\n' "$MSG" "$PERF"
+printf '%s | %s\n' "$MSG" "$PERF"
 exit $STATUS_CODE

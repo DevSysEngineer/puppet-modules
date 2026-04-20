@@ -25,20 +25,6 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 UNAME=$(command -v uname 2>/dev/null) || die "uname not available"
 
-# Emit a CRITICAL result and stop immediately.
-crit() {
-    printf '%s\n' "$*" >&2
-    exit 2
-}
-
-# Read the first trimmed line from a file.
-trim_file() {
-    [ -r "$1" ] || return 1
-    val=$($SED -n '1{s/[[:space:]]\+$//;p;q}' "$1" 2>/dev/null | $TR -d '\000\r\n') || return 1
-    [ -n "$val" ] || return 1
-    printf '%s' "$val"
-}
-
 # Defaults values
 DMI_DIR="/sys/devices/virtual/dmi/id"
 DROPPED_CRIT="1"
@@ -55,6 +41,20 @@ while getopts 'q:d' opt; do
         *) die "Usage: $0 [-q <int>] [-d <int>]" ;;
     esac
 done
+
+# Emit a CRITICAL result and stop immediately.
+crit() {
+    printf '%s\n' "$*" >&2
+    exit 2
+}
+
+# Read the first trimmed line from a file.
+trim_file() {
+    [ -r "$1" ] || return 1
+    val=$($SED -n '1{s/[[:space:]]\+$//;p;q}' "$1" 2>/dev/null | $TR -d '\000\r\n') || return 1
+    [ -n "$val" ] || return 1
+    printf '%s' "$val"
+}
 
 # Service running
 <% if @systemd_enable -%>
