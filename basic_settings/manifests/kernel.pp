@@ -29,11 +29,20 @@ class basic_settings::kernel (
     /-generic$/ => 'generic',
     default     => 'other',
   }
-  $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $systemd_enable = defined(Package['systemd'])
   $usb_whitelist_correct = join($usb_whitelist, ' ')
   $usb_expected_correct = join($usb_expected, ' ')
   $usb_any_requirements_correct = join($usb_any_requirements, ' ')
+
+  # Set monitoring variables
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
+  if ($monitoring_enable) {
+    $unit_failure = {
+      'OnFailure' => 'notify-failed@%i.service',
+    }
+  } else {
+    $unit_failure = {}
+  }
 
   # Try to get some settings
   if ($facts['is_virtual']) {
@@ -156,14 +165,25 @@ class basic_settings::kernel (
       require     => Group['hugetlb'],
     }
 
-    # Create systemd service
+    # Create systemd service. Keep /dev visible because hugeadm may inspect the hugetlbfs mount at /dev/hugepages.
     basic_settings::systemd_service { 'dev-hugepages-shmmax':
       description => 'Hugespages recommended shmmax service',
       service     => {
-        'Type'      => 'oneshot',
-        'ExecStart' => '/usr/bin/hugeadm --set-recommended-shmmax',
+        'ExecStart'               => '/usr/bin/hugeadm --set-recommended-shmmax',
+        'LockPersonality'         => 'true',
+        'MemoryDenyWriteExecute'  => 'true',
+        'NoNewPrivileges'         => 'true',
+        'PrivateTmp'              => 'true',
+        'ProtectClock'            => 'true',
+        'ProtectHome'             => 'true',
+        'ProtectHostname'         => 'true',
+        'ProtectKernelLogs'       => 'true',
+        'ProtectSystem'           => 'full',
+        'RestrictSUIDSGID'        => 'true',
+        'SystemCallArchitectures' => 'native',
+        'Type'                    => 'oneshot',
       },
-      unit        => {
+      unit        => stdlib::merge($unit_failure, {
         'Requires' => 'dev-hugepages.mount',
         'After'    => 'dev-hugepages.mount',
       },

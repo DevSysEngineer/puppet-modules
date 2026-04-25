@@ -44,8 +44,20 @@ class basic_settings::monitoring (
     basic_settings::systemd_service { 'notify-failed@':
       description   => 'Send systemd notifications to mail',
       service       => {
-        'Type'      => 'oneshot',
-        'ExecStart' => "/usr/bin/bash -c 'LC_CTYPE=C systemctl status --full %i | /usr/bin/mail -s \"Service %i failed on ${server_fdqn}\" -r \"systemd@${server_fdqn}\" \"${mail_to}\"'", #lint:ignore:140chars
+        'ExecStart'               => "/usr/bin/bash -c 'LC_CTYPE=C systemctl status --full %i | /usr/bin/mail -s \"Service %i failed on ${server_fdqn}\" -r \"systemd@${server_fdqn}\" \"${mail_to}\"'", #lint:ignore:140chars
+        'LockPersonality'         => 'true',
+        'MemoryDenyWriteExecute'  => 'true',
+        'NoNewPrivileges'         => 'true',
+        'PrivateDevices'          => 'true',
+        'PrivateTmp'              => 'true',
+        'ProtectClock'            => 'true',
+        'ProtectHome'             => 'true',
+        'ProtectHostname'         => 'true',
+        'ProtectKernelLogs'       => 'true',
+        'ProtectSystem'           => 'full',
+        'RestrictSUIDSGID'        => 'true',
+        'SystemCallArchitectures' => 'native',
+        'Type'                    => 'oneshot',
       },
       daemon_reload => 'monitoring_systemd_daemon_reload',
       enable        => false,

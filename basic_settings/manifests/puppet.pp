@@ -11,12 +11,18 @@ class basic_settings::puppet (
 ) {
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])
-  $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $systemd_enable = defined(Package['systemd'])
+
+  # Set monitoring variables
+  $monitoring_enable = defined(Class['basic_settings::monitoring'])
   if ($monitoring_enable) {
     $monitoring_package = $basic_settings::monitoring::package
+    $unit_failure = {
+      'OnFailure' => 'notify-failed@%i.service',
+    }
   } else {
     $monitoring_package = 'none'
+    $unit_failure = {}
   }
 
   # Get puppet service name
@@ -154,11 +160,24 @@ class basic_settings::puppet (
     basic_settings::systemd_service { 'puppet-clean-filebucket':
       description => 'Clean puppet filebucket service',
       service     => {
-        'Type'      => 'oneshot',
-        'User'      => 'root',
-        'ExecStart' => "/usr/bin/find ${cache_dir}/clientbucket/ -type f -mtime +14 -atime +14 -delete", #lint:ignore:140chars # Last dir separator (/) very important
-        'Nice'      => '19',
+        'ExecStart'               => "/usr/bin/find ${cache_dir}/clientbucket/ -type f -mtime +14 -atime +14 -delete", #lint:ignore:140chars # Last dir separator (/) very important
+        'LockPersonality'         => 'true',
+        'MemoryDenyWriteExecute'  => 'true',
+        'Nice'                    => '19',
+        'NoNewPrivileges'         => 'true',
+        'PrivateDevices'          => 'true',
+        'PrivateTmp'              => 'true',
+        'ProtectClock'            => 'true',
+        'ProtectHome'             => 'true',
+        'ProtectHostname'         => 'true',
+        'ProtectKernelLogs'       => 'true',
+        'ProtectSystem'           => 'full',
+        'RestrictSUIDSGID'        => 'true',
+        'SystemCallArchitectures' => 'native',
+        'Type'                    => 'oneshot',
+        'User'                    => 'root',
       },
+      unit        => $unit,
     }
 
     if ($basic_settings_enable) {
@@ -304,11 +323,24 @@ class basic_settings::puppet (
       basic_settings::systemd_service { "${server_service}-clean-reports":
         description => "Clean ${server_service} reports service",
         service     => {
-          'Type'      => 'oneshot',
-          'User'      => 'puppet',
-          'ExecStart' => "/usr/bin/find ${server_var_dir}/reports/ -type f -name '*.yaml' -ctime +1 -delete", #lint:ignore:140chars # Last dir separator (/) very important
-          'Nice'      => '19',
+          'ExecStart'               => "/usr/bin/find ${server_var_dir}/reports/ -type f -name '*.yaml' -ctime +1 -delete", #lint:ignore:140chars # Last dir separator (/) very important
+          'LockPersonality'         => 'true',
+          'MemoryDenyWriteExecute'  => 'true',
+          'Nice'                    => '19',
+          'NoNewPrivileges'         => 'true',
+          'PrivateDevices'          => 'true',
+          'PrivateTmp'              => 'true',
+          'ProtectClock'            => 'true',
+          'ProtectHome'             => 'true',
+          'ProtectHostname'         => 'true',
+          'ProtectKernelLogs'       => 'true',
+          'ProtectSystem'           => 'full',
+          'RestrictSUIDSGID'        => 'true',
+          'SystemCallArchitectures' => 'native',
+          'Type'                    => 'oneshot',
+          'User'                    => 'puppet',
         },
+        unit        => $unit,
       }
 
       if ($basic_settings_enable) {

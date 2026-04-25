@@ -82,7 +82,7 @@ class php8::fpm (
           'Nice' => "-${nginx::nice_level}",
       }, $default_service)
     } else {
-      $default = $default_service
+      $service = $default_service
     }
 
     # Create service check

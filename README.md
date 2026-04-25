@@ -1,5 +1,5 @@
 # Puppet-modules
-Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Puppet-omgeving, bestaande uit verschillende onderdelen: `Basic settings`, `GitLab`, `Let's Encrypt`, `Nginx`, `PHP`, `MySQL`, `SSH`, en `RabbitMQ`. Deze onderdelen kunnen afzonderlijk of in combinatie worden gebruikt om je infrastructuur te verbeteren. Om deze uitbreiding mogelijk te maken, vertrouw ik op andere Puppet-modules, die ik heb toegevoegd als git-submodules. Ik wil graag de makers van [debconf](https://github.com/smoeding/puppet-debconf.git), [reboot](https://github.com/puppetlabs/puppetlabs-reboot.git), [stdlib](https://github.com/puppetlabs/puppetlabs-stdlib.git) en [timezone](https://github.com/saz/puppet-timezone.git) bedanken voor hun waardevolle bijdragen.
+Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Puppet-omgeving, bestaande uit verschillende onderdelen: `Basic settings`, `Docker`, `GitLab`, `Let's Encrypt`, `Nginx`, `PHP`, `MySQL`, `SSH`, en `RabbitMQ`. Deze onderdelen kunnen afzonderlijk of in combinatie worden gebruikt om je infrastructuur te verbeteren. Om deze uitbreiding mogelijk te maken, vertrouw ik op andere Puppet-modules, die ik heb toegevoegd als git-submodules. Ik wil graag de makers van [debconf](https://github.com/smoeding/puppet-debconf.git), [reboot](https://github.com/puppetlabs/puppetlabs-reboot.git), [stdlib](https://github.com/puppetlabs/puppetlabs-stdlib.git) en [timezone](https://github.com/saz/puppet-timezone.git) bedanken voor hun waardevolle bijdragen.
 
 > [!IMPORTANT]
 > **Perforce zet Puppet open-sourcecode achter betaalmuur**: In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je gaan betalen. Vind jij – net als ik – dat open source toegankelijk en vrij beschikbaar moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). Vox Pupuli biedt een drop-in replacement voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door openvox package van Vox Pupuli, zonder aanpassingen aan je bestaande configuratie.
@@ -170,6 +170,53 @@ node 'webserver.dev.xxxx.nl' {
         bash_aliases    => template('accounts/bash-aliases'), # Indien van toepassing
         authorized_keys => $authorized_keys,
         groups          => ['wheel'] # Gebruik groep 'wheel' alleen als gebruiker ook moet kunnen 'su'en
+    }
+}
+```
+
+## Docker
+
+Docker maakt het mogelijk om containers op een voorspelbare manier te draaien. Dit onderdeel installeert Docker CE en kan per Compose-project een root-only projectmap onder `/opt/docker` beheren. Iedere `docker::compose`-resource plaatst een `.env` en een `docker-compose.yml` onder `/opt/docker/<naam>` en maakt daarna een `docker-compose-<naam>.service` aan.
+
+De parameter `compose_source` ondersteunt HTTPS-bronnen en lokale `file:///`-paden. HTTP wordt bewust niet geaccepteerd, zodat Compose-bestanden niet ongemerkt via een onversleutelde verbinding worden opgehaald. Het Compose-bestand wordt met `docker compose config --quiet` gevalideerd voordat Puppet het bestand definitief plaatst. Voor externe bronnen kan `compose_checksum` worden gebruikt met een SHA256-checksum, zodat een onverwachte wijziging of corrupte download zichtbaar faalt tijdens de Puppet-run.
+
+### Voorbeelden
+
+Hieronder een voorbeeld hoe je Docker en een Compose-project met een beschermde `.env` gebruikt in je Puppet-omgeving:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::compose { 'example':
+        compose_source   => 'https://example.org/example/docker-compose.yml',
+        compose_checksum => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+        env_content      => Sensitive.new("COMPOSE_PROJECT_NAME=example\nMYSQL_PASSWORD=supersecret\n"),
+    }
+}
+```
+
+Wanneer de inhoud van de `.env` uit een ERB-template komt, kan `template(...)` ook direct worden gebruikt. Puppet rendert de template naar een string; gebruik bij gevoelige waarden bij voorkeur `Sensitive.new(...)`:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::compose { 'example':
+        compose_source => 'file:///srv/puppet/files/example/docker-compose.yml',
+        env_content    => Sensitive.new(template('docker/example.env.erb')),
+    }
+}
+```
+
+Een lokaal Compose-bestand kan ook met een `file:///`-bron worden overgenomen:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::compose { 'authentik':
+        compose_source => 'file:///srv/puppet/files/authentik/docker-compose.yml',
     }
 }
 ```

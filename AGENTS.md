@@ -7,6 +7,7 @@ This repository is a collection of first-party Puppet modules for Debian and Ubu
 Project-owned modules in this repository:
 
 - `basic_settings`
+- `docker`
 - `gitlab`
 - `letsencrypt`
 - `mysql`
@@ -35,6 +36,8 @@ The current metadata and README target 64-bit Debian/Ubuntu systems. Do not broa
 
 Read `README.md` first, every time. The README explains the intended module combinations, the hardening posture, the monitoring story, and the documentation tone that the project already uses.
 
+Treat `AGENTS.md` as part of the active change scope for every code change. It is a living repository instruction file, not a separate document that is only updated manually after larger rewrites.
+
 Before editing code:
 
 - Identify whether you are changing a first-party module or a vendored submodule.
@@ -42,6 +45,22 @@ Before editing code:
 - Read the relevant `manifests/`, `templates/`, and `files/` in the touched module before changing structure or style.
 - Check whether the module already integrates with `basic_settings`, `basic_settings::monitoring`, `basic_settings::systemd`, `basic_settings::security_audit`, `php8::fpm`, `nginx`, or other local modules.
 - Look for existing file ownership, mode, `require`, `notify`, and `subscribe` patterns before adding new resources.
+- Inspect related code before applying a change, not only the file that appears to need editing. Check related Puppet classes, defined types, templates, files, systemd units, README sections, and existing examples whenever they influence the correct implementation.
+
+For every change, assess whether it affects:
+
+- Repository conventions or coding style.
+- Puppet abstractions, wrappers, or reusable patterns.
+- systemd unit behavior.
+- systemd hardening.
+- Linux security behavior.
+- Permissions, ownership, users, groups, capabilities, or sudo usage.
+- Network behavior, ports, sockets, firewall assumptions, or service dependencies.
+- Startup, shutdown, restart, ordering, and failure handling.
+- Monitoring, logging, alerting, or operational diagnostics.
+- Security-by-design principles used in this repository.
+
+Only apply the code change after the existing structure and behavior are sufficiently understood. The change must fit the current repository design unless there is a clear technical or security reason to improve that design.
 
 ## Architecture And Module Interaction
 
@@ -101,6 +120,8 @@ Examples of module composition that should guide future changes:
 
 Security is a design requirement in this repository, not an optional extra. Future changes must preserve and improve the repo's hardening posture.
 
+Security must be part of the design, not only a final review step. When changing Linux services, systemd units, deployment automation, Docker, Puppet, permissions, network configuration, or monitoring, explicitly assess whether the existing hardening is still appropriate and whether additional hardening is possible without breaking the application.
+
 For every change to Puppet code, templates, scripts, services, timers, configs, or generated files, check all of the following:
 
 - Can this run with less privilege?
@@ -130,6 +151,58 @@ Repository-specific security conventions to preserve:
 - Sensitive operations often add audit rules through `basic_settings::security_audit`.
 
 If you must weaken a permission, sandbox, or trust model, document the reason in the code and update the README when the operational expectation changes.
+
+## systemd Hardening Guideline
+
+For new, changed, or newly reviewed systemd units, assess hardening explicitly per concrete unit and per option. Do not use the presence or absence of existing hardening as the scope filter. A service that currently has no hardening may still need it, and a service that already has hardening may still need an exception or a rollback if the option is not safe for that application.
+
+The following options are common candidates in this repository, but none of them is a guaranteed baseline:
+
+- `PrivateDevices=true`
+- `PrivateTmp=true`
+- `ProtectHome=true`
+- `ProtectSystem=full`
+- `SystemCallArchitectures=native`
+- `RestrictSUIDSGID=true`
+- `LockPersonality=true`
+- `NoNewPrivileges=true`
+- `MemoryDenyWriteExecute=true`
+- `ProtectHostname=true`
+- `ProtectClock=true`
+- `ProtectKernelLogs=true`
+
+Each candidate option must be assessed against the actual application behavior before it is added, retained, broadened, or removed. Mark every option as `apply`, `do not apply`, or `needs more research` in the related analysis. Existing settings must be revalidated when the unit, wrapper, package, runtime user, data paths, service role, runtime language, package version, or deployment model changes.
+
+The primary goal is to improve security without breaking applications. Do not add hardening as a blind default. Prefer a documented exception over an unsafe hardening change that causes runtime failures, degraded functionality, or operational surprises.
+
+Before applying or retaining these options, identify the final unit name, Puppet location, template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, `ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities, writable paths, device access, temporary directory usage, home directory access, credential paths, network exposure, runtime language, interpreter or VM, dynamically loaded plugins/modules, package-management behavior, and whether the unit is vendor-managed or internally generated.
+
+Check these option-specific risks every time:
+
+- `PrivateDevices=true`: unsafe for units that need real device nodes, storage, hardware, USB, virtualization, container, RTC, GPU, serial, smartcard, tape, scanner, printer, or low-level network device access.
+- `PrivateTmp=true`: unsafe when the service intentionally exchanges files with other units through shared `/tmp` or `/var/tmp`.
+- `ProtectHome=true`: unsafe when the service must read or write `/home`, `/root`, or `/run/user` paths, including user SSH material, web content, backup sources, or application data.
+- `ProtectSystem=full`: unsafe without matching writable path exceptions when the service must write under `/usr`, `/boot`, `/etc`, or other protected locations.
+- `SystemCallArchitectures=native`: unsafe for 32-bit, legacy ABI, Wine, QEMU-user, emulation, or `setarch` workloads.
+- `RestrictSUIDSGID=true`: unsafe for install, restore, provisioning, package-management, or collaboration workflows that intentionally set SUID/SGID bits or SGID directories.
+- `LockPersonality=true`: unsafe for software that changes execution domain, disables ASLR through personality, or uses compatibility modes.
+- `NoNewPrivileges=true`: unsafe for units that need `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, or runtime privilege escalation.
+- `MemoryDenyWriteExecute=true`: unsafe for software that generates or modifies executable code at runtime. Pay special attention to JIT runtimes and dynamic execution engines such as Java/JVM, Java application servers, Mirth Connect, Elasticsearch/Solr-like JVM services, .NET, Node.js/V8, Chromium/Electron, LuaJIT, Erlang/BEAM with native code, WebAssembly runtimes, database engines or proxies with JIT, scripting engines with JIT, applications using PCRE-JIT, custom plugins, executable stacks, compiler trampolines, runtime code patching, or security/observability agents that inject code. Also treat services using `/dev/shm`, `memfd_create`, dynamic plugins, or unknown binary blobs as higher risk until tested.
+- `ProtectHostname=true`: unsafe for services that must set the system hostname/domain name, call hostname-management APIs, run `hostnamectl`, participate in cloud-init or provisioning hostname changes, or dynamically observe host hostname changes after the service has started. It may also be unsafe for monitoring, inventory, licensing, clustering, or registration agents that rely on real-time hostname changes rather than the hostname visible at service start.
+- `ProtectClock=true`: unsafe for services that set or adjust the system clock or hardware clock, read or manage RTC devices, perform time synchronization, use `adjtimex`/`clock_adjtime` behavior, manage wake alarms, or inspect kernel time discipline. Treat NTP/chrony/systemd-timesyncd, `hwclock`, VM guest tools, hardware-management agents, monitoring plugins that check time discipline, and backup/scheduling software with RTC/wake-alarm behavior as higher risk.
+- `ProtectKernelLogs=true`: unsafe for services that intentionally read from or write to the kernel log ring buffer through interfaces such as `/dev/kmsg`, `/proc/kmsg`, `dmesg`, kernel-log collectors, low-level security agents, troubleshooting agents, or monitoring plugins that inspect kernel messages directly. This option is usually suitable for normal application services that only write application logs to stdout/stderr, syslog, journald, or application log files. Do not apply it blindly to logging, SIEM, EDR, audit, hardware, hypervisor, container-runtime, kernel-module, or monitoring components until their kernel-log behavior is understood.
+
+Treat timers, sockets, mounts, paths, targets, and daemon configuration drop-ins separately from services. These service-execution options are not meaningful defaults for `.timer`, `.socket`, `.mount`, `.path`, `.target`, `journald.conf`, `resolved.conf`, `timesyncd.conf`, or similar daemon configuration drop-ins. For a timer, socket, or path unit, assess the paired `.service` unit instead.
+
+When changing systemd-related code, inspect all generated and modified units in scope, including existing `basic_settings::systemd_service` resources, `basic_settings::systemd_drop_in` resources, vendor-unit drop-ins, direct `service` resources, templates, files, and wrappers. Include units that do not currently contain any hardening options. Sort the resulting unit list alphabetically by final systemd unit name before reporting or making broad decisions.
+
+When the repository contains wrappers or templates that generate systemd units, inspect the wrapper itself and every known consumer of that wrapper. Do not assume that a hardening option is safe because it works for one generated unit. A generic wrapper may only add a new default when every current consumer is validated, or when the wrapper supports explicit per-service opt-outs with documented technical reasons.
+
+Known lower-risk categories are simple internally generated oneshot services that execute a known native binary or root-only script without shared `/tmp`, device access, protected-path writes, `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, 32-bit binaries, Wine, QEMU-user, `setarch`, compatibility tooling, JIT/runtime code generation, hostname management, clock management, RTC access, wake alarms, kernel-log access, dynamic plugin loading, or unknown third-party binary behavior. Even then, keep the hardening in the most specific service declaration and document the technical basis in the related analysis or review.
+
+Known higher-risk categories include package-management and provisioning units, Puppet agent/server units, GitLab omnibus supervision, certbot renewals with arbitrary hooks, SSH login/session units, monitoring executors that may run local plugins, OpenITCOCKPIT server components that include `sudo_server`, backup or restore services that preserve permissions, services using file capabilities, services using hardware or device nodes, services using RTC/time/clock APIs, services that read kernel logs or run `dmesg`, services that manage or observe hostname changes, Java/JVM services, .NET services, Node.js/V8 services, browser/Electron-based services, database engines with JIT, services using PCRE-JIT, plugin-based runtimes, and any service that may call `sudo`, `su`, `runuser`, `pkexec`, or application-specific helper binaries.
+
+When changing a wrapper such as `basic_settings::systemd_service` or `basic_settings::systemd_drop_in`, first list every generated unit alphabetically and prove that each consumer can tolerate the new default for every option being considered. Do not add hardening defaults to a generic wrapper unless every consumer is validated or the wrapper has explicit per-service opt-outs with documented reasons.
 
 ## Data Sanitization Before External Use
 
@@ -201,9 +274,12 @@ Follow these Puppet conventions:
 - Keep file modes and ownership explicit.
 - Keep monitoring and audit wiring close to the managed resource so operational visibility changes with the feature.
 - Keep parameter lists and similar aligned assignments vertically when the surrounding module already uses that style, including aligning the `=` signs into one visual column.
-- Add a short comment above non-obvious Puppet resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone.
+- When a resource only differs by optional attributes, prefer one compact resource with precomputed `undef` values over duplicated resource blocks. Do this only when mutually exclusive attributes, such as `source` and `content`, cannot both become non-`undef`.
+- Do not invert control flow so a tiny branch is followed by a large `else` block. Keep the main resource declaration path in the first branch, or use a separate short validation guard with `fail(...)` before the main path. Large `else` blocks are only acceptable when both branches contain comparable real behavior.
+- Add a short comment above non-obvious resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone.
 - This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
-- When embedding shell snippets inside Puppet double-quoted strings, always escape shell variables and command substitutions meant for the runtime shell, such as `\$tmpdir`, `\$1`, and `\$(...)`, so Puppet does not treat them as Puppet interpolation.
+- When embedding shell snippets inside double-quoted strings, always escape shell variables and command substitutions meant for the runtime shell, such as `\$tmpdir`, `\$1`, and `\$(...)`, so Puppet does not treat them as interpolation.
+- Do not introduce a variable for a value that is used only once in the local code path, unless the variable name adds real domain meaning or avoids a demonstrable readability problem. Prefer applying one-off values directly in the resource or expression so the operational effect stays visible at the point of use.
 
 Use local modules as integration points instead of importing foreign architecture. For example, if a service needs a systemd unit, timer, sudo rule, OpenITCOCKPIT check, or logrotate config, prefer the existing `basic_settings` helpers over adding a new external abstraction.
 
@@ -328,6 +404,21 @@ README rules for this repository:
 
 README updates are part of the implementation, not optional follow-up work.
 
+`AGENTS.md` maintenance follows the same rule. After each code change, review whether this file is still accurate, complete, and up to date. If the change introduces new knowledge, adjusted workflows, changed security expectations, or relevant Linux or systemd insights that future agents or developers need to know, update `AGENTS.md` in the same change.
+
+Do not update `AGENTS.md` blindly. First determine where the new or changed instruction fits best in the existing document. Prefer extending an existing relevant section over adding a loose or duplicate section.
+
+When editing `AGENTS.md`, check for:
+
+- Clear sentence structure.
+- Correct spelling.
+- Consistent terminology.
+- Precise technical wording.
+- No duplicate rules.
+- No contradictions with existing instructions.
+- No outdated references.
+- No vague wording that future agents could misinterpret.
+
 ## Validation Before Finishing
 
 There is no first-party test suite or CI structure in the custom modules at the root of this repository. Validation still matters, so run targeted checks for the files you touched.
@@ -343,5 +434,15 @@ At minimum:
 - Review file modes, ownership, and `Sensitive` handling for every touched resource.
 - Verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names.
 - Review whether a README update was required and completed.
+- Review whether `AGENTS.md` is still accurate, and update it when the change affects repository instructions, security expectations, Linux or systemd behavior, workflows, or reusable patterns.
+
+Finish every change with a short summary that states:
+
+- Which code was changed.
+- Which relevant security, Linux, or systemd aspects were reviewed.
+- Whether README files are still accurate.
+- Whether `AGENTS.md` was checked.
+- Whether `AGENTS.md` was updated.
+- If `AGENTS.md` was not updated, why the existing instructions are still sufficient.
 
 If you could not run an important validation step, say so explicitly in your final handoff.
