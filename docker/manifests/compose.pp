@@ -1,10 +1,18 @@
 define docker::compose (
-  Optional[String]                              $compose_source    = undef,
-  Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]      $compose_checksum  = undef,
-  Optional[String]                              $env_source        = undef,
-  Optional[Variant[String, Sensitive[String]]]  $env_content       = undef,
-  Enum['present','absent']                      $ensure            = present,
-  String                                        $target            = 'services',
+  Optional[String]                              $compose_source              = undef,
+  Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]      $compose_checksum            = undef,
+  Optional[String]                              $env_source                  = undef,
+  Optional[Variant[String, Sensitive[String]]]  $env_content                 = undef,
+  Enum['present','absent']                      $ensure                      = present,
+  Integer                                       $monitoring_detail_limit     = 30,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited  = [],
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required  = [],
+  Integer                                       $monitoring_interval         = 300,
+  Boolean                                       $monitoring_orphan_critical  = false,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_profiles         = [],
+  Integer                                       $monitoring_starting_grace   = 300,
+  Integer                                       $monitoring_timeout          = 60,
+  String                                        $target                      = 'services',
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
   if ($name =~ /\A[a-zA-Z0-9_.-]+\z/) {
@@ -18,8 +26,8 @@ define docker::compose (
     # Check if ensure is present to determine if the compose stack should be deployed or removed.
     if ($ensure == present) {
       if ($compose_source != undef) {
-        # Only support https and file sources for compose files to ensure the content can be validated before deployment.
-        if $compose_source =~ /(?i:\A(?:https:\/\/|file:\/\/\/))/ {
+        # Only support https, local file, and Puppet file-server sources so Compose content is not fetched over plain HTTP.
+        if ($compose_source =~ /(?i:\A(?:https:\/\/|file:\/\/\/|puppet:\/\/\/))/) {
           # Determine the content of the environment file based on the provided parameters.
           if ($env_source == undef) {
             case $env_content {
@@ -174,8 +182,29 @@ define docker::compose (
               require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
             }
           }
+
+          # Monitor the rendered Compose stack separately from the orchestration service unit.
+          docker::compose_monitoring { $name:
+            project_directory => $app_dir,
+            compose_files     => [$compose_file],
+            detail_limit      => $monitoring_detail_limit,
+            env_file          => ($env_source != undef or $env_content != undef) ? {
+              true    => $env_file,
+              default => undef,
+            },
+            expected_exited   => $monitoring_expected_exited,
+            health_required   => $monitoring_health_required,
+            interval          => $monitoring_interval,
+            orphan_critical   => $monitoring_orphan_critical,
+            package           => $monitoring_package,
+            profiles          => $monitoring_profiles,
+            project_name      => $name,
+            starting_grace    => $monitoring_starting_grace,
+            timeout           => $monitoring_timeout,
+            require           => File[$compose_file],
+          }
         } else {
-          fail('docker::compose compose_source must start with https:// or file:///')
+          fail('docker::compose compose_source must start with https://, file:///, or puppet:///')
         }
       } else {
         fail('docker::compose requires compose_source when ensure is present.')

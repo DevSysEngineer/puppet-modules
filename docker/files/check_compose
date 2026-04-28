@@ -1,0 +1,659 @@
+#!/bin/sh
+# Managed by puppet
+
+# Fail helper used for missing dependencies and unreadable Docker output.
+die() {
+    printf 'UNKNOWN - %s\n' "$*"
+    exit 3
+}
+
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
+BASENAME=$(command -v basename 2>/dev/null) || die "basename not available"
+DATE=$(command -v date 2>/dev/null) || die "date not available"
+DOCKER=$(command -v docker 2>/dev/null) || die "docker not available"
+JQ=$(command -v jq 2>/dev/null) || die "jq not available"
+MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
+MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
+MV=$(command -v mv 2>/dev/null) || die "mv not available"
+RM=$(command -v rm 2>/dev/null) || die "rm not available"
+SED=$(command -v sed 2>/dev/null) || die "sed not available"
+TR=$(command -v tr 2>/dev/null) || die "tr not available"
+
+# Defaults and runtime state
+CHECK_NAME=""
+COMPOSE_FILES=""
+CONTAINER_DETAILS=""
+CONTAINER_DETAILS_COUNT=0
+CONTAINER_DETAILS_TRUNCATED=0
+CRITICAL_REASONS=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-30}
+ENV_FILE=""
+EXPECTED_EXITED=""
+EXPECTED_LIST=""
+HEALTH_REQUIRED=""
+ISSUE_DETAILS=""
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_DOCKER_COMPOSE_STACK_NL__"
+ORPHAN_CRITICAL=0
+PROFILE_LIST=""
+PROJECT_DIRECTORY=""
+PROJECT_NAME=""
+STARTING_GRACE=${STARTING_GRACE:-300}
+STATE_DIR=${STATE_DIR:-/etc/openitcockpit-agent/state}
+STATE_FILE=""
+STATE_TMP=""
+WARNING_REASONS=""
+
+# Counters exposed in summary and perfdata
+COMPOSE_SERVICES_EXPECTED=0
+COMPOSE_SERVICES_MISSING=0
+COMPOSE_SERVICES_PRESENT=0
+COMPOSE_ORPHANS=0
+CONTAINER_RESTARTS_INCREASED=0
+CONTAINER_RESTARTS_TOTAL=0
+CONTAINERS_CREATED=0
+CONTAINERS_DEAD=0
+CONTAINERS_EXITED=0
+CONTAINERS_PAUSED=0
+CONTAINERS_RESTARTING=0
+CONTAINERS_RUNNING=0
+CONTAINERS_TOTAL=0
+CONTAINERS_UNEXPECTED_EXITED=0
+CONTAINERS_WITHOUT_HEALTHCHECK=0
+HEALTH_HEALTHY=0
+HEALTH_STARTING=0
+HEALTH_STARTING_TOO_LONG=0
+HEALTH_UNHEALTHY=0
+HEALTH_REQUIRED_MISSING=0
+PRESENT_SERVICES=""
+
+# Print usage help for invalid command-line invocations.
+usage() {
+    printf '%s\n' "Usage: $0 -d <project_directory> [-p <project_name>] [-f <compose_file>] [-e <env_file>] [-n <name>] [-g <seconds>] [-l <lines>] [-x <services>] [-H <services>] [-P <profiles>] [-O]" >&2
+    exit 3
+}
+
+# Options
+while getopts 'd:p:f:e:n:g:l:x:H:P:O' opt; do
+    case "$opt" in
+        d) PROJECT_DIRECTORY="$OPTARG" ;;
+        p) PROJECT_NAME="$OPTARG" ;;
+        f) COMPOSE_FILES="${COMPOSE_FILES:+$COMPOSE_FILES,}$OPTARG" ;;
+        e) ENV_FILE="$OPTARG" ;;
+        n) CHECK_NAME="$OPTARG" ;;
+        g) STARTING_GRACE="$OPTARG" ;;
+        l) DETAIL_LIMIT="$OPTARG" ;;
+        x) EXPECTED_EXITED="$OPTARG" ;;
+        H) HEALTH_REQUIRED="$OPTARG" ;;
+        P) PROFILE_LIST="$OPTARG" ;;
+        O) ORPHAN_CRITICAL=1 ;;
+        *) usage ;;
+    esac
+done
+
+# Check whether a value contains only decimal digits.
+is_number() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# Return the first useful line from command output.
+first_line() {
+    printf '%s\n' "$1" | "$SED" -n '
+        s/[[:space:]]\+$//
+        /^[[:space:]]*$/d
+        p
+        q
+    '
+}
+
+# Append a semicolon-separated reason to an existing summary string.
+append_reason() {
+    current_text=$1
+    new_text=$2
+
+    if [ -n "$current_text" ]; then
+        printf '%s; %s\n' "$current_text" "$new_text"
+    else
+        printf '%s\n' "$new_text"
+    fi
+}
+
+# Append one line to the issue detail buffer.
+append_issue_detail() {
+    if [ -z "$ISSUE_DETAILS" ]; then
+        ISSUE_DETAILS=$1
+    else
+        ISSUE_DETAILS="${ISSUE_DETAILS}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Record a CRITICAL reason.
+add_critical() {
+    CRITICAL_REASONS=$(append_reason "$CRITICAL_REASONS" "$1")
+    append_issue_detail "CRITICAL: $1"
+}
+
+# Record a WARNING reason.
+add_warning() {
+    WARNING_REASONS=$(append_reason "$WARNING_REASONS" "$1")
+    append_issue_detail "WARNING: $1"
+}
+
+# Append one comma-separated item if it is not already present.
+append_csv_unique() {
+    current_list=$1
+    new_item=$2
+
+    [ -n "$new_item" ] || {
+        printf '%s\n' "$current_list"
+        return
+    }
+
+    old_ifs=$IFS
+    IFS=','
+    for item in $current_list; do
+        if [ "$item" = "$new_item" ]; then
+            IFS=$old_ifs
+            printf '%s\n' "$current_list"
+            return
+        fi
+    done
+    IFS=$old_ifs
+
+    if [ -n "$current_list" ]; then
+        printf '%s,%s\n' "$current_list" "$new_item"
+    else
+        printf '%s\n' "$new_item"
+    fi
+}
+
+# Return success when a comma-separated list contains the requested item.
+in_csv() {
+    list=$1
+    needle=$2
+
+    old_ifs=$IFS
+    IFS=','
+    for item in $list; do
+        if [ "$item" = "$needle" ]; then
+            IFS=$old_ifs
+            return 0
+        fi
+    done
+    IFS=$old_ifs
+    return 1
+}
+
+# Count entries in a comma-separated list.
+count_csv() {
+    list=$1
+    count=0
+
+    [ -n "$list" ] || {
+        printf '%s\n' 0
+        return
+    }
+
+    old_ifs=$IFS
+    IFS=','
+    for item in $list; do
+        [ -n "$item" ] && count=$((count + 1))
+    done
+    IFS=$old_ifs
+    printf '%s\n' "$count"
+}
+
+# Sanitize arbitrary text into a stable state filename fragment.
+sanitize_label() {
+    printf '%s' "$1" | "$TR" -c 'A-Za-z0-9_.-' '_'
+}
+
+# Append one line to the long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Append a pre-rendered buffer that already uses LONG_OUTPUT_SEP.
+append_long_buffer() {
+    [ -n "$1" ] || return
+
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Append one capped container detail line.
+append_container_detail() {
+    CONTAINER_DETAILS_COUNT=$((CONTAINER_DETAILS_COUNT + 1))
+    if [ "$CONTAINER_DETAILS_COUNT" -le "$DETAIL_LIMIT" ]; then
+        if [ -z "$CONTAINER_DETAILS" ]; then
+            CONTAINER_DETAILS=$1
+        else
+            CONTAINER_DETAILS="${CONTAINER_DETAILS}${LONG_OUTPUT_SEP}$1"
+        fi
+    else
+        CONTAINER_DETAILS_TRUNCATED=$((CONTAINER_DETAILS_TRUNCATED + 1))
+    fi
+}
+
+# Emit the summary line and optional long output.
+emit_check() {
+    printf '%s | %s\n' "$1" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        "$AWK" -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    printf "%s\n", lines[i]
+                }
+            }
+        '
+    fi
+}
+
+# Map Nagios exit codes to labels.
+status_label() {
+    case "$1" in
+        0) printf '%s\n' 'OK' ;;
+        1) printf '%s\n' 'WARNING' ;;
+        2) printf '%s\n' 'CRITICAL' ;;
+        *) printf '%s\n' 'UNKNOWN' ;;
+    esac
+}
+
+# Convert a Docker timestamp to age in seconds.
+timestamp_age() {
+    timestamp_text=$1
+
+    case "$timestamp_text" in
+        ''|0001-01-01*) printf '%s\n' U; return ;;
+    esac
+
+    timestamp_epoch=$("$DATE" -d "$timestamp_text" +%s 2>/dev/null) || {
+        printf '%s\n' U
+        return
+    }
+
+    age=$((NOW_EPOCH - timestamp_epoch))
+    [ "$age" -lt 0 ] && age=0
+    printf '%s\n' "$age"
+}
+
+# Read the previous restart count for one container name.
+previous_restart_count() {
+    [ -r "$STATE_FILE" ] || return 1
+    "$AWK" -F'|' -v name="$1" '$1 == name { print $2; exit }' "$STATE_FILE"
+}
+
+# Run `docker compose config --services` with the configured identity.
+compose_config_services() {
+    set -- compose
+    [ -n "$PROJECT_NAME" ] && set -- "$@" --project-name "$PROJECT_NAME"
+    set -- "$@" --project-directory "$PROJECT_DIRECTORY"
+    [ -n "$ENV_FILE" ] && set -- "$@" --env-file "$ENV_FILE"
+
+    old_ifs=$IFS
+    IFS=','
+    for compose_file in $COMPOSE_FILES; do
+        [ -n "$compose_file" ] && set -- "$@" --file "$compose_file"
+    done
+    IFS=$old_ifs
+
+    old_ifs=$IFS
+    IFS=','
+    for profile_name in $PROFILE_LIST; do
+        [ -n "$profile_name" ] && set -- "$@" --profile "$profile_name"
+    done
+    IFS=$old_ifs
+
+    set -- "$@" config --services
+    "$DOCKER" "$@"
+}
+
+# Run `docker compose ps` and include non-running and orphan containers.
+compose_ps_json() {
+    set -- compose
+    [ -n "$PROJECT_NAME" ] && set -- "$@" --project-name "$PROJECT_NAME"
+    set -- "$@" --project-directory "$PROJECT_DIRECTORY"
+    [ -n "$ENV_FILE" ] && set -- "$@" --env-file "$ENV_FILE"
+
+    old_ifs=$IFS
+    IFS=','
+    for compose_file in $COMPOSE_FILES; do
+        [ -n "$compose_file" ] && set -- "$@" --file "$compose_file"
+    done
+    IFS=$old_ifs
+
+    old_ifs=$IFS
+    IFS=','
+    for profile_name in $PROFILE_LIST; do
+        [ -n "$profile_name" ] && set -- "$@" --profile "$profile_name"
+    done
+    IFS=$old_ifs
+
+    set -- "$@" ps --all --format json --orphans
+    "$DOCKER" "$@"
+}
+
+# Inspect the containers returned by Compose.
+docker_inspect_containers() {
+    set -- inspect
+    for container_id in $CONTAINER_IDS; do
+        set -- "$@" "$container_id"
+    done
+    "$DOCKER" "$@"
+}
+
+# Validate options before Docker is contacted.
+[ -n "$PROJECT_DIRECTORY" ] || usage
+[ -d "$PROJECT_DIRECTORY" ] || die "compose project directory '$PROJECT_DIRECTORY' does not exist"
+[ -r "$PROJECT_DIRECTORY" ] || die "compose project directory '$PROJECT_DIRECTORY' is not readable"
+is_number "$STARTING_GRACE" || die "starting grace must be numeric"
+is_number "$DETAIL_LIMIT" || die "detail limit must be numeric"
+
+if [ -n "$PROJECT_NAME" ]; then
+    case "$PROJECT_NAME" in
+        *[!A-Za-z0-9_.-]*) die "project name '$PROJECT_NAME' contains unsupported characters" ;;
+    esac
+fi
+
+if [ -n "$ENV_FILE" ]; then
+    [ -r "$ENV_FILE" ] || die "env file '$ENV_FILE' is not readable"
+fi
+
+old_ifs=$IFS
+IFS=','
+for compose_file in $COMPOSE_FILES; do
+    [ -n "$compose_file" ] || continue
+    [ -r "$compose_file" ] || die "compose file '$compose_file' is not readable"
+done
+IFS=$old_ifs
+
+if [ -z "$CHECK_NAME" ]; then
+    if [ -n "$PROJECT_NAME" ]; then
+        CHECK_NAME=$PROJECT_NAME
+    else
+        CHECK_NAME=$("$BASENAME" "$PROJECT_DIRECTORY")
+    fi
+fi
+
+# Prepare the private state file used to detect restart-count increases.
+PROJECT_KEY=$(sanitize_label "$CHECK_NAME")
+STATE_FILE="${STATE_DIR}/docker_compose_${PROJECT_KEY}.state"
+OLD_UMASK=$(umask)
+umask 077
+"$MKDIR" -p "$STATE_DIR" 2>/dev/null || {
+    umask "$OLD_UMASK"
+    die "state directory ${STATE_DIR} could not be created"
+}
+STATE_TMP=$("$MKTEMP" "${STATE_DIR}/docker_compose_${PROJECT_KEY}.XXXXXX") || {
+    umask "$OLD_UMASK"
+    die "state file could not be created"
+}
+umask "$OLD_UMASK"
+trap '$RM -f "$STATE_TMP"' EXIT HUP INT QUIT TERM
+
+# Resolve expected services from the rendered Compose model.
+CONFIG_OUTPUT=$(compose_config_services 2>&1)
+CONFIG_RC=$?
+[ "$CONFIG_RC" -eq 0 ] || die "$CHECK_NAME: compose config failed: $(first_line "$CONFIG_OUTPUT")"
+
+EXPECTED_SERVICES=$(printf '%s\n' "$CONFIG_OUTPUT" | "$SED" '/^[[:space:]]*$/d')
+while IFS= read -r service_name; do
+    [ -n "$service_name" ] || continue
+    EXPECTED_LIST=$(append_csv_unique "$EXPECTED_LIST" "$service_name")
+    COMPOSE_SERVICES_EXPECTED=$((COMPOSE_SERVICES_EXPECTED + 1))
+done <<EOF
+$EXPECTED_SERVICES
+EOF
+
+[ "$COMPOSE_SERVICES_EXPECTED" -gt 0 ] || die "$CHECK_NAME: compose config does not contain services"
+
+# Read the current Compose runtime view and parse its JSON.
+PS_JSON=$(compose_ps_json 2>&1)
+PS_RC=$?
+[ "$PS_RC" -eq 0 ] || die "$CHECK_NAME: compose ps failed: $(first_line "$PS_JSON")"
+
+PS_TSV=$(printf '%s' "$PS_JSON" | "$JQ" -r '
+    def rows:
+        if type == "array" then .[]
+        elif type == "object" then .
+        else empty
+        end;
+    rows
+    | [
+        (.ID // .Id // ""),
+        (.Name // ""),
+        (.Project // ""),
+        (.Service // ""),
+        (.State // ""),
+        (.Health // ""),
+        ((.ExitCode // "") | tostring)
+    ]
+    | @tsv
+' 2>&1)
+PS_JQ_RC=$?
+[ "$PS_JQ_RC" -eq 0 ] || die "$CHECK_NAME: compose ps JSON parse failed: $(first_line "$PS_TSV")"
+
+CONTAINER_IDS=""
+while IFS='	' read -r container_id _container_name _project_name _service_name _state _health _exit_code; do
+    [ -n "$container_id" ] || continue
+    CONTAINER_IDS="${CONTAINER_IDS:+$CONTAINER_IDS }$container_id"
+done <<EOF
+$PS_TSV
+EOF
+
+# Inspect every known container for health, restart and timestamp details.
+if [ -n "$CONTAINER_IDS" ]; then
+    INSPECT_JSON=$(docker_inspect_containers 2>&1)
+    INSPECT_RC=$?
+    [ "$INSPECT_RC" -eq 0 ] || die "$CHECK_NAME: docker inspect failed: $(first_line "$INSPECT_JSON")"
+
+    INSPECT_TSV=$(printf '%s' "$INSPECT_JSON" | "$JQ" -r '
+        .[]
+        | [
+            ((.Id // "")[0:12]),
+            ((.Name // "") | sub("^/"; "")),
+            (.Config.Labels["com.docker.compose.service"] // ""),
+            (.Config.Image // ""),
+            ((.RestartCount // 0) | tostring),
+            (.Created // ""),
+            (.State.Status // ""),
+            (.State.Health.Status // "none"),
+            ((.State.ExitCode // 0) | tostring),
+            (.State.StartedAt // ""),
+            ((((.State.Health.Log // [])[-1].Output // "") | gsub("[\r\n\t]+"; " ") | gsub("[[:space:]]+"; " ") | .[0:240]))
+        ]
+        | @tsv
+    ' 2>&1)
+    INSPECT_JQ_RC=$?
+    [ "$INSPECT_JQ_RC" -eq 0 ] || die "$CHECK_NAME: docker inspect JSON parse failed: $(first_line "$INSPECT_TSV")"
+else
+    INSPECT_TSV=""
+fi
+
+NOW_EPOCH=$("$DATE" +%s)
+
+while IFS='	' read -r container_id container_name service_name image_name restart_count created_at state_status health_status exit_code started_at health_output; do
+    [ -n "$container_id$container_name" ] || continue
+
+    is_number "$restart_count" || restart_count=0
+    is_number "$exit_code" || exit_code=0
+
+    CONTAINERS_TOTAL=$((CONTAINERS_TOTAL + 1))
+    CONTAINER_RESTARTS_TOTAL=$((CONTAINER_RESTARTS_TOTAL + restart_count))
+
+    if [ -n "$service_name" ] && in_csv "$EXPECTED_LIST" "$service_name"; then
+        PRESENT_SERVICES=$(append_csv_unique "$PRESENT_SERVICES" "$service_name")
+    else
+        COMPOSE_ORPHANS=$((COMPOSE_ORPHANS + 1))
+        if [ "$ORPHAN_CRITICAL" -eq 1 ]; then
+            add_critical "${service_name:-$container_name} is an orphan container"
+        else
+            add_warning "${service_name:-$container_name} is an orphan container"
+        fi
+    fi
+
+    case "$state_status" in
+        running) CONTAINERS_RUNNING=$((CONTAINERS_RUNNING + 1)) ;;
+        restarting) CONTAINERS_RESTARTING=$((CONTAINERS_RESTARTING + 1)) ;;
+        paused) CONTAINERS_PAUSED=$((CONTAINERS_PAUSED + 1)) ;;
+        exited) CONTAINERS_EXITED=$((CONTAINERS_EXITED + 1)) ;;
+        dead) CONTAINERS_DEAD=$((CONTAINERS_DEAD + 1)) ;;
+        created) CONTAINERS_CREATED=$((CONTAINERS_CREATED + 1)) ;;
+    esac
+
+    case "$health_status" in
+        healthy) HEALTH_HEALTHY=$((HEALTH_HEALTHY + 1)) ;;
+        unhealthy) HEALTH_UNHEALTHY=$((HEALTH_UNHEALTHY + 1)) ;;
+        starting) HEALTH_STARTING=$((HEALTH_STARTING + 1)) ;;
+        ''|none) CONTAINERS_WITHOUT_HEALTHCHECK=$((CONTAINERS_WITHOUT_HEALTHCHECK + 1)) ;;
+    esac
+
+    previous_restart=$(previous_restart_count "$container_name" || true)
+    if is_number "$previous_restart" && [ "$restart_count" -gt "$previous_restart" ]; then
+        CONTAINER_RESTARTS_INCREASED=$((CONTAINER_RESTARTS_INCREASED + 1))
+        add_warning "${service_name:-$container_name} restart count increased from ${previous_restart} to ${restart_count}"
+    fi
+    printf '%s|%s\n' "$container_name" "$restart_count" >>"$STATE_TMP"
+
+    expected_exited=0
+    if [ -n "$service_name" ] && in_csv "$EXPECTED_EXITED" "$service_name"; then
+        expected_exited=1
+    fi
+
+    case "$state_status" in
+        running)
+            case "$health_status" in
+                unhealthy)
+                    add_critical "${service_name:-$container_name} is running but unhealthy"
+                    ;;
+                starting)
+                    started_age=$(timestamp_age "$started_at")
+                    if is_number "$started_age" && [ "$started_age" -gt "$STARTING_GRACE" ]; then
+                        HEALTH_STARTING_TOO_LONG=$((HEALTH_STARTING_TOO_LONG + 1))
+                        add_critical "${service_name:-$container_name} health is still starting after ${started_age}s"
+                    else
+                        add_warning "${service_name:-$container_name} health is starting"
+                    fi
+                    ;;
+                ''|none)
+                    if [ -n "$service_name" ] && in_csv "$HEALTH_REQUIRED" "$service_name"; then
+                        HEALTH_REQUIRED_MISSING=$((HEALTH_REQUIRED_MISSING + 1))
+                        add_warning "${service_name} has no healthcheck"
+                    fi
+                    ;;
+            esac
+            ;;
+        restarting)
+            add_critical "${service_name:-$container_name} is restarting"
+            ;;
+        paused)
+            add_critical "${service_name:-$container_name} is paused"
+            ;;
+        dead)
+            add_critical "${service_name:-$container_name} is dead"
+            ;;
+        created)
+            created_age=$(timestamp_age "$created_at")
+            if is_number "$created_age" && [ "$created_age" -gt "$STARTING_GRACE" ]; then
+                add_critical "${service_name:-$container_name} is still created after ${created_age}s"
+            else
+                add_warning "${service_name:-$container_name} is created"
+            fi
+            ;;
+        exited)
+            if [ "$expected_exited" -eq 1 ] && [ "$exit_code" = "0" ]; then
+                :
+            else
+                CONTAINERS_UNEXPECTED_EXITED=$((CONTAINERS_UNEXPECTED_EXITED + 1))
+                add_critical "${service_name:-$container_name} exited with code ${exit_code}"
+            fi
+            ;;
+        *)
+            add_critical "${service_name:-$container_name} has unexpected state ${state_status:-unknown}"
+            ;;
+    esac
+
+    detail_line="- ${service_name:-unknown}/${container_name:-unknown}: image=${image_name:-unknown} state=${state_status:-unknown} health=${health_status:-none} restarts=${restart_count:-0} exit=${exit_code:-0}"
+    append_container_detail "$detail_line"
+    if [ -n "$health_output" ] && { [ "$health_status" = "unhealthy" ] || [ "$health_status" = "starting" ]; }; then
+        append_container_detail "  health: ${health_output}"
+    fi
+done <<EOF
+$INSPECT_TSV
+EOF
+
+"$MV" "$STATE_TMP" "$STATE_FILE" 2>/dev/null || die "$CHECK_NAME: state file could not be updated"
+STATE_TMP=""
+
+old_ifs=$IFS
+IFS=','
+for expected_service in $EXPECTED_LIST; do
+    [ -n "$expected_service" ] || continue
+    if ! in_csv "$PRESENT_SERVICES" "$expected_service"; then
+        COMPOSE_SERVICES_MISSING=$((COMPOSE_SERVICES_MISSING + 1))
+        add_critical "service ${expected_service} is missing"
+    fi
+done
+IFS=$old_ifs
+
+COMPOSE_SERVICES_PRESENT=$(count_csv "$PRESENT_SERVICES")
+
+# Compose a compact Nagios summary and perfdata.
+if [ -n "$CRITICAL_REASONS" ]; then
+    STATE_CODE=2
+elif [ -n "$WARNING_REASONS" ]; then
+    STATE_CODE=1
+else
+    STATE_CODE=0
+fi
+
+LABEL=$(status_label "$STATE_CODE")
+SUMMARY="${LABEL} - compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
+[ "$COMPOSE_SERVICES_MISSING" -gt 0 ] && SUMMARY="${SUMMARY}, ${COMPOSE_SERVICES_MISSING} missing"
+[ "$HEALTH_UNHEALTHY" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_UNHEALTHY} unhealthy"
+[ "$HEALTH_STARTING" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_STARTING} starting"
+[ "$HEALTH_REQUIRED_MISSING" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_REQUIRED_MISSING} missing-healthcheck"
+[ "$CONTAINERS_UNEXPECTED_EXITED" -gt 0 ] && SUMMARY="${SUMMARY}, ${CONTAINERS_UNEXPECTED_EXITED} exited"
+[ "$CONTAINERS_RESTARTING" -gt 0 ] && SUMMARY="${SUMMARY}, ${CONTAINERS_RESTARTING} restarting"
+[ "$COMPOSE_ORPHANS" -gt 0 ] && SUMMARY="${SUMMARY}, ${COMPOSE_ORPHANS} orphan"
+
+PERFDATA="containers_total=${CONTAINERS_TOTAL} containers_running=${CONTAINERS_RUNNING} containers_exited=${CONTAINERS_EXITED} containers_dead=${CONTAINERS_DEAD}"
+PERFDATA="${PERFDATA} containers_restarting=${CONTAINERS_RESTARTING} containers_paused=${CONTAINERS_PAUSED} containers_created=${CONTAINERS_CREATED}"
+PERFDATA="${PERFDATA} containers_healthy=${HEALTH_HEALTHY} containers_unhealthy=${HEALTH_UNHEALTHY} containers_starting=${HEALTH_STARTING}"
+PERFDATA="${PERFDATA} containers_starting_too_long=${HEALTH_STARTING_TOO_LONG} containers_without_healthcheck=${CONTAINERS_WITHOUT_HEALTHCHECK}"
+PERFDATA="${PERFDATA} containers_health_required_missing=${HEALTH_REQUIRED_MISSING} compose_services_expected=${COMPOSE_SERVICES_EXPECTED}"
+PERFDATA="${PERFDATA} compose_services_present=${COMPOSE_SERVICES_PRESENT} compose_services_missing=${COMPOSE_SERVICES_MISSING}"
+PERFDATA="${PERFDATA} compose_orphans=${COMPOSE_ORPHANS} container_restarts_total=${CONTAINER_RESTARTS_TOTAL} container_restarts_increased=${CONTAINER_RESTARTS_INCREASED}"
+
+append_long "Project: ${CHECK_NAME}"
+append_long "Project directory: ${PROJECT_DIRECTORY}"
+[ -n "$PROJECT_NAME" ] && append_long "Compose project name: ${PROJECT_NAME}"
+append_long "Expected services: ${EXPECTED_LIST}"
+
+if [ -n "$ISSUE_DETAILS" ]; then
+    append_long "Issues:"
+    append_long_buffer "$ISSUE_DETAILS"
+fi
+
+if [ -n "$CONTAINER_DETAILS" ]; then
+    append_long "Containers:"
+    append_long_buffer "$CONTAINER_DETAILS"
+    if [ "$CONTAINER_DETAILS_TRUNCATED" -gt 0 ]; then
+        append_long "... (${CONTAINER_DETAILS_TRUNCATED} container detail lines truncated)"
+    fi
+fi
+
+emit_check "$SUMMARY" "$PERFDATA"
+exit "$STATE_CODE"

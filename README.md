@@ -21,6 +21,8 @@ Voor sommige processen, zoals firewall of SSH, is het niet voldoende om alleen t
 
 Op dit moment wordt alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent ondersteund. Hieronder vind je een voorbeeldconfiguratie:
 
+Voor maatwerkchecks gebruikt de repository `basic_settings::monitoring_custom`. Deze helper plaatst het script in de OpenITCOCKPIT-pluginmap, registreert `customchecks.ini` en kan via de parameter `cmd` vaste argumenten achter het scriptpad zetten.
+
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
@@ -178,7 +180,7 @@ node 'webserver.dev.xxxx.nl' {
 
 Docker maakt het mogelijk om containers op een voorspelbare manier te draaien. Dit onderdeel installeert Docker CE en kan per Compose-project een root-only projectmap onder `/opt/docker` beheren. Iedere `docker::compose`-resource plaatst een `.env` en een `docker-compose.yml` onder `/opt/docker/<naam>` en maakt daarna een `docker-compose-<naam>.service` aan.
 
-De parameter `compose_source` ondersteunt HTTPS-bronnen en lokale `file:///`-paden. HTTP wordt bewust niet geaccepteerd, zodat Compose-bestanden niet ongemerkt via een onversleutelde verbinding worden opgehaald. Het Compose-bestand wordt met `docker compose config --quiet` gevalideerd voordat Puppet het bestand definitief plaatst. Voor externe bronnen kan `compose_checksum` worden gebruikt met een SHA256-checksum, zodat een onverwachte wijziging of corrupte download zichtbaar faalt tijdens de Puppet-run.
+De parameter `compose_source` ondersteunt HTTPS-bronnen, lokale `file:///`-paden en Puppet file-serverbronnen via `puppet:///`. HTTP wordt bewust niet geaccepteerd, zodat Compose-bestanden niet ongemerkt via een onversleutelde verbinding worden opgehaald. Het Compose-bestand wordt met `docker compose config --quiet` gevalideerd voordat Puppet het bestand definitief plaatst. Voor externe HTTPS-bronnen kan `compose_checksum` worden gebruikt met een SHA256-checksum, zodat een onverwachte wijziging of corrupte download zichtbaar faalt tijdens de Puppet-run.
 
 ### Voorbeelden
 
@@ -217,6 +219,33 @@ node 'containerhost.dev.xxxx.nl' {
 
     docker::compose { 'authentik':
         compose_source => 'file:///srv/puppet/files/authentik/docker-compose.yml',
+    }
+}
+```
+
+Een Compose-bestand uit de Puppet file server kan ook direct worden gebruikt:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::compose { 'authentik':
+        compose_source => 'puppet:///modules/docker/authentik.yaml',
+    }
+}
+```
+
+Een Compose-stack kan extra monitoringbeleid meekrijgen. In dit voorbeeld mag een migratieservice normaal succesvol eindigen en moeten de web- en databaseservice een healthcheck hebben:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::compose { 'example':
+        compose_source              => 'file:///srv/puppet/files/example/docker-compose.yml',
+        monitoring_expected_exited  => ['migrate'],
+        monitoring_health_required  => ['web', 'db'],
+        monitoring_starting_grace   => 600,
     }
 }
 ```
@@ -513,6 +542,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)
+- [check_compose](https://github.com/DevSysEngineer/puppet-modules/blob/main/docker/files/check_compose)
 - [check_eset](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_eset)
 - [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/templates/check_gitlab)
 - [check_mirth_connect](https://github.com/DevSysEngineer/puppet-modules/blob/main/openitcockpit/templates/agent/check_mirth_connect)

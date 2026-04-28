@@ -1,6 +1,7 @@
 define basic_settings::monitoring_custom (
   Optional[String]          $source         = undef,
   Optional[String]          $content        = undef,
+  Optional[String]          $cmd            = undef,
   Enum['present','absent']  $ensure         = present,
   Optional[String]          $friendly       = undef,
   Integer                   $interval       = 300,
@@ -52,12 +53,17 @@ define basic_settings::monitoring_custom (
       $script_path = "/etc/openitcockpit-agent/plugins/${script_name}"
       $uid = 'root'
       $gid = 'root'
+      if ($cmd == undef or $cmd == '') {
+        $command = $script_path
+      } else {
+        $command = "${script_path} ${cmd}"
+      }
 
       # Create fragment for plugin
       if ($ensure == present) {
         concat::fragment { "monitoring_plugin_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}\ninterval = ${interval}\ntimeout = ${timeout}\nenabled = true\n",
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${command}\ninterval = ${interval}\ntimeout = ${timeout}\nenabled = true\n",
           order   => '10',
         }
       }

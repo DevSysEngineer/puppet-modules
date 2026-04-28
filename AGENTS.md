@@ -267,7 +267,10 @@ Follow these Puppet conventions:
 - When the same `defined(...)` check for a class, package, or other resource would be used multiple times in one manifest, evaluate it once into a clearly named variable and reuse that variable instead of repeating the call.
 - Use ERB templates via `template(...)`. This repository currently uses `templates/` plus ERB, not EPP.
 - Use `files/` plus `puppet:///modules/...` for static assets.
+- When validating source URI schemes for Puppet-managed files, include `puppet:///` wherever module files are valid input, not only `file:///` and remote HTTPS.
 - Prefer predictable paths and resource titles. Do not introduce surprising naming schemes.
+- When a new helper extends an existing class or defined type, use the existing name as the prefix and the purpose as the suffix, for example `docker::compose_monitoring` for monitoring support around `docker::compose`.
+- Inside a module's own `files/`, `templates/`, and manifest filenames, do not repeat the module name as a prefix unless the generated target path is outside the module namespace and needs a globally unique name.
 - Keep package installation minimal with `install_options => ['--no-install-recommends', '--no-install-suggests']` unless there is a concrete reason not to.
 - When a module fully owns a config directory, the existing style often uses `purge => true`, `recurse => true`, and `force => true`. Only do that for trees the module truly owns.
 - When installer-generated files must survive, the existing style uses `replace => false`. Preserve that behavior where it matters.
