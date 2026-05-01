@@ -100,9 +100,11 @@ define docker::compose (
             }
             $env_cmd = " --env-file ${env_file}"
             $compose_require = File[$env_file]
+            $env_monitoring = $env_file
           } else {
             $env_cmd = ''
             $compose_require = File[$app_dir]
+            $env_monitoring = undef
           }
 
           # Sync and validate the compose file before it is promoted into the project directory.
@@ -188,10 +190,7 @@ define docker::compose (
             project_directory => $app_dir,
             compose_files     => [$compose_file],
             detail_limit      => $monitoring_detail_limit,
-            env_file          => ($env_source != undef or $env_content != undef) ? {
-              true    => $env_file,
-              default => undef,
-            },
+            env_file          => $env_monitoring,
             expected_exited   => $monitoring_expected_exited,
             health_required   => $monitoring_health_required,
             interval          => $monitoring_interval,

@@ -184,9 +184,9 @@ class basic_settings::kernel (
         'Type'                    => 'oneshot',
       },
       unit        => stdlib::merge($unit_failure, {
-        'Requires' => 'dev-hugepages.mount',
-        'After'    => 'dev-hugepages.mount',
-      },
+          'Requires' => 'dev-hugepages.mount',
+          'After'    => 'dev-hugepages.mount',
+      }),
       install     => {
         'WantedBy' => 'dev-hugepages.mount',
       },
