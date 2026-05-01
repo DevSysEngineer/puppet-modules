@@ -161,6 +161,7 @@ define docker::compose (
                 'TimeoutStartSec'         => '300',
                 'TimeoutStopSec'          => '300',
                 'Type'                    => 'oneshot',
+                'UMask'                   => '0077',
                 'User'                    => 'root',
                 'WorkingDirectory'        => $app_dir,
               },

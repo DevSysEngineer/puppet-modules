@@ -138,6 +138,7 @@ class openitcockpit::agent (
             'ProtectHome'    => 'true',
             'ProtectSystem'  => 'full',
             'ReadWritePaths' => '/etc/openitcockpit-agent',
+            'UMask'          => '0077',
           },
           daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
           require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],

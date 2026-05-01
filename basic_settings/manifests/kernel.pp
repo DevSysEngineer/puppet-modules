@@ -182,6 +182,7 @@ class basic_settings::kernel (
         'RestrictSUIDSGID'        => 'true',
         'SystemCallArchitectures' => 'native',
         'Type'                    => 'oneshot',
+        'UMask'                   => '0077',
       },
       unit        => stdlib::merge($unit_failure, {
           'Requires' => 'dev-hugepages.mount',

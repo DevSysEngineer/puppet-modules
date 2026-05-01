@@ -287,6 +287,7 @@ class mysql (
         'RestrictSUIDSGID'        => 'true',
         'SystemCallArchitectures' => 'native',
         'Type'                    => 'oneshot',
+        'UMask'                   => '0077',
         'User'                    => 'root',
       },
       unit          => {

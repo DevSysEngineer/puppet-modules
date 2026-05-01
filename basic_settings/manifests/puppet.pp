@@ -175,6 +175,7 @@ class basic_settings::puppet (
         'RestrictSUIDSGID'        => 'true',
         'SystemCallArchitectures' => 'native',
         'Type'                    => 'oneshot',
+        'UMask'                   => '0077',
         'User'                    => 'root',
       },
       unit        => $unit,
@@ -315,7 +316,8 @@ class basic_settings::puppet (
           'OnFailure' => 'notify-failed@%i.service',
         },
         service     => {
-          'Nice'          => '-8',
+          'Nice'  => '-8',
+          'UMask' => '0077',
         },
       }
 
@@ -338,6 +340,7 @@ class basic_settings::puppet (
           'RestrictSUIDSGID'        => 'true',
           'SystemCallArchitectures' => 'native',
           'Type'                    => 'oneshot',
+          'UMask'                   => '0077',
           'User'                    => 'puppet',
         },
         unit        => $unit,

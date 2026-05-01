@@ -109,6 +109,7 @@ class nginx (
         'PrivateTmp'     => 'true',
         'ProtectHome'    => 'true',
         'ProtectSystem'  => 'full',
+        'UMask'          => '0077',
       },
       daemon_reload => 'nginx_systemd_daemon_reload',
       require       => Package['nginx'],

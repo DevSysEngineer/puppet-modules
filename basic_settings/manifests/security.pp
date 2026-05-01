@@ -172,7 +172,8 @@ class basic_settings::security (
       unit          => $unit,
       service       => {
         'PrivateTmp'  => 'true',
-        'ProtectHome' => 'false' # Important for monitoring home dirs
+        'ProtectHome' => 'false', # Important for monitoring home dirs
+        'UMask'       => '0027', # auditd.conf uses log_group=adm, so keep audit logs group-readable.
       },
       daemon_reload => 'security_systemd_daemon_reload',
       require       => Package['auditd'],
@@ -198,6 +199,7 @@ class basic_settings::security (
         'RestrictSUIDSGID'        => 'true',
         'SystemCallArchitectures' => 'native',
         'Type'                    => 'oneshot',
+        'UMask'                   => '0077',
         'User'                    => 'root',
       },
       daemon_reload => 'security_systemd_daemon_reload',

@@ -30,13 +30,13 @@ Vendored Git submodules in this repository:
 
 Do not treat vendored submodules as the house style for this project. Unless the task is explicitly about updating or patching a dependency, keep changes inside the first-party modules listed above.
 
-The current metadata and README target 64-bit Debian/Ubuntu systems. Do not broaden support claims casually. If you change supported platforms, update module metadata and the Dutch README together.
+The first-party module metadata that exists targets Debian and Ubuntu releases, and the README states 64-bit systems. Do not broaden support claims casually. If supported platforms, releases, or architecture assumptions change, update the relevant module metadata and the Dutch README together.
 
 ## Start Here Before Making Changes
 
 Read `README.md` first, every time. The README explains the intended module combinations, the hardening posture, the monitoring story, and the documentation tone that the project already uses.
 
-Treat `AGENTS.md` as part of the active change scope for every code change. It is a living repository instruction file, not a separate document that is only updated manually after larger rewrites.
+Treat `AGENTS.md` as a living repository instruction file. For every code change, check whether it still describes the current workflow and update it only when the change creates reusable guidance, changed expectations, or new constraints.
 
 Before editing code:
 
@@ -73,10 +73,12 @@ Important architectural patterns in this repository:
 - Defined types commonly enforce parent inclusion with explicit guard clauses and `fail(...)` messages. Keep that pattern when a defined type depends on a base class.
 
 Shared primitives live in `basic_settings`, especially:
+
 - `basic_settings::systemd_target`
 - `basic_settings::systemd_drop_in`
 - `basic_settings::systemd_service`
 - `basic_settings::systemd_timer`
+- `basic_settings::systemd_network`
 - `basic_settings::monitoring_service`
 - `basic_settings::monitoring_custom`
 - `basic_settings::monitoring_timer`
@@ -118,9 +120,7 @@ Examples of module composition that should guide future changes:
 
 ## Security-By-Design Rules
 
-Security is a design requirement in this repository, not an optional extra. Future changes must preserve and improve the repo's hardening posture.
-
-Security must be part of the design, not only a final review step. When changing Linux services, systemd units, deployment automation, Docker, Puppet, permissions, network configuration, or monitoring, explicitly assess whether the existing hardening is still appropriate and whether additional hardening is possible without breaking the application.
+Security is a design requirement in this repository, not an optional extra. When changing Linux services, systemd units, deployment automation, Docker, Puppet, permissions, network configuration, or monitoring, assess security during the design instead of treating it as a final review step. Preserve existing hardening where it is still correct, and improve it when that can be done without breaking the application.
 
 For every change to Puppet code, templates, scripts, services, timers, configs, or generated files, check all of the following:
 
@@ -154,7 +154,7 @@ If you must weaken a permission, sandbox, or trust model, document the reason in
 
 ## systemd Hardening Guideline
 
-For new, changed, or newly reviewed systemd units, assess hardening explicitly per concrete unit and per option. Do not use the presence or absence of existing hardening as the scope filter. A service that currently has no hardening may still need it, and a service that already has hardening may still need an exception or a rollback if the option is not safe for that application.
+For new, changed, or newly reviewed systemd units, assess hardening per concrete `.service` unit and per option. Do not use existing hardening as the scope filter: a service with no hardening may need it, and an existing option may need an exception or rollback if the application behavior changed.
 
 The following options are common candidates in this repository, but none of them is a guaranteed baseline:
 
@@ -170,12 +170,19 @@ The following options are common candidates in this repository, but none of them
 - `ProtectHostname=true`
 - `ProtectClock=true`
 - `ProtectKernelLogs=true`
+- `UMask=0077`
 
-Each candidate option must be assessed against the actual application behavior before it is added, retained, broadened, or removed. Mark every option as `apply`, `do not apply`, or `needs more research` in the related analysis. Existing settings must be revalidated when the unit, wrapper, package, runtime user, data paths, service role, runtime language, package version, or deployment model changes.
+Use this assessment process:
+
+- Mark every candidate option as `apply`, `do not apply`, or `needs more research` in the related analysis.
+- Revalidate existing settings when the unit, wrapper, package, runtime user, data paths, service role, runtime language, package version, or deployment model changes.
+- Identify the final unit name, Puppet location, template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, `ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities, writable paths, file and directory creation behavior, device access, temporary directory usage, home directory access, credential paths, network exposure, runtime language, interpreter or VM, dynamically loaded plugins/modules, package-management behavior, and whether the unit is vendor-managed or internally generated.
+- Add `UMask=0077` explicitly in the relevant service hash, close to other hardening options such as `PrivateTmp`, `ProtectHome`, and `ProtectSystem`. Do not inject it invisibly from a generic wrapper or template.
+- If the service needs the normal systemd/Linux default mask of `0022`, omit `UMask`. If it needs a non-default shared-permission mask such as `0027`, set it in that service's hash and document the reason next to the override.
+
+Downstream Puppet control repositories that include this repository as a Git submodule should apply the same `UMask` policy to their own systemd units and local service wrappers. A downstream wrapper may render `UMask` when the caller passes it as an explicit service setting or wrapper parameter, but it must not silently add `UMask=0077` to every service from a generic template. For every local service declaration, choose one of these explicit outcomes: set `UMask=0077`; leave `UMask` unset because the default `0022` behavior is required; or set a documented non-default value such as `0027` because a specific group-sharing contract requires it.
 
 The primary goal is to improve security without breaking applications. Do not add hardening as a blind default. Prefer a documented exception over an unsafe hardening change that causes runtime failures, degraded functionality, or operational surprises.
-
-Before applying or retaining these options, identify the final unit name, Puppet location, template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, `ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities, writable paths, device access, temporary directory usage, home directory access, credential paths, network exposure, runtime language, interpreter or VM, dynamically loaded plugins/modules, package-management behavior, and whether the unit is vendor-managed or internally generated.
 
 Check these option-specific risks every time:
 
@@ -191,16 +198,17 @@ Check these option-specific risks every time:
 - `ProtectHostname=true`: unsafe for services that must set the system hostname/domain name, call hostname-management APIs, run `hostnamectl`, participate in cloud-init or provisioning hostname changes, or dynamically observe host hostname changes after the service has started. It may also be unsafe for monitoring, inventory, licensing, clustering, or registration agents that rely on real-time hostname changes rather than the hostname visible at service start.
 - `ProtectClock=true`: unsafe for services that set or adjust the system clock or hardware clock, read or manage RTC devices, perform time synchronization, use `adjtimex`/`clock_adjtime` behavior, manage wake alarms, or inspect kernel time discipline. Treat NTP/chrony/systemd-timesyncd, `hwclock`, VM guest tools, hardware-management agents, monitoring plugins that check time discipline, and backup/scheduling software with RTC/wake-alarm behavior as higher risk.
 - `ProtectKernelLogs=true`: unsafe for services that intentionally read from or write to the kernel log ring buffer through interfaces such as `/dev/kmsg`, `/proc/kmsg`, `dmesg`, kernel-log collectors, low-level security agents, troubleshooting agents, or monitoring plugins that inspect kernel messages directly. This option is usually suitable for normal application services that only write application logs to stdout/stderr, syslog, journald, or application log files. Do not apply it blindly to logging, SIEM, EDR, audit, hardware, hypervisor, container-runtime, kernel-module, or monitoring components until their kernel-log behavior is understood.
+- `UMask=0077`: unsafe for services that must create group-readable files, group-writable directories, shared Unix sockets, shared logs, web assets, backup artifacts, deployment outputs, or temporary files consumed by other users, groups, or services. The repository preference is `UMask=0077` when a service only needs its own runtime user to read or write generated files, or when Puppet/systemd already manages intentionally shared paths with explicit ownership and modes. Use a less strict non-default value such as `0027` only per service, with a documented reason and explicit ownership, directory modes, socket modes, or application settings that limit sharing to the operational need. Leave `UMask` unset when the correct exception is the normal default mask of `0022`. Check for functional impact such as unreadable logs, inaccessible sockets, failed web serving, broken hand-offs between services, failed backup/restore flows, or installers that expect package-default permissions.
 
 Treat timers, sockets, mounts, paths, targets, and daemon configuration drop-ins separately from services. These service-execution options are not meaningful defaults for `.timer`, `.socket`, `.mount`, `.path`, `.target`, `journald.conf`, `resolved.conf`, `timesyncd.conf`, or similar daemon configuration drop-ins. For a timer, socket, or path unit, assess the paired `.service` unit instead.
 
 When changing systemd-related code, inspect all generated and modified units in scope, including existing `basic_settings::systemd_service` resources, `basic_settings::systemd_drop_in` resources, vendor-unit drop-ins, direct `service` resources, templates, files, and wrappers. Include units that do not currently contain any hardening options. Sort the resulting unit list alphabetically by final systemd unit name before reporting or making broad decisions.
 
-When the repository contains wrappers or templates that generate systemd units, inspect the wrapper itself and every known consumer of that wrapper. Do not assume that a hardening option is safe because it works for one generated unit. A generic wrapper may only add a new default when every current consumer is validated, or when the wrapper supports explicit per-service opt-outs with documented technical reasons.
+When the repository contains wrappers or templates that generate systemd units, inspect the wrapper itself and every known consumer. Do not assume that a hardening option is safe because it works for one generated unit.
 
-Known lower-risk categories are simple internally generated oneshot services that execute a known native binary or root-only script without shared `/tmp`, device access, protected-path writes, `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, 32-bit binaries, Wine, QEMU-user, `setarch`, compatibility tooling, JIT/runtime code generation, hostname management, clock management, RTC access, wake alarms, kernel-log access, dynamic plugin loading, or unknown third-party binary behavior. Even then, keep the hardening in the most specific service declaration and document the technical basis in the related analysis or review.
+Known lower-risk categories are simple internally generated oneshot services that execute a known native binary or root-only script without shared `/tmp`, shared generated files, shared sockets, shared logs, device access, protected-path writes, `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, 32-bit binaries, Wine, QEMU-user, `setarch`, compatibility tooling, JIT/runtime code generation, hostname management, clock management, RTC access, wake alarms, kernel-log access, dynamic plugin loading, or unknown third-party binary behavior. Even then, keep the hardening in the most specific service declaration and document the technical basis in the related analysis or review.
 
-Known higher-risk categories include package-management and provisioning units, Puppet agent/server units, GitLab omnibus supervision, certbot renewals with arbitrary hooks, SSH login/session units, monitoring executors that may run local plugins, OpenITCOCKPIT server components that include `sudo_server`, backup or restore services that preserve permissions, services using file capabilities, services using hardware or device nodes, services using RTC/time/clock APIs, services that read kernel logs or run `dmesg`, services that manage or observe hostname changes, Java/JVM services, .NET services, Node.js/V8 services, browser/Electron-based services, database engines with JIT, services using PCRE-JIT, plugin-based runtimes, and any service that may call `sudo`, `su`, `runuser`, `pkexec`, or application-specific helper binaries.
+Known higher-risk categories include package-management and provisioning units, Puppet agent/server units, GitLab omnibus supervision, certbot renewals with arbitrary hooks, SSH login/session units, monitoring executors that may run local plugins, OpenITCOCKPIT server components that include `sudo_server`, backup or restore services that preserve permissions, services creating files for web servers or deployment users, services creating shared Unix sockets or group-readable logs, services using file capabilities, services using hardware or device nodes, services using RTC/time/clock APIs, services that read kernel logs or run `dmesg`, services that manage or observe hostname changes, Java/JVM services, .NET services, Node.js/V8 services, browser/Electron-based services, database engines with JIT, services using PCRE-JIT, plugin-based runtimes, and any service that may call `sudo`, `su`, `runuser`, `pkexec`, or application-specific helper binaries.
 
 When changing a wrapper such as `basic_settings::systemd_service` or `basic_settings::systemd_drop_in`, first list every generated unit alphabetically and prove that each consumer can tolerate the new default for every option being considered. Do not add hardening defaults to a generic wrapper unless every consumer is validated or the wrapper has explicit per-service opt-outs with documented reasons.
 
@@ -279,8 +287,7 @@ Follow these Puppet conventions:
 - Keep parameter lists and similar aligned assignments vertically when the surrounding module already uses that style, including aligning the `=` signs into one visual column.
 - When a resource only differs by optional attributes, prefer one compact resource with precomputed `undef` values over duplicated resource blocks. Do this only when mutually exclusive attributes, such as `source` and `content`, cannot both become non-`undef`.
 - Do not invert control flow so a tiny branch is followed by a large `else` block. Keep the main resource declaration path in the first branch, or use a separate short validation guard with `fail(...)` before the main path. Large `else` blocks are only acceptable when both branches contain comparable real behavior.
-- Add a short comment above non-obvious resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone.
-- This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
+- Add a short comment above non-obvious resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone. This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
 - When embedding shell snippets inside double-quoted strings, always escape shell variables and command substitutions meant for the runtime shell, such as `\$tmpdir`, `\$1`, and `\$(...)`, so Puppet does not treat them as interpolation.
 - Do not introduce a variable for a value that is used only once in the local code path, unless the variable name adds real domain meaning or avoids a demonstrable readability problem. Prefer applying one-off values directly in the resource or expression so the operational effect stays visible at the point of use.
 
@@ -295,72 +302,55 @@ If you add a new first-party module, follow the existing module layout:
 
 ## Shell Script Rules
 
-Project rule: treat `.sh` files as POSIX shell scripts and use `#!/bin/sh` by default.
-
-Do not assume Bash features unless the repository clearly and explicitly requires them for that file. Existing Bash-based files in this repository are legacy exceptions, not the rule. Known exceptions currently include:
+Treat new shell scripts and shell templates as POSIX shell by default and use `#!/bin/sh`. Do not assume Bash features unless the file clearly and explicitly requires them. Known Bash shebang exceptions currently are:
 
 - `mysql/templates/grant.sh`
 - `mysql/files/automysqlbackup`
 - `basic_settings/files/network/rxbuffer`
 - `basic_settings/templates/login/pam/notify`
 
-When touching an existing Bash script:
-
-- Keep Bash only if the implementation truly needs it.
-- Otherwise prefer a safe migration to POSIX syntax.
-- Do not copy Bash-only idioms into new scripts.
-- If a Bash-only exception must remain, keep the reason explicit in the code review or final handoff.
+When touching an existing Bash script, keep Bash only if the implementation still needs it. Otherwise prefer a safe migration to POSIX syntax. Do not copy Bash-only idioms into new scripts, and state the reason in the final handoff when a Bash-only exception remains.
 
 Shell conventions already visible in this repository:
 
-- Monitoring checks generally use `#!/bin/sh`.
-- Dependencies are discovered with `command -v`.
-- Required shell binaries should be resolved in the same direct style as the existing checks, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
-- Do not introduce a generic binary lookup helper such as `find_bin` when the script can follow the existing direct `command -v` pattern.
-- Place shell variable blocks after the fail helper and binary checks so the script setup order matches the existing monitoring checks.
-- Keep script-wide default/config/global variable blocks above non-fail helper functions. In practice the preferred order for monitoring checks is: fail helper, binary checks, default/config variables, option parsing, helper functions, then main logic.
-- Do not insert new helper functions between the binary checks and the main default/config variable block; add new globals to the existing variable block instead of scattering them near first use.
+- Monitoring checks generally use `#!/bin/sh` and return standard Nagios-style status codes.
+- Dependencies are discovered with direct `command -v` assignments, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`. Do not introduce a generic lookup helper such as `find_bin` when direct checks are enough.
 - Use shell builtins such as `printf` directly instead of resolving them with `command -v`.
-- Bundle related shell variables together instead of scattering them through one large declaration block.
-- Place a short comment directly above each shell variable block so it is clear what that group of variables is for.
-- Place a short comment directly above each shell function that explains what the function does.
-- Never assign shell variables with literal embedded newlines, and do not synthesize newline variables with trimming hacks such as `NL=$(printf '\n_'); NL=${NL%_}`.
-- Prefer direct `printf` formatting with escaped `\n`, and when metadata must be serialized through command substitution use explicit sentinel tokens instead of newline-marker tricks.
-- When a shell variable represents a list of values, store it as a comma-separated list instead of a literal newline-separated block.
-- Keep single-use shell logic inline instead of wrapping it in a function unless that function materially improves reuse or readability.
+- Keep monitoring check setup in this order: fail helper, binary checks, default/config variables, option parsing, helper functions, then main logic.
+- Bundle related shell variables together, place a short comment above each variable block, and keep global/default variable blocks above non-fail helper functions.
+- Place a short comment above each shell function.
+- Quote variables consistently and keep command dependencies explicit.
+- Use `printf` instead of relying on non-portable `echo` behavior.
+- Represent embedded line breaks with direct `printf` formatting and escaped `\n`. Do not embed literal line breaks inside shell variables, quoted strings, Puppet interpolations, or concatenations.
+- When command-substitution metadata needs serialization, use explicit sentinel tokens instead of newline-marker tricks such as `NL=$(printf '\n_'); NL=${NL%_}`.
+- Store shell lists as comma-separated values and split them deliberately where needed; do not use literal multiline variable blocks.
+- Keep single-use shell logic inline unless a function materially improves reuse or readability.
 - Prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`.
-- Error helpers are small and direct.
-- Scripts are operationally minimal and avoid unnecessary layers.
-- Monitoring checks should return standard Nagios-style status codes.
-- Checks often emit a single summary line and optional perfdata or long output.
-- Keep the human-visible monitoring summary line natural and operator-readable; do not embed perfdata-style `key=value` fragments in the summary text.
-- Keep the monitoring summary text cause-oriented and do not duplicate raw numeric counters that are already present in perfdata.
-- When a monitoring check emits multiple long-output sections, print the most diagnostically important section first.
+- Keep error helpers small and direct.
+- Keep scripts operationally minimal and readable; these files are tooling, not generic libraries.
+- Only mark real executables as executable.
+- Match file modes to actual need: root-only scripts should stay root-only unless a non-root runtime is required.
+
+Monitoring output conventions:
+
+- Emit one natural, operator-readable summary line plus optional perfdata or long output.
+- Do not embed perfdata-style `key=value` fragments in the summary text.
+- Keep summary text cause-oriented and avoid duplicating raw numeric counters that are already present in perfdata.
+- When a check emits multiple long-output sections, print the most diagnostically important section first.
 - Long monitoring detail sections should have a configurable line limit and must say explicitly when output was truncated.
 
 Shell refactoring expectations:
 
-- When touching a shell script, do not stop at the narrow requested fix. Also review whether nearby logic has become duplicated, brittle, overly stateful, or unnecessarily hard to extend.
-- Prefer a bounded refactor when it leaves the script materially simpler, clearer, or easier to extend, even if that makes the change somewhat larger than the original request.
-- Collapse repeated parsing of the same input where practical. If one ruleset, config dump, or command output is being scanned multiple times for closely related facts, first check whether that can be reduced to fewer well-structured passes without making the parser harder to trust.
-- Prefer validating the real source of truth over proxy checks. If the primary command already proves the needed state, avoid extra pre-checks that can fail on valid systems and create false negatives.
+- When touching a shell script, also review nearby logic for duplication, brittle state, or avoidable complexity.
+- Prefer a bounded refactor when it leaves the script materially simpler, clearer, or easier to extend.
+- Collapse repeated parsing of the same input where practical, without making the parser harder to trust.
+- Prefer validating the real source of truth over proxy checks that can create false negatives.
 - Preserve the external contract unless the task explicitly asks to change it. For monitoring checks this includes exit codes, summary-line shape, perfdata keys, option flags, and generated path names.
-- Keep data collection, status evaluation, perfdata generation, and long-output rendering as distinct steps so future changes can extend one area without destabilizing the others.
-- Remove stale variables, helper functions, and intermediate formats when they no longer pay for their complexity. Do not keep scaffolding that only exists because of older incremental patches.
-- Prefer deterministic output ordering when the script emits lists, sections, or perfdata that operators will read or compare over time.
-- For monitoring checks, keep the summary line compact and move diagnostic detail to long output unless the extra detail is required to understand the alert immediately.
-- When a script change exposes a deeper structural weakness, leave the file in a better shape now if the rewrite can still be kept well-bounded and well-validated. Do not knowingly stack another local patch on top of avoidable technical debt.
-
-Shell safety requirements:
-
-- Quote variables consistently.
-- Use `printf` instead of relying on non-portable `echo` behavior.
-- When code needs embedded line breaks inside generated output or variables, represent them explicitly with `\n` and direct `printf` formatting. Do not embed literal line breaks inside quoted strings, interpolations, or concatenations.
-- Do not store shell lists as literal multiline variable blocks; use comma-separated values and split them deliberately where needed.
-- Keep command dependencies explicit.
-- Keep scripts readable; these files are operational tooling, not generic libraries.
-- Only mark real executables as executable.
-- Match file modes to actual need: root-only scripts should stay root-only unless a non-root runtime is required.
+- Keep data collection, status evaluation, perfdata generation, and long-output rendering as distinct steps.
+- Remove stale variables, helper functions, and intermediate formats when they no longer pay for their complexity.
+- Prefer deterministic output ordering when the script emits lists, sections, or perfdata.
+- For monitoring checks, keep the summary line compact and move diagnostic detail to long output unless the alert needs the detail immediately.
+- When a script change exposes a deeper structural weakness, leave the file in a better shape if the rewrite can still be kept well-bounded and well-validated.
 
 ## Dependency Guidance
 
@@ -376,11 +366,11 @@ Follow these rules:
 
 This repo already manages package repositories, keys, systemd policy, monitoring plugins, logrotate, and audit rules in-house. Preserve that architectural preference.
 
-## README And Documentation
+## Documentation Maintenance
 
-README maintenance is mandatory.
+Documentation maintenance is part of implementation, not optional follow-up work. Review `README.md` and `AGENTS.md` whenever a change affects behavior, workflows, security expectations, Linux or systemd behavior, module integration, or reusable project patterns.
 
-Whenever you add a new module or make a meaningful change to an existing module, you must review and update `README.md` in the same change.
+Update `README.md` in the same change when you add a new module or make a meaningful change to an existing module.
 
 Meaningful changes include:
 
@@ -394,7 +384,7 @@ Meaningful changes include:
 - Changed security expectations
 - Changed install or usage flow
 
-README rules for this repository:
+README rules:
 
 - Write README updates in Dutch.
 - Keep generated config files, config templates, and inline config comments in English unless the managed software clearly requires another language.
@@ -405,13 +395,9 @@ README rules for this repository:
 - If you add or rename a monitoring check, update the `## Checks` section.
 - Do not paste in generic English boilerplate or documentation written in a different style.
 
-README updates are part of the implementation, not optional follow-up work.
+Update `AGENTS.md` only when the change introduces reusable guidance, adjusted workflows, changed security expectations, or relevant Linux/systemd insights that future agents or developers need to know. First determine where the instruction fits best. Prefer extending an existing relevant section over adding a loose or duplicate section.
 
-`AGENTS.md` maintenance follows the same rule. After each code change, review whether this file is still accurate, complete, and up to date. If the change introduces new knowledge, adjusted workflows, changed security expectations, or relevant Linux or systemd insights that future agents or developers need to know, update `AGENTS.md` in the same change.
-
-Do not update `AGENTS.md` blindly. First determine where the new or changed instruction fits best in the existing document. Prefer extending an existing relevant section over adding a loose or duplicate section.
-
-When editing `AGENTS.md`, check for:
+When editing `AGENTS.md`, make sure new or changed text has:
 
 - Clear sentence structure.
 - Correct spelling.
@@ -436,16 +422,12 @@ At minimum:
 - When a shell change affects parsing, monitoring output, or status handling, run at least one small representative functional check with synthetic or stubbed input, and include an error-path check when practical.
 - Review file modes, ownership, and `Sensitive` handling for every touched resource.
 - Verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names.
-- Review whether a README update was required and completed.
-- Review whether `AGENTS.md` is still accurate, and update it when the change affects repository instructions, security expectations, Linux or systemd behavior, workflows, or reusable patterns.
+- Confirm required `README.md` and `AGENTS.md` updates were considered and completed.
 
 Finish every change with a short summary that states:
 
-- Which code was changed.
-- Which relevant security, Linux, or systemd aspects were reviewed.
-- Whether README files are still accurate.
-- Whether `AGENTS.md` was checked.
-- Whether `AGENTS.md` was updated.
-- If `AGENTS.md` was not updated, why the existing instructions are still sufficient.
-
-If you could not run an important validation step, say so explicitly in your final handoff.
+- Which files or code paths changed.
+- Which relevant security, Linux, or systemd aspects were reviewed, or why they were not applicable.
+- Whether `README.md` required an update and whether it was updated.
+- Whether `AGENTS.md` was checked and either updated or left unchanged because the existing instructions were sufficient.
+- Which validation ran, and which important validation step could not run.

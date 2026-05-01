@@ -532,6 +532,8 @@ class openitcockpit::server (
       'PrivateTmp'     => 'true',
       'ProtectHome'    => 'true',
       'ProtectSystem'  => 'full',
+      # OpenITCOCKPIT components share runtime files between nagios, workers, and the webserver group.
+      'UMask'          => '0027',
     }
 
     basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_settings':

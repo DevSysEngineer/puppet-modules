@@ -71,6 +71,7 @@ class rabbitmq (
         'PrivateTmp'     => 'true',
         'ProtectHome'    => 'true',
         'ProtectSystem'  => 'full',
+        'UMask'          => '0077',
       },
       daemon_reload => 'rabbitmq_systemd_daemon_reload',
       require       => Package['rabbitmq-server'],

@@ -57,6 +57,7 @@ class php8::fpm (
       'PrivateTmp'        => 'true',
       'ProtectHome'       => 'true',
       'ProtectSystem'     => 'full',
+      'UMask'             => '0077',
     }
 
     # Check if nginx class exists

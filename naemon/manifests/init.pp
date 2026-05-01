@@ -77,6 +77,7 @@ class naemon () {
         'PrivateTmp'     => 'true',
         'ProtectHome'    => 'true',
         'ProtectSystem'  => 'full',
+        'UMask'          => '0027', # Naemon shares runtime files with OpenITCOCKPIT and web-facing tooling.
       },
       daemon_reload => 'naemon_systemd_daemon_reload',
       require       => Package[$package],
