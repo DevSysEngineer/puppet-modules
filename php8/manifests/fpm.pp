@@ -53,11 +53,18 @@ class php8::fpm (
 
     # Set service
     $default_service = {
-      'PrivateDevices'    => 'true',
-      'PrivateTmp'        => 'true',
-      'ProtectHome'       => 'true',
-      'ProtectSystem'     => 'full',
-      'UMask'             => '0077',
+      'PrivateDevices'          => 'true',
+      'PrivateTmp'              => 'true',
+      'ProtectClock'            => 'true',
+      'ProtectHome'             => 'true',
+      'ProtectHostname'         => 'true',
+      'ProtectControlGroups'    => 'strict',
+      'ProtectKernelLogs'       => 'true',
+      'ProtectKernelModules'    => 'true',
+      'ProtectKernelTunables'   => 'true',
+      'ProtectSystem'           => 'full',
+      'SystemCallArchitectures' => 'native',
+      'UMask'                   => '0077',
     }
 
     # Check if nginx class exists

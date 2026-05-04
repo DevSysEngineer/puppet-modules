@@ -54,6 +54,8 @@ class basic_settings::monitoring (
         'ProtectHome'             => 'true',
         'ProtectHostname'         => 'true',
         'ProtectKernelLogs'       => 'true',
+        'ProtectKernelModules'    => 'true',
+        'ProtectKernelTunables'   => 'true',
         'ProtectSystem'           => 'full',
         'RestrictSUIDSGID'        => 'true',
         'SystemCallArchitectures' => 'native',
