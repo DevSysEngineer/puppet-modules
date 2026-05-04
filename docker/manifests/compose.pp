@@ -153,7 +153,7 @@ define docker::compose (
                 'PrivateTmp'              => 'true',
                 'ProtectClock'            => 'true',
                 'ProtectHostname'         => 'true',
-                'ProtectControlGroups'    => 'strict',
+                'ProtectControlGroups'    => 'true',
                 'ProtectKernelLogs'       => 'true',
                 'ProtectKernelModules'    => 'true',
                 'ProtectKernelTunables'   => 'true',

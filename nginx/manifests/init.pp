@@ -113,7 +113,7 @@ class nginx (
         'ProtectKernelModules'    => 'true',
         'ProtectKernelLogs'       => 'true',
         'ProtectKernelTunables'   => 'true',
-        'ProtectControlGroups'    => 'strict',
+        'ProtectControlGroups'    => 'true',
         'ProtectSystem'           => 'full',
         'SystemCallArchitectures' => 'native',
         'UMask'                   => '0077',

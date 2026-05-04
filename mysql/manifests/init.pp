@@ -282,7 +282,7 @@ class mysql (
         'ProtectClock'            => 'true',
         'ProtectHome'             => 'true',
         'ProtectHostname'         => 'true',
-        'ProtectControlGroups'    => 'strict',
+        'ProtectControlGroups'    => 'true',
         'ProtectKernelLogs'       => 'true',
         'ProtectKernelModules'    => 'true',
         'ProtectKernelTunables'   => 'true',
