@@ -358,10 +358,11 @@ node 'webserver.dev.xxxx.nl' {
         reuseport               => true, # Globaal, werkt ook voor andere servers
         ssl_certificate         => '/etc/letsencrypt/live/unifi.xxxx.nl/fullchain.pem',
         ssl_certificate_key     => '/etc/letsencrypt/live/unifi.xxxx.nl/privkey.pem',
-        php_fpm_enable          => false,
-        try_files_enable        => false,
-        location_directives     => [
-            'proxy_pass https://localhost:8443/; # De Unifi Controller-poort',
+        securitytxt_contacts      => ['mailto:security@xxxx.nl'],
+        php_fpm_enable            => false,
+        try_files_enable          => false,
+        location_directives       => [
+            'proxy_pass https://localhost:8443; # De Unifi Controller-poort',
             'proxy_set_header Host $host;',
             'proxy_set_header X-Real-IP $remote_addr;',
             'proxy_set_header X-Forward-For $proxy_add_x_forwarded_for;',
@@ -394,6 +395,63 @@ node 'webserver.dev.xxxx.nl' {
     }
 }
 ```
+
+`nginx::server` maakt standaard per vhost een fallback `security.txt` aan onder
+`/etc/nginx/security/<naam>-security.txt` en serveert die via
+`/.well-known/security.txt`. De fallback bevat minimaal `Contact` en `Expires`.
+Puppet maakt dit bestand aan wanneer het nog ontbreekt en gebruikt daarna
+`replace => false`, zodat een dynamische `Expires`-datum niet iedere run een
+file-change veroorzaakt. Wanneer Puppet `/etc/nginx/conf.d/<naam>.conf`
+wijzigt, verwijdert een refresh-only cleanup de bestaande fallback eerst. Daarna
+maakt de normale `file` resource het bestand opnieuw met de template.
+Contacts kunnen centraal in `nginx` of per server worden gezet:
+
+```puppet
+class { 'nginx':
+    securitytxt_contacts => ['mailto:security@example.nl'],
+}
+```
+
+```puppet
+nginx::server { 'example.nl':
+    server_name          => 'example.nl',
+    docroot              => '/var/www/example.nl',
+    securitytxt_contacts => ['mailto:security@example.nl'],
+    securitytxt_policy   => 'https://example.nl/responsible-disclosure',
+}
+```
+
+Als `securitytxt_contacts` niet is gezet, gebruikt de module eerst
+`basic_settings::monitoring::mail_to` wanneer monitoring actief is. Zonder
+monitoring valt de module terug op `mailto:info@<eerste-server_name>`.
+
+Bij statische vhosts controleert Nginx eerst de bestaande file in de vhost-root.
+Als die niet bestaat, wordt de Puppet-fallback gebruikt. Bij reverse-proxyvhosts
+herkent de module `proxy_pass` in `location_directives`. De security.txt-location
+gebruikt dan hetzelfde `proxy_pass`-doel en dezelfde `proxy_set_header`-regels.
+De backend wordt expliciet op `/.well-known/security.txt` bevraagd, zodat de
+applicatieversie voorrang krijgt en alleen `404` of `410` naar de fallback gaat.
+
+```puppet
+nginx::server { 'app.example.nl':
+    server_name                   => 'app.example.nl',
+    docroot                       => undef,
+    try_files_enable              => false,
+    securitytxt_contacts          => ['mailto:security@example.nl'],
+    location_directives           => [
+        'proxy_pass http://localhost:8080;',
+        'proxy_set_header Host $host;',
+        'proxy_set_header X-Real-IP $remote_addr;',
+        'proxy_set_header X-Forward-For $proxy_add_x_forwarded_for;',
+    ],
+}
+```
+
+Het oude pad `/security.txt` redirect standaard naar `/.well-known/security.txt`.
+Gebruik `securitytxt_enable => false` wanneer een vhost volledig zijn eigen
+security.txt-afhandeling moet behouden.
+De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in
+`server_name`.
 
 ## PHP
 

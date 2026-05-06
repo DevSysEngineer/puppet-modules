@@ -1,18 +1,24 @@
 class nginx (
-  Array                       $events_directives          = [],
-  Array                       $global_directives          = [],
-  Array                       $http_directives            = [],
-  Boolean                     $ssl_prefer_server_ciphers  = true,
-  Integer                     $keepalive_requests         = 1000,
-  Integer                     $limit_file                 = 10000,
-  Integer                     $nice_level                 = 10,
-  Integer                     $types_hash_max_size        = 2048,
-  String                      $keepalive_timeout          = '75s',
-  Enum['nginx','nginx-full']  $package                    = 'nginx',
-  String                      $run_group                  = 'www-data',
-  String                      $run_user                   = 'www-data',
-  String                      $ssl_protocols              = 'TLSv1.2 TLSv1.3',
-  String                      $target                     = 'services'
+  Array                       $events_directives                = [],
+  Array                       $global_directives                = [],
+  Array                       $http_directives                  = [],
+  Boolean                     $ssl_prefer_server_ciphers        = true,
+  Integer                     $keepalive_requests               = 1000,
+  Integer                     $limit_file                       = 10000,
+  Integer                     $nice_level                       = 10,
+  Integer                     $types_hash_max_size              = 2048,
+  String                      $keepalive_timeout                = '75s',
+  Enum['nginx','nginx-full']  $package                          = 'nginx',
+  String                      $run_group                        = 'www-data',
+  String                      $run_user                         = 'www-data',
+  Boolean                     $securitytxt_enable               = true,
+  Optional[Array]             $securitytxt_contacts             = undef,
+  Optional[String]            $securitytxt_policy               = undef,
+  Optional[String]            $securitytxt_encryption           = undef,
+  Optional[Array]             $securitytxt_preferred_languages  = ['nl', 'en'],
+  Integer                     $securitytxt_expires_days         = 365,
+  String                      $ssl_protocols                    = 'TLSv1.2 TLSv1.3',
+  String                      $target                           = 'services'
 ) {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
@@ -174,6 +180,16 @@ class nginx (
     owner   => 'root',
     group   => 'root',
     mode    => '0700',
+    require => Package['nginx'],
+  }
+
+  # Store public, Puppet-managed fallback files that must be readable by nginx workers.
+  file { 'nginx_security':
+    ensure  => directory,
+    path    => '/etc/nginx/security',
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755',
     require => Package['nginx'],
   }
 
