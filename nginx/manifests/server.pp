@@ -40,7 +40,9 @@ define nginx::server (
   Optional[String]    $redirect_ip                      = undef,
   Optional[String]    $redirect_ipv6                    = undef,
   Optional[Array]     $redirect_ssl_ciphers             = undef,
+  Optional[String]    $redirect_ssl_ocsp                = undef,
   Optional[String]    $redirect_ssl_protocols           = undef,
+  Optional[Hash]      $redirect_ssl_conf_command        = undef,
   Boolean             $restart_service                  = true,
   Boolean             $reuseport                        = false, # Global settings
   Optional[String]    $server_name                      = undef,
@@ -67,10 +69,28 @@ define nginx::server (
     'DHE-RSA-AES128-GCM-SHA256',
     'DHE-RSA-AES256-GCM-SHA384','DHE-RSA-CHACHA20-POLY1305',
   ],
+  Hash               $ssl_conf_command                 = {
+    'Ciphersuites' => [
+      'TLS_AES_128_GCM_SHA256',
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+    ],
+    'SignatureAlgorithms' => [
+      'ECDSA+SHA512',
+      'ECDSA+SHA384',
+      'ECDSA+SHA256',
+      'RSA-PSS+SHA512',
+      'RSA-PSS+SHA384',
+      'RSA-PSS+SHA256',
+      'RSA+SHA512',
+      'RSA+SHA384',
+      'RSA+SHA256',
+    ],
+  },
+  Boolean             $ssl_ocsp                         = false,
   Optional[String]    $ssl_protocols                    = undef,
   Optional[String]    $ssl_session_cache                = undef,
   Optional[String]    $ssl_session_timeout              = undef,
-  Boolean             $ssl_stapling                     = false,
   String              $try_files_custom                 = '$uri/ =404',
   Boolean             $try_files_enable                 = true
 ) {
@@ -320,12 +340,26 @@ define nginx::server (
       $redirect_ssl_protocols_correct = $redirect_ssl_protocols
     }
 
+    # Set SSL conf
+    if ($redirect_ssl_conf_command == undef) {
+      $redirect_ssl_conf_command_correct = $ssl_conf_command
+    } else {
+      $redirect_ssl_conf_command_correct = $redirect_ssl_conf_command
+    }
+
     # Set SSL ciphers
     $ssl_ciphers_correct = join($ssl_ciphers, ':')
     if ($redirect_ssl_ciphers == undef) {
       $redirect_ssl_ciphers_correct = $ssl_ciphers_correct
     } else {
       $redirect_ssl_ciphers_correct = join($redirect_ssl_ciphers, ':')
+    }
+
+    # Set SSL ocsp
+    if ($redirect_ssl_ocsp == undef) {
+      $redirect_ssl_ocsp_correct = $ssl_ocsp
+    } else {
+      $redirect_ssl_ocsp_correct = $redirect_ssl_ocsp
     }
 
     # Inform nginx when file is changed or created
