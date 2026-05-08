@@ -37,11 +37,12 @@ define mysql::database (
         # Escape the CREATE DATABASE query before passing it to mysql -e.
         $create_database_query_shell = stdlib::shell_escape("CREATE DATABASE `${title}` DEFAULT CHARACTER SET = '${charset}' DEFAULT COLLATE = '${collate}';")
 
-        # Create database
+        # Create database through the shell provider so escaped SQL semicolons and guard pipelines stay intact.
         exec { "mysql_create_database_${title}":
-          unless  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
-          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_database_query_shell}", #lint:ignore:140chars
-          notify  => $notify,
+          provider => shell,
+          unless   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
+          command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_database_query_shell}", #lint:ignore:140chars
+          notify   => $notify,
         }
       }
       'absent': {
@@ -49,9 +50,11 @@ define mysql::database (
           # Escape the DROP DATABASE query before passing it to mysql -e.
           $drop_database_query_shell = stdlib::shell_escape("DROP DATABASE `${title}`;")
 
+          # Drop database through the shell provider so escaped SQL semicolons and guard pipelines stay intact.
           exec { "mysql_drop_database_${title}":
-            onlyif  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
-            command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_database_query_shell}",
+            provider => shell,
+            onlyif   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
+            command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_database_query_shell}",
           }
         } else {
           notify { "mysql_drop_database_${title}":

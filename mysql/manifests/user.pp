@@ -68,22 +68,27 @@ define mysql::user (
         $create_user_query_shell = stdlib::shell_escape("CREATE USER '${username}'@'${hostname}';")
         $password_command_shell = stdlib::shell_escape("${password_command} FLUSH PRIVILEGES;")
 
+        # Use the shell provider so escaped SQL semicolons, guard pipelines, and bash -c checks stay intact.
         exec { "mysql_create_user_${username}@${hostname}":
-          unless  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
-          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_user_query_shell}",
+          provider => shell,
+          unless   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
+          command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_user_query_shell}",
         }
         -> exec { "mysql_set_password_${username}@${hostname}":
-          unless  => Sensitive.new($unless_field),
-          command => Sensitive.new("/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${password_command_shell}"),
+          provider => shell,
+          unless   => Sensitive.new($unless_field),
+          command  => Sensitive.new("/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${password_command_shell}"),
         }
       }
       'absent': {
         # Escape the DROP USER query before passing it to mysql -e.
         $drop_user_query_shell = stdlib::shell_escape("DROP USER '${username}'@'${hostname}'; FLUSH PRIVILEGES;")
 
+        # Use the shell provider so escaped SQL semicolons and guard pipelines stay intact.
         exec { "mysql_drop_user_${username}@${hostname}":
-          onlyif  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
-          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_user_query_shell}",
+          provider => shell,
+          onlyif   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
+          command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_user_query_shell}",
         }
       }
       default: {
