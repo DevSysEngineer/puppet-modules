@@ -383,9 +383,8 @@ define nginx::server (
     # Rebuild security.txt after the vhost config changes by removing the stale fallback first.
     if ($securitytxt_active) {
       # Create security.txt directory for this vhost
-      file { 'nginx_security_directory':
+      file { $security_dir:
         ensure  => directory,
-        path    => $security_dir,
         owner   => 'root',
         group   => 'root',
         mode    => '0700',
@@ -408,7 +407,7 @@ define nginx::server (
         mode    => '0600',
         content => template('nginx/security.txt'),
         replace => false,
-        require => [File['nginx_securitytxt_directory'], Exec["nginx_securitytxt_remove_${name}"]],
+        require => [File[$security_dir], Exec["nginx_securitytxt_remove_${name}"]],
       }
     } else {
       # Remove the security.txt file and directory
