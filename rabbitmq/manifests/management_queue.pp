@@ -6,9 +6,14 @@ define rabbitmq::management_queue (
   String                      $vhost      = '/'
 ) {
   if (defined(Class['rabbitmq::management'])) {
+    # Escape rabbitmqadmin arguments before building queue commands and guards.
+    $admin_config_path_shell = stdlib::shell_escape($rabbitmq::management::admin_config_path)
+    $name_shell = stdlib::shell_escape($name)
+    $name_arg_shell = stdlib::shell_escape("name=${name}")
+
     # Set delete command
-    $find = "/usr/sbin/rabbitmqadmin --config ${rabbitmq::management::admin_config_path} --format bash list queues | /usr/bin/grep ${name}"
-    $delete = "/usr/sbin/rabbitmqadmin --config ${rabbitmq::management::admin_config_path} delete queue name=${name}"
+    $find = "/usr/sbin/rabbitmqadmin --config ${admin_config_path_shell} --format bash list queues | /usr/bin/grep ${name_shell}"
+    $delete = "/usr/sbin/rabbitmqadmin --config ${admin_config_path_shell} delete queue ${name_arg_shell}"
 
     case $ensure {
       'present': {
@@ -28,8 +33,13 @@ define rabbitmq::management_queue (
           $vhost_name = $vhost
         }
 
+        # Escape vhost, durable flag, and grep pattern before managing queue metadata.
+        $vhost_option_shell = stdlib::shell_escape("--vhost=${vhost}")
+        $durable_arg_shell = stdlib::shell_escape("durable=${durable_value}")
+        $name_durable_pattern_shell = stdlib::shell_escape("|${name}|${durable_ucfirstvalue}|")
+
         # Set create command
-        $create = "/usr/sbin/rabbitmqadmin --config ${rabbitmq::management::admin_config_path} --vhost=${vhost} declare queue name=${name} durable=${durable_value}" #lint:ignore:140chars
+        $create = "/usr/sbin/rabbitmqadmin --config ${admin_config_path_shell} ${vhost_option_shell} declare queue ${name_arg_shell} ${durable_arg_shell}" #lint:ignore:140chars
 
         # Set type
         if ($type == undef) {
@@ -50,11 +60,18 @@ define rabbitmq::management_queue (
           $arguments_json = stdlib::to_json($arguments_sorted.reduce({}) |$result, $pair| {
               $result + { $pair[0] => $pair[1] }
           })
-          $create_correct = "${create} arguments='${arguments_json}'"
+
+          # Escape the JSON arguments before appending them to rabbitmqadmin.
+          $arguments_arg_shell = stdlib::shell_escape("arguments=${arguments_json}")
+          $create_correct = "${create} ${arguments_arg_shell}"
         } else {
           $arguments_json = '{}'
           $create_correct = $create
         }
+
+        # Escape queue argument check patterns before passing them to grep.
+        $arguments_pattern_shell = stdlib::shell_escape("{\"arguments\":${arguments_json},\"name\":\"${name}\"}")
+        $name_json_pattern_shell = stdlib::shell_escape("\"name\":\"${name}\"")
 
         # Create queue
         exec { "rabbitmq_management_queue_${name}":
@@ -66,14 +83,14 @@ define rabbitmq::management_queue (
         # Check if durable of the exchange is the same
         exec { "rabbitmq_management_queue_${name}_durable":
           command => "${delete} && ${create_correct}",
-          unless  => "/usr/sbin/rabbitmqadmin --config ${rabbitmq::management::admin_config_path} list queues name durable | /usr/bin/grep ${name} | /usr/bin/tr -d '[:blank:]' | /usr/bin/grep '|${name}|${durable_ucfirstvalue}|'", #lint:ignore:140chars
+          unless  => "/usr/sbin/rabbitmqadmin --config ${admin_config_path_shell} list queues name durable | /usr/bin/grep ${name_shell} | /usr/bin/tr -d '[:blank:]' | /usr/bin/grep ${name_durable_pattern_shell}", #lint:ignore:140chars
           require => [Package['coreutils'], Package['grep'], Exec["rabbitmq_management_queue_${name}"]],
         }
 
         # Check if arguments of the exchange is the same
         exec { "rabbitmq_management_queue_${name}_arguments":
           command => "${delete} && ${create_correct}",
-          unless  => "/usr/sbin/rabbitmqadmin --config ${rabbitmq::management::admin_config_path} --format raw_json list queues name arguments | sed 's/},{/'\\},\\\\n{'/g' | /usr/bin/grep '\"name\":\"${name}\"' | /usr/bin/grep '{\"arguments\":${arguments_json},\"name\":\"${name}\"}'", #lint:ignore:140chars
+          unless  => "/usr/sbin/rabbitmqadmin --config ${admin_config_path_shell} --format raw_json list queues name arguments | sed 's/},{/'\\},\\\\n{'/g' | /usr/bin/grep ${name_json_pattern_shell} | /usr/bin/grep ${arguments_pattern_shell}", #lint:ignore:140chars
           require => [Package['coreutils'], Package['grep'], Package['sed'], Exec["rabbitmq_management_queue_${name}"]],
         }
       }

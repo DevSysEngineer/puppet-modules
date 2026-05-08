@@ -77,9 +77,11 @@ define netplanio::wifi (
       }
 
       # Forceer runtime power management van de WiFi device op "on"
+      # Escape the sysfs path before writing to it from an exec command.
+      $runtime_pm_file_shell = stdlib::shell_escape("/sys/class/net/${name}/device/power/control")
       exec { "netplan_${name}_runtime_pm":
-        command => "/usr/bin/bash -c 'echo \"on\" > /sys/class/net/${name}/device/power/control'",
-        onlyif  => "/usr/bin/bash -c 'test -e /sys/class/net/${name}/device/power/control && [ \"$(cat /sys/class/net/${name}/device/power/control)\" != \"on\" ]'",
+        command => "/usr/bin/printf %s on > ${runtime_pm_file_shell}",
+        onlyif  => "/usr/bin/test -e ${runtime_pm_file_shell} && [ \"\$(/usr/bin/cat ${runtime_pm_file_shell})\" != \"on\" ]",
       }
     } else {
       # Remove config

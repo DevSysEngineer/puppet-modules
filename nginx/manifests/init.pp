@@ -183,13 +183,13 @@ class nginx (
     require => Package['nginx'],
   }
 
-  # Store public, Puppet-managed fallback files that must be readable by nginx workers.
+  # Create security directory
   file { 'nginx_security':
     ensure  => directory,
     path    => '/etc/nginx/security',
     owner   => 'root',
     group   => 'root',
-    mode    => '0755',
+    mode    => '0700',
     require => Package['nginx'],
   }
 

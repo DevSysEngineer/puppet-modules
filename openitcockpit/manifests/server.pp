@@ -627,9 +627,20 @@ class openitcockpit::server (
   }
 
   # Update grafana admin password
+  # Escape Grafana paths and password before building the reset commands.
+  $grafana_password_shell = stdlib::shell_escape($grafana_password.unwrap)
+  $grafana_password_file_shell = stdlib::shell_escape("${install_dir_correct}/etc/grafana/admin_password")
+  $grafana_graphing_dir_shell = stdlib::shell_escape("${install_dir_correct}/docker/container/graphing")
+  $installation_done_file_shell = stdlib::shell_escape("${install_dir_correct}/etc/.installation_done")
+  $grafana_password_update_script = "umask 077 && /usr/bin/printf %s ${grafana_password_shell} > ${grafana_password_file_shell} && cd ${grafana_graphing_dir_shell} && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password_shell}" #lint:ignore:140chars
+  $grafana_password_check_script = "/usr/bin/test -f ${installation_done_file_shell} && ( ! [ -f ${grafana_password_file_shell} ] || ! /usr/bin/grep -qxF ${grafana_password_shell} ${grafana_password_file_shell} )" #lint:ignore:140chars
+
+  # Escape the complete reset and guard scripts before passing them to sh -c.
+  $grafana_password_update_script_shell = stdlib::shell_escape($grafana_password_update_script)
+  $grafana_password_check_script_shell = stdlib::shell_escape($grafana_password_check_script)
   exec { 'openitcockpit_grafana_admin_pw':
-    command => Sensitive.new("/bin/sh -c 'umask 077 && /usr/bin/printf %s ${grafana_password.unwrap} > ${install_dir_correct}/etc/grafana/admin_password && cd ${install_dir_correct}/docker/container/graphing && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password.unwrap}'"),
-    onlyif  => Sensitive.new( "/bin/sh -c '/usr/bin/test -f ${install_dir_correct}/etc/.installation_done && ( ! [ -f ${install_dir_correct}/etc/grafana/admin_password ] || ! /usr/bin/grep -qxF \"${grafana_password.unwrap}\" ${install_dir_correct}/etc/grafana/admin_password )'"),
+    command => Sensitive.new("/bin/sh -c ${grafana_password_update_script_shell}"),
+    onlyif  => Sensitive.new("/bin/sh -c ${grafana_password_check_script_shell}"),
     require => Package['coreutils', 'grep', 'openitcockpit'],
   }
 }

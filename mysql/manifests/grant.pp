@@ -17,6 +17,14 @@ define mysql::grant (
     $priv_str = join($privileges, ', ')
     $grant_option_num = $grant_option ? { true => '1', default => '0' }
 
+    # Escape grant wrapper arguments before building exec commands and guards.
+    $script_path_shell = stdlib::shell_escape($mysql::script_path)
+    $username_shell = stdlib::shell_escape($username)
+    $hostname_shell = stdlib::shell_escape($hostname)
+    $database_shell = stdlib::shell_escape($database)
+    $table_shell = stdlib::shell_escape($table)
+    $grant_option_num_shell = stdlib::shell_escape($grant_option_num)
+
     # Change SQL queries based on version
     if (versioncmp(String($mysql::version), '8.0') >= 0 and $priv_str == 'ALL PRIVILEGES') {
       if ($database != '*') {
@@ -24,25 +32,31 @@ define mysql::grant (
       } else {
         $check_all_priv = 'SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE' #lint:ignore:140chars
       }
-      $check_script_args = "\"${username}\" \"${hostname}\" \"${database}\" \"${table}\" \"${check_all_priv}\" ${grant_option_num}"
-      $grant_script_args = "\"${username}\" \"${hostname}\" \"${database}\" \"${table}\" \"${check_all_priv}\" ${grant_option_num} \"${priv_str}\""
+
+      # Escape version-specific privilege strings before building wrapper arguments.
+      $check_all_priv_shell = stdlib::shell_escape($check_all_priv)
+      $priv_str_shell = stdlib::shell_escape($priv_str)
+      $check_script_args = "${username_shell} ${hostname_shell} ${database_shell} ${table_shell} ${check_all_priv_shell} ${grant_option_num_shell}"
+      $grant_script_args = "${username_shell} ${hostname_shell} ${database_shell} ${table_shell} ${check_all_priv_shell} ${grant_option_num_shell} ${priv_str_shell}"
     } else {
-      $check_script_args = "\"${username}\" \"${hostname}\" \"${database}\" \"${table}\" \"${priv_str}\" ${grant_option_num}"
-      $grant_script_args = "\"${username}\" \"${hostname}\" \"${database}\" \"${table}\" \"${priv_str}\" ${grant_option_num} \"${priv_str}\""
+      # Escape the privilege string before building wrapper arguments.
+      $priv_str_shell = stdlib::shell_escape($priv_str)
+      $check_script_args = "${username_shell} ${hostname_shell} ${database_shell} ${table_shell} ${priv_str_shell} ${grant_option_num_shell}"
+      $grant_script_args = "${username_shell} ${hostname_shell} ${database_shell} ${table_shell} ${priv_str_shell} ${grant_option_num_shell} ${priv_str_shell}"
     }
 
     # Run query
     case $ensure {
       'present': {
         exec { "mysql_grant_${username}@${hostname}_on_${database}.${table}":
-          unless  => "${mysql::script_path} check ${check_script_args}",
-          command => "${mysql::script_path} grant ${grant_script_args}",
+          unless  => "${script_path_shell} check ${check_script_args}",
+          command => "${script_path_shell} grant ${grant_script_args}",
         }
       }
       'absent': {
         exec { "mysql_revoke_${username}@${hostname}_on_${database}.${table}":
-          onlyif  => "${mysql::script_path} check ${check_script_args}",
-          command => "${mysql::script_path} revoke ${check_script_args}",
+          onlyif  => "${script_path_shell} check ${check_script_args}",
+          command => "${script_path_shell} revoke ${check_script_args}",
         }
       }
       default: {

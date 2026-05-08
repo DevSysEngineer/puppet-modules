@@ -15,6 +15,10 @@ class basic_settings::package_mongodb (
   # Set keyrings file
   $key = '/usr/share/keyrings/mongodb.gpg'
 
+  # Escape repository paths before using them in exec commands and guards.
+  $file_shell = stdlib::shell_escape($file)
+  $key_shell = stdlib::shell_escape($key)
+
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
@@ -23,10 +27,14 @@ class basic_settings::package_mongodb (
       $source = "deb [signed-by=${key}] https://repo.mongodb.org/apt/${os_parent} ${os_name}/mongodb-org/${version} main\n"
     }
 
+    # Escape generated repo content and key URL before the shell writes or fetches them.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    $key_url_shell = stdlib::shell_escape("https://pgp.mongodb.com/server-${version}.asc")
+
     # Install mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://pgp.mongodb.com/server-${version}.asc | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
-      unless  => "[ -e ${file} ]",
+      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL ${key_url_shell} | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
 
@@ -44,8 +52,8 @@ class basic_settings::package_mongodb (
 
     # Remove mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
-      onlyif  => "[ -e ${file} ]",
+      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif  => "/usr/bin/test -e ${file_shell}",
       require => [Package['apt'], Package['mongodb-org-server']],
     }
 

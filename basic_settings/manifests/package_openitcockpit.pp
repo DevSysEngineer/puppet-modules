@@ -17,6 +17,10 @@ class basic_settings::package_openitcockpit (
   # Set keyrings file
   $key = '/usr/share/keyrings/openitcockpit.gpg'
 
+  # Escape repository paths before using them in exec commands and guards.
+  $file_shell = stdlib::shell_escape($file)
+  $key_shell = stdlib::shell_escape($key)
+
   if ($enable) {
     # Check if package is server or agent
     if ($package == 'server') {
@@ -56,6 +60,9 @@ class basic_settings::package_openitcockpit (
       $license_correct = $license
     }
 
+    # Escape generated repo content before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+
     # Install openitcockpit license
     file { 'package_openitcockpit_license':
       ensure  => file,
@@ -69,8 +76,8 @@ class basic_settings::package_openitcockpit (
 
     # Install openitcockpit repo
     exec { 'package_openitcockpit_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}; /usr/bin/apt-get update",
-      unless  => "[ -e ${file} ]",
+      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "/usr/bin/test -e ${file_shell}",
       require => [File['package_openitcockpit_license'], Package['curl']],
     }
   } else {
@@ -82,8 +89,8 @@ class basic_settings::package_openitcockpit (
 
     # Remove openitcockpit repo
     exec { 'package_openitcockpit_source':
-      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
-      onlyif  => "[ -e ${file} ]",
+      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt'],
     }
 

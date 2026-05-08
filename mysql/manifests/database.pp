@@ -11,14 +11,22 @@ define mysql::database (
       require => [Service[$mysql::package_name], File[$mysql::script_path]],
     }
 
+    # Escape MySQL command arguments before using them in exec commands and guards.
+    $defaults_file_shell = stdlib::shell_escape($mysql::defaults_file)
+    $database_shell = stdlib::shell_escape($title)
+    $show_databases_query_shell = stdlib::shell_escape('SHOW DATABASES;')
+
     # Run query
     case $ensure {
       'present': {
         # Check if we need import SQL to database
         if ($import != undef) {
+          # Escape the import path before using it as a shell redirection source.
+          $import_shell = stdlib::shell_escape($import)
+
           # Import database from file
           exec { "mysql_database_import_${title}":
-            command     => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -D ${title} < ${import}\"",
+            command     => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -D ${database_shell} < ${import_shell}",
             refreshonly => true,
           }
           $notify = Exec["mysql_database_import_${title}"]
@@ -26,18 +34,24 @@ define mysql::database (
           $notify = undef
         }
 
+        # Escape the CREATE DATABASE query before passing it to mysql -e.
+        $create_database_query_shell = stdlib::shell_escape("CREATE DATABASE `${title}` DEFAULT CHARACTER SET = '${charset}' DEFAULT COLLATE = '${collate}';")
+
         # Create database
         exec { "mysql_create_database_${title}":
-          unless  => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -NBe 'SHOW DATABASES;' | grep -qx '${title}'\"",
-          command => "mysql --defaults-file=${mysql::defaults_file} -e \"CREATE DATABASE \\`${title}\\` DEFAULT CHARACTER SET = '${charset}' DEFAULT COLLATE = '${collate}';\"", #lint:ignore:140chars
+          unless  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
+          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_database_query_shell}", #lint:ignore:140chars
           notify  => $notify,
         }
       }
       'absent': {
         if ($destroy) {
+          # Escape the DROP DATABASE query before passing it to mysql -e.
+          $drop_database_query_shell = stdlib::shell_escape("DROP DATABASE `${title}`;")
+
           exec { "mysql_drop_database_${title}":
-            onlyif  => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -NBe 'SHOW DATABASES;' | grep -qx '${title}'\"",
-            command => "mysql --defaults-file=${mysql::defaults_file} -e \"DROP DATABASE \\`${title}\\`;\"",
+            onlyif  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${show_databases_query_shell} | /usr/bin/grep -qx ${database_shell}",
+            command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_database_query_shell}",
           }
         } else {
           notify { "mysql_drop_database_${title}":

@@ -95,6 +95,10 @@ define nginx::server (
   Boolean             $try_files_enable                 = true
 ) {
   if (defined(Class['nginx'])) {
+    # Create security.txt file path
+    $security_dir = "/etc/nginx/security/${name}"
+    $securitytxt_file = "${security_dir}/security.txt"
+
     # Use the first server_name as the public host for Canonical and fallback contacts.
     if ($server_name != undef and $server_name != '') {
       $securitytxt_server_name = split($server_name, ' ')[0]
@@ -207,12 +211,6 @@ define nginx::server (
     } else {
       $securitytxt_expires = undef
     }
-
-    # Keep the fallback file namespaced by the Puppet resource title in one flat directory.
-    $securitytxt_file = "/etc/nginx/security/${name}-security.txt"
-
-    # Escape the generated path once before using it in the cleanup command.
-    $securitytxt_file_shell = stdlib::shell_escape($securitytxt_file)
 
     # Nginx named locations only get safe identifier characters.
     $securitytxt_location_name = regsubst($name, '[^A-Za-z0-9_]', '_', 'G')
@@ -384,6 +382,18 @@ define nginx::server (
 
     # Rebuild security.txt after the vhost config changes by removing the stale fallback first.
     if ($securitytxt_active) {
+      # Create security.txt directory for this vhost
+      file { 'nginx_security_directory':
+        ensure  => directory,
+        path    => $security_dir,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0700',
+        require => File['nginx_security'],
+      }
+
+      # Escape the generated path once before using it in the cleanup command.
+      $securitytxt_file_shell = stdlib::shell_escape($securitytxt_file)
       exec { "nginx_securitytxt_remove_${name}":
         command     => "/bin/rm -f ${securitytxt_file_shell}",
         refreshonly => true,
@@ -395,14 +405,14 @@ define nginx::server (
         ensure  => file,
         owner   => 'root',
         group   => 'root',
-        mode    => '0644',
+        mode    => '0600',
         content => template('nginx/security.txt'),
         replace => false,
-        require => [File['nginx_security'], Exec["nginx_securitytxt_remove_${name}"]],
+        require => [File['nginx_securitytxt_directory'], Exec["nginx_securitytxt_remove_${name}"]],
       }
     } else {
-      # Remove stale fallback files when security.txt is disabled or input is invalid.
-      file { $securitytxt_file:
+      # Remove the security.txt file and directory
+      file { [$security_dir, $securitytxt_file]:
         ensure  => absent,
         require => File['nginx_security'],
       }

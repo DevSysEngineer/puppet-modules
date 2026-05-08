@@ -11,12 +11,23 @@ define mysql::user (
       require => Service['mysql'],
     }
 
+    # Escape MySQL command arguments before using them in exec commands and guards.
+    $defaults_file_shell = stdlib::shell_escape($mysql::defaults_file)
+    $username_shell = stdlib::shell_escape($username)
+    $hostname_shell = stdlib::shell_escape($hostname)
+    $user_host_pattern_shell = stdlib::shell_escape("${username}\\s${hostname}")
+    $list_users_query_shell = stdlib::shell_escape('SELECT user,host from mysql.user;')
+
     # Check if mysql version is 5.7, 8.0, 8.4
     case $mysql::version {
       5.7: {
         $password_field = 'authentication_string'
         $password_command = "UPDATE mysql.user SET plugin='mysql_native_password', authentication_string = PASSWORD('${password}'), password_expired = 'N' WHERE User = '${username}' AND Host = '${hostname}';" #lint:ignore:140chars
-        $unless_field = "/usr/bin/bash -c \"[ `mysql --defaults-file=${mysql::defaults_file} -NBe \\\"select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');\\\"` != \\\"0\\\" ]\"" #lint:ignore:140chars
+
+        # Escape the password check query and guard script before passing them to bash -c.
+        $password_check_query_shell = stdlib::shell_escape("select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');")
+        $password_check_script_shell = stdlib::shell_escape("[ \$(/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${password_check_query_shell}) != \"0\" ]")
+        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
       }
       8.0, 8.4: {
         if ($password_latency == 'authentication_string') {
@@ -29,31 +40,50 @@ define mysql::user (
           $password_command = "ALTER USER '${username}'@'${hostname}' IDENTIFIED BY '${password}';"
         }
         # Verify credentials through a root-only temp dir so the password check leaves no shared /tmp files behind.
-        $unless_field = "/usr/bin/bash -c 'umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; printf \"%b\" \"[client]\\npassword=${password}\" > \"\$tmpdir/mysql.cnf\"; current_user=\$(mysql --defaults-file=${mysql::defaults_file} -NBe \"system mysql --defaults-file=\$tmpdir/mysql.cnf -u ${username} -NBe \\\"SELECT CURRENT_USER()\\\"\" 2>/dev/null); [ \"\$current_user\" = \"${username}@${hostname}\" ]'" #lint:ignore:140chars
+        # Escape credential-check values before building the root-only temp config script.
+        $password_config_shell = stdlib::shell_escape("[client]\npassword=${password}")
+        $current_user_query_shell = stdlib::shell_escape('SELECT CURRENT_USER()')
+        $current_user_expected_shell = stdlib::shell_escape("${username}@${hostname}")
+        $password_check_script = "umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; /usr/bin/printf %s ${password_config_shell} > \"\$tmpdir/mysql.cnf\"; current_user=\$(/usr/bin/mysql --defaults-file=\"\$tmpdir/mysql.cnf\" -u ${username_shell} -NBe ${current_user_query_shell} 2>/dev/null); [ \"\$current_user\" = ${current_user_expected_shell} ]" #lint:ignore:140chars
+
+        # Escape the complete credential-check script before passing it to bash -c.
+        $password_check_script_shell = stdlib::shell_escape($password_check_script)
+        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
       }
       default: {
         $password_field = 'password'
         $password_command = "SET PASSWORD FOR '${username}'@'${hostname}' = PASSWORD('${password}');"
-        $unless_field = "/usr/bin/bash -c \"[ `mysql --defaults-file=${mysql::defaults_file} -NBe \\\"select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');\\\"` != \\\"0\\\" ]\"" #lint:ignore:140chars
+
+        # Escape the password check query and guard script before passing them to bash -c.
+        $password_check_query_shell = stdlib::shell_escape("select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');")
+        $password_check_script_shell = stdlib::shell_escape("[ \$(/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${password_check_query_shell}) != \"0\" ]")
+        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
       }
     }
 
     # Run query
     case $ensure {
       'present': {
+        # Escape user-management queries before passing them to mysql -e.
+        $create_user_query_shell = stdlib::shell_escape("CREATE USER '${username}'@'${hostname}';")
+        $password_command_shell = stdlib::shell_escape("${password_command} FLUSH PRIVILEGES;")
+
         exec { "mysql_create_user_${username}@${hostname}":
-          unless  => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -NBe 'SELECT user,host from mysql.user;' | grep -qx '${username}\\s${hostname}'\"",
-          command => "mysql --defaults-file=${mysql::defaults_file} -e \"CREATE USER '${username}'@'${hostname}';\"",
+          unless  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
+          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_user_query_shell}",
         }
         -> exec { "mysql_set_password_${username}@${hostname}":
           unless  => Sensitive.new($unless_field),
-          command => Sensitive.new("mysql --defaults-file=${mysql::defaults_file} -e \"${password_command} FLUSH PRIVILEGES;\""),
+          command => Sensitive.new("/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${password_command_shell}"),
         }
       }
       'absent': {
+        # Escape the DROP USER query before passing it to mysql -e.
+        $drop_user_query_shell = stdlib::shell_escape("DROP USER '${username}'@'${hostname}'; FLUSH PRIVILEGES;")
+
         exec { "mysql_drop_user_${username}@${hostname}":
-          onlyif  => "/usr/bin/bash -c \"mysql --defaults-file=${mysql::defaults_file} -NBe 'SELECT user,host from mysql.user;' | grep -qx '${username}\\s${hostname}'\"",
-          command => "mysql --defaults-file=${mysql::defaults_file} -e \"DROP USER '${username}'@'${hostname}'; FLUSH PRIVILEGES;\"",
+          onlyif  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}",
+          command => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_user_query_shell}",
         }
       }
       default: {

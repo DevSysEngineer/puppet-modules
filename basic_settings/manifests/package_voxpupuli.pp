@@ -14,6 +14,10 @@ class basic_settings::package_voxpupuli (
   # Set keyrings file
   $key = '/usr/share/keyrings/openvox-keyring.gpg'
 
+  # Escape repository paths before using them in exec commands and guards.
+  $file_shell = stdlib::shell_escape($file)
+  $key_shell = stdlib::shell_escape($key)
+
   if ($enable) {
     # Set URL
     $url = 'https://apt.voxpupuli.org'
@@ -25,17 +29,20 @@ class basic_settings::package_voxpupuli (
       $source = "deb [signed-by=${key}] ${url} ${os_parent}${os_version} openvox8\n"
     }
 
+    # Escape generated repo content before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+
     # Install voxpupuli repo
     exec { 'package_voxpupuli_source':
-      command => "/usr/bin/printf \"# Managed by puppet\n${source}\" > ${file}; /usr/bin/curl -fsSLo ${key} https://apt.voxpupuli.org/openvox-keyring.gpg; chmod 644 ${key}; /usr/bin/apt-get update",
-      unless  => "[ -e ${file} ]",
+      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSLo ${key_shell} https://apt.voxpupuli.org/openvox-keyring.gpg; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      unless  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt', 'apt-transport-https', 'curl'],
     }
   } else {
     # Remove voxpupuli repo
     exec { 'package_voxpupuli_source':
-      command => "/usr/bin/bash -c '/usr/bin/rm ${file} && /usr/bin/apt-get update'",
-      onlyif  => "[ -e ${file} ]",
+      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt'],
     }
 

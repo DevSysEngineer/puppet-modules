@@ -17,26 +17,37 @@ define letsencrypt::certificate (
     # Set binary
     $cerbot_bin = '/usr/bin/certbot'
 
+    # Escape certbot command arguments before using them in exec commands and guards.
+    $cerbot_bin_shell = stdlib::shell_escape($cerbot_bin)
+    $plugin_shell = stdlib::shell_escape($plugin)
+    $name_shell = stdlib::shell_escape($name)
+
     # Run command based on ensure
     case $ensure {
       'present': {
         # Convert array to string
         $domain_sort = $domains.sort();
-        $domain_list_install = join($domain_sort, ' -d ')
         $domain_list_find = join($domain_sort, ' ')
+
+        # Escape domain arguments and grep pattern before certbot commands use them.
+        $domain_args_shell = join($domain_sort.map |$domain| { "-d ${stdlib::shell_escape($domain)}" }, ' ')
+        $domain_find_shell = stdlib::shell_escape("Domains: ${domain_list_find}")
 
         # Check if fullchain.pem and privkey.pem exists
         exec { "letsencrypt_certificate_${name}":
-          command => "${cerbot_bin} run --${plugin} -n --cert-name ${name} -d ${domain_list_install}",
-          unless  => "${cerbot_bin} certificates -n --cert-name ${name} | /usr/bin/grep 'Domains: ${domain_list_find}'",
+          command => "${cerbot_bin_shell} run --${plugin_shell} -n --cert-name ${name_shell} ${domain_args_shell}",
+          unless  => "${cerbot_bin_shell} certificates -n --cert-name ${name_shell} | /usr/bin/grep ${domain_find_shell}",
           require => $require,
         }
       }
       'absent': {
+        # Escape the certificate name grep pattern before checking certbot output.
+        $certificate_name_find_shell = stdlib::shell_escape("Certificate Name: ${name}")
+
         # Delete fullchain.pem and privkey.pem
         exec { "letsencrypt_certificate_${name}":
-          command => "${cerbot_bin} delete --${plugin} --cert-name ${name}",
-          onlyif  => "${cerbot_bin} certificates -n --cert-name ${name} | /usr/bin/grep 'Certificate Name: ${name}'",
+          command => "${cerbot_bin_shell} delete --${plugin_shell} --cert-name ${name_shell}",
+          onlyif  => "${cerbot_bin_shell} certificates -n --cert-name ${name_shell} | /usr/bin/grep ${certificate_name_find_shell}",
           require => $require,
         }
       }

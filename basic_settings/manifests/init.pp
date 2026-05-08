@@ -408,19 +408,26 @@ class basic_settings (
     }
   } else {
     # Check if we need backports
+    $backports_file = "/etc/apt/sources.list.d/${os_name}-backports.list"
+
+    # Escape the backports path before using it in exec commands and guards.
+    $backports_file_shell = stdlib::shell_escape($backports_file)
     if ($backports and $backports_allow) {
       $backports_install_options = ['-t', "${os_name}-backports"]
+
+      # Escape generated backports source content before the shell writes it.
+      $backports_source_shell = stdlib::shell_escape("deb ${os_url} ${os_name}-backports ${os_repo}\n")
       exec { 'basic_settings_source_backports':
-        command => "/usr/bin/printf \"deb ${os_url} ${os_name}-backports ${os_repo}\\n\" > /etc/apt/sources.list.d/${os_name}-backports.list", #lint:ignore:140chars
-        unless  => "[ -e /etc/apt/sources.list.d/${os_name}-backports.list ]",
+        command => "/usr/bin/printf %s ${backports_source_shell} > ${backports_file_shell}",
+        unless  => "/usr/bin/test -e ${backports_file_shell}",
         notify  => Exec['basic_settings_source_reload'],
         require => [Package['apt'], Package['coreutils']],
       }
     } else {
       $backports_install_options = []
       exec { 'basic_settings_source_backports':
-        command => "/usr/bin/rm /etc/apt/sources.list.d/${os_name}-backports.list",
-        onlyif  => "[ -e /etc/apt/sources.list.d/${os_name}-backports.list ]",
+        command => "/usr/bin/rm ${backports_file_shell}",
+        onlyif  => "/usr/bin/test -e ${backports_file_shell}",
         notify  => Exec['basic_settings_source_reload'],
         require => [Package['apt'], Package['coreutils']],
       }

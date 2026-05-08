@@ -7,6 +7,9 @@ class basic_settings::package_node (
   $key = '/usr/share/keyrings/nodesource.gpg'
   $source = "deb [signed-by=${key}] https://deb.nodesource.com/node_${version}.x nodistro main\n"
 
+  # Escape the keyring path before tee, chmod, and guard commands use it.
+  $key_shell = stdlib::shell_escape($key)
+
   # Refresh the APT cache only after the managed repo state changes.
   exec { 'package_node_source_reload':
     command     => '/usr/bin/apt-get update',
@@ -29,8 +32,8 @@ class basic_settings::package_node (
 
     # Download and install the repository signing key in a dedicated keyring file.
     exec { 'package_node_key':
-      command => "/usr/bin/curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee ${key} >/dev/null; chmod 644 ${key}",
-      unless  => "[ -e ${key} ]",
+      command => "/usr/bin/curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}", #lint:ignore:140chars
+      unless  => "/usr/bin/test -e ${key_shell}",
       notify  => Exec['package_node_source_reload'],
       require => [Package['apt'], Package['apt-transport-https'], Package['curl'], Package['gnupg']],
     }

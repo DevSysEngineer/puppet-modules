@@ -2,10 +2,16 @@ define rabbitmq::plugin (
   Optional[Type] $notify_target = undef,
 ) {
   if (defined(Class['rabbitmq'])) {
+    # Escape the plugin name before building the enable command and guard.
+    $name_shell = stdlib::shell_escape($name)
+
+    # Escape the complete enable script before passing it to bash -c.
+    $enable_script_shell = stdlib::shell_escape("(umask 133 && /usr/sbin/rabbitmq-plugins --quiet enable ${name_shell})")
+
     # Setup the plugin
     exec { "rabbitmq_plugin_${name}":
-      command => "/usr/bin/bash -c \"(umask 133 && /usr/sbin/rabbitmq-plugins --quiet enable ${name})\"", #lint:ignore:140chars # Important for rabbitmq to keep unmask 133
-      unless  => "/usr/sbin/rabbitmq-plugins --quiet is_enabled ${name}",
+      command => "/usr/bin/bash -c ${enable_script_shell}", # Important for rabbitmq to keep unmask 133
+      unless  => "/usr/sbin/rabbitmq-plugins --quiet is_enabled ${name_shell}",
       notify  => $notify_target,
       require => Package['rabbitmq-server'],
     }

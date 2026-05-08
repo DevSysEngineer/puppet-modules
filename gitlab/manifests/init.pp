@@ -66,9 +66,18 @@ class gitlab (
     $requirements = [Package['dpkg'], Package['grep']]
   }
 
+  # Escape install environment values before they are embedded in the shell command.
+  $root_email_correct_shell = stdlib::shell_escape($root_email_correct)
+  $root_password_shell = stdlib::shell_escape($root_password)
+  $external_url_shell = stdlib::shell_escape("http://${server_fdqn_correct}")
+  $gitlab_install_script = "GITLAB_ROOT_EMAIL=${root_email_correct_shell} GITLAB_ROOT_PASSWORD=${root_password_shell} EXTERNAL_URL=${external_url_shell} /usr/bin/apt-get install gitlab-ee" #lint:ignore:140chars
+
+  # Escape the complete install script before passing it to sh -c.
+  $gitlab_install_script_shell = stdlib::shell_escape($gitlab_install_script)
+
   # Check if gitlab is installed exists
   exec { 'gitlab_install':
-    command => Sensitive.new("/usr/bin/bash -c 'GITLAB_ROOT_EMAIL=\"${root_email_correct}\" GITLAB_ROOT_PASSWORD=\"${root_password}\" EXTERNAL_URL=\"http://${server_fdqn}\" /usr/bin/apt-get install gitlab-ee'"), #lint:ignore:140chars 
+    command => Sensitive.new("/bin/sh -c ${gitlab_install_script_shell}"),
     unless  => '/usr/bin/dpkg -l | /usr/bin/grep gitlab-ee',
     timeout => 0,
     require => $requirements,

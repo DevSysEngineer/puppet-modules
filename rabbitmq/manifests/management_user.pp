@@ -4,8 +4,11 @@ define rabbitmq::management_user (
   Array                       $tags       = ['monitoring']
 ) {
   if (defined(Class['rabbitmq::management'])) {
+    # Escape the RabbitMQ username before building user commands and guards.
+    $name_shell = stdlib::shell_escape($name)
+
     # Set commands
-    $find = "/usr/sbin/rabbitmqctl --quiet list_user_limits --user ${name}"
+    $find = "/usr/sbin/rabbitmqctl --quiet list_user_limits --user ${name_shell}"
 
     case $ensure {
       'present': {
@@ -16,13 +19,23 @@ define rabbitmq::management_user (
             $user_home = getparam(Resource['basic_settings::login_user', $name], 'home')
             $user_require = [Package['pwgen'], Rabbitmq::Plugin['rabbitmq_management']]
 
+            # Escape password file path and ownership before writing the generated password.
+            $password_file_shell = stdlib::shell_escape("${user_home}/.rabbitmq.password")
+            $chown_spec_shell = stdlib::shell_escape("${name}:${name}")
+
             # Important, don't use --quiet here
-            $user_addd = "/usr/bin/bash -c 'TMPPASS=`/usr/bin/pwgen -s 26 1`; echo \$TMPPASS > ${user_home}/.rabbitmq.password; /usr/bin/chown ${name}:${name} ${user_home}/.rabbitmq.password; /usr/bin/chmod 600 ${user_home}/.rabbitmq.password; echo \$TMPPASS | /usr/sbin/rabbitmqctl add_user ${name}'" #lint:ignore:140chars
+            $user_add_script = "TMPPASS=\$(/usr/bin/pwgen -s 26 1); /usr/bin/printf %s \"\$TMPPASS\" > ${password_file_shell}; /usr/bin/chown ${chown_spec_shell} ${password_file_shell}; /usr/bin/chmod 600 ${password_file_shell}; /usr/bin/printf %s \"\$TMPPASS\" | /usr/sbin/rabbitmqctl add_user ${name_shell}" #lint:ignore:140chars
+
+            # Escape the complete add-user script before passing it to bash -c.
+            $user_add_script_shell = stdlib::shell_escape($user_add_script)
+            $user_addd = "/usr/bin/bash -c ${user_add_script_shell}"
           } else {
             fail("User ${name} not present")
           }
         } else {
-          $user_addd = Sensitive.new("/usr/sbin/rabbitmqctl add_user ${name} ${password}") # Important, don't use --quiet here
+          # Escape the supplied password before passing it to rabbitmqctl.
+          $password_shell = stdlib::shell_escape($password)
+          $user_addd = Sensitive.new("/usr/sbin/rabbitmqctl add_user ${name_shell} ${password_shell}") # Important, don't use --quiet here
           $user_require = Rabbitmq::Plugin['rabbitmq_management']
         }
 
@@ -35,11 +48,13 @@ define rabbitmq::management_user (
 
         # Set tags
         if ($tags != undef) {
-          $user_tags_join = join($tags, ' ')
-          $user_tags_search = join($tags, ' | grep ')
+          # Escape tag names before building the tag command and grep chain.
+          $user_tags_shell = $tags.map |$tag| { stdlib::shell_escape($tag) }
+          $user_tags_join = join($user_tags_shell, ' ')
+          $user_tags_search = join($user_tags_shell, ' | /usr/bin/grep ')
           exec { "rabbitmq_management_user_${name}_tags":
-            command => "/usr/sbin/rabbitmqctl --quiet set_user_tags ${name} ${user_tags_join}",
-            unless  => "/usr/sbin/rabbitmqctl --quiet list_users --no-table-headers | /usr/bin/grep ${name} | /usr/bin/cut -f2 | /usr/bin/grep ${user_tags_search}", #lint:ignore:140chars
+            command => "/usr/sbin/rabbitmqctl --quiet set_user_tags ${name_shell} ${user_tags_join}",
+            unless  => "/usr/sbin/rabbitmqctl --quiet list_users --no-table-headers | /usr/bin/grep ${name_shell} | /usr/bin/cut -f2 | /usr/bin/grep ${user_tags_search}", #lint:ignore:140chars
             require => [Package['coreutils'], Package['grep'], Exec["rabbitmq_management_user_${name}"]],
           }
         }
@@ -48,7 +63,7 @@ define rabbitmq::management_user (
         # Delete user
         exec { "rabbitmq_management_user_${name}":
           onlyif  => $find,
-          command => "/usr/sbin/rabbitmqctl --quiet delete_user ${name}",
+          command => "/usr/sbin/rabbitmqctl --quiet delete_user ${name_shell}",
         }
       }
       default: {

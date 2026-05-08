@@ -26,9 +26,12 @@ class php8::cli (
     }
 
     if (!$php8::skip_default_files) {
+      # Escape the PHP binary path before passing it to update-alternatives.
+      $php_cli_bin_shell = stdlib::shell_escape("/usr/bin/php8.${minor_version}")
+
       # Change PHP version
       exec { 'php_set_default_version':
-        command     => "update-alternatives --set php /usr/bin/php8.${minor_version}",
+        command     => "/usr/bin/update-alternatives --set php ${php_cli_bin_shell}",
         refreshonly => true,
         require     => Package["php8.${minor_version}"],
         subscribe   => Package["php8.${minor_version}"],

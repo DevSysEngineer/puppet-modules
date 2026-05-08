@@ -114,8 +114,10 @@ class rabbitmq::management (
       }
 
       # Install admin plugin
+      # Escape the local rabbitmqadmin URL before passing it to curl.
+      $admin_cli_url_shell = stdlib::shell_escape("http://127.0.0.1:${port}/cli/rabbitmqadmin")
       exec { 'rabbitmq_management_admin_cli':
-        command => "/usr/bin/curl -fsSL http://127.0.0.1:${port}/cli/rabbitmqadmin -o /usr/sbin/rabbitmqadmin && chmod +x /usr/sbin/rabbitmqadmin",
+        command => "/usr/bin/curl -fsSL ${admin_cli_url_shell} -o /usr/sbin/rabbitmqadmin && chmod +x /usr/sbin/rabbitmqadmin",
         unless  => '[ -e /usr/sbin/rabbitmqadmin ]',
         require => [Package['curl'], File['rabbitmq_management_admin_config']],
       }
