@@ -128,6 +128,7 @@ For every change to Puppet code, templates, scripts, services, timers, configs, 
 - Can this run as a more constrained service user instead of root?
 - Can this be isolated further with systemd sandboxing such as `PrivateTmp`, `PrivateDevices`, `ProtectHome`, `ProtectSystem`, `ReadWritePaths`, `LimitNOFILE`, or tighter target binding?
 - Are ownership and file modes as restrictive as possible for the operational need?
+- Which runtime identity actually reads each generated file at service time, and do all parent directories allow only the needed traverse access for that identity?
 - Are secrets, credentials, and sensitive config values kept out of world-readable files?
 - Is `Sensitive[...]` or `Sensitive.new(...)` needed for file content or `exec` commands?
 - Is execute permission granted only to true executables?
@@ -149,6 +150,8 @@ Repository-specific security conventions to preserve:
 - Many services are explicitly hardened with systemd drop-ins instead of trusting package defaults.
 - Package installs usually use `--no-install-recommends` and `--no-install-suggests`.
 - Sensitive operations often add audit rules through `basic_settings::security_audit`.
+
+When Puppet generates files under protected service-owned or root-owned paths that a daemon must read at runtime, design the ownership around the runtime reader instead of defaulting blindly to either root-only or world-readable. Prefer root ownership for integrity, grant the service runtime group the minimal read or traverse access it needs, and keep access away from `other` users. A typical pattern for static daemon-readable fallback files is root-owned directories with group execute only, such as `0710`, and root-owned files with group read only, such as `0640`. Do not make the runtime user the owner unless the daemon truly needs to write or replace the file. Public HTTP exposure does not imply that every local user should have filesystem read access to the same file.
 
 If you must weaken a permission, sandbox, or trust model, document the reason in the code and update the README when the operational expectation changes.
 
