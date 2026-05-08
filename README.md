@@ -397,8 +397,11 @@ node 'webserver.dev.xxxx.nl' {
 ```
 
 `nginx::server` maakt standaard per vhost een fallback `security.txt` aan onder
-`/etc/nginx/security/<naam>-security.txt` en serveert die via
+`/etc/nginx/security/<naam>/security.txt` en serveert die via
 `/.well-known/security.txt`. De fallback bevat minimaal `Contact` en `Expires`.
+De directory blijft eigendom van `root`, maar is met `0710` toegankelijk voor de
+Nginx runtime-groep. Het bestand zelf is `0640`, zodat alleen `root` en de
+Nginx runtime-groep het kunnen lezen.
 Puppet maakt dit bestand aan wanneer het nog ontbreekt en gebruikt daarna
 `replace => false`, zodat een dynamische `Expires`-datum niet iedere run een
 file-change veroorzaakt. Wanneer Puppet `/etc/nginx/conf.d/<naam>.conf`

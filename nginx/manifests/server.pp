@@ -382,12 +382,12 @@ define nginx::server (
 
     # Rebuild security.txt after the vhost config changes by removing the stale fallback first.
     if ($securitytxt_active) {
-      # Create security.txt directory for this vhost
+      # Allow only the nginx runtime group to traverse the fallback directory.
       file { $security_dir:
         ensure  => directory,
         owner   => 'root',
-        group   => 'root',
-        mode    => '0700',
+        group   => $nginx::run_group,
+        mode    => '0710',
         require => File['nginx_security'],
       }
 
@@ -403,8 +403,8 @@ define nginx::server (
       file { $securitytxt_file:
         ensure  => file,
         owner   => 'root',
-        group   => 'root',
-        mode    => '0600',
+        group   => $nginx::run_group,
+        mode    => '0640',
         content => template('nginx/security.txt'),
         replace => false,
         require => [File[$security_dir], Exec["nginx_securitytxt_remove_${name}"]],

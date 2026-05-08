@@ -188,8 +188,8 @@ class nginx (
     ensure  => directory,
     path    => '/etc/nginx/security',
     owner   => 'root',
-    group   => 'root',
-    mode    => '0700',
+    group   => $run_group,
+    mode    => '0710',
     require => Package['nginx'],
   }
 
