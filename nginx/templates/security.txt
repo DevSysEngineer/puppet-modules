@@ -1,16 +1,16 @@
-<% @securitytxt_contacts_real.each do |contact| -%>
+<% @securitytxt_contacts_correct.each do |contact| -%>
 Contact: <%= contact %>
 <% end -%>
 Expires: <%= @securitytxt_expires %>
-<% if @securitytxt_canonical_real && @securitytxt_canonical_real != '' -%>
-Canonical: <%= @securitytxt_canonical_real %>
+<% if @securitytxt_canonical_correct && @securitytxt_canonical_correct != '' -%>
+Canonical: <%= @securitytxt_canonical_correct %>
 <% end -%>
 <% if @securitytxt_languages && @securitytxt_languages != '' -%>
 Preferred-Languages: <%= @securitytxt_languages %>
 <% end -%>
-<% if @securitytxt_policy_real && @securitytxt_policy_real != '' -%>
-Policy: <%= @securitytxt_policy_real %>
+<% if @securitytxt_policy_correct && @securitytxt_policy_correct != '' -%>
+Policy: <%= @securitytxt_policy_correct %>
 <% end -%>
-<% if @securitytxt_encryption_real && @securitytxt_encryption_real != '' -%>
-Encryption: <%= @securitytxt_encryption_real %>
+<% if @securitytxt_encryption_correct && @securitytxt_encryption_correct != '' -%>
+Encryption: <%= @securitytxt_encryption_correct %>
 <% end -%>

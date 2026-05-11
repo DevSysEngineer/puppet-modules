@@ -450,26 +450,16 @@ nginx::server { 'app.example.nl':
 }
 ```
 
-Het oude pad `/security.txt` redirect standaard naar `/.well-known/security.txt`.
-Gebruik `securitytxt_enable => false` wanneer een vhost volledig zijn eigen
-security.txt-afhandeling moet behouden.
-De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in
-`server_name`.
+Het oude pad `/security.txt` redirect standaard naar `/.well-known/security.txt`. Gebruik `securitytxt_enable => false` wanneer een vhost volledig zijn eigen security.txt-afhandeling moet behouden. De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in `server_name`.
 
-`nginx::server` beheert standaard een set security headers per vhost. Voor
-`X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy` en
-`Referrer-Policy` gebruikt de module veilige defaults. De standaard-CSP is
-`default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self';
-form-action 'self'`. De standaard `Referrer-Policy` is `same-origin`, zodat
-referrer-informatie niet naar derde partijen wordt gestuurd. Dat past bij
-secure-by-default, maar kan applicaties met externe bronnen, inline
-scripts/styles, CDN's, API-calls, iframes of externe analytics breken. Geef in
-dat geval per vhost een passende `content_security_policy` of `referrer_policy`
-op, of zet de betreffende parameter bewust op `undef`. Wanneer een proxy-backend
-of PHP-FPM zelf een van deze headers terugstuurt, laat Nginx die waarde staan en
-voegt de module geen tweede header toe. Ontbreekt de header in de
-upstream-response, dan vult Nginx de geconfigureerde vhostwaarde aan via een
-`map` op de bijbehorende `$upstream_http_*`-header.
+`nginx::server` beheert standaard een set security headers per vhost. Voor `X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy` en `Referrer-Policy` gebruikt de module veilige defaults.
+
+- De standaard-CSP is `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'`.
+- De standaard `Referrer-Policy` is `same-origin`, zodat referrer-informatie niet naar derde partijen wordt gestuurd.
+
+Dat past bij secure-by-default, maar kan applicaties met externe bronnen, inline scripts/styles, CDN's, API-calls, iframes of externe analytics breken. Geef in dat geval per vhost een passende `content_security_policy` of `referrer_policy` op. Laat de parameter weg of gebruik `true` om de module-default te gebruiken. Zet de parameter bewust op `false` om die header voor een vhost uit te schakelen. Gebruik hiervoor niet `undef`, omdat Puppet bij een parameter met een defaultwaarde dan opnieuw de default gebruikt.
+
+Wanneer een proxy-backend of PHP-FPM zelf een van deze headers terugstuurt, laat Nginx die waarde staan en voegt de module geen tweede header toe. Ontbreekt de header in de upstream-response, dan vult Nginx de geconfigureerde vhostwaarde aan via een `map` op de bijbehorende `$upstream_http_*`-header.
 
 ```puppet
 nginx::server { 'app.example.nl':
@@ -482,13 +472,12 @@ nginx::server { 'app.example.nl':
 }
 ```
 
-Zet een headerparameter op `undef` wanneer Nginx die header voor een specifieke
-vhost niet moet beheren:
+Zet een headerparameter op `false` wanneer Nginx die header voor een specifieke vhost niet moet beheren:
 
 ```puppet
 nginx::server { 'legacy-app.example.nl':
     server_name     => 'legacy-app.example.nl',
-    x_frame_options => undef,
+    x_frame_options => false,
 }
 ```
 
