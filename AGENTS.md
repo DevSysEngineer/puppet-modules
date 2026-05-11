@@ -305,25 +305,38 @@ Puppet libraries.
 
 ## Documentation Standards
 
-- Write all code comments and technical documentation in English.
+- Write code comments and technical documentation in English. This includes
+  Puppet Strings comments, inline comments, generated config comments, examples
+  outside the Dutch README, changelog entries, and this `AGENTS.md` file.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise.
+  README examples may contain Puppet code, but the surrounding explanation must
+  stay Dutch.
 - When modifying existing code, check whether nearby comments or documentation
-  are missing, outdated, duplicated, or unclear.
+  are missing, outdated, duplicated, unclear, or no longer aligned with the
+  implementation.
 - Update documentation in the same change when behavior, parameters, templates,
-  defaults, security settings, monitoring checks, examples, or operational
-  commands change.
+  defaults, security settings, monitoring checks, examples, operational
+  commands, export/build flows, or public APIs change.
 - Do not add obvious comments that only repeat the code. Comments must explain
   purpose, context, constraints, side effects, or non-obvious decisions.
 - Keep documentation close to the code it describes, unless the topic belongs in
   the root README or a separate architecture/operations document.
+- Keep documentation short, professional, and concrete. Describe operational
+  impact and possible risks when they help an operator make a correct decision.
 - Match the current README tone, structure, and sectioning. Use the existing
-  `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern.
+  `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern, and keep prose
+  concise, practical, and infrastructure-focused. Do not paste generic
+  boilerplate.
 - Start README prose list items with a capital letter. Keep exact code
   identifiers, module names, class names, paths, and literals in their original
   case.
 - Add or update example Puppet snippets when behavior changes materially.
 - If you add, rename, or remove a monitoring check, update the README `## Checks`
   section.
+- Update `CHANGELOG.md` only when the touched first-party area has an existing
+  changelog practice or the requested task explicitly requires a user-visible
+  change entry. Do not update vendored submodule changelogs for first-party
+  module changes.
 
 Meaningful README updates are required for new functionality, removed
 functionality, changed behavior, new user-facing parameters, changed module
@@ -333,16 +346,26 @@ security expectations, or changed install/usage flow.
 ## Puppet Documentation Standards
 
 - Document public Puppet classes and defined types with Puppet Strings-style
-  comments.
+  comments directly above the element.
 - Use `@summary` for a short one-line purpose.
 - Add a short description when the class or defined type has operational impact,
-  security impact, dependencies, or non-obvious behavior.
+  security impact, dependencies, generated files, managed services, or
+  non-obvious behavior.
 - Document parameters with `@param`, including expected values, defaults, and
   operational effect where relevant.
 - Add an `@example` for reusable classes or defined types where usage is not
   immediately obvious.
+- Mark new classes, defined types, and functions as `@api public` or
+  `@api private` where applicable.
+- Keep public Puppet interfaces typed with `String`, `Boolean`, `Enum[...]`,
+  `Optional[...]`, `Array[...]`, a stricter built-in type, or an appropriate type
+  alias.
 - When changing a Puppet class, defined type, function, or template, verify
   whether its documentation still matches the implementation.
+- For every modified `.pp` file, check whether new or changed parameters are
+  documented, documented defaults match the code, examples remain valid, API
+  markings are still correct, and missing nearby documentation can be added
+  immediately without creating unrelated churn.
 - Keep generated config comments and inline config comments in English unless
   the managed software requires another language.
 
