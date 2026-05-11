@@ -6,13 +6,13 @@ define basic_settings::systemd_service (
   Hash                      $install                    = {
     'WantedBy'  => 'multi-user.target',
   },
+  Optional[String]          $monitoring_active_days     = undef,
+  Optional[String]          $monitoring_active_windows  = undef,
   Optional[Boolean]         $monitoring_enable          = undef,
   Optional[String]          $monitoring_package         = undef,
-  Optional[String]          $monitoring_active_windows  = undef,
-  Optional[String]          $monitoring_active_days     = undef,
   Hash                      $service                    = {},
   Optional[Array]           $service_subscribe          = undef,
-  Hash                      $unit                       = {},
+  Hash                      $unit                       = {}
 ) {
   # Check if systemd package is not defined
   if (!defined(Package['systemd'])) {

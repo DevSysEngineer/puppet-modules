@@ -1,11 +1,11 @@
 class basic_settings::package_openitcockpit (
   Enum['list','822']  $deb_version,
   Boolean             $enable,
-  String              $os_parent,
   String              $os_name,
+  String              $os_parent,
   String              $package,
   Optional[String]    $license = undef,
-  Boolean             $nightly = false,
+  Boolean             $nightly = false
 ) {
   # Check if we need newer format for APT
   if ($deb_version == '822') {

@@ -1,9 +1,9 @@
 define docker::compose (
-  Optional[String]                              $compose_source              = undef,
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]      $compose_checksum            = undef,
-  Optional[String]                              $env_source                  = undef,
-  Optional[Variant[String, Sensitive[String]]]  $env_content                 = undef,
+  Optional[String]                              $compose_source              = undef,
   Enum['present','absent']                      $ensure                      = present,
+  Optional[Variant[String, Sensitive[String]]]  $env_content                 = undef,
+  Optional[String]                              $env_source                  = undef,
   Integer                                       $monitoring_detail_limit     = 30,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited  = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required  = [],
@@ -12,7 +12,7 @@ define docker::compose (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_profiles         = [],
   Integer                                       $monitoring_starting_grace   = 300,
   Integer                                       $monitoring_timeout          = 60,
-  String                                        $target                      = 'services',
+  String                                        $target                      = 'services'
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
   if ($name =~ /\A[a-zA-Z0-9_.-]+\z/) {

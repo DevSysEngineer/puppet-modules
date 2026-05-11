@@ -1,11 +1,11 @@
 define basic_settings::systemd_target (
   String                    $description,
   Array                     $parent_targets,
-  Enum['present','absent']  $ensure                 = present,
-  Boolean                   $stronger_requirements  = true,
   Boolean                   $allow_isolate          = false,
-  Hash                      $unit                   = {},
-  Hash                      $install                = {}
+  Enum['present','absent']  $ensure                 = present,
+  Hash                      $install                = {},
+  Boolean                   $stronger_requirements  = true,
+  Hash                      $unit                   = {}
 ) {
   # Check if systemd package is not defined
   if (!defined(Package['systemd'])) {

@@ -1,6 +1,6 @@
 define naemon::hostgroup (
-  Enum['present','absent']  $ensure      = present,
   Optional[String]          $description = undef,
+  Enum['present','absent']  $ensure      = present
 ) {
   if (defined(Class['naemon'])) {
     # Create host file

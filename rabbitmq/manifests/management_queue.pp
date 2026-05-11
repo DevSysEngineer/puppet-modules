@@ -1,7 +1,7 @@
 define rabbitmq::management_queue (
-  Enum['present','absent']    $ensure     = present,
   Optional[Data]              $arguments  = undef,
   Boolean                     $durable    = true,
+  Enum['present','absent']    $ensure     = present,
   Optional[String]            $type       = undef,
   String                      $vhost      = '/'
 ) {

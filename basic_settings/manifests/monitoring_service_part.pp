@@ -3,10 +3,10 @@ define basic_settings::monitoring_service_part (
   String                    $package,
   String                    $parent_name,
   String                    $script_path,
-  Boolean                   $parent_force   = false,
-  Enum['present','absent']  $ensure         = present,
-  Optional[String]          $active_windows = undef,
   Optional[String]          $active_days    = undef,
+  Optional[String]          $active_windows = undef,
+  Enum['present','absent']  $ensure         = present,
+  Boolean                   $parent_force   = false
 ) {
   case $package {
     'openitcockpit': {

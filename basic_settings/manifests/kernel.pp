@@ -7,19 +7,19 @@ class basic_settings::kernel (
   Optional[Boolean]           $hardware_passthrough       = undef,
   Integer                     $hugepages                  = 0,
   Array                       $install_options            = [],
-  Enum['all','4']             $ip_version                 = 'all',
-  String                      $ip_regdom                  = 'NL',
   Boolean                     $ip_ra_enable               = true,
   Boolean                     $ip_ra_learn_prefix         = true,
-  String                      $network_mode               = 'strict',
+  String                      $ip_regdom                  = 'NL',
+  Enum['all','4']             $ip_version                 = 'all',
   Boolean                     $mglru_enable               = true,
+  String                      $network_mode               = 'strict',
   Enum['initramfs','dracut']  $ram_disk_package           = 'initramfs',
   String                      $security_lockdown          = 'integrity',
   String                      $tcp_congestion_control     = 'brr',
   Integer                     $tcp_fastopen               = 3,
-  Array                       $usb_whitelist              = [],
-  Array                       $usb_expected               = [],
   Array                       $usb_any_requirements       = [],
+  Array                       $usb_expected               = [],
+  Array                       $usb_whitelist              = []
 ) {
   # Set variables
   $os_name = $facts['os']['name'];

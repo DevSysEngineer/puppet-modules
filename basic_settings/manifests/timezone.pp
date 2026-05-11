@@ -1,7 +1,7 @@
 class basic_settings::timezone (
   String              $timezone,
-  Array               $ntp_extra_pools = [],
   Array               $install_options = [],
+  Array               $ntp_extra_pools = []
 ) {
   # Get some values
   $monitoring_enable = defined(Class['basic_settings::monitoring']);

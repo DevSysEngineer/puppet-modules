@@ -2,8 +2,8 @@ define docker::compose_monitoring (
   Pattern[/\A\/[A-Za-z0-9._\/-]+\z/]            $project_directory,
   Array[String]                                 $compose_files     = [],
   Integer                                       $detail_limit      = 30,
-  Optional[String]                              $env_file          = undef,
   Enum['present','absent']                      $ensure            = present,
+  Optional[String]                              $env_file          = undef,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $expected_exited   = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $health_required   = [],
   Integer                                       $interval          = 300,
@@ -12,7 +12,7 @@ define docker::compose_monitoring (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $profiles          = [],
   Optional[Pattern[/\A[A-Za-z0-9_.-]+\z/]]      $project_name      = undef,
   Integer                                       $starting_grace    = 300,
-  Integer                                       $timeout           = 60,
+  Integer                                       $timeout           = 60
 ) {
   if ($name =~ /\A[a-zA-Z0-9_.-]+\z/) {
     # Set command arguments for the stack-specific service check.

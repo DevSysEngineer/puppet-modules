@@ -1,9 +1,9 @@
 define rabbitmq::management_binding (
-  String                      $source,
   String                      $destination,
+  String                      $source,
   Enum['present','absent']    $ensure         = present,
-  String                      $vhost          = '/',
-  Optional[String]            $routing_key    = undef
+  Optional[String]            $routing_key    = undef,
+  String                      $vhost          = '/'
 ) {
   if (defined(Class['rabbitmq::management'])) {
     # Escape rabbitmqadmin arguments before building binding commands and guards.

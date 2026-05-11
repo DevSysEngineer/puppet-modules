@@ -1,13 +1,13 @@
 class basic_settings::puppet (
   Enum['512mb','1gb','2gb']             $jvm_memory         = '2gb',
   Enum['distro', 'remote']              $repo               = 'distro',
+  String                                $server_dirname     = 'puppetserver',
   Boolean                               $server_enable      = false,
   Enum[
     'openvox-server',
     'puppet-master',
     'puppetserver'
-  ]                                     $server_package     = 'puppetserver',
-  String                                $server_dirname     = 'puppetserver',
+  ]                                     $server_package     = 'puppetserver'
 ) {
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])

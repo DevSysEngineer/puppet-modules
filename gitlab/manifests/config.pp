@@ -2,16 +2,16 @@ class gitlab::config (
   String                $database_shared_buffers    = '256MB',
   Boolean               $https                      = false,
   Optional[Integer]     $logrotate_rotate           = undef,
-  Integer               $puma_worker_processes      = 2,
-  Integer               $puma_max_threads           = 2,
   Integer               $puma_max_memory_mb         = 128,
+  Integer               $puma_max_threads           = 2,
+  Integer               $puma_worker_processes      = 2,
   Integer               $sidekiq_concurrency        = 10,
+  Enum['none', 'peer']  $smtp_openssl_verify_mode   = 'none',
+  Optional[String]      $smtp_server                = undef,
   Optional[String]      $ssh_host                   = undef,
   Integer               $ssh_port                   = 22,
   Optional[String]      $ssl_certificate            = undef,
-  Optional[String]      $ssl_certificate_key        = undef,
-  Optional[String]      $smtp_server                = undef,
-  Enum['none', 'peer']  $smtp_openssl_verify_mode   = 'none'
+  Optional[String]      $ssl_certificate_key        = undef
 ) {
   if (defined(Class['gitlab'])) {
     # Set variables

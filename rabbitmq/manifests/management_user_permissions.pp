@@ -1,9 +1,9 @@
 define rabbitmq::management_user_permissions (
   String $user,
-  String $vhost       = '/',
   String $configure   = '.*',
-  String $write       = '.*',
-  String $read        = '.*'
+  String $read        = '.*',
+  String $vhost       = '/',
+  String $write       = '.*'
 ) {
   if (defined(Class['rabbitmq::management'])) {
     # Get vhost name

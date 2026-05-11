@@ -1,6 +1,6 @@
 define basic_settings::io_logrotate (
-  String                              $path,
   Enum['daily','weekly', 'monthly']   $frequency,
+  String                              $path,
   Boolean                             $compress       = true,
   Boolean                             $compress_delay = false,
   String                              $create_group   = 'root',
@@ -11,7 +11,7 @@ define basic_settings::io_logrotate (
   Boolean                             $rotate_copy    = false,
   Optional[String]                    $rotate_post    = undef,
   Boolean                             $skip_empty     = true,
-  Boolean                             $skip_missing   = true,
+  Boolean                             $skip_missing   = true
 ) {
   # Check if logrotate package is not defined
   if (!defined(Package['logrotate'])) {

@@ -4,17 +4,14 @@ define nginx::server (
   Boolean             $allow_directories                = false,
   Integer             $backlog                          = -1, # Global settings; -1: Disabled, 0: Kernel; >0: Custom value
   Optional[String]    $client_max_body_size             = undef,
+  Optional[String]    $content_security_policy          = "default-src 'self'",
   Boolean             $default_server                   = false,
-  Optional[String]    $docroot                          = undef,
   Array               $directives                       = [],
+  Optional[String]    $docroot                          = undef,
   Optional[String]    $error_log                        = undef,
   Optional[Integer]   $fastcgi_read_timeout             = undef,
   Integer             $fastopen                         = 0, # Global settings
   Integer             $hsts_max_age                     = 31536000,
-  Optional[String]    $x_frame_options                  = 'SAMEORIGIN',
-  Optional[String]    $x_content_type_options           = 'nosniff',
-  Optional[String]    $content_security_policy          = "default-src 'self'",
-  Optional[String]    $referrer_policy                  = 'strict-origin-when-cross-origin',
   Boolean             $http2_enable                     = false,
   Boolean             $http3_enable                     = false,
   Boolean             $http_enable                      = true,
@@ -44,18 +41,19 @@ define nginx::server (
   Optional[String]    $redirect_ip                      = undef,
   Optional[String]    $redirect_ipv6                    = undef,
   Optional[Array]     $redirect_ssl_ciphers             = undef,
+  Optional[Hash]      $redirect_ssl_conf_command        = undef,
   Optional[String]    $redirect_ssl_ocsp                = undef,
   Optional[String]    $redirect_ssl_protocols           = undef,
-  Optional[Hash]      $redirect_ssl_conf_command        = undef,
+  Optional[String]    $referrer_policy                  = 'strict-origin-when-cross-origin',
   Boolean             $restart_service                  = true,
   Boolean             $reuseport                        = false, # Global settings
-  Optional[String]    $server_name                      = undef,
-  Optional[Boolean]   $securitytxt_enable               = undef,
   Optional[Array]     $securitytxt_contacts             = undef,
-  Optional[String]    $securitytxt_policy               = undef,
+  Optional[Boolean]   $securitytxt_enable               = undef,
   Optional[String]    $securitytxt_encryption           = undef,
-  Optional[Array]     $securitytxt_preferred_languages  = undef,
   Optional[Integer]   $securitytxt_expires_days         = undef,
+  Optional[String]    $securitytxt_policy               = undef,
+  Optional[Array]     $securitytxt_preferred_languages  = undef,
+  Optional[String]    $server_name                      = undef,
   Optional[Integer]   $ssl_buffer_size                  = undef,
   Optional[String]    $ssl_certificate                  = undef,
   Optional[String]    $ssl_certificate_key              = undef,
@@ -96,7 +94,9 @@ define nginx::server (
   Optional[String]    $ssl_session_cache                = undef,
   Optional[String]    $ssl_session_timeout              = undef,
   String              $try_files_custom                 = '$uri/ =404',
-  Boolean             $try_files_enable                 = true
+  Boolean             $try_files_enable                 = true,
+  Optional[String]    $x_content_type_options           = 'nosniff',
+  Optional[String]    $x_frame_options                  = 'SAMEORIGIN'
 ) {
   if (defined(Class['nginx'])) {
     # Create security.txt file path

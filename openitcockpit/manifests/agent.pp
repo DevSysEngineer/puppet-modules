@@ -9,16 +9,16 @@ class openitcockpit::agent (
   Boolean                     $netstats_enable            = true,
   Boolean                     $ntp_enable                 = true,
   Boolean                     $processstats_enable        = true,
-  Optional[String]            $proxy                      = undef,
   Boolean                     $prometheus_enable          = false,
+  Optional[String]            $proxy                      = undef,
+  Optional[Sensitive[String]] $push_apikey                = undef,
+  Boolean                     $push_enable                = false,
+  Optional[String]            $push_url                   = undef,
   Optional[Boolean]           $sensorstats_enable         = undef,
   Boolean                     $services_enable            = true,
   Boolean                     $swap_enable                = true,
   Boolean                     $userstats_enable           = true,
-  Boolean                     $push_enable                = false,
-  Optional[String]            $push_url                   = undef,
-  Optional[Sensitive[String]] $push_apikey                = undef,
-  Boolean                     $verify_server_certificate  = true,
+  Boolean                     $verify_server_certificate  = true
 ) {
   # Set variables
   $monitoring_enable = defined(Class['basic_settings::monitoring'])

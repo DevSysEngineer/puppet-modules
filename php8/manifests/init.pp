@@ -12,11 +12,13 @@ class php8 (
   Boolean   $ldap               = false,
   Boolean   $mbstring           = false,
   Boolean   $mcrypt             = false,
+  Integer   $minor_version      = 2,
   Boolean   $msgpack            = false,
   Boolean   $mysql              = false,
   Boolean   $readline           = false,
   Boolean   $redis              = false,
   Boolean   $rrd                = false,
+  Boolean   $skip_default_files = false,
   Boolean   $soap               = false,
   Boolean   $sqlite3            = false,
   Boolean   $sybase             = false,
@@ -24,9 +26,7 @@ class php8 (
   Boolean   $xdebug             = false,
   Boolean   $xml                = false,
   Boolean   $xmlrpc             = false,
-  Boolean   $zip                = false,
-  Integer   $minor_version      = 2,
-  Boolean   $skip_default_files = false
+  Boolean   $zip                = false
 ) {
   # Install common php packages,
   package { ["php8.${minor_version}", "php8.${minor_version}-common", "php8.${minor_version}-opcache"]:

@@ -1,8 +1,8 @@
 define naemon::host (
   String                    $address,
-  Enum['present','absent']  $ensure     = present,
-  Optional[String]          $friendly   = undef,
   Hash                      $checks     = {},
+  Enum['present','absent']  $ensure     = present,
+  Optional[String]          $friendly   = undef
 ) {
   if (defined(Class['naemon'])) {
     # Create host file

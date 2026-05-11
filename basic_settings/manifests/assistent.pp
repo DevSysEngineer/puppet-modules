@@ -1,8 +1,8 @@
 class basic_settings::assistent (
   Boolean             $audio_enable = false,
+  String              $keyboard_codeset = 'Lat15',
   Optional[Boolean]   $keyboard_enable  = undef,
-  String              $keyboard_layout  = 'us',
-  String              $keyboard_codeset = 'Lat15'
+  String              $keyboard_layout  = 'us'
 ) {
   # Remove unnecessary packages
   package { 'at-spi2-core':

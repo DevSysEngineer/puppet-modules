@@ -1,10 +1,10 @@
 define basic_settings::monitoring_service (
-  Enum['present','absent']  $ensure         = present,
-  Optional[String]          $active_windows = undef,
   Optional[String]          $active_days    = undef,
+  Optional[String]          $active_windows = undef,
+  Enum['present','absent']  $ensure         = present,
   Optional[String]          $friendly       = undef,
-  Optional[Array]           $services       = undef,
-  Optional[String]          $package        = undef
+  Optional[String]          $package        = undef,
+  Optional[Array]           $services       = undef
 ) {
   # Get friendly name
   if ($friendly == undef) {

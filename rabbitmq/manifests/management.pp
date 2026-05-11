@@ -1,15 +1,15 @@
 class rabbitmq::management (
-  Boolean             $admin_enable           = true,
   String              $admin_config_path      = '/etc/rabbitmq/rabbitmqadmin.conf',
+  Boolean             $admin_enable           = true,
   String              $admin_password         = 'guest',
   String              $default_queue_type     = 'classic',
   Integer             $port                   = 15672,
   Optional[String]    $ssl_ca_certificate     = undef,
   Optional[String]    $ssl_certificate        = undef,
   Optional[String]    $ssl_certificate_key    = undef,
+  Optional[String]    $ssl_ciphers            = undef,
   Integer             $ssl_port               = 15671,
-  Optional[String]    $ssl_protocols          = undef,
-  Optional[String]    $ssl_ciphers            = undef
+  Optional[String]    $ssl_protocols          = undef
 ) {
   if (defined(Class['rabbitmq'])) {
     # Delete guest user

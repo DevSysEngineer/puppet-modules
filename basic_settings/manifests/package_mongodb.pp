@@ -1,8 +1,8 @@
 class basic_settings::package_mongodb (
   Enum['list','822']  $deb_version,
   Boolean             $enable,
-  String              $os_parent,
   String              $os_name,
+  String              $os_parent,
   Float               $version = 8.0
 ) {
   # Check if we need newer format for APT

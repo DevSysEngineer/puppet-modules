@@ -1,10 +1,10 @@
 class basic_settings::monitoring (
-  String                        $mail_to              = 'root',
   String                        $mail_package         = 'postfix',
+  String                        $mail_to              = 'root',
   Enum['none','openitcockpit']  $package              = 'none',
   Boolean                       $package_install      = false,
   String                        $server_fdqn          = $facts['networking']['fqdn'],
-  Boolean                       $sudoers_dir_enable   = false,
+  Boolean                       $sudoers_dir_enable   = false
 ) {
   # Set some default values
   $systemd_enable = defined(Package['systemd'])

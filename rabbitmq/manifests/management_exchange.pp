@@ -1,7 +1,7 @@
 define rabbitmq::management_exchange (
   Enum['present','absent']    $ensure     = present,
-  String                      $vhost      = '/',
-  String                      $type       = 'direct'
+  String                      $type       = 'direct',
+  String                      $vhost      = '/'
 ) {
   if (defined(Class['rabbitmq::management'])) {
     # Escape rabbitmqadmin arguments before building exchange commands and guards.

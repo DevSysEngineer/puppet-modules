@@ -2,9 +2,9 @@ class rabbitmq (
   Array     $deprecated_features  = [
     'transient_nonexcl_queues',
   ],
-  String    $target               = 'services',
+  Integer   $limit_file           = 10000,
   Integer   $nice_level           = 12,
-  Integer   $limit_file           = 10000
+  String    $target               = 'services'
 ) {
   # Set some values
   $systemd_enable = defined(Package['systemd'])

@@ -1,11 +1,7 @@
 class rabbitmq::tcp (
-  Boolean             $tcp_enable             = false,
-  Integer             $tcp_port               = 5672,
   Optional[String]    $ssl_ca_certificate     = undef,
   Optional[String]    $ssl_certificate        = undef,
   Optional[String]    $ssl_certificate_key    = undef,
-  Integer             $ssl_port               = 5671,
-  Array               $ssl_protocols          = ['tlsv1.3', 'tlsv1.2'],
   Array               $ssl_ciphers            = [
     'TLS_AES_256_GCM_SHA384',
     'TLS_AES_128_GCM_SHA256',
@@ -19,7 +15,11 @@ class rabbitmq::tcp (
     'ECDHE-RSA-AES128-GCM-SHA256',
     'ECDHE-RSA-AES256-GCM-SHA384',
     'ECDHE-RSA-CHACHA20-POLY1305',
-  ]
+  ],
+  Integer             $ssl_port               = 5671,
+  Array               $ssl_protocols          = ['tlsv1.3', 'tlsv1.2'],
+  Boolean             $tcp_enable             = false,
+  Integer             $tcp_port               = 5672
 ) {
   if (defined(Class['rabbitmq'])) {
     # Check if all cert variables are given

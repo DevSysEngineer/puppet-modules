@@ -1,7 +1,7 @@
 class basic_settings::locale (
-  Boolean   $enable         = false,
   String    $dictionary     = 'american',
-  Boolean   $docs_enable    = false
+  Boolean   $docs_enable    = false,
+  Boolean   $enable         = false
 ) {
   # Check if packages are needed
   if ($enable) {

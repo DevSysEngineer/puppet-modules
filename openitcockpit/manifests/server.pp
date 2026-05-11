@@ -2,12 +2,12 @@ class openitcockpit::server (
   Sensitive[String] $grafana_password,
   Optional[String]  $install_dir              = undef,
   Optional[String]  $server_fdqn              = undef,
+  Optional[String]  $smtp_server              = undef,
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
-  Optional[String]  $smtp_server              = undef,
   Array             $webserver_directives     = [],
-  Optional[String]  $webserver_uid            = undef,
   Optional[String]  $webserver_gid            = undef,
+  Optional[String]  $webserver_uid            = undef
 ) {
   # Set some values
   $log_dir = '/var/log/openitc'

@@ -1,6 +1,6 @@
 class letsencrypt (
-  Integer           $nice_level = 8,
   Optional[String]  $mail_to    = undef,
+  Integer           $nice_level = 8
 ) {
   # Install certbot
   package { 'certbot':

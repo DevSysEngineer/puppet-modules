@@ -1,9 +1,9 @@
 define mysql::user (
   Enum['present','absent']    $ensure,
-  String                      $username,
   String                      $password,
-  String                      $password_latency   = 'password',
-  String                      $hostname           = 'localhost'
+  String                      $username,
+  String                      $hostname           = 'localhost',
+  String                      $password_latency   = 'password'
 ) {
   if (defined(Class['mysql'])) {
     # Set requirements

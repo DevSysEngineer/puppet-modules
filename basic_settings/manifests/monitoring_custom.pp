@@ -1,12 +1,12 @@
 define basic_settings::monitoring_custom (
-  Optional[String]          $source         = undef,
-  Optional[String]          $content        = undef,
   Optional[String]          $cmd            = undef,
+  Optional[String]          $content        = undef,
   Enum['present','absent']  $ensure         = present,
   Optional[String]          $friendly       = undef,
   Integer                   $interval       = 300,
   Optional[String]          $package        = undef,
   Boolean                   $root_required  = true,
+  Optional[String]          $source         = undef,
   Integer                   $timeout        = 30
 ) {
   # Get friendly name
