@@ -219,8 +219,8 @@ define nginx::server (
     # Nginx named locations only get safe identifier characters.
     $securitytxt_location_name = regsubst($name, '[^A-Za-z0-9_]', '_', 'G')
 
-    # Nginx map destination variables are global to http, so make them vhost-specific.
-    $security_headers_variable_name = regsubst("security_headers_${name}", '[^A-Za-z0-9_]', '_', 'G')
+    # Nginx map destination variables are global to http; use a short vhost hash to avoid variables_hash_bucket_size failures.
+    $security_headers_variable_name = "sh_${regsubst(stdlib::sha256($name), '^(.{12}).*$', '\1')}"
 
     # Check if TCP fast open is enabled
     if (defined(Class['basic_settings::kernel'])) {
