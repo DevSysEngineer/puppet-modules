@@ -1,10 +1,31 @@
 # AGENTS.md
 
-## Project Overview
+## Purpose
 
-This repository is a collection of first-party Puppet modules for Debian and Ubuntu servers, with a strong focus on hardening, systemd-based service orchestration, monitoring, and controlled package management. The root `README.md` is written in Dutch and is the first source of truth for how the project presents itself, which use cases are supported, and how modules are expected to be combined.
+This file is the project-wide working instruction for AI coding agents in this
+repository. Use it before making changes, while reviewing your own work, and
+when preparing the final handoff.
 
-Project-owned modules in this repository:
+The root `AGENTS.md` is authoritative for the whole repository. No additional
+`AGENTS.md`, `AGENTS.override.md`, or `.github/copilot-instructions.md` files
+exist at the time of writing. If a lower-level instruction file is added later,
+it may add rules for that subtree, but it must not contradict this file unless
+it explicitly explains the narrower exception.
+
+The root `README.md` is the Dutch-language source of truth for user-facing
+project documentation, supported use cases, and examples. Always write
+`README.md` prose in Dutch. Keep long product, architecture, and operations
+explanations in `README.md` or another dedicated document instead of duplicating
+them here.
+
+## Repository Overview
+
+This repository contains first-party Puppet modules for hardened 64-bit Debian
+and Ubuntu servers. Do not broaden supported platforms, releases, or
+architecture claims unless the affected `metadata.json` files and `README.md`
+are updated in the same change.
+
+First-party modules:
 
 - `basic_settings`
 - `docker`
@@ -20,7 +41,7 @@ Project-owned modules in this repository:
 - `rabbitmq`
 - `ssh`
 
-Vendored Git submodules in this repository:
+Vendored Git submodules:
 
 - `concat`
 - `debconf`
@@ -28,51 +49,29 @@ Vendored Git submodules in this repository:
 - `stdlib`
 - `timezone`
 
-Do not treat vendored submodules as the house style for this project. Unless the task is explicitly about updating or patching a dependency, keep changes inside the first-party modules listed above.
+Do not treat vendored submodules as the house style for this project. Change
+vendored code only when the task is explicitly about that dependency.
 
-The first-party module metadata that exists targets Debian and Ubuntu releases, and the README states 64-bit systems. Do not broaden support claims casually. If supported platforms, releases, or architecture assumptions change, update the relevant module metadata and the Dutch README together.
+Important repository files and directories:
 
-## Start Here Before Making Changes
+- `README.md`: Dutch user-facing overview, examples, public API list, and
+  monitoring check list.
+- `CHANGELOG.md`: User-facing release notes when a task changes behavior that
+  should be tracked.
+- `examples/`: Practical Puppet examples that should stay aligned with public
+  module behavior.
+- `<module>/metadata.json`: Supported platforms and module metadata.
+- `<module>/manifests/`: Puppet classes and defined types.
+- `<module>/templates/`: ERB templates rendered by Puppet.
+- `<module>/files/`: Static module files served through `puppet:///modules/...`.
 
-Read `README.md` first, every time. The README explains the intended module combinations, the hardening posture, the monitoring story, and the documentation tone that the project already uses.
+`basic_settings` is the foundation module. It provides shared orchestration for
+APT repositories, base packages, systemd targets, monitoring plumbing, security
+tooling, package hygiene, kernel/network tuning, login policy, timezone, and
+Puppet runtime behavior.
 
-Treat `AGENTS.md` as a living repository instruction file. For every code change, check whether it still describes the current workflow and update it only when the change creates reusable guidance, changed expectations, or new constraints.
-
-Before editing code:
-
-- Identify whether you are changing a first-party module or a vendored submodule.
-- Inspect the touched module's `metadata.json` when present.
-- Read the relevant `manifests/`, `templates/`, and `files/` in the touched module before changing structure or style.
-- Check whether the module already integrates with `basic_settings`, `basic_settings::monitoring`, `basic_settings::systemd`, `basic_settings::security_audit`, `php8::fpm`, `nginx`, or other local modules.
-- Look for existing file ownership, mode, `require`, `notify`, and `subscribe` patterns before adding new resources.
-- Inspect related code before applying a change, not only the file that appears to need editing. Check related Puppet classes, defined types, templates, files, systemd units, README sections, and existing examples whenever they influence the correct implementation.
-
-For every change, assess whether it affects:
-
-- Repository conventions or coding style.
-- Puppet abstractions, wrappers, or reusable patterns.
-- systemd unit behavior.
-- systemd hardening.
-- Linux security behavior.
-- Permissions, ownership, users, groups, capabilities, or sudo usage.
-- Network behavior, ports, sockets, firewall assumptions, or service dependencies.
-- Startup, shutdown, restart, ordering, and failure handling.
-- Monitoring, logging, alerting, or operational diagnostics.
-- Security-by-design principles used in this repository.
-
-Only apply the code change after the existing structure and behavior are sufficiently understood. The change must fit the current repository design unless there is a clear technical or security reason to improve that design.
-
-## Architecture And Module Interaction
-
-`basic_settings` is the foundation module. It is not just another module: it is the shared orchestration layer for base packages, APT sources, systemd targets, monitoring plumbing, login policy, security tooling, package hygiene, kernel/network tuning, timezone, and Puppet runtime behavior.
-
-Important architectural patterns in this repository:
-
-- Modules are usually usable standalone, but many of them opportunistically integrate with `basic_settings` when its classes are present.
-- Service modules often check `defined(Class['basic_settings::...'])` or `defined(Package['systemd'])` and then bind themselves into shared systemd targets instead of relying on default vendor enablement.
-- Defined types commonly enforce parent inclusion with explicit guard clauses and `fail(...)` messages. Keep that pattern when a defined type depends on a base class.
-
-Shared primitives live in `basic_settings`, especially:
+Prefer shared helpers from `basic_settings` over one-off resources in service
+modules. Common integration points include:
 
 - `basic_settings::systemd_target`
 - `basic_settings::systemd_drop_in`
@@ -87,7 +86,8 @@ Shared primitives live in `basic_settings`, especially:
 - `basic_settings::io_logrotate`
 - `basic_settings::login_sudo`
 
-The systemd target ladder created by `basic_settings::systemd` is a core composition mechanism:
+The systemd target ladder created by `basic_settings::systemd` is a core module
+composition mechanism:
 
 - `${cluster_id}-system`
 - `${cluster_id}-storage`
@@ -96,70 +96,258 @@ The systemd target ladder created by `basic_settings::systemd` is a core composi
 - `${cluster_id}-helpers`
 - `${cluster_id}-require-services`
 
-When a service module integrates with `basic_settings`, it usually:
+Monitoring is centered on the OpenITCOCKPIT agent model. Checks are installed
+under `/etc/openitcockpit-agent/plugins`, and `customchecks.ini` is built with
+`concat` and `concat::fragment`.
 
-- Disables the vendor service's default enablement.
-- Adds a `basic_settings::systemd_drop_in`.
-- Binds the service to one of the shared targets above.
-- Adds `OnFailure=notify-failed@%i.service` when monitoring is active.
+## Working Rules
 
-Monitoring is centralized around the OpenITCOCKPIT agent model:
+- Read `README.md` before changing the repository. It explains the intended
+  module combinations, supported scope, monitoring model, and documentation
+  tone. Its prose must remain Dutch.
+- Identify whether the change touches a first-party module, a vendored
+  submodule, root documentation, or examples.
+- Inspect the touched module's `metadata.json` when it exists.
+- Before changing code structure, read the relevant manifests, templates, files,
+  README sections, examples, and related local modules that influence the
+  behavior.
+- Keep changes scoped to the request. Do not perform broad refactors,
+  formatting sweeps, dependency upgrades, or vendored-submodule edits unless the
+  task explicitly asks for them.
+- Preserve existing resource ordering, ownership, modes, `require`, `notify`,
+  and `subscribe` patterns unless there is a clear technical reason to change
+  them.
+- When a module already integrates with `basic_settings`,
+  `basic_settings::monitoring`, `basic_settings::systemd`,
+  `basic_settings::security_audit`, `php8::fpm`, `nginx`, or another local
+  module, extend that integration instead of adding parallel logic.
+- Treat the working tree as shared with the user. Do not revert, overwrite, or
+  stage unrelated changes.
+- Create a commit or pull request only when the user asks for one. If you do,
+  include only the files that belong to the task.
 
-- The `basic_settings::monitoring` class prepares `/etc/openitcockpit-agent`.
-- Checks are installed under `/etc/openitcockpit-agent/plugins`.
-- The `concat` and `concat::fragment` types are used to build `customchecks.ini`.
-- Service and timer checks are generated through shared defined types instead of duplicating plugin registration logic in every module.
+## Coding Standards
 
-Examples of module composition that should guide future changes:
+- Keep Puppet module interfaces explicit with typed parameters.
+- Prefer parameterized classes plus small defined types over hidden behavior.
+- Keep module responsibilities narrow and composable, for example `php8`,
+  `php8::fpm`, and `php8::fpm_pool`.
+- Reuse `basic_settings` helpers for systemd units, timers, monitoring,
+  logrotate, sudoers, and audit rules.
+- When a defined type depends on a parent class, guard it with
+  `defined(Class['...'])` and fail with a clear message when the parent is
+  missing.
+- When the same `defined(...)` result is needed more than once in one manifest,
+  assign it once to a clearly named variable and reuse that variable.
+- Use ERB templates through `template(...)`; do not introduce EPP templates
+  unless the task requires a migration.
+- Use `files/` and `puppet:///modules/...` for static module assets.
+- When validating configurable file sources, allow `puppet:///` wherever module
+  files are valid input.
+- Keep package installation minimal with
+  `install_options => ['--no-install-recommends', '--no-install-suggests']`
+  unless the package needs recommendations or suggestions.
+- Use `purge => true`, `recurse => true`, and `force => true` only for
+  directories the module fully owns.
+- Preserve `replace => false` for installer-generated or first-created files
+  that must survive later Puppet runs.
+- Keep file modes and ownership explicit.
+- Keep monitoring and audit wiring close to the managed resource so operational
+  visibility changes with the feature.
 
-- The `nginx`, `rabbitmq`, `gitlab`, `mysql`, `php8::fpm`, `letsencrypt`, `naemon`, `openitcockpit::agent`, and `openitcockpit::server` modules all hook into shared systemd and monitoring primitives when available.
-- The `mysql` module integrates with `php8::fpm` and `puppet` via systemd drop-ins rather than external dependency modules.
-- The `openitcockpit::server` class assumes tight local integration with Nginx, PHP-FPM, Naemon paths, and several service-specific systemd drop-ins.
-- The `netplanio` module reads network and kernel state from `basic_settings` when present instead of inventing a second configuration source.
-- The `ssh`, `login`, `network`, `security`, and `packages` classes add audit coverage through `basic_settings::security_audit` rather than ad hoc audit files.
+Puppet class and defined-type parameter lists:
 
-## Security-By-Design Rules
+- Put mandatory parameters first. Mandatory means the parameter is not
+  `Optional[...]` and has no default value.
+- Sort mandatory parameters alphabetically by parameter name.
+- Put optional parameters after mandatory parameters. Optional means the
+  parameter is `Optional[...]` or has any default value.
+- Sort optional parameters alphabetically by parameter name.
+- Keep a dependency parameter earlier than the parameter that references it,
+  even when that breaks alphabetical order. Add a short trailing comment
+  explaining the ordering.
+- Align the type column, parameter-name column, `=` signs, and default values
+  across the full parameter block.
 
-Security is a design requirement in this repository, not an optional extra. When changing Linux services, systemd units, deployment automation, Docker, Puppet, permissions, network configuration, or monitoring, assess security during the design instead of treating it as a final review step. Preserve existing hardening where it is still correct, and improve it when that can be done without breaking the application.
+Puppet implementation patterns:
 
-For every change to Puppet code, templates, scripts, services, timers, configs, or generated files, check all of the following:
+- For secure defaults with explicit opt-out and custom override, prefer a
+  `Variant[Boolean,String]` interface, or a narrower scalar variant such as
+  `Variant[Boolean,Integer[0]]`. Resolve `true`, `false`, and scalar values once
+  into a clearly named `*_correct` variable near the related logic.
+- When a `Variant[Boolean,Scalar]` parameter replaces an older split interface,
+  collapse the public API to the single meaningful setting unless backward
+  compatibility is explicitly required.
+- Prefer one compact resource with precomputed `undef` attributes over duplicated
+  resource blocks when only optional attributes differ.
+- Do not invert control flow so a tiny branch is followed by a large `else`
+  block. Use a short guard with `fail(...)` before the main path when that is
+  clearer.
+- Do not introduce a variable for a value used only once unless the variable
+  adds domain meaning or prevents a real readability problem.
+- Add short comments above non-obvious resource groups, non-trivial branches,
+  and security-sensitive ordering. Do not add comments that only restate the
+  code.
 
-- Can this run with less privilege?
-- Can this run as a more constrained service user instead of root?
-- Can this be isolated further with systemd sandboxing such as `PrivateTmp`, `PrivateDevices`, `ProtectHome`, `ProtectSystem`, `ReadWritePaths`, `LimitNOFILE`, or tighter target binding?
-- Are ownership and file modes as restrictive as possible for the operational need?
-- Which runtime identity actually reads each generated file at service time, and do all parent directories allow only the needed traverse access for that identity?
-- Are secrets, credentials, and sensitive config values kept out of world-readable files?
-- Is `Sensitive[...]` or `Sensitive.new(...)` needed for file content or `exec` commands?
-- Is execute permission granted only to true executables?
-- Is world-read or group-write access justified, or is it a leftover convenience that should be removed?
-- Does the change introduce a new trust boundary, sudo path, writable path, or privilege assumption?
-- Can the design be simplified to reduce attack surface?
-- Does a new dependency add avoidable risk or unnecessary complexity?
-- If the module already applies audit coverage or monitoring, does the new sensitive surface need matching coverage?
+Shell and `exec` rules:
 
-Prefer the safer design when it still fits the project. Do not preserve an unsafe pattern just because it already exists once.
+- Treat new shell scripts and shell templates as POSIX shell by default and use
+  `#!/bin/sh`.
+- Use Bash only when the existing file or required behavior needs Bash. Current
+  known Bash exceptions are `mysql/templates/grant.sh`,
+  `mysql/files/automysqlbackup`, `basic_settings/files/network/rxbuffer`, and
+  `basic_settings/templates/login/pam/notify`.
+- Use `printf` instead of non-portable `echo` behavior.
+- Quote shell variables consistently and keep command dependencies explicit.
+- Only mark true executables as executable.
+- In Puppet `exec` resources, never interpolate raw Puppet values into
+  `command`, `onlyif`, or `unless`. Precompute dynamic arguments with
+  `stdlib::shell_escape(...)`, name those variables with a `_shell` suffix, and
+  use the escaped value as an unquoted shell word.
+- Add a short comment above each block that prepares shell-escaped values so the
+  protected command or guard is clear to reviewers.
+- When embedding runtime shell variables or command substitutions inside
+  double-quoted Puppet strings, escape them, for example `\$tmpdir`, `\$1`, and
+  `\$(...)`.
+- When an `exec` uses `/bin/sh -c` or `/usr/bin/bash -c`, escape every dynamic
+  argument first, then pass the whole script through `stdlib::shell_escape(...)`
+  before appending it after `-c`.
 
-Repository-specific security conventions to preserve:
+## Documentation Standards
+
+- Write code comments, Puppet Strings comments, inline technical documentation,
+  template comments, generated config comments, and this `AGENTS.md` in English.
+- Write `README.md` prose in Dutch. This is an explicit exception to the English
+  technical-documentation rule and must not be changed without a direct user
+  request.
+- When modifying existing code, check whether nearby comments or documentation
+  are missing, outdated, duplicated, or unclear.
+- Update documentation in the same change when behavior, parameters, templates,
+  defaults, security settings, operational commands, public examples, or
+  monitoring checks change.
+- Do not add obvious comments that only repeat the code. Comments must explain
+  purpose, context, constraints, side effects, or non-obvious decisions.
+- Keep documentation close to the code it describes, unless the topic belongs in
+  `README.md`, `CHANGELOG.md`, or a dedicated architecture or operations
+  document.
+- Update `README.md` in Dutch when a public module interface, supported
+  platform, installation flow, usage example, monitoring check, or security
+  expectation changes.
+- Update `CHANGELOG.md` when the task changes user-visible behavior and the
+  repository is tracking that change for release notes.
+- Keep generated config comments and template comments in English unless the
+  managed software requires another language.
+- Keep documentation concise and consistent with existing terminology.
+
+## Puppet Documentation Standards
+
+- Document public Puppet classes and defined types with Puppet Strings-style
+  comments.
+- Use `@summary` for a short one-line purpose.
+- Add a short description when the class or defined type has operational impact,
+  security impact, dependencies, or non-obvious behavior.
+- Document parameters with `@param`, including expected values, defaults, and
+  operational effect where relevant.
+- Add an `@example` for reusable classes or defined types where usage is not
+  immediately obvious.
+- Use `@api public` for public entry points and `@api private` for internal
+  helpers where that distinction matters.
+- When changing a Puppet class, defined type, function, or template, verify
+  whether its documentation still matches the implementation.
+- When documentation is missing or stale in a changed area, update it in the same
+  change. Do not perform unrelated documentation sweeps.
+
+## Validation And Testing
+
+The first-party modules at the repository root currently do not have a shared
+root `Gemfile`, `Rakefile`, or first-party spec suite. Vendored submodules have
+their own test setup, but that is not the default validation path for
+first-party changes.
+
+Run targeted checks for the files you changed. Use the commands below when the
+corresponding tools are installed:
+
+- Changed Puppet manifests:
+  `puppet parser validate <changed .pp files>`
+- Changed Puppet manifests, lint:
+  `puppet-lint <changed .pp files>`
+- Changed ERB templates, Ruby syntax only:
+  `erb -x -T '-' <changed .erb file> | ruby -c`
+- Changed POSIX shell scripts or rendered shell templates:
+  `sh -n <changed or rendered script>`
+- Changed Bash-only scripts or rendered Bash templates:
+  `bash -n <changed or rendered script>`
+- Changed Puppet Strings documentation:
+  `puppet strings generate --format markdown --out /tmp/puppet-modules-reference.md <changed module dirs>`
+- Changed metadata JSON:
+  `ruby -rjson -e 'ARGV.each { |path| JSON.parse(File.read(path)) }' <changed metadata.json files>`
+- Markdown-only changes:
+  `git diff --check -- <changed markdown files>`
+
+For ERB templates that generate shell scripts, render a representative output
+before running `sh -n` or `bash -n`; template syntax checks alone do not validate
+the generated script.
+
+When a shell change affects parsing, monitoring output, or status handling, run
+at least one representative functional check with synthetic or stubbed input.
+Include an error-path check when practical.
+
+If a validation command cannot run locally because the tool or dependency is
+missing, state that in the final response and explain what was checked instead.
+
+## Security And Safety Boundaries
+
+Security is a design requirement in this repository. Assess security while
+designing the change, not only at final review.
+
+For Puppet code, templates, scripts, services, timers, configs, and generated
+files, check whether the change affects:
+
+- Privilege level, runtime user, groups, capabilities, or sudo usage.
+- File ownership, file modes, parent directory traversal, and secret exposure.
+- Use of `Sensitive[...]` or `Sensitive.new(...)`.
+- Network behavior, ports, sockets, firewall assumptions, or service
+  dependencies.
+- Startup, shutdown, restart, ordering, and failure handling.
+- Monitoring, logging, alerting, audit rules, or operational diagnostics.
+- Package repositories, package installation options, or dependency trust.
+
+Repository security conventions:
 
 - Config files are commonly `0600`.
 - Root-only scripts are commonly `0700`.
 - Sudoers files are `0440`.
-- SSH homes and `.ssh` paths are tightly permissioned.
-- Systemd unit files are usually `0644` only where systemd requires it.
-- Many services are explicitly hardened with systemd drop-ins instead of trusting package defaults.
-- Package installs usually use `--no-install-recommends` and `--no-install-suggests`.
-- Sensitive operations often add audit rules through `basic_settings::security_audit`.
+- SSH homes and `.ssh` paths must stay tightly permissioned.
+- Systemd unit files are `0644` only where systemd requires it.
+- Prefer root ownership for integrity, then grant the service runtime group only
+  the read or traverse access it needs.
+- Public HTTP exposure does not imply that local users should be able to read
+  the same files from disk.
 
-When Puppet generates files under protected service-owned or root-owned paths that a daemon must read at runtime, design the ownership around the runtime reader instead of defaulting blindly to either root-only or world-readable. Prefer root ownership for integrity, grant the service runtime group the minimal read or traverse access it needs, and keep access away from `other` users. A typical pattern for static daemon-readable fallback files is root-owned directories with group execute only, such as `0710`, and root-owned files with group read only, such as `0640`. Do not make the runtime user the owner unless the daemon truly needs to write or replace the file. Public HTTP exposure does not imply that every local user should have filesystem read access to the same file.
+Before using any external system, internet search, browser tool, issue tracker,
+paste service, external AI system, e-mail, or vendor support channel, sanitize
+the material first. Do not send raw code, configs, logs, stack traces,
+screenshots, secrets, keys, tokens, certificates, internal hostnames, internal
+IP addresses, private URLs, personal data, tenant IDs, or customer data outside
+the local workspace.
 
-If you must weaken a permission, sandbox, or trust model, document the reason in the code and update the README when the operational expectation changes.
+## Systemd Hardening
 
-## systemd Hardening Guideline
+For new, changed, or reviewed `.service` units, assess hardening per concrete
+unit and per option. Do not apply hardening blindly and do not add default
+hardening inside a generic wrapper unless every current consumer has been
+validated or has an explicit opt-out.
 
-For new, changed, or newly reviewed systemd units, assess hardening per concrete `.service` unit and per option. Do not use existing hardening as the scope filter: a service with no hardening may need it, and an existing option may need an exception or rollback if the application behavior changed. Do not assume an option is safe only because it is already used elsewhere, or unnecessary only because the current unit does not use it yet.
+For each affected service, identify the final unit name, Puppet location,
+template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`,
+`ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities,
+writable paths, file creation behavior, device access, temporary directory use,
+home directory access, credential paths, network exposure, runtime language,
+dynamic plugins, process inspection needs, package-management behavior, and
+whether the unit is vendor-managed or internally generated.
 
-The following options are common candidates in this repository, but none of them is a guaranteed baseline:
+Assess these common candidates as `apply`, `do not apply`, or `needs more
+research`:
 
 - `PrivateDevices=true`
 - `PrivateTmp=true`
@@ -179,273 +367,64 @@ The following options are common candidates in this repository, but none of them
 - `ProtectProc=invisible`
 - `UMask=0077`
 
-Use this assessment process:
+Add `UMask=0077` explicitly in the relevant service hash when it is safe. Omit
+`UMask` when the service needs the normal default mask of `0022`. Use a less
+strict non-default value such as `0027` only per service, with a comment
+explaining the shared-file, shared-socket, shared-log, or web-serving need.
 
-- Mark every candidate option as `apply`, `do not apply`, or `needs more research` in the related analysis.
-- Revalidate existing settings when the unit, wrapper, package, runtime user, data paths, service role, runtime language, package version, or deployment model changes.
-- Identify the final unit name, Puppet location, template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, `ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities, writable paths, file and directory creation behavior, device access, temporary directory usage, home directory access, credential paths, network exposure, runtime language, interpreter or VM, dynamically loaded plugins/modules, process introspection requirements, package-management behavior, and whether the unit is vendor-managed or internally generated.
-- Add `UMask=0077` explicitly in the relevant service hash, close to other hardening options such as `PrivateTmp`, `ProtectHome`, and `ProtectSystem`. Do not inject it invisibly from a generic wrapper or template.
-- If the service needs the normal systemd/Linux default mask of `0022`, omit `UMask`. If it needs a non-default shared-permission mask such as `0027`, set it in that service's hash and document the reason next to the override.
+Treat timers, sockets, mounts, paths, targets, and daemon configuration drop-ins
+separately from services. For those unit types, assess the paired `.service`
+unit instead.
 
-The primary goal is to improve security without breaking applications. Do not add hardening as a blind default. Prefer a documented exception over an unsafe hardening change that causes runtime failures, degraded functionality, or operational surprises.
+High-risk categories need extra care before hardening changes: package
+management and provisioning units, Puppet agent/server units, GitLab omnibus
+supervision, certbot renewals with hooks, SSH login/session units, monitoring
+executors, OpenITCOCKPIT server components with sudo behavior, backup/restore
+services, services creating shared sockets/logs/web assets, device or hardware
+services, cgroup managers, services inspecting other users' processes, services
+reading kernel logs, services loading kernel modules or tuning kernel
+parameters, and JIT or plugin-based runtimes such as JVM, .NET, Node.js/V8,
+Electron, Erlang/BEAM with native code, database JIT, PCRE-JIT, or WebAssembly.
 
-Check these option-specific risks every time:
+## Definition Of Done
 
-- `PrivateDevices=true`: unsafe for units that need real device nodes, storage, hardware, USB, virtualization, container, RTC, GPU, serial, smartcard, tape, scanner, printer, or low-level network device access.
-- `PrivateTmp=true`: unsafe when the service intentionally exchanges files with other units through shared `/tmp` or `/var/tmp`.
-- `ProtectHome=true`: unsafe when the service must read or write `/home`, `/root`, or `/run/user` paths, including user SSH material, web content, backup sources, or application data.
-- `ProtectSystem=full`: unsafe without matching writable path exceptions when the service must write under `/usr`, `/boot`, `/etc`, or other protected locations.
-- `SystemCallArchitectures=native`: unsafe for 32-bit, legacy ABI, Wine, QEMU-user, emulation, or `setarch` workloads.
-- `RestrictSUIDSGID=true`: unsafe for install, restore, provisioning, package-management, or collaboration workflows that intentionally set SUID/SGID bits or SGID directories.
-- `LockPersonality=true`: unsafe for software that changes execution domain, disables ASLR through personality, or uses compatibility modes.
-- `NoNewPrivileges=true`: unsafe for units that need `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, or runtime privilege escalation.
-- `MemoryDenyWriteExecute=true`: unsafe for software that generates or modifies executable code at runtime. Pay special attention to JIT runtimes and dynamic execution engines such as Java/JVM, Java application servers, Mirth Connect, Elasticsearch/Solr-like JVM services, .NET, Node.js/V8, Chromium/Electron, LuaJIT, Erlang/BEAM with native code, WebAssembly runtimes, database engines or proxies with JIT, scripting engines with JIT, applications using PCRE-JIT, custom plugins, executable stacks, compiler trampolines, runtime code patching, or security/observability agents that inject code. Also treat services using `/dev/shm`, `memfd_create`, dynamic plugins, or unknown binary blobs as higher risk until tested.
-- `ProtectHostname=true`: unsafe for services that must set the system hostname/domain name, call hostname-management APIs, run `hostnamectl`, participate in cloud-init or provisioning hostname changes, or dynamically observe host hostname changes after the service has started. It may also be unsafe for monitoring, inventory, licensing, clustering, or registration agents that rely on real-time hostname changes rather than the hostname visible at service start.
-- `ProtectClock=true`: unsafe for services that set or adjust the system clock or hardware clock, read or manage RTC devices, perform time synchronization, use `adjtimex`/`clock_adjtime` behavior, manage wake alarms, or inspect kernel time discipline. Treat NTP/chrony/systemd-timesyncd, `hwclock`, VM guest tools, hardware-management agents, monitoring plugins that check time discipline, and backup/scheduling software with RTC/wake-alarm behavior as higher risk.
-- `ProtectControlGroups=true`: unsafe for services that manage, create, delegate, or write Linux control groups, including container managers, VM or container runtimes, nested service managers, workload supervisors, and agents that intentionally move processes between cgroups. Treat monitoring, resource-accounting, orchestration, and troubleshooting tools that inspect host cgroup layout as higher risk until their read-only behavior is tested.
-- `ProtectKernelLogs=true`: unsafe for services that intentionally read from or write to the kernel log ring buffer through interfaces such as `/dev/kmsg`, `/proc/kmsg`, `dmesg`, kernel-log collectors, low-level security agents, troubleshooting agents, or monitoring plugins that inspect kernel messages directly. This option is usually suitable for normal application services that only write application logs to stdout/stderr, syslog, journald, or application log files. Do not apply it blindly to logging, SIEM, EDR, audit, hardware, hypervisor, container-runtime, kernel-module, or monitoring components until their kernel-log behavior is understood.
-- `ProtectKernelModules=true`: unsafe for services that intentionally load or unload kernel modules, call tools such as `modprobe`, `insmod`, `rmmod`, or `modprobe.d`-driven helpers, or require direct access to `/usr/lib/modules`. Treat DKMS, kernel-module build or install workflows, storage, network, virtualization, container, hardware-management, security, and observability agents as higher risk when they depend on explicit module operations, special filesystems, or out-of-tree drivers. Remember that limited automatic module loading can still occur outside this setting, so do not treat it as a system-wide module autoload kill switch.
-- `ProtectKernelTunables=true`: unsafe for services that intentionally read or write kernel tunables through `/proc/sys`, `/sys`, `/proc/sysrq-trigger`, `/proc/acpi`, `/proc/fs`, `/proc/irq`, or related kernel API filesystems. Treat sysctl management, provisioning, firewall or network tuning, storage tuning, power or hardware management, container and virtualization setup, low-level security agents, and monitoring plugins that inspect `/proc/kallsyms` or `/proc/kcore` as higher risk until their kernel API access is understood. This option does not prevent indirect tunable changes through other privileged processes or IPC paths, so use it as service isolation rather than a complete host policy.
-- `ProtectProc=invisible`: unsafe for services that need to inspect process metadata for other users through `/proc`, such as process supervisors, monitoring plugins, inventory agents, security agents, troubleshooting tools, and applications that discover or manage sibling services by scanning `/proc`. This option is only meaningful when the service does not run as unrestricted `root` and does not retain `CAP_SYS_PTRACE`; prefer combining it with a dedicated `User=` or `DynamicUser=yes` where possible. Because it uses procfs namespacing and implies `MountAPIVFS=yes`, verify services that create host-visible mounts, depend on the host `/proc` layout, or run on kernels without per-mount `hidepid` support.
-- `UMask=0077`: unsafe for services that must create group-readable files, group-writable directories, shared Unix sockets, shared logs, web assets, backup artifacts, deployment outputs, or temporary files consumed by other users, groups, or services. The repository preference is `UMask=0077` when a service only needs its own runtime user to read or write generated files, or when Puppet/systemd already manages intentionally shared paths with explicit ownership and modes. Use a less strict non-default value such as `0027` only per service, with a documented reason and explicit ownership, directory modes, socket modes, or application settings that limit sharing to the operational need. Leave `UMask` unset when the correct exception is the normal default mask of `0022`. Check for functional impact such as unreadable logs, inaccessible sockets, failed web serving, broken hand-offs between services, failed backup/restore flows, or installers that expect package-default permissions.
+An AI-generated change is complete only when:
 
-Treat timers, sockets, mounts, paths, targets, and daemon configuration drop-ins separately from services. These service-execution options are not meaningful defaults for `.timer`, `.socket`, `.mount`, `.path`, `.target`, `journald.conf`, `resolved.conf`, `timesyncd.conf`, or similar daemon configuration drop-ins. For a timer, socket, or path unit, assess the paired `.service` unit instead.
+- The changed area and related local code have been inspected.
+- The change is scoped to the request and does not modify vendored code unless
+  explicitly requested.
+- Code comments and technical documentation are in English, while `README.md`
+  prose remains Dutch.
+- Puppet Strings comments, README examples, `CHANGELOG.md`, and monitoring check
+  lists were updated when affected.
+- Security, permissions, systemd behavior, monitoring, audit, and operational
+  impact were reviewed where relevant.
+- Relevant validation commands were run, or unavailable commands are listed in
+  the final response with the reason they could not run.
+- The final response names the changed files or code paths, the validation that
+  ran, documentation updates, and any remaining assumptions or open points.
 
-When changing systemd-related code, inspect all generated and modified units in scope, including existing `basic_settings::systemd_service` resources, `basic_settings::systemd_drop_in` resources, vendor-unit drop-ins, direct `service` resources, templates, files, and wrappers. Include units that do not currently contain any hardening options. Sort the resulting unit list alphabetically by final systemd unit name before reporting or making broad decisions.
+## Maintenance Of This File
 
-When the repository contains wrappers or templates that generate systemd units, inspect the wrapper itself and every known consumer. A generic wrapper such as `basic_settings::systemd_service` or `basic_settings::systemd_drop_in` may only add a new default when every current consumer is validated, or when the wrapper supports explicit per-service opt-outs with documented technical reasons.
+Maintenance rule for AI agents: whenever an AI agent modifies a file, it must
+also check whether documentation is missing, outdated, duplicated, or unclear in
+the changed area. If documentation is affected, update it in the same change. If
+no documentation update is needed, no extra documentation should be added.
 
-Known lower-risk categories are simple internally generated oneshot services that execute a known native binary or root-only script without shared `/tmp`, shared generated files, shared sockets, shared logs, device access, protected-path writes, `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, 32-bit binaries, Wine, QEMU-user, `setarch`, compatibility tooling, JIT/runtime code generation, hostname management, clock management, RTC access, wake alarms, kernel-log access, kernel-module operations, kernel-tunable writes, cgroup management, cross-user process introspection, dynamic plugin loading, or unknown third-party binary behavior. Even then, keep the hardening in the most specific service declaration and document the technical basis in the related analysis or review.
+Regression-prevention rule: when a user corrects an AI mistake or a task exposes
+a repeated failure mode, add or adjust the concrete instruction that would have
+prevented it, if that instruction is reusable for future agents. Name the
+forbidden future behavior and the required check. For example, do not translate
+`README.md` to English; before finishing documentation-rule edits, verify that
+this file still says `README.md` prose must remain Dutch.
 
-Known higher-risk categories include package-management and provisioning units, Puppet agent/server units, GitLab omnibus supervision, certbot renewals with arbitrary hooks, SSH login/session units, monitoring executors that may run local plugins, OpenITCOCKPIT server components that include `sudo_server`, backup or restore services that preserve permissions, services creating files for web servers or deployment users, services creating shared Unix sockets or group-readable logs, services using file capabilities, services using hardware or device nodes, services using RTC/time/clock APIs, services that read kernel logs or run `dmesg`, services that manage or observe hostname changes, services that load kernel modules or tune kernel parameters, services that manage cgroups or run nested workloads, services that inspect other users' processes through `/proc`, Java/JVM services, .NET services, Node.js/V8 services, browser/Electron-based services, database engines with JIT, services using PCRE-JIT, plugin-based runtimes, and any service that may call `sudo`, `su`, `runuser`, `pkexec`, or application-specific helper binaries.
+Update this file only when a change creates reusable guidance, new constraints,
+changed validation commands, changed security expectations, or a repeated AI
+mistake that future agents should avoid.
 
-## Data Sanitization Before External Use
+Keep project-wide rules in this root file. Put directory-specific rules in a
+lower-level `AGENTS.md` only when the rule truly applies only to that subtree.
 
-Before using any external system, the internet, or any tool outside the IDE or local repository context, treat the material as potentially sensitive first.
-
-Mandatory rule:
-
-- Never send raw code, configuration, logs, stack traces, screenshots, or operational data externally before checking whether they contain sensitive information.
-- Remove, mask, or anonymize sensitive information before sharing anything outside the local workspace.
-- Apply this rule to web searches, browser-based tools, external AI services, issue trackers, paste services, chat tools, e-mail, vendor support portals, documentation sites, and any other external system.
-
-Sensitive information that must never be shared in raw form includes at minimum:
-
-- Passwords
-- API keys
-- Access tokens
-- Session tokens
-- Private keys
-- SSH keys
-- Certificates and certificate material
-- Secrets from `.env` files
-- Connection strings
-- Database credentials
-- Internal hostnames
-- Internal IP addresses
-- Private URLs
-- Customer or patient data
-- Personal data
-- Tenant identifiers
-- Internal project identifiers that are not needed for the question
-
-Required working method before sending anything outside the IDE:
-
-- Review the exact content that will be shared.
-- Remove all secrets, credentials, keys, tokens, certificates, and identifying values.
-- Anonymize names, domains, hostnames, IP addresses, usernames, IDs, and business-specific details where they are not strictly required.
-- Reduce the shared material to the smallest possible reproducible example.
-- Prefer a rewritten or synthetic example over real production data.
-- Re-check the final sanitized version before sending it.
-
-Hard rules:
-
-- Never share raw `.env` files, private certificates, private keys, token files, kubeconfigs, database dumps, or production configuration files externally.
-- Never copy full logs externally without first checking them for secrets and identifying information.
-- Never assume a technical or incomplete snippet is safe by default.
-- If there is any doubt whether content is sensitive, do not send it until it has been sanitized.
-
-Default to caution. Sanitization is mandatory before any external sharing.
-
-## Puppet Style
-
-Derive style from the first-party modules already in this repository.
-
-Follow these Puppet conventions:
-
-- Keep module interfaces explicit with typed parameters.
-- Prefer parameterized classes plus small defined types over hidden behavior.
-- Keep module responsibilities narrow and composable, as in `php8`, `php8::fpm`, `php8::fpm_pool` or `rabbitmq` plus `rabbitmq::management`.
-- Reuse `basic_settings` shared defined types instead of creating one-off service, timer, logrotate, sudoers, monitoring, or audit resources in every module.
-- Preserve explicit `require`, `notify`, and `subscribe` relationships. This codebase relies on visible ordering more than implicit resource autorequires.
-- When a defined type requires a parent class, guard it with `defined(Class['...'])` and fail clearly if the class is missing.
-- When the same `defined(...)` check for a class, package, or other resource would be used multiple times in one manifest, evaluate it once into a clearly named variable and reuse that variable instead of repeating the call.
-- Use ERB templates via `template(...)`. This repository currently uses `templates/` plus ERB, not EPP.
-- Use `files/` plus `puppet:///modules/...` for static assets.
-- When validating source URI schemes for Puppet-managed files, include `puppet:///` wherever module files are valid input, not only `file:///` and remote HTTPS.
-- Prefer predictable paths and resource titles. Do not introduce surprising naming schemes.
-- For configurable hardening values that need a secure default, explicit opt-out, and custom override, prefer a `Variant[Boolean,String]` interface, or a narrower scalar variant such as `Variant[Boolean,Integer[0]]` when the target value is numeric. Let `true` resolve to a named default value, `false` disable the emitted setting, and the scalar value pass through as the explicit override. Resolve this once into a clearly named `*_correct` variable near related logic, and have templates check the resolved variable rather than duplicating true/false/scalar handling.
-- When a `Variant[Boolean,Scalar]` parameter replaces an older `*_enable` plus `*_custom`, `*_value`, `*_max_age`, or similar split interface, collapse the public API to the single meaningful setting name unless backwards compatibility is explicitly required. Do not keep redundant helper parameters around only to feed the new Variant default; put the default value next to the resolve logic instead.
-- When a new helper extends an existing class or defined type, use the existing name as the prefix and the purpose as the suffix, for example `docker::compose_monitoring` for monitoring support around `docker::compose`.
-- Inside a module's own `files/`, `templates/`, and manifest filenames, do not repeat the module name as a prefix unless the generated target path is outside the module namespace and needs a globally unique name.
-- Keep package installation minimal with `install_options => ['--no-install-recommends', '--no-install-suggests']` unless there is a concrete reason not to.
-- When a module fully owns a config directory, the existing style often uses `purge => true`, `recurse => true`, and `force => true`. Only do that for trees the module truly owns.
-- When installer-generated files must survive, the existing style uses `replace => false`. Preserve that behavior where it matters.
-- Keep file modes and ownership explicit.
-- Keep monitoring and audit wiring close to the managed resource so operational visibility changes with the feature.
-- In Puppet class and defined-type parameter lists, put mandatory parameters first and sort them alphabetically by parameter name. Mandatory means the parameter is not typed as `Optional[...]` and has no default value. After that, put all optional parameters alphabetically by parameter name. Optional means the parameter is typed as `Optional[...]` or has any default value, including `undef`, booleans, strings, arrays, hashes, or expressions. Puppet evaluates parameter defaults from left to right, so any parameter referenced by another parameter's default must stay earlier than the referencing parameter even when that breaks alphabetical order. Add a short trailing comment to that dependency parameter explaining why it is intentionally out of order.
-- Keep Puppet class and defined-type parameter lists vertically aligned across the full parameter block: align the type column, parameter-name column, `=` signs, and default values. When adding a longer parameter name, re-align the surrounding parameter list so one long line does not break the visual columns.
-- When a resource only differs by optional attributes, prefer one compact resource with precomputed `undef` values over duplicated resource blocks. Do this only when mutually exclusive attributes, such as `source` and `content`, cannot both become non-`undef`.
-- Do not invert control flow so a tiny branch is followed by a large `else` block. Keep the main resource declaration path in the first branch, or use a separate short validation guard with `fail(...)` before the main path. Large `else` blocks are only acceptable when both branches contain comparable real behavior.
-- Add a short comment above non-obvious resource blocks or grouped resource changes when the purpose is not immediately clear from the resource title alone. This is especially important for `exec`, `file`, `package`, and other mixed resource sequences that bootstrap repositories, handle temporary files, manipulate permissions, or enforce security-sensitive ordering.
-- Add a short comment above every non-trivial `if`/`elsif`/`else` branch. The comment should state why the branch exists and what decision is being made, especially when resolving precedence between vhost parameters, class defaults, monitoring values, generated values, or cleanup behavior.
-- Add short comments in templates above non-obvious generated blocks, locations, handlers, redirects, security-sensitive directives, or conditionally rendered sections. Use the target config's comment syntax when the explanation is useful in the generated file, and ERB comments only when the note is purely about template mechanics.
-- When generated file content contains dynamic values but should not change every Puppet run, prefer a native first-create pattern such as `replace => false`. If an event-driven rebuild is explicitly required, use a small refresh-only cleanup step and let the normal `file` resource recreate the content from `template()`; do not generate content inside an `exec`, and do not claim `subscribe` or `notify` will refresh `file` content.
-- When embedding shell snippets inside double-quoted strings, always escape shell variables and command substitutions meant for the runtime shell, such as `\$tmpdir`, `\$1`, and `\$(...)`, so Puppet does not treat them as interpolation.
-- In `exec` resources, never interpolate raw Puppet values into `command`, `onlyif`, or `unless`. Precompute shell-safe arguments with `stdlib::shell_escape(...)`, name them with a `_shell` suffix, and use the escaped value unquoted in the command string. This applies to paths, URLs, usernames, passwords, grep patterns, SQL strings passed with `mysql -e`, redirection targets, `name=value` CLI arguments, and values inside `Sensitive.new(...)`.
-- Add a short comment above each block that prepares `stdlib::shell_escape(...)` values so reviewers can see which later `exec` command, guard, or shell script the escaped values protect.
-- When an `exec` uses `/bin/sh -c` or `/usr/bin/bash -c`, escape every dynamic argument inside the script first, then pass the whole script through `stdlib::shell_escape(...)` before appending it after `-c`. Do not place escaped dynamic values inside a single-quoted `-c` string, because shell-escaped single quotes can break the outer quoting.
-- When SQL statements intentionally use trailing semicolons, preserve them. Escape the full SQL string and use `provider => shell` on the related `exec` when escaped semicolons, guard pipelines, or `sh -c`/`bash -c` scripts would otherwise be validated by Puppet as separate commands.
-- Prefer `/usr/bin/printf %s ${value_shell}` for dynamic content in shell commands. Do not embed dynamic content inside shell quotes such as `"${value}"` or `'${value}'`; `stdlib::shell_escape` output is intended to be used as an unquoted shell word.
-- Do not introduce a variable for a value that is used only once in the local code path, unless the variable name adds real domain meaning or avoids a demonstrable readability problem. Prefer applying one-off values directly in the resource or expression so the operational effect stays visible at the point of use.
-
-Use local modules as integration points instead of importing foreign architecture. For example, if a service needs a systemd unit, timer, sudo rule, OpenITCOCKPIT check, or logrotate config, prefer the existing `basic_settings` helpers over adding a new external abstraction.
-
-If you add a new first-party module, follow the existing module layout:
-
-- `manifests/`
-- `templates/`
-- Include `files/` when needed.
-- Keep `metadata.json` aligned with the rest of the first-party modules.
-
-## Shell Script Rules
-
-Treat new shell scripts and shell templates as POSIX shell by default and use `#!/bin/sh`. Do not assume Bash features unless the file clearly and explicitly requires them. Known Bash shebang exceptions currently are:
-
-- `mysql/templates/grant.sh`
-- `mysql/files/automysqlbackup`
-- `basic_settings/files/network/rxbuffer`
-- `basic_settings/templates/login/pam/notify`
-
-When touching an existing Bash script, keep Bash only if the implementation still needs it. Otherwise prefer a safe migration to POSIX syntax. Do not copy Bash-only idioms into new scripts, and state the reason in the final handoff when a Bash-only exception remains.
-
-Shell conventions already visible in this repository:
-
-- Monitoring checks generally use `#!/bin/sh` and return standard Nagios-style status codes.
-- Dependencies are discovered with direct `command -v` assignments, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`. Do not introduce a generic lookup helper such as `find_bin` when direct checks are enough.
-- Use shell builtins such as `printf` directly instead of resolving them with `command -v`.
-- Keep monitoring check setup in this order: fail helper, binary checks, default/config variables, option parsing, helper functions, then main logic.
-- Bundle related shell variables together, place a short comment above each variable block, and keep global/default variable blocks above non-fail helper functions.
-- Place a short comment above each shell function.
-- Quote variables consistently and keep command dependencies explicit.
-- Use `printf` instead of relying on non-portable `echo` behavior.
-- Represent embedded line breaks with direct `printf` formatting and escaped `\n`. Do not embed literal line breaks inside shell variables, quoted strings, Puppet interpolations, or concatenations.
-- When command-substitution metadata needs serialization, use explicit sentinel tokens instead of newline-marker tricks such as `NL=$(printf '\n_'); NL=${NL%_}`.
-- Store shell lists as comma-separated values and split them deliberately where needed; do not use literal multiline variable blocks.
-- Keep single-use shell logic inline unless a function materially improves reuse or readability.
-- Prefer the mainline shell path in `if` and keep the smaller exceptional fallback in `else`.
-- Keep error helpers small and direct.
-- Keep scripts operationally minimal and readable; these files are tooling, not generic libraries.
-- Only mark real executables as executable.
-- Match file modes to actual need: root-only scripts should stay root-only unless a non-root runtime is required.
-
-Monitoring output conventions:
-
-- Emit one natural, operator-readable summary line plus optional perfdata or long output.
-- Do not embed perfdata-style `key=value` fragments in the summary text.
-- Keep summary text cause-oriented and avoid duplicating raw numeric counters that are already present in perfdata.
-- When a check emits multiple long-output sections, print the most diagnostically important section first.
-- Long monitoring detail sections should have a configurable line limit and must say explicitly when output was truncated.
-
-Shell refactoring expectations:
-
-- When touching a shell script, also review nearby logic for duplication, brittle state, or avoidable complexity.
-- Prefer a bounded refactor when it leaves the script materially simpler, clearer, or easier to extend.
-- Collapse repeated parsing of the same input where practical, without making the parser harder to trust.
-- Prefer validating the real source of truth over proxy checks that can create false negatives.
-- Preserve the external contract unless the task explicitly asks to change it. For monitoring checks this includes exit codes, summary-line shape, perfdata keys, option flags, and generated path names.
-- Keep data collection, status evaluation, perfdata generation, and long-output rendering as distinct steps.
-- Remove stale variables, helper functions, and intermediate formats when they no longer pay for their complexity.
-- Prefer deterministic output ordering when the script emits lists, sections, or perfdata.
-- For monitoring checks, keep the summary line compact and move diagnostic detail to long output unless the alert needs the detail immediately.
-- When a script change exposes a deeper structural weakness, leave the file in a better shape if the rewrite can still be kept well-bounded and well-validated.
-
-## Dependency Guidance
-
-This repository prefers tight internal Puppet integration over introducing large external Puppet libraries.
-
-Follow these rules:
-
-- Prefer extending the existing local modules over adding community modules.
-- Do not default to external Docker, MySQL, Nginx, RabbitMQ, or similar Puppet modules just because they exist.
-- Use the current small dependency set only where it already fits: `stdlib`, `concat`, `reboot`, `timezone`, and `debconf`.
-- If a new dependency is proposed, justify why the project's own modules cannot handle the need cleanly.
-- Prefer internal implementation when it gives better control over integration, security, systemd behavior, monitoring, and package policy.
-
-This repo already manages package repositories, keys, systemd policy, monitoring plugins, logrotate, and audit rules in-house. Preserve that architectural preference.
-
-## Documentation Maintenance
-
-Documentation maintenance is part of implementation, not optional follow-up work. Review `README.md` and `AGENTS.md` whenever a change affects behavior, workflows, security expectations, Linux or systemd behavior, module integration, or reusable project patterns.
-
-Update `README.md` in the same change when you add a new module or make a meaningful change to an existing module.
-
-Meaningful changes include:
-
-- New functionality
-- Removed functionality
-- Changed behavior
-- New parameters users are expected to set
-- Changed integration points between modules
-- Changed operational assumptions
-- New monitoring checks
-- Changed security expectations
-- Changed install or usage flow
-
-README rules:
-
-- Write README updates in Dutch.
-- Keep generated config files, config templates, and inline config comments in English unless the managed software clearly requires another language.
-- Match the current README's tone, structure, and sectioning.
-- Start prose list items with a capital letter for consistency. If a list item is only an exact code identifier, module name, class name, path, or other literal, keep its original case.
-- Keep the style consistent with the existing `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern.
-- Add or update example Puppet snippets when behavior changes materially.
-- If you add or rename a monitoring check, update the `## Checks` section.
-- Do not paste in generic English boilerplate or documentation written in a different style.
-
-Update `AGENTS.md` only when the change introduces reusable guidance, adjusted workflows, changed security expectations, or relevant Linux/systemd insights that future agents or developers need to know. First determine where the instruction fits best. Prefer extending an existing relevant section over adding a loose or duplicate section.
-
-When editing `AGENTS.md`, make sure new or changed text has:
-
-- Clear sentence structure.
-- Correct spelling.
-- Consistent terminology.
-- Precise technical wording.
-- No duplicate rules.
-- No contradictions with existing instructions.
-- No outdated references.
-- No vague wording that future agents could misinterpret.
-
-## Validation Before Finishing
-
-There is no first-party test suite or CI structure in the custom modules at the root of this repository. Validation still matters, so run targeted checks for the files you touched.
-
-At minimum:
-
-- Validate changed Puppet manifests for syntax and obvious relationship errors.
-- Verify changed class and defined-type guards still match actual inclusion order.
-- Syntax-check changed shell scripts with `sh -n` when they are POSIX.
-- Syntax-check changed Bash exceptions with `bash -n` only when Bash is intentionally required.
-- Render changed ERB shell templates in the relevant modes before syntax-checking them so the validation covers the actual generated script, not only the template source.
-- When a shell change affects parsing, monitoring output, or status handling, run at least one small representative functional check with synthetic or stubbed input, and include an error-path check when practical.
-- Review file modes, ownership, and `Sensitive` handling for every touched resource.
-- Verify monitoring, sudoers, logrotate, audit, and systemd paths still line up with the generated filenames and service names.
-- Confirm required `README.md` and `AGENTS.md` updates were considered and completed.
-
-Finish every change with a short summary that states:
-
-- Which files or code paths changed.
-- Which relevant security, Linux, or systemd aspects were reviewed, or why they were not applicable.
-- Whether `README.md` required an update and whether it was updated.
-- Whether `AGENTS.md` was checked and either updated or left unchanged because the existing instructions were sufficient.
-- Which validation ran, and which important validation step could not run.
+When editing this file, remove duplicates, resolve contradictions, avoid vague
+wording, and prefer a short reference to another maintained document over
+copying long explanations.
