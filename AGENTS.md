@@ -7,7 +7,7 @@ repository. Read it before making changes, use it while reviewing your own work,
 and check it again before the final handoff.
 
 The root `AGENTS.md` is authoritative for the whole repository. At the time of
-this review, no additional `AGENTS.md`, `AGENTS.override.md`, or
+this cleanup, no additional `AGENTS.md`, `AGENTS.override.md`, or
 `.github/copilot-instructions.md` files exist. If a lower-level instruction file
 is added later, read it for that subtree. It may add narrower rules, but it must
 not contradict this file unless it explicitly documents the exception.
@@ -59,7 +59,7 @@ Important repository paths:
 - `README.md`: Dutch user-facing overview, examples, public behavior, and
   monitoring check list.
 - `examples/`: Practical Puppet examples that must stay aligned with public
-  module behavior.
+  module behavior when present.
 - `<module>/metadata.json`: Supported platforms and module metadata, when the
   module has one.
 - `<module>/manifests/`: Puppet classes and defined types.
@@ -134,6 +134,9 @@ under `/etc/openitcockpit-agent/plugins`, and `customchecks.ini` is built with
   `php8::fpm`, and `php8::fpm_pool`.
 - Reuse `basic_settings` helpers for systemd units, timers, monitoring,
   logrotate, sudoers, and audit rules.
+- Prefer extending the existing local modules over adding community Puppet
+  modules. If a new dependency is proposed, justify why the first-party modules
+  cannot handle the need cleanly.
 - When a defined type depends on a parent class, guard it with
   `defined(Class['...'])` and fail with a clear message when the parent is
   missing.
@@ -187,6 +190,11 @@ Puppet implementation patterns:
 - Add short comments above non-obvious resource groups, non-trivial branches,
   and security-sensitive ordering. Do not add comments that only restate the
   code.
+- When a generated file should be created once and then survive later Puppet
+  runs, prefer `replace => false`. If an event-driven rebuild is required, use a
+  small refresh-only cleanup step and let the normal `file` resource recreate
+  the content from `template(...)`; do not generate managed file content inside
+  an `exec`.
 
 Shell and `exec` rules:
 
@@ -199,6 +207,9 @@ Shell and `exec` rules:
 - Use `printf` instead of non-portable `echo` behavior.
 - Quote shell variables consistently and keep command dependencies explicit.
 - Only mark true executables as executable.
+- Do not embed literal line breaks inside shell variables, quoted strings,
+  Puppet interpolations, or concatenations. Use `printf` formatting with escaped
+  `\n`.
 - In Puppet `exec` resources, never interpolate raw Puppet values into
   `command`, `onlyif`, or `unless`. Precompute dynamic arguments with
   `stdlib::shell_escape(...)`, name those variables with a `_shell` suffix, and
@@ -211,6 +222,22 @@ Shell and `exec` rules:
 - When an `exec` uses `/bin/sh -c` or `/usr/bin/bash -c`, escape every dynamic
   argument first, then pass the whole script through `stdlib::shell_escape(...)`
   before appending it after `-c`.
+- When SQL statements intentionally use trailing semicolons, preserve them.
+  Escape the full SQL string and use `provider => shell` on the related `exec`
+  when escaped semicolons, guard pipelines, or shell scripts would otherwise be
+  validated by Puppet as separate commands.
+
+Monitoring output conventions:
+
+- Emit one natural, operator-readable summary line plus optional perfdata or
+  long output.
+- Do not embed perfdata-style `key=value` fragments in the summary text.
+- Keep summary text cause-oriented and avoid duplicating raw numeric counters
+  that are already present in perfdata.
+- When a check emits multiple long-output sections, print the most
+  diagnostically important section first.
+- Long monitoring detail sections should have a configurable line limit and must
+  say explicitly when output was truncated.
 
 ## Documentation Standards
 
@@ -305,6 +332,26 @@ change affects:
 - Monitoring, logging, alerting, audit rules, or operational diagnostics.
 - Package repositories, package installation options, or dependency trust.
 
+Security information preservation:
+
+- This project relies heavily on security by design. Do not remove, simplify, or
+  shorten security-related instructions if doing so would remove important
+  context, rationale, risks, constraints, or operational safeguards.
+- When cleaning up duplicated or unclear security instructions, preserve the
+  strongest applicable security requirement.
+- Keep the reason behind security-sensitive rules when that reason helps prevent
+  mistakes.
+- Merge duplicated security rules carefully so no requirement is weakened or
+  lost.
+- Keep explicit warnings for secrets, credentials, permissions, TLS, headers,
+  systemd hardening, infrastructure changes, input validation, and dependency
+  changes where relevant.
+- If a security rule appears outdated or incorrect, do not remove it silently.
+  Replace it with the corrected rule and briefly document why the change was
+  made.
+- If there is uncertainty about a security requirement, keep the safer
+  instruction and mark the point as needing review.
+
 Repository security conventions:
 
 - Config files are commonly `0600`.
@@ -317,11 +364,17 @@ Repository security conventions:
 - Public HTTP exposure does not imply that local users should be able to read
   the same files from disk.
 
-Before using any external system, internet search, browser tool, issue tracker,
-paste service, external AI system, e-mail, or vendor support channel, sanitize
-the material first. Do not send raw code, configs, logs, stack traces, secrets,
-keys, tokens, certificates, internal hostnames, internal IP addresses, private
-URLs, personal data, tenant IDs, or customer data outside the local workspace.
+External systems and data sanitization:
+
+- Before using any external system, internet search, browser tool, issue
+  tracker, paste service, external AI system, e-mail, or vendor support channel,
+  sanitize the material first.
+- Do not send raw code, configs, logs, stack traces, screenshots, secrets, keys,
+  tokens, certificates, internal hostnames, internal IP addresses, private URLs,
+  personal data, tenant IDs, customer data, `.env` files, kubeconfigs, database
+  dumps, or production configuration files outside the local workspace.
+- Share the smallest possible rewritten or synthetic example. Re-check the final
+  sanitized version before sending it.
 
 Systemd hardening:
 
@@ -357,6 +410,16 @@ Systemd hardening:
   monitoring executors, OpenITCOCKPIT server components with sudo behavior,
   backup or restore services, shared sockets or logs, device services, cgroup
   managers, kernel or process inspectors, and JIT or plugin-based runtimes.
+- Re-check option-specific risks before applying hardening. `PrivateDevices`
+  can break hardware, virtualization, storage, USB, GPU, serial, and similar
+  access. `PrivateTmp` can break intentional shared temporary-file handoffs.
+  `ProtectHome` can block required `/home`, `/root`, or `/run/user` access.
+  `ProtectSystem=full` requires explicit writable-path exceptions for writes
+  under protected paths. `NoNewPrivileges` can break `sudo`, setuid helpers, and
+  file capabilities. `MemoryDenyWriteExecute` can break JIT, plugin, and dynamic
+  runtime behavior. `ProtectHostname`, `ProtectClock`, kernel, cgroup, and
+  `ProtectProc` restrictions can break provisioning, monitoring, inventory,
+  time, kernel, process-inspection, and nested workload tools.
 
 ## Definition Of Done
 
@@ -378,10 +441,34 @@ An AI-generated change is complete only when:
 
 ## Maintenance Of This File
 
+Keep this file current whenever repository conventions, documentation rules,
+validation commands, security requirements, coding standards, or operational
+workflows change.
+
+When modifying this file:
+
+- Preserve the current intent of existing rules unless there is an explicit
+  reason to change them.
+- Do not weaken existing documentation, validation, security, or review
+  requirements without clearly documenting why.
+- Remove or merge duplicated instructions instead of adding another similar
+  rule.
+- Resolve contradictions immediately so the file always contains one clear
+  instruction.
+- Keep instructions concrete, compact, and understandable for AI agents that
+  have no additional context.
+- Process new insights into `AGENTS.md` when they affect how AI agents should
+  work in this repository. This includes insights from code reviews, production
+  issues, security findings, linting or test failures, recurring mistakes,
+  changed tooling, changed architecture, or improved project conventions.
+- Treat `AGENTS.md` as a living document: when better instructions are
+  discovered, add or refine them in a compact and non-duplicated way.
+
 Maintenance rule for AI agents: whenever an AI agent modifies a file, it must
-also check whether documentation is missing, outdated, duplicated, or unclear in
-the changed area. If documentation is affected, update it in the same change. If
-no documentation update is needed, no extra documentation should be added.
+also check whether documentation is missing, outdated, duplicated, unclear, or no
+longer aligned with current insights in the changed area. If documentation is
+affected, update it in the same change. If no documentation update is needed, no
+extra documentation should be added.
 
 Regression-prevention rule: when a user corrects an AI mistake or a task exposes
 a repeated failure mode, add or adjust the concrete instruction that would have
@@ -390,13 +477,5 @@ forbidden future behavior and the required check. For example, do not translate
 `README.md` to English; before finishing documentation-rule edits, verify that
 this file still says `README.md` prose must remain Dutch.
 
-Update this file only when a change creates reusable guidance, new constraints,
-changed validation commands, changed security expectations, or a repeated AI
-mistake that future agents should avoid.
-
 Keep project-wide rules in this root file. Put directory-specific rules in a
 lower-level `AGENTS.md` only when the rule truly applies only to that subtree.
-
-When editing this file, remove duplicates, resolve contradictions, avoid vague
-wording, and prefer a short reference to another maintained document over
-copying long explanations.
