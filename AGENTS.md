@@ -333,10 +333,6 @@ Puppet libraries.
 - Add or update example Puppet snippets when behavior changes materially.
 - If you add, rename, or remove a monitoring check, update the README `## Checks`
   section.
-- Update `CHANGELOG.md` only when the touched first-party area has an existing
-  changelog practice or the requested task explicitly requires a user-visible
-  change entry. Do not update vendored submodule changelogs for first-party
-  module changes.
 
 Meaningful README updates are required for new functionality, removed
 functionality, changed behavior, new user-facing parameters, changed module
