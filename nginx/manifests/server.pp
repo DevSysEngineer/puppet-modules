@@ -4,7 +4,7 @@ define nginx::server (
   Boolean             $allow_directories                = false,
   Integer             $backlog                          = -1, # Global settings; -1: Disabled, 0: Kernel; >0: Custom value
   Optional[String]    $client_max_body_size             = undef,
-  Optional[String]    $content_security_policy          = "default-src 'self'",
+  Optional[String]    $content_security_policy          = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
   Boolean             $default_server                   = false,
   Array               $directives                       = [],
   Optional[String]    $docroot                          = undef,
@@ -44,7 +44,7 @@ define nginx::server (
   Optional[Hash]      $redirect_ssl_conf_command        = undef,
   Optional[String]    $redirect_ssl_ocsp                = undef,
   Optional[String]    $redirect_ssl_protocols           = undef,
-  Optional[String]    $referrer_policy                  = 'strict-origin-when-cross-origin',
+  Optional[String]    $referrer_policy                  = 'same-origin',
   Boolean             $restart_service                  = true,
   Boolean             $reuseport                        = false, # Global settings
   Optional[Array]     $securitytxt_contacts             = undef,
