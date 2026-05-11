@@ -1,3 +1,31 @@
+# @summary Manages the Vox Pupuli OpenVox APT repository.
+#
+# This private helper writes or removes the OpenVox APT source and signing key.
+# It is called by `basic_settings` when OpenVox packages should be available for
+# Puppet agent or server installation.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_voxpupuli':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_parent   => 'debian',
+#     os_version  => '12',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes both when
+#   `false`.
+#
+# @param os_parent
+#   Distribution family used in the OpenVox repository suite.
+#
+# @param os_version
+#   Distribution major version appended to the repository suite.
+#
+# @api private
 class basic_settings::package_voxpupuli (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

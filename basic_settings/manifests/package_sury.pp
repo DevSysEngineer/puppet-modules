@@ -1,3 +1,31 @@
+# @summary Manages the Sury/Ondrej PHP APT repository.
+#
+# This private helper writes or removes the PHP package source and signing key.
+# Ubuntu systems use the Ondrej PPA key path; Debian systems install the Sury
+# archive keyring package through a root-only temporary file.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_sury':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes repository
+#   files when `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used to select the repository URL.
+#
+# @api private
 class basic_settings::package_sury (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

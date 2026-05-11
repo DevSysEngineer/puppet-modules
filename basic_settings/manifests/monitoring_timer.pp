@@ -1,3 +1,24 @@
+# @summary Registers monitoring for a systemd timer unit.
+#
+# This defined type installs the shared systemd-timer check when needed and
+# creates an OpenITCOCKPIT custom-check fragment for `<title>.timer`. It is used
+# by the local `basic_settings::systemd_timer` wrapper and by modules that manage
+# operational timers.
+#
+# @example Monitor a systemd timer
+#   basic_settings::monitoring_timer { 'automysqlbackup': }
+#
+# @param ensure
+#   Controls whether the check registration is present or absent.
+#
+# @param friendly
+#   Human-readable check name. `undef` uses a capitalized resource title.
+#
+# @param package
+#   Monitoring package override. `undef` inherits `basic_settings::monitoring`
+#   when that class is declared.
+#
+# @api public
 define basic_settings::monitoring_timer (
   Enum['present','absent']  $ensure     = present,
   Optional[String]          $friendly   = undef,

@@ -1,3 +1,32 @@
+# @summary Manages a RabbitMQ binding through rabbitmqadmin.
+#
+# This defined type requires `rabbitmq::management` and declares or deletes a
+# binding between an exchange and queue. It also reconciles the routing key when
+# one is supplied.
+#
+# @example Bind an exchange to a queue
+#   rabbitmq::management_binding { 'failure_binding':
+#     source      => 'failure_exchange',
+#     destination => 'failure_messages',
+#     routing_key => 'failure',
+#   }
+#
+# @param destination
+#   Binding destination, usually a queue name.
+#
+# @param source
+#   Binding source, usually an exchange name.
+#
+# @param ensure
+#   Creates the binding when `present`; deletes it when `absent`.
+#
+# @param routing_key
+#   Optional routing key for the binding.
+#
+# @param vhost
+#   RabbitMQ virtual host where the binding is managed. The default is `/`.
+#
+# @api public
 define rabbitmq::management_binding (
   String                      $destination,
   String                      $source,

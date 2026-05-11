@@ -1,3 +1,52 @@
+# @summary Enables RabbitMQ management and manages local admin access.
+#
+# This class requires `rabbitmq`, enables the management plugin, optionally
+# creates the `guest` administrator account, writes management listener
+# configuration, installs `rabbitmqadmin`, creates the default vhost, and adds
+# monitoring and audit coverage. TLS for the management listener can be supplied
+# directly or inherited from `rabbitmq::tcp`.
+#
+# @example Enable management with a non-default admin password
+#   class { 'rabbitmq::management':
+#     admin_password     => 'change-me',
+#     default_queue_type => 'quorum',
+#   }
+#
+# @param admin_config_path
+#   Path to the generated `rabbitmqadmin` config file.
+#
+# @param admin_enable
+#   Creates the `guest` admin user, permissions, config file, and CLI when
+#   `true`; removes the CLI when `false`.
+#
+# @param admin_password
+#   Password assigned to the generated `guest` admin account.
+#
+# @param default_queue_type
+#   Default queue type configured for the `/` vhost.
+#
+# @param port
+#   Plain HTTP management listener port.
+#
+# @param ssl_ca_certificate
+#   Optional CA certificate path for the HTTPS management listener.
+#
+# @param ssl_certificate
+#   Optional certificate path for the HTTPS management listener.
+#
+# @param ssl_certificate_key
+#   Optional private key path for the HTTPS management listener.
+#
+# @param ssl_ciphers
+#   Optional TLS cipher configuration for the HTTPS management listener.
+#
+# @param ssl_port
+#   HTTPS management listener port.
+#
+# @param ssl_protocols
+#   Optional TLS protocol list for the HTTPS management listener.
+#
+# @api public
 class rabbitmq::management (
   String              $admin_config_path      = '/etc/rabbitmq/rabbitmqadmin.conf',
   Boolean             $admin_enable           = true,

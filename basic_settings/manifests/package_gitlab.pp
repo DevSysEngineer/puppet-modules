@@ -1,3 +1,30 @@
+# @summary Manages the GitLab EE upstream APT repository.
+#
+# This private helper writes or removes the GitLab package source and signing
+# key. It is called by `basic_settings` after OS support has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_gitlab':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes both when
+#   `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used in the repository URL.
+#
+# @api private
 class basic_settings::package_gitlab (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

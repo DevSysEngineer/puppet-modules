@@ -1,3 +1,29 @@
+# @summary Installs development tooling and audit coverage for compiler use.
+#
+# This class installs the small development toolchain used by the repository,
+# optionally pins a GCC version, removes unrelated LXD bootstrap tooling, and
+# registers audit rules for compilers and build tools when auditd is available.
+# Changing the GCC version can purge other GCC packages that this class knows how
+# to replace.
+#
+# @example Install the default development tools
+#   include basic_settings::development
+#
+# @example Install a specific GCC version
+#   class { 'basic_settings::development':
+#     gcc_version => 14,
+#   }
+#
+# @param gcc_version
+#   Optional GCC major version to install alongside the generic `gcc` package.
+#   `undef` installs only the default GCC package. Supported cleanup logic exists
+#   for the versions explicitly handled in the manifest.
+#
+# @param install_options
+#   Additional APT install options passed to the `git` package. The class always
+#   adds `--no-install-recommends` and `--no-install-suggests`.
+#
+# @api public
 class basic_settings::development (
   Optional[Integer]   $gcc_version        = undef,
   Array               $install_options    = []

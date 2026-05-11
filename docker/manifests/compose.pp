@@ -1,3 +1,74 @@
+# @summary Deploys and monitors one Docker Compose project as a systemd service.
+#
+# This defined type creates a root-only project directory under `/opt/docker`,
+# manages optional `.env` content, syncs and validates a Compose file from an
+# HTTPS, local file, or Puppet file-server source, and creates a
+# `docker-compose-<title>.service` when the shared systemd wrapper is available.
+# It also registers a stack-level monitoring check so container health can be
+# evaluated separately from the orchestration unit.
+#
+# @example Deploy a Compose stack from a Puppet file source
+#   docker::compose { 'example':
+#     compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
+#   }
+#
+# @example Deploy a stack with sensitive environment content
+#   docker::compose { 'example':
+#     compose_source => 'file:///srv/puppet/example/docker-compose.yml',
+#     env_content    => Sensitive("COMPOSE_PROJECT_NAME=example\n"),
+#   }
+#
+# @param compose_checksum
+#   Optional SHA256 checksum for the Compose file. This is most useful for HTTPS
+#   sources where unexpected upstream changes should fail the Puppet run.
+#
+# @param compose_source
+#   Compose file source. Must start with `https://`, `file:///`, or
+#   `puppet:///` when `ensure` is `present`.
+#
+# @param ensure
+#   Controls whether the Compose project directory and service are present or
+#   absent.
+#
+# @param env_content
+#   Optional `.env` file content. Strings are wrapped in `Sensitive`; explicit
+#   `Sensitive[String]` values are passed through.
+#
+# @param env_source
+#   Optional Puppet-compatible source for the `.env` file. When set, it takes
+#   precedence over `env_content`.
+#
+# @param monitoring_detail_limit
+#   Maximum number of long-output detail lines emitted by the Compose monitoring
+#   check.
+#
+# @param monitoring_expected_exited
+#   Container names that are allowed to be exited without making the stack
+#   critical, such as one-shot migration containers.
+#
+# @param monitoring_health_required
+#   Container names that must have a healthy Docker health state.
+#
+# @param monitoring_interval
+#   Monitoring interval in seconds for the Compose stack check.
+#
+# @param monitoring_orphan_critical
+#   Treats orphaned Compose containers as critical when `true`.
+#
+# @param monitoring_profiles
+#   Compose profiles passed to the monitoring check.
+#
+# @param monitoring_starting_grace
+#   Grace period in seconds before starting containers are considered a problem.
+#
+# @param monitoring_timeout
+#   Timeout in seconds for the Compose stack monitoring check.
+#
+# @param target
+#   `basic_settings::systemd` target suffix that should bind to the generated
+#   Compose service. The default is `services`.
+#
+# @api public
 define docker::compose (
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]      $compose_checksum            = undef,
   Optional[String]                              $compose_source              = undef,

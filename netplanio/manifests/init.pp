@@ -1,3 +1,14 @@
+# @summary Installs netplan.io and prepares shared netplan defaults.
+#
+# This class ensures the netplan package is available, derives DHCP, IPv6 router
+# advertisement, IP-version, and renderer defaults from `basic_settings` when
+# present, removes the cloud-init netplan file, exposes a refresh-only
+# `netplan apply` exec, and adds audit rules for `/etc/netplan`.
+#
+# @example Prepare netplan management
+#   include netplanio
+#
+# @api public
 class netplanio (
 ) {
   # Check if systemd is not installed

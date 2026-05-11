@@ -1,3 +1,44 @@
+# @summary Manages RabbitMQ AMQP TCP and TLS listener configuration.
+#
+# This class requires `rabbitmq` and writes `/etc/rabbitmq/conf.d/tcp.conf`.
+# When all certificate paths are provided, TLS is enabled and plain TCP follows
+# `tcp_enable`; otherwise TLS is disabled and plain TCP is forced on so the
+# broker remains reachable.
+#
+# @example Enable TLS and disable plain TCP
+#   class { 'rabbitmq::tcp':
+#     ssl_ca_certificate  => '/etc/rabbitmq/ssl/ca.pem',
+#     ssl_certificate     => '/etc/rabbitmq/ssl/cert.pem',
+#     ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
+#     tcp_enable          => false,
+#   }
+#
+# @param ssl_ca_certificate
+#   Optional CA certificate path for TLS listeners.
+#
+# @param ssl_certificate
+#   Optional certificate path for TLS listeners.
+#
+# @param ssl_certificate_key
+#   Optional private key path for TLS listeners.
+#
+# @param ssl_ciphers
+#   TLS cipher list rendered into RabbitMQ configuration.
+#
+# @param ssl_port
+#   TLS AMQP listener port.
+#
+# @param ssl_protocols
+#   TLS protocol list rendered into RabbitMQ configuration.
+#
+# @param tcp_enable
+#   Enables the plain TCP listener when TLS is available. Plain TCP is forced on
+#   when TLS certificate inputs are incomplete.
+#
+# @param tcp_port
+#   Plain AMQP listener port.
+#
+# @api public
 class rabbitmq::tcp (
   Optional[String]    $ssl_ca_certificate     = undef,
   Optional[String]    $ssl_certificate        = undef,

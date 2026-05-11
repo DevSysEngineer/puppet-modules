@@ -1,3 +1,26 @@
+# @summary Installs and configures PHP-FPM for the selected PHP 8 version.
+#
+# This class requires `php8`, installs the matching FPM package, disables vendor
+# enablement, applies systemd hardening, integrates with Nginx and monitoring
+# when present, owns the FPM global config and pool directory, writes custom INI
+# settings, and registers logrotate for the FPM log.
+#
+# @example Configure PHP-FPM
+#   class { 'php8::fpm':
+#     ini_settings => { 'memory_limit' => '256M' },
+#   }
+#
+# @param errorlog
+#   Optional FPM error log path. `undef` uses the versioned default under
+#   `/var/log`.
+#
+# @param ini_settings
+#   Hash of INI settings rendered into the FPM custom settings file.
+#
+# @param pidfile
+#   Optional FPM PID file path. `undef` uses the versioned default under `/run`.
+#
+# @api public
 class php8::fpm (
   Optional[String]    $errorlog       = undef,
   Hash                $ini_settings   = {},

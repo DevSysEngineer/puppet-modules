@@ -1,3 +1,100 @@
+# @summary Applies kernel, boot, sysctl, CPU, USB, and hardware hardening settings.
+#
+# This class manages kernel-related packages and configuration for Debian and
+# Ubuntu servers. It owns sysctl files, bootloader configuration, optional
+# hugepage setup, kernel lockdown, MGLRU, TCP tuning, selected hardware tools,
+# guest-agent packages, USB monitoring input, and audit rules for kernel-sensitive
+# commands. Several settings directly affect boot behavior and should be changed
+# only after validating the target hardware and virtualization platform.
+#
+# @example Use the default hardened kernel profile
+#   include basic_settings::kernel
+#
+# @example Enable hugepages and use an explicit lockdown mode
+#   class { 'basic_settings::kernel':
+#     hugepages         => 1024,
+#     security_lockdown => 'integrity',
+#   }
+#
+# @param antivirus_package
+#   Optional antivirus integration name. Some values loosen lockdown behavior
+#   where the antivirus package needs kernel access.
+#
+# @param bootloader
+#   Bootloader family to manage. The default is `grub`; unsupported values skip
+#   bootloader-specific management.
+#
+# @param connection_max
+#   Connection backlog value used by sysctl templates and by consumers that
+#   inherit kernel connection limits. The default is 4096.
+#
+# @param cpu_governor
+#   CPU governor policy used for physical hosts. The default is `performance`.
+#
+# @param guest_agent_enable
+#   Installs the detected VM guest agent when `true`; purges it when `false`.
+#
+# @param hardware_passthrough
+#   Overrides whether firmware and hardware-passthrough tooling is managed.
+#   `undef` enables it on physical hosts and disables it on virtual machines.
+#
+# @param hugepages
+#   Number of hugepages to configure. Values greater than zero create the
+#   `hugetlb` group and related systemd/sysctl handling.
+#
+# @param install_options
+#   Additional APT install options for selected kernel-related packages.
+#
+# @param ip_ra_enable
+#   Controls IPv6 router advertisement handling in generated sysctl and network
+#   defaults.
+#
+# @param ip_ra_learn_prefix
+#   Controls whether router-advertised prefixes are learned when RA support is
+#   active.
+#
+# @param ip_regdom
+#   Wireless regulatory domain used by kernel templates. The default is `NL`.
+#
+# @param ip_version
+#   Selects IPv4-only (`4`) or dual-stack (`all`) behavior for kernel and
+#   network templates.
+#
+# @param mglru_enable
+#   Controls Multi-Gen LRU. `true` uses the default `min_ttl_ms` of 1000,
+#   `false` disables MGLRU, and an integer sets a custom `min_ttl_ms`.
+#
+# @param network_mode
+#   Kernel network hardening mode consumed by the sysctl templates.
+#
+# @param ram_disk_package
+#   Selects the initramfs implementation to install and retain. Valid values are
+#   `initramfs` and `dracut`.
+#
+# @param security_lockdown
+#   Controls kernel lockdown. `true` resolves to `integrity`, `false` resolves
+#   to `none`, and a string is written as the explicit requested mode. Secure
+#   Boot enforces at least `integrity`.
+#
+# @param tcp_congestion_control
+#   TCP congestion-control mode. The `bbr` value writes the BBR sysctl snippet
+#   when kernel support is present; other values remove that snippet.
+#
+# @param tcp_fastopen
+#   TCP Fast Open sysctl value used by kernel templates and consumers. The
+#   default is 3.
+#
+# @param usb_any_requirements
+#   USB monitoring entries where any one matching device satisfies the
+#   requirement.
+#
+# @param usb_expected
+#   USB monitoring entries expected to be present.
+#
+# @param usb_whitelist
+#   USB monitoring entries allowed without raising an unauthorized-device alert.
+#
+# @api public
 class basic_settings::kernel (
   Optional[String]            $antivirus_package          = undef,
   String                      $bootloader                 = 'grub',

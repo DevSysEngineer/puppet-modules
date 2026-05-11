@@ -1,3 +1,38 @@
+# @summary Installs GitLab EE and integrates it with local systemd, monitoring, and audit policy.
+#
+# This class installs GitLab EE with the provided initial root credentials,
+# optionally relocates `/opt/gitlab`, manages the SSL directory, disables vendor
+# service enablement when systemd integration is available, binds GitLab into the
+# shared target ladder, adds monitoring, and installs audit exclusions for known
+# GitLab runtime behavior. The root password is used during installation and is
+# passed to the install command as sensitive content.
+#
+# @example Install GitLab with an explicit FQDN
+#   class { 'gitlab':
+#     root_password => 'change-me',
+#     server_fdqn   => 'gitlab.example.org',
+#   }
+#
+# @param root_password
+#   Initial GitLab root password used by the package install command.
+#
+# @param install_dir
+#   Optional replacement target for `/opt/gitlab`. When set, the class creates
+#   the directory and symlinks `/opt/gitlab` to it.
+#
+# @param nice_level
+#   Positive nice value converted to a negative service priority in the systemd
+#   drop-in. The default is 12.
+#
+# @param root_email
+#   Initial GitLab root email. `undef` inherits monitoring mail when available,
+#   otherwise uses `root@<server_fdqn>`.
+#
+# @param server_fdqn
+#   External GitLab FQDN used for `EXTERNAL_URL`. `undef` inherits
+#   `basic_settings::server_fdqn` or the Facter FQDN.
+#
+# @api public
 class gitlab (
   String              $root_password,
   Optional[String]    $install_dir    = undef,

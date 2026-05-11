@@ -1,3 +1,23 @@
+# @summary Manages a RabbitMQ exchange through rabbitmqadmin.
+#
+# This defined type requires `rabbitmq::management` and declares, deletes, or
+# reconciles an exchange in the selected vhost.
+#
+# @example Create a direct exchange
+#   rabbitmq::management_exchange { 'failure_exchange':
+#     type => 'direct',
+#   }
+#
+# @param ensure
+#   Creates the exchange when `present`; deletes it when `absent`.
+#
+# @param type
+#   Exchange type passed to RabbitMQ, such as `direct`, `topic`, or `fanout`.
+#
+# @param vhost
+#   RabbitMQ virtual host where the exchange is managed. The default is `/`.
+#
+# @api public
 define rabbitmq::management_exchange (
   Enum['present','absent']    $ensure     = present,
   String                      $type       = 'direct',

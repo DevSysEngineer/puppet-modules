@@ -1,3 +1,20 @@
+# @summary Manages one Naemon hostgroup configuration file.
+#
+# This defined type writes a hostgroup configuration file below the directory
+# prepared by the `naemon` class and notifies the `naemon` service.
+#
+# @example Add a hostgroup
+#   naemon::hostgroup { 'webservers':
+#     description => 'Web servers',
+#   }
+#
+# @param description
+#   Optional hostgroup description. `undef` lets the template choose its default.
+#
+# @param ensure
+#   Controls whether the hostgroup configuration is present or absent.
+#
+# @api public
 define naemon::hostgroup (
   Optional[String]          $description = undef,
   Enum['present','absent']  $ensure      = present

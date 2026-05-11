@@ -1,3 +1,61 @@
+# @summary Manages a root-owned logrotate snippet.
+#
+# This defined type writes `/etc/logrotate.d/<title>` from the module template
+# and ensures the logrotate package and configuration directory exist when they
+# are not already managed. It centralizes the repository's secure logrotate file
+# ownership and mode defaults.
+#
+# @example Rotate an application log daily
+#   basic_settings::io_logrotate { 'example-app':
+#     frequency => 'daily',
+#     path      => '/var/log/example/*.log',
+#   }
+#
+# @param frequency
+#   Rotation frequency accepted by logrotate. Valid values are `daily`, `weekly`,
+#   or `monthly`.
+#
+# @param path
+#   One or more log paths rendered into the logrotate stanza. Multiline strings
+#   may be used for multiple paths.
+#
+# @param compress
+#   Enables log compression when `true`. The default is `true`.
+#
+# @param compress_delay
+#   Enables delayed compression when `true`, leaving the most recent rotated log
+#   uncompressed. The default is `false`.
+#
+# @param create_group
+#   Group used by the logrotate `create` directive. The default is `root`.
+#
+# @param create_mode
+#   Mode used by the logrotate `create` directive. The default is `600`.
+#
+# @param create_user
+#   Optional user used by the logrotate `create` directive. When omitted, the
+#   template uses the module default behavior.
+#
+# @param ensure
+#   Controls whether the logrotate snippet is present or absent.
+#
+# @param rotate
+#   Optional rotation count. `undef` inherits `basic_settings::io::log_rotate`
+#   when available, otherwise it falls back to 12.
+#
+# @param rotate_copy
+#   Enables copy-based rotation when `true`. The default is `false`.
+#
+# @param rotate_post
+#   Optional post-rotate script body rendered into the stanza.
+#
+# @param skip_empty
+#   Skips empty log files when `true`. The default is `true`.
+#
+# @param skip_missing
+#   Ignores missing log files when `true`. The default is `true`.
+#
+# @api public
 define basic_settings::io_logrotate (
   Enum['daily','weekly', 'monthly']   $frequency,
   String                              $path,

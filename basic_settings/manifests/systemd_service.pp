@@ -1,3 +1,58 @@
+# @summary Manages a generated systemd service unit and optional monitoring.
+#
+# This defined type writes `/etc/systemd/system/<title>.service` from the shared
+# template, controls the service enablement state, registers service monitoring
+# when requested, and automatically adds an npm audit check for Node.js services
+# with a known working directory. Service hardening is supplied explicitly by the
+# caller through the `service` hash.
+#
+# @example Create a hardened oneshot service
+#   basic_settings::systemd_service { 'example':
+#     description => 'Example task',
+#     service     => {
+#       'ExecStart' => '/usr/local/sbin/example',
+#       'Type'      => 'oneshot',
+#     },
+#   }
+#
+# @param description
+#   Human-readable service description rendered into the unit.
+#
+# @param daemon_reload
+#   Exec resource title notified after the service file changes.
+#
+# @param enable
+#   Controls whether the service is enabled when `ensure` is `present`.
+#
+# @param ensure
+#   Controls whether the generated service unit is present or absent.
+#
+# @param install
+#   Key/value settings rendered into the `[Install]` section.
+#
+# @param monitoring_active_days
+#   Optional active-day expression passed to generated service monitoring.
+#
+# @param monitoring_active_windows
+#   Optional active-window expression passed to generated service monitoring.
+#
+# @param monitoring_enable
+#   Enables generated monitoring when set to `true`. `undef` leaves monitoring
+#   absent.
+#
+# @param monitoring_package
+#   Monitoring backend package passed to `basic_settings::monitoring_service`.
+#
+# @param service
+#   Key/value settings rendered into the `[Service]` section.
+#
+# @param service_subscribe
+#   Optional resources subscribed by the Puppet `service` resource.
+#
+# @param unit
+#   Key/value settings rendered into the `[Unit]` section.
+#
+# @api public
 define basic_settings::systemd_service (
   String                    $description,
   String                    $daemon_reload              = 'systemd_daemon_reload',

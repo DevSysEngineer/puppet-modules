@@ -1,3 +1,82 @@
+# @summary Installs and configures the OpenITCOCKPIT monitoring agent.
+#
+# This class manages the OpenITCOCKPIT agent package, service wiring, custom
+# check directories, persistent check state, `customchecks.ini`, and
+# `/etc/openitcockpit-agent/config.ini`. Defaults are conservative: the agent
+# binds to localhost, Prometheus export is disabled, and push-mode TLS
+# verification is enabled.
+#
+# @example Configure push mode
+#   class { 'openitcockpit::agent':
+#     push_enable => true,
+#     push_url    => 'https://monitoring.example.org',
+#     push_apikey => Sensitive('token'),
+#   }
+#
+# @param bind_address
+#   Address used by the agent webserver. The default is `127.0.0.1`.
+#
+# @param cpustats_enable
+#   Enables CPU statistics collection.
+#
+# @param diskstats_enable
+#   Enables disk statistics collection.
+#
+# @param dockerstats_enable
+#   Enables Docker statistics collection.
+#
+# @param ensure
+#   Installs and configures the agent when `present`; purges the package when
+#   `absent`.
+#
+# @param libvirt_enable
+#   Enables libvirt statistics collection.
+#
+# @param memory_enable
+#   Enables memory statistics collection.
+#
+# @param netstats_enable
+#   Enables network statistics collection.
+#
+# @param ntp_enable
+#   Enables NTP statistics collection.
+#
+# @param processstats_enable
+#   Enables process statistics collection.
+#
+# @param prometheus_enable
+#   Enables the Prometheus exporter when `true`. The default is `false`.
+#
+# @param proxy
+#   Optional proxy URL rendered into the agent configuration.
+#
+# @param push_apikey
+#   Sensitive API key used for push mode. Push mode is only enabled when this,
+#   `push_url`, and `push_enable` are all set.
+#
+# @param push_enable
+#   Enables push mode when `true` and the required URL/API key are present.
+#
+# @param push_url
+#   OpenITCOCKPIT server URL used for push mode.
+#
+# @param sensorstats_enable
+#   Optional sensor statistics override. `undef` enables sensors on physical
+#   hosts and disables them on virtual machines.
+#
+# @param services_enable
+#   Enables service statistics collection.
+#
+# @param swap_enable
+#   Enables swap statistics collection.
+#
+# @param userstats_enable
+#   Enables user statistics collection.
+#
+# @param verify_server_certificate
+#   Verifies the server certificate in push mode when `true`.
+#
+# @api public
 class openitcockpit::agent (
   String                      $bind_address               = '127.0.0.1',
   Boolean                     $cpustats_enable            = true,

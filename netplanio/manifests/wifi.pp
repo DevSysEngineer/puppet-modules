@@ -1,3 +1,40 @@
+# @summary Manages one netplan WiFi YAML file.
+#
+# This defined type renders `/etc/netplan/<title>.yaml` for a WiFi interface,
+# installs `wpasupplicant` when needed, stores generated WiFi configuration as
+# sensitive content, and disables runtime power management for the interface
+# device to avoid connectivity problems.
+#
+# @example Configure a DHCP WiFi interface
+#   netplanio::wifi { 'wlan0':
+#     access_points => {
+#       'ExampleSSID' => { 'password' => 'change-me' },
+#     },
+#   }
+#
+# @param access_points
+#   Netplan access point hash. This can contain WiFi passwords and is rendered as
+#   sensitive file content.
+#
+# @param addresses
+#   Optional list of addresses rendered into the interface configuration.
+#
+# @param dhcp_enable
+#   Optional DHCP override. `undef` inherits the class-level default.
+#
+# @param ensure
+#   Controls whether the netplan file is present or absent.
+#
+# @param interface
+#   Interface name rendered into the YAML. `undef` uses the resource title.
+#
+# @param ip_version
+#   Optional IP-version override. `undef` inherits the class-level default.
+#
+# @param optional
+#   Sets the netplan `optional` flag for the interface.
+#
+# @api public
 define netplanio::wifi (
   Hash                      $access_points,
   Optional[Array]           $addresses       = undef,
@@ -76,7 +113,7 @@ define netplanio::wifi (
         require => Package['netplan.io'],
       }
 
-      # Forceer runtime power management van de WiFi device op "on"
+      # Force WiFi runtime power management to "on" for stable connectivity.
       # Escape the sysfs path before writing to it from an exec command.
       $runtime_pm_file_shell = stdlib::shell_escape("/sys/class/net/${name}/device/power/control")
       exec { "netplan_${name}_runtime_pm":

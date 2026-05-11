@@ -1,3 +1,22 @@
+# @summary Installs PHP CLI configuration and optional Composer.
+#
+# This class requires `php8`, installs the matching CLI package, writes CLI INI
+# settings, optionally sets the default `php` alternative, and can install
+# Composer after verifying the installer signature in a root-only temporary
+# directory.
+#
+# @example Configure PHP CLI with Composer
+#   class { 'php8::cli':
+#     ini_settings => { 'memory_limit' => '256M' },
+#   }
+#
+# @param composer_enable
+#   Downloads, verifies, and installs Composer when `true`.
+#
+# @param ini_settings
+#   Hash of INI settings rendered into the CLI custom settings file.
+#
+# @api public
 class php8::cli (
   Boolean   $composer_enable    = true,
   Hash      $ini_settings       = {}

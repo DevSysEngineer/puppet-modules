@@ -1,3 +1,26 @@
+# @summary Manages timezone and systemd-timesyncd NTP configuration.
+#
+# This class installs and enables systemd-timesyncd when systemd is available,
+# renders `/etc/systemd/timesyncd.conf`, removes competing NTP packages, adds a
+# monitoring check when monitoring is active, and delegates timezone setting to
+# the vendored `timezone` module.
+#
+# @example Set the server timezone
+#   class { 'basic_settings::timezone':
+#     timezone => 'Europe/Amsterdam',
+#   }
+#
+# @param timezone
+#   Timezone name passed to the `timezone` module, such as `UTC` or
+#   `Europe/Amsterdam`.
+#
+# @param install_options
+#   Additional APT install options merged into systemd-timesyncd installation.
+#
+# @param ntp_extra_pools
+#   Additional NTP pools prepended to the OS default pool list.
+#
+# @api public
 class basic_settings::timezone (
   String              $timezone,
   Array               $install_options = [],

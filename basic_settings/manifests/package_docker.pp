@@ -1,3 +1,32 @@
+# @summary Manages the Docker upstream APT repository.
+#
+# This private helper writes or removes the Docker APT source and signing key,
+# supporting both classic `.list` files and deb822 `.sources` files. It is called
+# by `basic_settings` after OS support has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_docker':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes both when
+#   `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used in the repository URL, such as `debian` or
+#   `ubuntu`.
+#
+# @api private
 class basic_settings::package_docker (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

@@ -1,3 +1,16 @@
+# @summary Enables a RabbitMQ plugin idempotently.
+#
+# This defined type requires `rabbitmq`, enables the named plugin with
+# `rabbitmq-plugins`, can notify another resource after enablement, and preserves
+# RabbitMQ's enabled plugin file with service notification.
+#
+# @example Enable the management plugin
+#   rabbitmq::plugin { 'rabbitmq_management': }
+#
+# @param notify_target
+#   Optional resource reference notified when the plugin enable command runs.
+#
+# @api public
 define rabbitmq::plugin (
   Optional[Type] $notify_target = undef,
 ) {

@@ -1,3 +1,55 @@
+# @summary Manages one PHP-FPM pool configuration.
+#
+# This defined type requires `php8::fpm` and writes
+# `/etc/php/8.<minor>/fpm/pool.d/<title>.conf`. It resolves the socket path from
+# the parent class defaults unless an explicit `listen` value is supplied.
+#
+# @example Create an application pool
+#   php8::fpm_pool { 'app':
+#     user  => 'www-data',
+#     group => 'www-data',
+#   }
+#
+# @param group
+#   Unix group used by the pool worker processes.
+#
+# @param listen
+#   Optional listen socket or address. `undef` uses the module default socket.
+#
+# @param listen_group
+#   Group assigned to the listen socket. Defaults to `group`.
+#
+# @param listen_mode
+#   Mode assigned to the listen socket.
+#
+# @param user
+#   Unix user used by the pool worker processes.
+#
+# @param listen_user
+#   User assigned to the listen socket. Defaults to `user`.
+#
+# @param pm
+#   PHP-FPM process manager mode.
+#
+# @param pm_max_children
+#   Maximum child process count.
+#
+# @param pm_max_requests
+#   Number of requests before a child is recycled. `0` disables recycling.
+#
+# @param pm_max_spare_servers
+#   Maximum spare server count.
+#
+# @param pm_min_spare_servers
+#   Minimum spare server count.
+#
+# @param pm_procidle_timeout
+#   Idle timeout for process manager modes that use it.
+#
+# @param pm_start_servers
+#   Number of child processes started initially.
+#
+# @api public
 define php8::fpm_pool (
   String              $group                  = 'www-data',
   Optional[String]    $listen                 = undef,

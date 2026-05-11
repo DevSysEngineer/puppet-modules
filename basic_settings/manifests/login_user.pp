@@ -1,3 +1,90 @@
+# @summary Manages a local login user, home directory, SSH material, and audit coverage.
+#
+# This defined type creates or removes a local user and optional matching group,
+# manages a tightly permissioned home directory, SSH authorized keys and private
+# key material, optional shell startup files, and audit rules for the user's
+# `.ssh` tree when auditd is available. Passwords are handled as `Sensitive`
+# values and generated files are restricted to the managed user.
+#
+# @example Create a key-only user with a managed home directory
+#   basic_settings::login_user { 'deploy':
+#     gid             => 2000,
+#     home            => '/home/deploy',
+#     password        => Sensitive('!!'),
+#     uid             => 2000,
+#     authorized_keys => ['ssh-ed25519 AAAA... deploy@example'],
+#   }
+#
+# @param gid
+#   Primary group ID for the user and for the matching group when
+#   `disable_group` is `false`.
+#
+# @param home
+#   Absolute home directory path managed for the user when `home_enable` is
+#   `true`.
+#
+# @param password
+#   Password hash or lock marker passed to the Puppet `user` resource as a
+#   `Sensitive[String]`.
+#
+# @param uid
+#   Numeric user ID for the account.
+#
+# @param authorized_keys
+#   Optional list of SSH public keys written to `authorized_keys`. `undef`
+#   purges SSH keys through the user resource; an empty array creates an empty
+#   managed file.
+#
+# @param bash_aliases
+#   Optional content for `.bash_aliases`. Use `default` to render the module
+#   default template.
+#
+# @param bash_profile
+#   Optional content for `.profile`. Use `default` to render the module default
+#   template.
+#
+# @param bashrc
+#   Optional content for `.bashrc`. Use `default` to render the module default
+#   template, with a root-specific variant for the `root` account.
+#
+# @param disable_group
+#   Prevents management of a matching group when `true`. The default is `false`.
+#
+# @param ensure
+#   Controls whether the user and related files are present or absent.
+#
+# @param groups
+#   Supplementary groups assigned to the user. The default is an empty list.
+#
+# @param home_enable
+#   Controls whether the home directory and SSH/profile files are managed.
+#
+# @param home_force
+#   Passed to managed home directory file resources. Use with care because it can
+#   force removal of unmanaged content when combined with purge/recurse options.
+#
+# @param home_purge
+#   Purges unmanaged files below the home directory when `true` and recursion is
+#   enabled.
+#
+# @param home_recurse
+#   Recurses through the home directory when `true`.
+#
+# @param home_source
+#   Optional Puppet file source used to seed the home directory.
+#
+# @param password_max_age
+#   Optional password maximum age. `undef` selects a default based on whether the
+#   account has SSH keys or a locked password.
+#
+# @param private_key
+#   Optional Puppet file source for `${home}/.ssh/private.key`. The file is
+#   written with mode `0600`.
+#
+# @param shell
+#   Login shell for the account. The default is `/bin/bash`.
+#
+# @api public
 define basic_settings::login_user (
   Integer                             $gid,
   String                              $home,

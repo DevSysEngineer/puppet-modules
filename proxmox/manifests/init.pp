@@ -1,3 +1,15 @@
+# @summary Installs Proxmox VE packages and kernel cleanup on supported Debian hosts.
+#
+# This class expects `basic_settings` platform detection to be available. It
+# installs the selected Proxmox kernel for supported releases, schedules a reboot
+# after kernel installation, installs `proxmox-ve` and `open-iscsi`, removes
+# generic Linux kernel packages, and refreshes GRUB after kernel cleanup.
+#
+# @example Install Proxmox after the basic server baseline
+#   include basic_settings
+#   include proxmox
+#
+# @api public
 class proxmox () {
   case $basic_settings::os_name {
     'bookworm': {
@@ -25,7 +37,7 @@ class proxmox () {
   package { ['proxmox-ve', 'open-iscsi']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
-    require         => Reboot['pre_kernel_after'],
+    require         => Reboot['proxmox_pre_kernel_after'],
   }
 
   # Reload systemd deamon
@@ -41,5 +53,4 @@ class proxmox () {
     require => Package['proxmox-ve'],
     notify  => Exec['proxmox_update_grub'],
   }
-}
 }

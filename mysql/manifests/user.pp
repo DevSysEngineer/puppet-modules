@@ -1,3 +1,35 @@
+# @summary Creates, updates, or removes a MySQL user account.
+#
+# This defined type manages a MySQL account through SQL commands using the
+# defaults file prepared by the `mysql` class. It handles MySQL version-specific
+# password syntax and performs credential checks through root-only temporary
+# files for MySQL 8 style authentication.
+#
+# @example Create a MySQL application user
+#   mysql::user { 'app':
+#     ensure   => present,
+#     username => 'app',
+#     password => 'change-me',
+#   }
+#
+# @param ensure
+#   Creates or updates the user when `present`; drops it when `absent`.
+#
+# @param password
+#   Password assigned to the MySQL user. This parameter is currently a plain
+#   string and should be supplied carefully from trusted profile data.
+#
+# @param username
+#   MySQL username to manage.
+#
+# @param hostname
+#   MySQL host part for the account. The default is `localhost`.
+#
+# @param password_latency
+#   Selects the MySQL 8 password storage path. Use `authentication_string` for
+#   legacy `mysql_native_password`; the default uses MySQL's default method.
+#
+# @api public
 define mysql::user (
   Enum['present','absent']    $ensure,
   String                      $password,

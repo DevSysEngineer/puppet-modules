@@ -1,3 +1,48 @@
+# @summary Installs and configures MySQL plus local automated backups.
+#
+# This class installs the MySQL server package, writes MySQL defaults, manages a
+# root-only grant helper, configures `automysqlbackup`, creates a hardened backup
+# service and timer, integrates with `php8::fpm`, Puppet, systemd targets,
+# monitoring, logrotate, and audit rules when those local modules are available.
+# Backup and root credentials should be supplied from Hiera or profiles as
+# sensitive data.
+#
+# @example Install MySQL with backups and a root password
+#   class { 'mysql':
+#     automysqlbackup_password => Sensitive('backup-password'),
+#     root_password           => 'root-password',
+#   }
+#
+# @param automysqlbackup_password
+#   Password used by the generated automysqlbackup configuration. This value is
+#   sensitive because it can decrypt or protect backup material.
+#
+# @param automysqlbackup_backupdir
+#   Directory where automysqlbackup stores backup output. The default is
+#   `/var/lib/automysqlbackup`.
+#
+# @param automysqlbackup_settings
+#   Hash of settings merged over the module's automysqlbackup defaults.
+#
+# @param nice_level
+#   Positive nice value converted to a negative service priority in the MySQL
+#   systemd drop-in. The default is 12.
+#
+# @param package_name
+#   Service/package family name used for dependencies. The default is `mysql`.
+#
+# @param package_version
+#   MySQL version used when no `basic_settings::package_mysql` class is present.
+#
+# @param root_password
+#   Optional root password managed through `mysql::user`. `undef` leaves root
+#   credentials unmanaged.
+#
+# @param settings
+#   Hash of MySQL server settings merged over the module defaults and rendered
+#   into the MySQL configuration template.
+#
+# @api public
 class mysql (
   Sensitive[String] $automysqlbackup_password,
   String            $automysqlbackup_backupdir  = '/var/lib/automysqlbackup',

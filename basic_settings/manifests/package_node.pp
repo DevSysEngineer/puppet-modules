@@ -1,3 +1,24 @@
+# @summary Manages the NodeSource APT repository and Node.js package.
+#
+# This private helper writes or removes the NodeSource APT source and signing
+# key, installs or purges `nodejs`, refreshes APT on repository changes, and adds
+# audit coverage for npm-related tooling when auditd is present.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_node':
+#     enable  => true,
+#     version => 20,
+#   }
+#
+# @param enable
+#   Creates the repository, imports its key, and installs Node.js when `true`;
+#   removes them when `false`.
+#
+# @param version
+#   Node.js major version used in the NodeSource repository URL. The default is
+#   20.
+#
+# @api private
 class basic_settings::package_node (
   Boolean $enable,
   Integer $version = 20

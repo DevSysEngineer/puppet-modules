@@ -1,3 +1,26 @@
+# @summary Manages a RabbitMQ user and tags.
+#
+# This defined type requires `rabbitmq::management`. It creates or deletes a
+# RabbitMQ user, optionally generates and stores a password in a matching managed
+# local user's home directory, and reconciles RabbitMQ tags.
+#
+# @example Create a monitoring user
+#   rabbitmq::management_user { 'monitoring':
+#     password => 'change-me',
+#     tags     => ['monitoring'],
+#   }
+#
+# @param ensure
+#   Creates the user when `present`; deletes it when `absent`.
+#
+# @param password
+#   Optional user password. `undef` generates a password when a matching
+#   `basic_settings::login_user` resource exists.
+#
+# @param tags
+#   RabbitMQ user tags assigned to the account. The default is `['monitoring']`.
+#
+# @api public
 define rabbitmq::management_user (
   Enum['present','absent']    $ensure     = present,
   Optional[String]            $password   = undef,

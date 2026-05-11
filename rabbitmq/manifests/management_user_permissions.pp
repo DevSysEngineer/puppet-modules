@@ -1,3 +1,32 @@
+# @summary Manages RabbitMQ permissions for one user and virtual host.
+#
+# This defined type requires `rabbitmq::management` and applies configure, write,
+# and read permissions with `rabbitmqctl`.
+#
+# @example Grant read/write access on the default vhost
+#   rabbitmq::management_user_permissions { 'app_default':
+#     user      => 'app',
+#     configure => '',
+#     write     => '.*',
+#     read      => '.*',
+#   }
+#
+# @param user
+#   RabbitMQ user receiving the permissions.
+#
+# @param configure
+#   Configure permission regular expression.
+#
+# @param read
+#   Read permission regular expression.
+#
+# @param vhost
+#   RabbitMQ virtual host where permissions are applied.
+#
+# @param write
+#   Write permission regular expression.
+#
+# @api public
 define rabbitmq::management_user_permissions (
   String $user,
   String $configure   = '.*',

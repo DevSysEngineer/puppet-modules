@@ -1,3 +1,40 @@
+# @summary Prepares shared monitoring plumbing and failure notifications.
+#
+# This class installs mail tooling for systemd failure notifications and, when
+# requested, prepares the OpenITCOCKPIT agent custom-check directory and
+# `customchecks.ini`. Other modules use this class as the central source for
+# monitoring package selection, notification mail, and sudoers-directory policy.
+#
+# @example Enable OpenITCOCKPIT custom checks without installing the agent package
+#   class { 'basic_settings::monitoring':
+#     package => 'openitcockpit',
+#   }
+#
+# @param mail_package
+#   Mail transport service installed and enabled for failure notifications. The
+#   default is `postfix`.
+#
+# @param mail_to
+#   Recipient address for systemd failure notification mail. The default is
+#   `root`.
+#
+# @param package
+#   Monitoring integration to configure. `none` disables generated monitoring
+#   checks; `openitcockpit` writes OpenITCOCKPIT custom-check configuration.
+#
+# @param package_install
+#   Installs and wires the `openitcockpit-agent` package when `true` and
+#   `package` is `openitcockpit`.
+#
+# @param server_fdqn
+#   Fully qualified host name used in notification subjects. The default comes
+#   from Facter.
+#
+# @param sudoers_dir_enable
+#   Mirrors the login sudoers.d ownership policy so generated monitoring sudoers
+#   snippets are named consistently with the rest of the host.
+#
+# @api public
 class basic_settings::monitoring (
   String                        $mail_package         = 'postfix',
   String                        $mail_to              = 'root',

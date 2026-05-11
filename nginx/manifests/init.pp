@@ -1,3 +1,80 @@
+# @summary Installs and configures the Nginx service baseline.
+#
+# This class installs Nginx, removes Apache, optionally installs the Certbot
+# Nginx plugin, disables vendor service enablement under systemd, binds Nginx
+# into the shared target ladder, applies service hardening, manages global Nginx
+# configuration and owned config directories, prepares secure SSL/security
+# fallback directories, and adds monitoring and logrotate integration.
+#
+# @example Install Nginx with default security.txt fallback settings
+#   include nginx
+#
+# @param events_directives
+#   Additional raw directives rendered in the `events` context.
+#
+# @param global_directives
+#   Additional raw directives rendered at the global Nginx context.
+#
+# @param http_directives
+#   Additional raw directives rendered in the `http` context.
+#
+# @param keepalive_requests
+#   Value rendered for `keepalive_requests`.
+#
+# @param keepalive_timeout
+#   Value rendered for `keepalive_timeout`.
+#
+# @param limit_file
+#   `LimitNOFILE` value applied to the Nginx systemd drop-in.
+#
+# @param nice_level
+#   Positive nice value converted to a negative service priority in the systemd
+#   drop-in.
+#
+# @param package
+#   Nginx package flavor to install. `nginx` purges `nginx-full`; `nginx-full`
+#   installs both package names.
+#
+# @param run_group
+#   Runtime group used for writable/cache paths and group-readable security.txt
+#   fallback files.
+#
+# @param run_user
+#   Runtime user used for Nginx log and cache directories.
+#
+# @param securitytxt_contacts
+#   Default security.txt contact list inherited by vhosts when they do not set
+#   vhost-specific contacts.
+#
+# @param securitytxt_enable
+#   Global default controlling whether vhosts create a managed security.txt
+#   fallback.
+#
+# @param securitytxt_encryption
+#   Optional global Encryption URL inherited by vhosts.
+#
+# @param securitytxt_expires_days
+#   Number of days used to calculate security.txt `Expires` values.
+#
+# @param securitytxt_policy
+#   Optional global Policy URL inherited by vhosts.
+#
+# @param securitytxt_preferred_languages
+#   Optional global Preferred-Languages list inherited by vhosts.
+#
+# @param ssl_prefer_server_ciphers
+#   Value rendered into global SSL configuration.
+#
+# @param ssl_protocols
+#   Default TLS protocol string inherited by vhosts when they do not override it.
+#
+# @param target
+#   `basic_settings::systemd` target suffix that should bind to `nginx.service`.
+#
+# @param types_hash_max_size
+#   Value rendered for `types_hash_max_size`.
+#
+# @api public
 class nginx (
   Array                       $events_directives                = [],
   Array                       $global_directives                = [],

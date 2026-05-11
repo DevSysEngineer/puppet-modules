@@ -1,3 +1,15 @@
+# @summary Installs Naemon integration for OpenITCOCKPIT and manages service wiring.
+#
+# This class installs the OpenITCOCKPIT Naemon package when the OpenITCOCKPIT
+# package is present, prepares the Naemon configuration directory, disables
+# vendor enablement under systemd, binds the service into the shared target
+# ladder, and applies service hardening that still permits the files shared with
+# OpenITCOCKPIT and web-facing tooling.
+#
+# @example Enable Naemon after OpenITCOCKPIT packages are available
+#   include naemon
+#
+# @api public
 class naemon () {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])

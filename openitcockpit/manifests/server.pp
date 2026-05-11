@@ -1,3 +1,54 @@
+# @summary Installs and wires an OpenITCOCKPIT server stack.
+#
+# This class prepares the OpenITCOCKPIT directory layout, optional installation
+# symlink, Grafana password file, frontend and Naemon paths, Nginx snippets,
+# PHP-FPM pool integration, sudo rules, packages, service target bindings,
+# systemd hardening drop-ins, and Grafana admin password reset command. It
+# assumes tight local integration with Nginx, PHP-FPM, Naemon, Docker-based
+# graphing, and the OpenITCOCKPIT package layout.
+#
+# @example Install the server with explicit TLS files
+#   class { 'openitcockpit::server':
+#     grafana_password    => Sensitive('change-me'),
+#     server_fdqn         => 'monitoring.example.org',
+#     ssl_certificate     => '/etc/letsencrypt/live/monitoring/fullchain.pem',
+#     ssl_certificate_key => '/etc/letsencrypt/live/monitoring/privkey.pem',
+#   }
+#
+# @param grafana_password
+#   Sensitive password used to reset the Grafana admin account after
+#   OpenITCOCKPIT installation is complete.
+#
+# @param install_dir
+#   Optional replacement target for `/opt/openitc`. When set, the class creates
+#   the directory and symlinks `/opt/openitc` to it.
+#
+# @param server_fdqn
+#   External server FQDN used by templates. `undef` inherits
+#   `basic_settings::server_fdqn` or the Facter FQDN.
+#
+# @param smtp_server
+#   SMTP server used by frontend mail configuration. `undef` inherits
+#   `basic_settings::smtp_server` or falls back to `127.0.0.1`.
+#
+# @param ssl_certificate
+#   Optional TLS certificate path rendered into the Nginx SSL snippet.
+#
+# @param ssl_certificate_key
+#   Optional TLS private key path rendered into the Nginx SSL snippet.
+#
+# @param webserver_directives
+#   Additional Nginx directives rendered into the OpenITCOCKPIT custom config.
+#
+# @param webserver_gid
+#   Optional webserver group override. `undef` inherits `nginx::run_group` when
+#   Nginx is declared, otherwise uses `www-data`.
+#
+# @param webserver_uid
+#   Optional webserver user override. `undef` inherits `nginx::run_user` when
+#   Nginx is declared, otherwise uses `www-data`.
+#
+# @api public
 class openitcockpit::server (
   Sensitive[String] $grafana_password,
   Optional[String]  $install_dir              = undef,

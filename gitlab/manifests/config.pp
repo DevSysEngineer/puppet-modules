@@ -1,3 +1,61 @@
+# @summary Manages `/etc/gitlab/gitlab.rb` for an installed GitLab instance.
+#
+# This class renders the GitLab omnibus configuration and refreshes
+# `gitlab-ctl reconfigure` when it changes. It depends on the main `gitlab`
+# class so it can reuse the resolved server FQDN and installation state.
+#
+# @example Configure GitLab HTTPS and SSH settings
+#   class { 'gitlab::config':
+#     https               => true,
+#     ssh_host            => 'source.example.org',
+#     ssh_port            => 2222,
+#     ssl_certificate     => '/etc/gitlab/ssl/fullchain.pem',
+#     ssl_certificate_key => '/etc/gitlab/ssl/privkey.pem',
+#   }
+#
+# @param database_shared_buffers
+#   PostgreSQL shared buffer setting rendered into `gitlab.rb`.
+#
+# @param https
+#   Enables HTTPS-related GitLab configuration. When certificates are omitted,
+#   the template enables Let's Encrypt handling.
+#
+# @param logrotate_rotate
+#   Optional logrotate retention count. `undef` inherits
+#   `basic_settings::io::log_rotate` when available, otherwise uses 12.
+#
+# @param puma_max_memory_mb
+#   Puma memory limit in megabytes.
+#
+# @param puma_max_threads
+#   Maximum Puma thread count.
+#
+# @param puma_worker_processes
+#   Number of Puma worker processes.
+#
+# @param sidekiq_concurrency
+#   Sidekiq concurrency value rendered into GitLab config.
+#
+# @param smtp_openssl_verify_mode
+#   SMTP OpenSSL verification mode rendered into GitLab config.
+#
+# @param smtp_server
+#   SMTP server. `undef` inherits `basic_settings::smtp_server` or falls back to
+#   `127.0.0.1`.
+#
+# @param ssh_host
+#   SSH host advertised by GitLab. `undef` uses the resolved GitLab FQDN.
+#
+# @param ssh_port
+#   SSH port advertised by GitLab.
+#
+# @param ssl_certificate
+#   Optional TLS certificate path rendered into GitLab config.
+#
+# @param ssl_certificate_key
+#   Optional TLS private key path rendered into GitLab config.
+#
+# @api public
 class gitlab::config (
   String                $database_shared_buffers    = '256MB',
   Boolean               $https                      = false,

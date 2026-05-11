@@ -1,3 +1,25 @@
+# @summary Manages auditd, AppArmor, AIDE defaults, and security monitoring hooks.
+#
+# This class installs and enables auditd and AppArmor, writes auditd and AIDE
+# configuration files, registers baseline audit rules, creates the `auditmail`
+# systemd service and timer, and adds monitoring checks when the shared
+# monitoring class is active. Antivirus integrations can add audit exclusions and
+# monitoring plugins.
+#
+# @example Enable the default security baseline
+#   include basic_settings::security
+#
+# @param antivirus_package
+#   Optional antivirus integration name. Supported values add package-specific
+#   audit exclusions and monitoring checks.
+#
+# @param mail_to
+#   Recipient used by security notification templates. The default is `root`.
+#
+# @param server_fdqn
+#   Fully qualified host name used by generated security notification content.
+#
+# @api public
 class basic_settings::security (
   Optional[String]  $antivirus_package        = undef,
   String            $mail_to                  = 'root',

@@ -1,3 +1,24 @@
+# @summary Installs systemd and creates the repository target ladder.
+#
+# This class installs systemd and related packages, removes cron/anacron in favor
+# of systemd timers, creates the ordered target ladder used by service modules,
+# and sets the host default target. The target ladder provides predictable
+# ordering for system, storage, services, production, helper, and required-service
+# workloads.
+#
+# @example Create the default target ladder
+#   include basic_settings::systemd
+#
+# @param cluster_id
+#   Prefix for generated target unit names, such as `core-services.target`.
+#
+# @param default_target
+#   Target suffix selected as the system default. The default is `helpers`.
+#
+# @param install_options
+#   Additional APT install options merged into systemd package installation.
+#
+# @api public
 class basic_settings::systemd (
   String              $cluster_id         = 'core',
   String              $default_target     = 'helpers',

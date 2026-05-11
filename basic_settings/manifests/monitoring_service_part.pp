@@ -1,3 +1,40 @@
+# @summary Creates one backend fragment for a systemd service check.
+#
+# This internal helper is called by `basic_settings::monitoring_service` after
+# the parent type has resolved package, friendly-name, and script-path settings.
+# It renders one OpenITCOCKPIT custom-check fragment per service unit.
+#
+# @example Internal use through basic_settings::monitoring_service
+#   basic_settings::monitoring_service { 'mail':
+#     services => ['postfix'],
+#   }
+#
+# @param friendly
+#   Base friendly name resolved by the parent monitoring defined type.
+#
+# @param package
+#   Monitoring backend package. Currently only `openitcockpit` creates output.
+#
+# @param parent_name
+#   Parent check name used to build the generated script section name.
+#
+# @param script_path
+#   Absolute path to the shared systemd service check script.
+#
+# @param active_days
+#   Optional active-day expression passed to the check script.
+#
+# @param active_windows
+#   Optional active-window expression passed to the check script.
+#
+# @param ensure
+#   Controls whether the backend fragment is present or omitted.
+#
+# @param parent_force
+#   Forces use of the parent friendly name and script name even when the checked
+#   service title differs from the parent title.
+#
+# @api private
 define basic_settings::monitoring_service_part (
   String                    $friendly,
   String                    $package,

@@ -1,3 +1,38 @@
+# @summary Registers monitoring for one or more systemd services.
+#
+# This defined type installs the shared systemd-service check when needed and
+# creates OpenITCOCKPIT custom-check fragments for the requested service units.
+# It is used by service modules so monitoring output stays consistent across the
+# repository.
+#
+# @example Monitor one service
+#   basic_settings::monitoring_service { 'nginx': }
+#
+# @example Monitor several services under one friendly name
+#   basic_settings::monitoring_service { 'network':
+#     services => ['systemd-networkd', 'systemd-resolved'],
+#   }
+#
+# @param active_days
+#   Optional active-day expression passed to the check script.
+#
+# @param active_windows
+#   Optional active-window expression passed to the check script.
+#
+# @param ensure
+#   Controls whether the check registration is present or absent.
+#
+# @param friendly
+#   Human-readable check name. `undef` uses a capitalized resource title.
+#
+# @param package
+#   Monitoring package override. `undef` inherits `basic_settings::monitoring`
+#   when that class is declared.
+#
+# @param services
+#   Optional list of systemd service names. `undef` monitors the resource title.
+#
+# @api public
 define basic_settings::monitoring_service (
   Optional[String]          $active_days    = undef,
   Optional[String]          $active_windows = undef,

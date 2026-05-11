@@ -1,3 +1,48 @@
+# @summary Registers a custom monitoring script with the configured monitoring backend.
+#
+# This defined type writes or removes a root-owned plugin script and registers it
+# in OpenITCOCKPIT `customchecks.ini` when that backend is active. It centralizes
+# plugin file permissions, scheduling metadata, and optional sudoers support for
+# checks that need elevated privileges.
+#
+# @example Register a custom OpenITCOCKPIT check
+#   basic_settings::monitoring_custom { 'example':
+#     source   => 'puppet:///modules/profile/check_example',
+#     friendly => 'Example service',
+#     interval => 300,
+#   }
+#
+# @param cmd
+#   Optional arguments appended after the managed script path in the generated
+#   command.
+#
+# @param content
+#   Optional inline script content. Mutually exclusive in practice with `source`.
+#
+# @param ensure
+#   Controls whether the plugin script and registration are present or absent.
+#
+# @param friendly
+#   Human-readable check name. `undef` uses a capitalized resource title.
+#
+# @param interval
+#   Check interval in seconds. The default is 300.
+#
+# @param package
+#   Monitoring package override. `undef` inherits `basic_settings::monitoring`
+#   when that class is declared.
+#
+# @param root_required
+#   Indicates whether the check requires root privileges. When a non-root plugin
+#   owner is used by a backend, this controls sudoers generation.
+#
+# @param source
+#   Optional Puppet file source for the plugin script.
+#
+# @param timeout
+#   Check timeout in seconds. The default is 30.
+#
+# @api public
 define basic_settings::monitoring_custom (
   Optional[String]          $cmd            = undef,
   Optional[String]          $content        = undef,

@@ -1,3 +1,31 @@
+# @summary Manages a RabbitMQ queue through rabbitmqadmin.
+#
+# This defined type requires `rabbitmq::management` and declares, deletes, or
+# reconciles a queue in the selected vhost. It can manage durability, queue type,
+# and arbitrary queue arguments.
+#
+# @example Create a quorum queue
+#   rabbitmq::management_queue { 'jobs':
+#     type => 'quorum',
+#   }
+#
+# @param arguments
+#   Optional RabbitMQ queue arguments. When `type` is set, it is merged into this
+#   hash as `x-queue-type`.
+#
+# @param durable
+#   Controls queue durability. The default is `true`.
+#
+# @param ensure
+#   Creates the queue when `present`; deletes it when `absent`.
+#
+# @param type
+#   Optional queue type, such as `classic` or `quorum`.
+#
+# @param vhost
+#   RabbitMQ virtual host where the queue is managed. The default is `/`.
+#
+# @api public
 define rabbitmq::management_queue (
   Optional[Data]              $arguments  = undef,
   Boolean                     $durable    = true,

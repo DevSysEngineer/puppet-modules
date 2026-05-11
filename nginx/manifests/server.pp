@@ -1,3 +1,248 @@
+# @summary Manages one Nginx virtual host.
+#
+# This defined type renders `/etc/nginx/conf.d/<title>.conf`, optional fallback
+# `security.txt` content, HTTP/HTTPS listeners, redirects, PHP-FPM locations,
+# static or reverse-proxy locations, TLS settings, and secure-by-default response
+# headers. Applications can override or disable individual headers when they
+# intentionally manage those headers themselves. Strict CSP or HSTS settings can
+# break applications that depend on external scripts, stylesheets, APIs, iframes,
+# analytics, or legacy TLS clients, so vhost-specific overrides should be tested.
+#
+# @example Static HTTPS vhost with secure defaults
+#   nginx::server { 'www.example.org':
+#     docroot             => '/var/www/www.example.org',
+#     server_name         => 'www.example.org',
+#     https_enable        => true,
+#     ssl_certificate     => '/etc/letsencrypt/live/www.example.org/fullchain.pem',
+#     ssl_certificate_key => '/etc/letsencrypt/live/www.example.org/privkey.pem',
+#   }
+#
+# @example Reverse proxy with an application-specific CSP
+#   nginx::server { 'app.example.org':
+#     docroot                 => undef,
+#     server_name             => 'app.example.org',
+#     try_files               => false,
+#     content_security_policy => "default-src 'self'; frame-ancestors 'none'",
+#     location_directives     => ['proxy_pass http://127.0.0.1:8080;'],
+#   }
+#
+# @param access_log
+#   Optional access log directive value. `undef` lets the template use its
+#   default behavior.
+#
+# @param acme_enable
+#   Enables ACME challenge handling in the vhost template.
+#
+# @param allow_directories
+#   Controls whether directory access is allowed by the generated root location.
+#
+# @param backlog
+#   Listener backlog behavior. `-1` disables explicit backlog, `0` inherits the
+#   kernel connection limit, and values greater than zero set a custom backlog.
+#
+# @param client_max_body_size
+#   Optional `client_max_body_size` value for the vhost.
+#
+# @param content_security_policy
+#   CSP header value. `true` uses the module default, a string sets a vhost
+#   policy, and `false` disables the managed header.
+#
+# @param default_server
+#   Marks this vhost as the default server for generated listen directives.
+#
+# @param directives
+#   Additional raw directives rendered at the server context.
+#
+# @param docroot
+#   Document root for static/PHP locations. `undef` is common for pure reverse
+#   proxy vhosts.
+#
+# @param error_log
+#   Optional error log directive value.
+#
+# @param fastcgi_read_timeout
+#   Optional PHP FastCGI read timeout.
+#
+# @param fastopen
+#   TCP Fast Open queue length used when the kernel class allows TFO.
+#
+# @param http2_enable
+#   Enables HTTP/2 for HTTPS listeners when certificates are configured.
+#
+# @param http3_enable
+#   Enables HTTP/3 when HTTPS and TLS 1.3 are active.
+#
+# @param http_enable
+#   Creates HTTP listeners when `true`.
+#
+# @param http_ipv6
+#   Creates IPv6 HTTP listeners when `true` and IPv6 is enabled.
+#
+# @param http_port
+#   HTTP listen port.
+#
+# @param https_enable
+#   Creates HTTPS listeners when `true`.
+#
+# @param https_force
+#   Forces HTTP to HTTPS redirects when `true`.
+#
+# @param https_ipv6
+#   Creates IPv6 HTTPS listeners when `true` and IPv6 is enabled.
+#
+# @param https_port
+#   HTTPS listen port.
+#
+# @param ip
+#   Optional IPv4 listen address.
+#
+# @param ipv6
+#   Optional IPv6 listen address.
+#
+# @param keepalive_request_file
+#   Optional file path used by the template for keepalive request handling.
+#
+# @param location_directives
+#   Raw directives rendered in the main location block, often proxy directives.
+#
+# @param location_internal
+#   Marks the main location internal when `true`.
+#
+# @param locations
+#   Additional location hashes rendered by the template.
+#
+# @param php_fpm_directives
+#   Additional raw directives rendered into the PHP-FPM location.
+#
+# @param php_fpm_enable
+#   Enables PHP-FPM location rendering when `true`.
+#
+# @param php_fpm_location
+#   Regex or location expression for PHP requests.
+#
+# @param php_fpm_location_inc
+#   Regex or location expression for PHP include files.
+#
+# @param php_fpm_uri
+#   FastCGI upstream URI, commonly a Unix socket.
+#
+# @param redirect_certificate
+#   Optional certificate path for the redirect server. `undef` inherits the main
+#   certificate when available.
+#
+# @param redirect_certificate_key
+#   Optional key path for the redirect server. `undef` inherits the main key.
+#
+# @param redirect_certificate_trusted
+#   Optional trusted certificate path for the redirect server.
+#
+# @param redirect_from
+#   Optional legacy host name that should redirect to the first `server_name`.
+#
+# @param redirect_http_port
+#   Optional HTTP port for the redirect server.
+#
+# @param redirect_https_port
+#   Optional HTTPS port for the redirect server.
+#
+# @param redirect_ip
+#   Optional IPv4 listen address for the redirect server.
+#
+# @param redirect_ipv6
+#   Optional IPv6 listen address for the redirect server.
+#
+# @param redirect_ssl_ciphers
+#   Optional TLS cipher list for the redirect server.
+#
+# @param redirect_ssl_conf_command
+#   Optional OpenSSL configuration commands for the redirect server.
+#
+# @param redirect_ssl_ocsp
+#   Optional OCSP setting for the redirect server.
+#
+# @param redirect_ssl_protocols
+#   Optional TLS protocol string for the redirect server.
+#
+# @param referrer_policy
+#   Referrer-Policy header value. `true` uses the module default, a string sets a
+#   vhost policy, and `false` disables the managed header.
+#
+# @param restart_service
+#   Notifies the Nginx service when the vhost file changes if `true`.
+#
+# @param reuseport
+#   Enables `reuseport` on generated listen directives.
+#
+# @param securitytxt_contacts
+#   Vhost-specific security.txt contacts. `undef` inherits the class default or
+#   monitoring mail fallback.
+#
+# @param securitytxt_enable
+#   Vhost-specific security.txt switch. `undef` inherits the class default.
+#
+# @param securitytxt_encryption
+#   Optional vhost-specific security.txt Encryption URL.
+#
+# @param securitytxt_expires_days
+#   Optional vhost-specific security.txt expiry window in days.
+#
+# @param securitytxt_policy
+#   Optional vhost-specific security.txt Policy URL.
+#
+# @param securitytxt_preferred_languages
+#   Optional vhost-specific Preferred-Languages list.
+#
+# @param server_name
+#   Space-separated Nginx `server_name` value. `undef` lets the title act as the
+#   primary name for fallback values.
+#
+# @param ssl_buffer_size
+#   Optional `ssl_buffer_size` value.
+#
+# @param ssl_certificate
+#   TLS certificate path for the main HTTPS server.
+#
+# @param ssl_certificate_key
+#   TLS private key path for the main HTTPS server.
+#
+# @param ssl_certificate_trusted
+#   Optional trusted certificate path for OCSP or upstream validation.
+#
+# @param ssl_ciphers
+#   TLS cipher list rendered as a colon-separated string.
+#
+# @param ssl_conf_command
+#   OpenSSL configuration commands rendered for the main HTTPS server.
+#
+# @param ssl_ocsp
+#   Enables OCSP stapling-related template output when `true`.
+#
+# @param ssl_protocols
+#   Optional TLS protocol string. `undef` inherits `nginx::ssl_protocols`.
+#
+# @param ssl_session_cache
+#   Optional `ssl_session_cache` value.
+#
+# @param ssl_session_timeout
+#   Optional `ssl_session_timeout` value.
+#
+# @param strict_transport_security
+#   HSTS header value. `true` uses the module default, a string sets a vhost
+#   value, and `false` disables the managed header.
+#
+# @param try_files
+#   Root-location `try_files` behavior. `true` uses `$uri $uri/ =404`, a string
+#   supplies custom arguments, and `false` omits the directive.
+#
+# @param x_content_type_options
+#   X-Content-Type-Options header value. `true` uses `nosniff`, a string sets a
+#   vhost value, and `false` disables the managed header.
+#
+# @param x_frame_options
+#   X-Frame-Options header value. `true` uses `SAMEORIGIN`, a string sets a
+#   vhost value, and `false` disables the managed header.
+#
+# @api public
 define nginx::server (
   Optional[String]         $access_log                       = undef,
   Boolean                  $acme_enable                      = false,

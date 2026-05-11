@@ -1,3 +1,36 @@
+# @summary Manages the MySQL upstream APT repository, key, and pinning policy.
+#
+# This private helper writes or removes the MySQL package source, repository key,
+# and APT preference file. It supports MySQL version-specific key selection and
+# is called by `basic_settings` after OS support has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_mysql':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#     version     => 8.4,
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository, key, and preference file when `true`; removes them
+#   when `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used in the repository URL.
+#
+# @param version
+#   MySQL version used in repository component and key selection. The default is
+#   8.0.
+#
+# @api private
 class basic_settings::package_mysql (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

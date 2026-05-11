@@ -1,3 +1,35 @@
+# @summary Manages the MongoDB upstream APT repository and server package.
+#
+# This private helper writes or removes the MongoDB package source and signing
+# key, and installs or purges `mongodb-org-server` with the repository state. It
+# is called by `basic_settings` after OS support has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_mongodb':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#     version     => 8.0,
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository, imports its key, and installs the server package when
+#   `true`; removes them when `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used in the repository URL.
+#
+# @param version
+#   MongoDB major version used in the repository path. The default is 8.0.
+#
+# @api private
 class basic_settings::package_mongodb (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

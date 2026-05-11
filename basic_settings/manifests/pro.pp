@@ -1,3 +1,23 @@
+# @summary Manages Ubuntu Pro client packages and optional monitoring tooling.
+#
+# This class applies only on Ubuntu. It installs Ubuntu Pro client packages,
+# preserves the installer-managed ESM APT hook, optionally installs Landscape
+# monitoring tooling, and adds logrotate coverage when logrotate is available.
+#
+# @example Install Ubuntu Pro client packages
+#   class { 'basic_settings::pro':
+#     enable => true,
+#   }
+#
+# @param enable
+#   Indicates that Ubuntu Pro support is desired. When combined with snap support
+#   the class ensures Pro client tooling is installed.
+#
+# @param monitoring_enable
+#   Installs Landscape monitoring packages when `true` and `enable` is also
+#   `true`; purges them otherwise.
+#
+# @api public
 class basic_settings::pro (
   Boolean $enable            = false,
   Boolean $monitoring_enable = false

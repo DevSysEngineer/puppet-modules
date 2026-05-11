@@ -1,3 +1,274 @@
+# @summary Orchestrates the shared baseline for hardened Debian and Ubuntu servers.
+#
+# The main `basic_settings` class is the repository foundation. It manages base
+# APT sources, systemd target composition, monitoring, security tooling, package
+# hygiene, kernel and network defaults, timezone, locale, login policy, Puppet
+# integration, and optional upstream package repositories for local service
+# modules. Many service modules read state from this class when it is present, so
+# changes here can affect service ordering, monitoring, package sources, and host
+# hardening across the catalog.
+#
+# @example Build a web host baseline
+#   class { 'basic_settings':
+#     nginx_enable            => true,
+#     mysql_enable            => true,
+#     monitoring_package      => 'openitcockpit',
+#     monitoring_package_install => true,
+#     systemd_ntp_extra_pools => ['ntp.example.org'],
+#   }
+#
+# @param antivirus_package
+#   Optional antivirus integration name used by kernel, network, package, and
+#   security components for compatibility exceptions.
+#
+# @param backports
+#   Enables the OS backports repository when the detected platform allows it.
+#
+# @param cluster_id
+#   Prefix for generated systemd target names. The default is `core`.
+#
+# @param communication_name
+#   Optional LLDP communication hostname passed to `basic_settings::network`.
+#
+# @param description
+#   Optional host description reserved for profile data and future templates.
+#
+# @param dns_dnssec
+#   DNSSEC mode passed to systemd-resolved configuration.
+#
+# @param docker_enable
+#   Enables management of the Docker upstream APT repository when supported.
+#
+# @param docs_enable
+#   Enables local documentation packages through `basic_settings::locale`.
+#
+# @param environment
+#   Environment label used by login and network templates. The default is
+#   `production`.
+#
+# @param firewall_package
+#   Firewall implementation passed to `basic_settings::network`.
+#
+# @param firewall_remove
+#   Allows the network class to purge competing firewall packages when `true`.
+#
+# @param getty_enable
+#   Controls console getty state through `basic_settings::login`.
+#
+# @param gitlab_enable
+#   Enables management of the GitLab upstream APT repository when supported.
+#
+# @param guest_agent_enable
+#   Enables detected VM guest-agent packages through `basic_settings::kernel`.
+#
+# @param gui_mode
+#   Selects GUI-related package behavior. `none` keeps the host minimal.
+#
+# @param ip_configurator_package
+#   Optional network configuration frontend, currently `none` or `netplan.io`.
+#
+# @param ip_dhcp_enable
+#   Enables DHCP client configuration through the network class.
+#
+# @param ip_ra_enable
+#   Enables IPv6 router advertisement handling when DHCP and IP version settings
+#   allow it.
+#
+# @param ip_ra_learn_prefix
+#   Controls whether router-advertised prefixes are learned by kernel/network
+#   configuration.
+#
+# @param ip_version
+#   Selects IPv4-only (`4`) or dual-stack (`all`) behavior.
+#
+# @param kernel_connection_max
+#   Connection backlog limit passed to kernel templates and consumers.
+#
+# @param kernel_hugepages
+#   Hugepage count passed to the kernel class.
+#
+# @param kernel_mglru_enable
+#   Controls Multi-Gen LRU. `true` uses the default, `false` disables it, and an
+#   integer sets a custom `min_ttl_ms`.
+#
+# @param kernel_network_mode
+#   Kernel network hardening mode passed to sysctl templates.
+#
+# @param kernel_ram_disk_package
+#   Initramfs implementation selected for the kernel class.
+#
+# @param kernel_security_lockdown
+#   Kernel lockdown setting. `true` maps to `integrity`, `false` maps to `none`,
+#   and a string is treated as an explicit lockdown mode.
+#
+# @param kernel_tcp_congestion_control
+#   TCP congestion-control mode passed to `basic_settings::kernel`.
+#
+# @param kernel_tcp_fastopen
+#   TCP Fast Open sysctl value passed to `basic_settings::kernel`.
+#
+# @param keyboard_enable
+#   Optional override for console keyboard management in
+#   `basic_settings::assistent`.
+#
+# @param locale_enable
+#   Enables full locale package management through `basic_settings::locale`.
+#
+# @param lvm_enable
+#   Enables LVM package and audit management through `basic_settings::io`.
+#
+# @param mail_package
+#   Mail transport installed for monitoring and systemd failure notifications.
+#
+# @param mongodb_enable
+#   Enables management of the MongoDB upstream APT repository when supported.
+#
+# @param mongodb_version
+#   MongoDB version used when the MongoDB repository is enabled.
+#
+# @param monitoring_package
+#   Monitoring backend to configure. `none` disables generated monitoring
+#   integration and `openitcockpit` enables OpenITCOCKPIT custom checks.
+#
+# @param monitoring_package_install
+#   Installs the monitoring agent package when the selected backend supports it.
+#
+# @param mozilla_enable
+#   Enables management of the Mozilla APT repository when supported.
+#
+# @param mysql_enable
+#   Enables management of the MySQL upstream APT repository when supported.
+#
+# @param mysql_version
+#   MySQL version used when the MySQL repository is enabled.
+#
+# @param network_interfaces
+#   Interface patterns passed to network and systemd-networkd helpers.
+#
+# @param nginx_enable
+#   Enables management of the official Nginx APT repository when supported.
+#
+# @param nodejs_enable
+#   Enables management of the NodeSource APT repository when supported.
+#
+# @param nodejs_version
+#   Node.js major version used by the NodeSource repository helper.
+#
+# @param non_free
+#   Optional repository flag reserved for platform source templates.
+#
+# @param openitcockpit_enable
+#   Enables management of the OpenITCOCKPIT APT repository when supported.
+#
+# @param openitcockpit_license
+#   Optional OpenITCOCKPIT repository license token written to root-only APT auth.
+#
+# @param openitcockpit_nightly
+#   Uses the OpenITCOCKPIT nightly repository channel when `true`.
+#
+# @param openitcockpit_package
+#   OpenITCOCKPIT repository family to configure, either `agent` or `server`.
+#
+# @param openjdk_enable
+#   Installs OpenJDK packages independently of Puppet Server requirements when
+#   supported.
+#
+# @param openjdk_version
+#   OpenJDK major version to install, or `default` for the OS default JDK.
+#
+# @param pro_enable
+#   Enables Ubuntu Pro client handling through `basic_settings::pro`.
+#
+# @param pro_monitoring_enable
+#   Enables Ubuntu Pro monitoring packages when Pro support is active.
+#
+# @param proxmox_enable
+#   Enables management of the Proxmox APT repository when supported.
+#
+# @param proxy_http
+#   Optional HTTP proxy rendered into APT configuration.
+#
+# @param proxy_https
+#   Optional HTTPS proxy rendered into APT configuration.
+#
+# @param puppet_repo
+#   Optional override for Puppet package layout. `undef` lets the class choose
+#   `remote` when Vox Pupuli is enabled and supported, otherwise `distro`.
+#
+# @param puppetserver_enable
+#   Enables Puppet Server/OpenVox Server package and service integration.
+#
+# @param puppetserver_jvm_memory
+#   JVM heap size passed to `basic_settings::puppet`.
+#
+# @param puppetserver_source
+#   Selects Perforce Puppet packages or Vox Pupuli/OpenVox naming.
+#
+# @param rabbitmq_enable
+#   Enables management of RabbitMQ upstream APT repositories when supported.
+#
+# @param server_fdqn
+#   Fully qualified host name passed to monitoring, security, package, and
+#   network templates. The default comes from Facter.
+#
+# @param server_timezone
+#   Timezone passed to `basic_settings::timezone`. The default is `UTC`.
+#
+# @param smtp_server
+#   SMTP relay hostname used by modules that render application mail settings.
+#
+# @param snap_enable
+#   Enables snapd in package management. Ubuntu Pro may force this on when Pro is
+#   enabled.
+#
+# @param sudoers_dir_enable
+#   Allows `basic_settings::login` to own and purge `/etc/sudoers.d`. Set to
+#   `false` on hosts with existing unmanaged sudoers snippets.
+#
+# @param sury_enable
+#   Enables management of the Sury/Ondrej PHP APT repository when supported.
+#
+# @param systemd_default_target
+#   Target suffix selected as the default target in `basic_settings::systemd`.
+#
+# @param systemd_notify_mail
+#   Mail recipient used by generated systemd failure notifications.
+#
+# @param systemd_ntp_extra_pools
+#   Extra NTP pools passed to `basic_settings::timezone`.
+#
+# @param unattended_upgrades_block_packages
+#   Optional replacement list of packages blocked from unattended upgrades.
+#
+# @param unattended_upgrades_block_packages_extra
+#   Additional package patterns appended to the unattended-upgrades block list.
+#
+# @param unattended_upgrades_reboot
+#   Controls whether unattended-upgrades may reboot the host automatically.
+#
+# @param usb_any_requirements
+#   USB monitoring entries where any one matching device satisfies the
+#   requirement.
+#
+# @param usb_expected
+#   USB monitoring entries expected to be present.
+#
+# @param usb_whitelist
+#   USB monitoring entries allowed without raising an unauthorized-device alert.
+#
+# @param voxpupuli_enable
+#   Enables management of the Vox Pupuli/OpenVox APT repository when supported.
+#
+# @param vulnerabilities_package
+#   Optional vulnerability scanner integration passed to login policy.
+#
+# @param vulnerabilities_user
+#   User account for the vulnerability scanner integration.
+#
+# @param wireless_enable
+#   Enables wireless package support through `basic_settings::network`.
+#
+# @api public
 class basic_settings (
   Optional[String]                      $antivirus_package                          = undef,
   Boolean                               $backports                                  = false,

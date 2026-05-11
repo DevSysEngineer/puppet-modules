@@ -1,3 +1,29 @@
+# @summary Registers an npm audit monitoring check for a Node.js working directory.
+#
+# This defined type adds an OpenITCOCKPIT custom check that runs the shared
+# `check_npm_audit` plugin for one application directory. It is usually created
+# automatically by `basic_settings::systemd_service` when a service starts a
+# Node.js process from a known working directory.
+#
+# @example Monitor a Node.js application directory
+#   basic_settings::monitoring_npm_audit { 'frontend':
+#     dir => '/opt/frontend',
+#   }
+#
+# @param dir
+#   Application directory passed to the npm audit check.
+#
+# @param ensure
+#   Controls whether the check registration is present or absent.
+#
+# @param friendly
+#   Human-readable check name. `undef` uses a capitalized resource title.
+#
+# @param package
+#   Monitoring package override. `undef` inherits `basic_settings::monitoring`
+#   when that class is declared.
+#
+# @api public
 define basic_settings::monitoring_npm_audit (
   String                    $dir,
   Enum['present','absent']  $ensure     = present,

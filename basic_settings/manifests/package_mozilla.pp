@@ -1,3 +1,32 @@
+# @summary Manages the Mozilla APT repository for Debian or Ubuntu.
+#
+# This private helper writes or removes the Mozilla package source and signing
+# key. Ubuntu uses the Mozilla Team PPA; other supported systems use
+# `packages.mozilla.org`. It is called by `basic_settings` after platform support
+# has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_mozilla':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes both when
+#   `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family used to select the correct repository URL.
+#
+# @api private
 class basic_settings::package_mozilla (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

@@ -1,3 +1,59 @@
+# @summary Registers monitoring for a Docker Compose project.
+#
+# This helper builds the command line for the shared `check_compose` plugin and
+# registers it through `basic_settings::monitoring_custom`. It is normally called
+# by `docker::compose`, but can be used directly for externally managed Compose
+# projects that still need the repository's monitoring behavior.
+#
+# @example Monitor an existing Compose project
+#   docker::compose_monitoring { 'example':
+#     project_directory => '/opt/docker/example',
+#     compose_files     => ['/opt/docker/example/docker-compose.yml'],
+#   }
+#
+# @param project_directory
+#   Absolute Compose project directory passed to the monitoring plugin.
+#
+# @param compose_files
+#   Compose file paths passed to the monitoring plugin.
+#
+# @param detail_limit
+#   Maximum number of long-output detail lines emitted by the check.
+#
+# @param ensure
+#   Controls whether the monitoring check is present or absent.
+#
+# @param env_file
+#   Optional `.env` file path passed to the monitoring plugin.
+#
+# @param expected_exited
+#   Container names that are allowed to be exited.
+#
+# @param health_required
+#   Container names that must report a healthy Docker health state.
+#
+# @param interval
+#   Monitoring interval in seconds.
+#
+# @param orphan_critical
+#   Treats orphaned Compose containers as critical when `true`.
+#
+# @param package
+#   Monitoring package override passed to `basic_settings::monitoring_custom`.
+#
+# @param profiles
+#   Compose profiles passed to the monitoring plugin.
+#
+# @param project_name
+#   Optional Compose project name. `undef` lets Docker Compose infer it.
+#
+# @param starting_grace
+#   Grace period in seconds for containers in a starting state.
+#
+# @param timeout
+#   Monitoring timeout in seconds.
+#
+# @api public
 define docker::compose_monitoring (
   Pattern[/\A\/[A-Za-z0-9._\/-]+\z/]            $project_directory,
   Array[String]                                 $compose_files     = [],

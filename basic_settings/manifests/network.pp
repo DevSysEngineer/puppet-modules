@@ -1,3 +1,70 @@
+# @summary Manages firewall, DHCP, systemd-networkd, DNS resolver, LLDP, and network audit policy.
+#
+# This class installs the selected firewall package, removes competing firewall
+# stacks when requested, manages DHCP client behavior, optional netplan and
+# wireless packages, systemd-networkd/resolved drop-ins, networkd-dispatcher
+# hooks, LLDP identity, monitoring checks, and audit rules for network tooling.
+# It reads kernel and monitoring state from `basic_settings` components when
+# they are present.
+#
+# @example Manage the default nftables-based network profile
+#   class { 'basic_settings::network':
+#     firewall_package => 'nftables',
+#   }
+#
+# @param firewall_package
+#   Firewall implementation to install and manage. Valid values are `nftables`,
+#   `iptables`, and `firewalld`.
+#
+# @param antivirus_package
+#   Optional antivirus integration name. Some firewall package combinations are
+#   adjusted for antivirus compatibility.
+#
+# @param capabilities
+#   LLDP capabilities advertised by the host. The default is `['station']`.
+#
+# @param communication_name
+#   Optional hostname advertised through LLDP. `undef` builds a name from the OS
+#   and environment.
+#
+# @param configurator_package
+#   Network configuration frontend to install. `netplan.io` installs netplan;
+#   `none` purges it.
+#
+# @param dhcp_enable
+#   Enables DHCP client configuration when `true`. When `false`, the class can
+#   still retain DHCP tooling if the kernel/initramfs setup needs it.
+#
+# @param dns_dnssec
+#   DNSSEC mode rendered into the systemd-resolved drop-in.
+#
+# @param dns_fallback
+#   Fallback DNS server list rendered into the systemd-resolved drop-in.
+#
+# @param environment
+#   Environment label used in LLDP descriptions. The default is `production`.
+#
+# @param firewall_path
+#   Path to the iptables restore file used by the networkd-dispatcher hook when
+#   `firewall_package` is `iptables`.
+#
+# @param firewall_remove
+#   Purges competing firewall packages when `true`.
+#
+# @param install_options
+#   Additional APT install options merged into selected package resources.
+#
+# @param interfaces
+#   Interface name patterns used for systemd-networkd DHCP and router
+#   advertisement drop-ins.
+#
+# @param server_fdqn
+#   Fully qualified host name used by generated monitoring output.
+#
+# @param wireless_enable
+#   Installs `wpasupplicant` when `true`; purges it when `false`.
+#
+# @api public
 class basic_settings::network (
   Enum['nftables','iptables','firewalld']     $firewall_package,
   Optional[String]                            $antivirus_package      = undef,

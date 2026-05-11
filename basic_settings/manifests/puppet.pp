@@ -1,3 +1,41 @@
+# @summary Manages Puppet agent/server package behavior, systemd integration, cleanup timers, and audit rules.
+#
+# This class disables vendor service enablement, configures Puppet agent and
+# optional Puppet Server/OpenVox Server paths for distro or remote packages,
+# installs cleanup services and timers for filebucket and server reports, adds
+# monitoring where available, and audits Puppet SSL and code directories. Server
+# mode changes service ordering and creates Puppet-owned directories.
+#
+# @example Manage only the Puppet agent integration
+#   include basic_settings::puppet
+#
+# @example Enable a Puppet Server with a smaller JVM heap
+#   class { 'basic_settings::puppet':
+#     jvm_memory    => '1gb',
+#     server_enable => true,
+#   }
+#
+# @param jvm_memory
+#   JVM heap size rendered for Puppet Server/OpenVox Server. Valid values are
+#   `512mb`, `1gb`, and `2gb`.
+#
+# @param repo
+#   Package layout to use. `distro` uses distribution paths and `remote` uses
+#   Puppet Labs/OpenVox-style `/opt/puppetlabs` paths.
+#
+# @param server_dirname
+#   Directory name used for server configuration and state paths. The default is
+#   `puppetserver`.
+#
+# @param server_enable
+#   Installs and configures the selected Puppet server package when `true`.
+#   `false` manages only agent-side behavior.
+#
+# @param server_package
+#   Puppet server package to install when server mode is enabled. The value also
+#   controls the service name mapping.
+#
+# @api public
 class basic_settings::puppet (
   Enum['512mb','1gb','2gb']             $jvm_memory         = '2gb',
   Enum['distro', 'remote']              $repo               = 'distro',

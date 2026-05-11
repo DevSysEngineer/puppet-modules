@@ -1,3 +1,42 @@
+# @summary Manages OpenITCOCKPIT server or agent APT repository access.
+#
+# This private helper writes or removes the OpenITCOCKPIT APT source, signing
+# key, and root-only APT authentication file. It supports server and agent
+# repositories plus stable or nightly channels.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_openitcockpit':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#     package     => 'agent',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates repository/authentication files and imports the key when `true`;
+#   removes them when `false`.
+#
+# @param os_name
+#   Distribution codename used by the server repository.
+#
+# @param os_parent
+#   Distribution family retained for consistency with repository helpers.
+#
+# @param package
+#   OpenITCOCKPIT repository family to manage: usually `agent` or `server`.
+#
+# @param license
+#   Optional repository license token. `undef` uses the community license token
+#   currently encoded by the module.
+#
+# @param nightly
+#   Uses the nightly repository channel when `true`; otherwise uses stable.
+#
+# @api private
 class basic_settings::package_openitcockpit (
   Enum['list','822']  $deb_version,
   Boolean             $enable,

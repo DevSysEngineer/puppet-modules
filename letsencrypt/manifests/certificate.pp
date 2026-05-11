@@ -1,3 +1,25 @@
+# @summary Requests or removes a Certbot certificate.
+#
+# This defined type runs Certbot for a named certificate after the `letsencrypt`
+# class has installed shared defaults. It supports idempotent creation based on
+# the certificate domain list and idempotent deletion based on the certificate
+# name.
+#
+# @example Request an nginx certificate
+#   letsencrypt::certificate { 'www.example.org':
+#     domains => ['www.example.org', 'example.org'],
+#   }
+#
+# @param domains
+#   Domain names passed to Certbot with repeated `-d` arguments.
+#
+# @param ensure
+#   Requests the certificate when `present`; deletes it when `absent`.
+#
+# @param plugin
+#   Certbot plugin name used in the command. The default is `nginx`.
+#
+# @api public
 define letsencrypt::certificate (
   Array                       $domains,
   Enum['present','absent']    $ensure     = present,

@@ -1,3 +1,39 @@
+# @summary Grants or revokes MySQL privileges for one user and object scope.
+#
+# This defined type delegates privilege checks and changes to the module's
+# root-only grant helper script. It escapes all dynamic command arguments before
+# building shell commands and supports MySQL 8 privilege-list compatibility for
+# `ALL PRIVILEGES`.
+#
+# @example Grant privileges on one database
+#   mysql::grant { 'app':
+#     ensure   => present,
+#     username => 'app',
+#     database => 'app',
+#   }
+#
+# @param ensure
+#   Grants privileges when `present`; revokes them when `absent`.
+#
+# @param username
+#   MySQL username receiving or losing privileges.
+#
+# @param database
+#   Database scope for the privilege. The default is `*`.
+#
+# @param grant_option
+#   Adds the grant option when `true`.
+#
+# @param hostname
+#   MySQL host part for the account. The default is `localhost`.
+#
+# @param privileges
+#   Privilege list to grant or revoke. The default is `['ALL PRIVILEGES']`.
+#
+# @param table
+#   Table scope for the privilege. The default is `*`.
+#
+# @api public
 define mysql::grant (
   Enum['present','absent']    $ensure,
   String                      $username,

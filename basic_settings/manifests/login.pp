@@ -1,3 +1,59 @@
+# @summary Manages login policy, sudo defaults, PAM hooks, MOTD, and getty state.
+#
+# This class installs core login tooling, creates the `wheel` group, manages
+# sudoers and PAM configuration, controls console getty availability, and adds
+# audit coverage for login, PAM, sudoers, and optional vulnerability-scanner
+# exceptions. These changes affect interactive access and should be reviewed
+# carefully on existing hosts with local sudo customizations.
+#
+# @example Manage the default hardened login profile
+#   include basic_settings::login
+#
+# @example Preserve an existing sudoers.d tree
+#   class { 'basic_settings::login':
+#     sudoers_dir_enable => false,
+#   }
+#
+# @param environment
+#   Environment label used in generated login messages and templates. The
+#   default is `production`.
+#
+# @param getty_enable
+#   Controls whether `getty@tty*` is enabled unless `gui_mode` forces getty on.
+#   The default is `false`.
+#
+# @param gui_mode
+#   Selects GUI-related login behavior. `none` keeps the server minimal,
+#   `kiosk` enables getty and installs related session packages, and
+#   `adwaita-icon` is handled by the parent class for icon package selection.
+#
+# @param hostname
+#   Hostname used by generated login templates. The default comes from Facter.
+#
+# @param mail_to
+#   Mail recipient used by notification templates and related login hooks. The
+#   default is `root`.
+#
+# @param server_fdqn
+#   Fully qualified server name used in generated messages. The default comes
+#   from Facter.
+#
+# @param sudoers_banner_text
+#   Text written to `/etc/sudoers.lecture` and shown during sudo prompts.
+#
+# @param sudoers_dir_enable
+#   When `true`, manages `/etc/sudoers.d` as a purged Puppet-owned directory.
+#   Set this to `false` on hosts where existing sudoers snippets must remain.
+#
+# @param vulnerabilities_package
+#   Optional vulnerability scanner integration name. Currently only recognized
+#   values are handled by explicit case branches.
+#
+# @param vulnerabilities_user
+#   User account for the vulnerability scanner integration. It is only used when
+#   `vulnerabilities_package` is also set.
+#
+# @api public
 class basic_settings::login (
   String                                $environment              = 'production',
   Boolean                               $getty_enable             = false,

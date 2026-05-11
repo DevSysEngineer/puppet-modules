@@ -1,3 +1,32 @@
+# @summary Creates or optionally drops a MySQL database.
+#
+# This defined type uses the MySQL defaults file prepared by the `mysql` class to
+# create a database with the requested charset and collation, optionally import a
+# SQL file after creation, or drop the database only when explicit destruction is
+# allowed.
+#
+# @example Create a UTF-8 database
+#   mysql::database { 'app':
+#     ensure => present,
+#   }
+#
+# @param ensure
+#   Creates the database when `present`; handles removal behavior when `absent`.
+#
+# @param charset
+#   Default character set used in the `CREATE DATABASE` statement.
+#
+# @param collate
+#   Default collation used in the `CREATE DATABASE` statement.
+#
+# @param destroy
+#   Allows the database to be dropped when `ensure` is `absent`. The default is
+#   `false` to avoid accidental data loss.
+#
+# @param import
+#   Optional SQL file path imported after database creation.
+#
+# @api public
 define mysql::database (
   Enum['present','absent']    $ensure,
   String                      $charset  = 'utf8',

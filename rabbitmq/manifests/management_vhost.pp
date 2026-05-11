@@ -1,3 +1,20 @@
+# @summary Manages a RabbitMQ virtual host and default queue type.
+#
+# This defined type requires `rabbitmq::management` and creates, deletes, or
+# reconciles a virtual host's default queue type metadata.
+#
+# @example Create a quorum-default vhost
+#   rabbitmq::management_vhost { 'app':
+#     type => 'quorum',
+#   }
+#
+# @param ensure
+#   Creates the vhost when `present`; deletes it when `absent`.
+#
+# @param type
+#   Default queue type set on the vhost. The default is `classic`.
+#
+# @api public
 define rabbitmq::management_vhost (
   Enum['present','absent']    $ensure     = present,
   String                      $type       = 'classic'

@@ -1,3 +1,65 @@
+# @summary Manages APT policy, unattended upgrades, package hygiene, and package audit rules.
+#
+# This class installs core package-management tooling, removes desktop/update
+# helpers that are not wanted on the target server profile, manages APT,
+# apt-listchanges, needrestart, and unattended-upgrades configuration, optionally
+# removes snapd, wires apt timers into systemd monitoring, and adds audit rules
+# for package-management commands.
+#
+# @example Manage default package policy
+#   include basic_settings::packages
+#
+# @example Allow unattended reboots and block an extra package
+#   class { 'basic_settings::packages':
+#     unattended_upgrades_reboot               => true,
+#     unattended_upgrades_block_packages_extra => ['example-app'],
+#   }
+#
+# @param antivirus_package
+#   Optional antivirus integration name used for package-specific needrestart
+#   exceptions.
+#
+# @param config_dir_enable
+#   Purges and owns `/etc/apt/apt.conf.d` when `true`.
+#
+# @param ip_version
+#   Selects whether generated APT settings should force IPv4-only behavior.
+#
+# @param listchanges_dir_enable
+#   Purges and owns `/etc/apt/listchanges.conf.d` when `true`.
+#
+# @param mail_to
+#   Recipient used by generated APT/listchanges settings. The default is `root`.
+#
+# @param needrestart_dir_enable
+#   Purges and owns `/etc/needrestart/conf.d` when `true`.
+#
+# @param proxy_http
+#   Optional HTTP proxy rendered into APT settings.
+#
+# @param proxy_https
+#   Optional HTTPS proxy rendered into APT settings.
+#
+# @param server_fdqn
+#   Fully qualified host name used in generated package-management settings.
+#
+# @param snap_enable
+#   Installs snapd when `true`; purges snapd and related files when `false`.
+#
+# @param systemd_default_target
+#   Optional default systemd target used by package-management templates.
+#
+# @param unattended_upgrades_block_packages
+#   Optional replacement list of packages blocked from unattended upgrades.
+#   `undef` uses the module default block list for service stacks.
+#
+# @param unattended_upgrades_block_packages_extra
+#   Additional package patterns appended to the unattended-upgrades block list.
+#
+# @param unattended_upgrades_reboot
+#   Controls whether unattended-upgrades may reboot the host automatically.
+#
+# @api public
 class basic_settings::packages (
   Optional[String]  $antivirus_package                          = undef,
   Boolean           $config_dir_enable                          = true,

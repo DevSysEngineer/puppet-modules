@@ -1,3 +1,31 @@
+# @summary Manages RabbitMQ Erlang and server APT repositories.
+#
+# This private helper writes or removes the RabbitMQ Erlang and RabbitMQ Server
+# package sources and signing keys. It is called by `basic_settings` after OS
+# support has been calculated.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::package_rabbitmq':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
+#
+# @param enable
+#   Creates both repositories and imports keys when `true`; removes them when
+#   `false`.
+#
+# @param os_name
+#   Distribution codename used in repository paths and suites.
+#
+# @param os_parent
+#   Distribution family used in repository paths.
+#
+# @api private
 class basic_settings::package_rabbitmq (
   Enum['list','822']  $deb_version,
   Boolean             $enable,
