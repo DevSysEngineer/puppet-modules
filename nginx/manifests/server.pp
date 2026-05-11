@@ -11,6 +11,10 @@ define nginx::server (
   Optional[Integer]   $fastcgi_read_timeout             = undef,
   Integer             $fastopen                         = 0, # Global settings
   Integer             $hsts_max_age                     = 31536000,
+  Optional[String]    $x_frame_options                  = 'SAMEORIGIN',
+  Optional[String]    $x_content_type_options           = 'nosniff',
+  Optional[String]    $content_security_policy          = "default-src 'self'",
+  Optional[String]    $referrer_policy                  = 'strict-origin-when-cross-origin',
   Boolean             $http2_enable                     = false,
   Boolean             $http3_enable                     = false,
   Boolean             $http_enable                      = true,
@@ -214,6 +218,9 @@ define nginx::server (
 
     # Nginx named locations only get safe identifier characters.
     $securitytxt_location_name = regsubst($name, '[^A-Za-z0-9_]', '_', 'G')
+
+    # Nginx map destination variables are global to http, so make them vhost-specific.
+    $security_headers_variable_name = regsubst("security_headers_${name}", '[^A-Za-z0-9_]', '_', 'G')
 
     # Check if TCP fast open is enabled
     if (defined(Class['basic_settings::kernel'])) {

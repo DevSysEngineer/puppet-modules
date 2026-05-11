@@ -456,6 +456,39 @@ security.txt-afhandeling moet behouden.
 De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in
 `server_name`.
 
+`nginx::server` beheert standaard een set security headers per vhost. Voor
+`X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy` en
+`Referrer-Policy` gebruikt de module veilige defaults. De standaard-CSP is
+`default-src 'self'`. Dat past bij secure-by-default, maar kan applicaties met
+externe bronnen, inline scripts/styles, CDN's, API-calls of iframes breken.
+Geef in dat geval per vhost een passende `content_security_policy` op, of zet
+de parameter bewust op `undef`. Wanneer een proxy-backend of PHP-FPM zelf een
+van deze headers terugstuurt, laat Nginx die waarde staan en voegt de module
+geen tweede header toe. Ontbreekt de header in de upstream-response, dan vult
+Nginx de geconfigureerde vhostwaarde aan via een `map` op de bijbehorende
+`$upstream_http_*`-header.
+
+```puppet
+nginx::server { 'app.example.nl':
+    server_name              => 'app.example.nl',
+    docroot                  => '/var/www/app.example.nl',
+    x_frame_options          => 'DENY',
+    x_content_type_options   => 'nosniff',
+    referrer_policy          => 'strict-origin-when-cross-origin',
+    content_security_policy  => "default-src 'self'; frame-ancestors 'none'",
+}
+```
+
+Zet een headerparameter op `undef` wanneer Nginx die header voor een specifieke
+vhost niet moet beheren:
+
+```puppet
+nginx::server { 'legacy-app.example.nl':
+    server_name     => 'legacy-app.example.nl',
+    x_frame_options => undef,
+}
+```
+
 ## PHP
 
 PHP is een veelgebruikte open-source scriptingtaal die speciaal is ontworpen voor webontwikkeling. Het wordt vaak gebruikt in combinatie met een webserver zoals Apache of Nginx om dynamische inhoud op webpagina's te genereren. Dit onderdeel maakt het mogelijk om PHP te installeren en te configureren. Wanneer `basic settings` wordt gebruikt, zal PHP worden geconfigureerd volgens de aanbevelingen van harde beveiliging.
