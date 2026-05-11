@@ -11,10 +11,10 @@ class basic_settings::kernel (
   Boolean                     $ip_ra_learn_prefix         = true,
   String                      $ip_regdom                  = 'NL',
   Enum['all','4']             $ip_version                 = 'all',
-  Boolean                     $mglru_enable               = true,
+  Variant[Boolean,Integer[0]] $mglru_enable               = true,
   String                      $network_mode               = 'strict',
   Enum['initramfs','dracut']  $ram_disk_package           = 'initramfs',
-  String                      $security_lockdown          = 'integrity',
+  Variant[Boolean,String]     $security_lockdown          = true,
   String                      $tcp_congestion_control     = 'brr',
   Integer                     $tcp_fastopen               = 3,
   Array                       $usb_any_requirements       = [],
@@ -33,6 +33,25 @@ class basic_settings::kernel (
   $usb_whitelist_correct = join($usb_whitelist, ' ')
   $usb_expected_correct = join($usb_expected, ' ')
   $usb_any_requirements_correct = join($usb_any_requirements, ' ')
+
+  # Resolve MGLRU to the default min_ttl_ms, a custom min_ttl_ms, or disabled.
+  $mglru_min_ttl_ms_correct = $mglru_enable ? {
+    true    => 1000,
+    false   => 0,
+    default => $mglru_enable,
+  }
+  $mglru_active = $mglru_enable ? {
+    false   => false,
+    default => true,
+  }
+
+  # Resolve kernel lockdown to the default, an explicit value, or none for opt-out.
+  $security_lockdown_default = 'integrity'
+  $security_lockdown_requested = $security_lockdown ? {
+    true    => $security_lockdown_default,
+    false   => 'none',
+    default => $security_lockdown,
+  }
 
   # Set monitoring variables
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
@@ -77,12 +96,12 @@ class basic_settings::kernel (
         if ($guest_agent_enable and $guest_agent_package != undef) {
           $security_lockdown_correct = 'none'
         } else {
-          $security_lockdown_correct = $security_lockdown
+          $security_lockdown_correct = $security_lockdown_requested
         }
       }
     }
-  } elsif ($security_lockdown != 'none') {
-    $security_lockdown_correct = $security_lockdown
+  } elsif ($security_lockdown_requested != 'none') {
+    $security_lockdown_correct = $security_lockdown_requested
   } else {
     $security_lockdown_correct = 'integrity'
   }
@@ -646,14 +665,12 @@ class basic_settings::kernel (
   }
 
   # Kernel Multi-Gen LRU
-  if ($mglru_enable) {
-    $mglru_min_ttl_ms = 1000
+  if ($mglru_active) {
     exec { 'kernel_mglru':
       command => "/usr/bin/bash -c 'echo \"y\" > /sys/kernel/mm/lru_gen/enabled'",
       onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"', #lint:ignore:140chars
     }
   } else {
-    $mglru_min_ttl_ms = 0
     exec { 'kernel_mglru':
       command => "/usr/bin/bash -c 'echo \"n\" > /sys/kernel/mm/lru_gen/enabled'",
       onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0000\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"', #lint:ignore:140chars
@@ -662,7 +679,7 @@ class basic_settings::kernel (
 
   # Kernel Multi-Gen LRU thrashing prevention
   # Escape the MGLRU value before writing it and checking the current kernel state.
-  $mglru_min_ttl_ms_shell = stdlib::shell_escape($mglru_min_ttl_ms)
+  $mglru_min_ttl_ms_shell = stdlib::shell_escape($mglru_min_ttl_ms_correct)
   $mglru_min_ttl_ms_check_script = "if [ \$(grep -c ${mglru_min_ttl_ms_shell} /sys/kernel/mm/lru_gen/min_ttl_ms) -eq 0 ]; then exit 0; fi; exit 1" #lint:ignore:140chars
 
   # Escape the complete guard script before passing it to bash -c.

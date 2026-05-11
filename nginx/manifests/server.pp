@@ -11,7 +11,6 @@ define nginx::server (
   Optional[String]         $error_log                        = undef,
   Optional[Integer]        $fastcgi_read_timeout             = undef,
   Integer                  $fastopen                         = 0, # Global settings
-  Integer                  $hsts_max_age                     = 31536000,
   Boolean                  $http2_enable                     = false,
   Boolean                  $http3_enable                     = false,
   Boolean                  $http_enable                      = true,
@@ -93,8 +92,8 @@ define nginx::server (
   Optional[String]         $ssl_protocols                    = undef,
   Optional[String]         $ssl_session_cache                = undef,
   Optional[String]         $ssl_session_timeout              = undef,
-  String                   $try_files_custom                 = '$uri/ =404',
-  Boolean                  $try_files_enable                 = true,
+  Variant[Boolean,String]  $strict_transport_security        = true,
+  Variant[Boolean,String]  $try_files                        = true,
   Variant[Boolean,String]  $x_content_type_options           = true,
   Variant[Boolean,String]  $x_frame_options                  = true
 ) {
@@ -234,6 +233,20 @@ define nginx::server (
     $referrer_policy_correct = $referrer_policy ? {
       true    => $referrer_policy_default,
       default => $referrer_policy,
+    }
+
+    # Resolve Strict-Transport-Security to the default, a vhost override, or false for opt-out.
+    $strict_transport_security_default = 'max-age=31536000'
+    $strict_transport_security_correct = $strict_transport_security ? {
+      true    => $strict_transport_security_default,
+      default => $strict_transport_security,
+    }
+
+    # Resolve root-location try_files to the default, custom arguments, or false for opt-out.
+    $try_files_default = '$uri $uri/ =404'
+    $try_files_correct = $try_files ? {
+      true    => $try_files_default,
+      default => $try_files,
     }
 
     # Resolve X-Content-Type-Options to the default, a vhost override, or false for opt-out.

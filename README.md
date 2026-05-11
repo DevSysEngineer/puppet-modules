@@ -12,6 +12,8 @@ Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geï
 
 Daarnaast worden gevoelige lokale hulpbestanden, zoals APT-authenticatie voor OpenITCOCKPIT, tijdelijke installer-downloads en het lokale Grafana-beheerwachtwoord, zoveel mogelijk root-only opgeslagen om onnodige blootstelling aan lokale gebruikers te beperken.
 
+Voor kernel-lockdown gebruikt `basic_settings` dezelfde expliciete vorm als andere hardeningwaarden met een veilige default: `kernel_security_lockdown => true` gebruikt de standaard `integrity`, `false` vertaalt naar `none`, en een string zoals `'confidentiality'` wordt als expliciete lockdownwaarde gebruikt. Bij Secure Boot blijft `integrity` de minimale waarde. Voor MGLRU gebruikt `kernel_mglru_enable => true` de standaard `min_ttl_ms` van `1000`, `false` schakelt MGLRU uit, en een integer stelt een eigen `min_ttl_ms` in.
+
 Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies (zoals [Fedora](https://discussion.fedoraproject.org/t/f40-change-proposal-systemd-security-hardening-system-wide/96423/11)) worden toegepast, kies ik ervoor om deze aanpassingen ook in Puppet op te nemen. Dit is omdat niet alle distributies altijd de meest recente versie van de software gebruiken en er altijd een kans bestaat dat een specifieke beveiligingsaanpassing niet is doorgevoerd.
 
 ## Monitoring
@@ -360,7 +362,7 @@ node 'webserver.dev.xxxx.nl' {
         ssl_certificate_key     => '/etc/letsencrypt/live/unifi.xxxx.nl/privkey.pem',
         securitytxt_contacts      => ['mailto:security@xxxx.nl'],
         php_fpm_enable            => false,
-        try_files_enable          => false,
+        try_files                 => false,
         location_directives       => [
             'proxy_pass https://localhost:8443; # De Unifi Controller-poort',
             'proxy_set_header Host $host;',
@@ -439,7 +441,7 @@ applicatieversie voorrang krijgt en alleen `404` of `410` naar de fallback gaat.
 nginx::server { 'app.example.nl':
     server_name                   => 'app.example.nl',
     docroot                       => undef,
-    try_files_enable              => false,
+    try_files                     => false,
     securitytxt_contacts          => ['mailto:security@example.nl'],
     location_directives           => [
         'proxy_pass http://localhost:8080;',
@@ -452,23 +454,27 @@ nginx::server { 'app.example.nl':
 
 Het oude pad `/security.txt` redirect standaard naar `/.well-known/security.txt`. Gebruik `securitytxt_enable => false` wanneer een vhost volledig zijn eigen security.txt-afhandeling moet behouden. De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in `server_name`.
 
-`nginx::server` beheert standaard een set security headers per vhost. Voor `X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy` en `Referrer-Policy` gebruikt de module veilige defaults.
+Voor de hoofdlocatie volgt `try_files` hetzelfde patroon. `true` schrijft de veilige default `try_files $uri $uri/ =404;`, `false` laat de directive weg, en een string wordt als volledige `try_files`-argumentlijst gebruikt.
+
+`nginx::server` beheert standaard een set security headers per vhost. Voor `X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy`, `Referrer-Policy` en `Strict-Transport-Security` gebruikt de module veilige defaults.
 
 - De standaard-CSP is `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'`.
 - De standaard `Referrer-Policy` is `same-origin`, zodat referrer-informatie niet naar derde partijen wordt gestuurd.
+- De standaard `Strict-Transport-Security` is `max-age=31536000`.
 
-Dat past bij secure-by-default, maar kan applicaties met externe bronnen, inline scripts/styles, CDN's, API-calls, iframes of externe analytics breken. Geef in dat geval per vhost een passende `content_security_policy` of `referrer_policy` op. Laat de parameter weg of gebruik `true` om de module-default te gebruiken. Zet de parameter bewust op `false` om die header voor een vhost uit te schakelen. Gebruik hiervoor niet `undef`, omdat Puppet bij een parameter met een defaultwaarde dan opnieuw de default gebruikt.
+Dat past bij secure-by-default, maar kan applicaties met externe bronnen, inline scripts/styles, CDN's, API-calls, iframes, externe analytics of legacy HTTPS-clients breken. Geef in dat geval per vhost een passende `content_security_policy`, `referrer_policy` of `strict_transport_security` op. Laat de parameter weg of gebruik `true` om de module-default te gebruiken. Zet de parameter bewust op `false` om die header voor een vhost uit te schakelen. Gebruik hiervoor niet `undef`, omdat Puppet bij een parameter met een defaultwaarde dan opnieuw de default gebruikt.
 
 Wanneer een proxy-backend of PHP-FPM zelf een van deze headers terugstuurt, laat Nginx die waarde staan en voegt de module geen tweede header toe. Ontbreekt de header in de upstream-response, dan vult Nginx de geconfigureerde vhostwaarde aan via een `map` op de bijbehorende `$upstream_http_*`-header.
 
 ```puppet
 nginx::server { 'app.example.nl':
-    server_name              => 'app.example.nl',
-    docroot                  => '/var/www/app.example.nl',
-    x_frame_options          => 'DENY',
-    x_content_type_options   => 'nosniff',
-    referrer_policy          => 'same-origin',
-    content_security_policy  => "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    server_name               => 'app.example.nl',
+    docroot                   => '/var/www/app.example.nl',
+    x_frame_options           => 'DENY',
+    x_content_type_options    => 'nosniff',
+    referrer_policy           => 'same-origin',
+    content_security_policy   => "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    strict_transport_security => 'max-age=63072000; includeSubDomains; preload',
 }
 ```
 
@@ -543,6 +549,8 @@ node 'webserver.dev.xxxx.nl' {
 ## SSH
 
 SSH (Secure Shell) is een cryptografisch netwerkprotocol voor veilige gegevenscommunicatie, remote shell services of command execution, en andere beveiligde netwerkdiensten tussen twee netwerkcomputers. Dit onderdeel maakt het mogelijk om OpenSSH te configureren volgens de aanbevelingen van harde beveiliging. Dit omvat onder andere het uitschakelen van root login, het beperken van het aantal toegestane authenticatiepogingen en het configureren van key-based authenticatie.
+
+`permit_root_login` gebruikt dezelfde expliciete hardeningvorm als andere veilige defaults: `false` schrijft `PermitRootLogin no`, `true` schrijft `yes`, en een string kan worden gebruikt voor OpenSSH-modi zoals `'prohibit-password'` of `'forced-commands-only'`.
 
 ### Voorbeeld
 Hieronder een voorbeeld hoe je SSH configureert in je Puppet omgeving:

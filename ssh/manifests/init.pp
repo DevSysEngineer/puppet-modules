@@ -1,19 +1,19 @@
 class ssh (
-  Array               $allow_users                    = [],
-  String              $banner_text                    = "WARNING: You are entering a managed server!\nThis server should only be accessed by authorized users and must have a valid reason. Disconnect now if you do not comply with these rules.\nAll activity on this system is recorded and forwarded. Unauthorized access will be fully investigated and reported to law enforcement authorities.", #lint:ignore:140chars
-  Optional[Array]     $check_users                    = undef,
-  Array               $host_key_algorithms            = [
+  Array                    $allow_users                    = [],
+  String                   $banner_text                    = "WARNING: You are entering a managed server!\nThis server should only be accessed by authorized users and must have a valid reason. Disconnect now if you do not comply with these rules.\nAll activity on this system is recorded and forwarded. Unauthorized access will be fully investigated and reported to law enforcement authorities.", #lint:ignore:140chars
+  Optional[Array]          $check_users                    = undef,
+  Array                    $host_key_algorithms            = [
     'ecdsa-sha2-nistp256',
     'ecdsa-sha2-nistp384',
     'ecdsa-sha2-nistp521',
     'ssh-ed25519',
   ],
-  Integer             $idle_timeout                   = 300,
-  Array               $password_authentication_users  = [],
-  Boolean             $permit_root_login              = false,
-  Integer             $port                           = 22,
-  Optional[Integer]   $port_alternative               = undef,
-  Optional[Array]     $port_alternative_allow_users   = undef,
+  Integer                  $idle_timeout                   = 300,
+  Array                    $password_authentication_users  = [],
+  Variant[Boolean,String]  $permit_root_login              = false,
+  Integer                  $port                           = 22,
+  Optional[Integer]        $port_alternative               = undef,
+  Optional[Array]          $port_alternative_allow_users   = undef,
 ) {
   # Required packages for SSHD
   package { ['openssh-server', 'openssh-client']:
@@ -25,6 +25,13 @@ class ssh (
   $allow_users_str = join($allow_users, ' ')
   $password_authentication_users_str = join($password_authentication_users, ',')
   $host_key_algorithms_str = join($host_key_algorithms, ',')
+
+  # Resolve PermitRootLogin to no, yes, or an explicit OpenSSH-supported mode.
+  $permit_root_login_correct = $permit_root_login ? {
+    true    => 'yes',
+    false   => 'no',
+    default => $permit_root_login,
+  }
 
   # Check if different list is given for alternative port
   if ($port_alternative_allow_users != undef) {
