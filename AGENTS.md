@@ -3,20 +3,20 @@
 ## Purpose
 
 This file is the project-wide working instruction for AI coding agents in this
-repository. Use it before making changes, while reviewing your own work, and
-when preparing the final handoff.
+repository. Read it before making changes, use it while reviewing your own work,
+and check it again before the final handoff.
 
-The root `AGENTS.md` is authoritative for the whole repository. No additional
-`AGENTS.md`, `AGENTS.override.md`, or `.github/copilot-instructions.md` files
-exist at the time of writing. If a lower-level instruction file is added later,
-it may add rules for that subtree, but it must not contradict this file unless
-it explicitly explains the narrower exception.
+The root `AGENTS.md` is authoritative for the whole repository. At the time of
+this review, no additional `AGENTS.md`, `AGENTS.override.md`, or
+`.github/copilot-instructions.md` files exist. If a lower-level instruction file
+is added later, read it for that subtree. It may add narrower rules, but it must
+not contradict this file unless it explicitly documents the exception.
 
 The root `README.md` is the Dutch-language source of truth for user-facing
-project documentation, supported use cases, and examples. Always write
-`README.md` prose in Dutch. Keep long product, architecture, and operations
-explanations in `README.md` or another dedicated document instead of duplicating
-them here.
+project documentation, supported use cases, examples, and monitoring checks.
+Always write `README.md` prose in Dutch. Keep long product, architecture, and
+operations explanations in `README.md` or another dedicated document instead of
+duplicating them here.
 
 ## Repository Overview
 
@@ -50,28 +50,29 @@ Vendored Git submodules:
 - `timezone`
 
 Do not treat vendored submodules as the house style for this project. Change
-vendored code only when the task is explicitly about that dependency.
+vendored code only when the task is explicitly about that dependency. Vendored
+README, changelog, contribution, and generated reference files belong to those
+dependencies and are not project-wide instructions.
 
-Important repository files and directories:
+Important repository paths:
 
-- `README.md`: Dutch user-facing overview, examples, public API list, and
+- `README.md`: Dutch user-facing overview, examples, public behavior, and
   monitoring check list.
-- `CHANGELOG.md`: User-facing release notes when a task changes behavior that
-  should be tracked.
-- `examples/`: Practical Puppet examples that should stay aligned with public
+- `examples/`: Practical Puppet examples that must stay aligned with public
   module behavior.
-- `<module>/metadata.json`: Supported platforms and module metadata.
+- `<module>/metadata.json`: Supported platforms and module metadata, when the
+  module has one.
 - `<module>/manifests/`: Puppet classes and defined types.
 - `<module>/templates/`: ERB templates rendered by Puppet.
 - `<module>/files/`: Static module files served through `puppet:///modules/...`.
 
 `basic_settings` is the foundation module. It provides shared orchestration for
 APT repositories, base packages, systemd targets, monitoring plumbing, security
-tooling, package hygiene, kernel/network tuning, login policy, timezone, and
+tooling, package hygiene, kernel and network tuning, login policy, timezone, and
 Puppet runtime behavior.
 
 Prefer shared helpers from `basic_settings` over one-off resources in service
-modules. Common integration points include:
+modules. Common integration points are:
 
 - `basic_settings::systemd_target`
 - `basic_settings::systemd_drop_in`
@@ -102,18 +103,17 @@ under `/etc/openitcockpit-agent/plugins`, and `customchecks.ini` is built with
 
 ## Working Rules
 
-- Read `README.md` before changing the repository. It explains the intended
-  module combinations, supported scope, monitoring model, and documentation
-  tone. Its prose must remain Dutch.
+- Read `README.md` before changing the repository. It explains intended module
+  combinations, supported scope, monitoring behavior, and documentation tone.
 - Identify whether the change touches a first-party module, a vendored
-  submodule, root documentation, or examples.
+  submodule, root documentation, examples, or repository maintenance files.
 - Inspect the touched module's `metadata.json` when it exists.
-- Before changing code structure, read the relevant manifests, templates, files,
-  README sections, examples, and related local modules that influence the
-  behavior.
+- Before changing behavior or structure, read the relevant manifests, templates,
+  files, README sections, examples, and related local modules that influence the
+  change.
 - Keep changes scoped to the request. Do not perform broad refactors,
-  formatting sweeps, dependency upgrades, or vendored-submodule edits unless the
-  task explicitly asks for them.
+  formatting sweeps, dependency upgrades, platform expansion, or vendored
+  submodule edits unless explicitly requested.
 - Preserve existing resource ordering, ownership, modes, `require`, `notify`,
   and `subscribe` patterns unless there is a clear technical reason to change
   them.
@@ -123,8 +123,8 @@ under `/etc/openitcockpit-agent/plugins`, and `customchecks.ini` is built with
   module, extend that integration instead of adding parallel logic.
 - Treat the working tree as shared with the user. Do not revert, overwrite, or
   stage unrelated changes.
-- Create a commit or pull request only when the user asks for one. If you do,
-  include only the files that belong to the task.
+- Create a commit or pull request only when the user asks for one. Include only
+  the files that belong to the task.
 
 ## Coding Standards
 
@@ -146,7 +146,7 @@ under `/etc/openitcockpit-agent/plugins`, and `customchecks.ini` is built with
   files are valid input.
 - Keep package installation minimal with
   `install_options => ['--no-install-recommends', '--no-install-suggests']`
-  unless the package needs recommendations or suggestions.
+  unless recommendations or suggestions are required.
 - Use `purge => true`, `recurse => true`, and `force => true` only for
   directories the module fully owns.
 - Preserve `replace => false` for installer-generated or first-created files
@@ -178,11 +178,10 @@ Puppet implementation patterns:
 - When a `Variant[Boolean,Scalar]` parameter replaces an older split interface,
   collapse the public API to the single meaningful setting unless backward
   compatibility is explicitly required.
-- Prefer one compact resource with precomputed `undef` attributes over duplicated
-  resource blocks when only optional attributes differ.
-- Do not invert control flow so a tiny branch is followed by a large `else`
-  block. Use a short guard with `fail(...)` before the main path when that is
-  clearer.
+- Prefer one compact resource with precomputed `undef` attributes over
+  duplicated resource blocks when only optional attributes differ.
+- Use a short guard with `fail(...)` before the main path when that is clearer
+  than a large `else` block.
 - Do not introduce a variable for a value used only once unless the variable
   adds domain meaning or prevents a real readability problem.
 - Add short comments above non-obvious resource groups, non-trivial branches,
@@ -217,9 +216,8 @@ Shell and `exec` rules:
 
 - Write code comments, Puppet Strings comments, inline technical documentation,
   template comments, generated config comments, and this `AGENTS.md` in English.
-- Write `README.md` prose in Dutch. This is an explicit exception to the English
-  technical-documentation rule and must not be changed without a direct user
-  request.
+- Write `README.md` prose in Dutch. This is the explicit exception to the
+  English technical-documentation rule.
 - When modifying existing code, check whether nearby comments or documentation
   are missing, outdated, duplicated, or unclear.
 - Update documentation in the same change when behavior, parameters, templates,
@@ -228,13 +226,10 @@ Shell and `exec` rules:
 - Do not add obvious comments that only repeat the code. Comments must explain
   purpose, context, constraints, side effects, or non-obvious decisions.
 - Keep documentation close to the code it describes, unless the topic belongs in
-  `README.md`, `CHANGELOG.md`, or a dedicated architecture or operations
-  document.
+  `README.md` or a dedicated architecture or operations document.
 - Update `README.md` in Dutch when a public module interface, supported
   platform, installation flow, usage example, monitoring check, or security
   expectation changes.
-- Update `CHANGELOG.md` when the task changes user-visible behavior and the
-  repository is tracking that change for release notes.
 - Keep generated config comments and template comments in English unless the
   managed software requires another language.
 - Keep documentation concise and consistent with existing terminology.
@@ -264,7 +259,7 @@ root `Gemfile`, `Rakefile`, or first-party spec suite. Vendored submodules have
 their own test setup, but that is not the default validation path for
 first-party changes.
 
-Run targeted checks for the files you changed. Use the commands below when the
+Run targeted checks for the files you changed. Use these commands when the
 corresponding tools are installed:
 
 - Changed Puppet manifests:
@@ -297,11 +292,9 @@ missing, state that in the final response and explain what was checked instead.
 
 ## Security And Safety Boundaries
 
-Security is a design requirement in this repository. Assess security while
-designing the change, not only at final review.
-
-For Puppet code, templates, scripts, services, timers, configs, and generated
-files, check whether the change affects:
+Security is a design requirement in this repository. For Puppet code, templates,
+scripts, services, timers, configs, and generated files, check whether the
+change affects:
 
 - Privilege level, runtime user, groups, capabilities, or sudo usage.
 - File ownership, file modes, parent directory traversal, and secret exposure.
@@ -326,65 +319,44 @@ Repository security conventions:
 
 Before using any external system, internet search, browser tool, issue tracker,
 paste service, external AI system, e-mail, or vendor support channel, sanitize
-the material first. Do not send raw code, configs, logs, stack traces,
-screenshots, secrets, keys, tokens, certificates, internal hostnames, internal
-IP addresses, private URLs, personal data, tenant IDs, or customer data outside
-the local workspace.
+the material first. Do not send raw code, configs, logs, stack traces, secrets,
+keys, tokens, certificates, internal hostnames, internal IP addresses, private
+URLs, personal data, tenant IDs, or customer data outside the local workspace.
 
-## Systemd Hardening
+Systemd hardening:
 
-For new, changed, or reviewed `.service` units, assess hardening per concrete
-unit and per option. Do not apply hardening blindly and do not add default
-hardening inside a generic wrapper unless every current consumer has been
-validated or has an explicit opt-out.
-
-For each affected service, identify the final unit name, Puppet location,
-template or wrapper, `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`,
-`ExecStop`, runtime `User` and `Group`, supplementary groups, capabilities,
-writable paths, file creation behavior, device access, temporary directory use,
-home directory access, credential paths, network exposure, runtime language,
-dynamic plugins, process inspection needs, package-management behavior, and
-whether the unit is vendor-managed or internally generated.
-
-Assess these common candidates as `apply`, `do not apply`, or `needs more
-research`:
-
-- `PrivateDevices=true`
-- `PrivateTmp=true`
-- `ProtectHome=true`
-- `ProtectSystem=full`
-- `SystemCallArchitectures=native`
-- `RestrictSUIDSGID=true`
-- `LockPersonality=true`
-- `NoNewPrivileges=true`
-- `MemoryDenyWriteExecute=true`
-- `ProtectHostname=true`
-- `ProtectClock=true`
-- `ProtectControlGroups=true`
-- `ProtectKernelLogs=true`
-- `ProtectKernelModules=true`
-- `ProtectKernelTunables=true`
-- `ProtectProc=invisible`
-- `UMask=0077`
-
-Add `UMask=0077` explicitly in the relevant service hash when it is safe. Omit
-`UMask` when the service needs the normal default mask of `0022`. Use a less
-strict non-default value such as `0027` only per service, with a comment
-explaining the shared-file, shared-socket, shared-log, or web-serving need.
-
-Treat timers, sockets, mounts, paths, targets, and daemon configuration drop-ins
-separately from services. For those unit types, assess the paired `.service`
-unit instead.
-
-High-risk categories need extra care before hardening changes: package
-management and provisioning units, Puppet agent/server units, GitLab omnibus
-supervision, certbot renewals with hooks, SSH login/session units, monitoring
-executors, OpenITCOCKPIT server components with sudo behavior, backup/restore
-services, services creating shared sockets/logs/web assets, device or hardware
-services, cgroup managers, services inspecting other users' processes, services
-reading kernel logs, services loading kernel modules or tuning kernel
-parameters, and JIT or plugin-based runtimes such as JVM, .NET, Node.js/V8,
-Electron, Erlang/BEAM with native code, database JIT, PCRE-JIT, or WebAssembly.
+- For new, changed, or reviewed `.service` units, assess hardening per concrete
+  unit and per option. Do not add hardening blindly or as a default in a generic
+  wrapper unless every current consumer has been validated or has an explicit
+  opt-out.
+- For each affected service, identify the final unit name, Puppet location,
+  template or wrapper, `Exec*` commands, runtime `User` and `Group`,
+  supplementary groups, capabilities, writable paths, device access, temporary
+  directory use, home directory access, credential paths, network exposure,
+  runtime language, dynamic plugins, process inspection needs,
+  package-management behavior, and whether the unit is vendor-managed or
+  internally generated.
+- Assess these common candidates as `apply`, `do not apply`, or
+  `needs more research`: `PrivateDevices=true`, `PrivateTmp=true`,
+  `ProtectHome=true`, `ProtectSystem=full`,
+  `SystemCallArchitectures=native`, `RestrictSUIDSGID=true`,
+  `LockPersonality=true`, `NoNewPrivileges=true`,
+  `MemoryDenyWriteExecute=true`, `ProtectHostname=true`, `ProtectClock=true`,
+  `ProtectControlGroups=true`, `ProtectKernelLogs=true`,
+  `ProtectKernelModules=true`, `ProtectKernelTunables=true`,
+  `ProtectProc=invisible`, and `UMask=0077`.
+- Add `UMask=0077` explicitly in the relevant service hash when it is safe.
+  Omit `UMask` when the service needs the normal default mask of `0022`. Use a
+  less strict non-default value such as `0027` only per service, with a comment
+  explaining the shared-file, shared-socket, shared-log, or web-serving need.
+- Treat timers, sockets, mounts, paths, targets, and daemon configuration
+  drop-ins separately from services. For those unit types, assess the paired
+  `.service` unit instead.
+- Use extra care before hardening package management, provisioning, Puppet,
+  GitLab omnibus supervision, certbot renewals with hooks, SSH sessions,
+  monitoring executors, OpenITCOCKPIT server components with sudo behavior,
+  backup or restore services, shared sockets or logs, device services, cgroup
+  managers, kernel or process inspectors, and JIT or plugin-based runtimes.
 
 ## Definition Of Done
 
@@ -395,8 +367,8 @@ An AI-generated change is complete only when:
   explicitly requested.
 - Code comments and technical documentation are in English, while `README.md`
   prose remains Dutch.
-- Puppet Strings comments, README examples, `CHANGELOG.md`, and monitoring check
-  lists were updated when affected.
+- Puppet Strings comments, README examples, and monitoring check lists were
+  updated when affected.
 - Security, permissions, systemd behavior, monitoring, audit, and operational
   impact were reviewed where relevant.
 - Relevant validation commands were run, or unavailable commands are listed in
