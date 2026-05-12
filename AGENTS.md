@@ -172,6 +172,14 @@ names alphabetically when reporting review decisions.
   unless a concrete package needs recommends or suggests.
 - Use `purge => true`, `recurse => true`, and `force => true` only for
   directories the module fully owns.
+- When recursively managing a mixed directory/file tree with Puppet `file`, do
+  not use a numeric executable mode such as `0700` or `0750` as a blanket mode.
+  Use a non-executable file mode such as `0600` when every regular file should
+  be private and non-executable; Puppet adds directory search bits for numeric
+  directory modes, so recursive `0600` still yields traversable `0700`
+  directories.
+- If a recursively managed tree contains real executables, manage directory and
+  file modes separately and add execute bits only to those executable files.
 - Preserve `replace => false` for installer-generated or first-create files that
   must survive later Puppet runs.
 - Keep file ownership and modes explicit.
@@ -234,6 +242,13 @@ Shell in Puppet:
   Escape the full SQL string and use `provider => shell` when escaped semicolons
   or shell guards would otherwise be parsed as separate commands.
 - Prefer `/usr/bin/printf %s ${value_shell}` for dynamic shell content.
+- Do not use recursive chmod with an executable mode such as `chmod -R 700` or
+  `chmod -R 750` on mixed-content trees. Normalize directories and regular files
+  separately with `find ... -type d` and `find ... -type f`, then add execute
+  bits only to real executables.
+- For exported application source trees, use separate passes for directories and
+  files, for example directories `0750` and regular files `0640`. Blanket
+  executable modes make every regular file executable and should be avoided.
 
 Do not introduce a local variable for a value used only once unless the variable
 name adds domain meaning or removes a real readability problem.

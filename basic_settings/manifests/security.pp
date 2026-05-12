@@ -114,7 +114,7 @@ class basic_settings::security (
       recurse => true,
       force   => true,
       purge   => true,
-      mode    => '0700',
+      mode    => '0600',
     }
   }
 

@@ -127,7 +127,7 @@ class rabbitmq (
     recurse => true,
     owner   => 'rabbitmq',
     group   => 'rabbitmq',
-    mode    => '0700',
+    mode    => '0600',
     require => Package['rabbitmq-server'],
   }
 

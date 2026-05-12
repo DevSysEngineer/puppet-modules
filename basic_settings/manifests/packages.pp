@@ -281,7 +281,7 @@ class basic_settings::packages (
       force   => true,
       owner   => 'root',
       group   => 'root',
-      mode    => '0700',
+      mode    => '0600',
     }
   }
 
@@ -305,7 +305,7 @@ class basic_settings::packages (
       force   => true,
       owner   => 'root',
       group   => 'root',
-      mode    => '0700',
+      mode    => '0600',
     }
   }
 
@@ -328,7 +328,7 @@ class basic_settings::packages (
       force   => true,
       owner   => 'root',
       group   => 'root',
-      mode    => '0700',
+      mode    => '0600',
     }
   }
 
