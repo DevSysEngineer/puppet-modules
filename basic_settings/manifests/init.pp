@@ -995,12 +995,14 @@ class basic_settings (
   # Check if variable nodejs is true; if true, install new source list and key
   if ($nodejs_enable and $nodejs_allow) {
     class { 'basic_settings::package_node':
-      enable  => true,
-      version => $nodejs_version,
+      deb_version => $deb_version,
+      enable      => true,
+      version     => $nodejs_version,
     }
   } else {
     class { 'basic_settings::package_node':
-      enable  => false,
+      deb_version => $deb_version,
+      enable      => false,
     }
   }
 

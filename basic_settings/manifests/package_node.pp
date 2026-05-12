@@ -6,9 +6,13 @@
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_node':
-#     enable  => true,
-#     version => 20,
+#     deb_version => 'list',
+#     enable      => true,
+#     version     => 20,
 #   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`.
 #
 # @param enable
 #   Creates the repository, imports its key, and installs Node.js when `true`;
@@ -20,13 +24,19 @@
 #
 # @api private
 class basic_settings::package_node (
-  Boolean $enable,
-  Integer $version = 20
+  Enum['list','822']  $deb_version,
+  Boolean             $enable,
+  Integer             $version = 20
 ) {
-  # Set default value
-  $file = '/etc/apt/sources.list.d/nodesource.list'
+  # Check if we need newer format for APT
+  if ($deb_version == '822') {
+    $file = '/etc/apt/sources.list.d/nodesource.sources'
+  } else {
+    $file = '/etc/apt/sources.list.d/nodesource.list'
+  }
+
+  # Set keyrings file
   $key = '/usr/share/keyrings/nodesource.gpg'
-  $source = "deb [signed-by=${key}] https://deb.nodesource.com/node_${version}.x nodistro main\n"
 
   # Escape the keyring path before tee, chmod, and guard commands use it.
   $key_shell = stdlib::shell_escape($key)
@@ -39,6 +49,13 @@ class basic_settings::package_node (
   }
 
   if ($enable) {
+    # Get source
+    if ($deb_version == '822') {
+      $source = "Types: deb\nURIs: https://deb.nodesource.com/node_${version}.x\nSuites: nodistro\nComponents: main\nSigned-By:${key}\n"
+    } else {
+      $source = "deb [signed-by=${key}] https://deb.nodesource.com/node_${version}.x nodistro main\n"
+    }
+
     # Manage the NodeSource APT source explicitly instead of executing an upstream shell bootstrap.
     file { 'package_node_source':
       ensure  => file,
