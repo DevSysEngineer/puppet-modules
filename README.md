@@ -25,6 +25,11 @@ Op dit moment wordt alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent o
 
 Voor maatwerkchecks gebruikt de repository `basic_settings::monitoring_custom`. Deze helper plaatst het script in de OpenITCOCKPIT-pluginmap, registreert `customchecks.ini` en kan via de parameter `cmd` vaste argumenten achter het scriptpad zetten.
 
+`basic_settings::monitoring` plaatst daarnaast de gedeelde mailhelper `/usr/local/lib/puppet/monitoring-notify`. Shellscripts kunnen de mailbody via stdin doorgeven en het onderwerp als argument meegeven. Met `-t` of `--to` kan een script een eigen ontvanger blijven gebruiken; zonder die optie gebruikt de helper de `mail_to`-waarde van de monitoringclass.
+
+```sh
+printf '%s\n' "$body" | /usr/local/lib/puppet/monitoring-notify -t beheer@example.nl "Onderwerp"
+```
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {

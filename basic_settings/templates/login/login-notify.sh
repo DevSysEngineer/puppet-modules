@@ -2,7 +2,7 @@
 # Managed by Puppet
 
 die() {
-    echo "$*" >&2
+    printf '%s\n' "$*" >&2
     exit 0 # Important, we do not want to fail the login
 }
 
@@ -22,13 +22,24 @@ HEAD=$(command -v head 2>/dev/null)
 LAST=$(command -v last 2>/dev/null)
 [ -n "$LAST" ] || die "last not available"
 
-# Locate mail
+# Locate notification helper or mail fallback
+MONITORING_NOTIFY=/usr/local/lib/puppet/monitoring-notify
 MAIL=$(command -v mail 2>/dev/null)
-[ -n "$MAIL" ] || die "mail not available"
+[ -x "$MONITORING_NOTIFY" ] || [ -n "$MAIL" ] || die "monitoring-notify and mail not available"
 
 # Locate ps
 PS=$(command -v ps 2>/dev/null)
 [ -n "$PS" ] || die "ps not available"
+
+send_notification() {
+    subject=$1
+
+    if [ -x "$MONITORING_NOTIFY" ]; then
+        "$MONITORING_NOTIFY" -t <%= @mail_to_shell %> -r <%= @audit_mail_from_shell %> "$subject"
+    else
+        "$MAIL" -s "$subject" -r <%= @audit_mail_from_shell %> <%= @mail_to_shell %>
+    fi
+}
 
 # Try to get service
 SERVICE=$($PS -o comm= -p "$PPID" 2>/dev/null | $AWK '{gsub(/[[:space:]]+/,""); print}')
@@ -70,7 +81,7 @@ fi
 
 # Send mail notification
 if [ "$TARGET_USER" = "$USER" ]; then
-    printf 'User %s logged into %s at %s\nIP: %s\nService: %s\n' "$USER" "<%= @server_fdqn %>" "$NOW" "$IP" "$SERVICE" | $MAIL -s "Audit login $USER via $SERVICE" -r "audit@<%= @server_fdqn %>" "<%= @mail_to %>"
+    printf 'User %s logged into %s at %s\nIP: %s\nService: %s\n' "$USER" <%= @server_fdqn_shell %> "$NOW" "$IP" "$SERVICE" | send_notification "Audit login $USER via $SERVICE"
 else
-    printf 'User %s logged in as %s into %s at %s\nIP: %s\nService: %s\n' "$USER" "$TARGET_USER" "<%= @server_fdqn %>" "$NOW" "$IP" "$SERVICE" | $MAIL -s "Audit $USER->$TARGET_USER via $SERVICE" -r "audit@<%= @server_fdqn %>" "<%= @mail_to %>"
+    printf 'User %s logged in as %s into %s at %s\nIP: %s\nService: %s\n' "$USER" "$TARGET_USER" <%= @server_fdqn_shell %> "$NOW" "$IP" "$SERVICE" | send_notification "Audit $USER->$TARGET_USER via $SERVICE"
 fi

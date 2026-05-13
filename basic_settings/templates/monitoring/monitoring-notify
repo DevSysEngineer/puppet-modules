@@ -1,0 +1,52 @@
+#!/bin/sh
+# Managed by Puppet
+
+die() {
+    printf '%s\n' "$*" >&2
+    exit 1
+}
+
+# Resolve the mail binary at runtime so the helper still works when mailutils
+# installs it outside a hard-coded path.
+MAIL=$(command -v mail 2>/dev/null)
+[ -n "$MAIL" ] || die "mail not available"
+
+# Set the default recipient and sender
+MAIL_TO=<%= @mail_to_shell %>
+MAIL_FROM=<%= @monitoring_mail_from_shell %>
+
+# Keep the interface small: optional recipient/sender overrides, then one
+# required subject. The message body is passed through stdin.
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -t|--to|--mail-to)
+            [ "$#" -ge 2 ] || die "$1 requires an argument"
+            MAIL_TO=$2
+            shift 2
+            ;;
+        -r|--from|--mail-from)
+            [ "$#" -ge 2 ] || die "$1 requires an argument"
+            MAIL_FROM=$2
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            die "unknown option: $1"
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+[ "$#" -eq 1 ] || die "usage: monitoring-notify [-t recipient] [-r sender] subject"
+[ -n "$MAIL_TO" ] || die "recipient not configured"
+[ -n "$MAIL_FROM" ] || die "sender not configured"
+
+SUBJECT=$1
+
+# mail reads the body from stdin, preserving multiline output from callers.
+"$MAIL" -s "$SUBJECT" -r "$MAIL_FROM" "$MAIL_TO"

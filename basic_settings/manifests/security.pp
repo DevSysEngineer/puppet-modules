@@ -29,6 +29,11 @@ class basic_settings::security (
   $systemd_enable = defined(Package['systemd'])
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
+  # Escape notification values for generated shell templates.
+  $mail_to_shell = stdlib::shell_escape($mail_to)
+  $audit_mail_from_shell = stdlib::shell_escape("audit@${server_fdqn}")
+  $server_fdqn_shell = stdlib::shell_escape($server_fdqn)
+
   # Check if auditd package is not defined
   if (!defined(Package['auditd'])) {
     package { 'auditd':

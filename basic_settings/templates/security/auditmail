@@ -17,9 +17,23 @@ test -x $JOURNALCTL || exit 1
 GREP=/usr/bin/grep
 test -x $GREP || exit 1
 
-# Check if mail is available
+# Check if notification helper or mail fallback is available
+MONITORING_NOTIFY=/usr/local/lib/puppet/monitoring-notify
 MAIL=/usr/bin/mail
-test -x $MAIL || exit 1
+if [ ! -x "$MONITORING_NOTIFY" ] && [ ! -x "$MAIL" ]; then
+    printf '%s\n' "monitoring-notify and mail not available" >&2
+    exit 1
+fi
+
+send_notification() {
+    subject=$1
+
+    if [ -x "$MONITORING_NOTIFY" ]; then
+        "$MONITORING_NOTIFY" -t <%= @mail_to_shell %> -r <%= @audit_mail_from_shell %> "$subject"
+    else
+        "$MAIL" -s "$subject" -r <%= @audit_mail_from_shell %> <%= @mail_to_shell %>
+    fi
+}
 
 # Try to get aureport
 AUDIT_OUTPUT=$($AUREPORTTOOL -k -ts yesterday 00:00:00 -te yesterday 23:59:59 2>&1)
@@ -52,7 +66,7 @@ if [ -z "$(echo $AUDIT_OUTPUT | grep 'no events of interest were found')" ]; the
     else
         SUBJECT='Audit report'
     fi
-    printf '%b\n' "Server: <%= @server_fdqn %>\n\n$AUDIT_OUTPUT" | $MAIL -s "$SUBJECT" -r "audit@<%= @server_fdqn %>" "<%= @mail_to %>"
+    printf 'Server: %s\n\n%b\n' <%= @server_fdqn_shell %> "$AUDIT_OUTPUT" | send_notification "$SUBJECT"
 elif [ -n "$BOOT_OUTPUT" ]; then
-    printf '%b\n' "Server: <%= @server_fdqn %>\n\nBoot logs:\n$BOOT_OUTPUT" | $MAIL -s "Server has boot logs" -r "audit@<%= @server_fdqn %>" "<%= @mail_to %>"
+    printf 'Server: %s\n\nBoot logs:\n%b\n' <%= @server_fdqn_shell %> "$BOOT_OUTPUT" | send_notification "Server has boot logs"
 fi

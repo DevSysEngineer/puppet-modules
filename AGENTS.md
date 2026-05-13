@@ -235,9 +235,12 @@ Shell in Puppet:
   them with a `_shell` suffix, and use them as unquoted shell words.
 - Add a short comment above each block that prepares escaped values so reviewers
   can see which later `exec`, guard, or shell script the escaping protects.
-- When an `exec` uses `/bin/sh -c` or `/usr/bin/bash -c`, escape every dynamic
-  argument first, then pass the whole script through `stdlib::shell_escape(...)`
-  before appending it after `-c`.
+- When an `exec` or systemd `ExecStart` uses `/bin/sh -c` or
+  `/usr/bin/bash -c`, choose one escaping boundary. Either escape the dynamic
+  shell words with `stdlib::shell_escape(...)` and pass the assembled script as
+  one quoted `-c` argument, or escape a full static script once when it does not
+  contain pre-escaped fragments. Do not pass a script assembled from `*_shell`
+  fragments through `stdlib::shell_escape(...)` again.
 - When SQL statements intentionally use trailing semicolons, preserve them.
   Escape the full SQL string and use `provider => shell` when escaped semicolons
   or shell guards would otherwise be parsed as separate commands.

@@ -109,6 +109,11 @@ class basic_settings::login (
   # Create list of packages that is suspicious
   $suspicious_packages = ['/usr/bin/chage', '/usr/bin/sudo', '/usr/bin/last', '/usr/sbin/pam-auth-update']
 
+  # Escape notification values for generated shell templates.
+  $mail_to_shell = stdlib::shell_escape($mail_to)
+  $audit_mail_from_shell = stdlib::shell_escape("audit@${server_fdqn}")
+  $server_fdqn_shell = stdlib::shell_escape($server_fdqn)
+
   # Setup GUI mode
   case $gui_mode {
     'kiosk': {

@@ -1,9 +1,10 @@
 # @summary Prepares shared monitoring plumbing and failure notifications.
 #
-# This class installs mail tooling for systemd failure notifications and, when
-# requested, prepares the OpenITCOCKPIT agent custom-check directory and
-# `customchecks.ini`. Other modules use this class as the central source for
-# monitoring package selection, notification mail, and sudoers-directory policy.
+# This class installs mail tooling for systemd failure notifications, writes the
+# shared monitoring notification helper, and, when requested, prepares the
+# OpenITCOCKPIT agent custom-check directory and `customchecks.ini`. Other
+# modules use this class as the central source for monitoring package selection,
+# notification mail, and sudoers-directory policy.
 #
 # @example Enable OpenITCOCKPIT custom checks without installing the agent package
 #   class { 'basic_settings::monitoring':
@@ -15,8 +16,8 @@
 #   default is `postfix`.
 #
 # @param mail_to
-#   Recipient address for systemd failure notification mail. The default is
-#   `root`.
+#   Default recipient address for the shared monitoring notification helper and
+#   systemd failure notification mail. The default is `root`.
 #
 # @param package
 #   Monitoring integration to configure. `none` disables generated monitoring
@@ -45,11 +46,44 @@ class basic_settings::monitoring (
 ) {
   # Set some default values
   $systemd_enable = defined(Package['systemd'])
+  $monitoring_notify_path = '/usr/local/lib/puppet/monitoring-notify'
+
+  # Escape notification values for the generated helper and systemd shell command.
+  $mail_to_shell = stdlib::shell_escape($mail_to)
+  $monitoring_notify_path_shell = stdlib::shell_escape($monitoring_notify_path)
+  $monitoring_mail_from_shell = stdlib::shell_escape("monitoring@${server_fdqn}")
+  $systemd_mail_from_shell = stdlib::shell_escape("systemd@${server_fdqn}")
+  $notify_failed_subject_shell = stdlib::shell_escape("Service %i failed on ${server_fdqn}")
+  $notify_failed_script = join([
+      'LC_CTYPE=C systemctl status --full %i |',
+      "${monitoring_notify_path_shell} -t ${mail_to_shell}",
+      "-r ${systemd_mail_from_shell} ${notify_failed_subject_shell}",
+  ], ' ')
 
   # Install package
   package { [$mail_package, 'mailutils']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
+  }
+
+  # Create script dir
+  if (!defined(File['/usr/local/lib/puppet'])) {
+    file { '/usr/local/lib/puppet':
+      ensure => directory,
+      owner  => 'root',
+      group  => 'root',
+      mode   => '0755', # Important, not only root are executing this rule
+    }
+  }
+
+  # Create shared monitoring notification helper
+  file { $monitoring_notify_path:
+    ensure  => file,
+    content => template('basic_settings/monitoring/monitoring-notify'),
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0755',
+    require => [File['/usr/local/lib/puppet'], Package['mailutils']],
   }
 
   # Do thing based on mail package
@@ -81,7 +115,7 @@ class basic_settings::monitoring (
     basic_settings::systemd_service { 'notify-failed@':
       description   => 'Send systemd notifications to mail',
       service       => {
-        'ExecStart'               => "/usr/bin/bash -c 'LC_CTYPE=C systemctl status --full %i | /usr/bin/mail -s \"Service %i failed on ${server_fdqn}\" -r \"systemd@${server_fdqn}\" \"${mail_to}\"'", #lint:ignore:140chars
+        'ExecStart'               => "/usr/bin/bash -c '${notify_failed_script}'",
         'LockPersonality'         => 'true',
         'MemoryDenyWriteExecute'  => 'true',
         'NoNewPrivileges'         => 'true',
@@ -101,7 +135,7 @@ class basic_settings::monitoring (
       },
       daemon_reload => 'monitoring_systemd_daemon_reload',
       enable        => false,
-      require       => Package[$mail_package],
+      require       => [Package[$mail_package], File[$monitoring_notify_path]],
     }
 
     # Create drop in for notify-failed service
