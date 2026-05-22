@@ -74,6 +74,12 @@
 # @param types_hash_max_size
 #   Value rendered for `types_hash_max_size`.
 #
+# @param variables_hash_bucket_size
+#   Value rendered for `variables_hash_bucket_size`.
+#
+# @param variables_hash_max_size
+#   Value rendered for `variables_hash_max_size`.
+#
 # @api public
 class nginx (
   Array                       $events_directives                = [],
@@ -95,7 +101,9 @@ class nginx (
   Boolean                     $ssl_prefer_server_ciphers        = true,
   String                      $ssl_protocols                    = 'TLSv1.2 TLSv1.3',
   String                      $target                           = 'services',
-  Integer                     $types_hash_max_size              = 2048
+  Integer                     $types_hash_max_size              = 2048,
+  Integer                     $variables_hash_bucket_size       = 128,
+  Integer                     $variables_hash_max_size          = 2048
 ) {
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])

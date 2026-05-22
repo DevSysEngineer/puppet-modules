@@ -74,7 +74,7 @@ class php8::fpm (
       require     => Package['systemd'],
     }
 
-    # Set service
+    # Set PHP-FPM service hardening explicitly, even when newer distro units already ship these settings.
     $default_service = {
       'PrivateDevices'          => 'true',
       'PrivateTmp'              => 'true',
@@ -86,6 +86,9 @@ class php8::fpm (
       'ProtectKernelModules'    => 'true',
       'ProtectKernelTunables'   => 'true',
       'ProtectSystem'           => 'full',
+      'RestrictAddressFamilies' => 'AF_INET AF_INET6 AF_NETLINK AF_UNIX',
+      'RestrictNamespaces'      => 'true',
+      'RestrictRealtime'        => 'true',
       'SystemCallArchitectures' => 'native',
       'UMask'                   => '0077',
     }
