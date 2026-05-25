@@ -53,7 +53,8 @@ class basic_settings::monitoring (
   $monitoring_notify_path_shell = stdlib::shell_escape($monitoring_notify_path)
   $monitoring_mail_from_shell = stdlib::shell_escape("monitoring@${server_fdqn}")
   $systemd_mail_from_shell = stdlib::shell_escape("systemd@${server_fdqn}")
-  $notify_failed_subject_shell = stdlib::shell_escape("Service %i failed on ${server_fdqn}")
+  $notify_failed_subject = "Service %i failed on ${server_fdqn}"
+  $notify_failed_subject_shell = stdlib::shell_escape($notify_failed_subject)
   $notify_failed_script = join([
       'LC_CTYPE=C systemctl status --full %i |',
       "${monitoring_notify_path_shell} -t ${mail_to_shell}",
