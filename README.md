@@ -1,5 +1,5 @@
 # Puppet-modules
-Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Puppet-omgeving, bestaande uit verschillende onderdelen: `Basic settings`, `Docker`, `GitLab`, `Let's Encrypt`, `Nginx`, `PHP`, `MySQL`, `SSH`, en `RabbitMQ`. Deze onderdelen kunnen afzonderlijk of in combinatie worden gebruikt om je infrastructuur te verbeteren. Om deze uitbreiding mogelijk te maken, vertrouw ik op andere Puppet-modules, die ik heb toegevoegd als git-submodules. Ik wil graag de makers van [debconf](https://github.com/smoeding/puppet-debconf.git), [reboot](https://github.com/puppetlabs/puppetlabs-reboot.git), [stdlib](https://github.com/puppetlabs/puppetlabs-stdlib.git) en [timezone](https://github.com/saz/puppet-timezone.git) bedanken voor hun waardevolle bijdragen.
+Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Puppet-omgeving, bestaande uit verschillende onderdelen: `Basic settings`, `Docker`, `GitLab`, `Let's Encrypt`, `Nginx`, `PHP`, `MySQL`, `SSH`, `RabbitMQ` en `vnStat`. Deze onderdelen kunnen afzonderlijk of in combinatie worden gebruikt om je infrastructuur te verbeteren. Om deze uitbreiding mogelijk te maken, vertrouw ik op andere Puppet-modules, die ik heb toegevoegd als git-submodules. Ik wil graag de makers van [concat](https://github.com/puppetlabs/puppetlabs-concat.git), [debconf](https://github.com/smoeding/puppet-debconf.git), [reboot](https://github.com/puppetlabs/puppetlabs-reboot.git), [stdlib](https://github.com/puppetlabs/puppetlabs-stdlib.git) en [timezone](https://github.com/saz/puppet-timezone.git) bedanken voor hun waardevolle bijdragen.
 
 > [!IMPORTANT]
 > **Perforce zet Puppet open-sourcecode achter betaalmuur**: In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je gaan betalen. Vind jij – net als ik – dat open source toegankelijk en vrij beschikbaar moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). Vox Pupuli biedt een drop-in replacement voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door openvox package van Vox Pupuli, zonder aanpassingen aan je bestaande configuratie.
@@ -635,6 +635,44 @@ node 'webserver.dev.xxxx.nl' {
     }
 }
 ```
+
+## VnStat
+
+vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert
+het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie
+laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een
+server zonder extra resources al breed netwerkverkeer registreert.
+
+Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de
+globale template thuishoren. De define schrijft een eigen concat-fragment naar
+dezelfde configuratie. Voor bekende interfaces kun je hiermee bijvoorbeeld
+`MaxBW<interface>` zetten op de echte technische snelheid van de interface. Dit
+is geen trafficbundel of alarmdrempel, maar een sanity-limit voor onrealistische
+tellerwaarden.
+
+### Voorbeeld
+
+Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar
+voor twee uplinks een bekende maximumsnelheid meekrijgt:
+
+```puppet
+node 'router.dev.xxxx.nl' {
+    class { 'vnstat': }
+
+    vnstat::ethernet { 'ens192':
+        max_bandwidth => 1000,
+    }
+
+    vnstat::ethernet { 'wan-uplink':
+        interface     => 'ens224',
+        max_bandwidth => 10000,
+    }
+}
+```
+
+Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig
+heeft, hoort daarvoor een expliciete parameter in `vnstat::ethernet` te worden
+toegevoegd. Zo blijft zichtbaar welke configuratie de module ondersteunt.
 
 ## Checks
 Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.

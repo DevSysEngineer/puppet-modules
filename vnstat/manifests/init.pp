@@ -1,6 +1,27 @@
+# @summary Installs and configures vnStat traffic accounting.
+#
+# This class installs vnStat, builds `/etc/vnstat.conf` through concat, and
+# integrates the daemon with the local `basic_settings` systemd and logrotate
+# helpers when those helpers are already present in the catalog. The default
+# configuration lets vnstatd add newly discovered interfaces automatically so a
+# host receives traffic accounting without a per-interface resource.
+#
+# @example Install vnStat with the default configuration
+#   class { 'vnstat': }
+#
+# @param nice_level
+#   Positive nice value rendered as a negative systemd `Nice` setting for
+#   `vnstat.service`. The default `8` makes the daemon prefer responsiveness
+#   without running at the highest priority.
+#
+# @param target
+#   `basic_settings::systemd` target suffix that should bind to
+#   `vnstat.service` when the shared systemd target ladder is present.
+#
+# @api public
 class vnstat (
-  Integer           $nice_level = 8,
-  String            $target     = 'services',
+  Integer $nice_level = 8,
+  String  $target     = 'services',
 ) {
   # Install vnstat
   package { 'vnstat':
@@ -10,7 +31,7 @@ class vnstat (
 
   # Check if we have systemd
   if (defined(Package['systemd'])) {
-    # Reload systemd deamon
+    # Reload systemd daemon
     exec { 'vnstat_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
       refreshonly => true,
@@ -62,13 +83,16 @@ class vnstat (
     }
   }
 
-  # Set config file
-  file { '/etc/vnstat.conf':
-    ensure  => file,
-    content => template('vnstat/config.conf'),
+  # Build vnStat configuration from the default template and optional fragments.
+  concat { '/etc/vnstat.conf':
     owner   => 'root',
     group   => 'root',
     mode    => '0600', # Only root
     require => Package['vnstat'],
+  }
+  concat::fragment { 'vnstat_config_default':
+    target  => '/etc/vnstat.conf',
+    content => template('vnstat/vnstat.conf'),
+    order   => '10',
   }
 }
