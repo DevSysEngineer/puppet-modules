@@ -1,0 +1,808 @@
+#!/bin/sh
+# Managed by puppet
+
+# Fail helper
+die() {
+    printf 'vnStat check cannot run: %s\n' "$*"
+    exit 3
+}
+
+need_arg() {
+    [ "$#" -ge 2 ] || die "missing value for $1"
+}
+
+# Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk command not found"
+DATE=$(command -v date 2>/dev/null) || die "date command not found"
+GREP=$(command -v grep 2>/dev/null) || die "grep command not found"
+JQ=$(command -v jq 2>/dev/null) || die "jq command not found"
+SED=$(command -v sed 2>/dev/null) || die "sed command not found"
+TR=$(command -v tr 2>/dev/null) || die "tr command not found"
+VNSTAT=$(command -v vnstat 2>/dev/null) || die "vnStat command not found"
+
+# Defaults / thresholds
+STATE_OK=0
+STATE_WARNING=1
+STATE_CRITICAL=2
+STATE_UNKNOWN=3
+
+DEFAULT_EXCLUDE_REGEX='^lo$|^docker.*|^veth.*|^br-.*|^virbr.*|^tun.*|^tap.*|^wg.*'
+INCLUDE_REGEX=''
+EXCLUDE_REGEX=$DEFAULT_EXCLUDE_REGEX
+P95_WARNING_MBIT=''
+P95_CRITICAL_MBIT=''
+CAPACITY_WARNING_PERCENT='80'
+CAPACITY_CRITICAL_PERCENT='90'
+GROWTH_DAY_WARNING_PERCENT='25'
+GROWTH_DAY_CRITICAL_PERCENT='50'
+GROWTH_MONTH_WARNING_PERCENT='25'
+GROWTH_MONTH_CRITICAL_PERCENT='50'
+LAST_UPDATE_WARNING_SECONDS='900'
+LAST_UPDATE_CRITICAL_SECONDS='1800'
+
+# Runtime state collected while all interfaces are evaluated.
+CHECKED_INTERFACES=''
+CHECKED_SEPARATOR=''
+CHECKED_COUNT=0
+CRITICAL_COUNT=0
+FINAL_STATE='OK'
+IGNORED_COUNT=0
+IGNORED_ITEMS=''
+IGNORED_SEPARATOR=''
+
+# Per-status buckets keep the long output ordered by operational impact.
+LONG_CRITICAL=''
+LONG_OK=''
+LONG_UNKNOWN=''
+LONG_WARNING=''
+NAMES_CRITICAL=''
+NAMES_OK=''
+NAMES_UNKNOWN=''
+NAMES_WARNING=''
+OK_COUNT=0
+PERFDATA=''
+UNKNOWN_COUNT=0
+WARNING_COUNT=0
+
+# Parse options
+usage() {
+    printf '%s\n' "Usage: $0 [options]"
+    printf '%s\n' ''
+    printf '%s\n' 'Options:'
+    printf '%s\n' '  --include <regex>'
+    printf '%s\n' '  --exclude <regex>                         Replaces the built-in default exclude regex'
+    printf '%s\n' '  --p95-warning-mbit <number>'
+    printf '%s\n' '  --p95-critical-mbit <number>'
+    printf '%s\n' '  --capacity-warning-percent <number>'
+    printf '%s\n' '  --capacity-critical-percent <number>'
+    printf '%s\n' '  --growth-day-warning-percent <number>'
+    printf '%s\n' '  --growth-day-critical-percent <number>'
+    printf '%s\n' '  --growth-month-warning-percent <number>'
+    printf '%s\n' '  --growth-month-critical-percent <number>'
+    printf '%s\n' '  --last-update-warning-seconds <number>'
+    printf '%s\n' '  --last-update-critical-seconds <number>'
+    printf '%s\n' '  --help'
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --include)
+            need_arg "$1" "$@"
+            shift
+            INCLUDE_REGEX=$1
+            ;;
+        --exclude)
+            need_arg "$1" "$@"
+            shift
+            EXCLUDE_REGEX=$1
+            ;;
+        --p95-warning-mbit)
+            need_arg "$1" "$@"
+            shift
+            P95_WARNING_MBIT=$1
+            ;;
+        --p95-critical-mbit)
+            need_arg "$1" "$@"
+            shift
+            P95_CRITICAL_MBIT=$1
+            ;;
+        --capacity-warning-percent)
+            need_arg "$1" "$@"
+            shift
+            CAPACITY_WARNING_PERCENT=$1
+            ;;
+        --capacity-critical-percent)
+            need_arg "$1" "$@"
+            shift
+            CAPACITY_CRITICAL_PERCENT=$1
+            ;;
+        --growth-day-warning-percent)
+            need_arg "$1" "$@"
+            shift
+            GROWTH_DAY_WARNING_PERCENT=$1
+            ;;
+        --growth-day-critical-percent)
+            need_arg "$1" "$@"
+            shift
+            GROWTH_DAY_CRITICAL_PERCENT=$1
+            ;;
+        --growth-month-warning-percent)
+            need_arg "$1" "$@"
+            shift
+            GROWTH_MONTH_WARNING_PERCENT=$1
+            ;;
+        --growth-month-critical-percent)
+            need_arg "$1" "$@"
+            shift
+            GROWTH_MONTH_CRITICAL_PERCENT=$1
+            ;;
+        --last-update-warning-seconds)
+            need_arg "$1" "$@"
+            shift
+            LAST_UPDATE_WARNING_SECONDS=$1
+            ;;
+        --last-update-critical-seconds)
+            need_arg "$1" "$@"
+            shift
+            LAST_UPDATE_CRITICAL_SECONDS=$1
+            ;;
+        --help)
+            usage
+            exit "$STATE_OK"
+            ;;
+        *)
+            die "invalid option: $1"
+            ;;
+    esac
+    shift
+done
+
+# Read the first diagnostic line from command output.
+first_line_value() {
+    printf '%s\n' "$1" | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}'
+}
+
+# Numeric validation helpers keep CLI error handling consistent.
+is_number() {
+    "$AWK" -v value="$1" 'BEGIN { exit(value ~ /^[0-9]+([.][0-9]+)?$/ ? 0 : 1) }'
+}
+
+is_positive_number() {
+    "$AWK" -v value="$1" 'BEGIN { exit(value ~ /^[0-9]+([.][0-9]+)?$/ && value + 0 > 0 ? 0 : 1) }'
+}
+
+ge_number() {
+    "$AWK" -v left="$1" -v right="$2" 'BEGIN { exit(left + 0 >= right + 0 ? 0 : 1) }'
+}
+
+lt_number() {
+    "$AWK" -v left="$1" -v right="$2" 'BEGIN { exit(left + 0 < right + 0 ? 0 : 1) }'
+}
+
+validate_number() {
+    [ -n "$2" ] || return 0
+    is_number "$2" || die "invalid numeric value for $1: $2"
+}
+
+validate_positive_number() {
+    [ -n "$2" ] || return 0
+    is_positive_number "$2" || die "invalid positive numeric value for $1: $2"
+}
+
+validate_pair() {
+    if [ -n "$2" ] && [ -n "$3" ] && lt_number "$3" "$2"; then
+        die "$1 critical threshold must be greater than or equal to warning threshold"
+    fi
+}
+
+validate_regex() {
+    [ -n "$2" ] || return 0
+    "$GREP" -E "$2" /dev/null >/dev/null 2>&1
+    [ "$?" -eq 2 ] && die "invalid $1 regex: $2"
+}
+
+# Status helpers implement the project severity order for combined checks.
+state_rank() {
+    case "$1" in
+        OK)       printf '%s\n' 0 ;;
+        UNKNOWN)  printf '%s\n' 1 ;;
+        WARNING)  printf '%s\n' 2 ;;
+        CRITICAL) printf '%s\n' 3 ;;
+        *)        printf '%s\n' 1 ;;
+    esac
+}
+
+state_exit_code() {
+    case "$1" in
+        OK)       printf '%s\n' "$STATE_OK" ;;
+        WARNING)  printf '%s\n' "$STATE_WARNING" ;;
+        CRITICAL) printf '%s\n' "$STATE_CRITICAL" ;;
+        UNKNOWN)  printf '%s\n' "$STATE_UNKNOWN" ;;
+        *)        printf '%s\n' "$STATE_UNKNOWN" ;;
+    esac
+}
+
+max_state() {
+    if [ "$(state_rank "$2")" -gt "$(state_rank "$1")" ]; then
+        printf '%s\n' "$2"
+    else
+        printf '%s\n' "$1"
+    fi
+}
+
+threshold_status() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s\n' 'UNKNOWN'
+    elif [ -n "$3" ] && ge_number "$1" "$3"; then
+        printf '%s\n' 'CRITICAL'
+    elif [ -n "$2" ] && ge_number "$1" "$2"; then
+        printf '%s\n' 'WARNING'
+    else
+        printf '%s\n' 'OK'
+    fi
+}
+
+# Nagios metric labels cannot safely contain arbitrary interface characters.
+sanitize_label() {
+    printf '%s' "$1" | "$TR" '[:upper:]' '[:lower:]' | "$SED" 's/[^a-z0-9_]/_/g'
+}
+
+# Format values for human-readable long output; perfdata keeps raw units.
+format_number() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s' 'U'
+        return
+    fi
+    "$AWK" -v value="$1" 'BEGIN { printf "%.2f", value + 0 }'
+}
+
+format_bytes() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s' 'unavailable'
+        return
+    fi
+
+    "$AWK" -v value="$1" '
+        BEGIN {
+            split("B KB MB GB TB PB EB", units, " ")
+            unit = 1
+            while (value >= 1000 && unit < 7) {
+                value = value / 1000
+                unit++
+            }
+            if (unit == 1) {
+                printf "%.0f %s", value, units[unit]
+            } else {
+                printf "%.2f %s", value, units[unit]
+            }
+        }
+    '
+}
+
+calc_mbit_from_bytes_per_second() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s\n' 'U'
+        return
+    fi
+    "$AWK" -v bps_bytes="$1" 'BEGIN { printf "%.2f\n", (bps_bytes * 8) / 1000000 }'
+}
+
+calc_bps_from_mbit() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s\n' 'U'
+        return
+    fi
+    "$AWK" -v mbit="$1" 'BEGIN { printf "%.0f\n", mbit * 1000000 }'
+}
+
+perf_value() {
+    if [ "$1" = 'U' ] || [ -z "$1" ]; then
+        printf '%s' 'U'
+    else
+        printf '%s%s' "$1" "$2"
+    fi
+}
+
+calc_percent() {
+    if [ "$1" = 'U' ] || [ "$2" = 'U' ] || [ -z "$1" ] || [ -z "$2" ]; then
+        printf '%s\n' 'U'
+        return
+    fi
+
+    "$AWK" -v value="$1" -v base="$2" 'BEGIN {
+        if (base + 0 <= 0) {
+            printf "U\n"
+        } else {
+            printf "%.2f\n", (value / base) * 100
+        }
+    }'
+}
+
+calc_growth_percent() {
+    if [ "$1" = 'U' ] || [ "$2" = 'U' ] || [ -z "$1" ] || [ -z "$2" ]; then
+        printf '%s\n' 'U'
+        return
+    fi
+
+    "$AWK" -v current="$1" -v previous="$2" 'BEGIN {
+        if (previous + 0 <= 0) {
+            printf "U\n"
+        } else {
+            printf "%.2f\n", ((current - previous) / previous) * 100
+        }
+    }'
+}
+
+match_regex() {
+    [ -n "$2" ] || return 1
+    printf '%s\n' "$1" | "$GREP" -Eq "$2"
+}
+
+# Read one effective vnStat configuration value from `vnstat --showconfig`.
+showconfig_value() {
+    printf '%s\n' "$SHOWCONFIG_TEXT" | "$AWK" -v key="$1" '
+        /^[[:space:]]*($|[#;])/ { next }
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            split(line, parts, /[[:space:]]+/)
+            if (parts[1] == key) {
+                value = line
+                sub(/^[^[:space:]]+[[:space:]]*/, "", value)
+                sub(/[[:space:]]*[#;].*$/, "", value)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                gsub(/^"|"$/, "", value)
+                found = value
+            }
+        }
+        END {
+            if (found != "") {
+                print found
+            }
+        }
+    '
+}
+
+# MaxBW<interface> has priority over the global MaxBandwidth value.
+showconfig_limit_mbit() {
+    _iface_limit=$(showconfig_value "MaxBW${1}")
+    if [ -n "$_iface_limit" ]; then
+        is_number "$_iface_limit" || die "vnStat showconfig returned invalid MaxBW${1} value: $_iface_limit"
+        if is_positive_number "$_iface_limit"; then
+            printf '%s|MaxBW%s\n' "$_iface_limit" "$1"
+        else
+            printf '%s|MaxBW%s\n' 'U' "$1"
+        fi
+        return
+    fi
+
+    if is_positive_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
+        printf '%s|MaxBandwidth\n' "$GLOBAL_MAXBANDWIDTH_MBIT"
+    elif is_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
+        printf '%s|MaxBandwidth\n' 'U'
+    else
+        printf '%s|none\n' 'U'
+    fi
+}
+
+# Validate options before calling vnStat so bad monitoring arguments return UNKNOWN.
+validate_regex "include" "$INCLUDE_REGEX"
+validate_regex "exclude" "$EXCLUDE_REGEX"
+validate_positive_number "p95_warning_mbit" "$P95_WARNING_MBIT"
+validate_positive_number "p95_critical_mbit" "$P95_CRITICAL_MBIT"
+validate_number "capacity_warning_percent" "$CAPACITY_WARNING_PERCENT"
+validate_number "capacity_critical_percent" "$CAPACITY_CRITICAL_PERCENT"
+validate_number "growth_day_warning_percent" "$GROWTH_DAY_WARNING_PERCENT"
+validate_number "growth_day_critical_percent" "$GROWTH_DAY_CRITICAL_PERCENT"
+validate_number "growth_month_warning_percent" "$GROWTH_MONTH_WARNING_PERCENT"
+validate_number "growth_month_critical_percent" "$GROWTH_MONTH_CRITICAL_PERCENT"
+validate_number "last_update_warning_seconds" "$LAST_UPDATE_WARNING_SECONDS"
+validate_number "last_update_critical_seconds" "$LAST_UPDATE_CRITICAL_SECONDS"
+validate_pair "p95" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
+validate_pair "capacity" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+validate_pair "day growth" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
+validate_pair "month growth" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
+validate_pair "last update" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+
+# Query vnStat's effective configuration once. Interface limits come from this output.
+SHOWCONFIG_TEXT=$("$VNSTAT" --showconfig 2>&1)
+SHOWCONFIG_RC=$?
+if [ "$SHOWCONFIG_RC" -ne 0 ]; then
+    SHOWCONFIG_ERROR=$(first_line_value "$SHOWCONFIG_TEXT")
+    [ -n "$SHOWCONFIG_ERROR" ] || SHOWCONFIG_ERROR='showconfig query failed'
+    die "vnStat showconfig failed: $SHOWCONFIG_ERROR"
+fi
+GLOBAL_MAXBANDWIDTH_MBIT=$(showconfig_value 'MaxBandwidth')
+if [ -n "$GLOBAL_MAXBANDWIDTH_MBIT" ] && ! is_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
+    die "vnStat showconfig returned invalid MaxBandwidth value: $GLOBAL_MAXBANDWIDTH_MBIT"
+fi
+
+# Query the vnStat summary JSON once; this contains interface names, update timestamps and daily/monthly history.
+SUMMARY_JSON=$("$VNSTAT" --json s 2>&1)
+SUMMARY_RC=$?
+if [ "$SUMMARY_RC" -ne 0 ]; then
+    VNSTAT_ERROR=$(first_line_value "$SUMMARY_JSON")
+    [ -n "$VNSTAT_ERROR" ] || VNSTAT_ERROR='summary query failed'
+    die "vnStat JSON query failed: $VNSTAT_ERROR"
+fi
+
+JQ_ERROR=$(printf '%s' "$SUMMARY_JSON" | "$JQ" -e '.interfaces | type == "array"' 2>&1 >/dev/null)
+if [ "$?" -ne 0 ]; then
+    JQ_ERROR=$(first_line_value "$JQ_ERROR")
+    [ -n "$JQ_ERROR" ] || JQ_ERROR='invalid JSON'
+    die "vnStat returned invalid JSON: $JQ_ERROR"
+fi
+
+INTERFACES=$(printf '%s' "$SUMMARY_JSON" | "$JQ" -r '.interfaces[]?.name // empty' 2>&1)
+if [ "$?" -ne 0 ]; then
+    die "vnStat returned invalid JSON: $(first_line_value "$INTERFACES")"
+fi
+[ -n "$INTERFACES" ] || die "no vnStat interfaces found"
+
+# Apply monitoring-side include/exclude filtering. vnStat itself does not support regex excludes.
+while IFS= read -r IFACE || [ -n "$IFACE" ]; do
+    [ -n "$IFACE" ] || continue
+
+    if [ -n "$INCLUDE_REGEX" ] && ! match_regex "$IFACE" "$INCLUDE_REGEX"; then
+        IGNORED_COUNT=$((IGNORED_COUNT + 1))
+        IGNORED_ITEMS="${IGNORED_ITEMS}${IGNORED_SEPARATOR}${IFACE}: not matched by include regex"
+        IGNORED_SEPARATOR=','
+        continue
+    fi
+
+    if [ -n "$EXCLUDE_REGEX" ] && match_regex "$IFACE" "$EXCLUDE_REGEX"; then
+        IGNORED_COUNT=$((IGNORED_COUNT + 1))
+        IGNORED_ITEMS="${IGNORED_ITEMS}${IGNORED_SEPARATOR}${IFACE}: excluded by regex"
+        IGNORED_SEPARATOR=','
+        continue
+    fi
+
+    CHECKED_COUNT=$((CHECKED_COUNT + 1))
+    CHECKED_INTERFACES="${CHECKED_INTERFACES}${CHECKED_SEPARATOR}${IFACE}"
+    CHECKED_SEPARATOR=','
+done <<EOF
+$INTERFACES
+EOF
+
+if [ "$CHECKED_COUNT" -eq 0 ]; then
+    printf 'vnStat has no interfaces after filtering | interfaces_checked=0;;;; interfaces_ignored=%s;;;;\n' "$IGNORED_COUNT"
+    printf '%s\n' 'Ignored interfaces:'
+    if [ "$IGNORED_COUNT" -gt 0 ]; then
+        printf '%s' "$IGNORED_ITEMS" | "$TR" ',' '\n' | "$SED" 's/^/  /'
+    else
+        printf '%s\n' '  none'
+    fi
+    printf 'Effective include regex: %s\n' "${INCLUDE_REGEX:-none}"
+    printf 'Effective exclude regex: %s\n' "${EXCLUDE_REGEX:-none}"
+    exit "$STATE_UNKNOWN"
+fi
+
+NOW_TS=$($DATE +%s)
+CHECKED_INTERFACES_LINES=$(printf '%s' "$CHECKED_INTERFACES" | "$TR" ',' '\n')
+
+# Analyze each checked interface. Long output is always emitted and grouped after final status is known.
+while IFS= read -r IFACE || [ -n "$IFACE" ]; do
+    [ -n "$IFACE" ] || continue
+
+    LABEL=$(sanitize_label "$IFACE")
+    INTERFACE_STATE='OK'
+
+    # Extract update age and daily/monthly totals from the summary JSON.
+    TRAFFIC_TSV=$(printf '%s' "$SUMMARY_JSON" | "$JQ" -r --arg iface "$IFACE" '
+        (.interfaces[]? | select(.name == $iface)) as $if |
+        def rows($name): [ $if.traffic[$name][]? ] | sort_by(.timestamp);
+        def pick($name; $offset):
+            (rows($name)) as $rows |
+            if ($rows | length) > $offset then $rows[($rows | length) - 1 - $offset] else null end;
+        def num($entry; $key):
+            if $entry == null or (($entry[$key] | type) != "number") then "U" else $entry[$key] end;
+        def total($entry):
+            if $entry == null or (($entry.rx | type) != "number") or (($entry.tx | type) != "number") then "U" else ($entry.rx + $entry.tx) end;
+        (pick("day"; 0)) as $current_day |
+        (pick("day"; 1)) as $previous_day |
+        (pick("month"; 0)) as $current_month |
+        (pick("month"; 1)) as $previous_month |
+        [
+            ($if.updated.timestamp // "U"),
+            num($current_day; "rx"),
+            num($current_day; "tx"),
+            total($current_day),
+            total($previous_day),
+            num($current_month; "rx"),
+            num($current_month; "tx"),
+            total($current_month),
+            total($previous_month)
+        ] | @tsv
+    ' 2>&1)
+    TRAFFIC_RC=$?
+
+    if [ "$TRAFFIC_RC" -ne 0 ] || [ -z "$TRAFFIC_TSV" ]; then
+        UPDATED_TS='U'
+        RX_DAY='U'
+        TX_DAY='U'
+        CURRENT_DAY_TOTAL='U'
+        PREVIOUS_DAY_TOTAL='U'
+        RX_MONTH='U'
+        TX_MONTH='U'
+        CURRENT_MONTH_TOTAL='U'
+        PREVIOUS_MONTH_TOTAL='U'
+        TRAFFIC_ERROR=$(first_line_value "$TRAFFIC_TSV")
+        [ -n "$TRAFFIC_ERROR" ] || TRAFFIC_ERROR='interface data could not be parsed'
+        INTERFACE_STATE=$(max_state "$INTERFACE_STATE" 'UNKNOWN')
+    else
+        # The jq expression emits fixed numeric/U fields, so plain field splitting is safe here.
+        set -- $TRAFFIC_TSV
+        UPDATED_TS=$1
+        RX_DAY=$2
+        TX_DAY=$3
+        CURRENT_DAY_TOTAL=$4
+        PREVIOUS_DAY_TOTAL=$5
+        RX_MONTH=$6
+        TX_MONTH=$7
+        CURRENT_MONTH_TOTAL=$8
+        PREVIOUS_MONTH_TOTAL=$9
+        TRAFFIC_ERROR=''
+    fi
+
+    if [ "$UPDATED_TS" = 'U' ] || [ -z "$UPDATED_TS" ]; then
+        LAST_UPDATE_AGE='U'
+        LAST_UPDATE_STATE='UNKNOWN'
+    else
+        LAST_UPDATE_AGE=$("$AWK" -v now="$NOW_TS" -v updated="$UPDATED_TS" 'BEGIN {
+            age = now - updated
+            if (age < 0) {
+                age = 0
+            }
+            printf "%.0f\n", age
+        }')
+        LAST_UPDATE_STATE=$(threshold_status "$LAST_UPDATE_AGE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS")
+    fi
+    INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$LAST_UPDATE_STATE")
+
+    # Use vnStat's native 95th percentile implementation for the current month.
+    P95_JSON=$("$VNSTAT" --iface "$IFACE" --json p 2>&1)
+    P95_RC=$?
+    P95_BYTES_PER_SECOND='U'
+    P95_BPS='U'
+    P95_MBIT='U'
+    P95_COVERAGE='U'
+    P95_SEEN='U'
+    P95_EXPECTED='U'
+    P95_STATE='UNKNOWN'
+    P95_ERROR=''
+
+    if [ "$P95_RC" -eq 0 ]; then
+        JQ_ERROR=$(printf '%s' "$P95_JSON" | "$JQ" -e '.interfaces | type == "array"' 2>&1 >/dev/null)
+        if [ "$?" -eq 0 ]; then
+            P95_TSV=$(printf '%s' "$P95_JSON" | "$JQ" -r --arg iface "$IFACE" '
+                (.interfaces[]? | select(.name == $iface) | .bandwidth) as $bandwidth |
+                if $bandwidth == null then empty else
+                    [
+                        ($bandwidth."95th_percentile".total_bytes_per_second // "U"),
+                        ($bandwidth.entries.coverage_percentage // "U"),
+                        ($bandwidth.entries.seen // "U"),
+                        ($bandwidth.entries.expected // "U")
+                    ] | @tsv
+                end
+            ' 2>&1)
+            if [ "$?" -eq 0 ] && [ -n "$P95_TSV" ]; then
+                # The percentile query emits fixed numeric/U fields, so plain field splitting is safe here.
+                set -- $P95_TSV
+                P95_BYTES_PER_SECOND=$1
+                P95_COVERAGE=$2
+                P95_SEEN=$3
+                P95_EXPECTED=$4
+
+                if is_number "$P95_BYTES_PER_SECOND"; then
+                    P95_BPS=$("$AWK" -v value="$P95_BYTES_PER_SECOND" 'BEGIN { printf "%.0f\n", value * 8 }')
+                    P95_MBIT=$(calc_mbit_from_bytes_per_second "$P95_BYTES_PER_SECOND")
+                    P95_STATE=$(threshold_status "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT")
+                else
+                    P95_ERROR='95th percentile value is missing from vnStat JSON'
+                fi
+            else
+                P95_ERROR=$(first_line_value "$P95_TSV")
+                [ -n "$P95_ERROR" ] || P95_ERROR='95th percentile data is missing from vnStat JSON'
+            fi
+        else
+            P95_ERROR=$(first_line_value "$JQ_ERROR")
+            [ -n "$P95_ERROR" ] || P95_ERROR='invalid 95th percentile JSON'
+        fi
+    else
+        P95_ERROR=$(first_line_value "$P95_JSON")
+        [ -n "$P95_ERROR" ] || P95_ERROR='95th percentile query failed'
+    fi
+    INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$P95_STATE")
+
+    # Capacity limits intentionally follow vnStat's effective configuration.
+    LIMIT_TSV=$(showconfig_limit_mbit "$IFACE")
+    INTERFACE_LIMIT_MBIT=${LIMIT_TSV%%|*}
+    LIMIT_SOURCE=${LIMIT_TSV#*|}
+
+    if [ "$P95_MBIT" = 'U' ]; then
+        CAPACITY_PCT='U'
+        CAPACITY_STATE='UNKNOWN'
+        CAPACITY_NOTE='95th percentile unavailable'
+    elif [ "$INTERFACE_LIMIT_MBIT" = 'U' ] || [ -z "$INTERFACE_LIMIT_MBIT" ]; then
+        CAPACITY_PCT='U'
+        CAPACITY_STATE='OK'
+        if [ "$LIMIT_SOURCE" = 'none' ]; then
+            CAPACITY_NOTE='skipped; no MaxBW interface limit or MaxBandwidth value in vnStat showconfig'
+        else
+            CAPACITY_NOTE="skipped; ${LIMIT_SOURCE} is 0 in vnStat showconfig"
+        fi
+    else
+        CAPACITY_PCT=$(calc_percent "$P95_MBIT" "$INTERFACE_LIMIT_MBIT")
+        CAPACITY_STATE=$(threshold_status "$CAPACITY_PCT" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT")
+        CAPACITY_NOTE="of ${INTERFACE_LIMIT_MBIT} Mbit/s (${LIMIT_SOURCE} from vnStat showconfig)"
+    fi
+    INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$CAPACITY_STATE")
+
+    # Relative growth is only meaningful when vnStat has a non-zero previous-day baseline.
+    if [ "$CURRENT_DAY_TOTAL" = 'U' ] || [ "$PREVIOUS_DAY_TOTAL" = 'U' ] || ! is_positive_number "$PREVIOUS_DAY_TOTAL"; then
+        DAY_GROWTH_PCT='U'
+        DAY_GROWTH_STATE='OK'
+        DAY_BASELINE_AVAILABLE=0
+        DAY_GROWTH_NOTE='skipped; no previous day baseline available'
+    else
+        DAY_GROWTH_PCT=$(calc_growth_percent "$CURRENT_DAY_TOTAL" "$PREVIOUS_DAY_TOTAL")
+        DAY_BASELINE_AVAILABLE=1
+        DAY_GROWTH_NOTE="warning ${GROWTH_DAY_WARNING_PERCENT}%, critical ${GROWTH_DAY_CRITICAL_PERCENT}%"
+        DAY_GROWTH_STATE=$(threshold_status "$DAY_GROWTH_PCT" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT")
+    fi
+    INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$DAY_GROWTH_STATE")
+
+    # Missing previous-month data is expected for new interfaces and must not alert.
+    if [ "$CURRENT_MONTH_TOTAL" = 'U' ] || [ "$PREVIOUS_MONTH_TOTAL" = 'U' ] || ! is_positive_number "$PREVIOUS_MONTH_TOTAL"; then
+        MONTH_GROWTH_PCT='U'
+        MONTH_GROWTH_STATE='OK'
+        MONTH_BASELINE_AVAILABLE=0
+        MONTH_GROWTH_NOTE='skipped; no previous month baseline available'
+    else
+        MONTH_GROWTH_PCT=$(calc_growth_percent "$CURRENT_MONTH_TOTAL" "$PREVIOUS_MONTH_TOTAL")
+        MONTH_BASELINE_AVAILABLE=1
+        MONTH_GROWTH_NOTE="warning ${GROWTH_MONTH_WARNING_PERCENT}%, critical ${GROWTH_MONTH_CRITICAL_PERCENT}%"
+        MONTH_GROWTH_STATE=$(threshold_status "$MONTH_GROWTH_PCT" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT")
+    fi
+    INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$MONTH_GROWTH_STATE")
+
+    if [ -n "$P95_WARNING_MBIT" ]; then
+        P95_WARNING_BPS=$(calc_bps_from_mbit "$P95_WARNING_MBIT")
+    else
+        P95_WARNING_BPS=''
+    fi
+    if [ -n "$P95_CRITICAL_MBIT" ]; then
+        P95_CRITICAL_BPS=$(calc_bps_from_mbit "$P95_CRITICAL_MBIT")
+    else
+        P95_CRITICAL_BPS=''
+    fi
+
+    # Build Nagios perfdata directly in memory because the final first line depends on all interfaces.
+    INTERFACE_PERFDATA=$(
+        printf '%s_p95_mbit=%s;%s;%s;0;' "$LABEL" "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
+        printf ' %s_p95_bps=%s;%s;%s;0;' "$LABEL" "$P95_BPS" "$P95_WARNING_BPS" "$P95_CRITICAL_BPS"
+        printf ' %s_capacity_pct=%s;%s;%s;0;100' "$LABEL" "$(perf_value "$CAPACITY_PCT" '%')" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+        printf ' %s_interface_limit_mbit=%s;;;;' "$LABEL" "$INTERFACE_LIMIT_MBIT"
+        printf ' %s_growth_day_pct=%s;%s;%s;;' "$LABEL" "$(perf_value "$DAY_GROWTH_PCT" '%')" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
+        printf ' %s_growth_day_baseline_available=%s;;;;' "$LABEL" "$DAY_BASELINE_AVAILABLE"
+        printf ' %s_growth_month_pct=%s;%s;%s;;' "$LABEL" "$(perf_value "$MONTH_GROWTH_PCT" '%')" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
+        printf ' %s_growth_month_baseline_available=%s;;;;' "$LABEL" "$MONTH_BASELINE_AVAILABLE"
+        printf ' %s_current_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$CURRENT_DAY_TOTAL" 'B')"
+        printf ' %s_previous_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$PREVIOUS_DAY_TOTAL" 'B')"
+        printf ' %s_current_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$CURRENT_MONTH_TOTAL" 'B')"
+        printf ' %s_previous_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$PREVIOUS_MONTH_TOTAL" 'B')"
+        printf ' %s_rx_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$RX_DAY" 'B')"
+        printf ' %s_tx_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$TX_DAY" 'B')"
+        printf ' %s_rx_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$RX_MONTH" 'B')"
+        printf ' %s_tx_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$TX_MONTH" 'B')"
+        printf ' %s_last_update_age_seconds=%s;%s;%s;0;' "$LABEL" "$LAST_UPDATE_AGE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+    )
+    PERFDATA="${PERFDATA}${PERFDATA:+ }${INTERFACE_PERFDATA}"
+
+    # Keep long output operator-readable and grouped by final interface status.
+    INTERFACE_BLOCK=$(
+        printf 'Interface %s: %s\n' "$IFACE" "$INTERFACE_STATE"
+        if [ -n "$TRAFFIC_ERROR" ]; then
+            printf '  Traffic data: %s [UNKNOWN]\n' "$TRAFFIC_ERROR"
+        fi
+
+        if [ "$P95_STATE" = 'UNKNOWN' ]; then
+            printf '  95th percentile: unavailable [UNKNOWN%s]\n' "${P95_ERROR:+, $P95_ERROR}"
+        elif [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
+            printf '  95th percentile: %s Mbit/s [%s, warning %s, critical %s]\n' "$(format_number "$P95_MBIT")" "$P95_STATE" "${P95_WARNING_MBIT:-none}" "${P95_CRITICAL_MBIT:-none}"
+        else
+            printf '  95th percentile: %s Mbit/s [OK, no p95 thresholds configured]\n' "$(format_number "$P95_MBIT")"
+        fi
+        printf '  95th percentile coverage: %s%% (%s/%s entries)\n' "$P95_COVERAGE" "$P95_SEEN" "$P95_EXPECTED"
+
+        if [ "$CAPACITY_STATE" = 'OK' ] && [ "$CAPACITY_PCT" = 'U' ]; then
+            printf '  Capacity: skipped [OK, %s]\n' "$CAPACITY_NOTE"
+        elif [ "$CAPACITY_STATE" = 'UNKNOWN' ]; then
+            printf '  Capacity: unavailable [UNKNOWN, %s]\n' "$CAPACITY_NOTE"
+        else
+            printf '  Capacity: %s%% %s [%s, warning %s%%, critical %s%%]\n' "$(format_number "$CAPACITY_PCT")" "$CAPACITY_NOTE" "$CAPACITY_STATE" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+        fi
+
+        if [ "$DAY_BASELINE_AVAILABLE" -eq 1 ]; then
+            printf '  Day growth: %s%% [%s, %s]\n' "$(format_number "$DAY_GROWTH_PCT")" "$DAY_GROWTH_STATE" "$DAY_GROWTH_NOTE"
+        else
+            printf '  Day growth: skipped [OK, %s]\n' "$DAY_GROWTH_NOTE"
+        fi
+
+        if [ "$MONTH_BASELINE_AVAILABLE" -eq 1 ]; then
+            printf '  Month growth: %s%% [%s, %s]\n' "$(format_number "$MONTH_GROWTH_PCT")" "$MONTH_GROWTH_STATE" "$MONTH_GROWTH_NOTE"
+        else
+            printf '  Month growth: skipped [OK, %s]\n' "$MONTH_GROWTH_NOTE"
+        fi
+
+        printf '  Current day total: %s\n' "$(format_bytes "$CURRENT_DAY_TOTAL")"
+        printf '  Previous day total: %s\n' "$(format_bytes "$PREVIOUS_DAY_TOTAL")"
+        printf '  Current month total: %s\n' "$(format_bytes "$CURRENT_MONTH_TOTAL")"
+        printf '  Previous month total: %s\n' "$(format_bytes "$PREVIOUS_MONTH_TOTAL")"
+        printf '  Last vnStat update age: %s seconds [%s, warning %s, critical %s]\n' "$LAST_UPDATE_AGE" "$LAST_UPDATE_STATE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+    )
+
+    case "$INTERFACE_STATE" in
+        CRITICAL)
+            CRITICAL_COUNT=$((CRITICAL_COUNT + 1))
+            if [ -z "$NAMES_CRITICAL" ]; then NAMES_CRITICAL=$IFACE; else NAMES_CRITICAL="${NAMES_CRITICAL}, ${IFACE}"; fi
+            if [ -n "$LONG_CRITICAL" ]; then LONG_CRITICAL=$(printf '%s\n\n%s' "$LONG_CRITICAL" "$INTERFACE_BLOCK"); else LONG_CRITICAL=$INTERFACE_BLOCK; fi
+            ;;
+        WARNING)
+            WARNING_COUNT=$((WARNING_COUNT + 1))
+            if [ -z "$NAMES_WARNING" ]; then NAMES_WARNING=$IFACE; else NAMES_WARNING="${NAMES_WARNING}, ${IFACE}"; fi
+            if [ -n "$LONG_WARNING" ]; then LONG_WARNING=$(printf '%s\n\n%s' "$LONG_WARNING" "$INTERFACE_BLOCK"); else LONG_WARNING=$INTERFACE_BLOCK; fi
+            ;;
+        UNKNOWN)
+            UNKNOWN_COUNT=$((UNKNOWN_COUNT + 1))
+            if [ -z "$NAMES_UNKNOWN" ]; then NAMES_UNKNOWN=$IFACE; else NAMES_UNKNOWN="${NAMES_UNKNOWN}, ${IFACE}"; fi
+            if [ -n "$LONG_UNKNOWN" ]; then LONG_UNKNOWN=$(printf '%s\n\n%s' "$LONG_UNKNOWN" "$INTERFACE_BLOCK"); else LONG_UNKNOWN=$INTERFACE_BLOCK; fi
+            ;;
+        *)
+            OK_COUNT=$((OK_COUNT + 1))
+            if [ -z "$NAMES_OK" ]; then NAMES_OK=$IFACE; else NAMES_OK="${NAMES_OK}, ${IFACE}"; fi
+            if [ -n "$LONG_OK" ]; then LONG_OK=$(printf '%s\n\n%s' "$LONG_OK" "$INTERFACE_BLOCK"); else LONG_OK=$INTERFACE_BLOCK; fi
+            ;;
+    esac
+
+    FINAL_STATE=$(max_state "$FINAL_STATE" "$INTERFACE_STATE")
+done <<EOF
+$CHECKED_INTERFACES_LINES
+EOF
+
+FINAL_EXIT=$(state_exit_code "$FINAL_STATE")
+if [ "$FINAL_EXIT" -eq 0 ]; then
+    SUMMARY_TEXT="vnStat interfaces are healthy: ${OK_COUNT} checked"
+else
+    SUMMARY_TEXT='vnStat interfaces need attention:'
+    SUMMARY_SEPARATOR=' '
+    if [ "$CRITICAL_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} critical"; SUMMARY_SEPARATOR=', '; fi
+    if [ "$WARNING_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} warning"; SUMMARY_SEPARATOR=', '; fi
+    if [ "$UNKNOWN_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} unknown"; SUMMARY_SEPARATOR=', '; fi
+    if [ "$OK_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${OK_COUNT} healthy"; fi
+fi
+
+printf '%s | %s\n' "$SUMMARY_TEXT" "$PERFDATA"
+
+printf '%s\n' 'Summary:'
+if [ "$CRITICAL_COUNT" -gt 0 ]; then printf '  Critical: %s\n' "$NAMES_CRITICAL"; fi
+if [ "$WARNING_COUNT" -gt 0 ]; then printf '  Warning: %s\n' "$NAMES_WARNING"; fi
+if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Unknown: %s\n' "$NAMES_UNKNOWN"; fi
+if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy: %s\n' "$NAMES_OK"; fi
+printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
+printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
+printf '  Effective include regex: %s\n' "${INCLUDE_REGEX:-none}"
+printf '  Effective exclude regex: %s\n' "${EXCLUDE_REGEX:-none}"
+printf '\n'
+[ -n "$LONG_CRITICAL" ] && printf '%s\n\n' "$LONG_CRITICAL"
+[ -n "$LONG_WARNING" ] && printf '%s\n\n' "$LONG_WARNING"
+[ -n "$LONG_UNKNOWN" ] && printf '%s\n\n' "$LONG_UNKNOWN"
+[ -n "$LONG_OK" ] && printf '%s\n\n' "$LONG_OK"
+printf '%s\n' 'Ignored interfaces:'
+if [ "$IGNORED_COUNT" -gt 0 ]; then
+    printf '%s' "$IGNORED_ITEMS" | "$TR" ',' '\n' | "$SED" 's/^/  /'
+else
+    printf '%s\n' '  none'
+fi
+
+exit "$FINAL_EXIT"

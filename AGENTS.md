@@ -276,11 +276,18 @@ exception remains.
 Shell conventions:
 
 - Monitoring checks generally use `#!/bin/sh` and Nagios-style exit codes.
+- Before changing or adding a monitoring check, inspect comparable checks in this repository and follow their section order, state variables, comments, and output style unless there is a concrete reason to deviate.
 - Discover dependencies with direct `command -v` assignments, for example
   `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
 - Use shell builtins such as `printf` directly.
-- Keep monitoring check setup in this order: fail helper, binary checks,
-  default/config variables, option parsing, helper functions, then main logic.
+- Add short section comments and comments before non-obvious parsing, classification, status aggregation, and output-building blocks. Follow the density and placement used by comparable checks in this repository.
+- Do not add a monitoring-check configuration file or config parser unless the user explicitly asks for it or the existing module already has that pattern.
+- When a monitoring check depends on managed daemon or application configuration, prefer the program's effective configuration output, such as `vnstat --showconfig`, over duplicate CLI flags, sysfs fallbacks, or parallel check-only configuration values.
+- Do not use temporary files or `TMPDIR` just to collect perfdata, long output, counters, or sort-order buffers. Prefer direct `printf` and shell variables; use `mktemp` only when an external command genuinely needs a file or the data is too large or unsafe to keep in variables.
+- Do not create shell variable assignments with literal blank lines embedded in quoted strings. Use `printf` formatting, explicit separators, or direct output instead.
+- Do not add wrapper functions that only hide one `printf`, assignment, or append operation. Add a function only when the name captures domain meaning, centralizes real validation/formatting, or removes meaningful duplication.
+- Keep monitoring long output enabled by default and do not add `--long-output` or `--no-long-output` toggles unless the user explicitly asks for that behavior.
+- Keep monitoring check setup in this order: fail helper, binary checks, default variables, option parsing, helper functions, then main logic.
 - Quote variables consistently and keep command dependencies explicit.
 - Use `printf`, not non-portable `echo`.
 - Represent embedded line breaks with `printf` formatting and escaped `\n`.
@@ -297,6 +304,8 @@ Monitoring output conventions:
 
 - Emit one natural, operator-readable summary line plus optional perfdata or
   long output.
+- The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
+- Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
 - Keep summary text cause-oriented; put detailed counters in perfdata or long
   output.
@@ -331,6 +340,7 @@ Puppet libraries.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise.
   README examples may contain Puppet code, but the surrounding explanation must
   stay Dutch.
+- Do not hard-wrap prose in any Markdown file (`*.md`), including `README.md` and `AGENTS.md`. Keep normal paragraphs and prose list items on one physical line unless Markdown syntax, tables, or code blocks require line breaks.
 - When modifying existing code, check whether nearby comments or documentation
   are missing, outdated, duplicated, unclear, or no longer aligned with the
   implementation.
@@ -390,6 +400,8 @@ security expectations, or changed install/usage flow.
 There is no root first-party CI, root `Gemfile`, root `Rakefile`, or project-wide
 Puppet test suite for the custom modules. The vendored submodules have their own
 tooling; do not use those Rakefiles as validation for first-party modules.
+
+Do not add new automated test directories, fixture harnesses, or generated test frameworks for first-party modules unless the user explicitly asks for tests. Prefer targeted local validation commands and document those commands in the final response.
 
 Run targeted checks for the files you touched. If a required command is not
 installed locally, state that clearly in the final response and explain what you

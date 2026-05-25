@@ -310,7 +310,7 @@ node 'webserver.dev.xxxx.nl' {
 
 ## GitLab
 
-GitLab is een populaire open-source DevOps-platform. Dit platform is voor softwareontwikkeling waar je en je team samen aan code kunnen werken. Het biedt functies zoals versiebeheer (het bijhouden van verschillende versies van je code), bugtracking (het bijhouden en oplossen van problemen in je software), en Continuous Integration/Continuous Deployment (CI/CD, wat helpt bij het automatisch testen en uitrollen van code). 
+GitLab is een populaire open-source DevOps-platform. Dit platform is voor softwareontwikkeling waar je en je team samen aan code kunnen werken. Het biedt functies zoals versiebeheer (het bijhouden van verschillende versies van je code), bugtracking (het bijhouden en oplossen van problemen in je software), en Continuous Integration/Continuous Deployment (CI/CD, wat helpt bij het automatisch testen en uitrollen van code).
 
 ### Voorbeeld
 Hieronder een voorbeeld hoe je een GitLab opzet in je Puppet omgeving:
@@ -638,22 +638,13 @@ node 'webserver.dev.xxxx.nl' {
 
 ## VnStat
 
-vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert
-het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie
-laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een
-server zonder extra resources al breed netwerkverkeer registreert.
+vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een server zonder extra resources al breed netwerkverkeer registreert.
 
-Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de
-globale template thuishoren. De define schrijft een eigen concat-fragment naar
-dezelfde configuratie. Voor bekende interfaces kun je hiermee bijvoorbeeld
-`MaxBW<interface>` zetten op de echte technische snelheid van de interface. Dit
-is geen trafficbundel of alarmdrempel, maar een sanity-limit voor onrealistische
-tellerwaarden.
+Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de globale template thuishoren. De define schrijft een eigen concat-fragment naar dezelfde configuratie. Voor bekende interfaces kun je hiermee bijvoorbeeld `MaxBW<interface>` zetten op de echte technische snelheid van de interface. Dit is geen trafficbundel of alarmdrempel, maar een sanity-limit voor onrealistische tellerwaarden.
 
 ### Voorbeeld
 
-Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar
-voor twee uplinks een bekende maximumsnelheid meekrijgt:
+Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar voor twee uplinks een bekende maximumsnelheid meekrijgt:
 
 ```puppet
 node 'router.dev.xxxx.nl' {
@@ -670,9 +661,7 @@ node 'router.dev.xxxx.nl' {
 }
 ```
 
-Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig
-heeft, hoort daarvoor een expliciete parameter in `vnstat::ethernet` te worden
-toegevoegd. Zo blijft zichtbaar welke configuratie de module ondersteunt.
+Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig heeft, hoort daarvoor een expliciete parameter in `vnstat::ethernet` te worden toegevoegd. Zo blijft zichtbaar welke configuratie de module ondersteunt.
 
 ## Checks
 Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.
@@ -693,6 +682,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
 - [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
 - [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # ID, ID@HH:MM-HH:MM, VID:PID@HH:MM-HH:MM, of ID:HH:MM-HH:MM
+- [check_vnstat_interfaces](https://github.com/DevSysEngineer/puppet-modules/blob/main/vnstat/files/check_vnstat_interfaces)
 
 ## Contributie
 Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.

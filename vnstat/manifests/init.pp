@@ -31,6 +31,13 @@ class vnstat (
 
   # Check if we have systemd
   if (defined(Package['systemd'])) {
+    # Disable service
+    service { 'vnstat':
+      ensure  => undef,
+      enable  => false,
+      require => Package['vnstat'],
+    }
+
     # Reload systemd daemon
     exec { 'vnstat_systemd_daemon_reload':
       command     => '/usr/bin/systemctl daemon-reload',
@@ -69,6 +76,27 @@ class vnstat (
         require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
       }
     }
+  } else {
+    # Enable service
+    service { 'vnstat':
+      ensure  => true,
+      enable  => true,
+      require => Package['vnstat'],
+    }
+  }
+
+  # Build vnStat configuration from the default template and optional fragments.
+  concat { '/etc/vnstat.conf':
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600', # Only root
+    notify  => Service['vnstat'],
+    require => Package['vnstat'],
+  }
+  concat::fragment { 'vnstat_config_default':
+    target  => '/etc/vnstat.conf',
+    content => template('vnstat/vnstat.conf'),
+    order   => '10',
   }
 
   # Check if logrotate package exists
@@ -83,16 +111,12 @@ class vnstat (
     }
   }
 
-  # Build vnStat configuration from the default template and optional fragments.
-  concat { '/etc/vnstat.conf':
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600', # Only root
-    require => Package['vnstat'],
-  }
-  concat::fragment { 'vnstat_config_default':
-    target  => '/etc/vnstat.conf',
-    content => template('vnstat/vnstat.conf'),
-    order   => '10',
+  # Create service check
+  if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
+    basic_settings::monitoring_custom { 'vnstat':
+      source   => 'puppet:///modules/vnstat/check_vnstat_interfaces',
+      friendly => 'vnStat',
+      timeout  => 60,
+    }
   }
 }

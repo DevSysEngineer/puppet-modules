@@ -221,16 +221,6 @@ add_unknown() {
     UNKNOWN_REASONS=$(append_reason "$UNKNOWN_REASONS" "$1")
 }
 
-# Map Nagios exit codes to their human-readable labels.
-status_label() {
-    case "$1" in
-        0) printf '%s\n' 'OK' ;;
-        1) printf '%s\n' 'WARNING' ;;
-        2) printf '%s\n' 'CRITICAL' ;;
-        *) printf '%s\n' 'UNKNOWN' ;;
-    esac
-}
-
 # Return the first whitespace-delimited word from command output.
 print_first_word() {
     printf '%s\n' "$1" | "$AWK" 'NF { print $1; exit }'
@@ -885,7 +875,7 @@ PERFDATA="${PERFDATA} verify_messages=$(metric_value "$VERIFY_MESSAGES")"
 PERFDATA="${PERFDATA} boot_grace_active=$(metric_value "$BOOT_GRACE_ACTIVE")"
 PERFDATA="${PERFDATA} uptime_seconds=$(metric_value "$UPTIME_SECONDS")"
 
-printf '%s - %s | %s\n' "$(status_label "$STATE")" "$SUMMARY" "$PERFDATA"
+printf '%s | %s\n' "$SUMMARY" "$PERFDATA"
 
 if [ "$QUIET" -eq 1 ]; then
     exit "$STATE"

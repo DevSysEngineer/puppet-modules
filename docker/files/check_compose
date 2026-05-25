@@ -3,7 +3,7 @@
 
 # Fail helper used for missing dependencies and unreadable Docker output.
 die() {
-    printf 'UNKNOWN - %s\n' "$*"
+    printf 'compose check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -259,16 +259,6 @@ emit_check() {
             }
         '
     fi
-}
-
-# Map Nagios exit codes to labels.
-status_label() {
-    case "$1" in
-        0) printf '%s\n' 'OK' ;;
-        1) printf '%s\n' 'WARNING' ;;
-        2) printf '%s\n' 'CRITICAL' ;;
-        *) printf '%s\n' 'UNKNOWN' ;;
-    esac
 }
 
 # Convert a Docker timestamp to age in seconds.
@@ -619,8 +609,7 @@ else
     STATE_CODE=0
 fi
 
-LABEL=$(status_label "$STATE_CODE")
-SUMMARY="${LABEL} - compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
+SUMMARY="compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
 [ "$COMPOSE_SERVICES_MISSING" -gt 0 ] && SUMMARY="${SUMMARY}, ${COMPOSE_SERVICES_MISSING} missing"
 [ "$HEALTH_UNHEALTHY" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_UNHEALTHY} unhealthy"
 [ "$HEALTH_STARTING" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_STARTING} starting"

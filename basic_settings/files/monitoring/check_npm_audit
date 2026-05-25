@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf 'UNKNOWN - %s\n' "$*"
+    printf 'npm audit check cannot run: %s\n' "$*"
     exit 3
 }
 
