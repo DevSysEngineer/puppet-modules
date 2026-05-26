@@ -265,14 +265,10 @@ name adds domain meaning or removes a real readability problem.
 
 ### Shell Scripts And Monitoring Checks
 
-Treat new shell scripts and shell templates as POSIX shell by default and use
-`#!/bin/sh`. Use Bash only when the implementation requires Bash features. Known
-Bash exceptions are:
+Treat new shell scripts and shell templates as POSIX shell by default and use `#!/bin/sh`. Use Bash only when the implementation requires Bash features. Known Bash exceptions are:
 
-- `mysql/templates/grant.sh`
-- `mysql/files/automysqlbackup`
-- `basic_settings/files/network/rxbuffer`
 - `basic_settings/templates/login/pam/notify`
+- `mysql/files/automysqlbackup`
 
 When touching an existing Bash script, keep Bash only if the implementation
 still needs it. State the reason in the final response when a Bash-only
@@ -284,6 +280,10 @@ Shell conventions:
 - Before changing or adding a monitoring check, inspect comparable checks in this repository and follow their section order, state variables, comments, and output style unless there is a concrete reason to deviate.
 - Discover dependencies with direct `command -v` assignments, for example
   `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
+- Invoke command-path variables directly in command position, for example
+  `$AWK ...`, `$SED ...`, and `$SYSTEMCTL ...`; do not wrap that command word
+  in quotes. Keep normal quoting for arguments, data variables, tests, and
+  assignments.
 - Use shell builtins such as `printf` directly.
 - Add short section comments and comments before non-obvious parsing, classification, status aggregation, and output-building blocks. Follow the density and placement used by comparable checks in this repository.
 - Do not add a monitoring-check configuration file or config parser unless the user explicitly asks for it or the existing module already has that pattern.

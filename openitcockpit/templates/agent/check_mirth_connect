@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf 'Mirth Connect check cannot run: %s\n' "$*" >&2
     exit 3
 }
 
@@ -38,7 +38,7 @@ SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
 WARN_Q=25 # queued-message threshold
 
-# Options 
+# Options
 while getopts 'c:t:w:' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
@@ -48,9 +48,11 @@ while getopts 'c:t:w:' opt; do
     esac
 done
 
+[ -x "$MCCOMMAND" ] || die "mccommand not available at ${MCCOMMAND}"
+
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*" >&2
+    printf 'Mirth Connect %s\n' "$*" >&2
     exit 2
 }
 
@@ -60,7 +62,7 @@ crit() {
 #
 OLD_UMASK=$(umask)
 umask 077
-"$MKDIR" -p "$STATE_DIR" 2>/dev/null || {
+$MKDIR -p "$STATE_DIR" 2>/dev/null || {
     umask "$OLD_UMASK"
     die "state directory ${STATE_DIR} could not be created"
 }
@@ -68,19 +70,19 @@ umask "$OLD_UMASK"
 
 # Service running
 <% if @systemd_enable -%>
-$SYSTEMDCTL is-active --quiet "mcservice.service" || crit "Mirth Connect service is not active"
+$SYSTEMDCTL is-active --quiet "mcservice.service" || crit "service is not active"
 <% else -%>
-$PS -C mcservice >/dev/null 2>&1 || crit "Mirth Connect service is not active"
+$PS -C mcservice >/dev/null 2>&1 || crit "service is not active"
 <% end -%>
 
-# Workdir
+# mccommand requires script files, so keep command input and parse artifacts in a private workdir.
 WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
 # Stats
 printf 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "mccommand stats failed"
-[ -n "$OUTPUT_RAW" ] || crit "Empty output from mccommand stats"
+[ -n "$OUTPUT_RAW" ] || crit "returned empty stats output"
 
 # Parse stats into channel and total records.
 OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
@@ -108,7 +110,7 @@ $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals
 # Status
 printf 'status\n' >"$WORK_DIR/cli_status.cmd"
 STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die "mccommand status failed"
-[ -n "$STATUS_RAW" ] || crit "Empty output from mccommand status"
+[ -n "$STATUS_RAW" ] || crit "returned empty status output"
 
 # Build a name|status map from the CLI output.
 STATUS_CLEAN=$(printf '%s\n' "$STATUS_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
@@ -142,7 +144,7 @@ while IFS='|' read -r _c chan q recv sent; do
         printf '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
         # If the queue is above the threshold for longer than the grace period, set critical
-        [ $((NOW - FIRST)) -ge "$GRACE" ] && QUEUE_CRIT=1
+        [ "$((NOW - FIRST))" -ge "$GRACE" ] && QUEUE_CRIT=1
 
         # Update variables
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
@@ -171,11 +173,11 @@ fi
 if [ "$STATUS_ISSUES" -gt 0 ]; then
     crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS} | ${PERF_DATA}"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
-    crit "${QUEUE_ISSUES} channel(s) queue >${WARN_Q} (${GRACE}s): ${SUMMARY_QUEUE} | ${PERF_DATA}"
+    crit "${QUEUE_ISSUES} channel(s) queue above ${WARN_Q} for ${GRACE}s: ${SUMMARY_QUEUE} | ${PERF_DATA}"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    printf '%s\n' "${QUEUE_ISSUES} channel(s) queue >${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF_DATA}"
+    printf 'Mirth Connect %s\n' "${QUEUE_ISSUES} channel(s) queue above ${WARN_Q}: ${SUMMARY_QUEUE} | ${PERF_DATA}"
     exit 1
 fi
 
-printf '%s\n' "${TOTAL_CHANS} channel(s) OK | ${PERF_DATA}"
+printf 'Mirth Connect %s\n' "${TOTAL_CHANS} channel(s) running as expected | ${PERF_DATA}"
 exit 0

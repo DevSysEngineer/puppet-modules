@@ -3,5 +3,8 @@
 
 # Check if shell is non login shell
 if [ "$PAM_SERVICE" = "su" ]; then
-    sh /etc/profile.d/99-login-notify.sh
+    SH=$(command -v sh 2>/dev/null)
+    if [ -n "$SH" ]; then
+        $SH /etc/profile.d/99-login-notify.sh
+    fi
 fi

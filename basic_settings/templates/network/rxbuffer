@@ -1,9 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
-# Check if RX buffer tool is available
-RXBUFFERTOOL=/usr/local/sbin/rxbuffer
-test -x $RXBUFFERTOOL || exit 1
+# Check if RX buffer tool is available before networkd-dispatcher invokes it.
+RXBUFFERTOOL=$(command -v rxbuffer 2>/dev/null) || RXBUFFERTOOL=/usr/local/sbin/rxbuffer
+[ -x "$RXBUFFERTOOL" ] || exit 1
 
 # Check if interface is not lo
 [ "$IFACE" != "lo" ] || exit 0

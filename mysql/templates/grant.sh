@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Managed by puppet
 
 arg_action="$1"
@@ -10,21 +10,27 @@ arg_privileges="$6"
 arg_grant_option="$7"
 arg_grant_privilege="$8"
 
-cmd_mysql="mysql --defaults-file=<%= @defaults_file %> -NBe"
+GREP=$(command -v grep 2>/dev/null) || exit 1
+MYSQL=$(command -v mysql 2>/dev/null) || exit 1
+SED=$(command -v sed 2>/dev/null) || exit 1
+
+run_mysql() {
+	$MYSQL "--defaults-file=<%= @defaults_file %>" -NBe "$1"
+}
 
 arg_database_esc="$arg_database"
 arg_table_esc="$arg_table"
 
-if [[ "$arg_database" != "*" ]]; then
-	arg_database_esc=$( echo "$arg_database" | sed 's/\\/\\\\/g' )
+if [ "$arg_database" != "*" ]; then
+	arg_database_esc=$(printf '%s\n' "$arg_database" | $SED 's/\\/\\\\/g')
 	arg_database="\`$arg_database\`"
 	arg_database_esc="\`$arg_database_esc\`"
 else
 	arg_database_esc="\\*"
 fi
 
-if [[ "$arg_table" != "*" ]]; then
-	arg_table_esc=$( echo "$arg_table" | sed 's/\\/\\\\/g' )
+if [ "$arg_table" != "*" ]; then
+	arg_table_esc=$(printf '%s\n' "$arg_table" | $SED 's/\\/\\\\/g')
 	arg_table="\`$arg_table\`"
 	arg_table_esc="\`$arg_table_esc\`"
 else
@@ -32,7 +38,7 @@ else
 fi
 
 
-if [[ "$arg_grant_option" == "1" ]]; then
+if [ "$arg_grant_option" = "1" ]; then
 	grant_option_str=" WITH GRANT OPTION"
 else
 	grant_option_str=""
@@ -54,19 +60,18 @@ cmd_revoke_grant="REVOKE GRANT OPTION ON $arg_database.$arg_table FROM '$arg_use
 # Actions
 case "$arg_action" in
 	check)
-		$cmd_mysql "$cmd_show_grants" | sed 's/\\\\/\\/g' | grep -qix "$grep_grant_str_esc"
+		run_mysql "$cmd_show_grants" | $SED 's/\\\\/\\/g' | $GREP -qix "$grep_grant_str_esc"
 		exit $?
 		;;
 	grant)
-		if $cmd_mysql "$cmd_show_grants" | sed 's/\\\\/\\/g' | grep -qi "$databasetable_str_esc"; then
-			$cmd_mysql "$cmd_revoke_grant; $cmd_revoke_all;"
+		if run_mysql "$cmd_show_grants" | $SED 's/\\\\/\\/g' | $GREP -qi "$databasetable_str_esc"; then
+			run_mysql "$cmd_revoke_grant; $cmd_revoke_all;"
 		fi
-		$cmd_mysql "$grant_str; FLUSH PRIVILEGES;"
+		run_mysql "$grant_str; FLUSH PRIVILEGES;"
 		exit 0
 		;;
 	revoke)
-		$cmd_mysql "$cmd_revoke_grant; $cmd_revoke_all; FLUSH PRIVILEGES;"
+		run_mysql "$cmd_revoke_grant; $cmd_revoke_all; FLUSH PRIVILEGES;"
 		exit 0
 		;;
 esac
-

@@ -1,116 +1,90 @@
-#!/bin/bash
+#!/bin/sh
 
-# Set default values
+# Keep dispatcher failures non-fatal while still avoiding repeated ethtool
+# writes after a successful buffer update.
+usage() {
+    printf '%s\n' 'Usage: rxbuffer --interface <name>' >&2
+}
+
+safe_exit() {
+    printf '%s\n' "$1" >&2
+    exit 0
+}
+
+AWK=$(command -v awk 2>/dev/null) || safe_exit 'awk not available'
+ETHTOOL=$(command -v ethtool 2>/dev/null) || safe_exit 'ethtool not available'
+MKDIR=$(command -v mkdir 2>/dev/null) || safe_exit 'mkdir not available'
+
 INTERFACE=""
-ETHTOOL=/sbin/ethtool
+STATE_DIR=${STATE_DIR:-/run/puppet-rxbuffer}
 
-# Grab the command line arguments
-while test -n "$1"; do
+while [ "$#" -gt 0 ]; do
     case "$1" in
-        -i)
+        -i|--interface)
+            [ "$#" -ge 2 ] || {
+                usage
+                safe_exit 'Interface argument is missing'
+            }
             INTERFACE=$2
-            shift
-            ;;
-        --interface)
-            INTERFACE=$2
-            shift
+            shift 2
             ;;
         *)
-            echo "Unknown argument: $1"
-            print_usage
-            exit 0;
+            usage
+            safe_exit "Unknown argument: $1"
             ;;
     esac
-    shift
 done
 
-# Check if interface is empty
-if [ "${INTERFACE}" = "" ]; then
-    echo "Interface is empty"
-    exit 0;
-fi
+[ -n "$INTERFACE" ] || {
+    usage
+    safe_exit 'Interface is empty'
+}
 
-# Check if ethtool is not available
-if [ ! -x $ETHTOOL ]; then
-    echo "Ethtool not available"
-    exit 0;
-fi; 
+mark_result() {
+    interface_name=$1
+    state_value=$2
 
-# Check if public interface is a bond
-if [ -f "/proc/net/bonding/${INTERFACE}" ]; then
-    # Try to get slaces from bond
-    cat "/proc/net/bonding/${INTERFACE}" | grep 'Slave Interface' | cut -d ':' -f 2 | cut -d ' ' -f 2 | while read line; do
-        # Set some values
-        apply_buffer="0"
-        buffer_filename="/tmp/interface_${line}_buffer"
+    printf '%s\n' "$state_value" >"${STATE_DIR}/interface_${interface_name}_buffer"
+}
 
-        # Get status of the buffer
-        if [ -f $buffer_filename ]; then
-            result_temp_buffer=$(cat $buffer_filename)
-            if [ "$result_temp_buffer" == "0" ]; then
-                apply_buffer="1"
-            fi
-        else
-            apply_buffer="1"
-        fi
+buffer_already_applied() {
+    interface_name=$1
+    state_file="${STATE_DIR}/interface_${interface_name}_buffer"
 
-        # Check if we need to change buffer */
-        if [ "$apply_buffer" == "1" ]; then
-            # Set new buffer
-            $ETHTOOL -G $line tx 4096
-            status_buffer_one=$?
+    [ -r "$state_file" ] || return 1
+    IFS= read -r state_value <"$state_file" || state_value=0
+    [ "$state_value" = '1' ]
+}
 
-            # Check if command is finished successfully
-            if [ $status_buffer_one -eq 0 ]; then
-                # Set new buffer
-                $ETHTOOL -G $line rx 4096
-                status_buffer_two=$?
+apply_interface_buffer() {
+    interface_name=$1
 
-                # Check if command is finished successfully
-                if [ $status_buffer_two -eq 0 ]; then
-                    echo "1" > $buffer_filename
-                else
-                    echo "0" > $buffer_filename
-                fi
-            else
-                echo "0" > $buffer_filename
-            fi
-        fi
-    done;
-else
-    # Set some values
-    apply_buffer="0"
+    case "$interface_name" in
+        ''|*/*) safe_exit "Unsupported interface name: ${interface_name}" ;;
+    esac
 
-    # Get status of the buffer
-    if [ -f "/tmp/interface_${INTERFACE}_buffer" ]; then
-        result_temp_buffer=$(cat "/tmp/interface_${INTERFACE}_buffer")
-        if [ "$result_temp_buffer" == "0" ]; then
-            apply_buffer="1"
-        fi
+    buffer_already_applied "$interface_name" && return 0
+
+    if $ETHTOOL -G "$interface_name" tx 4096 && $ETHTOOL -G "$interface_name" rx 4096; then
+        mark_result "$interface_name" 1
     else
-        apply_buffer="1"
+        mark_result "$interface_name" 0
     fi
+}
 
-    # Check if we need to change buffer */
-    if [ "$apply_buffer" == "1" ]; then
-        # Set new buffer
-        $ETHTOOL -G $INTERFACE tx 4096
-        status_buffer_one=$?
+OLD_UMASK=$(umask)
+umask 077
+$MKDIR -p "$STATE_DIR" 2>/dev/null || {
+    umask "$OLD_UMASK"
+    safe_exit "State directory ${STATE_DIR} could not be created"
+}
+umask "$OLD_UMASK"
 
-        # Check if command is finished successfully
-        if [ $status_buffer_one -eq 0 ]; then
-            # Set new buffer
-            $ETHTOOL -G $INTERFACE rx 4096
-            status_buffer_two=$?
-
-            # Check if command is finished successfully
-            if [ $status_buffer_two -eq 0 ]; then
-                echo "1" > "/tmp/interface_${INTERFACE}_buffer"
-            else
-                echo "0" > "/tmp/interface_${INTERFACE}_buffer"
-            fi
-        else
-            echo "0" > "/tmp/interface_${INTERFACE}_buffer"
-        fi
-    fi
+if [ -f "/proc/net/bonding/${INTERFACE}" ]; then
+    $AWK -F': ' '/^Slave Interface:/ { print $2 }' "/proc/net/bonding/${INTERFACE}" |
+    while IFS= read -r slave_interface; do
+        [ -n "$slave_interface" ] && apply_interface_buffer "$slave_interface"
+    done
+else
+    apply_interface_buffer "$INTERFACE"
 fi

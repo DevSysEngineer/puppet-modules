@@ -46,7 +46,7 @@ Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies
 ## Monitoring
 Binnen de verschillende onderdelen zijn diverse monitoringtools en -scripts beschikbaar. Wanneer je in de `basic_settings`-class de optie `monitoring_package` instelt met een ondersteund monitoringpakket, worden automatisch configuratiebestanden voor dat pakket aangemaakt. Gebruik je basic_settings niet, dan kun je de ingebouwde monitoringtools en -scripts altijd handmatig activeren vanuit andere onderdelen.
 
-Voor sommige processen, zoals firewall of SSH, is het niet voldoende om alleen te controleren of een proces draait. Vaak wil je ook verifiëren of het correct functioneert én performancegegevens kunnen uitlezen. Daarom zijn er voor bepaalde processen uitgebreide checks toegevoegd. De zichtbare statusregel van zo'n check hoort daarbij leesbare tekst te blijven; machinegerichte perfdata hoort in het perfdata-gedeelte en niet als `key=value`-tekst in de samenvatting.
+Voor sommige processen, zoals firewall of SSH, is het niet voldoende om alleen te controleren of een proces draait. Vaak wil je ook verifiëren of het correct functioneert én performancegegevens kunnen uitlezen. Daarom zijn er voor bepaalde processen uitgebreide checks toegevoegd. De zichtbare statusregel van zo'n check hoort daarbij met het gecontroleerde onderdeel te beginnen en leesbare tekst te blijven; machinegerichte perfdata hoort in het perfdata-gedeelte en niet als `key=value`-tekst in de samenvatting.
 
 Op dit moment wordt alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent ondersteund. Hieronder vind je een voorbeeldconfiguratie:
 
@@ -619,6 +619,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_rabbitmq](https://github.com/DevSysEngineer/puppet-modules/blob/main/rabbitmq/templates/check_rabbitmq)
 - [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
 - [check_systemd_config](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_config)
+- [check_systemd_service](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_service)
 - [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
 - [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
 - [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # ID, ID@HH:MM-HH:MM, VID:PID@HH:MM-HH:MM, of ID:HH:MM-HH:MM

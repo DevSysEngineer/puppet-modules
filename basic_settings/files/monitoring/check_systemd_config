@@ -223,7 +223,7 @@ add_unknown() {
 
 # Return the first whitespace-delimited word from command output.
 print_first_word() {
-    printf '%s\n' "$1" | "$AWK" 'NF { print $1; exit }'
+    printf '%s\n' "$1" | $AWK 'NF { print $1; exit }'
 }
 
 # Normalise empty metrics to Nagios unknown marker `U`.
@@ -260,7 +260,7 @@ collect_reference_paths() {
     for SEARCH_ROOT in $REFERENCE_SEARCH_ROOTS; do
         [ -d "$SEARCH_ROOT" ] || continue
 
-        FOUND_NAME_PATHS=$("$FIND" "$SEARCH_ROOT" \( -type f -o -type l \) \( -name "$UNIT_NAME" -o -lname "*$UNIT_NAME" \) 2>/dev/null | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+        FOUND_NAME_PATHS=$($FIND "$SEARCH_ROOT" \( -type f -o -type l \) \( -name "$UNIT_NAME" -o -lname "*$UNIT_NAME" \) 2>/dev/null | $AWK 'NF { if (count) printf ","; printf "%s", $0; count++ }')
         if [ -n "$FOUND_NAME_PATHS" ]; then
             for FOUND_PATH in $FOUND_NAME_PATHS; do
                 [ -n "$FOUND_PATH" ] || continue
@@ -277,7 +277,7 @@ collect_reference_paths() {
     for SEARCH_ROOT in $REFERENCE_SEARCH_ROOTS; do
         [ -d "$SEARCH_ROOT" ] || continue
 
-        FOUND_CONTENT_PATHS=$("$GREP" -R -n -F "$UNIT_NAME" "$SEARCH_ROOT" 2>/dev/null | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+        FOUND_CONTENT_PATHS=$($GREP -R -n -F "$UNIT_NAME" "$SEARCH_ROOT" 2>/dev/null | $AWK 'NF { if (count) printf ","; printf "%s", $0; count++ }')
         if [ -n "$FOUND_CONTENT_PATHS" ]; then
             for FOUND_PATH in $FOUND_CONTENT_PATHS; do
                 [ -n "$FOUND_PATH" ] || continue
@@ -292,7 +292,7 @@ collect_reference_paths() {
 # Render the collected reference list as an indented multiline bullet block.
 format_reference_paths() {
     if [ -n "$1" ]; then
-        printf '%s\n' "$1" | "$AWK" -F',' -v indent="$INDENT" '
+        printf '%s\n' "$1" | $AWK -F',' -v indent="$INDENT" '
             {
                 for (field_index = 1; field_index <= NF; field_index++) {
                     if ($field_index == "") {
@@ -324,14 +324,14 @@ print_detail_block() {
 
 # Extract one named property from `systemctl show` style key=value output.
 get_show_property() {
-    printf '%s\n' "$1" | "$AWK" -v key="$2" 'index($0, key "=") == 1 { sub(/^[^=]*=/, ""); print; exit }'
+    printf '%s\n' "$1" | $AWK -v key="$2" 'index($0, key "=") == 1 { sub(/^[^=]*=/, ""); print; exit }'
 }
 
 # Check whether every collected reference path matches the supplied AWK regex.
 reference_paths_match_pattern() {
     [ -n "$UNIT_REFERENCE_PATHS" ] || return 1
 
-    printf '%s\n' "$UNIT_REFERENCE_PATHS" | "$AWK" -F',' -v pattern="$1" '
+    printf '%s\n' "$UNIT_REFERENCE_PATHS" | $AWK -F',' -v pattern="$1" '
         {
             for (field_index = 1; field_index <= NF; field_index++) {
                 if ($field_index == "") {
@@ -436,12 +436,12 @@ print_grouped_details() {
 
 # Count how many rendered lines a grouped detail section would emit.
 count_grouped_detail_lines() {
-    print_grouped_details "$1" "$2" "$3" "$4" "$5" | "$AWK" 'END { print NR + 0 }'
+    print_grouped_details "$1" "$2" "$3" "$4" "$5" | $AWK 'END { print NR + 0 }'
 }
 
 # Print a grouped detail section with a maximum rendered line limit.
 print_grouped_details_limited() {
-    print_grouped_details "$1" "$2" "$3" "$4" "$5" | "$AWK" -v max="$6" '
+    print_grouped_details "$1" "$2" "$3" "$4" "$5" | $AWK -v max="$6" '
         NR <= max { print }
         END {
             if (NR > max) {
@@ -480,13 +480,13 @@ print_detail_section() {
 # Check whether the verify output explicitly mentions the current unit.
 verify_mentions_unit() {
     [ -n "$VERIFY_OUTPUT" ] || return 1
-    printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" -v unit="$1" 'index($0, unit) { found = 1; exit } END { exit(found ? 0 : 1) }'
+    printf '%s\n' "$VERIFY_OUTPUT" | $AWK -v unit="$1" 'index($0, unit) { found = 1; exit } END { exit(found ? 0 : 1) }'
 }
 
 # Check whether the default target dependency tree includes the current unit.
 dependency_tree_mentions_unit() {
     [ -n "$ACTIVE_DEPENDENCY_UNITS" ] || return 1
-    printf '%s\n' "$ACTIVE_DEPENDENCY_UNITS" | "$AWK" -F',' -v unit="$1" '
+    printf '%s\n' "$ACTIVE_DEPENDENCY_UNITS" | $AWK -F',' -v unit="$1" '
         {
             for (field_index = 1; field_index <= NF; field_index++) {
                 if ($field_index == unit) {
@@ -529,12 +529,12 @@ inspect_bad_units() {
     IFS=','
 
     for UNIT_LINE in $LIST_UNITS_RAW; do
-        UNIT_NAME=$(printf '%s\n' "$UNIT_LINE" | "$AWK" 'NF { print $1; exit }')
+        UNIT_NAME=$(printf '%s\n' "$UNIT_LINE" | $AWK 'NF { print $1; exit }')
         [ -n "$UNIT_NAME" ] || continue
 
-        UNIT_LIST_LOAD_STATE=$(printf '%s\n' "$UNIT_LINE" | "$AWK" 'NF { print $2; exit }')
-        UNIT_SHOW=$("$SYSTEMCTL" show "$UNIT_NAME" -p LoadState -p FragmentPath -p SourcePath -p Where -p What 2>/dev/null || true)
-        UNIT_ENABLE_STATE_RAW=$("$SYSTEMCTL" is-enabled "$UNIT_NAME" 2>/dev/null || true)
+        UNIT_LIST_LOAD_STATE=$(printf '%s\n' "$UNIT_LINE" | $AWK 'NF { print $2; exit }')
+        UNIT_SHOW=$($SYSTEMCTL show "$UNIT_NAME" -p LoadState -p FragmentPath -p SourcePath -p Where -p What 2>/dev/null || true)
+        UNIT_ENABLE_STATE_RAW=$($SYSTEMCTL is-enabled "$UNIT_NAME" 2>/dev/null || true)
 
         UNIT_LOAD_STATE=$(get_show_property "$UNIT_SHOW" LoadState)
         [ -n "$UNIT_LOAD_STATE" ] || UNIT_LOAD_STATE=$UNIT_LIST_LOAD_STATE
@@ -679,7 +679,7 @@ if [ -r /proc/uptime ]; then
     esac
 fi
 
-MANAGER_STATE_RAW=$("$SYSTEMCTL" is-system-running 2>/dev/null)
+MANAGER_STATE_RAW=$($SYSTEMCTL is-system-running 2>/dev/null)
 MANAGER_STATE_RC=$?
 MANAGER_STATE=$(print_first_word "$MANAGER_STATE_RAW")
 [ -n "$MANAGER_STATE" ] || MANAGER_STATE=unknown
@@ -700,7 +700,7 @@ if [ -z "$MANAGER_STATE_RAW" ] && [ "$MANAGER_STATE_RC" -ne 0 ]; then
     add_unknown 'manager state unavailable'
 fi
 
-DEFAULT_TARGET_RAW=$("$SYSTEMCTL" get-default 2>/dev/null)
+DEFAULT_TARGET_RAW=$($SYSTEMCTL get-default 2>/dev/null)
 DEFAULT_TARGET_RC=$?
 DEFAULT_TARGET=$(print_first_word "$DEFAULT_TARGET_RAW")
 
@@ -719,7 +719,7 @@ else
 fi
 
 if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
-    LOAD_STATE_RAW=$("$SYSTEMCTL" show -p LoadState --value "$DEFAULT_TARGET" 2>/dev/null)
+    LOAD_STATE_RAW=$($SYSTEMCTL show -p LoadState --value "$DEFAULT_TARGET" 2>/dev/null)
     LOAD_STATE_RC=$?
     DEFAULT_TARGET_LOAD_STATE=$(print_first_word "$LOAD_STATE_RAW")
 
@@ -730,7 +730,7 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
         add_critical "default target load=${DEFAULT_TARGET_LOAD_STATE}"
     fi
 
-    NEED_DAEMON_RELOAD_RAW=$("$SYSTEMCTL" show -p NeedDaemonReload --value "$DEFAULT_TARGET" 2>/dev/null)
+    NEED_DAEMON_RELOAD_RAW=$($SYSTEMCTL show -p NeedDaemonReload --value "$DEFAULT_TARGET" 2>/dev/null)
     NEED_DAEMON_RELOAD_RC=$?
     NEED_DAEMON_RELOAD=$(print_first_word "$NEED_DAEMON_RELOAD_RAW")
 
@@ -755,8 +755,8 @@ fi
 
 # Fall back to plain verify on older systemd releases that lack
 # --recursive-errors=yes, while preferring the stricter path when available.
-VERIFY_HELP=$("$SYSTEMD_ANALYZE" verify --help 2>&1 || true)
-printf '%s\n' "$VERIFY_HELP" | "$AWK" 'index($0, "recursive-errors") { found = 1 } END { exit(found ? 0 : 1) }'
+VERIFY_HELP=$($SYSTEMD_ANALYZE verify --help 2>&1 || true)
+printf '%s\n' "$VERIFY_HELP" | $AWK 'index($0, "recursive-errors") { found = 1 } END { exit(found ? 0 : 1) }'
 if [ $? -eq 0 ]; then
     VERIFY_COMMAND_MODE='verify --recursive-errors=yes'
     VERIFY_SUPPORTS_RECURSIVE=1
@@ -767,9 +767,9 @@ fi
 
 if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
     if [ "$VERIFY_SUPPORTS_RECURSIVE" -eq 1 ]; then
-        VERIFY_OUTPUT=$("$SYSTEMD_ANALYZE" verify --recursive-errors=yes "$DEFAULT_TARGET" 2>&1)
+        VERIFY_OUTPUT=$($SYSTEMD_ANALYZE verify --recursive-errors=yes "$DEFAULT_TARGET" 2>&1)
     else
-        VERIFY_OUTPUT=$("$SYSTEMD_ANALYZE" verify "$DEFAULT_TARGET" 2>&1)
+        VERIFY_OUTPUT=$($SYSTEMD_ANALYZE verify "$DEFAULT_TARGET" 2>&1)
     fi
     VERIFY_RC=$?
 
@@ -780,22 +780,22 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
         VERIFY_EXIT_NONZERO=0
     fi
 
-    VERIFY_MESSAGES=$(printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" 'NF { count++ } END { print count + 0 }')
+    VERIFY_MESSAGES=$(printf '%s\n' "$VERIFY_OUTPUT" | $AWK 'NF { count++ } END { print count + 0 }')
 fi
 
 if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
-    ACTIVE_DEPENDENCY_RAW=$("$SYSTEMCTL" list-dependencies --plain --all --no-legend "$DEFAULT_TARGET" 2>/dev/null)
+    ACTIVE_DEPENDENCY_RAW=$($SYSTEMCTL list-dependencies --plain --all --no-legend "$DEFAULT_TARGET" 2>/dev/null)
     DEPENDENCY_TREE_RC=$?
     if [ "$DEPENDENCY_TREE_RC" -eq 0 ]; then
-        ACTIVE_DEPENDENCY_UNITS=$(printf '%s\n' "$ACTIVE_DEPENDENCY_RAW" | "$AWK" 'NF { if (count) printf ","; printf "%s", $1; count++ }')
+        ACTIVE_DEPENDENCY_UNITS=$(printf '%s\n' "$ACTIVE_DEPENDENCY_RAW" | $AWK 'NF { if (count) printf ","; printf "%s", $1; count++ }')
     fi
 fi
 
 # This scan is intentionally limited to load and parser style failures, not
 # general runtime state, to keep the check scoped to systemd configuration.
-LIST_UNITS_OUTPUT=$("$SYSTEMCTL" list-units --all --plain --no-legend --no-pager --state="$BAD_UNIT_FILTER" 2>/dev/null)
+LIST_UNITS_OUTPUT=$($SYSTEMCTL list-units --all --plain --no-legend --no-pager --state="$BAD_UNIT_FILTER" 2>/dev/null)
 LIST_UNITS_RC=$?
-LIST_UNITS_RAW=$(printf '%s\n' "$LIST_UNITS_OUTPUT" | "$AWK" 'NF { if (count) printf ","; printf "%s", $0; count++ }')
+LIST_UNITS_RAW=$(printf '%s\n' "$LIST_UNITS_OUTPUT" | $AWK 'NF { if (count) printf ","; printf "%s", $0; count++ }')
 
 if [ "$LIST_UNITS_RC" -ne 0 ]; then
     add_unknown 'bad-load unit scan failed'
@@ -811,27 +811,27 @@ fi
 # but never suppresses real config or load errors collected above.
 case "$MANAGER_STATE" in
     degraded|maintenance)
-        add_warning "manager_state=${MANAGER_STATE}"
+        add_warning "manager state ${MANAGER_STATE}"
         ;;
     starting|initializing|stopping)
         if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
             :
         else
-            add_warning "manager_state=${MANAGER_STATE}"
+            add_warning "manager state ${MANAGER_STATE}"
         fi
         ;;
     offline|unknown)
         if [ -n "$UNKNOWN_REASONS" ]; then
             :
         else
-            add_warning "manager_state=${MANAGER_STATE}"
+            add_warning "manager state ${MANAGER_STATE}"
         fi
         ;;
     running)
         :
         ;;
     *)
-        add_warning "manager_state=${MANAGER_STATE}"
+        add_warning "manager state ${MANAGER_STATE}"
         ;;
 esac
 
@@ -915,7 +915,7 @@ elif [ "$SHOW_RAW_VERIFY" -eq 1 ] || [ "$VERIFY_MESSAGES" -le "$MAX_VERIFY_LINES
     printf '%s\n' "$VERIFY_OUTPUT"
 else
     printf '%s\n' "systemd-analyze verify output (first ${MAX_VERIFY_LINES} of ${VERIFY_MESSAGES} lines):"
-    printf '%s\n' "$VERIFY_OUTPUT" | "$AWK" -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
+    printf '%s\n' "$VERIFY_OUTPUT" | $AWK -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
     printf '%s\n' '[truncated]'
 fi
 

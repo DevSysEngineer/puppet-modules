@@ -19,7 +19,7 @@ fi
 if [ -d /opt/puppetlabs/bin ]; then
     if [ -z "${PATH-}" ] ; then
         export PATH=/opt/puppetlabs/bin
-    elif ! echo "${PATH}" | grep -q /opt/puppetlabs/bin ; then
+    elif ! printf '%s\n' "${PATH}" | grep -q /opt/puppetlabs/bin ; then
         export PATH="${PATH}:/opt/puppetlabs/bin"
     fi
 fi

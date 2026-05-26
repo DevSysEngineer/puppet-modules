@@ -23,7 +23,10 @@
 #     server_name             => 'app.example.org',
 #     try_files               => false,
 #     content_security_policy => "default-src 'self'; frame-ancestors 'none'",
-#     location_directives     => ['proxy_pass http://127.0.0.1:8080;'],
+#     location_directives     => [
+#       'proxy_pass https://127.0.0.1:8443;',
+#       'proxy_ssl_verify off;',
+#     ],
 #   }
 #
 # @param access_log
