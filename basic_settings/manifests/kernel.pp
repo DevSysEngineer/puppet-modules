@@ -743,10 +743,17 @@ class basic_settings::kernel (
     }
   }
 
-  # Improve kernel io
+  # Improve kernel I/O without storing root-exec state in a predictable /tmp path.
+  $kernel_io_device_script = 'dev=$(/usr/bin/lsblk -oMOUNTPOINT,PKNAME -P -M | /usr/bin/sed -n "s/^MOUNTPOINT=\"\/\" PKNAME=\"\([^\"]*\)\".*/\1/p" | /usr/bin/sed "s/[0-9]*$//" | /usr/bin/sed -n "1p")' #lint:ignore:140chars
+  $kernel_io_command_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 0; [ -w \"/sys/block/\${dev}/queue/scheduler\" ] || exit 0; /usr/bin/printf %s none > \"/sys/block/\${dev}/queue/scheduler\"" #lint:ignore:140chars
+  $kernel_io_check_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 1; [ -r \"/sys/block/\${dev}/queue/scheduler\" ] || exit 1; if /usr/bin/grep -q '\\[none\\]' \"/sys/block/\${dev}/queue/scheduler\"; then exit 1; fi; exit 0" #lint:ignore:140chars
+
+  # Escape the complete scripts once before passing them to bash -c.
+  $kernel_io_command_shell = stdlib::shell_escape($kernel_io_command_script)
+  $kernel_io_check_shell = stdlib::shell_escape($kernel_io_check_script)
   exec { 'kernel_io':
-    command => '/usr/bin/bash -c "dev=$(cat /tmp/kernel_io.state); echo \'none\' > /sys/block/\$dev/queue/scheduler;"',
-    onlyif  => '/usr/bin/bash -c "dev=$(eval $(lsblk -oMOUNTPOINT,PKNAME -P -M | grep \'MOUNTPOINT="/"\'); echo $PKNAME | sed \'s/[0-9]*$//\'); echo \$dev > /tmp/kernel_io.state; if [ $(grep -c \'\\[none\\]\' /sys/block/$(cat /tmp/kernel_io.state)/queue/scheduler) -eq 0 ]; then exit 0; fi; exit 1"', #lint:ignore:140chars
+    command => "/usr/bin/bash -c ${kernel_io_command_shell}",
+    onlyif  => "/usr/bin/bash -c ${kernel_io_check_shell}",
   }
 
   # Activate transparent hugepage modus

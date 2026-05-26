@@ -36,7 +36,8 @@
 #
 # @param env_source
 #   Optional Puppet-compatible source for the `.env` file. When set, it takes
-#   precedence over `env_content`.
+#   precedence over `env_content` and must start with `https://`, `file:///`, or
+#   `puppet:///`.
 #
 # @param monitoring_detail_limit
 #   Maximum number of long-output detail lines emitted by the Compose monitoring
@@ -110,7 +111,11 @@ define docker::compose (
               }
             }
           } else {
-            $env_file_content = undef
+            if ($env_source =~ /(?i:\A(?:https:\/\/|file:\/\/\/|puppet:\/\/\/))/) {
+              $env_file_content = undef
+            } else {
+              fail('docker::compose env_source must start with https://, file:///, or puppet:///')
+            }
           }
 
           # Normalize the compose checksum to lowercase if provided, otherwise leave it as undef.

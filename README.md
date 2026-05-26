@@ -202,6 +202,8 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
+`basic_settings::login_user` houdt home-, `.ssh`- en shell-startupbestanden privé. Wanneer je `home_source` of `private_key` gebruikt, moet de bron met `puppet:///`, `file:///` of `https://` beginnen; gewone HTTP-bronnen worden bewust geweigerd.
+
 ### Docker
 
 Docker installeert Docker CE en beheert Compose-projecten op een voorspelbare manier. Gebruik `docker::compose` voor een eigen stack, `docker::compose_proxy` wanneer die stack via Nginx bereikbaar moet zijn, en de meegeleverde wrappers zoals `docker::authentik` en `docker::twenty` voor de standaard Compose-bestanden in deze module.

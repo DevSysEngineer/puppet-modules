@@ -220,10 +220,7 @@ Control flow and resource structure:
   precomputed `undef` values over duplicated resource blocks. Use this only when
   mutually exclusive attributes such as `source` and `content` cannot both be
   non-`undef`.
-- For guard-style control flow, keep the main resource path inside the positive
-  condition branch and put the exceptional `fail(...)`, `warning(...)`, or
-  fallback path in the `else` branch. Do not write a negative guard immediately
-  followed by the main code path when the positive branch is easier to read.
+- For guard-style control flow, including public input validation and source URI checks, keep the main resource path inside the positive condition branch and put exceptional `fail(...)`, `warning(...)`, or fallback handling in the `else` branch. Do not write a negative guard immediately followed by the main code path when the positive branch is easier to read.
 - Add short comments above non-obvious resource groups, `exec` resources, and
   security-sensitive branches. Comments must explain the decision, not restate
   the syntax.

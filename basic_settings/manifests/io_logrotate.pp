@@ -57,7 +57,7 @@
 #
 # @api public
 define basic_settings::io_logrotate (
-  Enum['daily','weekly', 'monthly']   $frequency,
+  Enum['daily', 'weekly', 'monthly']  $frequency,
   String                              $path,
   Boolean                             $compress       = true,
   Boolean                             $compress_delay = false,
@@ -101,11 +101,11 @@ define basic_settings::io_logrotate (
     $rotate_correct = $rotate
   }
 
-  # Check if shared scripts is needed
+  # Enable sharedscripts whenever a postrotate hook runs with a create user.
   if ($create_user != undef and $path =~ '.*') {
     $shared_scripts = true
   } else {
-    $hared_scripts = false
+    $shared_scripts = false
   }
 
   # Create configuration

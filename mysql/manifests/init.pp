@@ -236,7 +236,7 @@ class mysql (
         rotate_post => join([
             'test -x /usr/bin/mysqladmin || exit 0',
             'MYADMIN="/usr/bin/mysqladmin --defaults-file=/etc/mysql/debian.cnf"',
-            'if [ -z "`$MYADMIN ping 2>/dev/null`" ]; then',
+            'if [ -z "$($MYADMIN ping 2>/dev/null)" ]; then',
             "\tif killall -q -s0 -umysql mysqld; then",
             "\t\texit 1",
             "\tfi",

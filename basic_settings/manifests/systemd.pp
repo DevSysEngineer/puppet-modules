@@ -36,14 +36,14 @@ class basic_settings::systemd (
     require => Package['systemd-cron'],
   }
 
-  # Reload systemd deamon
+  # Reload systemd daemon
   exec { 'systemd_daemon_reload':
     command     => '/usr/bin/systemctl daemon-reload',
     refreshonly => true,
     require     => Package['systemd'],
   }
 
-  # Systemd storage target
+  # Systemd system target
   basic_settings::systemd_target { "${cluster_id}-system":
     description    => 'System',
     parent_targets => ['multi-user'],
@@ -90,7 +90,7 @@ class basic_settings::systemd (
   $default_target_unit_shell = stdlib::shell_escape("${cluster_id}-${default_target}.target")
   exec { 'set_default_target':
     command => "/bin/systemctl set-default ${default_target_unit_shell}",
-    unless  => "/usr/bin/test `/bin/systemctl get-default` = ${default_target_unit_shell}",
+    unless  => "/usr/bin/test \"\$(/bin/systemctl get-default)\" = ${default_target_unit_shell}",
     require => [Package['systemd'], File["/etc/systemd/system/${cluster_id}-${default_target}.target"]],
   }
 }

@@ -4,12 +4,12 @@
 GRUB_DEFAULT=0
 
 # Set by distributors of GRUB to their identifying name
-GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo <%= @os_name %>`
+GRUB_DISTRIBUTOR="$(lsb_release -i -s 2> /dev/null || printf '%s\n' '<%= @os_name %>')"
 
 # Always create recovery mode menu entries
 GRUB_DISABLE_RECOVERY="false"
 
-# Empty cmd lien for recovery mode
+# Empty cmdline for recovery mode
 GRUB_CMDLINE_LINUX=""
 
 # Disable debug information during boot
@@ -49,21 +49,21 @@ GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT apparmor=0"
 
 <% if ! @cpu_governor_correct.nil? -%>
 # Set CPU governor
-GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT cpufreq.default_governor=<%= @cpu_governor_correct %>" 
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT cpufreq.default_governor=<%= @cpu_governor_correct %>"
 
 <% end -%>
 <% if ! @cpu_idle_max_cstate.nil? -%>
 # Set idle cstate
 <% if @cpu_manufacturer == 'intel '-%>
-GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT intel_idle.max_cstate=<%= @cpu_idle_max_cstate %>" 
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT intel_idle.max_cstate=<%= @cpu_idle_max_cstate %>"
 <% else -%>
-GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT processor.max_cstate=<%= @cpu_idle_max_cstate %>" 
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT processor.max_cstate=<%= @cpu_idle_max_cstate %>"
 <% end -%>
 
 <% end -%>
 <% if ! @cpu_pstate.nil? -%>
 # Set pstate
-GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT <%= @cpu_manufacturer %>_pstate=<%= @cpu_pstate %>" 
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT <%= @cpu_manufacturer %>_pstate=<%= @cpu_pstate %>"
 
 <% end -%>
 <% if @ip_version_v6 -%>

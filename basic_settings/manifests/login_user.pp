@@ -2,9 +2,9 @@
 #
 # This defined type creates or removes a local user and optional matching group,
 # manages a tightly permissioned home directory, SSH authorized keys and private
-# key material, optional shell startup files, and audit rules for the user's
-# `.ssh` tree when auditd is available. Passwords are handled as `Sensitive`
-# values and generated files are restricted to the managed user.
+# key material, optional private shell startup files, and audit rules for the
+# user's `.ssh` tree when auditd is available. Passwords are handled as
+# `Sensitive` values and generated files are restricted to the managed user.
 #
 # @example Create a key-only user with a managed home directory
 #   basic_settings::login_user { 'deploy':
@@ -68,18 +68,21 @@
 #   enabled.
 #
 # @param home_recurse
-#   Recurses through the home directory when `true`.
+#   Recurses through the home directory when `true`. Recursive management uses
+#   non-executable file modes while keeping directories traversable.
 #
 # @param home_source
-#   Optional Puppet file source used to seed the home directory.
+#   Optional file source used to seed the home directory. Must start with
+#   `puppet:///`, `file:///`, or `https://`.
 #
 # @param password_max_age
 #   Optional password maximum age. `undef` selects a default based on whether the
 #   account has SSH keys or a locked password.
 #
 # @param private_key
-#   Optional Puppet file source for `${home}/.ssh/private.key`. The file is
-#   written with mode `0600`.
+#   Optional file source for `${home}/.ssh/private.key`. Must start with
+#   `puppet:///`, `file:///`, or `https://`; the file is written with mode
+#   `0600`.
 #
 # @param shell
 #   Login shell for the account. The default is `/bin/bash`.
@@ -106,200 +109,218 @@ define basic_settings::login_user (
   Optional[String]                    $private_key        = undef,
   String                              $shell              = '/bin/bash'
 ) {
-  # Set variables
-  if (defined(Class['basic_settings::login'])) {
-    $environment = $basic_settings::login::environment
-    $hostname = $basic_settings::login::hostname
-    $mesg_disable = $basic_settings::login::mesg_disable
-  } else {
-    $environment = 'production'
-    $hostname = $facts['networking']['hostname']
-    $mesg_disable = true
-  }
-
-  # Set authorized keys state
-  if ($authorized_keys != undef) {
-    $authorized_keys_purge = false
-    if (empty($authorized_keys)) {
-      $authorized_keys_empty = true
-    } else {
-      $authorized_keys_empty = false
-    }
-  } else {
-    $authorized_keys_purge = true
-    $authorized_keys_empty = true
-  }
-
-  # Get password max age
-  if ($authorized_keys_empty) {
-    if ($password_max_age == undef) {
-      if ($password == '!!') {
-        $password_max_age_correct = -1
+  # Keep valid source input on the main path; invalid schemes are exceptional.
+  if ($home_source == undef or $home_source =~ /(?i:\A(?:puppet:\/\/\/|file:\/\/\/|https:\/\/))/) {
+    if ($private_key == undef or $private_key =~ /(?i:\A(?:puppet:\/\/\/|file:\/\/\/|https:\/\/))/) {
+      # Set variables
+      if (defined(Class['basic_settings::login'])) {
+        $environment = $basic_settings::login::environment
+        $hostname = $basic_settings::login::hostname
+        $mesg_disable = $basic_settings::login::mesg_disable
       } else {
-        $password_max_age_correct = 365
+        $environment = 'production'
+        $hostname = $facts['networking']['hostname']
+        $mesg_disable = true
       }
-    } else {
-      $password_max_age_correct = $password_max_age
-    }
-  } elsif ($password_max_age == undef) {
-    $password_max_age_correct = -1
-  } else {
-    $password_max_age_correct = $password_max_age
-  }
 
-  # Create only user group when group is disabled
-  if (!$disable_group) {
-    group { $name:
-      ensure => $ensure,
-      gid    => $gid,
-    }
-  }
-
-  # Create user
-  user { $name:
-    ensure             => $ensure,
-    uid                => $uid,
-    gid                => $gid,
-    groups             => $groups,
-    shell              => $shell,
-    home               => $home,
-    managehome         => false,
-    password           => $password,
-    password_max_age   => $password_max_age_correct,
-    password_warn_days => 31,
-    purge_ssh_keys     => $authorized_keys_purge,
-  }
-
-  if ($ensure == present) {
-    Group[$name] -> User[$name]
-  } else {
-    User[$name] -> Group[$name]
-  }
-
-  if ($home_enable) {
-    # Make home dir
-    if ($home_source != undef) {
-      file { $home:
-        ensure  => $ensure ? { 'absent' => undef, default => directory },
-        owner   => $uid,
-        group   => $gid,
-        force   => $home_force,
-        purge   => $home_purge,
-        recurse => $home_recurse,
-        source  => $home_source,
-        mode    => '0700',
-      }
-    } else {
-      file { $home:
-        ensure  => $ensure ? { 'absent' => undef, default => directory },
-        owner   => $uid,
-        group   => $gid,
-        force   => $home_force,
-        purge   => $home_purge,
-        recurse => $home_recurse,
-        mode    => '0700',
-      }
-    }
-
-    # Create ssh dir
-    file { "${home}/.ssh":
-      ensure  => $ensure ? { 'absent' => undef, default => directory },
-      owner   => $uid,
-      group   => $gid,
-      mode    => '0700',
-      require => File[$home],
-    }
-
-    # Create authorized_keys file
-    if ($authorized_keys != undef) {
-      file { "${home}/.ssh/authorized_keys":
-        ensure  => $ensure ? { 'absent' => 'absent', default => present },
-        content => Sensitive.new(join($authorized_keys, "\n")),
-        mode    => '0600',
-        owner   => $uid,
-        group   => $gid,
-        require => File[$home],
-      }
-    }
-
-    # Create private key file
-    if ($private_key != undef) {
-      file { "${home}/.ssh/private.key":
-        ensure  => $ensure ? { 'absent' => 'absent', default => present },
-        source  => Sensitive.new($private_key),
-        mode    => '0600',
-        owner   => $uid,
-        group   => $gid,
-        require => File[$home],
-      }
-    }
-
-    # Create profile file
-    if ($bash_profile != undef) {
-      if ($bash_profile == 'default') {
-        $bash_profile_correct = template('basic_settings/login/bash/profile')
-      } else {
-        $bash_profile_correct = $bash_profile
-      }
-      file { "${home}/.profile":
-        ensure  => $ensure ? { 'absent' => 'absent', default => present },
-        content => $bash_profile_correct,
-        owner   => $uid,
-        group   => $gid,
-        mode    => '0700',
-        require => File[$home],
-      }
-    }
-
-    # Create bashrc file
-    if ($bashrc != undef) {
-      if ($bashrc == 'default') {
-        if ($name == 'root') {
-          $bash_rc_correct = template('basic_settings/login/bash/rc-root')
+      # Set authorized keys state
+      if ($authorized_keys != undef) {
+        $authorized_keys_purge = false
+        if (empty($authorized_keys)) {
+          $authorized_keys_empty = true
         } else {
-          $bash_rc_correct = template('basic_settings/login/bash/rc')
+          $authorized_keys_empty = false
         }
       } else {
-        $bash_rc_correct = $bashrc
+        $authorized_keys_purge = true
+        $authorized_keys_empty = true
       }
-      file { "${home}/.bashrc":
-        ensure  => $ensure ? { 'absent' => 'absent', default => present },
-        content => $bash_rc_correct,
-        owner   => $uid,
-        group   => $gid,
-        mode    => '0700',
-        require => File[$home],
-      }
-    }
 
-    # Create bash aliases file
-    if ($bash_aliases != undef) {
-      if ($bash_aliases == 'default') {
-        $bash_aliases_correct = template('basic_settings/login/bash/aliases')
+      # Unwrap only for control-flow decisions; the user resource still receives the Sensitive value.
+      $password_unwrapped = $password.unwrap
+
+      # Get password max age
+      if ($authorized_keys_empty) {
+        if ($password_max_age == undef) {
+          if ($password_unwrapped == '!!') {
+            $password_max_age_correct = -1
+          } else {
+            $password_max_age_correct = 365
+          }
+        } else {
+          $password_max_age_correct = $password_max_age
+        }
+      } elsif ($password_max_age == undef) {
+        $password_max_age_correct = -1
       } else {
-        $bash_aliases_correct = $bash_aliases
+        $password_max_age_correct = $password_max_age
       }
-      file { "${home}/.bash_aliases":
-        ensure  => $ensure ? { 'absent' => 'absent', default => present },
-        content => $bash_aliases_correct,
-        owner   => $uid,
-        group   => $gid,
-        mode    => '0700',
-        require => File[$home],
-      }
-    }
 
-    # Create audit rules
-    if (defined(Package['auditd'])) {
-      basic_settings::security_audit { "${name}-ssh":
-        ensure => $ensure,
-        rules  => [
-          "-a always,exit -F arch=b32 -F dir=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
-          "-a always,exit -F arch=b64 -F dir=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
-          "-a always,exit -F arch=b32 -F dir=${home}/.ssh -F perm=wa -F key=ssh",
-          "-a always,exit -F arch=b64 -F dir=${home}/.ssh -F perm=wa -F key=ssh",
-        ],
+      # Create only user group when group is disabled
+      if (!$disable_group) {
+        group { $name:
+          ensure => $ensure,
+          gid    => $gid,
+        }
       }
+
+      # Create user
+      user { $name:
+        ensure             => $ensure,
+        uid                => $uid,
+        gid                => $gid,
+        groups             => $groups,
+        shell              => $shell,
+        home               => $home,
+        managehome         => false,
+        password           => $password,
+        password_max_age   => $password_max_age_correct,
+        password_warn_days => 31,
+        purge_ssh_keys     => $authorized_keys_purge,
+      }
+
+      if ($ensure == present) {
+        Group[$name] -> User[$name]
+      } else {
+        User[$name] -> Group[$name]
+      }
+
+      if ($home_enable) {
+        # Recursive home management uses a non-executable file mode; Puppet keeps directories traversable.
+        $home_mode = $home_recurse ? {
+          true    => '0600',
+          default => '0700',
+        }
+
+        # Make home dir
+        if ($home_source != undef) {
+          file { $home:
+            ensure  => $ensure ? { 'absent' => undef, default => directory },
+            owner   => $uid,
+            group   => $gid,
+            force   => $home_force,
+            purge   => $home_purge,
+            recurse => $home_recurse,
+            source  => $home_source,
+            mode    => $home_mode,
+          }
+        } else {
+          file { $home:
+            ensure  => $ensure ? { 'absent' => undef, default => directory },
+            owner   => $uid,
+            group   => $gid,
+            force   => $home_force,
+            purge   => $home_purge,
+            recurse => $home_recurse,
+            mode    => $home_mode,
+          }
+        }
+
+        # Create ssh dir
+        file { "${home}/.ssh":
+          ensure  => $ensure ? { 'absent' => undef, default => directory },
+          owner   => $uid,
+          group   => $gid,
+          mode    => '0700',
+          require => File[$home],
+        }
+
+        # Create authorized_keys file
+        if ($authorized_keys != undef) {
+          file { "${home}/.ssh/authorized_keys":
+            ensure  => $ensure ? { 'absent' => 'absent', default => present },
+            content => Sensitive.new(join($authorized_keys, "\n")),
+            mode    => '0600',
+            owner   => $uid,
+            group   => $gid,
+            require => File[$home],
+          }
+        }
+
+        # Create private key file
+        if ($private_key != undef) {
+          file { "${home}/.ssh/private.key":
+            ensure  => $ensure ? { 'absent' => 'absent', default => present },
+            source  => $private_key,
+            mode    => '0600',
+            owner   => $uid,
+            group   => $gid,
+            require => File[$home],
+          }
+        }
+
+        # Create profile file
+        if ($bash_profile != undef) {
+          if ($bash_profile == 'default') {
+            $bash_profile_correct = template('basic_settings/login/bash/profile')
+          } else {
+            $bash_profile_correct = $bash_profile
+          }
+          file { "${home}/.profile":
+            ensure  => $ensure ? { 'absent' => 'absent', default => present },
+            content => $bash_profile_correct,
+            owner   => $uid,
+            group   => $gid,
+            mode    => '0600',
+            require => File[$home],
+          }
+        }
+
+        # Create bashrc file
+        if ($bashrc != undef) {
+          if ($bashrc == 'default') {
+            if ($name == 'root') {
+              $bash_rc_correct = template('basic_settings/login/bash/rc-root')
+            } else {
+              $bash_rc_correct = template('basic_settings/login/bash/rc')
+            }
+          } else {
+            $bash_rc_correct = $bashrc
+          }
+          file { "${home}/.bashrc":
+            ensure  => $ensure ? { 'absent' => 'absent', default => present },
+            content => $bash_rc_correct,
+            owner   => $uid,
+            group   => $gid,
+            mode    => '0600',
+            require => File[$home],
+          }
+        }
+
+        # Create bash aliases file
+        if ($bash_aliases != undef) {
+          if ($bash_aliases == 'default') {
+            $bash_aliases_correct = template('basic_settings/login/bash/aliases')
+          } else {
+            $bash_aliases_correct = $bash_aliases
+          }
+          file { "${home}/.bash_aliases":
+            ensure  => $ensure ? { 'absent' => 'absent', default => present },
+            content => $bash_aliases_correct,
+            owner   => $uid,
+            group   => $gid,
+            mode    => '0600',
+            require => File[$home],
+          }
+        }
+
+        # Create audit rules
+        if (defined(Package['auditd'])) {
+          basic_settings::security_audit { "${name}-ssh":
+            ensure => $ensure,
+            rules  => [
+              "-a always,exit -F arch=b32 -F dir=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
+              "-a always,exit -F arch=b64 -F dir=${home}/.ssh -F perm=r -F auid!=unset -F key=ssh",
+              "-a always,exit -F arch=b32 -F dir=${home}/.ssh -F perm=wa -F key=ssh",
+              "-a always,exit -F arch=b64 -F dir=${home}/.ssh -F perm=wa -F key=ssh",
+            ],
+          }
+        }
+      }
+    } else {
+      fail('basic_settings::login_user private_key must start with puppet:///, file:///, or https://')
     }
+  } else {
+    fail('basic_settings::login_user home_source must start with puppet:///, file:///, or https://')
   }
 }

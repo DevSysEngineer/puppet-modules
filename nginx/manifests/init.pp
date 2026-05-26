@@ -324,7 +324,7 @@ class nginx (
       frequency      => 'daily',
       compress_delay => true,
       create_user    => $run_user,
-      rotate_post    => "if [ -f /var/run/nginx.pid ]; then\n\t\tkill -USR1 `cat /var/run/nginx.pid`\n\tfi",
+      rotate_post    => "if [ -f /var/run/nginx.pid ]; then\n\t\tkill -USR1 \"\$(/usr/bin/cat /var/run/nginx.pid)\"\n\tfi",
     }
   }
 }
