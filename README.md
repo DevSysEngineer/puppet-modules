@@ -242,6 +242,62 @@ node 'containerhost.dev.xxxx.nl' {
 }
 ```
 
+Voor de meegeleverde Compose-bestanden in de Docker-module zijn er ook wrapperclasses. Deze classes gebruiken automatisch de juiste `puppet:///modules/docker/...`-bron en roepen intern `docker::compose` aan:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker::authentik':
+        pg_pass    => Sensitive('replace-with-postgresql-password'),
+        secret_key => Sensitive('replace-with-secret-key'),
+    }
+
+    class { 'docker::twenty':
+        encryption_key       => Sensitive('replace-with-encryption-key'),
+        pg_database_password => Sensitive('replace-with-postgresql-password'),
+        server_url           => 'https://twenty.example.org',
+    }
+}
+```
+
+Deze wrappers bieden bewust geen losse `env_content` parameter aan. Authentik genereert de `.env` uit `pg_pass`, `secret_key` en de lokale `port`; Twenty genereert de `.env` uit onder meer `encryption_key`, `pg_database_password`, `server_url`, PostgreSQL/Redis-instellingen en optionele S3-storageparameters.
+
+Wanneer `server_name` is ingesteld, gebruiken deze wrappers `docker::compose_proxy`: de Compose-stack blijft via `docker::compose` beheerd en er wordt daarnaast een `nginx::server` reverse proxy aangemaakt. Zonder `server_name` wordt alleen `docker::compose` gebruikt. De wrappers declareren Docker zelf; de Nginx-class moet al aanwezig zijn wanneer je de proxyroute gebruikt. Voor publieke HTTPS geef je `ssl_certificate` en `ssl_certificate_key` mee; HTTP wordt dan standaard naar HTTPS doorgestuurd. `server_url` bij Twenty blijft de publieke URL die Twenty zelf gebruikt; de interne upstream voor Nginx wordt bepaald door `scheme`, `host`, `port` en `ssl_verify`. De verbinding tussen Nginx en de Docker-upstream is standaard versleuteld: `docker::compose_proxy` gebruikt `proxy_scheme => 'https'` en `proxy_ssl_verify => false`, zodat lokale of self-signed upstreamcertificaten blijven werken. In de app-wrappers heten die instellingen `scheme` en `ssl_verify`. Gebruik `proxy_scheme => 'http'` of `scheme => 'http'` alleen als expliciete opt-out voor een upstream die echt geen HTTPS ondersteunt. Authentik gebruikt standaard `scheme => 'https'`, `port => 9443` en `ssl_verify => false`; Twenty gebruikt standaard `scheme => 'https'`, `host => '127.0.0.1'`, `port => 3000` en `ssl_verify => false`.
+
+`docker::compose_proxy` kan ook direct worden gebruikt voor een eigen Compose-stack. Gebruik dan de generieke `proxy_*` parameters:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+    class { 'nginx': }
+
+    docker::compose_proxy { 'custom':
+        compose_source     => 'puppet:///modules/profile/custom/docker-compose.yml',
+        proxy_port         => 9443,
+        proxy_scheme       => 'https',
+        proxy_ssl_verify   => false,
+        server_name        => 'custom.example.org',
+        ssl_certificate     => '/etc/letsencrypt/live/custom.example.org/fullchain.pem',
+        ssl_certificate_key => '/etc/letsencrypt/live/custom.example.org/privkey.pem',
+    }
+}
+```
+
+Bij de app-wrappers gebruik je dezelfde proxyroute zonder `proxy_*` prefix:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'nginx': }
+
+    class { 'docker::authentik':
+        pg_pass             => Sensitive('replace-with-postgresql-password'),
+        secret_key          => Sensitive('replace-with-secret-key'),
+        server_name         => 'auth.example.org',
+        ssl_certificate     => '/etc/letsencrypt/live/auth.example.org/fullchain.pem',
+        ssl_certificate_key => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
+    }
+}
+```
+
 Een Compose-stack kan extra monitoringbeleid meekrijgen. In dit voorbeeld mag een migratieservice normaal succesvol eindigen en moeten de web- en databaseservice een healthcheck hebben:
 
 ```puppet

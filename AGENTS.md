@@ -211,6 +211,7 @@ Parameter ordering and formatting:
   comment explaining why.
 - Align the type column, parameter-name column, `=` signs, and default values
   across the full parameter block.
+- Keep Puppet Strings `@param` entries in the same order as the class or defined-type parameter block so review can verify required and optional parameters without cross-referencing scattered documentation.
 
 Control flow and resource structure:
 
@@ -225,6 +226,9 @@ Control flow and resource structure:
 - Add short comments above non-obvious resource groups, `exec` resources, and
   security-sensitive branches. Comments must explain the decision, not restate
   the syntax.
+- For new or materially changed Puppet manifests, add orienting comments at the same density as the surrounding well-documented code: comment parent-class guards, derived values, conditional directive lists, delegated resources, cleanup paths, and security-sensitive decisions such as TLS, credentials, permissions, and public exposure. Do not leave newly introduced helper or wrapper code as a long sequence of assignments and resources without comments that explain why each logical block exists.
+- Before finishing a Puppet change, review the diff for uncommented non-obvious blocks. If the user would need to add comments afterward to understand the flow, add those comments before final validation.
+- When combining arrays in Puppet code, use stdlib's `concat(...)` helper instead of the `+` operator. Keep a short comment when the ordering affects generated configuration, such as Nginx directive order.
 
 Shell in Puppet:
 
@@ -337,6 +341,7 @@ Puppet libraries.
 - Write code comments and technical documentation in English. This includes
   Puppet Strings comments, inline comments, generated config comments, examples
   outside the Dutch README, changelog entries, and this `AGENTS.md` file.
+- When adding or changing instructions in `AGENTS.md`, write them as project-wide rules rather than rules tied to one class, defined type, function, template, or recent change. Mention a specific module or class only when the rule truly applies only there; otherwise describe the general pattern and use concrete names only as optional examples.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise.
   README examples may contain Puppet code, but the surrounding explanation must
   stay Dutch.
@@ -523,6 +528,7 @@ Repository-specific security conventions:
   `--no-install-suggests`.
 - Sensitive operations often add audit rules through
   `basic_settings::security_audit`.
+- Reverse proxies and internal service-to-service upstreams must default to encrypted transport whenever the upstream can support it, including loopback and local Docker traffic. Plain HTTP is an explicit opt-out and must be documented with the reason the upstream cannot support HTTPS or another encrypted transport. Do not disable encryption merely to avoid certificate trust issues; prefer encrypted traffic with certificate verification disabled only for local or self-signed upstream certificates.
 
 Public HTTP exposure does not imply every local user should have filesystem read
 access to the same file. If you must weaken a permission, sandbox, or trust
