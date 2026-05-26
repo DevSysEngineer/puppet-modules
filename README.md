@@ -7,6 +7,33 @@ Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Pu
 > [!CAUTION]
 > **Compatibiliteit**: Deze uitbreidingsmodule is ontworpen voor 64-bits besturingssystemen.
 
+## Inhoudsopgave
+- [Gebruik van voorbeelden](#gebruik-van-voorbeelden)
+- [Beveiligingsaanpassingen](#beveiligingsaanpassingen)
+- [Monitoring](#monitoring)
+- [Installatie](#installatie)
+- [Modules](#modules)
+  - [Basic settings](#basic-settings)
+  - [Docker](#docker)
+  - [Let's Encrypt](#lets-encrypt)
+  - [MySQL](#mysql)
+  - [GitLab](#gitlab)
+  - [Nginx](#nginx)
+  - [PHP](#php)
+  - [SSH](#ssh)
+  - [RabbitMQ](#rabbitmq)
+  - [VnStat](#vnstat)
+- [Checks](#checks)
+- [Voorbeelden](#voorbeelden)
+- [Contributie](#contributie)
+
+## Gebruik van voorbeelden
+De voorbeelden in deze README gebruiken `example.org`, `xxxx.nl`, `replace-with-...` en vergelijkbare waarden als plaatsvervangers. Vervang die altijd door je eigen hostnamen, paden, gebruikersnamen en geheimen.
+
+Gebruik `Sensitive('...')` of `Sensitive.new(...)` voor wachtwoorden, tokens en andere geheimen. Zet echte geheimen niet letterlijk in gedeelde voorbeelden of documentatie.
+
+De README geeft per module de bedoeling, belangrijke defaults en een paar bruikbare voorbeelden. Uitgebreide varianten staan in de map `examples/`, terwijl je editor, linter en Puppet Strings-documentatie de volledige parameterlijst van classes en defined types tonen.
+
 ## Beveiligingsaanpassingen
 Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geïmplementeerd, ook wel bekend als [hardening](https://en.wikipedia.org/wiki/Hardening_(computing)). Dit kan leiden tot afwijkend gedrag van softwarepakketten ten opzichte van de oorspronkelijke verwachtingen. Voorbeelden hiervan zijn extra opties in systemd zoals `PrivateTmp: true`, `ProtectHome: true`, `ProtectSystem: full` en `UMask=0077`, en aanpassingen aan GRUB zodat de kernel bij het opstarten in een hardening modus draait. Ook zijn PAM-instellingen zo aangepast dat bestanden via umask 0077 worden aangemaakt. Systemd-services krijgen deze umask expliciet per service wanneer dit veilig is; services die bewust bestanden, logs of sockets delen vallen terug op de standaard umask of krijgen per service een minder strikte en gemotiveerde niet-standaard waarde. Ik wil madaidan en zijn pagina [linux-hardening](https://madaidans-insecurities.github.io/guides/linux-hardening.html) bedanken voor de waardevolle tips; een groot deel van deze informatie heb ik als inspiratie gebruikt.
 
@@ -108,7 +135,9 @@ Controleer of de uitbreidingsmodule met submodules correct is ingeladen met de v
 puppet module list
 ```
 
-## Basic settings
+## Modules
+
+### Basic settings
 
 Dit onderdeel bestaat uit subonderdelen die afzonderlijk kunnen worden toegepast zonder de hoofdklasse te gebruiken. Wanneer de hoofdklasse wordt aangeroepen, worden deze subonderdelen daarin geconfigureerd. Het doel van deze sectie is om een [headless server](https://en.wikipedia.org/wiki/Headless_computer) op te zetten met minimale GUI/UI-pakketten, om zo het verbruik van resources te minimaliseren. Daarnaast worden de serverinstellingen geoptimaliseerd voor High-performance computing ([HPC](https://en.wikipedia.org/wiki/High-performance_computing)).
 
@@ -140,7 +169,7 @@ Basic settings omvatten de volgende subonderdelen:
 - **Systemd:** Installeren van systemd en zorgen voor de juiste systeemdoelconfiguratie.
 - **Timezone:** Configureren van tijd/datum.
 
-### Voorbeelden
+#### Voorbeelden
 
 In het onderstaande voorbeeld zie je hoe `basic settings` kan worden aangeroepen:
 
@@ -156,114 +185,68 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-Zoals eerder vermeld, bevat `basic settings` ook een login subonderdeel. In het onderstaande voorbeeld laat ik zien hoe je een gebruiker kunt toevoegen. Wanneer de gebruiker aan de groep `wheel` wordt toegevoegd, mag de gebruiker `su` gebruiken.
+Zoals eerder vermeld, bevat `basic settings` ook een login subonderdeel. In het onderstaande voorbeeld wordt een gebruiker toegevoegd. Wanneer de gebruiker aan de groep `wheel` wordt toegevoegd, mag de gebruiker `su` gebruiken.
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
-    /* Uncomment dit stukje code wanneer je hoofdclass basic settings niet gebruikt */
-    <!-- class { 'basic_settings::login':
-        mail_to             => $systemd_notify_mail,
-        server_fdqn         => $server_fdqn,
-        sudoers_dir_enable  => $sudoers_dir_enable
-    } -->
+    class { 'basic_settings': }
 
-    /* Maak gebruiker */
-    basic_settings::login_user { 'naam':
-        ensure          => $ensure,
-        home            => "/home/[naam]",
-        uid             => $number,
-        gid             => $number,
-        password        => Sensitive($password),
-        bash_profile    => template('accounts/bash-profile'), # Indien van toepassing
-        bashrc          => template('accounts/bashrc'), # Indien van toepassing
-        bash_aliases    => template('accounts/bash-aliases'), # Indien van toepassing
-        authorized_keys => $authorized_keys,
-        groups          => ['wheel'] # Gebruik groep 'wheel' alleen als gebruiker ook moet kunnen 'su'en
+    basic_settings::login_user { 'beheer':
+        gid             => 1001,
+        home            => '/home/beheer',
+        password        => Sensitive('replace-with-password-hash'),
+        uid             => 1001,
+        authorized_keys => ['ssh-ed25519 AAAA... beheer@example.org'],
+        groups          => ['wheel'],
     }
 }
 ```
 
-## Docker
+### Docker
 
-Docker maakt het mogelijk om containers op een voorspelbare manier te draaien. Dit onderdeel installeert Docker CE en kan per Compose-project een root-only projectmap onder `/opt/docker` beheren. Iedere `docker::compose`-resource plaatst een `.env` en een `docker-compose.yml` onder `/opt/docker/<naam>` en maakt daarna een `docker-compose-<naam>.service` aan.
+Docker installeert Docker CE en beheert Compose-projecten op een voorspelbare manier. Gebruik `docker::compose` voor een eigen stack, `docker::compose_proxy` wanneer die stack via Nginx bereikbaar moet zijn, en de meegeleverde wrappers zoals `docker::authentik` en `docker::twenty` voor de standaard Compose-bestanden in deze module.
 
-De parameter `compose_source` ondersteunt HTTPS-bronnen, lokale `file:///`-paden en Puppet file-serverbronnen via `puppet:///`. HTTP wordt bewust niet geaccepteerd, zodat Compose-bestanden niet ongemerkt via een onversleutelde verbinding worden opgehaald. Het Compose-bestand wordt met `docker compose config --quiet` gevalideerd voordat Puppet het bestand definitief plaatst. Voor externe HTTPS-bronnen kan `compose_checksum` worden gebruikt met een SHA256-checksum, zodat een onverwachte wijziging of corrupte download zichtbaar faalt tijdens de Puppet-run.
+Een Compose-bron kan uit de Puppet file server, een lokaal `file:///`-pad of een HTTPS-URL komen. Gevoelige `.env`-inhoud hoort in `Sensitive(...)`. Declareer `docker` zelf; gebruik je een proxyroute, declareer dan ook `nginx`.
 
-### Voorbeelden
+Belangrijk om te weten:
 
-Hieronder een voorbeeld hoe je Docker en een Compose-project met een beschermde `.env` gebruikt in je Puppet-omgeving:
+- `docker::compose` beheert per stack een eigen projectmap onder `/opt/docker/<naam>` en maakt de stack geschikt om via systemd mee te draaien in de doelstructuur van `basic_settings`.
+- HTTP-bronnen voor Compose-bestanden worden bewust niet gebruikt. Gebruik `puppet:///`, `file:///` of `https://`; geef bij externe HTTPS-bronnen bij voorkeur een SHA256-checksum mee.
+- Een `.env` kan uit `env_source` of `env_content` komen. Gebruik voor wachtwoorden en tokens altijd `Sensitive(...)`, omdat deze waarden anders te makkelijk in logs of diffs terechtkomen.
+- Compose-monitoring kan controleren of containers healthy zijn, of bepaalde eenmalige containers normaal mogen eindigen en of er orphan containers achterblijven.
+- `docker::compose_proxy` maakt naast de Compose-stack een Nginx-vhost aan. De upstream is standaard HTTPS; gebruik HTTP alleen als de containerapplicatie echt geen TLS ondersteunt.
+- De wrappers `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack.
+
+#### Voorbeelden
+
+Een eigen Compose-project uit de Puppet file server:
 
 ```puppet
 node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
     docker::compose { 'example':
-        compose_source   => 'https://example.org/example/docker-compose.yml',
-        compose_checksum => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-        env_content      => Sensitive.new("COMPOSE_PROJECT_NAME=example\nMYSQL_PASSWORD=supersecret\n"),
+        compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
     }
 }
 ```
 
-Wanneer de inhoud van de `.env` uit een ERB-template komt, kan `template(...)` ook direct worden gebruikt. Puppet rendert de template naar een string; gebruik bij gevoelige waarden bij voorkeur `Sensitive.new(...)`:
+Een Compose-project met `.env`-inhoud en monitoringbeleid:
 
 ```puppet
 node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
     docker::compose { 'example':
-        compose_source => 'file:///srv/puppet/files/example/docker-compose.yml',
-        env_content    => Sensitive.new(template('docker/example.env.erb')),
+        compose_source             => 'file:///srv/puppet/files/example/docker-compose.yml',
+        env_content                => Sensitive.new("COMPOSE_PROJECT_NAME=example\nMYSQL_PASSWORD=replace-with-password\n"),
+        monitoring_health_required => ['web', 'db'],
+        monitoring_expected_exited => ['migrate'],
     }
 }
 ```
 
-Een lokaal Compose-bestand kan ook met een `file:///`-bron worden overgenomen:
-
-```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
-
-    docker::compose { 'authentik':
-        compose_source => 'file:///srv/puppet/files/authentik/docker-compose.yml',
-    }
-}
-```
-
-Een Compose-bestand uit de Puppet file server kan ook direct worden gebruikt:
-
-```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
-
-    docker::compose { 'authentik':
-        compose_source => 'puppet:///modules/docker/authentik.yaml',
-    }
-}
-```
-
-Voor de meegeleverde Compose-bestanden in de Docker-module zijn er ook wrapperclasses. Deze classes gebruiken automatisch de juiste `puppet:///modules/docker/...`-bron en roepen intern `docker::compose` aan:
-
-```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker::authentik':
-        pg_pass    => Sensitive('replace-with-postgresql-password'),
-        secret_key => Sensitive('replace-with-secret-key'),
-    }
-
-    class { 'docker::twenty':
-        encryption_key       => Sensitive('replace-with-encryption-key'),
-        pg_database_password => Sensitive('replace-with-postgresql-password'),
-        server_url           => 'https://twenty.example.org',
-    }
-}
-```
-
-Deze wrappers bieden bewust geen losse `env_content` parameter aan. Authentik genereert de `.env` uit `pg_pass`, `secret_key` en de lokale `port`; Twenty genereert de `.env` uit onder meer `encryption_key`, `pg_database_password`, `server_url`, PostgreSQL/Redis-instellingen en optionele S3-storageparameters.
-
-Wanneer `server_name` is ingesteld, gebruiken deze wrappers `docker::compose_proxy`: de Compose-stack blijft via `docker::compose` beheerd en er wordt daarnaast een `nginx::server` reverse proxy aangemaakt. Zonder `server_name` wordt alleen `docker::compose` gebruikt. De wrappers declareren Docker zelf; de Nginx-class moet al aanwezig zijn wanneer je de proxyroute gebruikt. Voor publieke HTTPS geef je `ssl_certificate` en `ssl_certificate_key` mee; HTTP wordt dan standaard naar HTTPS doorgestuurd. `server_url` bij Twenty blijft de publieke URL die Twenty zelf gebruikt; de interne upstream voor Nginx wordt bepaald door `scheme`, `host`, `port` en `ssl_verify`. De verbinding tussen Nginx en de Docker-upstream is standaard versleuteld: `docker::compose_proxy` gebruikt `proxy_scheme => 'https'` en `proxy_ssl_verify => false`, zodat lokale of self-signed upstreamcertificaten blijven werken. In de app-wrappers heten die instellingen `scheme` en `ssl_verify`. Gebruik `proxy_scheme => 'http'` of `scheme => 'http'` alleen als expliciete opt-out voor een upstream die echt geen HTTPS ondersteunt. Authentik gebruikt standaard `scheme => 'https'`, `port => 9443` en `ssl_verify => false`; Twenty gebruikt standaard `scheme => 'https'`, `host => '127.0.0.1'`, `port => 3000` en `ssl_verify => false`.
-
-`docker::compose_proxy` kan ook direct worden gebruikt voor een eigen Compose-stack. Gebruik dan de generieke `proxy_*` parameters:
+Een eigen Compose-project achter Nginx:
 
 ```puppet
 node 'containerhost.dev.xxxx.nl' {
@@ -271,53 +254,35 @@ node 'containerhost.dev.xxxx.nl' {
     class { 'nginx': }
 
     docker::compose_proxy { 'custom':
-        compose_source     => 'puppet:///modules/profile/custom/docker-compose.yml',
-        proxy_port         => 9443,
-        proxy_scheme       => 'https',
-        proxy_ssl_verify   => false,
-        server_name        => 'custom.example.org',
-        ssl_certificate     => '/etc/letsencrypt/live/custom.example.org/fullchain.pem',
-        ssl_certificate_key => '/etc/letsencrypt/live/custom.example.org/privkey.pem',
+        compose_source       => 'puppet:///modules/profile/custom/docker-compose.yml',
+        proxy_port           => 9443,
+        server_name          => 'custom.example.org',
+        ssl_certificate      => '/etc/letsencrypt/live/custom.example.org/fullchain.pem',
+        ssl_certificate_key  => '/etc/letsencrypt/live/custom.example.org/privkey.pem',
     }
 }
 ```
 
-Bij de app-wrappers gebruik je dezelfde proxyroute zonder `proxy_*` prefix:
-
-```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'nginx': }
-
-    class { 'docker::authentik':
-        pg_pass             => Sensitive('replace-with-postgresql-password'),
-        secret_key          => Sensitive('replace-with-secret-key'),
-        server_name         => 'auth.example.org',
-        ssl_certificate     => '/etc/letsencrypt/live/auth.example.org/fullchain.pem',
-        ssl_certificate_key => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
-    }
-}
-```
-
-Een Compose-stack kan extra monitoringbeleid meekrijgen. In dit voorbeeld mag een migratieservice normaal succesvol eindigen en moeten de web- en databaseservice een healthcheck hebben:
+Een meegeleverde wrapper zonder eigen Compose-bestand:
 
 ```puppet
 node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
-    docker::compose { 'example':
-        compose_source              => 'file:///srv/puppet/files/example/docker-compose.yml',
-        monitoring_expected_exited  => ['migrate'],
-        monitoring_health_required  => ['web', 'db'],
-        monitoring_starting_grace   => 600,
+    class { 'docker::authentik':
+        pg_pass    => Sensitive('replace-with-postgresql-password'),
+        secret_key => Sensitive('replace-with-secret-key'),
     }
 }
 ```
 
-## Let's Encrypt
+Meer Docker-varianten staan in [`examples/docker.pp`](examples/docker.pp).
+
+### Let's Encrypt
 
 Let's Encrypt is een gratis, geautomatiseerde en open certificaatautoriteit die SSL/TLS-certificaten uitgeeft om veilige HTTPS-verbindingen mogelijk te maken. Dit onderdeel integreert Let's Encrypt in je Puppet-omgeving, zodat je eenvoudig certificaten kunt aanvragen en beheren. Het ondersteunt zowel automatische certificaatvernieuwing als configuratie van bijbehorende webservers, zoals Nginx.
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je Let's Encrypt gebruikt in je Puppet-omgeving:
 
 ```puppet
@@ -328,20 +293,21 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-## MySQL
+### MySQL
 
 MySQL is een populair open-source relationeel databasebeheersysteem (RDBMS). Het wordt veel gebruikt voor het opslaan, ophalen en beheren van gegevens voor websites en applicaties. Dit onderdeel maakt het mogelijk om een MySQL-database server op te zetten en te configureren. Wanneer in `basic settings` de MySQL APT-repo is geactiveerd, probeert dit onderdeel de geselecteerde MySQL-versie te installeren in plaats van de standaardversie of databasevariant zoals MariaDB die vanuit het besturingssysteem wordt aangeboden. Indien `basic_settings` of het `security`-subonderdeel daarvan wordt gebruikt, worden verdachte commando's gemonitord door auditd.
 
 Binnen het MySQL-onderdeel zit een ingebouwd back-upscript, dat is geforkt van [automysqlbackup](https://sourceforge.net/projects/automysqlbackup/). Dit back-upscript is op meerdere punten verbeterd. Standaard worden back-ups versleuteld met OpenSSL, waarbij PBKDF2 wordt gebruikt voor de sleutelafleiding. Back-ups kunnen handmatig worden ontsleuteld met het .enc-bestand en het bijbehorende wachtwoord. Het commando hiervoor is: `openssl enc -d -aes-256-cbc -pbkdf2 -in backup.sql.enc -out backup.sql -pass pass:..`.
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je MySQL database opzet in je Puppet omgeving:
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
     /* Setup MySQL */
     class { 'mysql':
-        root_password   => 'mypassword'
+        automysqlbackup_password => Sensitive('replace-with-backup-password'),
+        root_password            => 'replace-with-root-password',
     }
 
     /* Maak database www aan */
@@ -351,9 +317,9 @@ node 'webserver.dev.xxxx.nl' {
 
     /* Maak een databasegebruiker aan en verleen alle machtigingen aan de database */
     mysql::user { 'www':
-        ensure  => present,
+        ensure    => present,
+        password  => 'replace-with-user-password',
         username  => 'www',
-        password  => 'mypassword'
     }
     ->
     mysql::grant { 'www':
@@ -364,18 +330,18 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-## GitLab
+### GitLab
 
 GitLab is een populaire open-source DevOps-platform. Dit platform is voor softwareontwikkeling waar je en je team samen aan code kunnen werken. Het biedt functies zoals versiebeheer (het bijhouden van verschillende versies van je code), bugtracking (het bijhouden en oplossen van problemen in je software), en Continuous Integration/Continuous Deployment (CI/CD, wat helpt bij het automatisch testen en uitrollen van code).
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je een GitLab opzet in je Puppet omgeving:
 
 ```puppet
 node 'gitlab.dev.xxxx.nl' {
     /* Setup gitlab */
     class { 'gitlab':
-        root_password   => 'mypassword',
+        root_password   => 'replace-with-root-password',
         server_fdqn     => 'gitlab.xxxx.nl'
     }
 
@@ -390,142 +356,67 @@ node 'gitlab.dev.xxxx.nl' {
 }
 ```
 
-## Nginx
+### Nginx
 
-Nginx is een populaire open-source webserver en reverse proxy server. Het staat bekend om zijn hoge prestaties, stabiliteit en lage resourcegebruik, waardoor het geschikt is voor het bedienen van statische en dynamische websites, het balanceren van load en het functioneren als mail proxy server. Dit onderdeel maakt het mogelijk om een Nginx-webserver te installeren en te configureren. Indien `basic settings` wordt gebruikt, zal Nginx worden geconfigureerd volgens de aanbevelingen van harde beveiliging. Dit kan bijvoorbeeld inhouden dat specifieke systemd-opties worden ingeschakeld of dat de kernel zo wordt geconfigureerd dat de meest optimale beveiligde versie wordt gebruikt.
+Nginx installeert en beheert webservers en reverse proxies. Gebruik `nginx::server` voor een statische site, PHP-FPM-site of proxy-vhost. De module zet veilige defaults voor headers en `security.txt`, maar je kunt per vhost bewust afwijken wanneer een applicatie dat nodig heeft.
 
-### Voorbeeld
-Hieronder een voorbeeld hoe je een Nginx-webserver opzet in je Puppet omgeving:
+Belangrijk om te weten:
+
+- De module gaat uit van Nginx als webserver en verwijdert Apache wanneer dat pakket aanwezig is. Gebruik dit dus niet op een host waar Apache bewust naast Nginx moet blijven draaien.
+- Met `basic_settings` wordt Nginx in de systemd-doelstructuur opgenomen en krijgt de service extra hardening. Daardoor kan gedrag strenger zijn dan bij de distributie-defaults.
+- Voor een statische vhost gebruik je een `docroot`. Voor een reverse proxy zet je `docroot => undef`, `try_files => false` en `php_fpm_enable => false`.
+- HTTPS wordt per vhost aangezet met `https_enable`, certificaatpaden en eventueel `https_force`. HTTP/2 en HTTP/3 staan niet impliciet voor iedere vhost aan; zet ze alleen aan wanneer je ze wilt gebruiken.
+- `security.txt` wordt standaard per vhost geregeld. Geef centrale of vhost-specifieke contacten mee, of zet `securitytxt_enable => false` wanneer een applicatie dit volledig zelf moet afhandelen.
+- Security headers hebben veilige defaults, maar vooral CSP en HSTS kunnen applicaties breken. Gebruik een eigen string voor maatwerk of `false` wanneer Nginx een header voor die vhost niet moet beheren.
+- Voor reverse proxies heeft versleutelde upstream-communicatie de voorkeur, ook lokaal. Bij self-signed upstreamcertificaten kun je certificaatcontrole uitzetten; plain HTTP is een bewuste uitzondering.
+
+#### Voorbeeld
+Een eenvoudige HTTPS-site:
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
-
-    /* Setup Nginx */
     class { 'nginx':
-        target  => 'helpers',
-        require => Class['mysql'] # Indien MySQL ook geïnstalleerd is op de server
+        securitytxt_contacts => ['mailto:security@example.org'],
     }
 
-    /* Creëer Nginx-server voor Unifi */
-    nginx::server { 'unifi':
-        docroot                 => undef,
-        server_name             => 'unifi.xxxx.nl',
-        http_enable             => true,
-        http_ipv6               => false,
-        https_enable            => true,
-        https_ipv6              => false,
-        https_force             => true,
-        http2_enable            => true,
-        http3_enable            => true,
-        fastopen                => 64, # Globaal, werkt ook voor andere servers
-        reuseport               => true, # Globaal, werkt ook voor andere servers
-        ssl_certificate         => '/etc/letsencrypt/live/unifi.xxxx.nl/fullchain.pem',
-        ssl_certificate_key     => '/etc/letsencrypt/live/unifi.xxxx.nl/privkey.pem',
-        securitytxt_contacts      => ['mailto:security@xxxx.nl'],
-        php_fpm_enable            => false,
-        try_files                 => false,
-        location_directives       => [
-            'proxy_pass https://localhost:8443; # De Unifi Controller-poort',
+    nginx::server { 'app.example.org':
+        docroot             => '/var/www/app.example.org',
+        https_enable        => true,
+        https_force         => true,
+        server_name         => 'app.example.org',
+        ssl_certificate     => '/etc/letsencrypt/live/app.example.org/fullchain.pem',
+        ssl_certificate_key => '/etc/letsencrypt/live/app.example.org/privkey.pem',
+    }
+}
+```
+
+Een reverse proxy:
+
+```puppet
+node 'proxy.dev.xxxx.nl' {
+    class { 'nginx': }
+
+    nginx::server { 'app.example.org':
+        docroot             => undef,
+        https_enable        => true,
+        https_force         => true,
+        php_fpm_enable      => false,
+        server_name         => 'app.example.org',
+        ssl_certificate     => '/etc/letsencrypt/live/app.example.org/fullchain.pem',
+        ssl_certificate_key => '/etc/letsencrypt/live/app.example.org/privkey.pem',
+        try_files           => false,
+        location_directives => [
+            'proxy_pass https://127.0.0.1:8443;',
+            'proxy_ssl_verify off;',
             'proxy_set_header Host $host;',
             'proxy_set_header X-Real-IP $remote_addr;',
-            'proxy_set_header X-Forward-For $proxy_add_x_forwarded_for;',
+            'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
         ],
-        access_log              => '/var/log/nginx/unifi_access.log combined buffer=32k flush=1m',
-        error_log               => '/var/log/nginx/unifi_error.log',
-        locations               => [
-            {
-                path                    => '/wss/',
-                location_directives     => [
-                    '# Nodig om de websockets goed door te sturen.',
-                    '# Informatie overgenomen van hier: https://community.ubnt.com/t5/EdgeMAX/Access-Edgemax-gui-via-nginx-reverse-proxy-websocket-problem/td-p/1544354',
-                    'proxy_pass https://localhost:8443;',
-                    'proxy_http_version 1.1;',
-                    'proxy_buffering off;',
-                    'proxy_set_header Upgrade $http_upgrade;',
-                    'proxy_set_header Connection "Upgrade";',
-                    'proxy_read_timeout 86400;'
-                ]
-            }
-        ],
-        directives              => [
-            '# Unifi gebruikt intern nog steeds zijn eigen certificaat. Dit is omgezet naar PEM en',
-            '# wordt vertrouwd voor dit proxydoel. Zie hier voor details:',
-            '# https://community.ubnt.com/t5/UniFi-Wireless/Lets-Encrypt-and-UniFi-controller/td-p/1406670',
-            'ssl_trusted_certificate /etc/nginx/ssl/unifi.pem;',
-            '# Beheerd door Certbot',
-            'include /etc/letsencrypt/options-ssl-nginx.conf;'
-        ]
     }
 }
 ```
 
-`nginx::server` maakt standaard per vhost een fallback `security.txt` aan onder
-`/etc/nginx/security/<naam>/security.txt` en serveert die via
-`/.well-known/security.txt`. De fallback bevat minimaal `Contact` en `Expires`.
-De directory blijft eigendom van `root`, maar is met `0710` toegankelijk voor de
-Nginx runtime-groep. Het bestand zelf is `0640`, zodat alleen `root` en de
-Nginx runtime-groep het kunnen lezen.
-Puppet maakt dit bestand aan wanneer het nog ontbreekt en gebruikt daarna
-`replace => false`, zodat een dynamische `Expires`-datum niet iedere run een
-file-change veroorzaakt. Wanneer Puppet `/etc/nginx/conf.d/<naam>.conf`
-wijzigt, verwijdert een refresh-only cleanup de bestaande fallback eerst. Daarna
-maakt de normale `file` resource het bestand opnieuw met de template.
-Contacts kunnen centraal in `nginx` of per server worden gezet:
-
-```puppet
-class { 'nginx':
-    securitytxt_contacts => ['mailto:security@example.nl'],
-}
-```
-
-```puppet
-nginx::server { 'example.nl':
-    server_name          => 'example.nl',
-    docroot              => '/var/www/example.nl',
-    securitytxt_contacts => ['mailto:security@example.nl'],
-    securitytxt_policy   => 'https://example.nl/responsible-disclosure',
-}
-```
-
-Als `securitytxt_contacts` niet is gezet, gebruikt de module eerst
-`basic_settings::monitoring::mail_to` wanneer monitoring actief is. Zonder
-monitoring valt de module terug op `mailto:info@<eerste-server_name>`.
-
-Bij statische vhosts controleert Nginx eerst de bestaande file in de vhost-root.
-Als die niet bestaat, wordt de Puppet-fallback gebruikt. Bij reverse-proxyvhosts
-herkent de module `proxy_pass` in `location_directives`. De security.txt-location
-gebruikt dan hetzelfde `proxy_pass`-doel en dezelfde `proxy_set_header`-regels.
-De backend wordt expliciet op `/.well-known/security.txt` bevraagd, zodat de
-applicatieversie voorrang krijgt en alleen `404` of `410` naar de fallback gaat.
-
-```puppet
-nginx::server { 'app.example.nl':
-    server_name                   => 'app.example.nl',
-    docroot                       => undef,
-    try_files                     => false,
-    securitytxt_contacts          => ['mailto:security@example.nl'],
-    location_directives           => [
-        'proxy_pass http://localhost:8080;',
-        'proxy_set_header Host $host;',
-        'proxy_set_header X-Real-IP $remote_addr;',
-        'proxy_set_header X-Forward-For $proxy_add_x_forwarded_for;',
-    ],
-}
-```
-
-Het oude pad `/security.txt` redirect standaard naar `/.well-known/security.txt`. Gebruik `securitytxt_enable => false` wanneer een vhost volledig zijn eigen security.txt-afhandeling moet behouden. De `Canonical`-waarde wordt automatisch opgebouwd uit de eerste naam in `server_name`.
-
-Voor de hoofdlocatie volgt `try_files` hetzelfde patroon. `true` schrijft de veilige default `try_files $uri $uri/ =404;`, `false` laat de directive weg, en een string wordt als volledige `try_files`-argumentlijst gebruikt.
-
-`nginx::server` beheert standaard een set security headers per vhost. Voor `X-Frame-Options`, `X-Content-Type-Options`, `Content-Security-Policy`, `Referrer-Policy` en `Strict-Transport-Security` gebruikt de module veilige defaults.
-
-- De standaard-CSP is `default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'`.
-- De standaard `Referrer-Policy` is `same-origin`, zodat referrer-informatie niet naar derde partijen wordt gestuurd.
-- De standaard `Strict-Transport-Security` is `max-age=31536000`.
-
-Dat past bij secure-by-default, maar kan applicaties met externe bronnen, inline scripts/styles, CDN's, API-calls, iframes, externe analytics of legacy HTTPS-clients breken. Geef in dat geval per vhost een passende `content_security_policy`, `referrer_policy` of `strict_transport_security` op. Laat de parameter weg of gebruik `true` om de module-default te gebruiken. Zet de parameter bewust op `false` om die header voor een vhost uit te schakelen. Gebruik hiervoor niet `undef`, omdat Puppet bij een parameter met een defaultwaarde dan opnieuw de default gebruikt.
-
-Wanneer een proxy-backend of PHP-FPM zelf een van deze headers terugstuurt, laat Nginx die waarde staan en voegt de module geen tweede header toe. Ontbreekt de header in de upstream-response, dan vult Nginx de geconfigureerde vhostwaarde aan via een `map` op de bijbehorende `$upstream_http_*`-header.
+Een vhost met eigen headerbeleid:
 
 ```puppet
 nginx::server { 'app.example.nl':
@@ -539,20 +430,13 @@ nginx::server { 'app.example.nl':
 }
 ```
 
-Zet een headerparameter op `false` wanneer Nginx die header voor een specifieke vhost niet moet beheren:
+Meer webservervarianten staan in [`examples/web.pp`](examples/web.pp).
 
-```puppet
-nginx::server { 'legacy-app.example.nl':
-    server_name     => 'legacy-app.example.nl',
-    x_frame_options => false,
-}
-```
-
-## PHP
+### PHP
 
 PHP is een veelgebruikte open-source scriptingtaal die speciaal is ontworpen voor webontwikkeling. Het wordt vaak gebruikt in combinatie met een webserver zoals Apache of Nginx om dynamische inhoud op webpagina's te genereren. Dit onderdeel maakt het mogelijk om PHP te installeren en te configureren. Wanneer `basic settings` wordt gebruikt, zal PHP worden geconfigureerd volgens de aanbevelingen van harde beveiliging.
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je PHP configureert in je Puppet omgeving:
 
 ```puppet
@@ -587,9 +471,9 @@ node 'webserver.dev.xxxx.nl' {
         curl            => true,
         gd              => true,
         mbstring        => true,
+        minor_version   => 3,
         mysql           => true,
         xml             => true,
-        minor_version   => '3',
         require         => Class['basic_settings']
     }
 
@@ -607,13 +491,13 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-## SSH
+### SSH
 
 SSH (Secure Shell) is een cryptografisch netwerkprotocol voor veilige gegevenscommunicatie, remote shell services of command execution, en andere beveiligde netwerkdiensten tussen twee netwerkcomputers. Dit onderdeel maakt het mogelijk om OpenSSH te configureren volgens de aanbevelingen van harde beveiliging. Dit omvat onder andere het uitschakelen van root login, het beperken van het aantal toegestane authenticatiepogingen en het configureren van key-based authenticatie.
 
 `permit_root_login` gebruikt dezelfde expliciete hardeningvorm als andere veilige defaults: `false` schrijft `PermitRootLogin no`, `true` schrijft `yes`, en een string kan worden gebruikt voor OpenSSH-modi zoals `'prohibit-password'` of `'forced-commands-only'`.
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je SSH configureert in je Puppet omgeving:
 
 ```puppet
@@ -626,11 +510,11 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-## RabbitMQ
+### RabbitMQ
 
 RabbitMQ is een open-source berichtensysteem dat werkt volgens het Advanced Message Queuing Protocol (AMQP). Het wordt vaak gebruikt voor het beheren en afhandelen van berichten tussen verschillende applicaties of componenten binnen een gedistribueerd systeem. RabbitMQ zorgt ervoor dat berichten betrouwbaar en asynchroon kunnen worden uitgewisseld, wat essentieel is voor schaalbare en robuuste applicaties. Dit onderdeel maakt het mogelijk om RabbitMQ te installeren en te configureren.
 
-### Voorbeeld
+#### Voorbeeld
 Hieronder een voorbeeld hoe je RabbitMQ configureert in je Puppet omgeving:
 
 ```puppet
@@ -655,12 +539,12 @@ node 'webserver.dev.xxxx.nl' {
         default_queue_type  => 'quorum',
         require             => Class['rabbitmq::tcp']
     }
-    rabbitmq::management_exange { 'failure_exchange':
+    rabbitmq::management_exchange { 'failure_exchange':
         require => Class['rabbitmq::management']
     }
     rabbitmq::management_queue { 'failure_messages':
         type    => 'quorum',
-        require => Rabbitmq::Management_exange['failure_exchange']
+        require => Rabbitmq::Management_exchange['failure_exchange']
     }
     rabbitmq::management_queue { 'result_messages':
         arguments => {
@@ -668,13 +552,13 @@ node 'webserver.dev.xxxx.nl' {
             'x-dead-letter-routing-key' => 'failure_messages'
         },
         type    => 'quorum',
-        require => Rabbitmq::Management_exange['failure_exchange']
+        require => Rabbitmq::Management_exchange['failure_exchange']
     }
     rabbitmq::management_binding { 'failure_binding':
         source          => 'failure_exchange',
         destination     => 'failure_messages',
         routing_key     => 'failure_exchange',
-        require         => Rabbitmq::Management_exange['failure_exchange']
+        require         => Rabbitmq::Management_exchange['failure_exchange']
     }
 
     /* Setup user */
@@ -692,13 +576,13 @@ node 'webserver.dev.xxxx.nl' {
 }
 ```
 
-## VnStat
+### VnStat
 
 vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een server zonder extra resources al breed netwerkverkeer registreert.
 
 Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de globale template thuishoren. De define schrijft een eigen concat-fragment naar dezelfde configuratie. Voor bekende interfaces kun je hiermee bijvoorbeeld `MaxBW<interface>` zetten op de echte technische snelheid van de interface. Dit is geen trafficbundel of alarmdrempel, maar een sanity-limit voor onrealistische tellerwaarden.
 
-### Voorbeeld
+#### Voorbeeld
 
 Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar voor twee uplinks een bekende maximumsnelheid meekrijgt:
 
@@ -739,6 +623,15 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 - [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
 - [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # ID, ID@HH:MM-HH:MM, VID:PID@HH:MM-HH:MM, of ID:HH:MM-HH:MM
 - [check_vnstat_interfaces](https://github.com/DevSysEngineer/puppet-modules/blob/main/vnstat/files/check_vnstat_interfaces)
+
+## Voorbeelden
+De map `examples/` bevat uitgebreidere Puppet-snippets dan de README. Gebruik deze bestanden als startpunt voor profielen en om te zien hoe veelgebruikte opties samenhangen.
+
+- [examples/site.pp](examples/site.pp): Een compacte voorbeeldsite met basisinstellingen, webserver, PHP, SSH, Docker en MySQL.
+- [examples/docker.pp](examples/docker.pp): Docker Compose, monitoringopties, Nginx-proxy, Authentik en Twenty.
+- [examples/web.pp](examples/web.pp): Nginx, PHP-FPM, Let's Encrypt, security headers en reverse proxy's.
+- [examples/data-services.pp](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
+- [examples/monitoring.pp](examples/monitoring.pp): OpenITCOCKPIT-agent en custom monitoringchecks.
 
 ## Contributie
 Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.

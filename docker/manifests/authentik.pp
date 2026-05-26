@@ -1,17 +1,22 @@
 # @summary Deploys the bundled Authentik Docker Compose stack.
 #
-# This class declares `docker` and deploys the module-shipped
-# `docker/files/authentik.yaml` Compose file. When `server_name` is set, it uses
-# `docker::compose_proxy` to add an Nginx reverse proxy; otherwise it declares
-# `docker::compose` directly.
+# This class deploys the module-shipped `docker/files/authentik.yaml` Compose
+# file. Declare `docker` before using it. When `server_name` is set, declare
+# `nginx` as well so `docker::compose_proxy` can add the reverse proxy;
+# otherwise the class declares `docker::compose` directly.
 #
 # @example Deploy Authentik with generated `.env` content
+#   class { 'docker': }
+#
 #   class { 'docker::authentik':
 #     pg_pass     => Sensitive('change-me'),
 #     secret_key  => Sensitive('change-me'),
 #   }
 #
 # @example Deploy Authentik behind Nginx
+#   class { 'docker': }
+#   class { 'nginx': }
+#
 #   class { 'docker::authentik':
 #     pg_pass             => Sensitive('change-me'),
 #     secret_key          => Sensitive('change-me'),

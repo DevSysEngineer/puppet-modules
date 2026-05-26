@@ -1,11 +1,13 @@
 # @summary Deploys the bundled Twenty Docker Compose stack.
 #
-# This class declares `docker` and deploys the module-shipped
-# `docker/files/twenty.yaml` Compose file. When `server_name` is set, it uses
-# `docker::compose_proxy` to add an Nginx reverse proxy; otherwise it declares
-# `docker::compose` directly.
+# This class deploys the module-shipped `docker/files/twenty.yaml` Compose file.
+# Declare `docker` before using it. When `server_name` is set, declare `nginx` as
+# well so `docker::compose_proxy` can add the reverse proxy; otherwise the class
+# declares `docker::compose` directly.
 #
 # @example Deploy Twenty with generated `.env` content
+#   class { 'docker': }
+#
 #   class { 'docker::twenty':
 #     encryption_key       => Sensitive('change-me'),
 #     pg_database_password => Sensitive('change-me'),
@@ -13,6 +15,9 @@
 #   }
 #
 # @example Deploy Twenty behind Nginx
+#   class { 'docker': }
+#   class { 'nginx': }
+#
 #   class { 'docker::twenty':
 #     encryption_key       => Sensitive('change-me'),
 #     pg_database_password => Sensitive('change-me'),

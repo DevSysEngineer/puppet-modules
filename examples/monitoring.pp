@@ -1,0 +1,68 @@
+# Monitoring examples for OpenITCOCKPIT agent mode and custom checks.
+# Replace URLs, API keys, and contact addresses with environment data.
+
+node 'monitored-host.example.org' {
+  class { 'basic_settings':
+    monitoring_package         => 'openitcockpit',
+    monitoring_package_install => true,
+    server_fdqn                => 'monitored-host.example.org',
+    systemd_notify_mail        => 'monitoring@example.org',
+  }
+
+  include openitcockpit
+
+  class { 'openitcockpit::agent':
+    bind_address              => '127.0.0.1',
+    cpustats_enable           => true,
+    diskstats_enable          => true,
+    dockerstats_enable        => false,
+    ensure                    => present,
+    libvirt_enable            => false,
+    memory_enable             => true,
+    netstats_enable           => true,
+    ntp_enable                => true,
+    processstats_enable       => true,
+    prometheus_enable         => false,
+    proxy                     => undef,
+    push_apikey               => Sensitive('replace-with-openitcockpit-api-key'),
+    push_enable               => true,
+    push_url                  => 'https://monitoring.example.org',
+    sensorstats_enable        => undef,
+    services_enable           => true,
+    swap_enable               => true,
+    userstats_enable          => true,
+    verify_server_certificate => true,
+    require                   => Class['basic_settings'],
+  }
+
+  basic_settings::monitoring_custom { 'application_health':
+    cmd           => '--url https://127.0.0.1/health',
+    ensure        => present,
+    friendly      => 'Application health',
+    interval      => 300,
+    root_required => true,
+    source        => 'puppet:///modules/profile/check_application_health',
+    timeout       => 30,
+    require       => Class['openitcockpit::agent'],
+  }
+
+  class { 'openitcockpit::agent_mirth_connect':
+    ensure  => present,
+    require => Class['openitcockpit::agent'],
+  }
+}
+
+node 'pull-agent.example.org' {
+  class { 'basic_settings':
+    monitoring_package         => 'openitcockpit',
+    monitoring_package_install => true,
+  }
+
+  class { 'openitcockpit::agent':
+    bind_address              => '0.0.0.0',
+    prometheus_enable         => true,
+    push_enable               => false,
+    verify_server_certificate => true,
+    require                   => Class['basic_settings'],
+  }
+}

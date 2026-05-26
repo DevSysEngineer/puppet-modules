@@ -37,6 +37,7 @@ First-party modules:
 - `proxmox`
 - `rabbitmq`
 - `ssh`
+- `vnstat`
 
 Vendored Git submodules:
 
@@ -345,6 +346,11 @@ Puppet libraries.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise.
   README examples may contain Puppet code, but the surrounding explanation must
   stay Dutch.
+- Keep the README as a readable Dutch start guide with medium-depth operational detail, not as a shallow index and not as an exhaustive parameter reference. Each module section should explain what the module manages, important defaults, security and monitoring expectations, common integration choices, and the most important usage risks; leave full option semantics and internal implementation details to Puppet Strings comments, manifests, editor completion, and linter feedback.
+- Maintain a README `## Inhoudsopgave` near the top with links to the main sections and nested module links when module sections exist. Do not use `Legenda` when the intent is a table of contents.
+- Keep placeholder and secret-handling explanation in a short `## Gebruik van voorbeelden` section near the top. Explain placeholder hostnames, replacement values, and `Sensitive(...)` handling there instead of repeating that context in every section.
+- Put expanded usage variants in the `examples/` directory rather than making README module sections deeply nested. When a user-facing option set grows, add or update a focused example file and link it from the README.
+- Keep a bottom-level README `## Voorbeelden` link list, similar in spirit to `## Checks`, so users can find richer example files without turning each module section into full reference documentation.
 - Do not hard-wrap prose in any Markdown file (`*.md`), including `README.md` and `AGENTS.md`. Keep normal paragraphs and prose list items on one physical line unless Markdown syntax, tables, or code blocks require line breaks.
 - When modifying existing code, check whether nearby comments or documentation
   are missing, outdated, duplicated, unclear, or no longer aligned with the
