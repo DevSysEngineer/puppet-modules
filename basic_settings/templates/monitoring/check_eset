@@ -72,10 +72,15 @@ add_warn() {
 
 # Emit the summary line and optional long output.
 emit_check() {
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "${LONG_OUTPUT:-}" ]; then
-        printf '%s\n' "$LONG_OUTPUT"
+        monitor_text_value "$LONG_OUTPUT"
     fi
+}
+
+# Nagios treats raw pipes after the first output line as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Parse the scan CSV into a compact pipe-separated summary.
@@ -253,12 +258,19 @@ fi
 [ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
 
 # Create perf data
+UPDATE_AGE_SECONDS=$(( UPDATE_AGE_MIN * 60 ))
+WARN_UPDATE_SECONDS=$(( WARN_UPDATE_MIN * 60 ))
+CRIT_UPDATE_SECONDS=$(( CRIT_UPDATE_MIN * 60 ))
+LAST_SCAN_AGE_SECONDS=$(( LAST_SCAN_AGE * 86400 ))
+WARN_NO_SCAN_SECONDS=$(( WARN_NO_SCAN_DAYS * 86400 ))
+CRIT_NO_SCAN_SECONDS=$(( CRIT_NO_SCAN_DAYS * 86400 ))
+
 PERF="engine_version=${ENGINE_VER}"
-PERF="$PERF update_age=${UPDATE_AGE_MIN}m;${WARN_UPDATE_MIN};${CRIT_UPDATE_MIN};0"
+PERF="$PERF update_age=${UPDATE_AGE_SECONDS}s;${WARN_UPDATE_SECONDS};${CRIT_UPDATE_SECONDS};0"
 PERF="$PERF update_failed=${UPDATES_FAILED}"
 PERF="$PERF detections=${DETECTIONS_TOTAL}"
 PERF="$PERF scans_total=${SCANS_TOTAL}"
-PERF="$PERF last_scan_age_days=${LAST_SCAN_AGE};${WARN_NO_SCAN_DAYS};${CRIT_NO_SCAN_DAYS};0"
+PERF="$PERF last_scan_age=${LAST_SCAN_AGE_SECONDS}s;${WARN_NO_SCAN_SECONDS};${CRIT_NO_SCAN_SECONDS};0"
 PERF="$PERF last_scan_cleaned=${LAST_CLEAN}"
 PERF="$PERF last_scan_detections=${LAST_DET}"
 PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s"

@@ -309,6 +309,8 @@ Monitoring output conventions:
 - The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
 - Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
+- Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
+- Do not encode units in perfdata labels, including prefixes or suffixes such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, `_pct`, `_bytes`, `_seconds`, `_mbit`, or `_bps`. Put units in the perfdata UOM field (unit of measurement), for example `%`, `B`, `s`, or `Mbps`, and keep labels compact and stable.
 - Keep summary text cause-oriented; put detailed counters in perfdata or long
   output.
 - Print the most diagnostically important long-output section first.

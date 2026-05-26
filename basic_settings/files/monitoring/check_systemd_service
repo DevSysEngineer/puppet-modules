@@ -202,10 +202,15 @@ parse_ts() {
 # Helper: emit a check line with optional journal info
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "${JOURNAL_JOINED:-}" ]; then
-        printf '%s\n' "$JOURNAL_JOINED"
+        monitor_text_value "$JOURNAL_JOINED"
     fi
+}
+
+# Nagios treats raw pipes after the first output line as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Pull all needed properties in one go (fast for Nagios)
@@ -219,16 +224,16 @@ LOAD_STATE=$(get_prop LoadState)
 
 # Check existence and load state
 if [ -z "$LOAD_STATE" ] || [ "$LOAD_STATE" = "not-found" ]; then
-    printf '%s\n' "${SERVICE_UNIT} does not exist | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    emit_check "${SERVICE_UNIT} does not exist" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 
 # Not loaded
 if [ "$OUTSIDE_SUPPRESS" = "1" ] && [ "$LOAD_STATE" != "loaded" ]; then
-    printf '%s\n' "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); unit is not loaded (load state ${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    emit_check "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); unit is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 0
 elif [ "$LOAD_STATE" != "loaded" ]; then
-    printf '%s\n' "${SERVICE_UNIT} is not loaded (load state ${LOAD_STATE}) | active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    emit_check "${SERVICE_UNIT} is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 
@@ -246,8 +251,9 @@ STATE_CHANGE=$(get_prop StateChangeTimestamp)
 
 # If we are outside schedule and using -a, only alert when active; otherwise OK suppressed
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
-    printf '%s outside schedule (%s); state %s/%s with result %s; last change: %s; status: %s | in_schedule=%s\n' \
-        "$SERVICE_UNIT" "${SUPPRESS_REASON:-outside}" "${ACTIVE_STATE:-unknown}" "${SUB_STATE:-unknown}" "${RESULT_PROP:-unknown}" "${STATE_CHANGE:-unknown}" "${STATUS_TEXT:-unknown}" "${IN_SCHEDULE}"
+    printf '%s | in_schedule=%s\n' \
+        "$(monitor_text_value "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} with result ${RESULT_PROP:-unknown}; last change: ${STATE_CHANGE:-unknown}; status: ${STATUS_TEXT:-unknown}")" \
+        "${IN_SCHEDULE}"
     exit 0
 fi
 

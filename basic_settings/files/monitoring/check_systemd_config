@@ -235,6 +235,25 @@ metric_value() {
     fi
 }
 
+# Attach a UOM to known numeric values while preserving Nagios unknown markers.
+metric_value_with_unit() {
+    if [ -n "$1" ] && [ "$1" != 'U' ]; then
+        printf '%s%s' "$1" "$2"
+    else
+        metric_value "$1"
+    fi
+}
+
+# Nagios treats raw pipes after the first output line as perfdata separators.
+sanitize_monitor_output() {
+    $AWK '{ gsub(/[|]/, "[or]"); print }'
+}
+
+# Keep the first line safe before adding the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | sanitize_monitor_output | $AWK 'NR == 1 { print; exit }'
+}
+
 # Append one unique reference path to the current comma-separated list.
 append_reference_path() {
     NEW_REFERENCE=$1
@@ -873,14 +892,15 @@ PERFDATA="${PERFDATA} daemon_reload=$(metric_value "$DAEMON_RELOAD_METRIC")"
 PERFDATA="${PERFDATA} verify_exit_nonzero=$(metric_value "$VERIFY_EXIT_NONZERO")"
 PERFDATA="${PERFDATA} verify_messages=$(metric_value "$VERIFY_MESSAGES")"
 PERFDATA="${PERFDATA} boot_grace_active=$(metric_value "$BOOT_GRACE_ACTIVE")"
-PERFDATA="${PERFDATA} uptime_seconds=$(metric_value "$UPTIME_SECONDS")"
+PERFDATA="${PERFDATA} uptime=$(metric_value_with_unit "$UPTIME_SECONDS" s)"
 
-printf '%s | %s\n' "$SUMMARY" "$PERFDATA"
+printf '%s | %s\n' "$(monitor_text_value "$SUMMARY")" "$PERFDATA"
 
 if [ "$QUIET" -eq 1 ]; then
     exit "$STATE"
 fi
 
+{
 if is_number "$UPTIME_SECONDS"; then
     UPTIME_TEXT="${UPTIME_SECONDS}s"
 else
@@ -931,5 +951,6 @@ if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
     printf '%s\n' ""
     print_detail_section 'Contextual not-found units not counted as config errors' "$CONTEXTUAL_NOT_FOUND_UNITS" "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
 fi
+} | sanitize_monitor_output
 
 exit "$STATE"

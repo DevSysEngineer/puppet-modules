@@ -29,26 +29,31 @@ SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 # Emit the summary line and optional long output.
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "${JOURNAL_JOINED:-}" ]; then
-        printf '%s\n' "$JOURNAL_JOINED"
+        monitor_text_value "$JOURNAL_JOINED"
     fi
+}
+
+# Nagios treats raw pipes after the first output line as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Ensure units exist and are active
 $SYSTEMCTL show "$TIMER_UNIT" >/dev/null 2>&1 || {
-    printf '%s\n' "${TIMER_UNIT} does not exist | last_run_age=U exit_code=U"
+    emit_check "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
     exit 2
 }
 $SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
-    printf '%s\n' "${TIMER_UNIT} is not active | last_run_age=U exit_code=U"
+    emit_check "${TIMER_UNIT} is not active" "last_run_age=U exit_code=U"
     exit 2
 }
 
 # Get last trigger timestamp from the timer
 LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value)
 if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
-    printf '%s\n' "${TIMER_UNIT} has never been triggered | last_run_age=U exit_code=U"
+    emit_check "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
     exit 1
 fi
 
@@ -56,7 +61,7 @@ fi
 LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
 NOW_TS=$($DATE +%s)
 [ -n "${LAST_RUN_TS:-}" ] || {
-    printf '%s\n' "${TIMER_UNIT} last run could not be parsed | last_run_age=U exit_code=U"
+    emit_check "${TIMER_UNIT} last run could not be parsed" "last_run_age=U exit_code=U"
     exit 1
 }
 

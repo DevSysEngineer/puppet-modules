@@ -1,9 +1,26 @@
 #!/bin/sh
 # Managed by puppet
 
+# Nagios treats pipes in plugin output as perfdata separators.
+monitor_text_value() {
+    _monitor_text=$1
+    while :; do
+        case "$_monitor_text" in
+            *'|'*)
+                printf '%s[or]' "${_monitor_text%%|*}"
+                _monitor_text=${_monitor_text#*|}
+                ;;
+            *)
+                printf '%s' "$_monitor_text"
+                return
+                ;;
+        esac
+    done
+}
+
 # Fail helper
 die() {
-    printf 'vnStat check cannot run: %s\n' "$*"
+    printf 'vnStat check cannot run: %s\n' "$(monitor_text_value "$*")"
     exit 3
 }
 
@@ -247,7 +264,7 @@ sanitize_label() {
     printf '%s' "$1" | "$TR" '[:upper:]' '[:lower:]' | "$SED" 's/[^a-z0-9_]/_/g'
 }
 
-# Format values for human-readable long output; perfdata keeps raw units.
+# Format values for human-readable long output; perfdata attaches units through UOM.
 format_number() {
     if [ "$1" = 'U' ] || [ -z "$1" ]; then
         printf '%s' 'U'
@@ -284,15 +301,7 @@ calc_mbit_from_bytes_per_second() {
         printf '%s\n' 'U'
         return
     fi
-    "$AWK" -v bps_bytes="$1" 'BEGIN { printf "%.2f\n", (bps_bytes * 8) / 1000000 }'
-}
-
-calc_bps_from_mbit() {
-    if [ "$1" = 'U' ] || [ -z "$1" ]; then
-        printf '%s\n' 'U'
-        return
-    fi
-    "$AWK" -v mbit="$1" 'BEGIN { printf "%.0f\n", mbit * 1000000 }'
+    "$AWK" -v bytes_per_second="$1" 'BEGIN { printf "%.2f\n", (bytes_per_second * 8) / 1000000 }'
 }
 
 perf_value() {
@@ -472,8 +481,8 @@ if [ "$CHECKED_COUNT" -eq 0 ]; then
     else
         printf '%s\n' '  none'
     fi
-    printf 'Effective include regex: %s\n' "${INCLUDE_REGEX:-none}"
-    printf 'Effective exclude regex: %s\n' "${EXCLUDE_REGEX:-none}"
+    printf 'Effective include regex: %s\n' "$(monitor_text_value "${INCLUDE_REGEX:-none}")"
+    printf 'Effective exclude regex: %s\n' "$(monitor_text_value "${EXCLUDE_REGEX:-none}")"
     exit "$STATE_UNKNOWN"
 fi
 
@@ -563,7 +572,6 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     P95_JSON=$("$VNSTAT" --iface "$IFACE" --json p 2>&1)
     P95_RC=$?
     P95_BYTES_PER_SECOND='U'
-    P95_BPS='U'
     P95_MBIT='U'
     P95_COVERAGE='U'
     P95_SEEN='U'
@@ -594,7 +602,6 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
                 P95_EXPECTED=$4
 
                 if is_number "$P95_BYTES_PER_SECOND"; then
-                    P95_BPS=$("$AWK" -v value="$P95_BYTES_PER_SECOND" 'BEGIN { printf "%.0f\n", value * 8 }')
                     P95_MBIT=$(calc_mbit_from_bytes_per_second "$P95_BYTES_PER_SECOND")
                     P95_STATE=$(threshold_status "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT")
                 else
@@ -666,36 +673,17 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$MONTH_GROWTH_STATE")
 
-    if [ -n "$P95_WARNING_MBIT" ]; then
-        P95_WARNING_BPS=$(calc_bps_from_mbit "$P95_WARNING_MBIT")
-    else
-        P95_WARNING_BPS=''
-    fi
-    if [ -n "$P95_CRITICAL_MBIT" ]; then
-        P95_CRITICAL_BPS=$(calc_bps_from_mbit "$P95_CRITICAL_MBIT")
-    else
-        P95_CRITICAL_BPS=''
-    fi
-
-    # Build Nagios perfdata directly in memory because the final first line depends on all interfaces.
+    # Build compact Nagios perfdata directly in memory because the final first line depends on all interfaces.
     INTERFACE_PERFDATA=$(
-        printf '%s_p95_mbit=%s;%s;%s;0;' "$LABEL" "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
-        printf ' %s_p95_bps=%s;%s;%s;0;' "$LABEL" "$P95_BPS" "$P95_WARNING_BPS" "$P95_CRITICAL_BPS"
-        printf ' %s_capacity_pct=%s;%s;%s;0;100' "$LABEL" "$(perf_value "$CAPACITY_PCT" '%')" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
-        printf ' %s_interface_limit_mbit=%s;;;;' "$LABEL" "$INTERFACE_LIMIT_MBIT"
-        printf ' %s_growth_day_pct=%s;%s;%s;;' "$LABEL" "$(perf_value "$DAY_GROWTH_PCT" '%')" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
-        printf ' %s_growth_day_baseline_available=%s;;;;' "$LABEL" "$DAY_BASELINE_AVAILABLE"
-        printf ' %s_growth_month_pct=%s;%s;%s;;' "$LABEL" "$(perf_value "$MONTH_GROWTH_PCT" '%')" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
-        printf ' %s_growth_month_baseline_available=%s;;;;' "$LABEL" "$MONTH_BASELINE_AVAILABLE"
-        printf ' %s_current_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$CURRENT_DAY_TOTAL" 'B')"
-        printf ' %s_previous_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$PREVIOUS_DAY_TOTAL" 'B')"
-        printf ' %s_current_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$CURRENT_MONTH_TOTAL" 'B')"
-        printf ' %s_previous_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$PREVIOUS_MONTH_TOTAL" 'B')"
-        printf ' %s_rx_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$RX_DAY" 'B')"
-        printf ' %s_tx_day_bytes=%s;;;;' "$LABEL" "$(perf_value "$TX_DAY" 'B')"
-        printf ' %s_rx_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$RX_MONTH" 'B')"
-        printf ' %s_tx_month_bytes=%s;;;;' "$LABEL" "$(perf_value "$TX_MONTH" 'B')"
-        printf ' %s_last_update_age_seconds=%s;%s;%s;0;' "$LABEL" "$LAST_UPDATE_AGE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+        printf '%s_p95=%s;%s;%s;0;' "$LABEL" "$(perf_value "$P95_MBIT" 'Mbps')" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
+        printf ' %s_cap=%s;%s;%s;0;100' "$LABEL" "$(perf_value "$CAPACITY_PCT" '%')" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+        printf ' %s_growth_day=%s;%s;%s;;' "$LABEL" "$(perf_value "$DAY_GROWTH_PCT" '%')" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
+        printf ' %s_growth_month=%s;%s;%s;;' "$LABEL" "$(perf_value "$MONTH_GROWTH_PCT" '%')" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
+        printf ' %s_rx_day=%s;;;;' "$LABEL" "$(perf_value "$RX_DAY" 'B')"
+        printf ' %s_tx_day=%s;;;;' "$LABEL" "$(perf_value "$TX_DAY" 'B')"
+        printf ' %s_rx_month=%s;;;;' "$LABEL" "$(perf_value "$RX_MONTH" 'B')"
+        printf ' %s_tx_month=%s;;;;' "$LABEL" "$(perf_value "$TX_MONTH" 'B')"
+        printf ' %s_age=%s;%s;%s;0;' "$LABEL" "$(perf_value "$LAST_UPDATE_AGE" 's')" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
     )
     PERFDATA="${PERFDATA}${PERFDATA:+ }${INTERFACE_PERFDATA}"
 
@@ -703,11 +691,11 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_BLOCK=$(
         printf 'Interface %s: %s\n' "$IFACE" "$INTERFACE_STATE"
         if [ -n "$TRAFFIC_ERROR" ]; then
-            printf '  Traffic data: %s [UNKNOWN]\n' "$TRAFFIC_ERROR"
+            printf '  Traffic data: %s [UNKNOWN]\n' "$(monitor_text_value "$TRAFFIC_ERROR")"
         fi
 
         if [ "$P95_STATE" = 'UNKNOWN' ]; then
-            printf '  95th percentile: unavailable [UNKNOWN%s]\n' "${P95_ERROR:+, $P95_ERROR}"
+            printf '  95th percentile: unavailable [UNKNOWN%s]\n' "$(monitor_text_value "${P95_ERROR:+, $P95_ERROR}")"
         elif [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
             printf '  95th percentile: %s Mbit/s [%s, warning %s, critical %s]\n' "$(format_number "$P95_MBIT")" "$P95_STATE" "${P95_WARNING_MBIT:-none}" "${P95_CRITICAL_MBIT:-none}"
         else
@@ -791,8 +779,8 @@ if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Unknown: %s\n' "$NAMES_UNKNOWN"; f
 if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy: %s\n' "$NAMES_OK"; fi
 printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
 printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
-printf '  Effective include regex: %s\n' "${INCLUDE_REGEX:-none}"
-printf '  Effective exclude regex: %s\n' "${EXCLUDE_REGEX:-none}"
+printf '  Effective include regex: %s\n' "$(monitor_text_value "${INCLUDE_REGEX:-none}")"
+printf '  Effective exclude regex: %s\n' "$(monitor_text_value "${EXCLUDE_REGEX:-none}")"
 printf '\n'
 [ -n "$LONG_CRITICAL" ] && printf '%s\n\n' "$LONG_CRITICAL"
 [ -n "$LONG_WARNING" ] && printf '%s\n\n' "$LONG_WARNING"

@@ -221,6 +221,11 @@ append_long() {
     fi
 }
 
+# Keep monitoring text safe before and after the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | "$SED" 's/|/[or]/g'
+}
+
 # Append a pre-rendered buffer that already uses LONG_OUTPUT_SEP.
 append_long_buffer() {
     [ -n "$1" ] || return
@@ -248,12 +253,13 @@ append_container_detail() {
 
 # Emit the summary line and optional long output.
 emit_check() {
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
         "$AWK" -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
             BEGIN {
                 count = split(data, lines, sep)
                 for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
                     printf "%s\n", lines[i]
                 }
             }

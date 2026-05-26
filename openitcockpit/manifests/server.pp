@@ -577,28 +577,34 @@ class openitcockpit::server (
       $unit = {}
     }
 
-    # Set service
-    $service = {
+    # Keep the common service isolation separate from umask policy so workers
+    # that publish executable files can use the normal system default.
+    $service_base = {
       'PrivateDevices' => 'true',
       'PrivateTmp'     => 'true',
       'ProtectHome'    => 'true',
       'ProtectSystem'  => 'full',
+    }
+
+    $service_shared_files = stdlib::merge($service_base, {
       # OpenITCOCKPIT components share runtime files between nagios, workers, and the webserver group.
       'UMask'          => '0027',
-    }
+    })
 
     basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_settings':
       target_unit   => 'gearman-job-server.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
 
+    # The Gearman worker writes executable files that must stay world-readable
+    # and executable, so it intentionally inherits the default 0022 umask.
     basic_settings::systemd_drop_in { 'openitcockpit_gearman_worker_settings':
       target_unit   => 'gearman_worker.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_base,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -606,7 +612,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_node_settings':
       target_unit   => 'openitcockpit-node.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -614,7 +620,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
       target_unit   => 'openitcockpit-graphing.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -622,7 +628,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_settings':
       target_unit   => 'oitc_cmd.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -630,7 +636,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_settings':
       target_unit   => 'oitc_cronjobs.service', # oitc_cronjobs.timer
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -638,7 +644,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_push_notification_settings':
       target_unit   => 'push_notification.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -646,7 +652,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
       target_unit   => 'statusengine.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }
@@ -654,7 +660,7 @@ class openitcockpit::server (
     basic_settings::systemd_drop_in { 'openitcockpit_sudo_server_settings':
       target_unit   => 'sudo_server.service',
       unit          => $unit,
-      service       => $service,
+      service       => $service_shared_files,
       daemon_reload => 'openitcockpit_systemd_daemon_reload',
       require       => Package['openitcockpit'],
     }

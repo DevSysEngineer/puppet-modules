@@ -322,16 +322,15 @@ EOF
 
     # Per-interface perfdata
     PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
-    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx_bytes=${RX_BYTES}c;;;0"
-    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx_bytes=${TX_BYTES}c;;;0"
+    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx=${RX_BYTES}B;;;0"
+    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx=${TX_BYTES}B;;;0"
     [ -n "$RX_ERRS" ] && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
     [ -n "$TX_ERRS" ] && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
     [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
 
-    # /sys speed is Mb/s; convert to Bytes/s for perfdata (UOM=B)
+    # /sys speed is Mb/s; keep the label unit-free and put Mbps in the UOM.
     if [ -n "$SPEED" ] && printf '%s' "$SPEED" | $GREP -Eq '^[0-9]+$' && [ "$SPEED" -gt 0 ]; then
-        SPEED_BYTES=$($AWK -v m="$SPEED" 'BEGIN{printf "%.0f", m*1000000/8}')
-        PERF="$PERF if_${IF_LBL}_speed_bytes=${SPEED_BYTES}B;;;0"
+        PERF="$PERF if_${IF_LBL}_speed=${SPEED}Mbps;;;0"
     fi
 
     # Per-interface IPv4/IPv6 address class counts

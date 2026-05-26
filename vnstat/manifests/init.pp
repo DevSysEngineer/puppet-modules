@@ -115,7 +115,7 @@ class vnstat (
   if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
     basic_settings::monitoring_custom { 'vnstat':
       source   => 'puppet:///modules/vnstat/check_vnstat_interfaces',
-      friendly => 'vnStat',
+      friendly => 'vnStat interfaces',
       timeout  => 60,
     }
   }

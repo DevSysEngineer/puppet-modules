@@ -92,6 +92,11 @@ report_error() {
     printf '%s' 'npm audit did not return a usable JSON report'
 }
 
+# Keep monitoring text safe before and after the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | "$SED" 's/|/[or]/g'
+}
+
 # Run jq while capturing both stdout and stderr for later reporting.
 run_jq() {
     JQ_PAYLOAD=$(
@@ -449,11 +454,11 @@ PERF_DATA="$PERF_DATA dep_total=${DEP_TOTAL};"
 PERF_DATA="$PERF_DATA audit_exit=${AUDIT_EXIT};"
 
 # Show first line for monitoring and optional detail lines below
-printf '%s | %s\n' "$SUMMARY" "$PERF_DATA"
+printf '%s | %s\n' "$(monitor_text_value "$SUMMARY")" "$PERF_DATA"
 
 # Show details if available for troubleshooting
 if [ -n "$DETAILS" ]; then
-    printf '%s\n' "$DETAILS"
+    monitor_text_value "$DETAILS"
 fi
 
 # Exit with the appropriate monitoring state

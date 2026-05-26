@@ -42,10 +42,15 @@ done
 # Emit the summary line and optional long output.
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "$JOURNAL_JOINED" ]; then
-        printf '%s\n' "$JOURNAL_JOINED"
+        monitor_text_value "$JOURNAL_JOINED"
     fi
+}
+
+# Nagios treats raw pipes after the first output line as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Keep only Puppet-tagged journal lines plus relevant systemd unit messages.
