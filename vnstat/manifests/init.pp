@@ -113,7 +113,8 @@ class vnstat (
 
   # Create service check
   if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_custom { 'vnstat':
+    basic_settings::monitoring_custom { 'vnstat_interfaces':
+      ensure   => present,
       source   => 'puppet:///modules/vnstat/check_vnstat_interfaces',
       friendly => 'vnStat interfaces',
       timeout  => 60,
