@@ -135,13 +135,27 @@ cmd_show_grants="SHOW GRANTS FOR '$arg_username'@'$arg_hostname'"
 cmd_revoke_all="REVOKE ALL PRIVILEGES ON $arg_database.$arg_table FROM '$arg_username'@'$arg_hostname'"
 cmd_revoke_grant="REVOKE GRANT OPTION ON $arg_database.$arg_table FROM '$arg_username'@'$arg_hostname'"
 
+show_grants_for_account() {
+	run_mysql "$cmd_show_grants" | $SED 's/\\\\/\\/g'
+}
+
+# Revoke the current scoped grant before replacing it, but only revoke the grant option when SHOW GRANTS says it is actually present.
+revoke_grants_for_scope() {
+	current_grants=$(show_grants_for_account) || exit $?
+	if printf '%s\n' "$current_grants" | $GREP -Fqi "$databasetable_str"; then
+		if printf '%s\n' "$current_grants" | $GREP -Fi "$databasetable_str" | $GREP -Fqi " WITH GRANT OPTION"; then
+			run_mysql "$cmd_revoke_grant;" || exit $?
+		fi
+		run_mysql "$cmd_revoke_all;" || exit $?
+	fi
+}
+
 # Actions
 case "$arg_action" in
 	check)
 		wanted_privileges=$(normalize_privileges "$arg_privileges")
 		current_privileges=$(
-			run_mysql "$cmd_show_grants" \
-				| $SED 's/\\\\/\\/g' \
+			show_grants_for_account \
 				| extract_grant_privileges \
 				| while IFS= read -r privileges; do
 					normalize_privileges "$privileges"
@@ -152,14 +166,13 @@ case "$arg_action" in
 		exit $?
 		;;
 	grant)
-		if run_mysql "$cmd_show_grants" | $SED 's/\\\\/\\/g' | $GREP -Fqi "$databasetable_str"; then
-			run_mysql "$cmd_revoke_grant; $cmd_revoke_all;"
-		fi
+		revoke_grants_for_scope
 		run_mysql "$grant_str; FLUSH PRIVILEGES;"
-		exit 0
+		exit $?
 		;;
 	revoke)
-		run_mysql "$cmd_revoke_grant; $cmd_revoke_all; FLUSH PRIVILEGES;"
-		exit 0
+		revoke_grants_for_scope
+		run_mysql "FLUSH PRIVILEGES;"
+		exit $?
 		;;
 esac
