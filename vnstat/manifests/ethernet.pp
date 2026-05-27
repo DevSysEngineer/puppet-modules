@@ -11,9 +11,17 @@
 #     bandwidth_max => 1000,
 #   }
 #
+# @example Override 95th percentile thresholds for one interface
+#   vnstat::ethernet { 'wan-uplink':
+#     interface    => 'ens224',
+#     p95_critical => 8000,
+#     p95_warning  => 6000,
+#   }
+#
 # @param bandwidth_max
 #   Optional value for `MaxBW<interface>` in Mbit/s. Set this to the real
 #   technical interface speed, not a purchased traffic bundle or alert limit.
+#   `undef` omits the interface-specific vnStat bandwidth fragment.
 #
 # @param ensure
 #   Controls whether the concat fragment is emitted. `absent` omits the
@@ -29,11 +37,15 @@
 #
 # @param p95_critical
 #   Optional 95th percentile critical threshold in Mbit/s for this interface.
-#   `undef` inherits the class-level threshold when one is configured.
+#   `undef` inherits the class-level threshold when one is configured. The
+#   monitoring fragment uses the effective inherited value when either 95th
+#   percentile threshold is configured for the interface or class.
 #
 # @param p95_warning
 #   Optional 95th percentile warning threshold in Mbit/s for this interface.
-#   `undef` inherits the class-level threshold when one is configured.
+#   `undef` inherits the class-level threshold when one is configured. The
+#   monitoring fragment uses the effective inherited value when either 95th
+#   percentile threshold is configured for the interface or class.
 #
 # @api public
 define vnstat::ethernet (

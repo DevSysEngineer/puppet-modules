@@ -10,10 +10,19 @@
 # @example Install vnStat with the default configuration
 #   class { 'vnstat': }
 #
+# @example Configure global bandwidth and 95th percentile monitoring defaults
+#   class { 'vnstat':
+#     bandwidth_max => 1000,
+#     p95_critical  => 900,
+#     p95_warning   => 700,
+#   }
+#
 # @param bandwidth_max
-#   Optional global `MaxBandwidth` value in Mbit/s. `undef` omits the directive
-#   so vnStat can use interface-specific values or its own detection without a
-#   Puppet-rendered fallback.
+#   Global `MaxBandwidth` value in Mbit/s. The default `0` renders
+#   `MaxBandwidth 0`, which disables vnStat's global reject limit and prevents
+#   the monitoring check from using the global value as a positive capacity
+#   fallback. Set a positive value when all monitored interfaces can safely share
+#   the same fallback capacity.
 #
 # @param nice_level
 #   Positive nice value rendered as a negative systemd `Nice` setting for
@@ -22,13 +31,13 @@
 #
 # @param p95_critical
 #   Optional global 95th percentile critical threshold in Mbit/s for the
-#   monitoring check. Interface-specific `vnstat::ethernet` values override
-#   this default.
+#   monitoring check. `undef` leaves the global critical threshold unset.
+#   Interface-specific `vnstat::ethernet` values override this default.
 #
 # @param p95_warning
 #   Optional global 95th percentile warning threshold in Mbit/s for the
-#   monitoring check. Interface-specific `vnstat::ethernet` values override
-#   this default.
+#   monitoring check. `undef` leaves the global warning threshold unset.
+#   Interface-specific `vnstat::ethernet` values override this default.
 #
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to
@@ -36,11 +45,11 @@
 #
 # @api public
 class vnstat (
-  Optional[Integer[0, 50000]] $bandwidth_max = undef,
-  Integer                    $nice_level     = 8,
-  Optional[Integer[1]]       $p95_critical   = undef,
-  Optional[Integer[1]]       $p95_warning    = undef,
-  String                     $target         = 'services',
+  Optional[Integer[0, 50000]] $bandwidth_max = 0,
+  Integer                     $nice_level     = 8,
+  Optional[Integer[1]]        $p95_critical   = undef,
+  Optional[Integer[1]]        $p95_warning    = undef,
+  String                      $target         = 'services',
 ) {
   # Install vnstat
   package { 'vnstat':
