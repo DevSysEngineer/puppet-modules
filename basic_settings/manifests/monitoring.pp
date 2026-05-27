@@ -53,12 +53,12 @@ class basic_settings::monitoring (
   $monitoring_notify_path_shell = stdlib::shell_escape($monitoring_notify_path)
   $monitoring_mail_from_shell = stdlib::shell_escape("monitoring@${server_fdqn}")
   $systemd_mail_from_shell = stdlib::shell_escape("systemd@${server_fdqn}")
-  $notify_failed_subject = "Service %i failed on ${server_fdqn}"
-  $notify_failed_subject_shell = stdlib::shell_escape($notify_failed_subject)
+
+  # Pass the systemd instance as $0 so bash can quote it without systemd parsing shell escape sequences.
   $notify_failed_script = join([
-      'LC_CTYPE=C systemctl status --full %i |',
+      'LC_CTYPE=C systemctl status --full "$0" |',
       "${monitoring_notify_path_shell} -t ${mail_to_shell}",
-      "-r ${systemd_mail_from_shell} ${notify_failed_subject_shell}",
+      "-r ${systemd_mail_from_shell} \"Service \$0 failed on ${server_fdqn}\"",
   ], ' ')
 
   # Install package
@@ -116,7 +116,7 @@ class basic_settings::monitoring (
     basic_settings::systemd_service { 'notify-failed@':
       description   => 'Send systemd notifications to mail',
       service       => {
-        'ExecStart'               => "/usr/bin/bash -c '${notify_failed_script}'",
+        'ExecStart'               => "/usr/bin/bash -c '${notify_failed_script}' %i",
         'LockPersonality'         => 'true',
         'MemoryDenyWriteExecute'  => 'true',
         'NoNewPrivileges'         => 'true',
