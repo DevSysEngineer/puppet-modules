@@ -1,18 +1,34 @@
 # @summary Installs and configures vnStat traffic accounting.
 #
-# This class installs vnStat, builds `/etc/vnstat.conf` through concat, and
-# integrates the daemon with the local `basic_settings` systemd and logrotate
-# helpers when those helpers are already present in the catalog. The default
-# configuration lets vnstatd add newly discovered interfaces automatically so a
-# host receives traffic accounting without a per-interface resource.
+# This class installs vnStat, builds `/etc/vnstat.conf` and
+# `/etc/vnstat-monitoring.conf` through concat, and integrates the daemon with
+# the local `basic_settings` systemd and logrotate helpers when those helpers
+# are already present in the catalog. The default configuration lets vnstatd add
+# newly discovered interfaces automatically so a host receives traffic
+# accounting without a per-interface resource.
 #
 # @example Install vnStat with the default configuration
 #   class { 'vnstat': }
+#
+# @param bandwidth_max
+#   Optional global `MaxBandwidth` value in Mbit/s. `undef` omits the directive
+#   so vnStat can use interface-specific values or its own detection without a
+#   Puppet-rendered fallback.
 #
 # @param nice_level
 #   Positive nice value rendered as a negative systemd `Nice` setting for
 #   `vnstat.service`. The default `8` makes the daemon prefer responsiveness
 #   without running at the highest priority.
+#
+# @param p95_critical
+#   Optional global 95th percentile critical threshold in Mbit/s for the
+#   monitoring check. Interface-specific `vnstat::ethernet` values override
+#   this default.
+#
+# @param p95_warning
+#   Optional global 95th percentile warning threshold in Mbit/s for the
+#   monitoring check. Interface-specific `vnstat::ethernet` values override
+#   this default.
 #
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to
@@ -20,9 +36,17 @@
 #
 # @api public
 class vnstat (
-  Integer $nice_level = 8,
-  String  $target     = 'services',
+  Optional[Integer[0, 50000]] $bandwidth_max = undef,
+  Integer                    $nice_level     = 8,
+  Optional[Integer[1]]       $p95_critical   = undef,
+  Optional[Integer[1]]       $p95_warning    = undef,
+  String                     $target         = 'services',
 ) {
+  # Keep generated monitoring configuration valid before the check consumes it.
+  if ($p95_warning != undef and $p95_critical != undef and $p95_critical < $p95_warning) {
+    fail('vnstat p95_critical must be greater than or equal to p95_warning.')
+  }
+
   # Install vnstat
   package { 'vnstat':
     ensure          => installed,
@@ -99,6 +123,19 @@ class vnstat (
     order   => '10',
   }
 
+  # Store monitoring-only defaults separately so vnStat receives only native directives.
+  concat { '/etc/vnstat-monitoring.conf':
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => Package['vnstat'],
+  }
+  concat::fragment { 'vnstat_monitoring_config_default':
+    target  => '/etc/vnstat-monitoring.conf',
+    content => template('vnstat/monitoring.conf'),
+    order   => '10',
+  }
+
   # Check if logrotate package exists
   if (defined(Package['logrotate'])) {
     basic_settings::io_logrotate { 'vnstat':
@@ -118,6 +155,7 @@ class vnstat (
       source   => 'puppet:///modules/vnstat/check_vnstat_interfaces',
       friendly => 'vnStat interfaces',
       timeout  => 60,
+      require  => Concat['/etc/vnstat-monitoring.conf'],
     }
   }
 }

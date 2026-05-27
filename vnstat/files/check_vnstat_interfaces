@@ -44,10 +44,10 @@ STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
 DEFAULT_EXCLUDE_REGEX='^lo$|^docker.*|^veth.*|^br-.*|^virbr.*|^tun.*|^tap.*|^wg.*'
+CHECK_CONFIG='/etc/vnstat-monitoring.conf'
+VNSTAT_CONFIG='/etc/vnstat.conf'
 INCLUDE_REGEX=''
 EXCLUDE_REGEX=$DEFAULT_EXCLUDE_REGEX
-P95_WARNING_MBIT=''
-P95_CRITICAL_MBIT=''
 CAPACITY_WARNING_PERCENT='80'
 CAPACITY_CRITICAL_PERCENT='90'
 GROWTH_DAY_WARNING_PERCENT='25'
@@ -78,6 +78,9 @@ NAMES_UNKNOWN=''
 NAMES_WARNING=''
 OK_COUNT=0
 PERFDATA=''
+SUMMARY_CRITICAL=''
+SUMMARY_UNKNOWN=''
+SUMMARY_WARNING=''
 UNKNOWN_COUNT=0
 WARNING_COUNT=0
 
@@ -86,10 +89,10 @@ usage() {
     printf '%s\n' "Usage: $0 [options]"
     printf '%s\n' ''
     printf '%s\n' 'Options:'
+    printf '%s\n' '  --check-config <path>                    Defaults to /etc/vnstat-monitoring.conf'
+    printf '%s\n' '  --vnstat-config <path>                   Defaults to /etc/vnstat.conf for explicit MaxBandwidth fallback'
     printf '%s\n' '  --include <regex>'
     printf '%s\n' '  --exclude <regex>                         Replaces the built-in default exclude regex'
-    printf '%s\n' '  --p95-warning-mbit <number>'
-    printf '%s\n' '  --p95-critical-mbit <number>'
     printf '%s\n' '  --capacity-warning-percent <number>'
     printf '%s\n' '  --capacity-critical-percent <number>'
     printf '%s\n' '  --growth-day-warning-percent <number>'
@@ -103,6 +106,16 @@ usage() {
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --check-config)
+            need_arg "$1" "$@"
+            shift
+            CHECK_CONFIG=$1
+            ;;
+        --vnstat-config)
+            need_arg "$1" "$@"
+            shift
+            VNSTAT_CONFIG=$1
+            ;;
         --include)
             need_arg "$1" "$@"
             shift
@@ -112,16 +125,6 @@ while [ "$#" -gt 0 ]; do
             need_arg "$1" "$@"
             shift
             EXCLUDE_REGEX=$1
-            ;;
-        --p95-warning-mbit)
-            need_arg "$1" "$@"
-            shift
-            P95_WARNING_MBIT=$1
-            ;;
-        --p95-critical-mbit)
-            need_arg "$1" "$@"
-            shift
-            P95_CRITICAL_MBIT=$1
             ;;
         --capacity-warning-percent)
             need_arg "$1" "$@"
@@ -245,6 +248,35 @@ max_state() {
     else
         printf '%s\n' "$1"
     fi
+}
+
+add_summary_issue() {
+    _summary_severity=$1
+    _summary_issue=$(monitor_text_value "$2")
+
+    case "$_summary_severity" in
+        CRITICAL)
+            if [ -n "$SUMMARY_CRITICAL" ]; then
+                SUMMARY_CRITICAL="${SUMMARY_CRITICAL}; ${_summary_issue}"
+            else
+                SUMMARY_CRITICAL=$_summary_issue
+            fi
+            ;;
+        WARNING)
+            if [ -n "$SUMMARY_WARNING" ]; then
+                SUMMARY_WARNING="${SUMMARY_WARNING}; ${_summary_issue}"
+            else
+                SUMMARY_WARNING=$_summary_issue
+            fi
+            ;;
+        UNKNOWN)
+            if [ -n "$SUMMARY_UNKNOWN" ]; then
+                SUMMARY_UNKNOWN="${SUMMARY_UNKNOWN}; ${_summary_issue}"
+            else
+                SUMMARY_UNKNOWN=$_summary_issue
+            fi
+            ;;
+    esac
 }
 
 threshold_status() {
@@ -372,33 +404,221 @@ showconfig_value() {
     '
 }
 
-# MaxBW<interface> has priority over the global MaxBandwidth value.
+# Read one explicitly configured value from the managed vnStat config file.
+config_file_value() {
+    [ -n "$VNSTAT_CONFIG" ] || die "vnStat config path must not be empty"
+    [ -r "$VNSTAT_CONFIG" ] || return 0
+
+    $AWK -v key="$1" '
+        /^[[:space:]]*($|[#;])/ { next }
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]*[#;].*$/, "", line)
+            split(line, parts, /[[:space:]]+/)
+            if (parts[1] == key) {
+                value = line
+                sub(/^[^[:space:]]+[[:space:]]*/, "", value)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                gsub(/^"|"$/, "", value)
+                found = value
+            }
+        }
+        END {
+            if (found != "") {
+                print found
+            }
+        }
+    ' "$VNSTAT_CONFIG"
+}
+
+# Validate the optional Puppet-managed monitoring config before any values are used.
+validate_check_config() {
+    CHECK_CONFIG_AVAILABLE=0
+    [ -n "$CHECK_CONFIG" ] || die "check config path must not be empty"
+    [ -e "$CHECK_CONFIG" ] || return 0
+    [ -r "$CHECK_CONFIG" ] || die "check config is not readable: $CHECK_CONFIG"
+
+    CHECK_CONFIG_VALIDATION=$($AWK '
+        function positive(value) {
+            return value ~ /^[0-9]+([.][0-9]+)?$/ && value + 0 > 0
+        }
+        function remember(scope, key, value) {
+            values[scope SUBSEP key] = value
+            scopes[scope] = 1
+        }
+        function fail(message) {
+            if (first_error == "") {
+                first_error = message
+            }
+        }
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+[#;].*$/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") {
+                next
+            }
+
+            count = split(line, parts, /[[:space:]]+/)
+            if (count == 2 && (parts[1] == "p95_warning" || parts[1] == "p95_critical")) {
+                key = parts[1]
+                value = parts[2]
+                scope = "global"
+            } else if (count == 4 && parts[1] == "interface" && (parts[3] == "p95_warning" || parts[3] == "p95_critical")) {
+                key = parts[3]
+                value = parts[4]
+                scope = "interface " parts[2]
+            } else {
+                fail("line " NR ": invalid syntax")
+                next
+            }
+
+            if (!positive(value)) {
+                fail("line " NR ": " key " must be a positive number")
+                next
+            }
+            remember(scope, key, value)
+        }
+        END {
+            for (scope in scopes) {
+                warning = values[scope SUBSEP "p95_warning"]
+                critical = values[scope SUBSEP "p95_critical"]
+                if (warning != "" && critical != "" && critical + 0 < warning + 0) {
+                    fail(scope ": p95_critical must be greater than or equal to p95_warning")
+                }
+            }
+            if (first_error != "") {
+                print first_error
+                exit 1
+            }
+        }
+    ' "$CHECK_CONFIG" 2>&1)
+    CHECK_CONFIG_RC=$?
+    [ "$CHECK_CONFIG_RC" -eq 0 ] || die "invalid check config $CHECK_CONFIG: $(first_line_value "$CHECK_CONFIG_VALIDATION")"
+
+    CHECK_CONFIG_AVAILABLE=1
+}
+
+# Read one threshold from the optional monitoring config. Later entries win.
+check_config_value() {
+    [ "$CHECK_CONFIG_AVAILABLE" -eq 1 ] || return 0
+
+    $AWK -v scope="$1" -v iface="$2" -v key="$3" '
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+[#;].*$/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") {
+                next
+            }
+
+            count = split(line, parts, /[[:space:]]+/)
+            if (scope == "global" && count == 2 && parts[1] == key) {
+                found = parts[2]
+            } else if (scope == "interface" && count == 4 && parts[1] == "interface" && parts[2] == iface && parts[3] == key) {
+                found = parts[4]
+            }
+        }
+        END {
+            if (found != "") {
+                print found
+            }
+        }
+    ' "$CHECK_CONFIG"
+}
+
+# Parse only the conservative verbose `vnstat --iflist` speed shape: iface (N Mbit).
+iflist_limit_mbit() {
+    if [ "$IFLIST_RC" -ne 0 ]; then
+        printf 'U|vnStat --iflist failed: %s\n' "$(first_line_value "$IFLIST_TEXT")"
+        return
+    fi
+
+    printf '%s\n' "$IFLIST_TEXT" | $AWK -v iface="$1" '
+        function emit(speed, unit) {
+            sub(/^\(/, "", speed)
+            sub(/\)$/, "", unit)
+            if (unit == "kbit" || unit == "Kbit") {
+                value = speed / 1000
+            } else if (unit == "Mbit") {
+                value = speed
+            } else if (unit == "Gbit") {
+                value = speed * 1000
+            } else if (unit == "Tbit") {
+                value = speed * 1000000
+            } else {
+                print "U|vnStat --iflist reported an unsupported speed unit for " iface
+                exit
+            }
+
+            if (value > 0) {
+                printf "%.2f|BandwidthDetection from vnStat --iflist\n", value
+            } else {
+                print "U|vnStat --iflist reported a non-positive speed for " iface
+            }
+            exit
+        }
+        {
+            for (i = 1; i <= NF; i++) {
+                if ($i == iface) {
+                    found = 1
+                    if (i + 2 <= NF && $(i + 1) ~ /^\([0-9]+([.][0-9]+)?$/ && $(i + 2) ~ /^(kbit|Kbit|Mbit|Gbit|Tbit)\)$/) {
+                        emit($(i + 1), $(i + 2))
+                    }
+                    print "U|vnStat --iflist did not report a parseable speed for " iface
+                    exit
+                }
+            }
+        }
+        END {
+            if (!found) {
+                print "U|interface not present in vnStat --iflist"
+            }
+        }
+    '
+}
+
+# MaxBW<interface> has priority, then vnStat detection, then an explicit global MaxBandwidth.
 showconfig_limit_mbit() {
     _iface_limit=$(showconfig_value "MaxBW${1}")
     if [ -n "$_iface_limit" ]; then
         is_number "$_iface_limit" || die "vnStat showconfig returned invalid MaxBW${1} value: $_iface_limit"
         if is_positive_number "$_iface_limit"; then
-            printf '%s|MaxBW%s\n' "$_iface_limit" "$1"
+            printf '%s|MaxBW%s from vnStat showconfig\n' "$_iface_limit" "$1"
         else
-            printf '%s|MaxBW%s\n' 'U' "$1"
+            printf '%s|MaxBW%s is 0 in vnStat showconfig\n' 'U' "$1"
         fi
         return
     fi
 
-    if is_positive_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
-        printf '%s|MaxBandwidth\n' "$GLOBAL_MAXBANDWIDTH_MBIT"
-    elif is_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
-        printf '%s|MaxBandwidth\n' 'U'
+    if [ "$BANDWIDTH_DETECTION" = '1' ]; then
+        _detected_limit=$(iflist_limit_mbit "$1")
+        _detected_value=${_detected_limit%%|*}
+        _detected_source=${_detected_limit#*|}
+        if is_positive_number "$_detected_value"; then
+            printf '%s|%s\n' "$_detected_value" "$_detected_source"
+            return
+        fi
+        _detection_note=$_detected_source
     else
-        printf '%s|none\n' 'U'
+        _detection_note='BandwidthDetection is disabled in vnStat showconfig'
+    fi
+
+    if is_positive_number "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"; then
+        printf '%s|MaxBandwidth from %s\n' "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT" "$VNSTAT_CONFIG"
+    elif [ -n "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT" ] && is_number "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"; then
+        printf '%s|MaxBandwidth is 0 in %s\n' 'U' "$VNSTAT_CONFIG"
+    else
+        printf '%s|no MaxBW interface limit, no parseable BandwidthDetection speed (%s), and no explicit MaxBandwidth value in %s\n' 'U' "$_detection_note" "$VNSTAT_CONFIG"
     fi
 }
 
 # Validate options before calling vnStat so bad monitoring arguments return UNKNOWN.
 validate_regex "include" "$INCLUDE_REGEX"
 validate_regex "exclude" "$EXCLUDE_REGEX"
-validate_positive_number "p95_warning_mbit" "$P95_WARNING_MBIT"
-validate_positive_number "p95_critical_mbit" "$P95_CRITICAL_MBIT"
 validate_number "capacity_warning_percent" "$CAPACITY_WARNING_PERCENT"
 validate_number "capacity_critical_percent" "$CAPACITY_CRITICAL_PERCENT"
 validate_number "growth_day_warning_percent" "$GROWTH_DAY_WARNING_PERCENT"
@@ -407,11 +627,18 @@ validate_number "growth_month_warning_percent" "$GROWTH_MONTH_WARNING_PERCENT"
 validate_number "growth_month_critical_percent" "$GROWTH_MONTH_CRITICAL_PERCENT"
 validate_number "last_update_warning_seconds" "$LAST_UPDATE_WARNING_SECONDS"
 validate_number "last_update_critical_seconds" "$LAST_UPDATE_CRITICAL_SECONDS"
-validate_pair "p95" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
 validate_pair "capacity" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
 validate_pair "day growth" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
 validate_pair "month growth" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
 validate_pair "last update" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+
+validate_check_config
+
+CONFIG_GLOBAL_P95_WARNING_MBIT=$(check_config_value 'global' '' 'p95_warning')
+CONFIG_GLOBAL_P95_CRITICAL_MBIT=$(check_config_value 'global' '' 'p95_critical')
+GLOBAL_P95_WARNING_MBIT=$CONFIG_GLOBAL_P95_WARNING_MBIT
+GLOBAL_P95_CRITICAL_MBIT=$CONFIG_GLOBAL_P95_CRITICAL_MBIT
+validate_pair "global p95" "$GLOBAL_P95_WARNING_MBIT" "$GLOBAL_P95_CRITICAL_MBIT"
 
 # Query vnStat's effective configuration once. Interface limits come from this output.
 SHOWCONFIG_TEXT=$("$VNSTAT" --showconfig 2>&1)
@@ -421,10 +648,22 @@ if [ "$SHOWCONFIG_RC" -ne 0 ]; then
     [ -n "$SHOWCONFIG_ERROR" ] || SHOWCONFIG_ERROR='showconfig query failed'
     die "vnStat showconfig failed: $SHOWCONFIG_ERROR"
 fi
-GLOBAL_MAXBANDWIDTH_MBIT=$(showconfig_value 'MaxBandwidth')
-if [ -n "$GLOBAL_MAXBANDWIDTH_MBIT" ] && ! is_number "$GLOBAL_MAXBANDWIDTH_MBIT"; then
-    die "vnStat showconfig returned invalid MaxBandwidth value: $GLOBAL_MAXBANDWIDTH_MBIT"
+SHOWCONFIG_GLOBAL_MAXBANDWIDTH_MBIT=$(showconfig_value 'MaxBandwidth')
+if [ -n "$SHOWCONFIG_GLOBAL_MAXBANDWIDTH_MBIT" ] && ! is_number "$SHOWCONFIG_GLOBAL_MAXBANDWIDTH_MBIT"; then
+    die "vnStat showconfig returned invalid MaxBandwidth value: $SHOWCONFIG_GLOBAL_MAXBANDWIDTH_MBIT"
 fi
+EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT=$(config_file_value 'MaxBandwidth')
+if [ -n "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT" ] && ! is_number "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"; then
+    die "vnStat config contains invalid MaxBandwidth value: $EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"
+fi
+BANDWIDTH_DETECTION=$(showconfig_value 'BandwidthDetection')
+if [ -n "$BANDWIDTH_DETECTION" ] && [ "$BANDWIDTH_DETECTION" != '0' ] && [ "$BANDWIDTH_DETECTION" != '1' ]; then
+    die "vnStat showconfig returned invalid BandwidthDetection value: $BANDWIDTH_DETECTION"
+fi
+
+# Query the verbose interface list once for vnStat's detected speed hints.
+IFLIST_TEXT=$("$VNSTAT" --iflist 2>&1)
+IFLIST_RC=$?
 
 # Query the vnStat summary JSON once; this contains interface names, update timestamps and daily/monthly history.
 SUMMARY_JSON=$("$VNSTAT" --json s 2>&1)
@@ -495,6 +734,30 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
     LABEL=$(sanitize_label "$IFACE")
     INTERFACE_STATE='OK'
+    INTERFACE_CONFIG_P95_WARNING_MBIT=$(check_config_value 'interface' "$IFACE" 'p95_warning')
+    INTERFACE_CONFIG_P95_CRITICAL_MBIT=$(check_config_value 'interface' "$IFACE" 'p95_critical')
+    if [ -n "$INTERFACE_CONFIG_P95_WARNING_MBIT" ]; then
+        P95_WARNING_MBIT=$INTERFACE_CONFIG_P95_WARNING_MBIT
+    else
+        P95_WARNING_MBIT=$GLOBAL_P95_WARNING_MBIT
+    fi
+    if [ -n "$INTERFACE_CONFIG_P95_CRITICAL_MBIT" ]; then
+        P95_CRITICAL_MBIT=$INTERFACE_CONFIG_P95_CRITICAL_MBIT
+    else
+        P95_CRITICAL_MBIT=$GLOBAL_P95_CRITICAL_MBIT
+    fi
+    validate_pair "p95 for $IFACE" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
+    if [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
+        P95_THRESHOLDS_CONFIGURED=1
+        if [ -n "$INTERFACE_CONFIG_P95_WARNING_MBIT" ] || [ -n "$INTERFACE_CONFIG_P95_CRITICAL_MBIT" ]; then
+            P95_THRESHOLD_SOURCE="interface entry in ${CHECK_CONFIG}"
+        else
+            P95_THRESHOLD_SOURCE="global entry in ${CHECK_CONFIG}"
+        fi
+    else
+        P95_THRESHOLDS_CONFIGURED=0
+        P95_THRESHOLD_SOURCE='none'
+    fi
 
     # Extract update age and daily/monthly totals from the summary JSON.
     TRAFFIC_TSV=$(printf '%s' "$SUMMARY_JSON" | "$JQ" -r --arg iface "$IFACE" '
@@ -538,6 +801,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         TRAFFIC_ERROR=$(first_line_value "$TRAFFIC_TSV")
         [ -n "$TRAFFIC_ERROR" ] || TRAFFIC_ERROR='interface data could not be parsed'
         INTERFACE_STATE=$(max_state "$INTERFACE_STATE" 'UNKNOWN')
+        add_summary_issue 'UNKNOWN' "$IFACE traffic data unavailable: $TRAFFIC_ERROR"
     else
         # The jq expression emits fixed numeric/U fields, so plain field splitting is safe here.
         set -- $TRAFFIC_TSV
@@ -567,6 +831,19 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         LAST_UPDATE_STATE=$(threshold_status "$LAST_UPDATE_AGE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS")
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$LAST_UPDATE_STATE")
+    case "$LAST_UPDATE_STATE" in
+        CRITICAL)
+            add_summary_issue 'CRITICAL' "$IFACE last vnStat update age ${LAST_UPDATE_AGE}s >= critical ${LAST_UPDATE_CRITICAL_SECONDS}s"
+            ;;
+        WARNING)
+            add_summary_issue 'WARNING' "$IFACE last vnStat update age ${LAST_UPDATE_AGE}s >= warning ${LAST_UPDATE_WARNING_SECONDS}s"
+            ;;
+        UNKNOWN)
+            if [ -z "$TRAFFIC_ERROR" ]; then
+                add_summary_issue 'UNKNOWN' "$IFACE last vnStat update age unavailable"
+            fi
+            ;;
+    esac
 
     # Use vnStat's native 95th percentile implementation for the current month.
     P95_JSON=$("$VNSTAT" --iface "$IFACE" --json p 2>&1)
@@ -576,7 +853,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     P95_COVERAGE='U'
     P95_SEEN='U'
     P95_EXPECTED='U'
-    P95_STATE='UNKNOWN'
+    P95_STATE='OK'
     P95_ERROR=''
 
     if [ "$P95_RC" -eq 0 ]; then
@@ -603,7 +880,9 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
                 if is_number "$P95_BYTES_PER_SECOND"; then
                     P95_MBIT=$(calc_mbit_from_bytes_per_second "$P95_BYTES_PER_SECOND")
-                    P95_STATE=$(threshold_status "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT")
+                    if [ "$P95_THRESHOLDS_CONFIGURED" -eq 1 ]; then
+                        P95_STATE=$(threshold_status "$P95_MBIT" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT")
+                    fi
                 else
                     P95_ERROR='95th percentile value is missing from vnStat JSON'
                 fi
@@ -619,31 +898,56 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         P95_ERROR=$(first_line_value "$P95_JSON")
         [ -n "$P95_ERROR" ] || P95_ERROR='95th percentile query failed'
     fi
+    if [ "$P95_MBIT" = 'U' ] && [ "$P95_THRESHOLDS_CONFIGURED" -eq 1 ]; then
+        P95_STATE='UNKNOWN'
+    fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$P95_STATE")
+    case "$P95_STATE" in
+        CRITICAL)
+            add_summary_issue 'CRITICAL' "$IFACE 95th percentile $(format_number "$P95_MBIT") Mbit/s >= critical ${P95_CRITICAL_MBIT} Mbit/s"
+            ;;
+        WARNING)
+            add_summary_issue 'WARNING' "$IFACE 95th percentile $(format_number "$P95_MBIT") Mbit/s >= warning ${P95_WARNING_MBIT} Mbit/s"
+            ;;
+        UNKNOWN)
+            add_summary_issue 'UNKNOWN' "$IFACE 95th percentile unavailable: $P95_ERROR"
+            ;;
+    esac
 
     # Capacity limits intentionally follow vnStat's effective configuration.
     LIMIT_TSV=$(showconfig_limit_mbit "$IFACE")
     INTERFACE_LIMIT_MBIT=${LIMIT_TSV%%|*}
     LIMIT_SOURCE=${LIMIT_TSV#*|}
 
-    if [ "$P95_MBIT" = 'U' ]; then
-        CAPACITY_PCT='U'
-        CAPACITY_STATE='UNKNOWN'
-        CAPACITY_NOTE='95th percentile unavailable'
-    elif [ "$INTERFACE_LIMIT_MBIT" = 'U' ] || [ -z "$INTERFACE_LIMIT_MBIT" ]; then
+    if [ "$INTERFACE_LIMIT_MBIT" = 'U' ] || [ -z "$INTERFACE_LIMIT_MBIT" ]; then
         CAPACITY_PCT='U'
         CAPACITY_STATE='OK'
-        if [ "$LIMIT_SOURCE" = 'none' ]; then
-            CAPACITY_NOTE='skipped; no MaxBW interface limit or MaxBandwidth value in vnStat showconfig'
+        CAPACITY_NOTE=$LIMIT_SOURCE
+    elif [ "$P95_MBIT" = 'U' ]; then
+        CAPACITY_PCT='U'
+        CAPACITY_STATE='UNKNOWN'
+        if [ -n "$P95_ERROR" ]; then
+            CAPACITY_NOTE="95th percentile unavailable; ${P95_ERROR}"
         else
-            CAPACITY_NOTE="skipped; ${LIMIT_SOURCE} is 0 in vnStat showconfig"
+            CAPACITY_NOTE='95th percentile unavailable'
         fi
     else
         CAPACITY_PCT=$(calc_percent "$P95_MBIT" "$INTERFACE_LIMIT_MBIT")
         CAPACITY_STATE=$(threshold_status "$CAPACITY_PCT" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT")
-        CAPACITY_NOTE="of ${INTERFACE_LIMIT_MBIT} Mbit/s (${LIMIT_SOURCE} from vnStat showconfig)"
+        CAPACITY_NOTE="of ${INTERFACE_LIMIT_MBIT} Mbit/s (${LIMIT_SOURCE})"
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$CAPACITY_STATE")
+    case "$CAPACITY_STATE" in
+        CRITICAL)
+            add_summary_issue 'CRITICAL' "$IFACE capacity $(format_number "$CAPACITY_PCT")% >= critical ${CAPACITY_CRITICAL_PERCENT}%"
+            ;;
+        WARNING)
+            add_summary_issue 'WARNING' "$IFACE capacity $(format_number "$CAPACITY_PCT")% >= warning ${CAPACITY_WARNING_PERCENT}%"
+            ;;
+        UNKNOWN)
+            add_summary_issue 'UNKNOWN' "$IFACE capacity unavailable: $CAPACITY_NOTE"
+            ;;
+    esac
 
     # Relative growth is only meaningful when vnStat has a non-zero previous-day baseline.
     if [ "$CURRENT_DAY_TOTAL" = 'U' ] || [ "$PREVIOUS_DAY_TOTAL" = 'U' ] || ! is_positive_number "$PREVIOUS_DAY_TOTAL"; then
@@ -658,6 +962,14 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         DAY_GROWTH_STATE=$(threshold_status "$DAY_GROWTH_PCT" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT")
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$DAY_GROWTH_STATE")
+    case "$DAY_GROWTH_STATE" in
+        CRITICAL)
+            add_summary_issue 'CRITICAL' "$IFACE day growth $(format_number "$DAY_GROWTH_PCT")% >= critical ${GROWTH_DAY_CRITICAL_PERCENT}%"
+            ;;
+        WARNING)
+            add_summary_issue 'WARNING' "$IFACE day growth $(format_number "$DAY_GROWTH_PCT")% >= warning ${GROWTH_DAY_WARNING_PERCENT}%"
+            ;;
+    esac
 
     # Missing previous-month data is expected for new interfaces and must not alert.
     if [ "$CURRENT_MONTH_TOTAL" = 'U' ] || [ "$PREVIOUS_MONTH_TOTAL" = 'U' ] || ! is_positive_number "$PREVIOUS_MONTH_TOTAL"; then
@@ -672,6 +984,14 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         MONTH_GROWTH_STATE=$(threshold_status "$MONTH_GROWTH_PCT" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT")
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$MONTH_GROWTH_STATE")
+    case "$MONTH_GROWTH_STATE" in
+        CRITICAL)
+            add_summary_issue 'CRITICAL' "$IFACE month growth $(format_number "$MONTH_GROWTH_PCT")% >= critical ${GROWTH_MONTH_CRITICAL_PERCENT}%"
+            ;;
+        WARNING)
+            add_summary_issue 'WARNING' "$IFACE month growth $(format_number "$MONTH_GROWTH_PCT")% >= warning ${GROWTH_MONTH_WARNING_PERCENT}%"
+            ;;
+    esac
 
     # Build compact Nagios perfdata directly in memory because the final first line depends on all interfaces.
     INTERFACE_PERFDATA=$(
@@ -696,19 +1016,21 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
         if [ "$P95_STATE" = 'UNKNOWN' ]; then
             printf '  95th percentile: unavailable [UNKNOWN%s]\n' "$(monitor_text_value "${P95_ERROR:+, $P95_ERROR}")"
+        elif [ "$P95_MBIT" = 'U' ]; then
+            printf '  95th percentile: unavailable [OK, no p95 thresholds configured%s]\n' "$(monitor_text_value "${P95_ERROR:+, $P95_ERROR}")"
         elif [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
-            printf '  95th percentile: %s Mbit/s [%s, warning %s, critical %s]\n' "$(format_number "$P95_MBIT")" "$P95_STATE" "${P95_WARNING_MBIT:-none}" "${P95_CRITICAL_MBIT:-none}"
+            printf '  95th percentile: %s Mbit/s [%s, warning %s, critical %s, source %s]\n' "$(format_number "$P95_MBIT")" "$P95_STATE" "${P95_WARNING_MBIT:-none}" "${P95_CRITICAL_MBIT:-none}" "$(monitor_text_value "$P95_THRESHOLD_SOURCE")"
         else
             printf '  95th percentile: %s Mbit/s [OK, no p95 thresholds configured]\n' "$(format_number "$P95_MBIT")"
         fi
         printf '  95th percentile coverage: %s%% (%s/%s entries)\n' "$P95_COVERAGE" "$P95_SEEN" "$P95_EXPECTED"
 
         if [ "$CAPACITY_STATE" = 'OK' ] && [ "$CAPACITY_PCT" = 'U' ]; then
-            printf '  Capacity: skipped [OK, %s]\n' "$CAPACITY_NOTE"
+            printf '  Capacity: skipped [OK, %s]\n' "$(monitor_text_value "$CAPACITY_NOTE")"
         elif [ "$CAPACITY_STATE" = 'UNKNOWN' ]; then
-            printf '  Capacity: unavailable [UNKNOWN, %s]\n' "$CAPACITY_NOTE"
+            printf '  Capacity: unavailable [UNKNOWN, %s]\n' "$(monitor_text_value "$CAPACITY_NOTE")"
         else
-            printf '  Capacity: %s%% %s [%s, warning %s%%, critical %s%%]\n' "$(format_number "$CAPACITY_PCT")" "$CAPACITY_NOTE" "$CAPACITY_STATE" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+            printf '  Capacity: %s%% %s [%s, warning %s%%, critical %s%%]\n' "$(format_number "$CAPACITY_PCT")" "$(monitor_text_value "$CAPACITY_NOTE")" "$CAPACITY_STATE" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
         fi
 
         if [ "$DAY_BASELINE_AVAILABLE" -eq 1 ]; then
@@ -764,9 +1086,30 @@ if [ "$FINAL_EXIT" -eq 0 ]; then
 else
     SUMMARY_TEXT='vnStat interfaces need attention:'
     SUMMARY_SEPARATOR=' '
-    if [ "$CRITICAL_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} critical"; SUMMARY_SEPARATOR=', '; fi
-    if [ "$WARNING_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} warning"; SUMMARY_SEPARATOR=', '; fi
-    if [ "$UNKNOWN_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} unknown"; SUMMARY_SEPARATOR=', '; fi
+    if [ "$CRITICAL_COUNT" -gt 0 ]; then
+        if [ -n "$SUMMARY_CRITICAL" ]; then
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}CRITICAL ${SUMMARY_CRITICAL}"
+        else
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} critical"
+        fi
+        SUMMARY_SEPARATOR='; '
+    fi
+    if [ "$WARNING_COUNT" -gt 0 ]; then
+        if [ -n "$SUMMARY_WARNING" ]; then
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}WARNING ${SUMMARY_WARNING}"
+        else
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} warning"
+        fi
+        SUMMARY_SEPARATOR='; '
+    fi
+    if [ "$UNKNOWN_COUNT" -gt 0 ]; then
+        if [ -n "$SUMMARY_UNKNOWN" ]; then
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}UNKNOWN ${SUMMARY_UNKNOWN}"
+        else
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} unknown"
+        fi
+        SUMMARY_SEPARATOR='; '
+    fi
     if [ "$OK_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${OK_COUNT} healthy"; fi
 fi
 
@@ -779,6 +1122,12 @@ if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Unknown: %s\n' "$NAMES_UNKNOWN"; f
 if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy: %s\n' "$NAMES_OK"; fi
 printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
 printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
+if [ "$CHECK_CONFIG_AVAILABLE" -eq 1 ]; then
+    printf '  Check config: %s\n' "$(monitor_text_value "$CHECK_CONFIG")"
+else
+    printf '  Check config: %s (not present)\n' "$(monitor_text_value "$CHECK_CONFIG")"
+fi
+printf '  vnStat config for explicit MaxBandwidth fallback: %s\n' "$(monitor_text_value "$VNSTAT_CONFIG")"
 printf '  Effective include regex: %s\n' "$(monitor_text_value "${INCLUDE_REGEX:-none}")"
 printf '  Effective exclude regex: %s\n' "$(monitor_text_value "${EXCLUDE_REGEX:-none}")"
 printf '\n'

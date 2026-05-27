@@ -164,6 +164,7 @@ names alphabetically when reporting review decisions.
   assign it once to a clearly named variable and reuse that variable.
 - Use ERB templates through `template(...)`. This repository uses `templates/`
   plus ERB, not EPP.
+- When generated files differ only by a small optional scope, prefer one ERB template with clear conditional branches over multiple near-identical templates. Add a second template only when the generated formats or ownership boundaries are meaningfully different.
 - Use `files/` and `puppet:///modules/...` for static assets.
 - When validating file source URI schemes, include `puppet:///` wherever module
   files are valid input, not only `file:///` and HTTPS.
@@ -200,6 +201,7 @@ setting name unless backwards compatibility is explicitly required.
 
 Parameter ordering and formatting:
 
+- For groups of related Puppet parameters, start with the main topic and put the specific option after it in snake_case, for example `bandwidth_max`, `p95_warning`, and `p95_critical`. Avoid public class or defined-type parameter names that begin with a digit unless that exact syntax has been tested in the supported Puppet versions; prefer readable prefixes such as `p95_` for percentile-related settings.
 - In class and defined-type parameter lists, put mandatory parameters first and
   sort them alphabetically by parameter name.
 - Mandatory means the parameter is not typed as `Optional[...]` and has no
@@ -284,6 +286,7 @@ Shell conventions:
 - Use shell builtins such as `printf` directly.
 - Add short section comments and comments before non-obvious parsing, classification, status aggregation, and output-building blocks. Follow the density and placement used by comparable checks in this repository.
 - Do not add a monitoring-check configuration file or config parser unless the user explicitly asks for it or the existing module already has that pattern.
+- For each monitoring threshold or managed data value, choose one authoritative input path. Do not expose the same value through both CLI flags and a config file unless backwards compatibility is explicitly required; keep CLI flags for runtime filters or thresholds that are not yet managed by a config file.
 - When a monitoring check depends on managed daemon or application configuration, prefer the program's effective configuration output, such as `vnstat --showconfig`, over duplicate CLI flags, sysfs fallbacks, or parallel check-only configuration values.
 - Do not use temporary files or `TMPDIR` just to collect perfdata, long output, counters, or sort-order buffers. Prefer direct `printf` and shell variables; use `mktemp` only when an external command genuinely needs a file or the data is too large or unsafe to keep in variables.
 - Do not create shell variable assignments with literal blank lines embedded in quoted strings. Use `printf` formatting, explicit separators, or direct output instead.
@@ -307,6 +310,7 @@ Monitoring output conventions:
 - Emit one natural, operator-readable summary line plus optional perfdata or
   long output.
 - The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
+- When a check returns WARNING, CRITICAL, or UNKNOWN, include the primary interface, unit, resource, or object and the direct cause in the short output. Long output is for diagnosis and supporting detail, not for discovering the main reason the check failed.
 - Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
 - Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.

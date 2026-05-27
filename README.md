@@ -580,9 +580,15 @@ node 'webserver.dev.xxxx.nl' {
 
 ### VnStat
 
-vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een server zonder extra resources al breed netwerkverkeer registreert.
+vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een server zonder extra resources al breed netwerkverkeer registreert. De globale `bandwidth_max` is standaard `undef`; dan rendert de module geen `MaxBandwidth` en blijft vnStat afhankelijk van interface-specifieke waarden of eigen detectie. Zet je `bandwidth_max`, dan komt er een globale `MaxBandwidth` in `/etc/vnstat.conf`.
 
-Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de globale template thuishoren. De define schrijft een eigen concat-fragment naar dezelfde configuratie. Voor bekende interfaces kun je hiermee bijvoorbeeld `MaxBW<interface>` zetten op de echte technische snelheid van de interface. Dit is geen trafficbundel of alarmdrempel, maar een sanity-limit voor onrealistische tellerwaarden.
+Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de globale template thuishoren. De define schrijft alleen een `MaxBW<interface>`-fragment wanneer `bandwidth_max` op de define is gezet. Interface-specifieke `bandwidth_max`-waarden hebben voor vnStat en de monitoringcheck voorrang boven de globale `bandwidth_max`. De oude parameternaam `max_bandwidth` wordt niet meer gebruikt; gebruik voortaan `bandwidth_max`.
+
+De 95th percentile-drempels voor de monitoringcheck heten `p95_warning` en `p95_critical`. Op classniveau zijn ze globale defaults voor alle interfaces; op `vnstat::ethernet` overschrijven ze de classwaarden per interface. Beide waarden zijn standaard `undef`. Als na het combineren van interface- en classniveau geen drempel bestaat, slaat de check de 95th-thresholdcontrole voor die interface over zonder foutstatus.
+
+De checkconfiguratie staat in `/etc/vnstat-monitoring.conf` en is root-only (`0600`). Het formaat is bewust eenvoudig: `p95_warning <Mbit/s>`, `p95_critical <Mbit/s>`, `interface <naam> p95_warning <Mbit/s>` en `interface <naam> p95_critical <Mbit/s>`. Globale regels komen uit de `vnstat` class; interface-regels komen uit `vnstat::ethernet` en winnen van de globale defaults.
+
+Voor bandbreedte-afhankelijke berekeningen gebruikt `check_vnstat_interfaces` eerst `MaxBW<interface>` uit de effectieve vnStat-configuratie, daarna een strikt parsebare snelheid uit `vnstat --iflist`, en daarna alleen een expliciet gerenderde globale `MaxBandwidth` uit `/etc/vnstat.conf`. Als geen betrouwbare capaciteit beschikbaar is, wordt de capaciteitcontrole voor die interface overgeslagen en staat de reden in de long output. WARNING-, CRITICAL- en UNKNOWN-redenen staan ook direct in de korte output, zodat je niet eerst de long output hoeft te doorzoeken.
 
 #### Voorbeeld
 
@@ -590,15 +596,21 @@ Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar
 
 ```puppet
 node 'router.dev.xxxx.nl' {
-    class { 'vnstat': }
+    class { 'vnstat':
+        bandwidth_max => 1000,
+        p95_critical  => 900,
+        p95_warning   => 700,
+    }
 
     vnstat::ethernet { 'ens192':
-        max_bandwidth => 1000,
+        bandwidth_max => 1000,
     }
 
     vnstat::ethernet { 'wan-uplink':
+        bandwidth_max => 10000,
         interface     => 'ens224',
-        max_bandwidth => 10000,
+        p95_critical  => 8000,
+        p95_warning   => 6000,
     }
 }
 ```
@@ -607,6 +619,10 @@ Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig h
 
 ## Checks
 Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.
+
+De checks houden perfdata-labels bewust vrij van eenheden. Eenheden staan in de UOM van de perfdatawaarde, zoals `%`, `B`, `s` of `Mbps`, en long output wordt gesaneerd zodat ruwe `|`-tekens niet als extra perfdata-scheidingsteken worden geïnterpreteerd.
+
+Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de overschreden drempel. De long output blijft bedoeld voor diagnose en extra context.
 
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)

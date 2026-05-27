@@ -160,23 +160,28 @@ node 'rabbitmq.example.org' {
 
 node 'network-usage.example.org' {
   class { 'vnstat':
-    nice_level => 8,
-    target     => 'services',
+    bandwidth_max => 1000,
+    nice_level    => 8,
+    p95_critical  => 900,
+    p95_warning   => 700,
+    target        => 'services',
   }
 
   vnstat::ethernet { 'lan':
+    bandwidth_max => 1000,
     ensure        => present,
     interface     => 'ens192',
-    max_bandwidth => 1000,
     order         => '50',
     require       => Class['vnstat'],
   }
 
   vnstat::ethernet { 'wan':
+    bandwidth_max => 10000,
     ensure        => present,
     interface     => 'ens224',
-    max_bandwidth => 10000,
     order         => '60',
+    p95_critical  => 8000,
+    p95_warning   => 6000,
     require       => Class['vnstat'],
   }
 }
