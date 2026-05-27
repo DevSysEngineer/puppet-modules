@@ -631,6 +631,7 @@ Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste o
 - [check_compose](https://github.com/DevSysEngineer/puppet-modules/blob/main/docker/files/check_compose)
 - [check_eset](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_eset)
 - [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/templates/check_gitlab)
+- [check_memory_pressure](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_memory_pressure)
 - [check_mirth_connect](https://github.com/DevSysEngineer/puppet-modules/blob/main/openitcockpit/templates/agent/check_mirth_connect)
 - [check_mysql](https://github.com/DevSysEngineer/puppet-modules/blob/main/mysql/templates/check_mysql)
 - [check_nftables](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_nftables)

@@ -823,6 +823,14 @@ class basic_settings::kernel (
 
   # Setup monitoring
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+    # Register memory pressure monitoring next to kernel memory tuning.
+    basic_settings::monitoring_custom { 'memory_pressure':
+      friendly => 'Memory pressure',
+      source   => 'puppet:///modules/basic_settings/monitoring/check_memory_pressure',
+      timeout  => 60,
+    }
+
+    # Reegister USB monitoring
     basic_settings::monitoring_custom { 'usb':
       friendly => 'USB',
       content  => template('basic_settings/monitoring/check_usb'),

@@ -289,7 +289,7 @@ Shell conventions:
   in quotes. Keep normal quoting for arguments, data variables, tests, and
   assignments.
 - Use shell builtins such as `printf` directly.
-- Add short section comments and comments before non-obvious parsing, classification, status aggregation, and output-building blocks. Follow the density and placement used by comparable checks in this repository.
+- Add short section comments and comments before non-obvious parsing, classification, status aggregation, fallback handling, and output-building blocks. For new or materially changed shell scripts and shell templates, keep comment density comparable to the surrounding well-documented code: explain why major blocks exist, how fallbacks affect behavior, and where external contracts are preserved.
 - Do not add a monitoring-check configuration file or config parser unless the user explicitly asks for it or the existing module already has that pattern.
 - For each monitoring threshold or managed data value, choose one authoritative input path. Do not expose the same value through both CLI flags and a config file unless backwards compatibility is explicitly required; keep CLI flags for runtime filters or thresholds that are not yet managed by a config file.
 - When a monitoring check depends on managed daemon or application configuration, prefer the program's effective configuration output, such as `vnstat --showconfig`, over duplicate CLI flags, sysfs fallbacks, or parallel check-only configuration values.
@@ -361,6 +361,7 @@ Puppet libraries.
 - Put expanded usage variants in the `examples/` directory rather than making README module sections deeply nested. When a user-facing option set grows, add or update a focused example file and link it from the README.
 - Keep a bottom-level README `## Voorbeelden` link list, similar in spirit to `## Checks`, so users can find richer example files without turning each module section into full reference documentation.
 - Do not hard-wrap prose in any Markdown file (`*.md`), including `README.md` and `AGENTS.md`. Keep normal paragraphs and prose list items on one physical line unless Markdown syntax, tables, or code blocks require line breaks.
+- Do not hard-wrap code comments, Puppet Strings text, generated config comments, or inline documentation at an arbitrary character count. Keep a comment sentence on one physical line unless the file format, syntax, or actual readability of a complex list requires a deliberate line break.
 - When modifying existing code, check whether nearby comments or documentation
   are missing, outdated, duplicated, unclear, or no longer aligned with the
   implementation.
