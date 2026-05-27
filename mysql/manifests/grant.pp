@@ -28,7 +28,9 @@
 #   MySQL host part for the account. The default is `localhost`.
 #
 # @param privileges
-#   Privilege list to grant or revoke. The default is `['ALL PRIVILEGES']`.
+#   Privilege list to grant or revoke. The list is sorted before comparison so
+#   privilege order does not affect idempotency. The default is
+#   `['ALL PRIVILEGES']`.
 #
 # @param table
 #   Table scope for the privilege. The default is `*`.
@@ -49,8 +51,8 @@ define mysql::grant (
       require => [Service[$mysql::package_name], File[$mysql::script_path]],
     }
 
-    # Set some settings
-    $priv_str = join($privileges, ', ')
+    # Normalize the requested privileges before the grant helper compares them.
+    $priv_str = join(sort($privileges), ', ')
     $grant_option_num = $grant_option ? { true => '1', default => '0' }
 
     # Escape grant wrapper arguments before building exec commands and guards.
@@ -66,7 +68,7 @@ define mysql::grant (
       if ($database != '*') {
         $check_all_priv = $priv_str
       } else {
-        $check_all_priv = 'SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, SHUTDOWN, PROCESS, FILE, REFERENCES, INDEX, ALTER, SHOW DATABASES, SUPER, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER, CREATE TABLESPACE, CREATE ROLE, DROP ROLE' #lint:ignore:140chars
+        $check_all_priv = 'ALTER, ALTER ROUTINE, CREATE, CREATE ROLE, CREATE ROUTINE, CREATE TABLESPACE, CREATE TEMPORARY TABLES, CREATE USER, CREATE VIEW, DELETE, DROP, DROP ROLE, EVENT, EXECUTE, FILE, INDEX, INSERT, LOCK TABLES, PROCESS, REFERENCES, RELOAD, REPLICATION CLIENT, REPLICATION SLAVE, SELECT, SHOW DATABASES, SHOW VIEW, SHUTDOWN, SUPER, TRIGGER, UPDATE' #lint:ignore:140chars
       }
 
       # Escape version-specific privilege strings before building wrapper arguments.
