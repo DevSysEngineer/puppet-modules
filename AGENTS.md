@@ -315,6 +315,7 @@ Monitoring output conventions:
 - Emit one natural, operator-readable summary line plus optional perfdata or
   long output.
 - The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
+- Do not prepend or label short-output cause lists with Nagios state names such as `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`. The short output should name the checked object and direct cause, while the exit code carries the machine state.
 - When a check returns WARNING, CRITICAL, or UNKNOWN, include the primary interface, unit, resource, or object and the direct cause in the short output. Long output is for diagnosis and supporting detail, not for discovering the main reason the check failed.
 - Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
 - Do not embed perfdata-style `key=value` fragments in the summary text.

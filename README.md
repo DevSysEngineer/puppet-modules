@@ -624,7 +624,7 @@ Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschille
 
 De checks houden perfdata-labels bewust vrij van eenheden. Eenheden staan in de UOM van de perfdatawaarde, zoals `%`, `B`, `s` of `Mbps`, en long output wordt gesaneerd zodat ruwe `|`-tekens niet als extra perfdata-scheidingsteken worden geïnterpreteerd.
 
-Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de overschreden drempel. De long output blijft bedoeld voor diagnose en extra context.
+Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de overschreden drempel. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken; de exitcode draagt de machinestatus. De long output blijft bedoeld voor diagnose en extra context.
 
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)

@@ -1107,7 +1107,7 @@ else
     SUMMARY_SEPARATOR=' '
     if [ "$CRITICAL_COUNT" -gt 0 ]; then
         if [ -n "$SUMMARY_CRITICAL" ]; then
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}CRITICAL ${SUMMARY_CRITICAL}"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_CRITICAL}"
         else
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} critical"
         fi
@@ -1115,7 +1115,7 @@ else
     fi
     if [ "$WARNING_COUNT" -gt 0 ]; then
         if [ -n "$SUMMARY_WARNING" ]; then
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}WARNING ${SUMMARY_WARNING}"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_WARNING}"
         else
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} warning"
         fi
@@ -1123,7 +1123,7 @@ else
     fi
     if [ "$UNKNOWN_COUNT" -gt 0 ]; then
         if [ -n "$SUMMARY_UNKNOWN" ]; then
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}UNKNOWN ${SUMMARY_UNKNOWN}"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_UNKNOWN}"
         else
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} unknown"
         fi
