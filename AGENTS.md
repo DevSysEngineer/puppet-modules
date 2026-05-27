@@ -222,11 +222,16 @@ Control flow and resource structure:
   precomputed `undef` values over duplicated resource blocks. Use this only when
   mutually exclusive attributes such as `source` and `content` cannot both be
   non-`undef`.
+- When several optional resources share the same outer guard, such as `ensure == present`, put that guard around the group and keep resource-specific checks inside it instead of repeating the same conjunction on every resource.
 - For guard-style control flow, including public input validation and source URI checks, keep the main resource path inside the positive condition branch and put exceptional `fail(...)`, `warning(...)`, or fallback handling in the `else` branch. Do not write a negative guard immediately followed by the main code path when the positive branch is easier to read.
+- For optional feature validation, compute a short failure value such as `$threshold_fail_text` or `undef`, then keep the resource-emitting path under `if ($threshold_fail_text == undef)` and call `fail($threshold_fail_text)` in the `else`. This keeps validation close to the generated output it protects and avoids failing before unrelated resources are declared.
+- Validate optional settings only when that optional feature is actually being emitted or inherited into generated output. Do not reject unset optional values, and do not validate a feature in a top-level guard when the relevant resource block may not be created.
 - Add short comments above non-obvious resource groups, `exec` resources, and
   security-sensitive branches. Comments must explain the decision, not restate
   the syntax.
 - For new or materially changed Puppet manifests, add orienting comments at the same density as the surrounding well-documented code: comment parent-class guards, derived values, conditional directive lists, delegated resources, cleanup paths, and security-sensitive decisions such as TLS, credentials, permissions, and public exposure. Do not leave newly introduced helper or wrapper code as a long sequence of assignments and resources without comments that explain why each logical block exists.
+- When resolving inherited or defaulted values, use clearly named `*_correct` variables in the manifest and have templates emit those resolved values. Templates may still use raw parameters to decide whether a local override line should exist, but the value written should come from the resolved variable when inheritance can affect it.
+- Keep monitoring-specific configuration resources near the monitoring section of a manifest, rather than mixed into the primary daemon configuration block, unless the file is part of the daemon's own runtime configuration.
 - Before finishing a Puppet change, review the diff for uncommented non-obvious blocks. If the user would need to add comments afterward to understand the flow, add those comments before final validation.
 - When combining arrays in Puppet code, use stdlib's `concat(...)` helper instead of the `+` operator. Keep a short comment when the ordering affects generated configuration, such as Nginx directive order.
 

@@ -42,15 +42,17 @@ class vnstat (
   Optional[Integer[1]]       $p95_warning    = undef,
   String                     $target         = 'services',
 ) {
-  # Keep generated monitoring configuration valid before the check consumes it.
-  if ($p95_warning != undef and $p95_critical != undef and $p95_critical < $p95_warning) {
-    fail('vnstat p95_critical must be greater than or equal to p95_warning.')
-  }
-
   # Install vnstat
   package { 'vnstat':
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
+  }
+
+  # Keep generated monitoring configuration valid before the check consumes it.
+  if ($p95_warning != undef and $p95_critical != undef and $p95_critical < $p95_warning) {
+    $fail_text = 'vnstat p95_critical must be greater than or equal to p95_warning.'
+  } else {
+    $fail_text = undef
   }
 
   # Check if we have systemd
@@ -123,19 +125,6 @@ class vnstat (
     order   => '10',
   }
 
-  # Store monitoring-only defaults separately so vnStat receives only native directives.
-  concat { '/etc/vnstat-monitoring.conf':
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    require => Package['vnstat'],
-  }
-  concat::fragment { 'vnstat_monitoring_config_default':
-    target  => '/etc/vnstat-monitoring.conf',
-    content => template('vnstat/monitoring.conf'),
-    order   => '10',
-  }
-
   # Check if logrotate package exists
   if (defined(Package['logrotate'])) {
     basic_settings::io_logrotate { 'vnstat':
@@ -146,6 +135,25 @@ class vnstat (
       create_user    => 'vnstat',
       rotate_copy    => true,
     }
+  }
+
+  # Create monitoring configuration from the default template and optional fragments.
+  concat { '/etc/vnstat-monitoring.conf':
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => Package['vnstat'],
+  }
+
+  # Store monitoring-only defaults separately so vnStat receives only native directives.
+  if ($fail_text == undef) {
+    concat::fragment { 'vnstat_monitoring_config_default':
+      target  => '/etc/vnstat-monitoring.conf',
+      content => template('vnstat/monitoring.conf'),
+      order   => '10',
+    }
+  } else {
+    fail($fail_text)
   }
 
   # Create service check

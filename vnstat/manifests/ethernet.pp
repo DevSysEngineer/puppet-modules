@@ -53,21 +53,22 @@ define vnstat::ethernet (
 
     # The monitoring config is whitespace-delimited, so interface names must stay single-token.
     if ($interface_correct !~ /\s/) {
+      # Check if warning threshold is undefined
       if ($p95_warning == undef) {
         $p95_warning_correct = $vnstat::p95_warning
       } else {
         $p95_warning_correct = $p95_warning
       }
 
+      # Check if critical threshold is undefined
       if ($p95_critical == undef) {
         $p95_critical_correct = $vnstat::p95_critical
       } else {
         $p95_critical_correct = $p95_critical
       }
 
-      # Validate the effective thresholds that the monitoring check will apply.
-      if ($p95_warning_correct == undef or $p95_critical_correct == undef or $p95_critical_correct >= $p95_warning_correct) {
-        if ($ensure == present and $bandwidth_max != undef) {
+      if ($ensure == present) {
+        if ($bandwidth_max != undef) {
           concat::fragment { "vnstat_ethernet_${name}":
             target  => '/etc/vnstat.conf',
             content => template('vnstat/ethernet.conf'),
@@ -76,16 +77,26 @@ define vnstat::ethernet (
           }
         }
 
-        if ($ensure == present and ($p95_warning != undef or $p95_critical != undef)) {
-          concat::fragment { "vnstat_monitoring_ethernet_${name}":
-            target  => '/etc/vnstat-monitoring.conf',
-            content => template('vnstat/monitoring.conf'),
-            order   => $order,
-            require => Concat['/etc/vnstat-monitoring.conf'],
+        if ($p95_warning_correct != undef or $p95_critical_correct != undef) {
+          # Keep generated monitoring configuration valid before the check consumes it.
+          if ($p95_warning_correct != undef and $p95_critical_correct != undef and $p95_critical_correct < $p95_warning_correct) {
+            $fail_text = 'vnstat p95_critical must be greater than or equal to p95_warning.'
+          } else {
+            $fail_text = undef
+          }
+
+          # Create monitoring configuration from the default template and optional fragments.
+          if ($fail_text == undef) {
+            concat::fragment { "vnstat_monitoring_ethernet_${name}":
+              target  => '/etc/vnstat-monitoring.conf',
+              content => template('vnstat/monitoring.conf'),
+              order   => $order,
+              require => Concat['/etc/vnstat-monitoring.conf'],
+            }
+          } else {
+            fail($fail_text)
           }
         }
-      } else {
-        fail("vnstat::ethernet[${name}] effective p95_critical must be greater than or equal to p95_warning.")
       }
     } else {
       fail("vnstat::ethernet[${name}] interface names must not contain whitespace.")
