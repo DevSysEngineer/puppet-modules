@@ -22,6 +22,21 @@ STATE_CODE=0
 MSG=""
 PERF=""
 
+# Nagios treats raw pipes after the first output line as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# GitLab group paths may contain characters that are not safe in perfdata labels.
+sanitize_label() {
+    label=$(printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g; s/^_//; s/_$//')
+    if [ -n "$label" ]; then
+        printf '%s' "$label"
+    else
+        printf '%s' 'unknown'
+    fi
+}
+
 # Services
 SVC_RAW=$($GITLAB_CTL status 2>&1)
 DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
@@ -76,11 +91,9 @@ GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); p
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     MB=$(( B / 1048576 ))
-    SAFE=$(printf '%s' "$N" | $SED "s/'/''/g")
+    SAFE=$(sanitize_label "$N")
 
-    # Quote label if contains whitespace
-    case $SAFE in *[[:space:]]*) SAFE="'$SAFE'";; esac
-    PERF="${PERF} ${SAFE}=${MB}MB;;;0;"
+    PERF="${PERF} group_${SAFE}=${MB}MB;;;0;"
 done <<EOF
 $GROUPS
 EOF
@@ -124,8 +137,12 @@ fi
 
 # Parse output
 [ -z "$MSG" ] && MSG="GitLab is running"
-[ -n "$PERF" ] && OUT="$MSG |$PERF" || OUT="$MSG"
+PERF=${PERF# }
 
 # Show result
-printf '%s\n' "$OUT"
-exit $STATE_CODE
+if [ -n "$PERF" ]; then
+    printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
+else
+    printf '%s\n' "$(monitor_text_value "$MSG")"
+fi
+exit "$STATE_CODE"

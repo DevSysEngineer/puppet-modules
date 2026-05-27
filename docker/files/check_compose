@@ -102,7 +102,7 @@ is_number() {
 
 # Return the first useful line from command output.
 first_line() {
-    printf '%s\n' "$1" | "$SED" -n '
+    printf '%s\n' "$1" | $SED -n '
         s/[[:space:]]\+$//
         /^[[:space:]]*$/d
         p
@@ -209,7 +209,7 @@ count_csv() {
 
 # Sanitize arbitrary text into a stable state filename fragment.
 sanitize_label() {
-    printf '%s' "$1" | "$TR" -c 'A-Za-z0-9_.-' '_'
+    printf '%s' "$1" | $TR -c 'A-Za-z0-9_.-' '_'
 }
 
 # Append one line to the long output buffer.
@@ -223,7 +223,7 @@ append_long() {
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
-    printf '%s\n' "$1" | "$SED" 's/|/[or]/g'
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Append a pre-rendered buffer that already uses LONG_OUTPUT_SEP.
@@ -255,7 +255,7 @@ append_container_detail() {
 emit_check() {
     printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
-        "$AWK" -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
             BEGIN {
                 count = split(data, lines, sep)
                 for (i = 1; i <= count; i++) {
@@ -275,7 +275,7 @@ timestamp_age() {
         ''|0001-01-01*) printf '%s\n' U; return ;;
     esac
 
-    timestamp_epoch=$("$DATE" -d "$timestamp_text" +%s 2>/dev/null) || {
+    timestamp_epoch=$($DATE -d "$timestamp_text" +%s 2>/dev/null) || {
         printf '%s\n' U
         return
     }
@@ -288,7 +288,7 @@ timestamp_age() {
 # Read the previous restart count for one container name.
 previous_restart_count() {
     [ -r "$STATE_FILE" ] || return 1
-    "$AWK" -F'|' -v name="$1" '$1 == name { print $2; exit }' "$STATE_FILE"
+    $AWK -F'|' -v name="$1" '$1 == name { print $2; exit }' "$STATE_FILE"
 }
 
 # Run `docker compose config --services` with the configured identity.
@@ -313,7 +313,7 @@ compose_config_services() {
     IFS=$old_ifs
 
     set -- "$@" config --services
-    "$DOCKER" "$@"
+    $DOCKER "$@"
 }
 
 # Run `docker compose ps` and include non-running and orphan containers.
@@ -338,7 +338,7 @@ compose_ps_json() {
     IFS=$old_ifs
 
     set -- "$@" ps --all --format json --orphans
-    "$DOCKER" "$@"
+    $DOCKER "$@"
 }
 
 # Inspect the containers returned by Compose.
@@ -347,7 +347,7 @@ docker_inspect_containers() {
     for container_id in $CONTAINER_IDS; do
         set -- "$@" "$container_id"
     done
-    "$DOCKER" "$@"
+    $DOCKER "$@"
 }
 
 # Validate options before Docker is contacted.
@@ -379,7 +379,7 @@ if [ -z "$CHECK_NAME" ]; then
     if [ -n "$PROJECT_NAME" ]; then
         CHECK_NAME=$PROJECT_NAME
     else
-        CHECK_NAME=$("$BASENAME" "$PROJECT_DIRECTORY")
+        CHECK_NAME=$($BASENAME "$PROJECT_DIRECTORY")
     fi
 fi
 
@@ -388,11 +388,11 @@ PROJECT_KEY=$(sanitize_label "$CHECK_NAME")
 STATE_FILE="${STATE_DIR}/docker_compose_${PROJECT_KEY}.state"
 OLD_UMASK=$(umask)
 umask 077
-"$MKDIR" -p "$STATE_DIR" 2>/dev/null || {
+$MKDIR -p "$STATE_DIR" 2>/dev/null || {
     umask "$OLD_UMASK"
     die "state directory ${STATE_DIR} could not be created"
 }
-STATE_TMP=$("$MKTEMP" "${STATE_DIR}/docker_compose_${PROJECT_KEY}.XXXXXX") || {
+STATE_TMP=$($MKTEMP "${STATE_DIR}/docker_compose_${PROJECT_KEY}.XXXXXX") || {
     umask "$OLD_UMASK"
     die "state file could not be created"
 }
@@ -404,7 +404,7 @@ CONFIG_OUTPUT=$(compose_config_services 2>&1)
 CONFIG_RC=$?
 [ "$CONFIG_RC" -eq 0 ] || die "$CHECK_NAME: compose config failed: $(first_line "$CONFIG_OUTPUT")"
 
-EXPECTED_SERVICES=$(printf '%s\n' "$CONFIG_OUTPUT" | "$SED" '/^[[:space:]]*$/d')
+EXPECTED_SERVICES=$(printf '%s\n' "$CONFIG_OUTPUT" | $SED '/^[[:space:]]*$/d')
 while IFS= read -r service_name; do
     [ -n "$service_name" ] || continue
     EXPECTED_LIST=$(append_csv_unique "$EXPECTED_LIST" "$service_name")
@@ -420,7 +420,7 @@ PS_JSON=$(compose_ps_json 2>&1)
 PS_RC=$?
 [ "$PS_RC" -eq 0 ] || die "$CHECK_NAME: compose ps failed: $(first_line "$PS_JSON")"
 
-PS_TSV=$(printf '%s' "$PS_JSON" | "$JQ" -r '
+PS_TSV=$(printf '%s' "$PS_JSON" | $JQ -r '
     def rows:
         if type == "array" then .[]
         elif type == "object" then .
@@ -455,7 +455,7 @@ if [ -n "$CONTAINER_IDS" ]; then
     INSPECT_RC=$?
     [ "$INSPECT_RC" -eq 0 ] || die "$CHECK_NAME: docker inspect failed: $(first_line "$INSPECT_JSON")"
 
-    INSPECT_TSV=$(printf '%s' "$INSPECT_JSON" | "$JQ" -r '
+    INSPECT_TSV=$(printf '%s' "$INSPECT_JSON" | $JQ -r '
         .[]
         | [
             ((.Id // "")[0:12]),
@@ -478,7 +478,7 @@ else
     INSPECT_TSV=""
 fi
 
-NOW_EPOCH=$("$DATE" +%s)
+NOW_EPOCH=$($DATE +%s)
 
 while IFS='	' read -r container_id container_name service_name image_name restart_count created_at state_status health_status exit_code started_at health_output; do
     [ -n "$container_id$container_name" ] || continue
@@ -590,7 +590,7 @@ done <<EOF
 $INSPECT_TSV
 EOF
 
-"$MV" "$STATE_TMP" "$STATE_FILE" 2>/dev/null || die "$CHECK_NAME: state file could not be updated"
+$MV "$STATE_TMP" "$STATE_FILE" 2>/dev/null || die "$CHECK_NAME: state file could not be updated"
 STATE_TMP=""
 
 old_ifs=$IFS

@@ -47,7 +47,7 @@ done
 # Read the first useful diagnostic line and ignore npm notice noise.
 first_line() {
     [ -n "$1" ] || return 1
-    LINE=$(printf '%s\n' "$1" | "$SED" -n '
+    LINE=$(printf '%s\n' "$1" | $SED -n '
         s/[[:space:]]\+$//
         /^[[:space:]]*$/d
         /^npm notice\( \|$\)/d
@@ -62,21 +62,21 @@ first_line() {
 normalize_audit_json() {
     [ -n "$1" ] || return 1
 
-    printf '%s' "$1" | "$JQ" -e . >/dev/null 2>&1 && {
+    printf '%s' "$1" | $JQ -e . >/dev/null 2>&1 && {
         printf '%s' "$1"
         return 0
     }
 
-    NORMALIZED=$(printf '%s\n' "$1" | "$SED" -n '/^[[:space:]]*[{[]/,$p' 2>/dev/null)
+    NORMALIZED=$(printf '%s\n' "$1" | $SED -n '/^[[:space:]]*[{[]/,$p' 2>/dev/null)
     [ -n "$NORMALIZED" ] || return 1
 
-    printf '%s' "$NORMALIZED" | "$JQ" -e . >/dev/null 2>&1 || return 1
+    printf '%s' "$NORMALIZED" | $JQ -e . >/dev/null 2>&1 || return 1
     printf '%s' "$NORMALIZED"
 }
 
 # Prefer a compact message from JSON, stderr or jq parse errors.
 report_error() {
-    LINE=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r '.error.summary // .error.message // .message // empty' 2>/dev/null | "$SED" -n '1{s/[[:space:]]\+$//;p;q;}')
+    LINE=$(printf '%s' "$AUDIT_JSON" | $JQ -r '.error.summary // .error.message // .message // empty' 2>/dev/null | $SED -n '1{s/[[:space:]]\+$//;p;q;}')
     if [ -n "$LINE" ]; then
         printf '%s' "$LINE"
         return 0
@@ -94,14 +94,14 @@ report_error() {
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
-    printf '%s\n' "$1" | "$SED" 's/|/[or]/g'
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Run jq while capturing both stdout and stderr for later reporting.
 run_jq() {
     JQ_PAYLOAD=$(
         {
-            JQ_ERROR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -r "$1" 2>&1 1>&3)
+            JQ_ERROR=$(printf '%s' "$AUDIT_JSON" | $JQ -r "$1" 2>&1 1>&3)
             JQ_STATUS=$?
             printf '%s%s%s%s' "$SEP_STATUS" "$JQ_STATUS" "$SEP_ERR" "$JQ_ERROR"
         } 3>&1
@@ -127,7 +127,7 @@ run_jq() {
 
 # Check if check name is not provided
 if [ -z "$CHECK_NAME" ]; then
-    CHECK_NAME=$("$BASENAME" "$CHECK_DIR")
+    CHECK_NAME=$($BASENAME "$CHECK_DIR")
 fi
 
 # Check if this looks like a Node.js project
@@ -137,7 +137,7 @@ fi
 cd "$CHECK_DIR" || die "$CHECK_NAME: unable to cd to '$CHECK_DIR'"
 AUDIT_PAYLOAD=$(
     {
-        AUDIT_ERR=$("$NPM" audit --json 2>&1 1>&3)
+        AUDIT_ERR=$($NPM audit --json 2>&1 1>&3)
         AUDIT_EXIT=$?
         printf '%s%s%s%s' "$SEP_STATUS" "$AUDIT_EXIT" "$SEP_ERR" "$AUDIT_ERR"
     } 3>&1
@@ -159,7 +159,7 @@ esac
 NORMALIZED_JSON=$(normalize_audit_json "$AUDIT_JSON") && AUDIT_JSON=$NORMALIZED_JSON
 
 # npm audit may return non-zero on findings; only invalid JSON should become UNKNOWN
-PARSE_ERR=$(printf '%s' "$AUDIT_JSON" | "$JQ" -e . 2>&1 >/dev/null)
+PARSE_ERR=$(printf '%s' "$AUDIT_JSON" | $JQ -e . 2>&1 >/dev/null)
 [ $? -eq 0 ] || die "$CHECK_NAME: $(report_error)"
 
 # Reject responses that do not expose the expected audit metadata
@@ -387,7 +387,7 @@ run_jq '
 DETAILS=$JQ_OUTPUT
 
 # Keep the long output bounded and say explicitly when it was truncated.
-DETAIL_LINES=$(printf '%s\n' "$DETAILS" | "$SED" '/^$/d' | "$SED" -n '$=')
+DETAIL_LINES=$(printf '%s\n' "$DETAILS" | $SED '/^$/d' | $SED -n '$=')
 case "$DETAIL_LINES" in
     ''|*[!0-9]*) DETAIL_LINES=0 ;;
 esac
@@ -396,7 +396,7 @@ if [ "$DETAIL_LINES" -gt "$DETAIL_LIMIT" ]; then
     DETAILS=$(
         {
             printf '%s\n' "- Showing first ${DETAIL_LIMIT} vulnerable package lines"
-            printf '%s\n' "$DETAILS" | "$SED" -n "1,${DETAIL_LIMIT}p"
+            printf '%s\n' "$DETAILS" | $SED -n "1,${DETAIL_LIMIT}p"
             printf '%s\n' "[truncated after ${DETAIL_LIMIT} lines]"
         }
     )

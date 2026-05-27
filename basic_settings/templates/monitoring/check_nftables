@@ -20,12 +20,19 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 BL_ITEMS=0
 CHAIN_EMPTY=""
 FILTER_SECTION_COUNT=0
+FILTER_ITEMS_LIMIT=${FILTER_ITEMS_LIMIT:-50}
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_NFT_NL__"
 PERFDATA_BUFFER=""
 TABLE_COUNT=0
 TABLE_EMPTY=""
 TOTAL_RULES=0
+
+# Keep potentially large blacklist sections bounded while preserving the summary count.
+case "$FILTER_ITEMS_LIMIT" in
+    ''|*[!0-9]*) FILTER_ITEMS_LIMIT=50 ;;
+esac
+[ "$FILTER_ITEMS_LIMIT" -ge 1 ] || FILTER_ITEMS_LIMIT=50
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
@@ -52,7 +59,7 @@ append_long() {
 emit_check() {
     printf '%s | %s\n' "$1" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
-        "$AWK" -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
             BEGIN {
                 count = split(data, lines, sep)
                 for (i = 1; i <= count; i++) {
@@ -135,9 +142,15 @@ append_filter_section() {
     IFS=','
     set -- $items_csv
     IFS=$old_ifs
+    shown_count=0
     for item do
+        shown_count=$((shown_count + 1))
+        [ "$shown_count" -le "$FILTER_ITEMS_LIMIT" ] || continue
         append_long "- $item"
     done
+    if [ "$item_count" -gt "$FILTER_ITEMS_LIMIT" ]; then
+        append_long "... truncated to ${FILTER_ITEMS_LIMIT} of ${item_count} addresses"
+    fi
 }
 
 <% if @systemd_enable -%>

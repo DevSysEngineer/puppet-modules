@@ -34,7 +34,7 @@ LAST_SCAN_SECS=0
 LSLOG=/opt/eset/efs/bin/lslog
 LONG_OUTPUT=""
 NOW_EPOCH=$($DATE +%s)
-SCAN_HISTORY_LIMIT=5
+SCAN_HISTORY_LIMIT=${SCAN_HISTORY_LIMIT:-5}
 STATE_CODE=0
 UPDATE_AGE_MIN=999999
 UPD=/opt/eset/efs/bin/upd
@@ -225,8 +225,8 @@ fi
 
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
 [ "$LAST_SCAN_AGE" -ge "$WARN_NO_SCAN_DAYS" ] && [ "$LAST_SCAN_AGE" -lt "$CRIT_NO_SCAN_DAYS" ] && add_warn "no scan ${LAST_SCAN_AGE}d"
-[ "$LAST_DET" -gt 0 ] && add_crit "scan det=$LAST_DET"
-[ "$LAST_CLEAN" -gt 0 ] && [ "$LAST_DET" -eq 0 ] && add_warn "scan cleaned=$LAST_CLEAN"
+[ "$LAST_DET" -gt 0 ] && add_crit "scan detections $LAST_DET"
+[ "$LAST_CLEAN" -gt 0 ] && [ "$LAST_DET" -eq 0 ] && add_warn "scan cleaned files $LAST_CLEAN"
 
 # Cumulative detections
 DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{print $1}')
@@ -254,8 +254,8 @@ fi
 [ -z "$CRIT_MSG" ] && [ -n "$WARN_MSG" ] && STATE_CODE=1;
 
 # Create message
-[ -n "$CRIT_MSG" ] && MSG="$MSG; Critical(s): $CRIT_MSG"
-[ -n "$WARN_MSG" ] && MSG="$MSG; Warning(s): $WARN_MSG"
+[ -n "$CRIT_MSG" ] && MSG="$MSG; issues: $CRIT_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; attention: $WARN_MSG"
 
 # Create perf data
 UPDATE_AGE_SECONDS=$(( UPDATE_AGE_MIN * 60 ))

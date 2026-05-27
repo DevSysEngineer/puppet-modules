@@ -326,7 +326,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
 
     # Safe serial read (strip CR if present)
     if [ -f "$DEVPATH/serial" ]; then
-        SERIAL=$(tr -d '\r' < "$DEVPATH/serial" 2>/dev/null)
+        SERIAL=$($TR -d '\r' < "$DEVPATH/serial" 2>/dev/null)
     else
         SERIAL=""
     fi
@@ -446,7 +446,7 @@ for EXP in $EXPECTED_SERIALS_ACTIVE; do
     for DEVPATH in /sys/bus/usb/devices/*; do
         [ -f "$DEVPATH/idVendor" ] || continue
         [ "$($CAT "$DEVPATH/idVendor" 2>/dev/null | $TR 'A-F' 'a-f')" = "1d6b" ] && continue
-        SERIAL=$(tr -d '\r' < "$DEVPATH/serial" 2>/dev/null)
+        SERIAL=$($TR -d '\r' < "$DEVPATH/serial" 2>/dev/null)
         [ -n "$SERIAL" ] && [ "$SERIAL" = "$EXP" ] && FOUND=1 && break
     done
     [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"

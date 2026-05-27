@@ -590,7 +590,7 @@ De checkconfiguratie staat in `/etc/vnstat-monitoring.conf` en is root-only (`06
 
 Voor bandbreedte-afhankelijke berekeningen gebruikt `check_vnstat_interfaces` eerst `MaxBW<interface>` uit de effectieve vnStat-configuratie, daarna een strikt parsebare snelheid uit `vnstat --iflist`, en daarna een positieve globale `MaxBandwidth` uit `/etc/vnstat.conf`. De standaard `MaxBandwidth 0` betekent bewust geen globale capaciteit. Als geen betrouwbare positieve capaciteit beschikbaar is, wordt de capaciteitcontrole voor die interface overgeslagen en staat de reden in de long output. WARNING-, CRITICAL- en UNKNOWN-redenen staan ook direct in de korte output, zodat je niet eerst de long output hoeft te doorzoeken.
 
-De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over.
+De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `--detail-limit <aantal>` kun je het aantal interfaceblokken in de long output begrenzen; de korte output en perfdata blijven volledig.
 
 #### Voorbeeld
 
@@ -630,7 +630,7 @@ Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste o
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)
 - [check_compose](https://github.com/DevSysEngineer/puppet-modules/blob/main/docker/files/check_compose)
 - [check_eset](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_eset)
-- [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/templates/check_gitlab)
+- [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/files/check_gitlab)
 - [check_memory_pressure](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_memory_pressure)
 - [check_mirth_connect](https://github.com/DevSysEngineer/puppet-modules/blob/main/openitcockpit/templates/agent/check_mirth_connect)
 - [check_mysql](https://github.com/DevSysEngineer/puppet-modules/blob/main/mysql/templates/check_mysql)

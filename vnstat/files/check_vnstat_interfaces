@@ -58,6 +58,7 @@ GROWTH_MONTH_WARNING_PERCENT='25'
 GROWTH_MONTH_CRITICAL_PERCENT='50'
 LAST_UPDATE_WARNING_SECONDS='900'
 LAST_UPDATE_CRITICAL_SECONDS='1800'
+DETAIL_LIMIT='20'
 
 # Runtime state collected while all interfaces are evaluated.
 CHECK_CONFIG_AVAILABLE=0
@@ -82,6 +83,8 @@ LONG_CRITICAL=''
 LONG_WARNING=''
 LONG_UNKNOWN=''
 LONG_OK=''
+LONG_DETAIL_COUNT=0
+LONG_DETAIL_TRUNCATED=0
 SUMMARY_CRITICAL=''
 SUMMARY_WARNING=''
 SUMMARY_UNKNOWN=''
@@ -104,6 +107,7 @@ usage() {
     printf '%s\n' '  --growth-month-critical-percent <number>'
     printf '%s\n' '  --last-update-warning-seconds <number>'
     printf '%s\n' '  --last-update-critical-seconds <number>'
+    printf '%s\n' '  --detail-limit <interfaces>                 Maximum interface detail blocks in long output, default 20'
     printf '%s\n' '  --help'
 }
 
@@ -168,6 +172,11 @@ while [ "$#" -gt 0 ]; do
             need_arg "$1" "$@"
             shift
             LAST_UPDATE_CRITICAL_SECONDS=$1
+            ;;
+        --detail-limit)
+            need_arg "$1" "$@"
+            shift
+            DETAIL_LIMIT=$1
             ;;
         --help)
             usage
@@ -287,6 +296,34 @@ add_summary_issue() {
             fi
             ;;
     esac
+}
+
+# Keep interface long output bounded while preserving the full summary and perfdata.
+append_interface_block() {
+    _interface_state=$1
+    _interface_block=$2
+
+    if [ "$LONG_DETAIL_COUNT" -ge "$DETAIL_LIMIT" ]; then
+        LONG_DETAIL_TRUNCATED=$((LONG_DETAIL_TRUNCATED + 1))
+        return
+    fi
+
+    case "$_interface_state" in
+        CRITICAL)
+            if [ -n "$LONG_CRITICAL" ]; then LONG_CRITICAL=$(printf '%s\n\n%s' "$LONG_CRITICAL" "$_interface_block"); else LONG_CRITICAL=$_interface_block; fi
+            ;;
+        WARNING)
+            if [ -n "$LONG_WARNING" ]; then LONG_WARNING=$(printf '%s\n\n%s' "$LONG_WARNING" "$_interface_block"); else LONG_WARNING=$_interface_block; fi
+            ;;
+        UNKNOWN)
+            if [ -n "$LONG_UNKNOWN" ]; then LONG_UNKNOWN=$(printf '%s\n\n%s' "$LONG_UNKNOWN" "$_interface_block"); else LONG_UNKNOWN=$_interface_block; fi
+            ;;
+        *)
+            if [ -n "$LONG_OK" ]; then LONG_OK=$(printf '%s\n\n%s' "$LONG_OK" "$_interface_block"); else LONG_OK=$_interface_block; fi
+            ;;
+    esac
+
+    LONG_DETAIL_COUNT=$((LONG_DETAIL_COUNT + 1))
 }
 
 # Nagios metric labels cannot safely contain arbitrary interface characters.
@@ -631,10 +668,14 @@ validate_number "growth_month_warning_percent" "$GROWTH_MONTH_WARNING_PERCENT"
 validate_number "growth_month_critical_percent" "$GROWTH_MONTH_CRITICAL_PERCENT"
 validate_number "last_update_warning_seconds" "$LAST_UPDATE_WARNING_SECONDS"
 validate_number "last_update_critical_seconds" "$LAST_UPDATE_CRITICAL_SECONDS"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "invalid numeric value for detail_limit: $DETAIL_LIMIT" ;;
+esac
 validate_pair "capacity" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
 validate_pair "day growth" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
 validate_pair "month growth" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
 validate_pair "last update" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail_limit must be at least 1"
 
 validate_check_config
 
@@ -1075,22 +1116,22 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         CRITICAL)
             CRITICAL_COUNT=$((CRITICAL_COUNT + 1))
             if [ -z "$NAMES_CRITICAL" ]; then NAMES_CRITICAL=$IFACE_TEXT; else NAMES_CRITICAL="${NAMES_CRITICAL}, ${IFACE_TEXT}"; fi
-            if [ -n "$LONG_CRITICAL" ]; then LONG_CRITICAL=$(printf '%s\n\n%s' "$LONG_CRITICAL" "$INTERFACE_BLOCK"); else LONG_CRITICAL=$INTERFACE_BLOCK; fi
+            append_interface_block "$INTERFACE_STATE" "$INTERFACE_BLOCK"
             ;;
         WARNING)
             WARNING_COUNT=$((WARNING_COUNT + 1))
             if [ -z "$NAMES_WARNING" ]; then NAMES_WARNING=$IFACE_TEXT; else NAMES_WARNING="${NAMES_WARNING}, ${IFACE_TEXT}"; fi
-            if [ -n "$LONG_WARNING" ]; then LONG_WARNING=$(printf '%s\n\n%s' "$LONG_WARNING" "$INTERFACE_BLOCK"); else LONG_WARNING=$INTERFACE_BLOCK; fi
+            append_interface_block "$INTERFACE_STATE" "$INTERFACE_BLOCK"
             ;;
         UNKNOWN)
             UNKNOWN_COUNT=$((UNKNOWN_COUNT + 1))
             if [ -z "$NAMES_UNKNOWN" ]; then NAMES_UNKNOWN=$IFACE_TEXT; else NAMES_UNKNOWN="${NAMES_UNKNOWN}, ${IFACE_TEXT}"; fi
-            if [ -n "$LONG_UNKNOWN" ]; then LONG_UNKNOWN=$(printf '%s\n\n%s' "$LONG_UNKNOWN" "$INTERFACE_BLOCK"); else LONG_UNKNOWN=$INTERFACE_BLOCK; fi
+            append_interface_block "$INTERFACE_STATE" "$INTERFACE_BLOCK"
             ;;
         *)
             OK_COUNT=$((OK_COUNT + 1))
             if [ -z "$NAMES_OK" ]; then NAMES_OK=$IFACE_TEXT; else NAMES_OK="${NAMES_OK}, ${IFACE_TEXT}"; fi
-            if [ -n "$LONG_OK" ]; then LONG_OK=$(printf '%s\n\n%s' "$LONG_OK" "$INTERFACE_BLOCK"); else LONG_OK=$INTERFACE_BLOCK; fi
+            append_interface_block "$INTERFACE_STATE" "$INTERFACE_BLOCK"
             ;;
     esac
 
@@ -1141,6 +1182,10 @@ if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Unknown: %s\n' "$NAMES_UNKNOWN"; f
 if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy: %s\n' "$NAMES_OK"; fi
 printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
 printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
+printf '  Interface detail limit: %s\n' "$DETAIL_LIMIT"
+if [ "$LONG_DETAIL_TRUNCATED" -gt 0 ]; then
+    printf '  Interface detail output truncated: %s block(s) omitted after %s shown\n' "$LONG_DETAIL_TRUNCATED" "$LONG_DETAIL_COUNT"
+fi
 if [ "$CHECK_CONFIG_AVAILABLE" -eq 1 ]; then
     printf '  Check config: %s\n' "$(monitor_text_value "$CHECK_CONFIG")"
 else

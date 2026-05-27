@@ -452,7 +452,7 @@ elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && { [ "$SWAP_IN_KIB_PER_SEC" -gt "$SWAP_IO_
     # swap occupancy or MemAvailable percentages look severe.
     FINAL_STATE='CRITICAL'
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: swap I/O is critical at si=${SWAP_IN_KIB_PER_SEC} KiB/s, so=${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
+    SUMMARY="Memory pressure active: swap I/O is critical with swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
     DECISION="Active swap I/O is above the critical threshold, which is treated as immediate memory pressure."
 elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_CRITICAL_PERCENT" ]; then
     # High swap plus critically low MemAvailable is pressure even when the short
@@ -460,7 +460,7 @@ elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ] && [ "$MEM_AVAILABLE_
     FINAL_STATE='CRITICAL'
     EXIT_CODE=$STATE_CRITICAL
     if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-        SUMMARY="Memory pressure active: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; si=${SWAP_IN_KIB_PER_SEC} KiB/s, so=${SWAP_OUT_KIB_PER_SEC} KiB/s"
+        SUMMARY="Memory pressure active: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
     else
         SUMMARY="Memory pressure active: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; active swap I/O unavailable"
     fi
@@ -470,14 +470,14 @@ elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && { [ "$SWAP_IN_KIB_PER_SEC" -gt "$SWAP_IO_
     # host before it becomes sustained critical pressure.
     FINAL_STATE='WARNING'
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: active swap I/O observed at si=${SWAP_IN_KIB_PER_SEC} KiB/s, so=${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
+    SUMMARY="Memory pressure warning: active swap I/O observed with swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
     DECISION="Active swap I/O is above the warning threshold but below the critical threshold."
 elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_WARNING_PERCENT" ]; then
     # Occupied swap becomes actionable only when reclaim headroom is also small.
     FINAL_STATE='WARNING'
     EXIT_CODE=$STATE_WARNING
     if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-        SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; si=${SWAP_IN_KIB_PER_SEC} KiB/s, so=${SWAP_OUT_KIB_PER_SEC} KiB/s"
+        SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
     else
         SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; active swap I/O unavailable"
     fi
@@ -502,9 +502,9 @@ fi
 # Build perfdata with stable labels and UOMs. Labels intentionally avoid unit
 # suffixes so graph history stays stable if thresholds change.
 PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB;;;;"
-PERFDATA="${PERFDATA} memory_available_percent=${MEM_AVAILABLE_PERCENT}%;;;0;100"
+PERFDATA="${PERFDATA} memory_headroom=${MEM_AVAILABLE_PERCENT}%;;;0;100"
 PERFDATA="${PERFDATA} swap_used=${SWAP_USED_KIB}KB;;;;"
-PERFDATA="${PERFDATA} swap_used_percent=${SWAP_USED_PERCENT}%;${SWAP_WARNING_PERCENT};${SWAP_CRITICAL_PERCENT};0;100"
+PERFDATA="${PERFDATA} swap_utilization=${SWAP_USED_PERCENT}%;${SWAP_WARNING_PERCENT};${SWAP_CRITICAL_PERCENT};0;100"
 PERFDATA="${PERFDATA} swap_free=${SWAP_FREE_KIB}KB;;;;"
 PERFDATA="${PERFDATA} swap_in=${SWAP_IN_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB};;"
 PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB};;"
@@ -529,7 +529,7 @@ append_long "SReclaimable: ${SRECLAIMABLE_KIB} KiB"
 append_long "Shmem: ${SHMEM_KIB} KiB"
 append_long "Unevictable: ${UNEVICTABLE_KIB} KiB"
 if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-    append_long "Swap I/O: si=${SWAP_IN_KIB_PER_SEC} KiB/s, so=${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    append_long "Swap I/O: swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
 else
     append_long "Swap I/O: unavailable"
     append_long "Swap I/O note: ${SWAP_IO_NOTE}"

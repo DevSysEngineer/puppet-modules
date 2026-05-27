@@ -55,7 +55,7 @@ monitor_text_value() {
 
 # Keep only Puppet-tagged journal lines plus relevant systemd unit messages.
 filter_puppet_journal() {
-    printf '%s\n' "$1" | "$AWK" '
+    printf '%s\n' "$1" | $AWK '
         NF == 0 { next }
         {
             ident = $3
@@ -89,7 +89,7 @@ if [ -f "$LOCKFILE" ]; then
     # Try to extract the disabled message from the JSON lock file
     DISABLE_MSG=$($SED -n 's/.*"disabled_message"[[:space:]]*:[[:space:]]*"\(.*\)".*/\1/p' "$LOCKFILE")
     [ -z "$DISABLE_MSG" ] && DISABLE_MSG="no message"
-    printf 'Puppet FAILED (agent disabled: %s)\n' "$DISABLE_MSG"
+    printf 'Puppet agent disabled: %s\n' "$DISABLE_MSG"
     exit 2
 fi
 
@@ -104,7 +104,7 @@ if [ ! -f "$SUMMARY_FILE" ]; then
     fi
 fi
 if [ ! -f "$SUMMARY_FILE" ]; then
-    printf '%s\n' "Puppet UNKNOWN (summary file not found)"
+    printf '%s\n' "Puppet summary file not found"
     exit 3
 fi
 
@@ -186,12 +186,12 @@ fi
 <% if @systemd_enable -%>
 JOURNAL_RAW=$($JOURNALCTL -n "$LOG_SCAN_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
 JOURNAL_FILTERED=$(filter_puppet_journal "$JOURNAL_RAW")
-JOURNAL_FILTERED_COUNT=$(printf '%s\n' "$JOURNAL_FILTERED" | "$AWK" 'NF { count++ } END { print count + 0 }')
+JOURNAL_FILTERED_COUNT=$(printf '%s\n' "$JOURNAL_FILTERED" | $AWK 'NF { count++ } END { print count + 0 }')
 
 if [ "$JOURNAL_FILTERED_COUNT" -gt 0 ]; then
     JOURNAL_TRUNCATED=0
     if [ "$JOURNAL_FILTERED_COUNT" -gt "$LOG_LINES" ]; then
-        JOURNAL_FILTERED=$(printf '%s\n' "$JOURNAL_FILTERED" | "$TAIL" -n "$LOG_LINES")
+        JOURNAL_FILTERED=$(printf '%s\n' "$JOURNAL_FILTERED" | $TAIL -n "$LOG_LINES")
         JOURNAL_TRUNCATED=1
     fi
 
@@ -199,11 +199,11 @@ if [ "$JOURNAL_FILTERED_COUNT" -gt 0 ]; then
         JOURNAL_JOINED=$(
             {
                 printf '%s\n' "- Showing last ${LOG_LINES} Puppet journal lines (filtered from ${JOURNAL_FILTERED_COUNT} matches in the last ${LOG_SCAN_LINES} unit log lines)"
-                printf '%s\n' "$JOURNAL_FILTERED" | "$SED" '/^$/d; s/[[:space:]]\+$//; s/^/- /'
+                printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /'
             }
         )
     else
-        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_FILTERED" | "$SED" '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
     fi
 elif [ -n "$JOURNAL_RAW" ]; then
     JOURNAL_JOINED="- No Puppet-tagged journal lines found in the last ${LOG_SCAN_LINES} unit log lines"
@@ -239,6 +239,6 @@ PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 # Output with return code
 case "$EXITCODE_STATE" in
   0) emit_check "Puppet is running (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 0 ;;
-  1) emit_check "Puppet WARNING (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;
-  *) emit_check "Puppet FAILED (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 2 ;;
+  1) emit_check "Puppet needs attention (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;
+  *) emit_check "Puppet failed (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 2 ;;
 esac
