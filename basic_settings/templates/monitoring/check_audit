@@ -25,15 +25,19 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 UNAME=$(command -v uname 2>/dev/null) || die "uname not available"
 
-# Defaults values
+# Hardware paths are optional context for physical inventory in alert output.
 DMI_DIR="/sys/devices/virtual/dmi/id"
+
+# Queue thresholds protect against dropped audit events and can be tuned at runtime.
 DROPPED_CRIT="1"
+QUEUE_WARN=""
+
+# Summary state accumulates security-sensitive audit findings.
 HW_SEG=""
 MSG="Auditd running"
-QUEUE_WARN=""
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 
-# Options
+# CLI options tune queue and lost-event thresholds without changing the managed rule set.
 while getopts 'q:d' opt; do
     case "$opt" in
         q) QUEUE_WARN="$OPTARG" ;;
@@ -56,14 +60,19 @@ trim_file() {
     printf '%s' "$val"
 }
 
-# Service running
+# Keep audit keys, journal snippets, and hardware fields safe before perfdata.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Service health is checked before audit tools so a stopped daemon reports the direct cause.
 <% if @systemd_enable -%>
 $SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
 <% else -%>
 $PS -C auditd >/dev/null 2>&1 || crit "Auditd service is not active"
 <% end -%>
 
-# Audit report (today)
+# The daily audit summary is the authoritative source for account/config/anomaly counters.
 SUM=$($AUREPORT --summary --start today 00:00:00 --end now 2>/dev/null)
 
 # Extract one numeric counter from the audit summary output.
@@ -78,14 +87,14 @@ FAIL=$(get "Number of failed syscalls:"); : "${FAIL:=0}"
 FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
 KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
 
-# Raise state on notable events
+# Account, configuration, anomaly, syscall, and key events are security-sensitive.
 if [ "$ACCT" -gt 0 ] || [ "$ANOM" -gt 0 ] || [ "$CFG" -gt 0 ] || [ "$FAIL" -gt 0 ] || [ "$KEYS" -gt 0 ]; then
     MSG="Strange audit behavior observed"
     STATE_CODE=2
 fi
 
 <% if @systemd_enable -%>
-# Errors since boot
+# Auditd and augenrules journal errors since boot indicate broken rule loading or runtime failures.
 JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o cat 2>/dev/null)
 ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
     {
@@ -105,7 +114,7 @@ ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
 ERROR_COUNT=${ERR_COMBINED%%|*}
 ERROR_SNIPPET=${ERR_COMBINED#*|}
 
-# Check if we have any errors
+# Journal errors override earlier OK text because they show audit runtime failure.
 if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
     if [ $STATE_CODE -lt 2 ]; then
         MSG="$MSG, error since boot: ${ERROR_SNIPPET:-unknown}"
@@ -118,7 +127,7 @@ fi
 ERROR_COUNT=0
 <% end -%>
 
-# Rules count
+# Loaded rule count verifies that auditd is enforcing something, not only running.
 RULES_COUNT=$($AUDITCTL -l 2>/dev/null | $GREP '^-' | $AWK 'END{print NR+0}')
 if [ "$RULES_COUNT" -eq 0 ]; then
     MSG="$MSG, rules 0"
@@ -127,13 +136,13 @@ else
     MSG="$MSG, rules $RULES_COUNT"
 fi
 
-# Queue/backlog stats
+# Backlog and lost-event counters detect audit pressure and dropped security events.
 AV_STAT=$($AUDITCTL -s 2>/dev/null)
 BACKLOG=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
 LOST=$(printf "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
 BLIMIT=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p'); : "${BLIMIT:=0}"
 
-# Check result
+# Use the kernel backlog limit as default warning threshold when Puppet did not pass one.
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
 if [ "$BACKLOG" -gt "$QUEUE_WARN" ]; then
     MSG="$MSG, backlog $BACKLOG"
@@ -144,7 +153,7 @@ if [ "$LOST" -gt "$DROPPED_CRIT" ]; then
     STATE_CODE=2
 fi
 
-# Rules integrity (augenrules --check)
+# augenrules --check reports when generated rule files differ from the loaded ruleset.
 if $AUGENRULES --check >/dev/null 2>&1; then
     MSG="$MSG, augenrules OK"
 else
@@ -152,7 +161,7 @@ else
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1
 fi
 
-# Boot time
+# A fresh reboot changes audit context, so report it for operators reviewing recent events.
 NOW=$($DATE +%s)
 BTIME=$($AWK '/btime/ {print $2}' /proc/stat 2>/dev/null)
 if [ -n "$BTIME" ]; then
@@ -197,7 +206,7 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
 fi
 <% end -%>
 
-# Check if we have audit keys
+# Include the latest distinct audit keys so security events have immediate context.
 if [ "$KEYS" -gt 0 ]; then
     LAST_KEYS=$($AUSEARCH --start 'today 00:00:00' --end now 2>/dev/null | $GREP -o 'key="[^"]\+"' | $SED 's/^key="//; s/"$//' | $AWK 'NF && $0!="(null)"{k[n++]=$0}
         END{
@@ -207,7 +216,7 @@ if [ "$KEYS" -gt 0 ]; then
     [ -n "$LAST_KEYS" ] && MSG="$MSG, last_keys: $LAST_KEYS"
 fi
 
-# Read DMI info if available
+# DMI hardware fields help correlate audit alerts with physical inventory.
 if [ -d "$DMI_DIR" ]; then
     # Read DMI information
     CHASSIS_SERIAL=$(trim_file "$DMI_DIR/chassis_serial" 2>/dev/null)
@@ -243,12 +252,12 @@ if [ -n "$HW_SEG" ]; then
     MSG="$MSG, hw[$HW_SEG]"
 fi
 
-# Events per second (last 5 minutes)
+# The five-minute event rate is a compact pressure signal for sudden audit volume changes.
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
 EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
 
-# Perf data
+# Perfdata mirrors every status-relevant counter with stable, unit-free labels.
 PERF="acct_changes=${ACCT};;1"
 PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
@@ -261,6 +270,6 @@ PERF="$PERF keys=${KEYS};;1"
 PERF="$PERF rules=${RULES_COUNT};;0;0"
 PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 
-# Output
-printf '%s | %s\n' "${MSG#, }" "$PERF"
+# Emit one monitoring line; dynamic audit and hardware text is sanitized before perfdata.
+printf '%s | %s\n' "$(monitor_text_value "${MSG#, }")" "$PERF"
 exit $STATE_CODE

@@ -25,6 +25,7 @@ die() {
     exit 3
 }
 
+# Options that take values fail early so later validation never sees shifted arguments.
 need_arg() {
     [ "$#" -ge 2 ] || die "missing value for $1"
 }
@@ -44,7 +45,7 @@ STATE_WARNING=1
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
-# Defaults / thresholds
+# Thresholds, filters, and config paths are kept together because capacity policy is resolved in one pass.
 DEFAULT_EXCLUDE_REGEX='^lo$|^docker.*|^veth.*|^br-.*|^virbr.*|^tun.*|^tap.*|^wg.*'
 CHECK_CONFIG='/etc/vnstat-monitoring.conf'
 VNSTAT_CONFIG='/etc/vnstat.conf'
@@ -133,6 +134,7 @@ while [ "$#" -gt 0 ]; do
             shift
             EXCLUDE_REGEX=$1
             ;;
+        # Capacity thresholds compare current p95 traffic against the effective interface speed.
         --capacity-warning-percent)
             need_arg "$1" "$@"
             shift
@@ -153,6 +155,7 @@ while [ "$#" -gt 0 ]; do
             shift
             GROWTH_DAY_CRITICAL_PERCENT=$1
             ;;
+        # Growth thresholds compare current traffic against the previous day or month.
         --growth-month-warning-percent)
             need_arg "$1" "$@"
             shift
@@ -173,6 +176,7 @@ while [ "$#" -gt 0 ]; do
             shift
             LAST_UPDATE_CRITICAL_SECONDS=$1
             ;;
+        # Detail limit bounds interface blocks in long output while keeping summary and perfdata complete.
         --detail-limit)
             need_arg "$1" "$@"
             shift
@@ -199,29 +203,35 @@ is_number() {
     $AWK -v value="$1" 'BEGIN { exit(value ~ /^[0-9]+([.][0-9]+)?$/ ? 0 : 1) }'
 }
 
+# Positive thresholds protect capacity values where zero would make every rate invalid.
 is_positive_number() {
     $AWK -v value="$1" 'BEGIN { exit(value ~ /^[0-9]+([.][0-9]+)?$/ && value + 0 > 0 ? 0 : 1) }'
 }
 
+# Numeric comparison wrappers avoid relying on non-POSIX shell arithmetic for decimals.
 ge_number() {
     $AWK -v left="$1" -v right="$2" 'BEGIN { exit(left + 0 >= right + 0 ? 0 : 1) }'
 }
 
+# Less-than comparisons are used to validate warning/critical threshold ordering.
 lt_number() {
     $AWK -v left="$1" -v right="$2" 'BEGIN { exit(left + 0 < right + 0 ? 0 : 1) }'
 }
 
+# Optional numeric settings are allowed to stay unset, but invalid values fail before collection.
 validate_number() {
     [ -n "$2" ] || return 0
     is_number "$2" || die "invalid numeric value for $1: $2"
 }
 
+# Warning/critical threshold pairs must preserve the usual Nagios escalation order.
 validate_pair() {
     if [ -n "$2" ] && [ -n "$3" ] && lt_number "$3" "$2"; then
         die "$1 critical threshold must be greater than or equal to warning threshold"
     fi
 }
 
+# Regex validation catches operator input errors before interface filtering starts.
 validate_regex() {
     [ -n "$2" ] || return 0
     $GREP -E "$2" /dev/null >/dev/null 2>&1
@@ -239,6 +249,7 @@ state_rank() {
     esac
 }
 
+# Convert the final textual state into the Nagios exit code contract.
 state_exit_code() {
     case "$1" in
         OK)       printf '%s\n' "$STATE_OK" ;;
@@ -249,6 +260,7 @@ state_exit_code() {
     esac
 }
 
+# Keep the most severe state when multiple interfaces or metrics are evaluated.
 max_state() {
     if [ "$(state_rank "$2")" -gt "$(state_rank "$1")" ]; then
         printf '%s\n' "$2"
@@ -257,6 +269,7 @@ max_state() {
     fi
 }
 
+# Compare one metric value against optional warning and critical thresholds.
 threshold_status() {
     if [ "$1" = 'U' ] || [ -z "$1" ]; then
         printf '%s\n' 'UNKNOWN'
@@ -269,10 +282,12 @@ threshold_status() {
     fi
 }
 
+# Summary issues are bucketed by severity so the short output stays cause-oriented.
 add_summary_issue() {
     _summary_severity=$1
     _summary_issue=$(monitor_text_value "$2")
 
+    # Summary buckets preserve severity ordering while avoiding zero-count status text.
     case "$_summary_severity" in
         CRITICAL)
             if [ -n "$SUMMARY_CRITICAL" ]; then
@@ -340,12 +355,14 @@ format_number() {
     $AWK -v value="$1" 'BEGIN { printf "%.2f", value + 0 }'
 }
 
+# Long-output byte formatting is human-friendly; perfdata keeps the raw byte value.
 format_bytes() {
     if [ "$1" = 'U' ] || [ -z "$1" ]; then
         printf '%s' 'unavailable'
         return
     fi
 
+    # Long output uses decimal units for operator readability; perfdata keeps raw bytes.
     $AWK -v value="$1" '
         BEGIN {
             split("B KB MB GB TB PB EB", units, " ")
@@ -363,6 +380,7 @@ format_bytes() {
     '
 }
 
+# Bandwidth thresholds use Mbps, while vnStat reports byte counters.
 calc_mbit_from_bytes_per_second() {
     if [ "$1" = 'U' ] || [ -z "$1" ]; then
         printf '%s\n' 'U'
@@ -371,6 +389,7 @@ calc_mbit_from_bytes_per_second() {
     $AWK -v bytes_per_second="$1" 'BEGIN { printf "%.2f\n", (bytes_per_second * 8) / 1000000 }'
 }
 
+# Preserve Nagios U values while appending UOM for numeric perfdata.
 perf_value() {
     if [ "$1" = 'U' ] || [ -z "$1" ]; then
         printf '%s' 'U'
@@ -379,12 +398,14 @@ perf_value() {
     fi
 }
 
+# Percentage calculations intentionally return U when the source metric or baseline is unavailable.
 calc_percent() {
     if [ "$1" = 'U' ] || [ "$2" = 'U' ] || [ -z "$1" ] || [ -z "$2" ]; then
         printf '%s\n' 'U'
         return
     fi
 
+    # Invalid zero baselines become unavailable instead of dividing by zero.
     $AWK -v value="$1" -v base="$2" 'BEGIN {
         if (base + 0 <= 0) {
             printf "U\n"
@@ -394,12 +415,14 @@ calc_percent() {
     }'
 }
 
+# Growth is a period-over-period percentage and uses U for missing or zero baselines.
 calc_growth_percent() {
     if [ "$1" = 'U' ] || [ "$2" = 'U' ] || [ -z "$1" ] || [ -z "$2" ]; then
         printf '%s\n' 'U'
         return
     fi
 
+    # Growth compares current traffic against the previous period in percent.
     $AWK -v current="$1" -v previous="$2" 'BEGIN {
         if (previous + 0 <= 0) {
             printf "U\n"
@@ -409,6 +432,7 @@ calc_growth_percent() {
     }'
 }
 
+# Interface include/exclude filters are regex-based and only match when the pattern exists.
 match_regex() {
     [ -n "$2" ] || return 1
     printf '%s\n' "$1" | $GREP -Eq "$2"
@@ -488,6 +512,7 @@ validate_check_config() {
             }
         }
         {
+            # Accept global p95 settings and per-interface overrides only.
             line = $0
             sub(/^[[:space:]]+/, "", line)
             if (line ~ /^($|[#;])/) {
@@ -513,6 +538,7 @@ validate_check_config() {
                 next
             }
 
+            # Threshold order is validated after all lines have been read.
             if (!positive(value)) {
                 fail("line " NR ": " key " must be a positive number")
                 next
@@ -809,6 +835,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
     # Extract update age and daily/monthly totals from the summary JSON.
     TRAFFIC_TSV=$(printf '%s' "$SUMMARY_JSON" | $JQ -r --arg iface "$IFACE" '
+        # vnStat JSON can use timestamp or structured date objects depending on version.
         (.interfaces[]? | select(.name == $iface)) as $if |
         def date_key($entry):
             if (($entry.timestamp | type) == "number") then
@@ -833,6 +860,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
             (pick("day"; 1)) as $previous_day |
             (pick("month"; 0)) as $current_month |
             (pick("month"; 1)) as $previous_month |
+            # Emit a fixed TSV record that the POSIX shell parser can split safely.
             [
                 (if (($if.updated.timestamp | type) == "number") then $if.updated.timestamp else "U" end),
                 num($current_day; "rx"),

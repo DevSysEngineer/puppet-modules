@@ -27,7 +27,7 @@ STATE_WARNING=1
 STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
-# Defaults / thresholds
+# Thresholds and data paths keep memory pressure evaluation local and fixture-friendly.
 SWAP_WARNING_PERCENT=80
 SWAP_CRITICAL_PERCENT=95
 MEM_AVAILABLE_WARNING_PERCENT=20
@@ -83,6 +83,7 @@ while [ "$#" -gt 0 ]; do
             shift
             SWAP_CRITICAL_PERCENT=$1
             ;;
+        # Memory-available thresholds are percentages of MemTotal.
         --mem-available-warning-percent)
             need_arg "$1" "$@"
             shift
@@ -103,6 +104,7 @@ while [ "$#" -gt 0 ]; do
             shift
             SWAP_IO_CRITICAL_KIB=$1
             ;;
+        # Top-swap process detail is diagnostic long output and does not affect status.
         --include-top-swap-processes)
             INCLUDE_TOP_SWAP_PROCESSES=1
             ;;
@@ -171,15 +173,18 @@ is_uint() {
     $AWK -v value="$1" 'BEGIN { exit(value ~ /^[0-9]+$/ ? 0 : 1) }'
 }
 
+# CLI integer validation keeps threshold failures in setup/UNKNOWN territory.
 validate_uint() {
     is_uint "$2" || die "invalid numeric value for $1: $2"
 }
 
+# Percentage thresholds share integer parsing but must also stay within the UOM range.
 validate_percent() {
     validate_uint "$1" "$2"
     [ "$2" -le 100 ] || die "$1 must be between 0 and 100"
 }
 
+# Kernel counters may be unavailable on minimal systems; normalize those values before arithmetic.
 numeric_or_zero() {
     case "$1" in
         ''|U|*[!0-9]*) printf '%s\n' 0 ;;
@@ -187,6 +192,7 @@ numeric_or_zero() {
     esac
 }
 
+# Human formatting is used only in the summary and long output.
 format_kib() {
     $AWK -v kib="$1" '
         BEGIN {
@@ -201,6 +207,7 @@ format_kib() {
     '
 }
 
+# vmstat counters are read as a pair so swap I/O deltas come from the same snapshot.
 read_vmstat_counters() {
     [ -r "$1" ] || return 1
     $AWK '
@@ -216,6 +223,7 @@ read_vmstat_counters() {
     ' "$1"
 }
 
+# Swap process details are best-effort long output and must not change the check state.
 print_top_swap_processes() {
     [ "$INCLUDE_TOP_SWAP_PROCESSES" -eq 1 ] || return
     printf '%s\n' 'Top swap users:'

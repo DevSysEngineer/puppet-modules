@@ -19,7 +19,7 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
 WHO=$(command -v who 2>/dev/null) || die "who not available"
 
-# Defaults / thresholds
+# Session thresholds are intentionally simple because this check is a local SSH exposure signal.
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
@@ -27,7 +27,7 @@ MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
 
-# Parse options
+# CLI overrides are runtime thresholds only; the managed allowlist still comes from Puppet.
 while getopts 'c:w:i:a:' opt; do
     case "$opt" in
         c) CRIT_THRESH="$OPTARG" ;;
@@ -44,14 +44,19 @@ crit() {
     exit 2
 }
 
-# Service check
+# Keep user names and journal fragments safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Check the service first so daemon failures are reported before session parsing.
 <% if @systemd_enable -%>
 $SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "SSH service is not active"
 <% else -%>
 $PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
 <% end -%>
 
-# Analyze current SSH sessions
+# Current sessions are classified from who(1) plus TTY process state.
 ACTIVE_SESSIONS=0
 AGE_CRIT=false
 NOW_EPOCH=$($DATE +%s)
@@ -60,10 +65,10 @@ SEP=""
 USERS_LIST=""
 WHO_OUTPUT=$($WHO -u)
 
-# Count zombie sshd processes
+# Zombie sshd processes are diagnostic noise worth warning about when no harder issue exists.
 ZOMBIE_COUNT=$($PS -C sshd -o stat= | $AWK '$0 ~ /Z/ {c++} END {print c+0}')
 
-# Parse who(1) output
+# Parse who(1) output and keep only entries backed by an existing TTY.
 while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
     # Skip malformed lines / missing TTY
     if [ -z "$USER" ] || [ ! -e "/dev/$TTY" ]; then
@@ -79,7 +84,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
         *) USERS_LIST="${USERS_LIST}${SEP}${USER}"; SEP="," ;;
     esac
 
-    # Determine idle minutes from who(1) IDLE column
+    # Normalize who(1) idle notation into minutes for active-session decisions.
     case "$IDLE" in
         '.')    IDLE_MIN=0 ;;
         'old')  IDLE_MIN=$((MAX_IDLE + 1)) ;;
@@ -88,19 +93,19 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
         *)      IDLE_MIN=$((MAX_IDLE + 1)) ;;
     esac
 
-    # Count processes on TTY; also detect root-owned processes on same TTY
+    # TTY process ownership catches root escalation after a non-root login.
     TTY_PROCS=$($PS -t "$TTY" -o user=)
     PROC_COUNT=$(printf '%s\n' "$TTY_PROCS" | $WC -l)
     case "$TTY_PROCS" in
         *root*) ROOT_LOGIN=true ;;
     esac
 
-    # Session considered active if there is at least one process on TTY or IDLE <= MAX_IDLE
+    # A session is active when either process activity or low idle time indicates live use.
     if [ "$PROC_COUNT" -ge 1 ] || [ "$IDLE_MIN" -le "$MAX_IDLE" ]; then
         ACTIVE_SESSIONS=$((ACTIVE_SESSIONS + 1))
     fi
 
-    # Age check (CRIT if any session age exceeds MAX_AGE minutes)
+    # Long-lived sessions are security-sensitive even if they are idle.
     LOGIN_EPOCH=$($DATE -d "$LOGIN_DATE $LOGIN_TIME" +%s 2>/dev/null) || LOGIN_EPOCH=0
     if [ "$LOGIN_EPOCH" -ne 0 ]; then
         AGE_MIN=$(((NOW_EPOCH - LOGIN_EPOCH)/60))
@@ -110,7 +115,7 @@ done <<EOF
 $WHO_OUTPUT
 EOF
 
-# Auth failure detection (journalctl)
+# Auth failure detection is PID-aware so retries followed by a successful login are not over-counted.
 <% if @systemd_enable -%>
 OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow_users="$ALLOWED_USERS" '
 BEGIN {
@@ -216,7 +221,7 @@ ABORT_WL=0
 ABORT_OTH=0
 <% end -%>
 
-# Determine state
+# Active/root/old sessions determine the primary state before softer journal signals.
 if [ "$ROOT_LOGIN" = true ] || [ "$AGE_CRIT" = true ]; then
     STATE_CODE=2
 elif [ "$ACTIVE_SESSIONS" -ge "$CRIT_THRESH" ]; then
@@ -225,14 +230,14 @@ elif [ "$ACTIVE_SESSIONS" -ge "$WARN_THRESH" ]; then
     STATE_CODE=1
 fi
 
-# Escalate to WARN if not already WARNING/CRITICAL and we see issues (allowlist only)
+# Allowlist authentication failures and zombies are WARNING-only unless a session rule already fired.
 if [ "$STATE_CODE" -lt 1 ]; then
     if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD_WL_USERS" ] || [ "$FAIL_WL_UNMATCHED" -gt 0 ] ; then
         STATE_CODE=1
     fi
 fi
 
-# Human-readable message
+# Build the visible cause list without Nagios state labels.
 EXTRA=""
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
 [ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age over ${MAX_AGE}m, "
@@ -243,7 +248,7 @@ EXTRA=""
 EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA="; $EXTRA"
 
-# Perfdata
+# Perfdata carries both active-session counters and journal classification totals.
 AGE_CRIT_METRIC=0
 [ "$AGE_CRIT" = true ] && AGE_CRIT_METRIC=1
 PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
@@ -256,6 +261,7 @@ PERF_DATA="$PERF_DATA abort_wl=${ABORT_WL};;;;"
 PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH};;;;"
 PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC};;;;"
 
-# Output for monitoring
-printf 'SSH sessions active: %s%s | %s\n' "$ACTIVE_SESSIONS" "$EXTRA" "$PERF_DATA"
+# Output for monitoring; dynamic user names are sanitized before the perfdata delimiter.
+SUMMARY="SSH sessions active: ${ACTIVE_SESSIONS}${EXTRA}"
+printf '%s | %s\n' "$(monitor_text_value "$SUMMARY")" "$PERF_DATA"
 exit "$STATE_CODE"

@@ -25,17 +25,23 @@ CHMOD=$(command -v chmod 2>/dev/null || true)
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 
-# Defaults
+# Managed input files and cache locations used by the APT check.
 BLACKLIST_FILE="<%= @apt_settings_file %>"
 CHANGELOG_CACHE_DIR=/var/cache/check_apt/changelogs
 CHANGELOG_FETCH_TIMEOUT=6
 CHANGELOG_MAX_LINES=120
 CHANGELOG_TOTAL_BUDGET=20
+
+# Long output is assembled in-memory and emitted only after the perfdata line.
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_APT_NL__"
+
+# Update counters are parsed from the apt simulation output.
 UPDATES_BLACKLISTED=0
 UPDATES_TOTAL=0
 UPDATES_SECURITY=0
+
+# Metadata freshness uses both the apt periodic stamp and list-file mtimes.
 TIMESTAMP_UNKNOWN=0
 STAMP_FILE=/var/lib/apt/periodic/update-success-stamp
 STAMP_TS=0
@@ -43,11 +49,13 @@ LISTS_TS=0
 LAST_UPDATE_TIMESTAMP=""
 LAST_UPDATE_SEC=0
 LAST_UPDATE_AGE_SEC=0
+
+# Final Nagios state and metadata-age threshold.
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 GRACE=172800 # 48h
 CHECK_START=$($DATE +%s)
 
-# Options
+# CLI option overrides the metadata-age grace period for this invocation.
 while getopts "c:" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
@@ -90,7 +98,7 @@ sanitize_key() {
     printf '%s' "$1" | $TR -c 'A-Za-z0-9._-' '_'
 }
 
-# Create the changelog cache directory with restrictive permissions.
+# The changelog cache stores package metadata fetched as root, so keep it private.
 ensure_cache_dir() {
     [ -d "$CHANGELOG_CACHE_DIR" ] || $MKDIR -p "$CHANGELOG_CACHE_DIR" 2>/dev/null || return 1
     if [ -n "$CHMOD" ]; then
@@ -141,11 +149,11 @@ truncate_changelog() {
     '
 }
 
-# Run simulation
+# Simulate the upgrade without taking dpkg locks so the check stays read-only.
 APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive $APTGET -s -o Debug::NoLocking=1 -o APT::Get::Show-Upgraded=true -o Debug::pkgProblemResolver=yes dist-upgrade 2>&1)
 APT_SIM_RC=$?
 
-# Check for simulation errors
+# Resolver failures are UNKNOWN because the check cannot trust package counts.
 if [ $APT_SIM_RC -ne 0 ]; then    
     # Extract first 10 error/warning lines
     APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
@@ -158,12 +166,12 @@ if [ $APT_SIM_RC -ne 0 ]; then
         }
     ')
 
-    # Show output
+    # Return the resolver failure directly; perfdata would be misleading here.
     printf 'APT simulation failed (rc=%s). %s\n' "$APT_SIM_RC" "$APT_SIM_ERR"
     exit 3
 fi
 
-# Stamp timestamp
+# apt's update-success stamp is the preferred metadata freshness signal.
 if [ -e "$STAMP_FILE" ]; then
     STAMP_TS=$($STAT -c %Y "$STAMP_FILE" 2>/dev/null || printf '0')
 fi
@@ -173,7 +181,7 @@ if [ -d /var/lib/apt/lists ]; then
     LISTS_TS=$($FIND /var/lib/apt/lists -type f ! -name lock ! -path '*/partial/*' -printf '%T@\n' 2>/dev/null | $SORT -n | $AWK 'END { if ($0 ~ /^[0-9.]+$/) printf "%d", $0; else print 0 }')
 fi
 
-# Choose newest
+# Prefer the newest trustworthy timestamp between apt's stamp and package list files.
 case "${STAMP_TS:-0}" in (*[!0-9]*) STAMP_TS=0 ;; esac
 case "${LISTS_TS:-0}" in (*[!0-9]*) LISTS_TS=0 ;; esac
 if [ "$STAMP_TS" -ge "$LISTS_TS" ]; then
@@ -182,7 +190,7 @@ else
     LAST_UPDATE_TIMESTAMP=$LISTS_TS
 fi
 
-# Compute age
+# Convert the chosen metadata timestamp into an age for status and perfdata.
 CURRENT_TIME=$($DATE +%s)
 if [ -n "$LAST_UPDATE_TIMESTAMP" ] && [ "$LAST_UPDATE_TIMESTAMP" -gt 0 ]; then
     LAST_UPDATE_SEC=${LAST_UPDATE_TIMESTAMP%%.*}
@@ -196,14 +204,14 @@ if [ "$LAST_UPDATE_AGE_SEC" -le 0 ] || [ "$LAST_UPDATE_SEC" -gt "$CURRENT_TIME" 
     TIMESTAMP_UNKNOWN=1
 fi
 
-# Read blacklist patterns
+# Parse Puppet-generated blacklist patterns from the managed settings file.
 BLACKLIST_PATTERNS=$($AWK '
     /^[[:space:]]*Package-Blacklist/ {inblk=1; next}
     inblk && /^[[:space:]]*}/ {exit}
     inblk && match($0, /"[^"]+"/) { print substr($0, RSTART+1, RLENGTH-2) }
 ' "$BLACKLIST_FILE" 2>/dev/null || true)
 
-# Parse simulation summary
+# Convert the apt simulation output into package, security, and version records.
 APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
     /^Inst /{
         total++
@@ -249,12 +257,12 @@ APT_SIM_SUMMARY=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
     }
 ')
 
-# Set values
+# Extract aggregate counters and the package list from the serialized summary.
 UPDATES_TOTAL=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F: '/^TOT:/ {print $2}')
 UPDATES_SECURITY=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F: '/^SEC:/ {print $2}')
 PKG_LIST=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F: '/^PKG:/ {print $2}')
 
-# Count blacklisted
+# Apply shell-style blacklist patterns to the simulated package names.
 if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
     for pkg in $PKG_LIST; do
         for pat in $BLACKLIST_PATTERNS; do
@@ -265,7 +273,7 @@ if [ "$UPDATES_TOTAL" -gt 0 ] && [ -n "$BLACKLIST_PATTERNS" ]; then
     done
 fi
 
-# State code
+# Security updates and stale metadata are CRITICAL; regular updates are WARNING.
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
     if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ] || [ "$UPDATES_SECURITY" -gt 0 ]; then
         STATE_CODE=2
@@ -277,7 +285,7 @@ else
 fi
 
 <% if @systemd_enable -%>
-# Timer states
+# Check apt automation units so disabled unattended updates are visible.
 if $SYSTEMCTL is-active --quiet apt-daily.timer; then
     TIMER_DAILY_ACTIVE=1
 else
@@ -299,7 +307,7 @@ TIMER_UPGRADE_ACTIVE=0
 UNATTENDED_ACTIVE=0
 <% end -%>
 
-# Message
+# Start the summary with freshness and update counts before auxiliary causes.
 MSG="APT"
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
     if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ]; then
@@ -311,18 +319,18 @@ else
     MSG="$MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
 fi
 
-# Set messages
+# Add inactive automation units to the direct cause list.
 [ "$TIMER_DAILY_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily.timer inactive!"
 [ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
 [ "$UNATTENDED_ACTIVE" -eq 0 ] && MSG="$MSG unattended-upgrades.service inactive!"
 
-# Reboot
+# A required reboot is operationally critical even when no update remains pending.
 if [ -e /var/run/reboot-required ]; then
     MSG="$MSG Reboot required!"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=2
 fi
 
-# Blacklisted
+# Blacklisted updates are counted separately so operators can distinguish held packages.
 if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
     MSG="$MSG ${UPDATES_BLACKLISTED} blacklisted."
 fi
@@ -381,6 +389,7 @@ EOF
                         while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
                             [ -n "$source_pkg" ] || continue
 
+                            # Stop changelog work early so the monitoring check keeps a bounded runtime.
                             NOW=$($DATE +%s)
                             ELAPSED=$((NOW - CHECK_START))
                             if [ "$ELAPSED" -ge "$CHANGELOG_TOTAL_BUDGET" ]; then
@@ -394,6 +403,7 @@ EOF
                             FETCH_ERR=""
                             FETCH_RC=0
 
+                            # Reuse cached changelogs when possible; fetches are best-effort diagnostics.
                             if [ -r "$CACHE_FILE" ]; then
                                 RAW_CHANGELOG=$($SED -n '1,2000p' "$CACHE_FILE" 2>/dev/null)
                             else
@@ -416,6 +426,7 @@ EOF
                                 esac
                             fi
 
+                            # Each long-output section names the source package and covered binaries.
                             append_long ""
                             if [ -n "$oldver" ]; then
                                 append_long "[${source_pkg}] ${packages} (${oldver} -> ${newver})"
@@ -432,6 +443,7 @@ EOF
                                 continue
                             fi
 
+                            # Only show changelog entries newer than the installed version, capped above.
                             FILTERED_CHANGELOG=$(printf '%s\n' "$RAW_CHANGELOG" | filter_changelog_since "$oldver" | truncate_changelog | $SED 's/^/  /')
                             if [ -z "$FILTERED_CHANGELOG" ]; then
                                 append_long "  No newer changelog entries found."
@@ -453,12 +465,12 @@ EOF
     fi
 fi
 
-# Perf data
+# Perfdata exposes update counts and metadata age with unit-free labels.
 PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0"
 PERF_DATA="$PERF_DATA security_updates=${UPDATES_SECURITY};;1;0"
 PERF_DATA="$PERF_DATA blacklisted_updates=${UPDATES_BLACKLISTED};;;0"
 PERF_DATA="$PERF_DATA last_update_age=${LAST_UPDATE_AGE_SEC}s;;${GRACE};0"
 
-# Output
+# Emit summary, perfdata, and any bounded security changelog detail.
 emit_check "$MSG" "$PERF_DATA"
 exit "$STATE_CODE"

@@ -22,23 +22,29 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 
-# Defaults
+# Connection and CLI paths are local to the Mirth installation.
 CONFIG="/opt/mirthconnect/conf/mirth-cli-config.properties"
-CRIT_Q=30
-GRACE=600 # seconds before CRITICAL for queues
 MCCOMMAND="/usr/local/bin/mccommand"
 NOW=$($DATE +%s)
+
+# Queue thresholds and grace period preserve the existing warning-before-critical behavior.
+CRIT_Q=30
+GRACE=600 # seconds before CRITICAL for queues
+WARN_Q=25 # queued-message threshold
+
+# Queue and status state accumulates direct causes for the summary.
 QUEUE_CRIT=0
 QUEUE_ISSUES=0
 MAX_Q=0
-STATE_DIR="/etc/openitcockpit-agent/state"
-STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
 STATUS_ISSUES=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
-WARN_Q=25 # queued-message threshold
 
-# Options
+# Persistent queue state tracks how long channels have been above the warning threshold.
+STATE_DIR="/etc/openitcockpit-agent/state"
+STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
+
+# CLI options only change connection config and queue grace behavior.
 while getopts 'c:t:w:' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
@@ -82,7 +88,7 @@ $MKDIR -p "$STATE_DIR" 2>/dev/null || {
 }
 umask "$OLD_UMASK"
 
-# Service running
+# Verify the service before invoking mccommand so daemon failures report directly.
 <% if @systemd_enable -%>
 $SYSTEMDCTL is-active --quiet "mcservice.service" || crit "service is not active"
 <% else -%>
@@ -93,12 +99,12 @@ $PS -C mcservice >/dev/null 2>&1 || crit "service is not active"
 WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || die "mktemp failed"
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
-# Stats
+# Request channel statistics through mccommand because it is the supported local interface.
 printf 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "mccommand stats failed"
 [ -n "$OUTPUT_RAW" ] || crit "returned empty stats output"
 
-# Parse stats into channel and total records.
+# Normalize terminal control characters before AWK parses channel sections.
 OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
 printf '%s\n' "$OUTPUT_CLEAN" | $AWK '
   function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
@@ -121,7 +127,7 @@ printf '%s\n' "$OUTPUT_CLEAN" | $AWK '
 $AWK -F'|' '/^C\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_channels.txt"
 $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals.txt"
 
-# Status
+# Fetch channel status separately because stats output does not reliably expose started/stopped state.
 printf 'status\n' >"$WORK_DIR/cli_status.cmd"
 STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die "mccommand status failed"
 [ -n "$STATUS_RAW" ] || crit "returned empty status output"
@@ -136,16 +142,16 @@ printf '%s\n' "$STATUS_CLEAN" | $AWK '
   { st=$2; name=""; for(i=3;i<=NF;i++) name=(i==3?$i:name FS $i); print name "|" st }
 ' >"$WORK_DIR/status_map.txt"
 
-# Init
+# Determine total channel count and load previous queue-threshold timestamps.
 TOTAL_CHANS=$($AWK -F'|' '/^C\|/ {c++} END{print c+0}' "$WORK_DIR/parsed_channels.txt")
 STATE_IN="$STATE_FILE"; [ -f "$STATE_IN" ] || STATE_IN=/dev/null
 
-# Evaluate
+# Evaluate channel state and queue age; queue depth becomes CRITICAL only after the grace window.
 while IFS='|' read -r _c chan q recv sent; do
-    # Set max q
+    # Track maximum queue depth for perfdata.
     [ "${q:-0}" -gt "$MAX_Q" ] && MAX_Q="$q"
 
-    # Get status
+    # Status names come from the separate map generated from `status` output.
     STATUS=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
     case "$STATUS" in
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
@@ -157,33 +163,33 @@ while IFS='|' read -r _c chan q recv sent; do
         [ -z "$FIRST" ] && FIRST=$NOW
         printf '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
-        # If the queue is above the threshold for longer than the grace period, set critical
+        # The timestamp state prevents short transient queues from paging immediately.
         [ "$((NOW - FIRST))" -ge "$GRACE" ] && QUEUE_CRIT=1
 
-        # Update variables
+        # Keep the visible queue list cause-oriented for the summary.
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
         SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
     fi
 done <"$WORK_DIR/parsed_channels.txt"
 
-# State write
+# Persist only channels still above the warning threshold; stale state is removed.
 if [ -f "$WORK_DIR/new_state" ]; then
     $MV "$WORK_DIR/new_state" "$STATE_FILE"
 else
     [ -f "$STATE_FILE" ] && $RM -f "$STATE_FILE"
 fi
 
-# Trim
+# Trim trailing separators after all dynamic channel text is collected.
 SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
 SUMMARY_STATUS=${SUMMARY_STATUS%%, }
 
-# Perfdata
+# Perfdata exposes channel count, maximum queue depth, and status issue count.
 PERF_DATA="channels=${TOTAL_CHANS};;;0 queue=${MAX_Q};${WARN_Q};${CRIT_Q};0 issues=${STATUS_ISSUES};;1;0"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
     PERF_DATA="$PERF_DATA total_received=${tot_recv};;;0 total_sent=${tot_sent};;;0"
 fi
 
-# Result
+# Status issues take precedence over aged queue warnings in the final state.
 if [ "$STATUS_ISSUES" -gt 0 ]; then
     crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS}" "$PERF_DATA"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then

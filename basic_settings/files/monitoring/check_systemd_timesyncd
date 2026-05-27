@@ -14,18 +14,22 @@ GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
 
-# Thresholds (seconds) - tune as needed
+# Status buffers collect the direct CRITICAL and WARNING causes.
 CRIT_MSG=""
+WARN_MSG=""
+STATE_CODE=0
+
+# Offset, jitter, and root-distance thresholds are seconds; perfdata uses the same values with `s` UOM.
 JITTER_CRIT=0.2 # 200ms
 JITTER_WARN=0.1 # 100ms
 OFFSET_CRIT=0.125 # 125ms
 OFFSET_WARN=0.05 # 50ms
 ROOT_CRIT=5 # 5s (timesyncd RootDistanceMaxSec default)
 ROOT_WARN=0.5 # 500ms
-STATE_CODE=0
+
+# High stratum is treated as a synchronization quality signal.
 STRAT_CRIT=15 # >15 ~= unsynchronised
 STRAT_WARN=10
-WARN_MSG=""
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
@@ -48,28 +52,33 @@ ge() {
     $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}'
 }
 
+# Keep server/status text safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
 # Extract a numeric value and its unit from timedatectl output.
 get_num_unit() {
     printf '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
 }
 
-# Service active?
+# Verify the unit before asking timedatectl for synchronization state.
 $SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "timesyncd service is not active"
 
-# Clock synchronised?
+# `NTPSynchronized` is the primary binary health signal for the clock.
 NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null)
 case "$NTPSYNC" in
     yes|1) : ;;
     no|0|"") add_crit "clock not synchronised" ;;
 esac
 
-# Read timesync metrics
+# Read the human timesync status once and parse all numeric metrics from that snapshot.
 TIMESYNC="$($TIMEDATECTL timesync-status 2>/dev/null)" || die "timesync-status not available"
 
-# Extract chosen server (first 'Server:' line)
+# The selected peer is useful in the short output when drift thresholds fire.
 SERVER=$(printf '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:]]*Server:[[:space:]]*/,""); print; exit}')
 
-# Convert to seconds
+# Convert timedatectl units to seconds so all threshold comparisons share one scale.
 set_to_sec() {
     IFS= read -r val || return 1
     IFS= read -r u || u="s"
@@ -105,7 +114,7 @@ DELAY_SEC=$(printf '%s\n' "$DLY_LU" | set_to_sec 2>/dev/null)
 STRAT=$(printf '%s' "$TIMESYNC" | $SED -n 's/.*Stratum:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
 [ -z "$STRAT" ] && STRAT=0
 
-# Threshold checks
+# Compare absolute offset, jitter, root distance, and stratum independently.
 ge "$ABS_OFFSET" "$OFFSET_CRIT" && add_crit "offset ${ABS_OFFSET}s"
 [ -z "$CRIT_MSG" ] && ge "$ABS_OFFSET" "$OFFSET_WARN" && add_warn "offset ${ABS_OFFSET}s"
 
@@ -121,7 +130,7 @@ elif [ "$STRAT" -ge "$STRAT_WARN" ]; then
   add_warn "stratum $STRAT"
 fi
 
-# Final state & message
+# Final state uses CRITICAL reasons first, then WARNING reasons.
 [ -n "$CRIT_MSG" ] && STATE_CODE=2
 [ $STATE_CODE -eq 0 ] && [ -n "$WARN_MSG" ] && STATE_CODE=1
 
@@ -129,13 +138,13 @@ MSG="Time synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
 [ -n "$CRIT_MSG" ] && MSG="$MSG; critical: $CRIT_MSG"
 [ -n "$WARN_MSG" ] && MSG="$MSG; warning: $WARN_MSG"
 
-# Perfdata
+# Perfdata labels are unit-free; second-based values carry `s` as UOM.
 PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"
 PERF="$PERF jitter=${JITTER_SEC}s;${JITTER_WARN};${JITTER_CRIT};0"
 PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5"
 PERF="$PERF delay=${DELAY_SEC}s;;;0;"
 PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
-# Show output
-printf '%s | %s\n' "$MSG" "$PERF"
+# Emit one monitoring line; server names are sanitized before the perfdata delimiter.
+printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
 exit "$STATE_CODE"

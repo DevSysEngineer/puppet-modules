@@ -20,29 +20,35 @@ RM=$(command -v rm 2>/dev/null) || die "rm not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Defaults and runtime state
+# Compose identity and input paths define the project view being checked.
 CHECK_NAME=""
 COMPOSE_FILES=""
+ENV_FILE=""
+PROFILE_LIST=""
+PROJECT_DIRECTORY=""
+PROJECT_NAME=""
+
+# Runtime policy knobs control tolerated startup, expected exits, health requirements, and orphan severity.
+DETAIL_LIMIT=${DETAIL_LIMIT:-30}
+EXPECTED_EXITED=""
+EXPECTED_LIST=""
+HEALTH_REQUIRED=""
+ORPHAN_CRITICAL=0
+STARTING_GRACE=${STARTING_GRACE:-300}
+
+# State files remember restart counts between check runs.
+STATE_DIR=${STATE_DIR:-/etc/openitcockpit-agent/state}
+STATE_FILE=""
+STATE_TMP=""
+
+# Summary and long-output buffers keep status causes separate from diagnostics.
 CONTAINER_DETAILS=""
 CONTAINER_DETAILS_COUNT=0
 CONTAINER_DETAILS_TRUNCATED=0
 CRITICAL_REASONS=""
-DETAIL_LIMIT=${DETAIL_LIMIT:-30}
-ENV_FILE=""
-EXPECTED_EXITED=""
-EXPECTED_LIST=""
-HEALTH_REQUIRED=""
 ISSUE_DETAILS=""
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_DOCKER_COMPOSE_STACK_NL__"
-ORPHAN_CRITICAL=0
-PROFILE_LIST=""
-PROJECT_DIRECTORY=""
-PROJECT_NAME=""
-STARTING_GRACE=${STARTING_GRACE:-300}
-STATE_DIR=${STATE_DIR:-/etc/openitcockpit-agent/state}
-STATE_FILE=""
-STATE_TMP=""
 WARNING_REASONS=""
 
 # Counters exposed in summary and perfdata
@@ -74,7 +80,7 @@ usage() {
     exit 3
 }
 
-# Options
+# CLI options define the Compose identity, expected exceptions, and diagnostic limits.
 while getopts 'd:p:f:e:n:g:l:x:H:P:O' opt; do
     case "$opt" in
         d) PROJECT_DIRECTORY="$OPTARG" ;;
@@ -483,12 +489,14 @@ NOW_EPOCH=$($DATE +%s)
 while IFS='	' read -r container_id container_name service_name image_name restart_count created_at state_status health_status exit_code started_at health_output; do
     [ -n "$container_id$container_name" ] || continue
 
+    # Normalize numeric Docker fields before they are used in counters and thresholds.
     is_number "$restart_count" || restart_count=0
     is_number "$exit_code" || exit_code=0
 
     CONTAINERS_TOTAL=$((CONTAINERS_TOTAL + 1))
     CONTAINER_RESTARTS_TOTAL=$((CONTAINER_RESTARTS_TOTAL + restart_count))
 
+    # Compose labels decide whether a container belongs to the rendered project model.
     if [ -n "$service_name" ] && in_csv "$EXPECTED_LIST" "$service_name"; then
         PRESENT_SERVICES=$(append_csv_unique "$PRESENT_SERVICES" "$service_name")
     else
@@ -500,6 +508,7 @@ while IFS='	' read -r container_id container_name service_name image_name restar
         fi
     fi
 
+    # State and health counters are kept even when no alert is raised so perfdata stays complete.
     case "$state_status" in
         running) CONTAINERS_RUNNING=$((CONTAINERS_RUNNING + 1)) ;;
         restarting) CONTAINERS_RESTARTING=$((CONTAINERS_RESTARTING + 1)) ;;
@@ -516,6 +525,7 @@ while IFS='	' read -r container_id container_name service_name image_name restar
         ''|none) CONTAINERS_WITHOUT_HEALTHCHECK=$((CONTAINERS_WITHOUT_HEALTHCHECK + 1)) ;;
     esac
 
+    # Restart increases since the previous run are warning signals for otherwise running containers.
     previous_restart=$(previous_restart_count "$container_name" || true)
     if is_number "$previous_restart" && [ "$restart_count" -gt "$previous_restart" ]; then
         CONTAINER_RESTARTS_INCREASED=$((CONTAINER_RESTARTS_INCREASED + 1))
@@ -523,11 +533,13 @@ while IFS='	' read -r container_id container_name service_name image_name restar
     fi
     printf '%s|%s\n' "$container_name" "$restart_count" >>"$STATE_TMP"
 
+    # Explicitly expected one-shot/exited services can finish cleanly without alerting.
     expected_exited=0
     if [ -n "$service_name" ] && in_csv "$EXPECTED_EXITED" "$service_name"; then
         expected_exited=1
     fi
 
+    # Container state classification drives the final monitoring state.
     case "$state_status" in
         running)
             case "$health_status" in
@@ -569,6 +581,7 @@ while IFS='	' read -r container_id container_name service_name image_name restar
             fi
             ;;
         exited)
+            # Expected exited services must exit cleanly; all other exited containers are critical.
             if [ "$expected_exited" -eq 1 ] && [ "$exit_code" = "0" ]; then
                 :
             else
@@ -581,6 +594,7 @@ while IFS='	' read -r container_id container_name service_name image_name restar
             ;;
     esac
 
+    # Long output is capped separately so each container can contribute detail without unbounded output.
     detail_line="- ${service_name:-unknown}/${container_name:-unknown}: image=${image_name:-unknown} state=${state_status:-unknown} health=${health_status:-none} restarts=${restart_count:-0} exit=${exit_code:-0}"
     append_container_detail "$detail_line"
     if [ -n "$health_output" ] && { [ "$health_status" = "unhealthy" ] || [ "$health_status" = "starting" ]; }; then
@@ -590,9 +604,11 @@ done <<EOF
 $INSPECT_TSV
 EOF
 
+# Replace the restart-count state atomically after the full Docker view has been processed.
 $MV "$STATE_TMP" "$STATE_FILE" 2>/dev/null || die "$CHECK_NAME: state file could not be updated"
 STATE_TMP=""
 
+# Missing services are checked after container iteration so profile and orphan handling are already known.
 old_ifs=$IFS
 IFS=','
 for expected_service in $EXPECTED_LIST; do

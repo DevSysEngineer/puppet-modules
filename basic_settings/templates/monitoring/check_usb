@@ -25,7 +25,7 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 # device does not suddenly become unauthorized outside its active window.
 # Missing/required checks use the active lists so alerts only happen when the
 # current time/day says the rule matters.
-# Default values
+# Any-required input and active/configured match state.
 AANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
 ANYREQ_MATCHED_LIST=""
@@ -36,6 +36,8 @@ ANYREQ_SERIALS_ACTIVE=""
 ANYREQ_TOTAL_COUNT=0
 ANYREQ_VP_IDS_CONFIGURED=""
 ANYREQ_VP_IDS_ACTIVE=""
+
+# Expected devices are both an authorization source and an active presence requirement.
 EXPECTED_IDS="" # -e CSV
 EXPECTED_LIST="<%= @usb_expected_correct %>"
 EXPECTED_LIST_MISSING=""
@@ -45,14 +47,20 @@ EXPECTED_SERIALS_ACTIVE=""
 EXPECTED_TOTAL_COUNT=0
 EXPECTED_VP_IDS_CONFIGURED=""
 EXPECTED_VP_IDS_ACTIVE=""
+
+# Time state and final monitoring status are captured once for deterministic rule evaluation.
 MSG=""
 NOW_HM=""
 NOW_MIN=0
 TODAY_DOW=0
 STATUS_CODE=0
+
+# Attached-device counters and unauthorized detail feed summary and perfdata.
 TOTAL_DEV=0
 UNAUTHORIZED_COUNT=0
 UNAUTHORIZED_DEV_LIST=""
+
+# Whitelist entries authorize matching devices without making them required.
 WHITELISTED_COUNT=0
 WHITELISTED_DEV_LIST=""
 WHITELIST_IDS="" # -w CSV
@@ -69,6 +77,11 @@ while getopts "w:e:a:" OPT; do
         *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
     esac
 done
+
+# Keep USB product, manufacturer, and serial text safe before the perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
 
 # Convert HH:MM to minutes since midnight.
 hm2min() {
@@ -507,6 +520,6 @@ PERF="$PERF any_required_total=${ANYREQ_TOTAL_COUNT}"
 PERF="$PERF any_required_present=${ANYREQ_PRESENT_COUNT}"
 PERF="$PERF any_required_ok=${ANYREQ_OK}"
 
-# Output
-printf '%s | %s\n' "$MSG" "$PERF"
+# Output one monitoring line; sysfs-provided device text is sanitized before perfdata.
+printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
 exit $STATUS_CODE

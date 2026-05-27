@@ -22,36 +22,49 @@ PS=$(command -v ps 2>/dev/null) || die "ps not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Defaults / state
+# Summary state and DNS options are shared by interface and service checks.
 CRIT_MSG=""
 DIG_OPTS="+short +time=1 +tries=1"
 DOWN_COUNT=0
 DOWN_LIST=""
 FAILOVER_NOTE=""
+
+# Address-family flags decide whether public-IP lookups are meaningful.
 HAS_V4=0
 HAS_V6=0
+
+# Interface filter input and compact summary text.
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
 IF_SUMMARY=""
+
+# IPv4 address class counters are emitted as global perfdata.
 IPV4_CGNAT=0
 IPV4_LINK=0
 IPV4_LOOP=0
 IPV4_PRIVATE=0
 IPV4_PUBLIC=0
 IPV4_TOTAL=0
+
+# IPv6 address class counters are emitted as global perfdata.
 IPV6_GUA=0
 IPV6_HOST=0
 IPV6_LINK=0
 IPV6_SCOPE_GLOBAL=0
 IPV6_TOTAL=0
 IPV6_ULA=0
+
+# Optional service checks share the same state line as interface health.
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
+SERVICES=""
 STATE_CODE=0
 SVC_ACTIVE=0
 SVC_DOWN_LIST=""
 SVC_INACTIVE=0
 SVC_TOTAL=0
+
+# Link-state counters support wired/Wi-Fi failover handling.
 UP_COUNT=0
 WIFI_UP_COUNT=0
 WIFI_UP_LIST=""
@@ -60,7 +73,7 @@ WIRED_DOWN_LIST=""
 WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
-# Options
+# CLI options can narrow service and interface scope for one check invocation.
 while getopts 's:i:' opt; do
     case "$opt" in
         s) SERVICES="$OPTARG" ;;
@@ -76,13 +89,18 @@ add_crit() {
 
 # Sanitize an interface name into a safe perfdata label.
 sanitize_label() {
-    # Replace any non [A-Za-z0-9_] by underscore to produce valid perfdata labels
+    # Replace any non [A-Za-z0-9_] by underscore to produce valid perfdata labels.
     printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
+}
+
+# Keep interface, SSID, and service names safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
 # Return success when the interface matches one configured filter.
 iface_matches() {
-    # Return 0 if iface matches any glob in IF_LIST (match all if IF_LIST empty)
+    # Empty IF_LIST means every non-loopback interface is in scope.
     [ -z "$IF_LIST" ] && return 0
 
     _NAME=$1
@@ -100,9 +118,8 @@ iface_matches() {
     return 1
 }
 
-# Get Wi-Fi SSID
+# Extract Wi-Fi SSID/BSSID from networkctl output when systemd-networkd is available.
 wifi_info() {
-    # Set values
     _IF="$1"
     _SSID=""
     _BSSID=""
@@ -117,8 +134,7 @@ wifi_info() {
         }')
 
     if [ -n "$_LINE" ]; then
-        # Extract trailing BSSID only if last "(xx:xx:xx:xx:xx:xx)" looks like a MAC
-        # (FIX: use BRE grouping \(...\) around the repeated :xx part)
+        # Extract a trailing BSSID only when the final parenthesized value is a MAC address.
         _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f]\{2\}\(:[0-9A-Fa-f]\{2\}\)\{5\}\))[[:space:]]*$/\1/p')
 
         # SSID is remainder after stripping trailing " (MAC)"; trim trailing spaces
@@ -140,18 +156,18 @@ wifi_info() {
     return 0
 }
 
-# Normalize services (CLI takes precedence, SERVICES_IDS allows comma list)
+# Normalize services; CLI values override the Puppet-rendered list.
 [ -n "$SERVICES" ] && SERVICES_LIST="$SERVICES"
 if [ -n "$SERVICES_IDS" ]; then
     SERVICES_LIST=$(printf '%s' "$SERVICES_IDS" | $TR ',' ' ')
 fi
 
-# Normalize interface filters (allow commas or multiple spaces)
+# Normalize interface filters so case patterns can use simple whitespace splitting.
 if [ -n "$IF_FILTERS" ]; then
     IF_LIST=$(printf '%s' "$IF_FILTERS" | $TR ',' ' ' | $SED 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
 fi
 
-# Optional: services check
+# Optional service checks are folded into the same network summary.
 if [ -n "$SERVICES_LIST" ]; then
     for SVC in $SERVICES_LIST; do
         SVC_TOTAL=$((SVC_TOTAL + 1))
@@ -169,7 +185,7 @@ if [ -n "$SERVICES_LIST" ]; then
     [ -n "$SVC_DOWN_LIST" ] && add_crit "services down: $SVC_DOWN_LIST"
 fi
 
-# Enumerate interfaces (exclude 'lo' by default)
+# Enumerate interfaces from the kernel and exclude loopback from operational checks.
 MATCHED_IF_COUNT=0
 for IFACE in $($IP -o link show | $AWK -F': ' '{print $2}'); do
     [ "$IFACE" = "lo" ] && continue
@@ -207,7 +223,7 @@ for IFACE in $($IP -o link show | $AWK -F': ' '{print $2}'); do
         fi
     fi
 
-    # Address lists for compact summary (IPv6 includes link-local)
+    # Address lists are used for operator-readable summary text.
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
@@ -243,7 +259,7 @@ for IFACE in $($IP -o link show | $AWK -F': ' '{print $2}'); do
 
     IF_LBL=$(sanitize_label "$IFACE")
 
-    # IPv4 classification per interface
+    # IPv4 classification distinguishes public, private, CGNAT, and link-local addresses.
     V4_T=0 V4_PUB=0 V4_PRIV=0 V4_CGNAT=0 V4_LINK=0
     V4_KV=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '
         BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
@@ -280,7 +296,7 @@ EOF
         [ "$V4_HAS" -gt 0 ] && HAS_V4=1
     fi
 
-    # IPv6 classification per interface
+    # IPv6 classification distinguishes global scope, GUA, ULA, link-local, and host addresses.
     V6_GLOB=0 V6_GUA_I=0 V6_HST=0 V6_LNK=0 V6_T=0 V6_ULA_I=0
     V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
         BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
@@ -347,7 +363,7 @@ EOF
     PERF="$PERF if_${IF_LBL}_v6_ula=${V6_ULA_I};;;0"
 done
 
-# If filters were provided but no interfaces matched, report critical
+# Interface filters that match nothing are treated as a configuration/runtime fault.
 if [ -n "$IF_LIST" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then
     add_crit "no interfaces matched filters: $IF_LIST"
 fi
@@ -359,7 +375,7 @@ IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
     END{print c}
 ')
 
-# IPv4 public IP (only if the host actually has v4 addressing)
+# Public IPv4 lookup runs only when local IPv4 addressing exists.
 if [ "$HAS_V4" -eq 1 ]; then
     PUBIP_V4=$($DIG -4 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
     if [ -z "$PUBIP_V4" ] || [ "$PUBIP_V4" = "0.0.0.0" ]; then
@@ -367,7 +383,7 @@ if [ "$HAS_V4" -eq 1 ]; then
     fi
 fi
 
-# IPv6 public IP (only if v6 addressing is actually present)
+# Public IPv6 lookup runs only when a global IPv6 scope address exists.
 if [ "$HAS_V6" -eq 1 ]; then
     PUBIP_V6=$($DIG -6 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}')
     if [ -z "$PUBIP_V6" ] || [ "$PUBIP_V6" = "::" ]; then
@@ -391,7 +407,7 @@ else
     fi
 fi
 
-# Critical if absolutely nothing is up
+# No usable interface is a direct network failure regardless of failover policy.
 [ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
 # Compose status message (compact)
@@ -427,7 +443,7 @@ PERF_GLOBAL="$PERF_GLOBAL wifi_up=${WIFI_UP_COUNT};;;0"
 PERF_GLOBAL="$PERF_GLOBAL wired_up=${WIRED_UP_COUNT};;;0"
 PERF_GLOBAL="$PERF_GLOBAL wired_down=${WIRED_DOWN_COUNT};;;0"
 
-# Merge perfdata & output
+# Merge global and per-interface perfdata, then sanitize the dynamic summary.
 PERF="$PERF_GLOBAL${PERF:+ $PERF}"
-printf '%s | %s\n' "$MSG" "$PERF"
+printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
 exit $STATE_CODE

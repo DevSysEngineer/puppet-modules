@@ -17,12 +17,14 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
-# Configurable defaults
+# Queue depth thresholds apply only to queues with consumers.
 WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
+
+# rabbitmqadmin is used only for rate metrics and needs the managed config file.
 RABBITMQADMCONF="<%= @admin_config_path %>" # path to rabbitmqadmin config file (adjust as needed)
 
-# Parse options
+# CLI options keep the same external contract as the generated custom check registration.
 while getopts 'w:c:C:' opt; do
   case "$opt" in
     w) WARN="$OPTARG" ;;
@@ -38,22 +40,20 @@ crit() {
     exit 2
 }
 
-# Check RabbitMQ service status
+# Verify the service before querying the broker so daemon failures report a direct cause.
 <% if @systemd_enable -%>
 $SYSTEMDCTL is-active --quiet "rabbitmq-server" || crit "RabbitMQ service is not active"
 <% else -%>
 $PS -C rabbitmq-server >/dev/null 2>&1 || crit "RabbitMQ service is not active"
 <% end -%>
 
-# Retrieve queue metrics
+# Queue depth data comes from rabbitmqctl because it is available on the local node without HTTP setup.
 QUEUE_DATA=$($RABBITMQCTL list_queues -q name messages_ready messages_unacknowledged consumers 2>/dev/null) || die "Failed to fetch queue data"
 
-# Set values
+# Critical queue counters and examples drive the visible state.
 CRIT_COUNT=0
 CRIT_LIST=""
 CRIT_SHOWN=0
-LARGEST_ORPHAN_MSG=0
-LARGEST_ORPHAN_QUEUE=""
 MAX_MSG=0
 MAX_MSG_CRIT=0
 MAX_MSG_WARN=0
@@ -61,26 +61,34 @@ MAX_QUEUE=""
 MAX_Q_CRIT=""
 MAX_Q_WARN=""
 MSG="RabbitMQ running"
+
+# Orphaned queues remain diagnostic and do not change status.
+LARGEST_ORPHAN_MSG=0
+LARGEST_ORPHAN_QUEUE=""
 NO_CONSUMER_COUNT=0
 ORPHAN_LIST=""
 ORPHAN_SHOWN=0
+
+# Aggregate counters are emitted in summary and perfdata.
 QUEUE_COUNT=0
 STATE_CODE=0
 TOTAL_CONSUMERS=0
 TOTAL_MSG=0
 TOTAL_READY=0
 TOTAL_UNACK=0
+
+# Warning queue counters are kept separate so CRITICAL output can take precedence.
 WARN_COUNT=0
 WARN_LIST=""
 WARN_SHOWN=0
 
 # Append one queue item to a comma-separated list.
 append_item() {
-  # $1 = current list, $2 = item to append
-  if [ -z "$1" ]; then
-    printf "%s" "$2"
-  else
-    printf "%s, %s" "$1" "$2"
+    # $1 = current list, $2 = item to append
+    if [ -z "$1" ]; then
+        printf "%s" "$2"
+    else
+        printf "%s, %s" "$1" "$2"
     fi
 }
 
@@ -89,19 +97,24 @@ queue_item() {
     printf '%s (%s msgs)' "$1" "$2"
 }
 
-# Read tab-separated lines; queue names may contain spaces, so TAB is the only separator.
+# Keep queue names safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
+}
+
+# Read tab-separated lines; queue names may contain spaces, so TAB is the only safe separator.
 OLDIFS="$IFS"; IFS='	'  # single literal tab character
 while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
     # Skip empty and header lines
     [ -z "$QUEUE_NAME" ] && continue
     [ "$QUEUE_NAME" = "name" ] && continue
 
-    # Default missing numeric fields to 0
+    # Default missing numeric fields to 0 so partial broker output does not break arithmetic.
     READY=${READY:-0}
     UNACK=${UNACK:-0}
     CONSUMERS=${CONSUMERS:-0}
 
-    # Guard: skip any line where numeric fields contain non-digits (robust against unexpected output)
+    # Skip malformed rows rather than turning one odd queue line into UNKNOWN.
     case "$READY$UNACK$CONSUMERS" in *[!0-9]* ) continue ;; esac
 
     QUEUE_COUNT=$((QUEUE_COUNT + 1))
@@ -115,7 +128,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
         MAX_QUEUE="$QUEUE_NAME"
     fi
 
-    # Threshold evaluation (ignore queues without consumers)
+    # Backlog thresholds apply only when a consumer exists to drain the queue.
     if [ "$CONSUMERS" -gt 0 ]; then
         if [ "$MESSAGES" -ge "$CRIT" ]; then
             CRIT_COUNT=$((CRIT_COUNT + 1))
@@ -138,7 +151,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
         fi
     fi
 
-    # Queues with messages but no consumers (informational only; no status impact)
+    # Queues with messages but no consumers are surfaced for diagnosis without changing status.
     if [ "$CONSUMERS" -eq 0 ] && [ "$MESSAGES" -gt 0 ]; then
         NO_CONSUMER_COUNT=$((NO_CONSUMER_COUNT + 1))
         if [ "$MESSAGES" -gt "$LARGEST_ORPHAN_MSG" ]; then
@@ -154,7 +167,7 @@ $QUEUE_DATA
 EOF
 IFS="$OLDIFS"
 
-# Primary status based on thresholds
+# Primary state is driven by the worst queue depth class.
 if [ "$CRIT_COUNT" -gt 0 ]; then
   STATE_CODE=2
   MSG="$MSG, $CRIT_COUNT queue(s) over critical threshold"
@@ -169,10 +182,10 @@ elif [ "$WARN_COUNT" -gt 0 ]; then
   [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 fi
 
-# Core totals
+# Core totals make an otherwise healthy result still useful for capacity trending.
 MSG="$MSG, ${QUEUE_COUNT} queue(s), ${TOTAL_MSG} message(s), ${TOTAL_CONSUMERS} consumer(s)"
 
-# Append informational note about queues without consumers (no status impact)
+# Append orphaned queue detail after the direct status cause.
 if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
   MORE=$((NO_CONSUMER_COUNT - ORPHAN_SHOWN))
   if [ -n "$ORPHAN_LIST" ]; then
@@ -186,7 +199,7 @@ fi
 # Sum per-queue rates into cluster-level publish/deliver rates.
 RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
 
-# Sum columns 1 and 2 (tab-separated). If empty, default to 0.00 0.00.
+# Empty rate output is valid on quiet systems, so the AWK pass defaults both rates to zero.
 RATE_SUM=$(printf "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
 
 # Split into positional parameters (POSIX sh trick; no arrays)
@@ -194,7 +207,7 @@ set -- $RATE_SUM
 PUBLISH_RATE=${1:-0}
 DELIVER_RATE=${2:-0}
 
-# Perfdata
+# Perfdata keeps labels stable and leaves units implicit for broker counters.
 PERF="total_messages=${TOTAL_MSG}"
 PERF="$PERF messages_ready=${TOTAL_READY}"
 PERF="$PERF messages_unack=${TOTAL_UNACK}"
@@ -204,6 +217,6 @@ PERF="$PERF deliver_rate=${DELIVER_RATE}"
 PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
 PERF="$PERF queues_total=${QUEUE_COUNT}"
 
-# Show output
-printf '%s | %s\n' "${MSG#, }" "$PERF"
+# Emit one monitoring line; queue names are sanitized to avoid accidental perfdata separators.
+printf '%s | %s\n' "$(monitor_text_value "${MSG#, }")" "$PERF"
 exit $STATE_CODE

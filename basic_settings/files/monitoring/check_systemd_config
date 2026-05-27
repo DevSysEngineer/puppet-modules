@@ -140,6 +140,7 @@ append_detail_line() {
 
     case "$TARGET_NAME" in
         actionable)
+            # Actionable details are printed first because they drive the monitoring state.
             case "$TARGET_BUCKET" in
                 NOT_FOUND)
                     if [ -n "$ACTIONABLE_NOT_FOUND_DETAILS" ]; then
@@ -172,6 +173,7 @@ append_detail_line() {
             esac
             ;;
         contextual)
+            # Contextual details stay in long output without changing the exit code.
             case "$TARGET_BUCKET" in
                 NOT_FOUND)
                     if [ -n "$CONTEXTUAL_NOT_FOUND_DETAILS" ]; then
@@ -551,6 +553,7 @@ inspect_bad_units() {
         UNIT_NAME=$(printf '%s\n' "$UNIT_LINE" | $AWK 'NF { print $1; exit }')
         [ -n "$UNIT_NAME" ] || continue
 
+        # Combine list-units and show data because missing units expose different fields per systemd version.
         UNIT_LIST_LOAD_STATE=$(printf '%s\n' "$UNIT_LINE" | $AWK 'NF { print $2; exit }')
         UNIT_SHOW=$($SYSTEMCTL show "$UNIT_NAME" -p LoadState -p FragmentPath -p SourcePath -p Where -p What 2>/dev/null || true)
         UNIT_ENABLE_STATE_RAW=$($SYSTEMCTL is-enabled "$UNIT_NAME" 2>/dev/null || true)
@@ -567,6 +570,7 @@ inspect_bad_units() {
         UNIT_ACTIONABLE=1
         UNIT_REFERENCE_PATHS=''
 
+        # Classify not-found units before applying runtime-quirk suppression.
         case "$UNIT_LOAD_STATE" in
             error)
                 UNIT_CLASS='load-error'
@@ -599,10 +603,12 @@ inspect_bad_units() {
                 ;;
         esac
 
+        # Reference paths explain why an otherwise missing unit is still actionable.
         if [ -z "$UNIT_FRAGMENT_PATH$UNIT_SOURCE_PATH" ]; then
             collect_reference_paths
         fi
 
+        # Runtime quirks are counted but not allowed to page when they match a known benign pattern.
         if [ "$UNIT_LOAD_STATE" = 'not-found' ] && [ "$UNIT_ACTIONABLE" -eq 1 ]; then
             if match_known_runtime_quirk; then
                 UNIT_CLASS=$MATCHED_RUNTIME_QUIRK_CLASS
@@ -611,6 +617,7 @@ inspect_bad_units() {
             fi
         fi
 
+        # Detail buffers are split by actionable/contextual class for clearer long output.
         UNIT_DETAIL="- ${UNIT_NAME}; class=${UNIT_CLASS}"
         if [ -n "$UNIT_REFERENCE_PATHS" ]; then
             UNIT_DETAIL="${UNIT_DETAIL}; referenced_by:${LINE_BREAK}$(format_reference_paths "$UNIT_REFERENCE_PATHS")"
@@ -628,6 +635,7 @@ inspect_bad_units() {
     IFS=$OLD_IFS
 }
 
+# Parse validation options before any systemd calls so invalid invocations fail cleanly.
 while [ $# -gt 0 ]; do
     case "$1" in
         -g)
@@ -675,6 +683,7 @@ is_number "$BOOT_GRACE" || usage
 is_number "$MAX_DETAIL_LINES" || usage
 is_number "$MAX_VERIFY_LINES" || usage
 
+# Boot grace suppresses transient manager states immediately after startup.
 if [ -r /proc/uptime ]; then
     IFS=' ' read -r UPTIME_RAW _ </proc/uptime
     case "$UPTIME_RAW" in
@@ -698,6 +707,7 @@ if [ -r /proc/uptime ]; then
     esac
 fi
 
+# Manager state is the primary systemd-wide health signal.
 MANAGER_STATE_RAW=$($SYSTEMCTL is-system-running 2>/dev/null)
 MANAGER_STATE_RC=$?
 MANAGER_STATE=$(print_first_word "$MANAGER_STATE_RAW")
@@ -719,6 +729,7 @@ if [ -z "$MANAGER_STATE_RAW" ] && [ "$MANAGER_STATE_RC" -ne 0 ]; then
     add_unknown 'manager state unavailable'
 fi
 
+# The default target anchors recursive verification and daemon-reload checks.
 DEFAULT_TARGET_RAW=$($SYSTEMCTL get-default 2>/dev/null)
 DEFAULT_TARGET_RC=$?
 DEFAULT_TARGET=$(print_first_word "$DEFAULT_TARGET_RAW")
@@ -737,6 +748,7 @@ else
     esac
 fi
 
+# Default-target properties expose stale daemon state even when the manager is running.
 if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
     LOAD_STATE_RAW=$($SYSTEMCTL show -p LoadState --value "$DEFAULT_TARGET" 2>/dev/null)
     LOAD_STATE_RC=$?

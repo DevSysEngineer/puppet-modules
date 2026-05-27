@@ -16,8 +16,10 @@ GITLAB_RAILS=$(command -v gitlab-rails 2>/dev/null) || die "gitlab-rails not ava
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Defaults
+# License warning lead time is configurable through the environment for direct check use.
 LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
+
+# Runtime state is built from omnibus service status, Rails output, and license checks.
 STATE_CODE=0
 MSG=""
 PERF=""
@@ -37,19 +39,19 @@ sanitize_label() {
     fi
 }
 
-# Services
+# gitlab-ctl status is the fastest omnibus-wide signal for stopped components.
 SVC_RAW=$($GITLAB_CTL status 2>&1)
 DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
 [ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
 
-# Single rails-runner for version-check and group sizes
+# A single Rails runner keeps expensive application boot cost to one process.
 RAILS_RAW=$($GITLAB_RAILS runner -e production '
-    # Trigger remote version check (async), wait, output result prefixed VC|
+    # Trigger remote version check and tag the result so the shell parser can split sections safely.
     Gitlab::Version::VersionCheckCronWorker.new.perform
     sleep 5
     vc = Rails.cache.read("version_check")
     puts "VC|#{vc ? vc.to_json : "nil"}"
-    # Output group sizes prefixed GR|
+    # Group storage is emitted as a separate tagged stream for perfdata generation.
     Namespace.where(type: "Group").find_each do |g|
     size = 0
     if g.respond_to?(:root_storage_statistics) && g.root_storage_statistics
@@ -61,7 +63,7 @@ RAILS_RAW=$($GITLAB_RAILS runner -e production '
     end
 ' 2>/dev/null) || die "gitlab-rails runner failed"
 
-# Parse version block
+# Parse only the fields needed to decide update severity from the cached version check JSON.
 VC_RAW=$(printf '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {sub(/^VC\|/, "", $0); print; exit}')
 if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
     DATA=$(printf '%s' "$VC_RAW" | $AWK '
@@ -86,7 +88,7 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
     fi
 fi
 
-# Parse group lines and build perfdata
+# Build per-group storage perfdata; group paths are label-sanitized but values remain raw megabytes.
 GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
@@ -98,7 +100,7 @@ done <<EOF
 $GROUPS
 EOF
 
-# Licence info (skip on CE / no licence)
+# License checks are skipped for CE/no-license installations and evaluated for EE output only.
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
 if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {exit 0} END{exit 1}'; then
   LIC_MODE="none"
@@ -111,7 +113,7 @@ if [ "$LIC_MODE" = "ee" ]; then
     MAX=$(printf '%s\n' "$LIC_RAW"  | $AWK -F': *' '/Max Users in License/ {print $2}')
     EXP=$(printf '%s\n' "$LIC_RAW" | $AWK -F': *' '/License valid until/ {print $2}')
 
-    # Expiry
+    # Expiry drives WARNING when the configured lead time is reached.
     if [ -n "$EXP" ]; then
         NOW=$($DATE +%s)
         EXP_S=$($DATE -d "$EXP" +%s 2>/dev/null || printf '0')
@@ -122,7 +124,7 @@ if [ "$LIC_MODE" = "ee" ]; then
         fi
     fi
 
-    # Overage
+    # User overage becomes CRITICAL only when it is materially above the license cap.
     if [ -n "$CURR" ] && [ -n "$MAX" ]; then
         PERF="${PERF} active_users=${CURR};;;0; user_limit=${MAX};;;0;"
         OVER=$(( CURR - MAX ))
@@ -135,11 +137,11 @@ if [ "$LIC_MODE" = "ee" ]; then
     fi
 fi
 
-# Parse output
+# Finalize the short output; perfdata is optional because CE may have no group/license counters.
 [ -z "$MSG" ] && MSG="GitLab is running"
 PERF=${PERF# }
 
-# Show result
+# Emit one monitoring line and sanitize GitLab-provided text before perfdata.
 if [ -n "$PERF" ]; then
     printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
 else

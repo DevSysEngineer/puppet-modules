@@ -13,24 +13,32 @@ JQ=$(command -v jq 2>/dev/null) || die "jq not available"
 NPM=$(command -v npm 2>/dev/null) || die "npm not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 
-# Defaults
+# npm command output is captured as payload plus metadata so non-zero audit findings remain parseable.
 AUDIT_EXIT=0
 AUDIT_ERR=""
 AUDIT_JSON=""
 AUDIT_META=""
 AUDIT_PAYLOAD=""
+
+# The checked project path is mandatory; the visible name defaults to the directory basename.
 CHECK_DIR=""
 CHECK_NAME=""
+
+# Long output is capped independently from the summary and perfdata.
 DETAIL_LIMIT=${DETAIL_LIMIT:-20}
 DETAILS=""
+
+# jq and npm capture helpers use explicit sentinels to preserve stdout/stderr boundaries.
 JQ_META=""
 JQ_PAYLOAD=""
 PARSE_ERR=""
 SEP_ERR="__CHECK_NPM_AUDIT_ERR_$$__"
 SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
+
+# Start as UNKNOWN until valid audit JSON has been parsed.
 STATE_CODE=3
 
-# Options
+# CLI options select the audited project and the visible check name.
 while getopts 'd:n:' opt; do
     case "$opt" in
         d) CHECK_DIR="$OPTARG" ;;
@@ -125,12 +133,12 @@ run_jq() {
     [ "$JQ_STATUS" -eq 0 ]
 }
 
-# Check if check name is not provided
+# Default the check name to the project directory basename for stable summaries.
 if [ -z "$CHECK_NAME" ]; then
     CHECK_NAME=$($BASENAME "$CHECK_DIR")
 fi
 
-# Check if this looks like a Node.js project
+# package.json is the authoritative marker for a Node.js project audit.
 [ -f "$CHECK_DIR/package.json" ] || die "$CHECK_NAME: package.json not found in '$CHECK_DIR'"
 
 # Run npm audit inside the requested project directory and keep stdout/stderr in memory
@@ -185,6 +193,7 @@ REPORT_STATUS=$(first_line "$JQ_OUTPUT")
 
 # Extract vulnerability counts, dependency totals and package-level counters
 run_jq '
+    # npm report schemas differ across major versions, so normalize totals first.
     def sev_rank($severity):
         if $severity == "critical" then 5
         elif $severity == "high" then 4
@@ -226,6 +235,7 @@ run_jq '
             (.metadata.totalDependencies // .metadata.dependencies // 0)
         end;
     def package_records:
+        # npm v7+ exposes vulnerabilities by package name.
         if (.vulnerabilities? | type) == "object" then
             (.vulnerabilities // {})
             | to_entries
@@ -239,6 +249,7 @@ run_jq '
                     fixable: (($v.fixAvailable // false) != false)
                 }
             )
+        # npm v6 exposes advisories; group them back into package-level records.
         elif (.advisories? | type) == "object" then
             (.advisories // {})
             | to_entries
@@ -257,6 +268,7 @@ run_jq '
         end;
     . as $root
     | ($root | package_records) as $packages
+    # The shell receives one compact pipe-separated record.
     | [
         ($root.metadata.vulnerabilities.info // 0),
         ($root.metadata.vulnerabilities.low // 0),
@@ -280,6 +292,7 @@ PARSED=$(first_line "$JQ_OUTPUT")
 
 # Render detail lines per affected package for troubleshooting
 run_jq '
+    # Detail lines are normalized to one line each so long output can be bounded safely.
     def clean($value):
         ($value // "no advisory title returned")
         | tostring
@@ -304,6 +317,7 @@ run_jq '
             "no"
         end;
     def package_records:
+        # npm v7+ package records already carry direct/transitive and fix metadata.
         if (.vulnerabilities? | type) == "object" then
             (.vulnerabilities // {})
             | to_entries
@@ -333,6 +347,7 @@ run_jq '
                     )
                 }
             )
+        # npm v6 advisory records need grouping by module to match newer output shape.
         elif (.advisories? | type) == "object" then
             (.advisories // {})
             | to_entries
@@ -369,6 +384,7 @@ run_jq '
         else
             []
         end;
+    # Sort by severity first so the most important detail appears at the top.
     package_records
     | sort_by([-(sev_rank(.severity)), .name])
     | .[]
@@ -453,10 +469,10 @@ PERF_DATA="$PERF_DATA dep_dev=${DEP_DEV};"
 PERF_DATA="$PERF_DATA dep_total=${DEP_TOTAL};"
 PERF_DATA="$PERF_DATA audit_exit=${AUDIT_EXIT};"
 
-# Show first line for monitoring and optional detail lines below
+# Emit the short monitoring line; details follow only after the perfdata line.
 printf '%s | %s\n' "$(monitor_text_value "$SUMMARY")" "$PERF_DATA"
 
-# Show details if available for troubleshooting
+# Long output contains bounded package-level findings for troubleshooting.
 if [ -n "$DETAILS" ]; then
     monitor_text_value "$DETAILS"
 fi

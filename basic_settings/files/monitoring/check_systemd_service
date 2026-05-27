@@ -17,14 +17,14 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Config (override via env and/or CLI opts)
+# Runtime options are environment-driven so generated OpenITCOCKPIT calls can stay compact.
 LOG_LINES=${LOG_LINES:-20}              # max journal lines to print below the summary
 WINDOW=${WINDOW:-600}                   # seconds of journal to scan (default 10m)
 MAXLOG=${MAXLOG:-1000}                  # max characters per journal line in long output
 REQUIRE_ACTIVE=${REQUIRE_ACTIVE:-1}     # 1=service must be active, 0=oneshot-style allowed
 SCAN_LOGS=${SCAN_LOGS:-1}               # 1=scan journal, 0=skip
 
-# Schedule controls
+# Schedule controls suppress expected downtime windows unless explicit outside-schedule alerting is requested.
 ACTIVE_WINDOWS=${ACTIVE_WINDOWS:-""}            # e.g. "08:00-18:00" or "08:00-12:00,13:00-17:00"
 ACTIVE_DAYS=${ACTIVE_DAYS:-""}                  # e.g. "Mon-Fri" or "1-5" or "Mon,Wed,Fri"
 SCAN_LOGS_OUTSIDE=${SCAN_LOGS_OUTSIDE:-1}       # 1=still scan logs outside schedule
@@ -34,11 +34,11 @@ SUPPRESS_REASON=""
 SCHEDULE_DEFINED=0
 OUTSIDE_SUPPRESS=0
 
-# Log patterns (extended regex). Tune per service via env.
+# Log patterns are extended regexes; failure scanning is enabled by default while warnings remain opt-in.
 FAIL_RE=${FAIL_RE:-'Failed with result|status=[1-9][0-9]*|segfault|core dumped|fatal|panic'}
 WARN_RE=${WARN_RE:-''} # keep empty by default (avoid noisy WARNINGs)
 
-# CLI options (override env)
+# CLI options override environment schedule controls for one invocation.
 while getopts "W:D:a" OPT; do
     case "$OPT" in
         W) ACTIVE_WINDOWS="$OPTARG" ;;
@@ -49,7 +49,7 @@ while getopts "W:D:a" OPT; do
 done
 shift $((OPTIND - 1))
 
-# Argument: service unit
+# Accept both bare service names and fully-qualified .service units.
 UNIT=${1:-}
 [ -n "$UNIT" ] || die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
 case "$UNIT" in
@@ -57,7 +57,7 @@ case "$UNIT" in
     *)         SERVICE_UNIT="${UNIT}.service" ;;
 esac
 
-# Determine whether schedule is configured
+# Track whether any schedule input exists so outside-window behavior is explicit.
 if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then
     SCHEDULE_DEFINED=1
 fi
@@ -152,19 +152,19 @@ day_in_spec() {
     printf '%s\n' 0
 }
 
-# Current time info
+# Capture current time once so day/window checks agree throughout the run.
 NOW_TS=$($DATE +%s)
 NOW_HM=$($DATE +%H:%M)
 DOW=$($DATE +%u 2>/dev/null || printf '0')  # 1=Mon .. 7=Sun
 NOW_MIN=$(hm2min "$NOW_HM")
 
-# Check active days
+# Day filters are evaluated before time windows to preserve the direct suppression reason.
 if [ -n "$ACTIVE_DAYS" ] && [ "$(day_in_spec "$ACTIVE_DAYS")" != "1" ]; then
     IN_SCHEDULE=0
     SUPPRESS_REASON="day-outside"
 fi
 
-# Check active windows
+# Window filters support comma-separated ranges, including ranges that cross midnight.
 if [ "$IN_SCHEDULE" = "1" ] && [ -n "$ACTIVE_WINDOWS" ]; then
     WINS=$(printf '%s' "$ACTIVE_WINDOWS" | $TR ',' ' ')
     ACTIVE_NOW=0
@@ -180,7 +180,7 @@ if [ "$IN_SCHEDULE" = "1" ] && [ -n "$ACTIVE_WINDOWS" ]; then
     [ "$ACTIVE_NOW" -eq 1 ] || { IN_SCHEDULE=0; SUPPRESS_REASON="outside-window"; }
 fi
 
-# Determine if we should suppress outside-schedule checks
+# Outside-schedule suppression returns OK unless the caller explicitly requests active-service alerts.
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then
     OUTSIDE_SUPPRESS=1
 fi
@@ -213,7 +213,7 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
-# Pull all needed properties in one go (fast for Nagios)
+# Pull all required systemd properties in one call to reduce check latency.
 SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p LoadState -p ActiveState -p SubState -p Result \
     -p MainPID -p NRestarts \
@@ -228,7 +228,7 @@ if [ -z "$LOAD_STATE" ] || [ "$LOAD_STATE" = "not-found" ]; then
     exit 2
 fi
 
-# Not loaded
+# Outside-schedule missing units are accepted only when suppression is active.
 if [ "$OUTSIDE_SUPPRESS" = "1" ] && [ "$LOAD_STATE" != "loaded" ]; then
     emit_check "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); unit is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 0
@@ -237,7 +237,7 @@ elif [ "$LOAD_STATE" != "loaded" ]; then
     exit 2
 fi
 
-# Get other properties
+# Cache individual properties for status decisions and summary text.
 ACTIVE_STATE=$(get_prop ActiveState)
 SUB_STATE=$(get_prop SubState)
 RESULT_PROP=$(get_prop Result)
@@ -257,7 +257,7 @@ if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALER
     exit 0
 fi
 
-# Compute ages
+# Convert systemd timestamps into age perfdata where possible.
 NOW_TS=$($DATE +%s)
 ACTIVE_ENTER_TS=""
 STATE_CHANGE_TS=""
@@ -277,21 +277,21 @@ if [ -n "$STATE_CHANGE_TS" ] && [ "$STATE_CHANGE_TS" -le "$NOW_TS" ]; then
     LAST_CHANGE_AGE=$((NOW_TS - STATE_CHANGE_TS))
 fi
 
-# Set variables for journal scan
+# Journal scanning is anchored to the most recent relevant service state change.
 JOURNAL_RAW=""
 FAIL_LINE=""
 WARN_LINE=""
 SINCE_TS=$((NOW_TS - WINDOW))
 REF_TS=$SINCE_TS
 
-# Determine reference timestamp for journal scan
+# Prefer active-enter time for running services and state-change time for non-running services.
 if [ "$ACTIVE_STATE" = "active" ] && [ -n "$ACTIVE_ENTER_TS" ] && [ "$ACTIVE_ENTER_TS" -gt "$SINCE_TS" ]; then
     REF_TS=$ACTIVE_ENTER_TS
 elif [ "$ACTIVE_STATE" != "active" ] && [ -n "$STATE_CHANGE_TS" ] && [ "$STATE_CHANGE_TS" -gt "$SINCE_TS" ]; then
     REF_TS=$STATE_CHANGE_TS
 fi
 
-# Pull journal entries since reference timestamp
+# Pull only recent journal entries and extract the last matching failure/warning marker.
 JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null || true)
 if [ -n "$JOURNAL_RAW" ]; then
     FAIL_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$FAIL_RE" | $TAIL -n1)
@@ -321,7 +321,7 @@ else
     JOURNAL_JOINED=""
 fi
 
-# Perfdata
+# Perfdata mirrors the service state age, restart count, exit status, and schedule state.
 PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
 
 # Outside schedule (no -a): always OK, but include full status/perfdata
@@ -340,7 +340,7 @@ if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALER
     exit 2
 fi
 
-# Hard failure states
+# Failed state is always CRITICAL regardless of journal scanning.
 if [ "$ACTIVE_STATE" = "failed" ]; then
     emit_check \
         "$SERVICE_UNIT failed with state ${ACTIVE_STATE}/${SUB_STATE}, result ${RESULT_PROP}, exit status ${EXEC_STATUS:-U}, and code ${EXEC_CODE:-U}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
@@ -348,7 +348,7 @@ if [ "$ACTIVE_STATE" = "failed" ]; then
     exit 2
 fi
 
-# Not-active handling (default DevOps: must be active)
+# By default services must be active; oneshot-style services opt out via REQUIRE_ACTIVE=0.
 if [ "$REQUIRE_ACTIVE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
     case "$ACTIVE_STATE" in
         activating|deactivating)
@@ -372,7 +372,7 @@ if [ "$REQUIRE_ACTIVE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
     esac
 fi
 
-# Check if there were failure markers in the logs
+# A recent journal failure marker upgrades an otherwise active service to CRITICAL.
 if [ -n "$FAIL_LINE" ]; then
     emit_check \
         "$SERVICE_UNIT is active but the journal contains failure marker \"$FAIL_LINE\"; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
@@ -380,7 +380,7 @@ if [ -n "$FAIL_LINE" ]; then
     exit 2
 fi
 
-# Check if there were warning markers in the logs
+# Warning markers are opt-in through WARN_RE and only affect otherwise healthy services.
 if [ -n "$WARN_LINE" ]; then
     emit_check \
         "$SERVICE_UNIT journal contains warning marker \"$WARN_LINE\"; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
@@ -388,7 +388,7 @@ if [ -n "$WARN_LINE" ]; then
     exit 1
 fi
 
-# OK (oneshot-style handling)
+# For oneshot-style services, a clean last result is healthy even when the unit is inactive.
 if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
     if [ "${EXEC_STATUS:-U}" = "0" ] && { [ "$RESULT_PROP" = "success" ] || [ "$RESULT_PROP" = "" ] || [ "$RESULT_PROP" = "n/a" ]; }; then
         emit_check \
@@ -398,7 +398,7 @@ if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
     fi
 fi
 
-# Show final OK
+# Normal success path for active services with no relevant journal markers.
 emit_check \
     "$SERVICE_UNIT is running as expected with state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} and result ${RESULT_PROP:-unknown}; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
     "$PERFDATA"

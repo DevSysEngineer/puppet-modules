@@ -16,14 +16,18 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
-# Output buffers and counters
+# Dynamic blacklist set counts and rendered long-output sections.
 BL_ITEMS=0
-CHAIN_EMPTY=""
 FILTER_SECTION_COUNT=0
 FILTER_ITEMS_LIMIT=${FILTER_ITEMS_LIMIT:-50}
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_NFT_NL__"
+
+# Perfdata is sorted after collection so busiest counters are easiest to inspect.
 PERFDATA_BUFFER=""
+
+# Ruleset structure counters drive empty table/chain alerts.
+CHAIN_EMPTY=""
 TABLE_COUNT=0
 TABLE_EMPTY=""
 TOTAL_RULES=0
@@ -55,14 +59,20 @@ append_long() {
     fi
 }
 
+# Keep nftables object names safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
+}
+
 # Emit the summary line and optional long output.
 emit_check() {
-    printf '%s | %s\n' "$1" "$2"
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
         $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
             BEGIN {
                 count = split(data, lines, sep)
                 for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
                     printf "%s\n", lines[i]
                 }
             }
@@ -76,6 +86,7 @@ collect_set_items_csv() {
         BEGIN { done=0; in_elements=0; data="" }
         done { next }
         {
+            # nft may wrap set elements across lines; collect until the closing brace.
             if ($0 ~ /elements[[:space:]]*=/) {
                 in_elements=1
             }
@@ -92,6 +103,7 @@ collect_set_items_csv() {
                 exit
             }
 
+            # Strip nft metadata so only address values are rendered in long output.
             sub(/^.*elements[[:space:]]*=[[:space:]]*\{/, "", data)
             sub(/[[:space:]]*}[[:space:]]*$/, "", data)
             gsub(/[[:space:]]*,[[:space:]]*/, "\n", data)
@@ -108,6 +120,7 @@ collect_set_items_csv() {
                     continue
                 }
 
+                # Only IPv4/IPv6 address tokens are useful for blacklist diagnostics.
                 if (item ~ /^[0-9]+(\.[0-9]+){3}(\/[0-9]+)?$/ || item ~ /^[0-9A-Fa-f:]+(\/[0-9]+)?$/) {
                     if (count == 0) {
                         output = item
@@ -154,7 +167,7 @@ append_filter_section() {
 }
 
 <% if @systemd_enable -%>
-# Check if nftables is running
+# Verify the service when systemd is available before reading the live ruleset.
 $SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
 
 <% end -%>
@@ -172,6 +185,7 @@ BEGIN {
     chain_key=""
 }
 {
+    # Track table and chain scope so rule counts can be attributed correctly.
     if ($1 == "table") {
         table_key=$2 SUBSEP $3
         table_seen[table_key]=1
@@ -189,6 +203,7 @@ BEGIN {
         next
     }
     if (inside_chain) {
+        # Metadata-only lines should not make a chain look like it has packet rules.
         if ($0 ~ /^[[:space:]]*$/) next
         if ($0 ~ /^[[:space:]]*#/) next
         if ($1 == "type" || $1 == "policy") { chain_has_meta[chain_key]=1; next }
@@ -197,6 +212,7 @@ BEGIN {
     }
 }
 END {
+    # Empty tables/chains are emitted as names for the short output cause.
     total_rules=0
     table_count=0
     empty_tables=""
@@ -239,7 +255,7 @@ END {
     printf "chain_empty=%s\n", empty_chains;
 }')
 
-# Parse keyvals
+# Parse the AWK key/value report into shell variables used by status and perfdata.
 while IFS='=' read -r K V; do
     case "$K" in
         rules_total) TOTAL_RULES=$V ;;
@@ -251,7 +267,7 @@ done <<EOF
 $RULESET_STATS
 EOF
 
-# Collect inet/filter dynamic sets referenced by blocking rules
+# Find dynamic inet/filter sets that are actually referenced by drop/reject rules.
 FILTER_SETS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN {
     FS=" "
@@ -265,6 +281,7 @@ BEGIN {
 {
     line=$0
 
+    # First pass through chains records set references used by drop/reject rules.
     if ($1 == "table") {
         current_table=$2 SUBSEP $3
         inside_chain=0
@@ -293,6 +310,7 @@ BEGIN {
     }
 
     if ($1 == "set") {
+        # Dynamic set declarations are collected after chain parsing leaves scope.
         inside_set=1
         set_key=current_table SUBSEP $2
         set_type=""
@@ -320,6 +338,7 @@ BEGIN {
     }
 }
 END {
+    # Only inet/filter IPv4 and IPv6 blocking sets are useful for the long output.
     for (set_key in set_types) {
         if (!(set_key in blocking)) {
             continue
@@ -371,7 +390,7 @@ $FILTER_SETS
 EOF
 fi
 
-# Get named counters
+# Named nft counters become perfdata only when their packet count is non-zero.
 NAMED_CTRS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN { RS = "}" }
 {
@@ -407,7 +426,7 @@ $NAMED_CTRS
 EOF
 fi
 
-# Inline counters 
+# Inline anonymous counters use the rule comment as label when available.
 INLINE_CTRS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN { seq = 0 }
 {
@@ -448,12 +467,12 @@ $INLINE_CTRS
 EOF
 fi
 
-# Set performance data
+# Sort counter perfdata by packet count so the busiest rules appear first.
 PERFDATA_BUFFER=$(printf '%b' "$PERFDATA_BUFFER" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 [ -n "$PERFDATA_BUFFER" ] && PERF_DATA="$PERF_DATA $PERFDATA_BUFFER"
 
-# Check some values
+# Empty tables or chains indicate a loaded but ineffective firewall.
 if [ -n "$CHAIN_EMPTY" ]; then
     emit_check "No rules in chain(s): $CHAIN_EMPTY" "$PERF_DATA"
     exit 2
@@ -472,6 +491,6 @@ else
     BLACKLIST_SUMMARY="blacklist contains $BL_ITEMS IP addresses"
 fi
 
-# Show output
+# Final healthy summary includes rule/table counts and bounded blacklist detail.
 emit_check "$TOTAL_RULES rules in $TABLE_COUNT table(s), $BLACKLIST_SUMMARY" "$PERF_DATA"
 exit 0

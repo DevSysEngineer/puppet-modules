@@ -15,18 +15,22 @@ MYSQLADMIN=$(command -v mysqladmin 2>/dev/null) || die "mysqladmin not available
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
 
-# Set some values
+# Credentials are read from the local Debian-maintained defaults file unless the caller overrides it.
 DEFAULTS_FILE="/etc/mysql/debian.cnf"
+
+# Connection and cache thresholds stay local because this check manages one MySQL endpoint.
 WARN_CONN_CURR_PCT=90   # WARNING when current connections >= 90%
 CRIT_CONN_CURR_PCT=95   # CRITICAL at 95%
 WARN_CONN_PEAK_PCT=90   # WARNING when historical peak >= 90%
 CRIT_CONN_PEAK_PCT=95   # CRITICAL at 95%
 WARN_HIT_PCT=95         # WARNING when buffer hit < 95%
 CRIT_HIT_PCT=90         # CRITICAL when buffer hit < 90%
+
+# Runtime state collects the worst status and human-readable causes.
 STATE_CODE=0
 ISSUES=""
 
-# Extra options
+# CLI options only select the credentials file; thresholds are intentionally fixed by the managed check.
 while getopts "c:" opt; do
     case "$opt" in
         c) DEFAULTS_FILE="$OPTARG" ;;
@@ -43,6 +47,11 @@ crit() {
 # Run a command quietly and return its original exit code.
 run() {
     "$@" 2>/dev/null
+}
+
+# Keep MySQL status text safe before the real perfdata delimiter.
+monitor_text_value() {
+    printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
 }
 
 # Convert empty or non-numeric input to zero.
@@ -71,22 +80,22 @@ sf()  { get_field "$1" "$STATUS_OUT"; }
 # Read one variables field from the cached output.
 var() { get_field "$1" "$VAR_OUT"; }
 
-# Check if config file exists
+# The defaults file carries local credentials; unreadable credentials make the check unusable.
 [ -r "$DEFAULTS_FILE" ] || crit "Defaults-file $DEFAULTS_FILE not readable"
 
 <% if @systemd_enable -%>
-# Check if mysql is running
+# systemd gives the direct service state before mysqladmin performs protocol checks.
 $SYSTEMDCTL is-active --quiet "mysql.service" || crit "MySQL service is not active"
 
 <% end -%>
-# Check if mysql is running
+# mysqladmin ping confirms the daemon is accepting local administrative connections.
 run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" ping >/dev/null || crit "MySQL service running but not responding"
 
-# Try to get data
+# Cache status and variables from one point in time so derived metrics are internally consistent.
 STATUS_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" extended-status) || die "Cannot read extended-status"
 VAR_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" variables) || die "Cannot read variables"
 
-# Parse data
+# Pull only the counters used for status and perfdata; absent fields become zero below.
 THREADS_CONNECTED=$(parse_to_int "$(sf Threads_connected)")
 THREADS_RUNNING=$(parse_to_int "$(sf Threads_running)")
 SLOW_QUERIES=$(parse_to_int "$(sf Slow_queries)")
@@ -99,14 +108,14 @@ BUF_WAIT_FREE=$(parse_to_int "$(sf Innodb_buffer_pool_wait_free)")
 BUF_PAGES_FREE=$(parse_to_int "$(sf Innodb_buffer_pool_pages_free)")
 BUF_PAGES_TOTAL=$(parse_to_int "$(sf Innodb_buffer_pool_pages_total)")
 
-# Derive metrics
+# Buffer-pool hit rate is computed only when read requests exist.
 if [ "$BUF_READ_REQ" -gt 0 ]; then
     HIT_RATE_PCT=$(printf '%s\n' "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
 else
     HIT_RATE_PCT="N/A"
 fi
 
-# Check if max connection is not zero
+# Connection thresholds are percentages, but perfdata needs the equivalent absolute limits.
 if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     CONN_PCT=$((THREADS_CONNECTED * 100 / MAX_CONNECTIONS))
     if [ "$CONN_PCT" -ge "$CRIT_CONN_CURR_PCT" ]; then
@@ -126,7 +135,6 @@ if [ "$MAX_CONNECTIONS" -gt 0 ]; then
         ISSUES="historical connection peak ${PEAK_PCT}% (warning). $ISSUES"
     fi
 
-    # Set ABS
     WARN_CURR_ABS=$((MAX_CONNECTIONS * WARN_CONN_CURR_PCT / 100))
     CRIT_CURR_ABS=$((MAX_CONNECTIONS * CRIT_CONN_CURR_PCT / 100))
     WARN_PEAK_ABS=$((MAX_CONNECTIONS * WARN_CONN_PEAK_PCT / 100))
@@ -140,7 +148,7 @@ else
     CRIT_PEAK_ABS=""
 fi
 
-# Check if hit rate is given
+# Low buffer hit rate is a cache-efficiency signal; missing data is kept out of status.
 if [ "$HIT_RATE_PCT" != "N/A" ]; then
     INT_HIT=${HIT_RATE_PCT%.*}
     if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then
@@ -156,23 +164,23 @@ else
     CRIT_HIT_ABS=""
 fi
 
-# Check if buffer wait is not zero
+# Buffer wait events indicate pressure even when the hit-rate threshold has not fired.
 if [ "$BUF_WAIT_FREE" -gt 0 ]; then
     [ $STATE_CODE -lt 2 ] && STATE_CODE=1
     ISSUES="InnoDB wait events ${BUF_WAIT_FREE}. $ISSUES"
 fi
 
-# Check if we have slow queries
+# Slow-query count is cumulative and therefore only raises WARNING.
 if [ "$SLOW_QUERIES" -gt 0 ]; then
     [ $STATE_CODE -lt 2 ] && STATE_CODE=1
     ISSUES="slow queries ${SLOW_QUERIES}. $ISSUES"
 fi
 
-# Create message
+# Keep the summary cause-oriented; counters are emitted as perfdata.
 OUTPUT_MSG="MySQL is responding"
 [ -n "$ISSUES" ] && OUTPUT_MSG="${OUTPUT_MSG}; ${ISSUES}"
 
-# Set perform data
+# Perfdata labels are unit-free; UOM is attached to percentage values only.
 PERF="curr_connections=${THREADS_CONNECTED};${WARN_CURR_ABS};${CRIT_CURR_ABS};0;${MAX_CONNECTIONS} "
 PERF="${PERF}max_used_connections=${MAX_USED_CONN};${WARN_PEAK_ABS};${CRIT_PEAK_ABS};0;${MAX_CONNECTIONS} "
 PERF="${PERF}threads_running=${THREADS_RUNNING};;;0 "
@@ -180,6 +188,6 @@ PERF="${PERF}slow_queries=${SLOW_QUERIES};;;0 "
 PERF="${PERF}hit_rate=${HIT_RATE_PCT}%;${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 "
 PERF="${PERF}innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_TOTAL}"
 
-# Show result
-printf '%s | %s\n' "$OUTPUT_MSG" "$PERF"
+# Emit one monitoring line; the summary is sanitized so dynamic MySQL text cannot add perfdata separators.
+printf '%s | %s\n' "$(monitor_text_value "$OUTPUT_MSG")" "$PERF"
 exit $STATE_CODE
