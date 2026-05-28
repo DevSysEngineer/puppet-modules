@@ -1,28 +1,23 @@
 #!/bin/sh
 # Managed by puppet
 
-# Failure and long-output text may contain regexes or command output with pipes.
-# Sanitize those values so Nagios does not parse them as perfdata separators.
-monitor_text_value() {
-    _monitor_text=$1
+# Fail helper
+die() {
+    # Failure text may contain regex pipes before sed is available, so sanitize with shell builtins here.
+    _die_text=$*
+    printf 'vnStat check cannot run: '
     while :; do
-        case "$_monitor_text" in
+        case "$_die_text" in
             *'|'*)
-                printf '%s[or]' "${_monitor_text%%|*}"
-                _monitor_text=${_monitor_text#*|}
+                printf '%s[or]' "${_die_text%%|*}"
+                _die_text=${_die_text#*|}
                 ;;
             *)
-                printf '%s' "$_monitor_text"
-                return
+                printf '%s\n' "$_die_text"
+                exit 3
                 ;;
         esac
     done
-}
-
-# Fail helper
-die() {
-    printf 'vnStat check cannot run: %s\n' "$(monitor_text_value "$*")"
-    exit 3
 }
 
 # Binary checks
@@ -109,6 +104,12 @@ while getopts 'C:V:i:x:w:c:d:D:m:M:u:U:l:' opt; do
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
+
+# Failure and long-output text may contain regexes or command output with pipes.
+# Sanitize those values so Nagios does not parse them as perfdata separators.
+monitor_text_value() {
+    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
 
 # Read the first diagnostic line from command output.
 first_line_value() {

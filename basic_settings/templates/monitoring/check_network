@@ -33,10 +33,12 @@ FAILOVER_NOTE=""
 HAS_V4=0
 HAS_V6=0
 
-# Interface filter input and compact summary text.
+# Interface filter input and bounded interface-detail state.
+DETAIL_LIMIT=${DETAIL_LIMIT:-20}
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
-IF_SUMMARY=""
+IF_DETAIL_COUNT=0
+IF_DETAIL_TRUNCATED=0
 
 # IPv4 address class counters are emitted as global perfdata.
 IPV4_CGNAT=0
@@ -54,7 +56,9 @@ IPV6_SCOPE_GLOBAL=0
 IPV6_TOTAL=0
 IPV6_ULA=0
 
-# Optional service checks share the same state line as interface health.
+# Long output and optional service checks share the same final network status.
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_NETWORK_NL__"
 SERVICES_IDS=""
 SERVICES_LIST="<%= @service_str %>"
 SERVICES=""
@@ -73,17 +77,22 @@ WIRED_DOWN_LIST=""
 WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
-# CLI options can narrow service and interface scope for one check invocation.
+# CLI options can narrow service/interface scope and bound interface detail output for one check invocation.
 OPTERR=0
-while getopts 's:i:' opt; do
+while getopts 's:i:l:' opt; do
     case "$opt" in
         s) SERVICES="$OPTARG" ;;
         i) IF_FILTERS="$OPTARG" ;;
-        *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
+        l) DETAIL_LIMIT="$OPTARG" ;;
+        *) die "Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-s <services>] [-i <iface globs>]"
+[ "$#" -eq 0 ] || die "Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
 # Append one critical reason to the summary.
 add_crit() {
@@ -99,6 +108,41 @@ sanitize_label() {
 # Keep interface, SSID, and service names safe before the real perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Append one diagnostic line to the bounded long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Store one interface detail line while preserving a predictable long-output size.
+append_interface_detail() {
+    IF_DETAIL_COUNT=$((IF_DETAIL_COUNT + 1))
+    if [ "$IF_DETAIL_COUNT" -le "$DETAIL_LIMIT" ]; then
+        append_long "$1"
+    else
+        IF_DETAIL_TRUNCATED=$((IF_DETAIL_TRUNCATED + 1))
+    fi
+}
+
+# Emit one monitoring line followed by sanitized interface details.
+emit_check() {
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
+    fi
 }
 
 # Return success when the interface matches one configured filter.
@@ -140,21 +184,21 @@ wifi_info() {
         # Extract a trailing BSSID only when the final parenthesized value is a MAC address.
         _BSSID=$(printf '%s' "$_LINE" | $SED -n 's/.*(\([0-9A-Fa-f]\{2\}\(:[0-9A-Fa-f]\{2\}\)\{5\}\))[[:space:]]*$/\1/p')
 
-        # SSID is remainder after stripping trailing " (MAC)"; trim trailing spaces
+        # SSID is the remainder after stripping trailing " (MAC)" and trimming trailing spaces.
         _SSID=$(printf '%s' "$_LINE" | $SED -e 's/(\([0-9A-Fa-f]\{2\}\(:[0-9A-Fa-f]\{2\}\)\{5\}\))[[:space:]]*$//' -e 's/[[:space:]]*$//')
 
-        # Normalize placeholders sometimes seen in older outputs
+        # Normalize placeholders sometimes seen in older outputs.
         [ "$_SSID"  = "(null)" ] && _SSID=""
         [ "$_BSSID" = "00:00:00:00:00:00" ] && _BSSID=""
     fi
 <% end -%>
 
-    # Escape any quotes in SSID to keep summary neat
+    # Escape any quotes in SSID to keep long output readable.
     [ -n "$_SSID" ] && _SSID=$(printf '%s' "$_SSID" | $SED 's/"/\\"/g')
 
-    # Output only if we have something useful
+    # Use an explicit sentinel so SSIDs with pipes do not corrupt the shell parser.
     if [ -n "$_SSID" ] || [ -n "$_BSSID" ]; then
-        printf '%s|%s' "$_SSID" "$_BSSID"
+        printf '%s__CHECK_NETWORK_AP_SEP__%s' "$_SSID" "$_BSSID"
     fi
     return 0
 }
@@ -227,29 +271,28 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
         fi
     fi
 
-    # Address lists are used for operator-readable summary text.
+    # Address lists are rendered in long output; perfdata carries the aggregate counters.
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
-    # Compose compact iface summary
+    # Compose one bounded interface detail line for long output.
     STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
-    ADDRS=""
-    [ -n "$V4_LIST" ] && ADDRS="$ADDRS IPv4:$(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
-    [ -n "$V6_LIST" ] && ADDRS="$ADDRS IPv6:$(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+    DETAIL_SUFFIX=""
+    [ -n "$V4_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv4 $(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
+    [ -n "$V6_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv6 $(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
-    # If Wi-Fi and UP: append AP info (SSID + BSSID)
+    # If Wi-Fi is up, include AP identity in long output without putting it in the short status line.
     if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
         APINFO=$(wifi_info "$IFACE")
         if [ -n "$APINFO" ]; then
-            SSID_VAL=${APINFO%%|*}
-            BSSID_VAL=${APINFO#*|}
-            [ -n "$SSID_VAL" ]  && ADDRS="$ADDRS AP:\"$SSID_VAL\""
-            [ -n "$BSSID_VAL" ] && ADDRS="$ADDRS BSSID:$BSSID_VAL"
+            SSID_VAL=${APINFO%%__CHECK_NETWORK_AP_SEP__*}
+            BSSID_VAL=${APINFO#*__CHECK_NETWORK_AP_SEP__}
+            [ -n "$SSID_VAL" ]  && DETAIL_SUFFIX="$DETAIL_SUFFIX; AP \"$SSID_VAL\""
+            [ -n "$BSSID_VAL" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; BSSID $BSSID_VAL"
         fi
     fi
 
-    ADDRS=$(printf '%s' "$ADDRS" | $SED 's/^ *//')
-    IF_SUMMARY="$IF_SUMMARY ${IFACE}[$STATE_STR${ADDRS:+: $ADDRS}]"
+    append_interface_detail "Interface ${IFACE}: ${STATE_STR}${DETAIL_SUFFIX}"
 
     # Per-interface stats from sysfs (if available)
     RX_BYTES="" TX_BYTES="" RX_ERRS="" TX_ERRS="" MTU="" SPEED=""
@@ -399,13 +442,11 @@ PUBIP_DISPLAY_V4=$([ "$HAS_V4" -eq 1 ] && printf '%s' "${PUBIP_V4:-n/a}" || prin
 PUBIP_DISPLAY_V6=$([ "$HAS_V6" -eq 1 ] && printf '%s' "${PUBIP_V6:-n/a}" || printf 'n/a')
 PUBIP_SUMMARY="IPv4 ${PUBIP_DISPLAY_V4}, IPv6 ${PUBIP_DISPLAY_V6}"
 
-# Failover policy for interface-down conditions
-# If Wi-Fi is UP, no wired is UP, and there ARE wired interfaces DOWN:
-# treat as expected failover: do NOT add crit/warn; add note only.
+# Failover policy treats wired-down interfaces as expected when Wi-Fi is up and no wired interface is currently usable.
 if [ "$WIFI_UP_COUNT" -gt 0 ] && [ "$WIRED_UP_COUNT" -eq 0 ] && [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
     FAILOVER_NOTE="Failover active via Wi-Fi (${WIFI_UP_LIST}); ignoring wired down: ${WIRED_DOWN_LIST}"
 else
-    # In all other cases, if there are wired interfaces down, add critical
+    # In all other cases, wired-down interfaces are direct network failures.
     if [ "$WIRED_DOWN_COUNT" -gt 0 ]; then
         add_crit "wired interfaces down: ${WIRED_DOWN_LIST}"
     fi
@@ -414,21 +455,19 @@ fi
 # No usable interface is a direct network failure regardless of failover policy.
 [ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
-# Compose status message (compact)
-MSG="Network public IPs: $PUBIP_SUMMARY; IPv4 addresses ${IPV4_TOTAL}; IPv6 addresses ${IPV6_TOTAL}"
-[ -n "$IF_SUMMARY" ] && MSG="$MSG; interfaces:$IF_SUMMARY"
-if [ -n "$SERVICES_LIST" ]; then
-    if [ "$SVC_INACTIVE" -gt 0 ]; then
-        MSG="$MSG; services inactive ${SVC_INACTIVE}"
-    else
-        MSG="$MSG; services active ${SVC_ACTIVE}"
-    fi
+# Add explicit truncation text after the collected interface detail lines.
+if [ "$IF_DETAIL_TRUNCATED" -gt 0 ]; then
+    append_long "Interface details truncated: ${IF_DETAIL_TRUNCATED} omitted after ${DETAIL_LIMIT} shown"
 fi
+
+# Compose a cause-oriented short output; counters stay in perfdata and interface inventory stays in long output.
+MSG="Network is healthy; public IPs: $PUBIP_SUMMARY"
 [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"
 
-# Finalize message/state
+# Finalize message/state with the direct failure cause first.
 if [ -n "$CRIT_MSG" ]; then
-    MSG="Network $CRIT_MSG; $MSG"
+    MSG="Network $CRIT_MSG; public IPs: $PUBIP_SUMMARY"
+    [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"
     STATE_CODE=2
 fi
 
@@ -455,5 +494,5 @@ PERF_GLOBAL="$PERF_GLOBAL wired_down=${WIRED_DOWN_COUNT};;;0"
 
 # Merge global and per-interface perfdata, then sanitize the dynamic summary.
 PERF="$PERF_GLOBAL${PERF:+ $PERF}"
-printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
+emit_check "$MSG" "$PERF"
 exit $STATE_CODE
