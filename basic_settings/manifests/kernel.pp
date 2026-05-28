@@ -60,6 +60,13 @@
 #   Selects IPv4-only (`4`) or dual-stack (`all`) behavior for kernel and
 #   network templates.
 #
+# @param memory_available_profiles
+#   Optional MemAvailable threshold profiles for memory-pressure monitoring.
+#   `undef` resolves to the built-in RAM profile list. Each profile hash accepts
+#   `max_ram`, `warning`, and `critical`; the final profile uses `max_ram =>
+#   undef` as the open-ended fallback. The generated check validates profile
+#   syntax, size values, and threshold ordering at runtime.
+#
 # @param mglru_enable
 #   Controls Multi-Gen LRU. `true` uses the default `min_ttl_ms` of 1000,
 #   `false` disables MGLRU, and an integer sets a custom `min_ttl_ms`.
@@ -75,6 +82,13 @@
 #   Controls kernel lockdown. `true` resolves to `integrity`, `false` resolves
 #   to `none`, and a string is written as the explicit requested mode. Secure
 #   Boot enforces at least `integrity`.
+#
+# @param swap_free_profiles
+#   Optional SwapFree threshold profiles for memory-pressure monitoring. `undef`
+#   resolves to the built-in swap profile list. Each profile hash accepts
+#   `max_swap`, `warning`, and `critical`; the final profile uses `max_swap =>
+#   undef` as the open-ended fallback. The generated check validates profile
+#   syntax, size values, and threshold ordering at runtime.
 #
 # @param tcp_congestion_control
 #   TCP congestion-control mode. The `bbr` value writes the BBR sysctl snippet
@@ -108,10 +122,12 @@ class basic_settings::kernel (
   Boolean                     $ip_ra_learn_prefix         = true,
   String                      $ip_regdom                  = 'NL',
   Enum['all','4']             $ip_version                 = 'all',
+  Optional[Array[Hash]]       $memory_available_profiles  = undef,
   Variant[Boolean,Integer[0]] $mglru_enable               = true,
   String                      $network_mode               = 'strict',
   Enum['initramfs','dracut']  $ram_disk_package           = 'initramfs',
   Variant[Boolean,String]     $security_lockdown          = true,
+  Optional[Array[Hash]]       $swap_free_profiles         = undef,
   String                      $tcp_congestion_control     = 'brr',
   Integer                     $tcp_fastopen               = 3,
   Array                       $usb_any_requirements       = [],
@@ -130,6 +146,70 @@ class basic_settings::kernel (
   $usb_whitelist_correct = join($usb_whitelist, ' ')
   $usb_expected_correct = join($usb_expected, ' ')
   $usb_any_requirements_correct = join($usb_any_requirements, ' ')
+
+  # Resolve the built-in MemAvailable profile list only when no caller overrides it.
+  $memory_available_profiles_correct = $memory_available_profiles ? {
+    undef   => [
+      { 'max_ram' => '4GB',  'warning' => '768MB',  'critical' => '384MB' },
+      { 'max_ram' => '8GB',  'warning' => '1024MB', 'critical' => '512MB' },
+      { 'max_ram' => '16GB', 'warning' => '1536MB', 'critical' => '768MB' },
+      { 'max_ram' => '32GB', 'warning' => '2048MB', 'critical' => '1024MB' },
+      { 'max_ram' => '64GB', 'warning' => '3072MB', 'critical' => '1536MB' },
+      { 'max_ram' => undef,  'warning' => '4096MB', 'critical' => '2048MB' },
+    ],
+    default => $memory_available_profiles,
+  }
+
+  # Serialize profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
+  $memory_available_profile_specs = $memory_available_profiles_correct.map |$profile| {
+    $memory_profile_max = $profile['max_ram'] ? {
+      undef   => '',
+      default => $profile['max_ram'],
+    }
+    $memory_profile_warning = $profile['warning'] ? {
+      undef   => '',
+      default => $profile['warning'],
+    }
+    $memory_profile_critical = $profile['critical'] ? {
+      undef   => '',
+      default => $profile['critical'],
+    }
+
+    "${memory_profile_max}|${memory_profile_warning}|${memory_profile_critical}"
+  }
+  $memory_available_profiles_spec = join($memory_available_profile_specs, ',')
+  $memory_available_profiles_spec_shell = stdlib::shell_escape($memory_available_profiles_spec)
+
+  # Resolve the built-in SwapFree profile list only when no caller overrides it.
+  $swap_free_profiles_correct = $swap_free_profiles ? {
+    undef   => [
+      { 'max_swap' => '1GB', 'warning' => '128MB',  'critical' => '32MB' },
+      { 'max_swap' => '2GB', 'warning' => '256MB',  'critical' => '64MB' },
+      { 'max_swap' => '4GB', 'warning' => '512MB',  'critical' => '128MB' },
+      { 'max_swap' => undef, 'warning' => '1024MB', 'critical' => '256MB' },
+    ],
+    default => $swap_free_profiles,
+  }
+
+  # Serialize swap profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
+  $swap_free_profile_specs = $swap_free_profiles_correct.map |$profile| {
+    $swap_profile_max = $profile['max_swap'] ? {
+      undef   => '',
+      default => $profile['max_swap'],
+    }
+    $swap_profile_warning = $profile['warning'] ? {
+      undef   => '',
+      default => $profile['warning'],
+    }
+    $swap_profile_critical = $profile['critical'] ? {
+      undef   => '',
+      default => $profile['critical'],
+    }
+
+    "${swap_profile_max}|${swap_profile_warning}|${swap_profile_critical}"
+  }
+  $swap_free_profiles_spec = join($swap_free_profile_specs, ',')
+  $swap_free_profiles_spec_shell = stdlib::shell_escape($swap_free_profiles_spec)
 
   # Resolve MGLRU to the default min_ttl_ms, a custom min_ttl_ms, or disabled.
   $mglru_min_ttl_ms_correct = $mglru_enable ? {
@@ -826,7 +906,7 @@ class basic_settings::kernel (
     # Register memory pressure monitoring next to kernel memory tuning.
     basic_settings::monitoring_custom { 'memory_pressure':
       friendly => 'Memory pressure',
-      source   => template('basic_settings/monitoring/check_memory_pressure'),
+      content  => template('basic_settings/monitoring/check_memory_pressure'),
     }
 
     # Reegister USB monitoring

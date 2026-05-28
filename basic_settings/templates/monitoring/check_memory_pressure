@@ -28,10 +28,14 @@ STATE_CRITICAL=2
 STATE_UNKNOWN=3
 
 # Thresholds and data paths keep memory pressure evaluation local and fixture-friendly.
+MEM_AVAILABLE_PROFILES=<%= @memory_available_profiles_spec_shell %>
+MEM_AVAILABLE_WARNING_OVERRIDE=""
+MEM_AVAILABLE_CRITICAL_OVERRIDE=""
+SWAP_FREE_PROFILES=<%= @swap_free_profiles_spec_shell %>
+SWAP_FREE_WARNING_OVERRIDE=""
+SWAP_FREE_CRITICAL_OVERRIDE=""
 SWAP_WARNING_PERCENT=80
 SWAP_CRITICAL_PERCENT=95
-MEM_AVAILABLE_WARNING_PERCENT=20
-MEM_AVAILABLE_CRITICAL_PERCENT=10
 SWAP_IO_WARNING_KIB=1
 SWAP_IO_CRITICAL_KIB=64
 SWAP_IO_CRITICAL_SAMPLE_MIN=2
@@ -59,10 +63,12 @@ usage() {
     printf '%s\n' "Usage: $0 [options]"
     printf '%s\n' ''
     printf '%s\n' 'Options:'
-    printf '%s\n' '  -w, --swap-warning-percent <0-100>          Default: 80'
-    printf '%s\n' '  -c, --swap-critical-percent <0-100>         Default: 95'
-    printf '%s\n' '      --mem-available-warning-percent <0-100> Default: 20'
-    printf '%s\n' '      --mem-available-critical-percent <0-100> Default: 10'
+    printf '%s\n' '      --memory-available-warning <size>       Override selected profile warning threshold'
+    printf '%s\n' '      --memory-available-critical <size>      Override selected profile critical threshold'
+    printf '%s\n' '      --swap-free-warning <size>              Override selected profile warning threshold'
+    printf '%s\n' '      --swap-free-critical <size>             Override selected profile critical threshold'
+    printf '%s\n' '  -w, --swap-warning-percent <0-100>          Perfdata context only. Default: 80'
+    printf '%s\n' '  -c, --swap-critical-percent <0-100>         Perfdata context only. Default: 95'
     printf '%s\n' '      --swap-io-warning-kib <number>          Default: 1'
     printf '%s\n' '      --swap-io-critical-kib <number>         Default: 64'
     printf '%s\n' '      --swap-io-critical-samples <number>     Default: 2'
@@ -87,16 +93,27 @@ while [ "$#" -gt 0 ]; do
             shift
             SWAP_CRITICAL_PERCENT=$1
             ;;
-        # Memory-available thresholds are percentages of MemTotal.
-        --mem-available-warning-percent)
+        # Manual MemAvailable threshold overrides use absolute sizes and make the selected profile explicit in output.
+        --memory-available-warning)
             need_arg "$1" "$@"
             shift
-            MEM_AVAILABLE_WARNING_PERCENT=$1
+            MEM_AVAILABLE_WARNING_OVERRIDE=$1
             ;;
-        --mem-available-critical-percent)
+        --memory-available-critical)
             need_arg "$1" "$@"
             shift
-            MEM_AVAILABLE_CRITICAL_PERCENT=$1
+            MEM_AVAILABLE_CRITICAL_OVERRIDE=$1
+            ;;
+        # Manual SwapFree threshold overrides use absolute sizes and are combined with memory headroom and active swap I/O.
+        --swap-free-warning)
+            need_arg "$1" "$@"
+            shift
+            SWAP_FREE_WARNING_OVERRIDE=$1
+            ;;
+        --swap-free-critical)
+            need_arg "$1" "$@"
+            shift
+            SWAP_FREE_CRITICAL_OVERRIDE=$1
             ;;
         --swap-io-warning-kib)
             need_arg "$1" "$@"
@@ -208,6 +225,42 @@ validate_percent() {
     [ "$2" -le 100 ] || die "$1 must be between 0 and 100"
 }
 
+# Absolute threshold sizes are parsed to KiB for procfs comparisons while preserving the original text for operator output.
+parse_size_to_kib() {
+    $AWK -v raw="$1" '
+        BEGIN {
+            value = raw
+            gsub(/^[[:space:]]+/, "", value)
+            gsub(/[[:space:]]+$/, "", value)
+            lower = tolower(value)
+            if (lower !~ /^[0-9]+([.][0-9]+)?[[:space:]]*(kib|kb|mib|mb|gib|gb|k|m|g)$/) {
+                exit 1
+            }
+            unit = lower
+            sub(/^[0-9]+([.][0-9]+)?[[:space:]]*/, "", unit)
+            number = lower
+            sub(/[[:space:]]*(kib|kb|mib|mb|gib|gb|k|m|g)$/, "", number)
+            gsub(/[[:space:]]/, "", number)
+            multiplier = 1
+            if (unit == "mib" || unit == "mb" || unit == "m") {
+                multiplier = 1024
+            } else if (unit == "gib" || unit == "gb" || unit == "g") {
+                multiplier = 1048576
+            }
+            kib = number * multiplier
+            if (kib <= 0) {
+                exit 1
+            }
+            printf "%.0f\n", kib
+        }
+    '
+}
+
+# CLI size validation keeps override mistakes in setup/UNKNOWN territory.
+validate_size() {
+    parse_size_to_kib "$2" >/dev/null || die "invalid size value for $1: $2"
+}
+
 # Kernel counters may be unavailable on minimal systems; normalize those values before arithmetic.
 numeric_or_zero() {
     case "$1" in
@@ -229,6 +282,66 @@ format_kib() {
             }
         }
     '
+}
+
+# Select the first profile whose maximum covers the detected total. An empty maximum is the final open-ended fallback.
+select_profile() {
+    PROFILE_SPEC=$1
+    PROFILE_TOTAL_KIB=$2
+    PROFILE_TOTAL_LABEL=$3
+    PROFILE_REMAINING=$PROFILE_SPEC
+    PROFILE_PREVIOUS_MAX_RAW=""
+    PROFILE_WARNING_KIB=""
+    PROFILE_CRITICAL_KIB=""
+    PROFILE_WARNING_RAW=""
+    PROFILE_CRITICAL_RAW=""
+    PROFILE_SELECTED_TEXT=""
+
+    while [ -n "$PROFILE_REMAINING" ]; do
+        case "$PROFILE_REMAINING" in
+            *,*)
+                PROFILE_ENTRY=${PROFILE_REMAINING%%,*}
+                PROFILE_REMAINING=${PROFILE_REMAINING#*,}
+                ;;
+            *)
+                PROFILE_ENTRY=$PROFILE_REMAINING
+                PROFILE_REMAINING=""
+                ;;
+        esac
+
+        PROFILE_MAX_RAW=${PROFILE_ENTRY%%|*}
+        PROFILE_REST=${PROFILE_ENTRY#*|}
+        [ "$PROFILE_REST" != "$PROFILE_ENTRY" ] || die "invalid ${PROFILE_TOTAL_LABEL} profile entry: $PROFILE_ENTRY"
+        PROFILE_WARNING_RAW=${PROFILE_REST%%|*}
+        PROFILE_CRITICAL_RAW=${PROFILE_REST#*|}
+        [ "$PROFILE_CRITICAL_RAW" != "$PROFILE_REST" ] || die "invalid ${PROFILE_TOTAL_LABEL} profile entry: $PROFILE_ENTRY"
+        case "$PROFILE_CRITICAL_RAW" in
+            *'|'*) die "invalid ${PROFILE_TOTAL_LABEL} profile entry: $PROFILE_ENTRY" ;;
+        esac
+
+        PROFILE_WARNING_KIB=$(parse_size_to_kib "$PROFILE_WARNING_RAW") || die "invalid ${PROFILE_TOTAL_LABEL} warning threshold: $PROFILE_WARNING_RAW"
+        PROFILE_CRITICAL_KIB=$(parse_size_to_kib "$PROFILE_CRITICAL_RAW") || die "invalid ${PROFILE_TOTAL_LABEL} critical threshold: $PROFILE_CRITICAL_RAW"
+        [ "$PROFILE_CRITICAL_KIB" -le "$PROFILE_WARNING_KIB" ] || die "${PROFILE_TOTAL_LABEL} critical threshold must be less than or equal to warning threshold"
+
+        if [ -z "$PROFILE_MAX_RAW" ]; then
+            [ -z "$PROFILE_REMAINING" ] || die "${PROFILE_TOTAL_LABEL} profile has an open-ended maximum before the last entry"
+            if [ -n "$PROFILE_PREVIOUS_MAX_RAW" ]; then
+                PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} > ${PROFILE_PREVIOUS_MAX_RAW}, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
+            else
+                PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} open-ended, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
+            fi
+            return 0
+        fi
+
+        PROFILE_MAX_KIB=$(parse_size_to_kib "$PROFILE_MAX_RAW") || die "invalid ${PROFILE_TOTAL_LABEL} maximum: $PROFILE_MAX_RAW"
+        if [ "$PROFILE_TOTAL_KIB" -le "$PROFILE_MAX_KIB" ]; then
+            PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} <= ${PROFILE_MAX_RAW}, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
+            return 0
+        fi
+        PROFILE_PREVIOUS_MAX_RAW=$PROFILE_MAX_RAW
+    done
+
+    die "no ${PROFILE_TOTAL_LABEL} profile matched"
 }
 
 # vmstat counters are read as a pair so swap I/O deltas come from the same snapshot.
@@ -356,8 +469,10 @@ print_top_swap_processes() {
 # UNKNOWN instead of being mixed with real host pressure signals.
 validate_percent 'swap warning percent' "$SWAP_WARNING_PERCENT"
 validate_percent 'swap critical percent' "$SWAP_CRITICAL_PERCENT"
-validate_percent 'memory available warning percent' "$MEM_AVAILABLE_WARNING_PERCENT"
-validate_percent 'memory available critical percent' "$MEM_AVAILABLE_CRITICAL_PERCENT"
+[ -z "$MEM_AVAILABLE_WARNING_OVERRIDE" ] || validate_size 'memory available warning override' "$MEM_AVAILABLE_WARNING_OVERRIDE"
+[ -z "$MEM_AVAILABLE_CRITICAL_OVERRIDE" ] || validate_size 'memory available critical override' "$MEM_AVAILABLE_CRITICAL_OVERRIDE"
+[ -z "$SWAP_FREE_WARNING_OVERRIDE" ] || validate_size 'swap free warning override' "$SWAP_FREE_WARNING_OVERRIDE"
+[ -z "$SWAP_FREE_CRITICAL_OVERRIDE" ] || validate_size 'swap free critical override' "$SWAP_FREE_CRITICAL_OVERRIDE"
 validate_uint 'swap I/O warning KiB' "$SWAP_IO_WARNING_KIB"
 validate_uint 'swap I/O critical KiB' "$SWAP_IO_CRITICAL_KIB"
 validate_uint 'swap I/O critical samples' "$SWAP_IO_CRITICAL_SAMPLE_MIN"
@@ -370,7 +485,6 @@ validate_uint 'sample interval' "$SAMPLE_INTERVAL"
 [ "$SWAP_IO_CRITICAL_SAMPLE_MIN" -ge 1 ] || die "swap I/O critical samples must be at least 1"
 [ "$SWAP_IO_CRITICAL_SAMPLE_MIN" -le "$SAMPLE_COUNT" ] || die "swap I/O critical samples must be less than or equal to sample count"
 [ "$SWAP_CRITICAL_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] || die "swap critical percent must be greater than or equal to warning percent"
-[ "$MEM_AVAILABLE_CRITICAL_PERCENT" -le "$MEM_AVAILABLE_WARNING_PERCENT" ] || die "memory available critical percent must be less than or equal to warning percent"
 [ "$SWAP_IO_CRITICAL_KIB" -ge "$SWAP_IO_WARNING_KIB" ] || die "swap I/O critical threshold must be greater than or equal to warning threshold"
 
 # /proc/meminfo is the authoritative source for this check. Missing required
@@ -438,13 +552,61 @@ if [ "$SWAP_FREE_KIB" -gt "$SWAP_TOTAL_KIB" ]; then
     exit "$STATE_UNKNOWN"
 fi
 
-# Use integer percentages for stable perfdata and threshold comparisons.
+# Use integer percentages for stable perfdata and passive swap-utilization context.
 MEM_AVAILABLE_PERCENT=$((MEM_AVAILABLE_KIB * 100 / MEM_TOTAL_KIB))
 SWAP_USED_KIB=$((SWAP_TOTAL_KIB - SWAP_FREE_KIB))
 if [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
     SWAP_USED_PERCENT=$((SWAP_USED_KIB * 100 / SWAP_TOTAL_KIB))
 else
     SWAP_USED_PERCENT=0
+fi
+
+# Select absolute MemAvailable thresholds from MemTotal and then apply any manual CLI override.
+select_profile "$MEM_AVAILABLE_PROFILES" "$MEM_TOTAL_KIB" "MemTotal"
+MEM_AVAILABLE_WARNING_KIB=$PROFILE_WARNING_KIB
+MEM_AVAILABLE_CRITICAL_KIB=$PROFILE_CRITICAL_KIB
+MEM_AVAILABLE_WARNING_RAW=$PROFILE_WARNING_RAW
+MEM_AVAILABLE_CRITICAL_RAW=$PROFILE_CRITICAL_RAW
+MEMORY_PROFILE_TEXT=$PROFILE_SELECTED_TEXT
+if [ -n "$MEM_AVAILABLE_WARNING_OVERRIDE" ] || [ -n "$MEM_AVAILABLE_CRITICAL_OVERRIDE" ]; then
+    if [ -n "$MEM_AVAILABLE_WARNING_OVERRIDE" ]; then
+        MEM_AVAILABLE_WARNING_KIB=$(parse_size_to_kib "$MEM_AVAILABLE_WARNING_OVERRIDE") || die "invalid memory available warning override: $MEM_AVAILABLE_WARNING_OVERRIDE"
+        MEM_AVAILABLE_WARNING_RAW=$MEM_AVAILABLE_WARNING_OVERRIDE
+    fi
+    if [ -n "$MEM_AVAILABLE_CRITICAL_OVERRIDE" ]; then
+        MEM_AVAILABLE_CRITICAL_KIB=$(parse_size_to_kib "$MEM_AVAILABLE_CRITICAL_OVERRIDE") || die "invalid memory available critical override: $MEM_AVAILABLE_CRITICAL_OVERRIDE"
+        MEM_AVAILABLE_CRITICAL_RAW=$MEM_AVAILABLE_CRITICAL_OVERRIDE
+    fi
+    [ "$MEM_AVAILABLE_CRITICAL_KIB" -le "$MEM_AVAILABLE_WARNING_KIB" ] || die "memory available critical override must be less than or equal to warning override"
+    MEMORY_PROFILE_TEXT="custom override, warning=${MEM_AVAILABLE_WARNING_RAW}, critical=${MEM_AVAILABLE_CRITICAL_RAW}"
+fi
+
+# Select absolute SwapFree thresholds only when swap exists; a no-swap host is handled by memory headroom alone.
+if [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
+    select_profile "$SWAP_FREE_PROFILES" "$SWAP_TOTAL_KIB" "SwapTotal"
+    SWAP_FREE_WARNING_KIB=$PROFILE_WARNING_KIB
+    SWAP_FREE_CRITICAL_KIB=$PROFILE_CRITICAL_KIB
+    SWAP_FREE_WARNING_RAW=$PROFILE_WARNING_RAW
+    SWAP_FREE_CRITICAL_RAW=$PROFILE_CRITICAL_RAW
+    SWAP_PROFILE_TEXT=$PROFILE_SELECTED_TEXT
+    if [ -n "$SWAP_FREE_WARNING_OVERRIDE" ] || [ -n "$SWAP_FREE_CRITICAL_OVERRIDE" ]; then
+        if [ -n "$SWAP_FREE_WARNING_OVERRIDE" ]; then
+            SWAP_FREE_WARNING_KIB=$(parse_size_to_kib "$SWAP_FREE_WARNING_OVERRIDE") || die "invalid swap free warning override: $SWAP_FREE_WARNING_OVERRIDE"
+            SWAP_FREE_WARNING_RAW=$SWAP_FREE_WARNING_OVERRIDE
+        fi
+        if [ -n "$SWAP_FREE_CRITICAL_OVERRIDE" ]; then
+            SWAP_FREE_CRITICAL_KIB=$(parse_size_to_kib "$SWAP_FREE_CRITICAL_OVERRIDE") || die "invalid swap free critical override: $SWAP_FREE_CRITICAL_OVERRIDE"
+            SWAP_FREE_CRITICAL_RAW=$SWAP_FREE_CRITICAL_OVERRIDE
+        fi
+        [ "$SWAP_FREE_CRITICAL_KIB" -le "$SWAP_FREE_WARNING_KIB" ] || die "swap free critical override must be less than or equal to warning override"
+        SWAP_PROFILE_TEXT="custom override, warning=${SWAP_FREE_WARNING_RAW}, critical=${SWAP_FREE_CRITICAL_RAW}"
+    fi
+else
+    SWAP_FREE_WARNING_KIB=0
+    SWAP_FREE_CRITICAL_KIB=0
+    SWAP_FREE_WARNING_RAW="0KB"
+    SWAP_FREE_CRITICAL_RAW="0KB"
+    SWAP_PROFILE_TEXT="no swap configured"
 fi
 
 # Read current swap I/O from cumulative /proc/vmstat counters with a short sample.
@@ -473,7 +635,7 @@ case "$PAGE_SIZE_BYTES" in
 esac
 [ "$PAGE_SIZE_BYTES" -gt 0 ] || PAGE_SIZE_BYTES=4096
 
-# Take multiple deltas to distinguish sustained swap pressure from one short spike. If vmstat cannot be read, continue with memory/swap percentages.
+# Take multiple deltas to distinguish sustained swap pressure from one short spike. If vmstat cannot be read, continue with absolute memory and swap-free thresholds.
 if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
     VMSTAT_CURRENT=""
     SWAP_IO_NOTE="active swap I/O not sampled because no swap is configured"
@@ -560,50 +722,68 @@ elif [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
     SWAP_IO_NOTE="active swap I/O could not be checked because ${VMSTAT_PATH} is unavailable or missing pswpin/pswpout"
 fi
 
-# Decide status from combined memory headroom, swap occupancy, and sustained swap I/O. Swap occupancy alone is intentionally not a WARNING or CRITICAL.
+# Decide status from absolute memory headroom, absolute swap-free space, and sustained swap I/O. Swap utilization percentage is context only.
 MEM_AVAILABLE_HUMAN=$(format_kib "$MEM_AVAILABLE_KIB")
-if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
-    # Hosts without swap are not automatically broken; they are reported as
-    # healthy unless the site policy adds a separate swap-presence check.
-    EXIT_CODE=$STATE_OK
-    SUMMARY="Memory pressure healthy: no swap configured; memory available ${MEM_AVAILABLE_PERCENT}% (${MEM_AVAILABLE_HUMAN})"
-elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_CRITICAL_PERCENT" ]; then
-    # Nearly exhausted swap plus critically low MemAvailable is pressure even when the sample window does not catch active swap I/O.
+MEM_AVAILABLE_WARNING_HUMAN=$(format_kib "$MEM_AVAILABLE_WARNING_KIB")
+MEM_AVAILABLE_CRITICAL_HUMAN=$(format_kib "$MEM_AVAILABLE_CRITICAL_KIB")
+SWAP_FREE_HUMAN=$(format_kib "$SWAP_FREE_KIB")
+SWAP_FREE_WARNING_HUMAN=$(format_kib "$SWAP_FREE_WARNING_KIB")
+SWAP_FREE_CRITICAL_HUMAN=$(format_kib "$SWAP_FREE_CRITICAL_KIB")
+MEM_AVAILABLE_LOW=0
+MEM_AVAILABLE_CRITICAL=0
+SWAP_FREE_LOW=0
+SWAP_FREE_CRITICAL=0
+[ "$MEM_AVAILABLE_KIB" -lt "$MEM_AVAILABLE_WARNING_KIB" ] && MEM_AVAILABLE_LOW=1
+[ "$MEM_AVAILABLE_KIB" -lt "$MEM_AVAILABLE_CRITICAL_KIB" ] && MEM_AVAILABLE_CRITICAL=1
+if [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
+    [ "$SWAP_FREE_KIB" -lt "$SWAP_FREE_WARNING_KIB" ] && SWAP_FREE_LOW=1
+    [ "$SWAP_FREE_KIB" -lt "$SWAP_FREE_CRITICAL_KIB" ] && SWAP_FREE_CRITICAL=1
+fi
+
+if [ "$MEM_AVAILABLE_CRITICAL" -eq 1 ]; then
+    # Critically low MemAvailable is direct memory pressure even when swap I/O is quiet.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: swap is nearly exhausted and memory available is critical at ${MEM_AVAILABLE_PERCENT}%; swap ${SWAP_USED_PERCENT}% used; swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    SUMMARY="Memory pressure active: memory available is critically low: ${MEM_AVAILABLE_HUMAN} available, critical limit ${MEM_AVAILABLE_CRITICAL_HUMAN}"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ]; then
     # Sustained swap-in plus swap-out is a stronger thrashing signal than either direction alone.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: sustained swap-in and swap-out are detected: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
-elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ]; then
-    # Sustained swap-out while swap is nearly exhausted indicates current pressure, not merely old passive swap occupancy.
-    EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: swap is nearly exhausted and sustained swap-out is detected: swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
-elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_WARNING_PERCENT" ]; then
+    SUMMARY="Memory pressure active: sustained swap-in and swap-out are detected: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$MEM_AVAILABLE_LOW" -eq 1 ]; then
     # Sustained swap-out with low MemAvailable means the kernel is actively trying to free RAM by writing pages to swap.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: sustained swap-out with low memory available: swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used"
-elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ]; then
-    # Sustained critical swap I/O is actionable even when swap occupancy has not yet crossed a capacity threshold.
+    SUMMARY="Memory pressure active: low memory headroom and active swap-out detected: memory available ${MEM_AVAILABLE_HUMAN}, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_FREE_CRITICAL" -eq 1 ]; then
+    # Active swap-out while swap free space is critically low means the kernel is still trying to write to nearly exhausted swap.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: sustained swap I/O is detected: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
-elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_WARNING_PERCENT" ]; then
-    # Occupied swap becomes actionable when reclaim headroom is also small.
+    SUMMARY="Memory pressure active: swap free is critically low and active swap-out is detected: swap free ${SWAP_FREE_HUMAN}, critical limit ${SWAP_FREE_CRITICAL_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+elif [ "$MEM_AVAILABLE_LOW" -eq 1 ] && [ "$SWAP_FREE_CRITICAL" -eq 1 ]; then
+    # Low memory headroom plus critically low swap free space deserves attention even without sampled current swap-out.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    SUMMARY="Memory pressure warning: memory available is low and swap free is critically low: memory available ${MEM_AVAILABLE_HUMAN}, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+elif [ "$MEM_AVAILABLE_LOW" -eq 1 ]; then
+    # MemAvailable is a headroom signal: warn before the host reaches critical pressure.
+    EXIT_CODE=$STATE_WARNING
+    SUMMARY="Memory pressure warning: memory available is low: ${MEM_AVAILABLE_HUMAN} available, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, critical limit ${MEM_AVAILABLE_CRITICAL_HUMAN}"
+elif [ "$SWAP_FREE_LOW" -eq 1 ]; then
+    # Low SwapFree is warning-level when memory headroom is still healthy and no critical swap pressure is sampled.
+    EXIT_CODE=$STATE_WARNING
+    SUMMARY="Memory pressure warning: swap free is low: ${SWAP_FREE_HUMAN} free, warning limit ${SWAP_FREE_WARNING_HUMAN}, critical limit ${SWAP_FREE_CRITICAL_HUMAN}; memory available ${MEM_AVAILABLE_HUMAN}"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_WARNING_SAMPLE_COUNT" -gt 0 ]; then
     # Light or one-off current swapping is reported as WARNING so operators can inspect the host without treating a single spike as critical pressure.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
+    SUMMARY="Memory pressure warning: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
 else
     EXIT_CODE=$STATE_OK
-    if [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_KIB_PER_SEC" -eq 0 ] && [ "$SWAP_OUT_KIB_PER_SEC" -eq 0 ]; then
+    if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
+        # Hosts without swap are not automatically broken; memory headroom drives the status.
+        SUMMARY="Memory pressure healthy: no swap configured and ${MEM_AVAILABLE_HUMAN} memory available"
+    elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_KIB_PER_SEC" -eq 0 ] && [ "$SWAP_OUT_KIB_PER_SEC" -eq 0 ]; then
         # This is the expected false-positive reduction path: old swap pages can remain allocated while the host has enough available memory.
         SUMMARY="Memory pressure healthy: swap is ${SWAP_USED_PERCENT}% used but inactive; no active swap I/O and ${MEM_AVAILABLE_HUMAN} memory available"
     elif [ "$SWAP_IO_AVAILABLE" -eq 0 ]; then
-        SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used; active swap I/O unavailable"
+        SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}; active swap I/O unavailable"
     else
-        SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used, no active swap I/O detected"
+        SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}, no active swap I/O detected"
     fi
 fi
 
@@ -611,9 +791,13 @@ fi
 # suffixes so graph history stays stable if thresholds change.
 PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB;;;;"
 PERFDATA="${PERFDATA} memory_headroom=${MEM_AVAILABLE_PERCENT}%;;;0;100"
+PERFDATA="${PERFDATA} memory_warning_limit=${MEM_AVAILABLE_WARNING_KIB}KB;;;;"
+PERFDATA="${PERFDATA} memory_critical_limit=${MEM_AVAILABLE_CRITICAL_KIB}KB;;;;"
 PERFDATA="${PERFDATA} swap_used=${SWAP_USED_KIB}KB;;;;"
 PERFDATA="${PERFDATA} swap_utilization=${SWAP_USED_PERCENT}%;${SWAP_WARNING_PERCENT};${SWAP_CRITICAL_PERCENT};0;100"
 PERFDATA="${PERFDATA} swap_free=${SWAP_FREE_KIB}KB;;;;"
+PERFDATA="${PERFDATA} swap_free_warning=${SWAP_FREE_WARNING_KIB}KB;;;;"
+PERFDATA="${PERFDATA} swap_free_critical=${SWAP_FREE_CRITICAL_KIB}KB;;;;"
 PERFDATA="${PERFDATA} swap_in=${SWAP_IN_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB};;"
 PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB};;"
 PERFDATA="${PERFDATA} swap_cached=${SWAP_CACHED_KIB}KB;;;;"
@@ -625,11 +809,17 @@ PERFDATA="${PERFDATA} unevictable=${UNEVICTABLE_KIB}KB;;;;"
 
 # Long output starts with the memory snapshot because it is the primary evidence
 # for the combined decision and useful even when swap I/O is unavailable.
+append_long "Selected memory profile: ${MEMORY_PROFILE_TEXT}"
+append_long "Selected swap profile: ${SWAP_PROFILE_TEXT}"
 append_long "MemTotal: ${MEM_TOTAL_KIB} KiB"
 append_long "MemAvailable: ${MEM_AVAILABLE_KIB} KiB (${MEM_AVAILABLE_PERCENT}%)"
+append_long "MemAvailableWarning: ${MEM_AVAILABLE_WARNING_KIB} KiB"
+append_long "MemAvailableCritical: ${MEM_AVAILABLE_CRITICAL_KIB} KiB"
 append_long "SwapTotal: ${SWAP_TOTAL_KIB} KiB"
 append_long "SwapUsed: ${SWAP_USED_KIB} KiB (${SWAP_USED_PERCENT}%)"
 append_long "SwapFree: ${SWAP_FREE_KIB} KiB"
+append_long "SwapFreeWarning: ${SWAP_FREE_WARNING_KIB} KiB"
+append_long "SwapFreeCritical: ${SWAP_FREE_CRITICAL_KIB} KiB"
 append_long "SwapCached: ${SWAP_CACHED_KIB} KiB"
 append_long "Buffers: ${BUFFERS_KIB} KiB"
 append_long "Cached: ${CACHED_KIB} KiB"

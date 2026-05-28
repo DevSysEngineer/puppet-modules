@@ -87,6 +87,10 @@
 # @param kernel_hugepages
 #   Hugepage count passed to the kernel class.
 #
+# @param kernel_memory_available_profiles
+#   Optional MemAvailable threshold profiles passed to `basic_settings::kernel`.
+#   `undef` lets the kernel class use its built-in RAM profile list.
+#
 # @param kernel_mglru_enable
 #   Controls Multi-Gen LRU. `true` uses the default, `false` disables it, and an
 #   integer sets a custom `min_ttl_ms`.
@@ -100,6 +104,10 @@
 # @param kernel_security_lockdown
 #   Kernel lockdown setting. `true` maps to `integrity`, `false` maps to `none`,
 #   and a string is treated as an explicit lockdown mode.
+#
+# @param kernel_swap_free_profiles
+#   Optional SwapFree threshold profiles passed to `basic_settings::kernel`.
+#   `undef` lets the kernel class use its built-in swap profile list.
 #
 # @param kernel_tcp_congestion_control
 #   TCP congestion-control mode passed to `basic_settings::kernel`.
@@ -292,10 +300,12 @@ class basic_settings (
   Enum['all','4']                       $ip_version                                 = 'all',
   Integer                               $kernel_connection_max                      = 4096,
   Integer                               $kernel_hugepages                           = 0,
+  Optional[Array[Hash]]                 $kernel_memory_available_profiles           = undef,
   Variant[Boolean,Integer[0]]           $kernel_mglru_enable                        = true,
   String                                $kernel_network_mode                        = 'strict',
   Enum['initramfs','dracut']            $kernel_ram_disk_package                    = 'initramfs',
   Variant[Boolean,String]               $kernel_security_lockdown                   = true,
+  Optional[Array[Hash]]                 $kernel_swap_free_profiles                  = undef,
   String                                $kernel_tcp_congestion_control              = 'brr',
   Integer                               $kernel_tcp_fastopen                        = 3,
   Optional[Boolean]                     $keyboard_enable                            = undef,
@@ -814,23 +824,25 @@ class basic_settings (
 
   # Setup kernel
   class { 'basic_settings::kernel':
-    antivirus_package       => $antivirus_package,
-    connection_max          => $kernel_connection_max,
-    guest_agent_enable      => $guest_agent_enable,
-    hugepages               => $kernel_hugepages,
-    install_options         => $backports_install_options,
-    ip_version              => $ip_version,
-    ip_ra_enable            => $ip_ra_enable_correct,
-    ip_ra_learn_prefix      => $ip_ra_learn_prefix,
-    mglru_enable            => $kernel_mglru_enable,
-    network_mode            => $kernel_network_mode,
-    ram_disk_package        => $kernel_ram_disk_package_correct,
-    security_lockdown       => $kernel_security_lockdown,
-    tcp_congestion_control  => $kernel_tcp_congestion_control,
-    tcp_fastopen            => $kernel_tcp_fastopen,
-    usb_whitelist           => $usb_whitelist,
-    usb_expected            => $usb_expected,
-    usb_any_requirements    => $usb_any_requirements
+    antivirus_package         => $antivirus_package,
+    connection_max            => $kernel_connection_max,
+    guest_agent_enable        => $guest_agent_enable,
+    hugepages                 => $kernel_hugepages,
+    install_options           => $backports_install_options,
+    ip_version                => $ip_version,
+    ip_ra_enable              => $ip_ra_enable_correct,
+    ip_ra_learn_prefix        => $ip_ra_learn_prefix,
+    memory_available_profiles => $kernel_memory_available_profiles,
+    mglru_enable              => $kernel_mglru_enable,
+    network_mode              => $kernel_network_mode,
+    ram_disk_package          => $kernel_ram_disk_package_correct,
+    security_lockdown         => $kernel_security_lockdown,
+    swap_free_profiles        => $kernel_swap_free_profiles,
+    tcp_congestion_control    => $kernel_tcp_congestion_control,
+    tcp_fastopen              => $kernel_tcp_fastopen,
+    usb_whitelist             => $usb_whitelist,
+    usb_expected              => $usb_expected,
+    usb_any_requirements      => $usb_any_requirements
   }
 
   # Set network
