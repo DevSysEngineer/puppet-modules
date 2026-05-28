@@ -420,7 +420,7 @@ BEGIN { RS = "}" }
 # Process named counters
 if [ -n "$NAMED_CTRS" ]; then
     while IFS=' ' read -r N P; do
-        add_pd "ctr_${N}_pkts" "$P";
+        add_pd "ctr_${N}" "${P}c";
     done <<EOF
 $NAMED_CTRS
 EOF
@@ -460,8 +460,8 @@ BEGIN { seq = 0 }
 # Process inline counters
 if [ -n "$INLINE_CTRS" ]; then
     while read -r LABEL VALUE ISDROP;do
-        add_pd "rule_${LABEL}_pkts" "$VALUE"
-        [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "$VALUE"
+        add_pd "rule_${LABEL}" "${VALUE}c"
+        [ "$ISDROP" -eq 1 ] && add_pd "rule_${LABEL}_drops" "${VALUE}c"
     done <<EOF
 $INLINE_CTRS
 EOF

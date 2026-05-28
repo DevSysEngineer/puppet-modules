@@ -93,7 +93,7 @@ while [ "$#" -gt 0 ]; do
             shift
             SWAP_CRITICAL_PERCENT=$1
             ;;
-        # Manual MemAvailable threshold overrides use absolute sizes and make the selected profile explicit in output.
+        # Manual MemAvailable threshold overrides use absolute sizes and keep profile selection inside the check logic.
         --memory-available-warning)
             need_arg "$1" "$@"
             shift
@@ -225,7 +225,7 @@ validate_percent() {
     [ "$2" -le 100 ] || die "$1 must be between 0 and 100"
 }
 
-# Absolute threshold sizes are parsed to KiB for procfs comparisons while preserving the original text for operator output.
+# Absolute threshold sizes are parsed to KiB for procfs comparisons and perfdata thresholds.
 parse_size_to_kib() {
     $AWK -v raw="$1" '
         BEGIN {
@@ -290,12 +290,10 @@ select_profile() {
     PROFILE_TOTAL_KIB=$2
     PROFILE_TOTAL_LABEL=$3
     PROFILE_REMAINING=$PROFILE_SPEC
-    PROFILE_PREVIOUS_MAX_RAW=""
     PROFILE_WARNING_KIB=""
     PROFILE_CRITICAL_KIB=""
     PROFILE_WARNING_RAW=""
     PROFILE_CRITICAL_RAW=""
-    PROFILE_SELECTED_TEXT=""
 
     while [ -n "$PROFILE_REMAINING" ]; do
         case "$PROFILE_REMAINING" in
@@ -325,20 +323,13 @@ select_profile() {
 
         if [ -z "$PROFILE_MAX_RAW" ]; then
             [ -z "$PROFILE_REMAINING" ] || die "${PROFILE_TOTAL_LABEL} profile has an open-ended maximum before the last entry"
-            if [ -n "$PROFILE_PREVIOUS_MAX_RAW" ]; then
-                PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} > ${PROFILE_PREVIOUS_MAX_RAW}, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
-            else
-                PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} open-ended, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
-            fi
             return 0
         fi
 
         PROFILE_MAX_KIB=$(parse_size_to_kib "$PROFILE_MAX_RAW") || die "invalid ${PROFILE_TOTAL_LABEL} maximum: $PROFILE_MAX_RAW"
         if [ "$PROFILE_TOTAL_KIB" -le "$PROFILE_MAX_KIB" ]; then
-            PROFILE_SELECTED_TEXT="${PROFILE_TOTAL_LABEL} <= ${PROFILE_MAX_RAW}, warning=${PROFILE_WARNING_RAW}, critical=${PROFILE_CRITICAL_RAW}"
             return 0
         fi
-        PROFILE_PREVIOUS_MAX_RAW=$PROFILE_MAX_RAW
     done
 
     die "no ${PROFILE_TOTAL_LABEL} profile matched"
@@ -565,20 +556,14 @@ fi
 select_profile "$MEM_AVAILABLE_PROFILES" "$MEM_TOTAL_KIB" "MemTotal"
 MEM_AVAILABLE_WARNING_KIB=$PROFILE_WARNING_KIB
 MEM_AVAILABLE_CRITICAL_KIB=$PROFILE_CRITICAL_KIB
-MEM_AVAILABLE_WARNING_RAW=$PROFILE_WARNING_RAW
-MEM_AVAILABLE_CRITICAL_RAW=$PROFILE_CRITICAL_RAW
-MEMORY_PROFILE_TEXT=$PROFILE_SELECTED_TEXT
 if [ -n "$MEM_AVAILABLE_WARNING_OVERRIDE" ] || [ -n "$MEM_AVAILABLE_CRITICAL_OVERRIDE" ]; then
     if [ -n "$MEM_AVAILABLE_WARNING_OVERRIDE" ]; then
         MEM_AVAILABLE_WARNING_KIB=$(parse_size_to_kib "$MEM_AVAILABLE_WARNING_OVERRIDE") || die "invalid memory available warning override: $MEM_AVAILABLE_WARNING_OVERRIDE"
-        MEM_AVAILABLE_WARNING_RAW=$MEM_AVAILABLE_WARNING_OVERRIDE
     fi
     if [ -n "$MEM_AVAILABLE_CRITICAL_OVERRIDE" ]; then
         MEM_AVAILABLE_CRITICAL_KIB=$(parse_size_to_kib "$MEM_AVAILABLE_CRITICAL_OVERRIDE") || die "invalid memory available critical override: $MEM_AVAILABLE_CRITICAL_OVERRIDE"
-        MEM_AVAILABLE_CRITICAL_RAW=$MEM_AVAILABLE_CRITICAL_OVERRIDE
     fi
     [ "$MEM_AVAILABLE_CRITICAL_KIB" -le "$MEM_AVAILABLE_WARNING_KIB" ] || die "memory available critical override must be less than or equal to warning override"
-    MEMORY_PROFILE_TEXT="custom override, warning=${MEM_AVAILABLE_WARNING_RAW}, critical=${MEM_AVAILABLE_CRITICAL_RAW}"
 fi
 
 # Select absolute SwapFree thresholds only when swap exists; a no-swap host is handled by memory headroom alone.
@@ -586,27 +571,18 @@ if [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
     select_profile "$SWAP_FREE_PROFILES" "$SWAP_TOTAL_KIB" "SwapTotal"
     SWAP_FREE_WARNING_KIB=$PROFILE_WARNING_KIB
     SWAP_FREE_CRITICAL_KIB=$PROFILE_CRITICAL_KIB
-    SWAP_FREE_WARNING_RAW=$PROFILE_WARNING_RAW
-    SWAP_FREE_CRITICAL_RAW=$PROFILE_CRITICAL_RAW
-    SWAP_PROFILE_TEXT=$PROFILE_SELECTED_TEXT
     if [ -n "$SWAP_FREE_WARNING_OVERRIDE" ] || [ -n "$SWAP_FREE_CRITICAL_OVERRIDE" ]; then
         if [ -n "$SWAP_FREE_WARNING_OVERRIDE" ]; then
             SWAP_FREE_WARNING_KIB=$(parse_size_to_kib "$SWAP_FREE_WARNING_OVERRIDE") || die "invalid swap free warning override: $SWAP_FREE_WARNING_OVERRIDE"
-            SWAP_FREE_WARNING_RAW=$SWAP_FREE_WARNING_OVERRIDE
         fi
         if [ -n "$SWAP_FREE_CRITICAL_OVERRIDE" ]; then
             SWAP_FREE_CRITICAL_KIB=$(parse_size_to_kib "$SWAP_FREE_CRITICAL_OVERRIDE") || die "invalid swap free critical override: $SWAP_FREE_CRITICAL_OVERRIDE"
-            SWAP_FREE_CRITICAL_RAW=$SWAP_FREE_CRITICAL_OVERRIDE
         fi
         [ "$SWAP_FREE_CRITICAL_KIB" -le "$SWAP_FREE_WARNING_KIB" ] || die "swap free critical override must be less than or equal to warning override"
-        SWAP_PROFILE_TEXT="custom override, warning=${SWAP_FREE_WARNING_RAW}, critical=${SWAP_FREE_CRITICAL_RAW}"
     fi
 else
     SWAP_FREE_WARNING_KIB=0
     SWAP_FREE_CRITICAL_KIB=0
-    SWAP_FREE_WARNING_RAW="0KB"
-    SWAP_FREE_CRITICAL_RAW="0KB"
-    SWAP_PROFILE_TEXT="no swap configured"
 fi
 
 # Read current swap I/O from cumulative /proc/vmstat counters with a short sample.
@@ -807,19 +783,12 @@ PERFDATA="${PERFDATA} sreclaimable=${SRECLAIMABLE_KIB}KB;;;;"
 PERFDATA="${PERFDATA} shmem=${SHMEM_KIB}KB;;;;"
 PERFDATA="${PERFDATA} unevictable=${UNEVICTABLE_KIB}KB;;;;"
 
-# Long output starts with the memory snapshot because it is the primary evidence
-# for the combined decision and useful even when swap I/O is unavailable.
-append_long "Selected memory profile: ${MEMORY_PROFILE_TEXT}"
-append_long "Selected swap profile: ${SWAP_PROFILE_TEXT}"
+# Long output starts with the memory snapshot because it is the primary evidence for the combined decision and useful even when swap I/O is unavailable.
 append_long "MemTotal: ${MEM_TOTAL_KIB} KiB"
 append_long "MemAvailable: ${MEM_AVAILABLE_KIB} KiB (${MEM_AVAILABLE_PERCENT}%)"
-append_long "MemAvailableWarning: ${MEM_AVAILABLE_WARNING_KIB} KiB"
-append_long "MemAvailableCritical: ${MEM_AVAILABLE_CRITICAL_KIB} KiB"
 append_long "SwapTotal: ${SWAP_TOTAL_KIB} KiB"
 append_long "SwapUsed: ${SWAP_USED_KIB} KiB (${SWAP_USED_PERCENT}%)"
 append_long "SwapFree: ${SWAP_FREE_KIB} KiB"
-append_long "SwapFreeWarning: ${SWAP_FREE_WARNING_KIB} KiB"
-append_long "SwapFreeCritical: ${SWAP_FREE_CRITICAL_KIB} KiB"
 append_long "SwapCached: ${SWAP_CACHED_KIB} KiB"
 append_long "Buffers: ${BUFFERS_KIB} KiB"
 append_long "Cached: ${CACHED_KIB} KiB"

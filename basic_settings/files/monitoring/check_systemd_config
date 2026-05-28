@@ -920,9 +920,9 @@ else
 fi
 
 case "$BOOT_GRACE_ACTIVE" in
-    0) BOOT_GRACE_TEXT="no (threshold ${BOOT_GRACE}s)" ;;
-    1) BOOT_GRACE_TEXT="yes (threshold ${BOOT_GRACE}s)" ;;
-    *) BOOT_GRACE_TEXT="unknown (threshold ${BOOT_GRACE}s)" ;;
+    0) BOOT_GRACE_TEXT='no' ;;
+    1) BOOT_GRACE_TEXT='yes' ;;
+    *) BOOT_GRACE_TEXT='unknown' ;;
 esac
 
 printf '%s\n' "Manager state: ${MANAGER_STATE}"

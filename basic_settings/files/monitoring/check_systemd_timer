@@ -8,6 +8,7 @@ die() {
 }
 
 # Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
@@ -26,6 +27,16 @@ TIMER_UNIT=${1:-}
 [ -n "$TIMER_UNIT" ] || die "No timer given"
 SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
+# Validate diagnostic output limits before journal text is rendered.
+case "$LOG_LINES" in
+    ''|*[!0-9]*) die "LOG_LINES must be numeric" ;;
+esac
+case "$MAXLOG" in
+    ''|*[!0-9]*) die "MAXLOG must be numeric" ;;
+esac
+[ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
+[ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
+
 # Emit the summary line and optional long output.
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
@@ -38,6 +49,19 @@ emit_check() {
 # Nagios treats raw pipes after the first output line as perfdata separators.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Format journal lines with a configurable line count and per-line character cap.
+format_journal_lines() {
+    printf '%s\n' "$1" | $SED '/^$/d; s/[[:space:]]\+$//' | $AWK -v max="$MAXLOG" '
+        {
+            line = $0
+            if (length(line) > max) {
+                line = substr(line, 1, max) "... [line truncated]"
+            }
+            print "- " line
+        }
+    '
 }
 
 # Confirm the timer exists and is active before inspecting the paired service.
@@ -105,14 +129,15 @@ esac
 
 if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
+        JOURNAL_OMITTED=$((JOURNAL_LINE_COUNT - LOG_LINES))
         JOURNAL_JOINED=$(
             {
-                printf '%s\n' "- Showing last ${LOG_LINES} journal lines from this timer run"
-                printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' | $TAIL -n "$LOG_LINES"
+                printf '%s\n' "- Showing last ${LOG_LINES} journal lines from this timer run; ${JOURNAL_OMITTED} older line(s) omitted"
+                format_journal_lines "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES"
             }
         )
     else
-        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+        JOURNAL_JOINED=$(format_journal_lines "$JOURNAL_RAW")
     fi
 else
     JOURNAL_JOINED=""

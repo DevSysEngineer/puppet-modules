@@ -54,6 +54,17 @@ while getopts 'c:t:w:' opt; do
     esac
 done
 
+case "$GRACE" in
+    ''|*[!0-9]*) die "queue grace must be numeric" ;;
+esac
+case "$WARN_Q" in
+    ''|*[!0-9]*) die "queue warning threshold must be numeric" ;;
+esac
+case "$CRIT_Q" in
+    ''|*[!0-9]*) die "queue critical threshold must be numeric" ;;
+esac
+[ "$CRIT_Q" -ge "$WARN_Q" ] || die "queue critical threshold must be greater than or equal to warning threshold"
+
 [ -x "$MCCOMMAND" ] || die "mccommand not available at ${MCCOMMAND}"
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
@@ -158,15 +169,18 @@ while IFS='|' read -r _c chan q recv sent; do
         *) STATUS_ISSUES=$((STATUS_ISSUES+1)); SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${STATUS:-Unknown}), ";;
     esac
 
-    if [ "${q:-0}" -gt "$WARN_Q" ]; then
+    if [ "${q:-0}" -ge "$CRIT_Q" ]; then
         FIRST=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$STATE_IN")
         [ -z "$FIRST" ] && FIRST=$NOW
         printf '%s|%s\n' "$chan" "$FIRST" >>"$WORK_DIR/new_state"
 
-        # The timestamp state prevents short transient queues from paging immediately.
+        # The timestamp state prevents short transient critical queues from paging immediately.
         [ "$((NOW - FIRST))" -ge "$GRACE" ] && QUEUE_CRIT=1
 
         # Keep the visible queue list cause-oriented for the summary.
+        QUEUE_ISSUES=$((QUEUE_ISSUES+1))
+        SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
+    elif [ "${q:-0}" -gt "$WARN_Q" ]; then
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
         SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
     fi
@@ -193,7 +207,7 @@ fi
 if [ "$STATUS_ISSUES" -gt 0 ]; then
     crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS}" "$PERF_DATA"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
-    crit "${QUEUE_ISSUES} channel(s) queue above ${WARN_Q} for ${GRACE}s: ${SUMMARY_QUEUE}" "$PERF_DATA"
+    crit "${QUEUE_ISSUES} channel(s) queue at or above ${CRIT_Q} for ${GRACE}s: ${SUMMARY_QUEUE}" "$PERF_DATA"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
     emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) queue above ${WARN_Q}: ${SUMMARY_QUEUE}" "$PERF_DATA"
     exit 1

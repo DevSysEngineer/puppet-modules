@@ -260,6 +260,16 @@ state_exit_code() {
     esac
 }
 
+# Translate internal Nagios state names into operator-readable long-output text.
+state_detail_text() {
+    case "$1" in
+        CRITICAL) printf '%s' 'needs immediate attention' ;;
+        WARNING)  printf '%s' 'needs attention' ;;
+        UNKNOWN)  printf '%s' 'has incomplete data' ;;
+        *)        printf '%s' 'healthy' ;;
+    esac
+}
+
 # Keep the most severe state when multiple interfaces or metrics are evaluated.
 max_state() {
     if [ "$(state_rank "$2")" -gt "$(state_rank "$1")" ]; then
@@ -1042,11 +1052,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         DAY_GROWTH_PCT='U'
         DAY_GROWTH_STATE='OK'
         DAY_BASELINE_AVAILABLE=0
-        DAY_GROWTH_NOTE='skipped; no previous day baseline available'
+        DAY_GROWTH_NOTE='no previous day baseline available'
     else
         DAY_GROWTH_PCT=$(calc_growth_percent "$CURRENT_DAY_TOTAL" "$PREVIOUS_DAY_TOTAL")
         DAY_BASELINE_AVAILABLE=1
-        DAY_GROWTH_NOTE="warning ${GROWTH_DAY_WARNING_PERCENT}%, critical ${GROWTH_DAY_CRITICAL_PERCENT}%"
         DAY_GROWTH_STATE=$(threshold_status "$DAY_GROWTH_PCT" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT")
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$DAY_GROWTH_STATE")
@@ -1064,11 +1073,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         MONTH_GROWTH_PCT='U'
         MONTH_GROWTH_STATE='OK'
         MONTH_BASELINE_AVAILABLE=0
-        MONTH_GROWTH_NOTE='skipped; no previous month baseline available'
+        MONTH_GROWTH_NOTE='no previous month baseline available'
     else
         MONTH_GROWTH_PCT=$(calc_growth_percent "$CURRENT_MONTH_TOTAL" "$PREVIOUS_MONTH_TOTAL")
         MONTH_BASELINE_AVAILABLE=1
-        MONTH_GROWTH_NOTE="warning ${GROWTH_MONTH_WARNING_PERCENT}%, critical ${GROWTH_MONTH_CRITICAL_PERCENT}%"
         MONTH_GROWTH_STATE=$(threshold_status "$MONTH_GROWTH_PCT" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT")
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$MONTH_GROWTH_STATE")
@@ -1095,49 +1103,49 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     )
     PERFDATA="${PERFDATA}${PERFDATA:+ }${INTERFACE_PERFDATA}"
 
-    # Keep long output operator-readable and grouped by final interface status.
+    # Keep long output operator-readable and grouped by final interface status without repeating threshold inventories.
     INTERFACE_BLOCK=$(
-        printf 'Interface %s: %s\n' "$IFACE_TEXT" "$INTERFACE_STATE"
+        printf 'Interface %s: %s\n' "$IFACE_TEXT" "$(state_detail_text "$INTERFACE_STATE")"
         if [ -n "$TRAFFIC_ERROR" ]; then
-            printf '  Traffic data: %s [UNKNOWN]\n' "$(monitor_text_value "$TRAFFIC_ERROR")"
+            printf '  Traffic data: unavailable (%s)\n' "$(monitor_text_value "$TRAFFIC_ERROR")"
         fi
 
         if [ "$P95_STATE" = 'UNKNOWN' ]; then
-            printf '  95th percentile: unavailable [UNKNOWN%s]\n' "$(monitor_text_value "${P95_ERROR:+, $P95_ERROR}")"
+            printf '  95th percentile: unavailable%s\n' "$(monitor_text_value "${P95_ERROR:+ ($P95_ERROR)}")"
         elif [ "$P95_MBIT" = 'U' ]; then
-            printf '  95th percentile: unavailable [OK, no p95 thresholds configured%s]\n' "$(monitor_text_value "${P95_ERROR:+, $P95_ERROR}")"
+            printf '  95th percentile: unavailable (no p95 thresholds configured%s)\n' "$(monitor_text_value "${P95_ERROR:+; $P95_ERROR}")"
         elif [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
-            printf '  95th percentile: %s Mbit/s [%s, warning %s, critical %s, source %s]\n' "$(format_number "$P95_MBIT")" "$P95_STATE" "${P95_WARNING_MBIT:-none}" "${P95_CRITICAL_MBIT:-none}" "$(monitor_text_value "$P95_THRESHOLD_SOURCE")"
+            printf '  95th percentile: %s Mbit/s (source %s)\n' "$(format_number "$P95_MBIT")" "$(monitor_text_value "$P95_THRESHOLD_SOURCE")"
         else
-            printf '  95th percentile: %s Mbit/s [OK, no p95 thresholds configured]\n' "$(format_number "$P95_MBIT")"
+            printf '  95th percentile: %s Mbit/s (no p95 thresholds configured)\n' "$(format_number "$P95_MBIT")"
         fi
         printf '  95th percentile coverage: %s%% (%s/%s entries)\n' "$P95_COVERAGE" "$P95_SEEN" "$P95_EXPECTED"
 
         if [ "$CAPACITY_STATE" = 'OK' ] && [ "$CAPACITY_PCT" = 'U' ]; then
-            printf '  Capacity: skipped [OK, %s]\n' "$(monitor_text_value "$CAPACITY_NOTE")"
+            printf '  Capacity: skipped (%s)\n' "$(monitor_text_value "$CAPACITY_NOTE")"
         elif [ "$CAPACITY_STATE" = 'UNKNOWN' ]; then
-            printf '  Capacity: unavailable [UNKNOWN, %s]\n' "$(monitor_text_value "$CAPACITY_NOTE")"
+            printf '  Capacity: unavailable (%s)\n' "$(monitor_text_value "$CAPACITY_NOTE")"
         else
-            printf '  Capacity: %s%% %s [%s, warning %s%%, critical %s%%]\n' "$(format_number "$CAPACITY_PCT")" "$(monitor_text_value "$CAPACITY_NOTE")" "$CAPACITY_STATE" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
+            printf '  Capacity: %s%% %s\n' "$(format_number "$CAPACITY_PCT")" "$(monitor_text_value "$CAPACITY_NOTE")"
         fi
 
         if [ "$DAY_BASELINE_AVAILABLE" -eq 1 ]; then
-            printf '  Day growth: %s%% [%s, %s]\n' "$(format_number "$DAY_GROWTH_PCT")" "$DAY_GROWTH_STATE" "$DAY_GROWTH_NOTE"
+            printf '  Day growth: %s%%\n' "$(format_number "$DAY_GROWTH_PCT")"
         else
-            printf '  Day growth: skipped [OK, %s]\n' "$DAY_GROWTH_NOTE"
+            printf '  Day growth: skipped (%s)\n' "$DAY_GROWTH_NOTE"
         fi
 
         if [ "$MONTH_BASELINE_AVAILABLE" -eq 1 ]; then
-            printf '  Month growth: %s%% [%s, %s]\n' "$(format_number "$MONTH_GROWTH_PCT")" "$MONTH_GROWTH_STATE" "$MONTH_GROWTH_NOTE"
+            printf '  Month growth: %s%%\n' "$(format_number "$MONTH_GROWTH_PCT")"
         else
-            printf '  Month growth: skipped [OK, %s]\n' "$MONTH_GROWTH_NOTE"
+            printf '  Month growth: skipped (%s)\n' "$MONTH_GROWTH_NOTE"
         fi
 
         printf '  Current day total: %s\n' "$(format_bytes "$CURRENT_DAY_TOTAL")"
         printf '  Previous day total: %s\n' "$(format_bytes "$PREVIOUS_DAY_TOTAL")"
         printf '  Current month total: %s\n' "$(format_bytes "$CURRENT_MONTH_TOTAL")"
         printf '  Previous month total: %s\n' "$(format_bytes "$PREVIOUS_MONTH_TOTAL")"
-        printf '  Last vnStat update age: %s seconds [%s, warning %s, critical %s]\n' "$LAST_UPDATE_AGE" "$LAST_UPDATE_STATE" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+        printf '  Last vnStat update age: %s seconds\n' "$LAST_UPDATE_AGE"
     )
 
     case "$INTERFACE_STATE" in
@@ -1204,10 +1212,10 @@ fi
 printf '%s | %s\n' "$SUMMARY_TEXT" "$PERFDATA"
 
 printf '%s\n' 'Summary:'
-if [ "$CRITICAL_COUNT" -gt 0 ]; then printf '  Critical: %s\n' "$NAMES_CRITICAL"; fi
-if [ "$WARNING_COUNT" -gt 0 ]; then printf '  Warning: %s\n' "$NAMES_WARNING"; fi
-if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Unknown: %s\n' "$NAMES_UNKNOWN"; fi
-if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy: %s\n' "$NAMES_OK"; fi
+if [ "$CRITICAL_COUNT" -gt 0 ]; then printf '  Needs immediate attention: %s\n' "$NAMES_CRITICAL"; fi
+if [ "$WARNING_COUNT" -gt 0 ]; then printf '  Needs attention: %s\n' "$NAMES_WARNING"; fi
+if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Incomplete data: %s\n' "$NAMES_UNKNOWN"; fi
+if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy interfaces: %s\n' "$NAMES_OK"; fi
 printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
 printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
 printf '  Interface detail limit: %s\n' "$DETAIL_LIMIT"

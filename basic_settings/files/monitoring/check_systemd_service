@@ -8,6 +8,7 @@ die() {
 }
 
 # Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
@@ -56,6 +57,16 @@ case "$UNIT" in
     *.service) SERVICE_UNIT="$UNIT" ;;
     *)         SERVICE_UNIT="${UNIT}.service" ;;
 esac
+
+# Validate diagnostic output limits before journal text is rendered.
+case "$LOG_LINES" in
+    ''|*[!0-9]*) die "LOG_LINES must be numeric" ;;
+esac
+case "$MAXLOG" in
+    ''|*[!0-9]*) die "MAXLOG must be numeric" ;;
+esac
+[ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
+[ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
 
 # Track whether any schedule input exists so outside-window behavior is explicit.
 if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then
@@ -213,6 +224,19 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
+# Format journal lines with a configurable line count and per-line character cap.
+format_journal_lines() {
+    printf '%s\n' "$1" | $SED '/^$/d; s/[[:space:]]\+$//' | $AWK -v max="$MAXLOG" '
+        {
+            line = $0
+            if (length(line) > max) {
+                line = substr(line, 1, max) "... [line truncated]"
+            }
+            print "- " line
+        }
+    '
+}
+
 # Pull all required systemd properties in one call to reduce check latency.
 SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p LoadState -p ActiveState -p SubState -p Result \
@@ -308,14 +332,15 @@ esac
 
 if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
+        JOURNAL_OMITTED=$((JOURNAL_LINE_COUNT - LOG_LINES))
         JOURNAL_JOINED=$(
             {
-                printf '%s\n' "- Showing last ${LOG_LINES} journal lines for ${SERVICE_UNIT}"
-                printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /' | $TAIL -n "$LOG_LINES"
+                printf '%s\n' "- Showing last ${LOG_LINES} journal lines for ${SERVICE_UNIT}; ${JOURNAL_OMITTED} older line(s) omitted"
+                format_journal_lines "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES"
             }
         )
     else
-        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
+        JOURNAL_JOINED=$(format_journal_lines "$JOURNAL_RAW")
     fi
 else
     JOURNAL_JOINED=""

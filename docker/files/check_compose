@@ -140,13 +140,13 @@ append_issue_detail() {
 # Record a CRITICAL reason.
 add_critical() {
     CRITICAL_REASONS=$(append_reason "$CRITICAL_REASONS" "$1")
-    append_issue_detail "CRITICAL: $1"
+    append_issue_detail "Needs immediate attention: $1"
 }
 
 # Record a WARNING reason.
 add_warning() {
     WARNING_REASONS=$(append_reason "$WARNING_REASONS" "$1")
-    append_issue_detail "WARNING: $1"
+    append_issue_detail "Needs attention: $1"
 }
 
 # Append one comma-separated item if it is not already present.
