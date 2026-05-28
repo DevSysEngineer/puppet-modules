@@ -52,8 +52,8 @@ done
 shift $((OPTIND - 1))
 
 # Accept both bare service names and fully-qualified .service units.
-UNIT=${1:-}
-[ -n "$UNIT" ] || die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
+[ "$#" -eq 1 ] || die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
+UNIT=$1
 case "$UNIT" in
     *.service) SERVICE_UNIT="$UNIT" ;;
     *)         SERVICE_UNIT="${UNIT}.service" ;;

@@ -26,9 +26,10 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 # Missing/required checks use the active lists so alerts only happen when the
 # current time/day says the rule matters.
 # Any-required input and active/configured match state.
-AANYREQ_IDS="" # -a CSV
+ANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
 ANYREQ_MATCHED_LIST=""
+ANYREQ_MATCHED_SHOWN=0
 ANYREQ_OK=1
 ANYREQ_PRESENT_COUNT=0
 ANYREQ_SERIALS_CONFIGURED=""
@@ -41,6 +42,8 @@ ANYREQ_VP_IDS_ACTIVE=""
 EXPECTED_IDS="" # -e CSV
 EXPECTED_LIST="<%= @usb_expected_correct %>"
 EXPECTED_LIST_MISSING=""
+EXPECTED_MISSING_COUNT=0
+EXPECTED_MISSING_SHOWN=0
 EXPECTED_PRESENT_COUNT=0
 EXPECTED_SERIALS_CONFIGURED=""
 EXPECTED_SERIALS_ACTIVE=""
@@ -49,6 +52,7 @@ EXPECTED_VP_IDS_CONFIGURED=""
 EXPECTED_VP_IDS_ACTIVE=""
 
 # Time state and final monitoring status are captured once for deterministic rule evaluation.
+DETAIL_LIMIT=${DETAIL_LIMIT:-10}
 MSG=""
 NOW_HM=""
 NOW_MIN=0
@@ -59,31 +63,49 @@ STATUS_CODE=0
 TOTAL_DEV=0
 UNAUTHORIZED_COUNT=0
 UNAUTHORIZED_DEV_LIST=""
+UNAUTHORIZED_SHOWN=0
 
 # Whitelist entries authorize matching devices without making them required.
 WHITELISTED_COUNT=0
 WHITELISTED_DEV_LIST=""
+WHITELISTED_SHOWN=0
 WHITELIST_IDS="" # -w CSV
 WHITELIST_LIST="<%= @usb_whitelist_correct %>"
 WHITELIST_SERIALS_ACTIVE=""
 WHITELIST_VP_IDS_ACTIVE=""
 
-# Parse options (each expects an argument)
+# Parse rule and output options for one check invocation.
+USAGE="Usage: $0 [-w <list>] [-e <list>] [-a <list>] [-l <detail_limit>]"
 OPTERR=0
-while getopts "w:e:a:" OPT; do
+while getopts "w:e:a:l:" OPT; do
     case "$OPT" in
         w) WHITELIST_IDS="$OPTARG" ;;
         e) EXPECTED_IDS="$OPTARG"  ;;
         a) ANYREQ_IDS="$OPTARG"    ;;
-        *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
+        l) DETAIL_LIMIT="$OPTARG"  ;;
+        *) die "$USAGE" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]"
+[ "$#" -eq 0 ] || die "$USAGE"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
 # Keep USB product, manufacturer, and serial text safe before the perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Append one bounded detail item to a comma-separated summary list.
+append_detail_item() {
+    # $1 = current list, $2 = item to append
+    if [ -z "$1" ]; then
+        printf '%s' "$2"
+    else
+        printf '%s, %s' "$1" "$2"
+    fi
 }
 
 # Convert HH:MM to minutes since midnight.
@@ -432,13 +454,21 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     [ $IN_EXPECTED  -eq 1 ] && EXPECTED_PRESENT_COUNT=$(( EXPECTED_PRESENT_COUNT + 1 ))
     if [ $IN_WHITELIST -eq 1 ]; then
         WHITELISTED_COUNT=$(( WHITELISTED_COUNT + 1 ))
-        WHITELISTED_DEV_LIST="$WHITELISTED_DEV_LIST, $DEVNAME"
-        [ -n "$SERIAL" ] && WHITELISTED_DEV_LIST="$WHITELISTED_DEV_LIST (SN: $SERIAL)"
+        if [ "$WHITELISTED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            WHITELISTED_DETAIL="$DEVNAME"
+            [ -n "$SERIAL" ] && WHITELISTED_DETAIL="$WHITELISTED_DETAIL (SN: $SERIAL)"
+            WHITELISTED_DEV_LIST=$(append_detail_item "$WHITELISTED_DEV_LIST" "$WHITELISTED_DETAIL")
+            WHITELISTED_SHOWN=$(( WHITELISTED_SHOWN + 1 ))
+        fi
     fi
     if [ $IN_ANYREQ -eq 1 ]; then
         ANYREQ_PRESENT_COUNT=$(( ANYREQ_PRESENT_COUNT + 1 ))
-        ANYREQ_MATCHED_LIST="$ANYREQ_MATCHED_LIST, $DEVNAME"
-        [ -n "$SERIAL" ] && ANYREQ_MATCHED_LIST="$ANYREQ_MATCHED_LIST (SN: $SERIAL)"
+        if [ "$ANYREQ_MATCHED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            ANYREQ_DETAIL="$DEVNAME"
+            [ -n "$SERIAL" ] && ANYREQ_DETAIL="$ANYREQ_DETAIL (SN: $SERIAL)"
+            ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "$ANYREQ_DETAIL")
+            ANYREQ_MATCHED_SHOWN=$(( ANYREQ_MATCHED_SHOWN + 1 ))
+        fi
     fi
 
     # Unauthorized only if the device is unknown to every allow source.
@@ -446,11 +476,15 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     # lists, so a known timed device does not alert outside its own window.
     if [ $IN_EXPECTED_ALLOWED -eq 0 ] && [ $IN_WHITELIST -eq 0 ] && [ $IN_ANYREQ_ALLOWED -eq 0 ]; then
         UNAUTHORIZED_COUNT=$(( UNAUTHORIZED_COUNT + 1 ))
-        UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST, $DEVNAME"
+        UNAUTHORIZED_DETAIL="$DEVNAME"
         if [ -n "$SERIAL" ]; then
-            UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST (SN: $SERIAL)"
+            UNAUTHORIZED_DETAIL="$UNAUTHORIZED_DETAIL (SN: $SERIAL)"
         else
-            UNAUTHORIZED_DEV_LIST="$UNAUTHORIZED_DEV_LIST (no serial)"
+            UNAUTHORIZED_DETAIL="$UNAUTHORIZED_DETAIL (no serial)"
+        fi
+        if [ "$UNAUTHORIZED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "$UNAUTHORIZED_DETAIL")
+            UNAUTHORIZED_SHOWN=$(( UNAUTHORIZED_SHOWN + 1 ))
         fi
     fi
 done
@@ -465,7 +499,13 @@ for EXP in $EXPECTED_SERIALS_ACTIVE; do
         SERIAL=$($TR -d '\r' < "$DEVPATH/serial" 2>/dev/null)
         [ -n "$SERIAL" ] && [ "$SERIAL" = "$EXP" ] && FOUND=1 && break
     done
-    [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"
+    if [ $FOUND -eq 0 ]; then
+        EXPECTED_MISSING_COUNT=$(( EXPECTED_MISSING_COUNT + 1 ))
+        if [ "$EXPECTED_MISSING_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
+            EXPECTED_MISSING_SHOWN=$(( EXPECTED_MISSING_SHOWN + 1 ))
+        fi
+    fi
 done
 
 for EXP in $EXPECTED_VP_IDS_ACTIVE; do
@@ -477,23 +517,29 @@ for EXP in $EXPECTED_VP_IDS_ACTIVE; do
         PID=$($CAT "$DEVPATH/idProduct" 2>/dev/null | $TR 'A-F' 'a-f')
         [ "$VID:$PID" = "$EXP" ] && FOUND=1 && break
     done
-    [ $FOUND -eq 0 ] && EXPECTED_LIST_MISSING="$EXPECTED_LIST_MISSING, $EXP"
+    if [ $FOUND -eq 0 ]; then
+        EXPECTED_MISSING_COUNT=$(( EXPECTED_MISSING_COUNT + 1 ))
+        if [ "$EXPECTED_MISSING_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
+            EXPECTED_MISSING_SHOWN=$(( EXPECTED_MISSING_SHOWN + 1 ))
+        fi
+    fi
 done
 
-# Trim lists
-WHITELISTED_DEV_LIST=$(printf '%s' "$WHITELISTED_DEV_LIST" | $SED 's/^, //')
-UNAUTHORIZED_DEV_LIST=$(printf '%s' "$UNAUTHORIZED_DEV_LIST" | $SED 's/^, //')
-EXPECTED_LIST_MISSING=$(printf '%s' "$EXPECTED_LIST_MISSING" | $SED 's/^, //')
-ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST" | $SED 's/^, //')
+# Mark truncated detail lists explicitly so short output stays bounded without hiding counts.
+[ "$UNAUTHORIZED_COUNT" -gt "$UNAUTHORIZED_SHOWN" ] && UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "+$(( UNAUTHORIZED_COUNT - UNAUTHORIZED_SHOWN )) more")
+[ "$EXPECTED_MISSING_COUNT" -gt "$EXPECTED_MISSING_SHOWN" ] && EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "+$(( EXPECTED_MISSING_COUNT - EXPECTED_MISSING_SHOWN )) more")
+[ "$ANYREQ_PRESENT_COUNT" -gt "$ANYREQ_MATCHED_SHOWN" ] && ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "+$(( ANYREQ_PRESENT_COUNT - ANYREQ_MATCHED_SHOWN )) more")
+[ "$WHITELISTED_COUNT" -gt "$WHITELISTED_SHOWN" ] && WHITELISTED_DEV_LIST=$(append_detail_item "$WHITELISTED_DEV_LIST" "+$(( WHITELISTED_COUNT - WHITELISTED_SHOWN )) more")
 
 # Status combines:
 # - unknown attached devices
 # - active expected devices that are missing
 # - active any-required policy failures
-if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ -n "$EXPECTED_LIST_MISSING" ]; then
+if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
     STATUS_CODE=2
     [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="USB unauthorized device(s) detected: $UNAUTHORIZED_DEV_LIST. "
-    [ -n "$EXPECTED_LIST_MISSING" ] && MSG="${MSG}USB expected device(s) missing: $EXPECTED_LIST_MISSING. "
+    [ "$EXPECTED_MISSING_COUNT" -gt 0 ] && MSG="${MSG}USB expected device(s) missing: $EXPECTED_LIST_MISSING. "
 else
     if [ -n "$EXPECTED_SERIALS_ACTIVE" ] || [ -n "$EXPECTED_VP_IDS_ACTIVE" ]; then
         MSG="USB has all expected devices present. "

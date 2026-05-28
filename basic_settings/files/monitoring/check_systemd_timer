@@ -23,8 +23,8 @@ LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 
 # The service name follows the timer name; this matches systemd's common .timer/.service pairing.
-TIMER_UNIT=${1:-}
-[ -n "$TIMER_UNIT" ] || die "No timer given"
+[ "$#" -eq 1 ] || die "Usage: $0 <timer>"
+TIMER_UNIT=$1
 SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
 # Validate diagnostic output limits before journal text is rendered.

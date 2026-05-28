@@ -28,9 +28,10 @@ SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 # Managed input files and cache locations used by the APT check.
 BLACKLIST_FILE="<%= @apt_settings_file %>"
 CHANGELOG_CACHE_DIR=/var/cache/check_apt/changelogs
-CHANGELOG_FETCH_TIMEOUT=6
-CHANGELOG_MAX_LINES=120
-CHANGELOG_TOTAL_BUDGET=20
+CHANGELOG_FETCH_TIMEOUT=${CHANGELOG_FETCH_TIMEOUT:-6}
+CHANGELOG_GROUP_LIMIT=${CHANGELOG_GROUP_LIMIT:-10}
+CHANGELOG_MAX_LINES=${CHANGELOG_MAX_LINES:-120}
+CHANGELOG_TOTAL_BUDGET=${CHANGELOG_TOTAL_BUDGET:-20}
 SECURITY_PACKAGE_SUMMARY_LIMIT=${SECURITY_PACKAGE_SUMMARY_LIMIT:-10}
 
 # Long output is assembled in-memory and emitted only after the perfdata line.
@@ -69,10 +70,26 @@ shift $((OPTIND - 1))
 case "$GRACE" in
     ''|*[!0-9]*) die "metadata-age grace period must be numeric" ;;
 esac
+case "$CHANGELOG_FETCH_TIMEOUT" in
+    ''|*[!0-9]*) die "changelog fetch timeout must be numeric" ;;
+esac
+case "$CHANGELOG_GROUP_LIMIT" in
+    ''|*[!0-9]*) die "changelog group limit must be numeric" ;;
+esac
+case "$CHANGELOG_MAX_LINES" in
+    ''|*[!0-9]*) die "changelog line limit must be numeric" ;;
+esac
+case "$CHANGELOG_TOTAL_BUDGET" in
+    ''|*[!0-9]*) die "changelog runtime budget must be numeric" ;;
+esac
 case "$SECURITY_PACKAGE_SUMMARY_LIMIT" in
     ''|*[!0-9]*) die "security package summary limit must be numeric" ;;
 esac
 [ "$GRACE" -ge 1 ] || die "metadata-age grace period must be at least 1"
+[ "$CHANGELOG_FETCH_TIMEOUT" -ge 1 ] || die "changelog fetch timeout must be at least 1"
+[ "$CHANGELOG_GROUP_LIMIT" -ge 1 ] || die "changelog group limit must be at least 1"
+[ "$CHANGELOG_MAX_LINES" -ge 1 ] || die "changelog line limit must be at least 1"
+[ "$CHANGELOG_TOTAL_BUDGET" -ge 1 ] || die "changelog runtime budget must be at least 1"
 [ "$SECURITY_PACKAGE_SUMMARY_LIMIT" -ge 1 ] || die "security package summary limit must be at least 1"
 
 # Append one line to the long output buffer.
@@ -422,10 +439,11 @@ EOF
                 if [ -n "$SECURITY_GROUPS" ]; then
                     if ensure_cache_dir; then
                         append_long "Security changelogs:"
+                        CHANGELOG_GROUPS_RENDERED=0
                         while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
                             [ -n "$source_pkg" ] || continue
 
-                            # Stop changelog work early so the monitoring check keeps a bounded runtime.
+                            # Stop changelog work early so the monitoring check keeps bounded runtime and output.
                             NOW=$($DATE +%s)
                             ELAPSED=$((NOW - CHECK_START))
                             if [ "$ELAPSED" -ge "$CHANGELOG_TOTAL_BUDGET" ]; then
@@ -433,6 +451,12 @@ EOF
                                 append_long "  Remaining changelogs skipped after ${CHANGELOG_TOTAL_BUDGET}s runtime budget."
                                 break
                             fi
+                            if [ "$CHANGELOG_GROUPS_RENDERED" -ge "$CHANGELOG_GROUP_LIMIT" ]; then
+                                append_long ""
+                                append_long "  Remaining changelogs skipped after ${CHANGELOG_GROUP_LIMIT} package group(s)."
+                                break
+                            fi
+                            CHANGELOG_GROUPS_RENDERED=$(( CHANGELOG_GROUPS_RENDERED + 1 ))
 
                             CACHE_KEY=$(sanitize_key "${source_pkg}_${newver}")
                             CACHE_FILE="${CHANGELOG_CACHE_DIR}/${CACHE_KEY}.txt"

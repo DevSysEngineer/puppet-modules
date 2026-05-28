@@ -626,6 +626,8 @@ De checks houden perfdata-labels bewust vrij van eenheden. Labels zijn lowercase
 
 Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de gemeten afwijking. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken en herhaalt geen drempelwaarden; de exitcode draagt de machinestatus en drempels staan waar nuttig in perfdata. De long output blijft bedoeld voor diagnose en extra context.
 
+Checks die veel detail kunnen opleveren, zoals APT-beveiligingschangelogs en USB-apparaatlijsten, begrenzen die uitvoer en melden expliciet wanneer details zijn ingekort.
+
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)
 - [check_compose](https://github.com/DevSysEngineer/puppet-modules/blob/main/docker/files/check_compose)

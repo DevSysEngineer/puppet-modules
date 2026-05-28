@@ -23,7 +23,7 @@ WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
 
 # rabbitmqadmin is used only for rate metrics and needs the managed config file.
-RABBITMQADMCONF="<%= @admin_config_path %>" # path to rabbitmqadmin config file (adjust as needed)
+RABBITMQADMCONF="<%= @admin_config_path %>"
 
 # CLI options keep the same external contract as the generated custom check registration.
 OPTERR=0
@@ -82,6 +82,7 @@ ORPHAN_SHOWN=0
 
 # Aggregate counters are emitted in summary and perfdata.
 QUEUE_COUNT=0
+RATE_NOTICE=""
 STATE_CODE=0
 TOTAL_CONSUMERS=0
 TOTAL_MSG=0
@@ -213,16 +214,31 @@ if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
   [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 fi
 
-# Sum per-queue rates into cluster-level publish/deliver rates.
-RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
+# Sum per-queue rates into cluster-level publish/deliver rates when the managed HTTP config is usable.
+PUBLISH_RATE=U
+DELIVER_RATE=U
+if [ -r "$RABBITMQADMCONF" ]; then
+    RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
+    RATE_RC=$?
 
-# Empty rate output is valid on quiet systems, so the AWK pass defaults both rates to zero.
-RATE_SUM=$(printf "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
+    if [ "$RATE_RC" -eq 0 ]; then
+        # Empty rate output is valid on quiet systems, so the AWK pass defaults both rates to zero.
+        RATE_SUM=$(printf "%s" "$RATE_DATA" | $AWK -F '	' '{pub+=$1; del+=$2} END {if (pub=="") pub=0; if (del=="") del=0; printf "%.2f %.2f", pub, del}')
 
-# Split into positional parameters (POSIX sh trick; no arrays)
-set -- $RATE_SUM
-PUBLISH_RATE=${1:-0}
-DELIVER_RATE=${2:-0}
+        # Split into positional parameters (POSIX sh trick; no arrays)
+        set -- $RATE_SUM
+        PUBLISH_RATE=${1:-0}
+        DELIVER_RATE=${2:-0}
+    else
+        RATE_NOTICE="rate metrics unavailable through rabbitmqadmin"
+        [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
+    fi
+else
+    RATE_NOTICE="rate metrics unavailable because rabbitmqadmin config is not readable"
+    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
+fi
+
+[ -n "$RATE_NOTICE" ] && MSG="$MSG, $RATE_NOTICE"
 
 # Perfdata keeps labels stable and leaves units implicit for broker counters.
 PERF="total_messages=${TOTAL_MSG}"
