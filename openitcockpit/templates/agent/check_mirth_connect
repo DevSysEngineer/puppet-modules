@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf 'Mirth Connect check cannot run: %s\n' "$*" >&2
+    printf 'Mirth Connect check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -207,9 +207,9 @@ fi
 if [ "$STATUS_ISSUES" -gt 0 ]; then
     crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS}" "$PERF_DATA"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
-    crit "${QUEUE_ISSUES} channel(s) queue at or above ${CRIT_Q} for ${GRACE}s: ${SUMMARY_QUEUE}" "$PERF_DATA"
+    crit "${QUEUE_ISSUES} channel(s) queue stayed high: ${SUMMARY_QUEUE}" "$PERF_DATA"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) queue above ${WARN_Q}: ${SUMMARY_QUEUE}" "$PERF_DATA"
+    emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages: ${SUMMARY_QUEUE}" "$PERF_DATA"
     exit 1
 fi
 

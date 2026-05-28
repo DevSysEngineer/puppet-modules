@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf 'systemd service check cannot run: %s\n' "$*" >&2
+    printf 'systemd service check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -210,6 +210,14 @@ parse_ts() {
     $DATE -d "$1" +%s 2>/dev/null
 }
 
+# Preserve Nagios U values while appending UOM to numeric age metrics.
+metric_value_with_unit() {
+    case "$1" in
+        ''|U|*[!0-9]*) printf '%s' 'U' ;;
+        *)             printf '%s%s' "$1" "$2" ;;
+    esac
+}
+
 # Helper: emit a check line with optional journal info
 emit_check() {
     # $1 = summary/status line, $2 = perfdata
@@ -347,7 +355,9 @@ else
 fi
 
 # Perfdata mirrors the service state age, restart count, exit status, and schedule state.
-PERFDATA="active_age=${ACTIVE_AGE}s last_change_age=${LAST_CHANGE_AGE}s restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
+ACTIVE_AGE_METRIC=$(metric_value_with_unit "$ACTIVE_AGE" s)
+LAST_CHANGE_AGE_METRIC=$(metric_value_with_unit "$LAST_CHANGE_AGE" s)
+PERFDATA="active_age=${ACTIVE_AGE_METRIC} last_change_age=${LAST_CHANGE_AGE_METRIC} restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
 
 # Outside schedule (no -a): always OK, but include full status/perfdata
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then

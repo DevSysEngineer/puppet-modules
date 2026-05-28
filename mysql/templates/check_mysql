@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -30,6 +30,15 @@ CRIT_HIT_PCT=90         # CRITICAL when buffer hit < 90%
 STATE_CODE=0
 ISSUES=""
 
+# Append one direct cause to the summary without exposing Nagios state labels.
+add_issue() {
+    if [ -n "$ISSUES" ]; then
+        ISSUES="${ISSUES}; $1"
+    else
+        ISSUES=$1
+    fi
+}
+
 # CLI options only select the credentials file; thresholds are intentionally fixed by the managed check.
 while getopts "c:" opt; do
     case "$opt" in
@@ -40,7 +49,7 @@ done
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 2
 }
 
@@ -120,19 +129,19 @@ if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     CONN_PCT=$((THREADS_CONNECTED * 100 / MAX_CONNECTIONS))
     if [ "$CONN_PCT" -ge "$CRIT_CONN_CURR_PCT" ]; then
         STATE_CODE=2
-        ISSUES="connection usage ${CONN_PCT}% (critical)"
+        add_issue "connection usage ${CONN_PCT}% (${THREADS_CONNECTED}/${MAX_CONNECTIONS})"
     elif [ "$CONN_PCT" -ge "$WARN_CONN_CURR_PCT" ]; then
         STATE_CODE=1
-        ISSUES="connection usage ${CONN_PCT}% (warning)"
+        add_issue "connection usage ${CONN_PCT}% (${THREADS_CONNECTED}/${MAX_CONNECTIONS})"
     fi
 
     PEAK_PCT=$((MAX_USED_CONN * 100 / MAX_CONNECTIONS))
     if [ "$PEAK_PCT" -ge "$CRIT_CONN_PEAK_PCT" ]; then
         STATE_CODE=2
-        ISSUES="historical connection peak ${PEAK_PCT}% (critical). $ISSUES"
+        add_issue "historical connection peak ${PEAK_PCT}% (${MAX_USED_CONN}/${MAX_CONNECTIONS})"
     elif [ "$PEAK_PCT" -ge "$WARN_CONN_PEAK_PCT" ]; then
         [ $STATE_CODE -lt 2 ] && STATE_CODE=1
-        ISSUES="historical connection peak ${PEAK_PCT}% (warning). $ISSUES"
+        add_issue "historical connection peak ${PEAK_PCT}% (${MAX_USED_CONN}/${MAX_CONNECTIONS})"
     fi
 
     WARN_CURR_ABS=$((MAX_CONNECTIONS * WARN_CONN_CURR_PCT / 100))
@@ -141,7 +150,7 @@ if [ "$MAX_CONNECTIONS" -gt 0 ]; then
     CRIT_PEAK_ABS=$((MAX_CONNECTIONS * CRIT_CONN_PEAK_PCT / 100))
 else
     STATE_CODE=3
-    ISSUES="max_connections is zero (unknown)"
+    add_issue "max_connections is zero"
     WARN_CURR_ABS=""
     CRIT_CURR_ABS=""
     WARN_PEAK_ABS=""
@@ -152,10 +161,11 @@ fi
 if [ "$HIT_RATE_PCT" != "N/A" ]; then
     INT_HIT=${HIT_RATE_PCT%.*}
     if [ "$INT_HIT" -lt "$CRIT_HIT_PCT" ]; then
-        STATE_CODE=2; ISSUES="buffer hit rate ${HIT_RATE_PCT}% (critical). $ISSUES"
+        STATE_CODE=2
+        add_issue "buffer hit rate ${HIT_RATE_PCT}%"
     elif [ "$INT_HIT" -lt "$WARN_HIT_PCT" ]; then
         [ $STATE_CODE -lt 2 ] && STATE_CODE=1
-        ISSUES="buffer hit rate ${HIT_RATE_PCT}% (warning). $ISSUES"
+        add_issue "buffer hit rate ${HIT_RATE_PCT}%"
     fi
     WARN_HIT_ABS=$WARN_HIT_PCT
     CRIT_HIT_ABS=$CRIT_HIT_PCT
@@ -167,13 +177,13 @@ fi
 # Buffer wait events indicate pressure even when the hit-rate threshold has not fired.
 if [ "$BUF_WAIT_FREE" -gt 0 ]; then
     [ $STATE_CODE -lt 2 ] && STATE_CODE=1
-    ISSUES="InnoDB wait events ${BUF_WAIT_FREE}. $ISSUES"
+    add_issue "InnoDB wait events ${BUF_WAIT_FREE}"
 fi
 
 # Slow-query count is cumulative and therefore only raises WARNING.
 if [ "$SLOW_QUERIES" -gt 0 ]; then
     [ $STATE_CODE -lt 2 ] && STATE_CODE=1
-    ISSUES="slow queries ${SLOW_QUERIES}. $ISSUES"
+    add_issue "slow queries ${SLOW_QUERIES}"
 fi
 
 # Keep the summary cause-oriented; counters are emitted as perfdata.

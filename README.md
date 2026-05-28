@@ -622,9 +622,9 @@ Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig h
 ## Checks
 Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.
 
-De checks houden perfdata-labels bewust vrij van eenheden. Eenheden staan in de UOM van de perfdatawaarde, zoals `%`, `B`, `s` of `Mbps`, en long output wordt gesaneerd zodat ruwe `|`-tekens niet als extra perfdata-scheidingsteken worden geïnterpreteerd.
+De checks houden perfdata-labels bewust vrij van eenheden. Labels zijn lowercase snake_case en beginnen met een letter; eenheden staan in de UOM van de perfdatawaarde, zoals `%`, `B`, `s` of `Mbps`, en long output wordt gesaneerd zodat ruwe `|`-tekens niet als extra perfdata-scheidingsteken worden geïnterpreteerd.
 
-Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de overschreden drempel. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken; de exitcode draagt de machinestatus. De long output blijft bedoeld voor diagnose en extra context.
+Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de gemeten afwijking. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken en herhaalt geen drempelwaarden; de exitcode draagt de machinestatus en drempels staan waar nuttig in perfdata. De long output blijft bedoeld voor diagnose en extra context.
 
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)

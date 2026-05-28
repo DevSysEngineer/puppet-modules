@@ -76,7 +76,7 @@ PRESENT_SERVICES=""
 
 # Print usage help for invalid command-line invocations.
 usage() {
-    printf '%s\n' "Usage: $0 -d <project_directory> [-p <project_name>] [-f <compose_file>] [-e <env_file>] [-n <name>] [-g <seconds>] [-l <lines>] [-x <services>] [-H <services>] [-P <profiles>] [-O]" >&2
+    printf '%s\n' "Usage: $0 -d <project_directory> [-p <project_name>] [-f <compose_file>] [-e <env_file>] [-n <name>] [-g <seconds>] [-l <lines>] [-x <services>] [-H <services>] [-P <profiles>] [-O]"
     exit 3
 }
 

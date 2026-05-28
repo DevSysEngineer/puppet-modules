@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -33,7 +33,7 @@ STRAT_WARN=10
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 2
 }
 
@@ -135,8 +135,8 @@ fi
 [ $STATE_CODE -eq 0 ] && [ -n "$WARN_MSG" ] && STATE_CODE=1
 
 MSG="Time synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
-[ -n "$CRIT_MSG" ] && MSG="$MSG; critical: $CRIT_MSG"
-[ -n "$WARN_MSG" ] && MSG="$MSG; warning: $WARN_MSG"
+[ -n "$CRIT_MSG" ] && MSG="$MSG; $CRIT_MSG"
+[ -n "$WARN_MSG" ] && MSG="$MSG; $WARN_MSG"
 
 # Perfdata labels are unit-free; second-based values carry `s` as UOM.
 PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"

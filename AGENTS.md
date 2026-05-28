@@ -195,7 +195,7 @@ When touching an existing Bash script, keep Bash only if the implementation stil
 
 Shell conventions:
 
-- Monitoring checks generally use `#!/bin/sh` and Nagios-style exit codes.
+- Monitoring checks must be POSIX `sh` scripts with `#!/bin/sh` and Nagios-style exit codes. Do not use Bash-only syntax or behavior in checks, including arrays, `[[ ... ]]`, `(( ... ))`, `function name`, process substitution, here-strings, `pipefail`, `read -d`, or Bash-specific parameter expansion.
 - Before changing or adding a monitoring check, inspect comparable checks in this repository and follow their section order, state variables, helper placement, and output style unless there is a concrete reason to deviate.
 - Discover dependencies with direct `command -v` assignments, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
 - Invoke command-path variables directly in command position, for example `$AWK ...`, `$SED ...`, and `$SYSTEMCTL ...`; do not wrap that command word in quotes. Keep normal quoting for arguments, data variables, tests, and assignments.
@@ -209,6 +209,7 @@ Shell conventions:
 - Do not add wrapper functions that only hide one `printf`, assignment, or append operation. Add a function only when the name captures domain meaning, centralizes real validation/formatting, or removes meaningful duplication.
 - Keep monitoring long output enabled by default and do not add `--long-output` or `--no-long-output` toggles unless the user explicitly asks for that behavior.
 - Keep monitoring check setup in this order: fail helper, binary checks, default variables, option parsing, helper functions, then main logic.
+- Parse monitoring-check CLI options with one POSIX `while getopts '<flags>' opt; do ... done` block. Give every supported option one explicit `case` arm that assigns `OPTARG`, and use a final `*) die "Usage: $0 [...]" ;;` arm as the single help and invalid-option path, including `-h` when a help flag is listed in the option string.
 - Quote variables consistently and keep command dependencies explicit.
 - Use `printf`, not non-portable `echo`.
 - Represent embedded line breaks with `printf` formatting and escaped `\n`.

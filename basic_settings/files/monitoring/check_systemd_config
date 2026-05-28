@@ -3,7 +3,7 @@
 
 # Fail helper used for missing runtime dependencies.
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -93,7 +93,7 @@ VERIFY_RC=U
 
 # Print usage help for invalid command-line invocations.
 usage() {
-    printf '%s\n' "Usage: $0 [-g seconds] [-m verify-lines] [-d detail-lines] [-q] [--strict-reload] [--show-raw-verify]" >&2
+    printf '%s\n' "Usage: $0 [-g seconds] [-m verify-lines] [-d detail-lines] [-q] [--strict-reload] [--show-raw-verify]"
     exit 3
 }
 

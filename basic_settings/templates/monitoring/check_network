@@ -3,11 +3,11 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
-# --- Binary checks (hard requirements) ---
+# Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 DIG=$(command -v dig 2>/dev/null) || die "dig not available"
@@ -89,8 +89,8 @@ add_crit() {
 
 # Sanitize an interface name into a safe perfdata label.
 sanitize_label() {
-    # Replace any non [A-Za-z0-9_] by underscore to produce valid perfdata labels.
-    printf '%s' "$1" | $SED 's/[^A-Za-z0-9_]/_/g'
+    # Replace unsafe characters and normalize case so the dynamic suffix remains valid inside `if_<name>_*` perfdata labels.
+    printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g'
 }
 
 # Keep interface, SSID, and service names safe before the real perfdata delimiter.

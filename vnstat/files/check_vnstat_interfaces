@@ -353,7 +353,12 @@ append_interface_block() {
 
 # Nagios metric labels cannot safely contain arbitrary interface characters.
 sanitize_label() {
-    printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g'
+    _label=$(printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g')
+    [ -n "$_label" ] || _label=interface
+    case "$_label" in
+        [a-z]*) printf '%s' "$_label" ;;
+        *)      printf 'if_%s' "$_label" ;;
+    esac
 }
 
 # Format values for human-readable long output; perfdata attaches units through UOM.
@@ -797,8 +802,6 @@ if [ "$CHECKED_COUNT" -eq 0 ]; then
     else
         printf '%s\n' '  none'
     fi
-    printf 'Effective include regex: %s\n' "$(monitor_text_value "${INCLUDE_REGEX:-none}")"
-    printf 'Effective exclude regex: %s\n' "$(monitor_text_value "${EXCLUDE_REGEX:-none}")"
     exit "$STATE_UNKNOWN"
 fi
 
@@ -833,14 +836,8 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     validate_pair "p95 for $IFACE" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
     if [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
         P95_THRESHOLDS_CONFIGURED=1
-        if [ -n "$INTERFACE_CONFIG_P95_WARNING_MBIT" ] || [ -n "$INTERFACE_CONFIG_P95_CRITICAL_MBIT" ]; then
-            P95_THRESHOLD_SOURCE="interface entry in ${CHECK_CONFIG}"
-        else
-            P95_THRESHOLD_SOURCE="global entry in ${CHECK_CONFIG}"
-        fi
     else
         P95_THRESHOLDS_CONFIGURED=0
-        P95_THRESHOLD_SOURCE='none'
     fi
 
     # Extract update age and daily/monthly totals from the summary JSON.
@@ -931,10 +928,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$LAST_UPDATE_STATE")
     case "$LAST_UPDATE_STATE" in
         CRITICAL)
-            add_summary_issue 'CRITICAL' "$IFACE last vnStat update age ${LAST_UPDATE_AGE}s >= critical ${LAST_UPDATE_CRITICAL_SECONDS}s"
+            add_summary_issue 'CRITICAL' "$IFACE last vnStat update is stale (${LAST_UPDATE_AGE}s)"
             ;;
         WARNING)
-            add_summary_issue 'WARNING' "$IFACE last vnStat update age ${LAST_UPDATE_AGE}s >= warning ${LAST_UPDATE_WARNING_SECONDS}s"
+            add_summary_issue 'WARNING' "$IFACE last vnStat update is stale (${LAST_UPDATE_AGE}s)"
             ;;
         UNKNOWN)
             if [ -z "$TRAFFIC_ERROR" ]; then
@@ -1002,10 +999,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$P95_STATE")
     case "$P95_STATE" in
         CRITICAL)
-            add_summary_issue 'CRITICAL' "$IFACE 95th percentile $(format_number "$P95_MBIT") Mbit/s >= critical ${P95_CRITICAL_MBIT} Mbit/s"
+            add_summary_issue 'CRITICAL' "$IFACE 95th percentile high ($(format_number "$P95_MBIT") Mbit/s)"
             ;;
         WARNING)
-            add_summary_issue 'WARNING' "$IFACE 95th percentile $(format_number "$P95_MBIT") Mbit/s >= warning ${P95_WARNING_MBIT} Mbit/s"
+            add_summary_issue 'WARNING' "$IFACE 95th percentile elevated ($(format_number "$P95_MBIT") Mbit/s)"
             ;;
         UNKNOWN)
             add_summary_issue 'UNKNOWN' "$IFACE 95th percentile unavailable: $P95_ERROR"
@@ -1037,10 +1034,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$CAPACITY_STATE")
     case "$CAPACITY_STATE" in
         CRITICAL)
-            add_summary_issue 'CRITICAL' "$IFACE capacity $(format_number "$CAPACITY_PCT")% >= critical ${CAPACITY_CRITICAL_PERCENT}%"
+            add_summary_issue 'CRITICAL' "$IFACE capacity high ($(format_number "$CAPACITY_PCT")%)"
             ;;
         WARNING)
-            add_summary_issue 'WARNING' "$IFACE capacity $(format_number "$CAPACITY_PCT")% >= warning ${CAPACITY_WARNING_PERCENT}%"
+            add_summary_issue 'WARNING' "$IFACE capacity elevated ($(format_number "$CAPACITY_PCT")%)"
             ;;
         UNKNOWN)
             add_summary_issue 'UNKNOWN' "$IFACE capacity unavailable: $CAPACITY_NOTE"
@@ -1061,10 +1058,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$DAY_GROWTH_STATE")
     case "$DAY_GROWTH_STATE" in
         CRITICAL)
-            add_summary_issue 'CRITICAL' "$IFACE day growth $(format_number "$DAY_GROWTH_PCT")% >= critical ${GROWTH_DAY_CRITICAL_PERCENT}%"
+            add_summary_issue 'CRITICAL' "$IFACE day growth high ($(format_number "$DAY_GROWTH_PCT")%)"
             ;;
         WARNING)
-            add_summary_issue 'WARNING' "$IFACE day growth $(format_number "$DAY_GROWTH_PCT")% >= warning ${GROWTH_DAY_WARNING_PERCENT}%"
+            add_summary_issue 'WARNING' "$IFACE day growth elevated ($(format_number "$DAY_GROWTH_PCT")%)"
             ;;
     esac
 
@@ -1082,10 +1079,10 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$MONTH_GROWTH_STATE")
     case "$MONTH_GROWTH_STATE" in
         CRITICAL)
-            add_summary_issue 'CRITICAL' "$IFACE month growth $(format_number "$MONTH_GROWTH_PCT")% >= critical ${GROWTH_MONTH_CRITICAL_PERCENT}%"
+            add_summary_issue 'CRITICAL' "$IFACE month growth high ($(format_number "$MONTH_GROWTH_PCT")%)"
             ;;
         WARNING)
-            add_summary_issue 'WARNING' "$IFACE month growth $(format_number "$MONTH_GROWTH_PCT")% >= warning ${GROWTH_MONTH_WARNING_PERCENT}%"
+            add_summary_issue 'WARNING' "$IFACE month growth elevated ($(format_number "$MONTH_GROWTH_PCT")%)"
             ;;
     esac
 
@@ -1113,11 +1110,9 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         if [ "$P95_STATE" = 'UNKNOWN' ]; then
             printf '  95th percentile: unavailable%s\n' "$(monitor_text_value "${P95_ERROR:+ ($P95_ERROR)}")"
         elif [ "$P95_MBIT" = 'U' ]; then
-            printf '  95th percentile: unavailable (no p95 thresholds configured%s)\n' "$(monitor_text_value "${P95_ERROR:+; $P95_ERROR}")"
-        elif [ -n "$P95_WARNING_MBIT" ] || [ -n "$P95_CRITICAL_MBIT" ]; then
-            printf '  95th percentile: %s Mbit/s (source %s)\n' "$(format_number "$P95_MBIT")" "$(monitor_text_value "$P95_THRESHOLD_SOURCE")"
+            printf '  95th percentile: unavailable%s\n' "$(monitor_text_value "${P95_ERROR:+ ($P95_ERROR)}")"
         else
-            printf '  95th percentile: %s Mbit/s (no p95 thresholds configured)\n' "$(format_number "$P95_MBIT")"
+            printf '  95th percentile: %s Mbit/s\n' "$(format_number "$P95_MBIT")"
         fi
         printf '  95th percentile coverage: %s%% (%s/%s entries)\n' "$P95_COVERAGE" "$P95_SEEN" "$P95_EXPECTED"
 
@@ -1186,7 +1181,7 @@ else
         if [ -n "$SUMMARY_CRITICAL" ]; then
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_CRITICAL}"
         else
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} critical"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} interface(s) need immediate attention"
         fi
         SUMMARY_SEPARATOR='; '
     fi
@@ -1194,7 +1189,7 @@ else
         if [ -n "$SUMMARY_WARNING" ]; then
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_WARNING}"
         else
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} warning"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} interface(s) need attention"
         fi
         SUMMARY_SEPARATOR='; '
     fi
@@ -1202,7 +1197,7 @@ else
         if [ -n "$SUMMARY_UNKNOWN" ]; then
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_UNKNOWN}"
         else
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} unknown"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${UNKNOWN_COUNT} interface(s) have incomplete data"
         fi
         SUMMARY_SEPARATOR='; '
     fi
@@ -1218,18 +1213,9 @@ if [ "$UNKNOWN_COUNT" -gt 0 ]; then printf '  Incomplete data: %s\n' "$NAMES_UNK
 if [ "$OK_COUNT" -gt 0 ]; then printf '  Healthy interfaces: %s\n' "$NAMES_OK"; fi
 printf '  Checked interfaces: %s\n' "$CHECKED_COUNT"
 printf '  Ignored interfaces: %s\n' "$IGNORED_COUNT"
-printf '  Interface detail limit: %s\n' "$DETAIL_LIMIT"
 if [ "$LONG_DETAIL_TRUNCATED" -gt 0 ]; then
     printf '  Interface detail output truncated: %s block(s) omitted after %s shown\n' "$LONG_DETAIL_TRUNCATED" "$LONG_DETAIL_COUNT"
 fi
-if [ "$CHECK_CONFIG_AVAILABLE" -eq 1 ]; then
-    printf '  Check config: %s\n' "$(monitor_text_value "$CHECK_CONFIG")"
-else
-    printf '  Check config: %s (not present)\n' "$(monitor_text_value "$CHECK_CONFIG")"
-fi
-printf '  vnStat config for explicit MaxBandwidth fallback: %s\n' "$(monitor_text_value "$VNSTAT_CONFIG")"
-printf '  Effective include regex: %s\n' "$(monitor_text_value "${INCLUDE_REGEX:-none}")"
-printf '  Effective exclude regex: %s\n' "$(monitor_text_value "${EXCLUDE_REGEX:-none}")"
 printf '\n'
 [ -n "$LONG_CRITICAL" ] && printf '%s\n\n' "$LONG_CRITICAL"
 [ -n "$LONG_WARNING" ] && printf '%s\n\n' "$LONG_WARNING"

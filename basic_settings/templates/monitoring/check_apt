@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 

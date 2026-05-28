@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -48,7 +48,7 @@ done
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 2
 }
 

@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -40,7 +40,7 @@ done
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 2
 }
 
@@ -59,6 +59,7 @@ $PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
 # Current sessions are classified from who(1) plus TTY process state.
 ACTIVE_SESSIONS=0
 AGE_CRIT=false
+MAX_SESSION_AGE_MIN=0
 NOW_EPOCH=$($DATE +%s)
 ROOT_LOGIN=false
 SEP=""
@@ -109,6 +110,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
     LOGIN_EPOCH=$($DATE -d "$LOGIN_DATE $LOGIN_TIME" +%s 2>/dev/null) || LOGIN_EPOCH=0
     if [ "$LOGIN_EPOCH" -ne 0 ]; then
         AGE_MIN=$(((NOW_EPOCH - LOGIN_EPOCH)/60))
+        [ "$AGE_MIN" -gt "$MAX_SESSION_AGE_MIN" ] && MAX_SESSION_AGE_MIN=$AGE_MIN
         [ "$AGE_MIN" -gt "$MAX_AGE" ] && AGE_CRIT=true
     fi
 done <<EOF
@@ -240,7 +242,7 @@ fi
 # Build the visible cause list without Nagios state labels.
 EXTRA=""
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
-[ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age over ${MAX_AGE}m, "
+[ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age ${MAX_SESSION_AGE_MIN}m, "
 [ -n "$BAD_WL_USERS" ] && EXTRA="${EXTRA}failed logins for '$BAD_WL_USERS', "
 [ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched allowlist failures, "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "

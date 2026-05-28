@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf 'memory pressure check cannot run: %s\n' "$*" >&2
+    printf 'memory pressure check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -728,19 +728,19 @@ elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "
 elif [ "$MEM_AVAILABLE_LOW" -eq 1 ] && [ "$SWAP_FREE_CRITICAL" -eq 1 ]; then
     # Low memory headroom plus critically low swap free space deserves attention even without sampled current swap-out.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: memory available is low and swap free is critically low: memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+    SUMMARY="Memory pressure elevated: memory available is low and swap free is critically low: memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
 elif [ "$MEM_AVAILABLE_LOW" -eq 1 ]; then
     # MemAvailable is a headroom signal: warn before the host reaches critical pressure.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: memory available is low: ${MEM_AVAILABLE_HUMAN} available"
+    SUMMARY="Memory pressure elevated: memory available is low: ${MEM_AVAILABLE_HUMAN} available"
 elif [ "$SWAP_FREE_LOW" -eq 1 ]; then
     # Low SwapFree is warning-level when memory headroom is still healthy and no critical swap pressure is sampled.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: swap free is low: ${SWAP_FREE_HUMAN} free; memory available ${MEM_AVAILABLE_HUMAN}"
+    SUMMARY="Memory pressure elevated: swap free is low: ${SWAP_FREE_HUMAN} free; memory available ${MEM_AVAILABLE_HUMAN}"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_WARNING_SAMPLE_COUNT" -gt 0 ]; then
     # Light or one-off current swapping is reported as WARNING so operators can inspect the host without treating a single spike as critical pressure.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+    SUMMARY="Memory pressure elevated: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
 else
     EXIT_CODE=$STATE_OK
     if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then

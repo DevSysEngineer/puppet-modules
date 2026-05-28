@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -46,7 +46,11 @@ crit() {
 
 # Add one perfdata item to the sortable buffer.
 add_pd() {
-    label_format=$(printf '%s' "$1" | $TR -c 'A-Za-z0-9_' '_')
+    label_format=$(printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $TR -c 'a-z0-9_' '_')
+    case "$label_format" in
+        [a-z]*) : ;;
+        *) label_format="metric_${label_format}" ;;
+    esac
     PERFDATA_BUFFER="${PERFDATA_BUFFER}${label_format} ${2:-0}\n"
 }
 

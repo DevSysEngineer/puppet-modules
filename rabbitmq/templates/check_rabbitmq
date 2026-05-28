@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*" >&2
+    printf '%s\n' "$*"
     exit 3
 }
 
@@ -170,13 +170,13 @@ IFS="$OLDIFS"
 # Primary state is driven by the worst queue depth class.
 if [ "$CRIT_COUNT" -gt 0 ]; then
   STATE_CODE=2
-  MSG="$MSG, $CRIT_COUNT queue(s) over critical threshold"
+  MSG="$MSG, $CRIT_COUNT queue(s) with high backlog"
   MORE=$((CRIT_COUNT - CRIT_SHOWN))
   [ -n "$CRIT_LIST" ] && MSG="$MSG: $CRIT_LIST"
   [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
 elif [ "$WARN_COUNT" -gt 0 ]; then
   STATE_CODE=1
-  MSG="$MSG, $WARN_COUNT queue(s) over warning threshold"
+  MSG="$MSG, $WARN_COUNT queue(s) with elevated backlog"
   MORE=$((WARN_COUNT - WARN_SHOWN))
   [ -n "$WARN_LIST" ] && MSG="$MSG: $WARN_LIST"
   [ "$MORE" -gt 0 ] && MSG="$MSG (+$MORE more)"
