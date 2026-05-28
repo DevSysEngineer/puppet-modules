@@ -134,9 +134,13 @@ fi
 [ -n "$CRIT_MSG" ] && STATE_CODE=2
 [ $STATE_CODE -eq 0 ] && [ -n "$WARN_MSG" ] && STATE_CODE=1
 
-MSG="systemd-timesyncd synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
-[ -n "$CRIT_MSG" ] && MSG="$MSG; $CRIT_MSG"
-[ -n "$WARN_MSG" ] && MSG="$MSG; $WARN_MSG"
+if [ -n "$CRIT_MSG" ]; then
+    MSG="systemd-timesyncd ${CRIT_MSG}; server ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
+elif [ -n "$WARN_MSG" ]; then
+    MSG="systemd-timesyncd ${WARN_MSG}; server ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
+else
+    MSG="systemd-timesyncd synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
+fi
 
 # Perfdata labels are unit-free; second-based values carry `s` as UOM.
 PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"

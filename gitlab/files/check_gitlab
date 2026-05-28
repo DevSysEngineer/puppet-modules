@@ -72,8 +72,18 @@ if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
     DATA=$(printf '%s' "$VC_RAW" | $AWK '
         BEGIN{cv=0;ver="";sev=""}
         /"critical_vulnerability": *true/ {cv=1}
-        match($0,/"version":"([^"]+)/,a){ver=a[1]}
-        match($0,/"severity":"([^"]+)/,b){sev=b[1]}
+        match($0,/"version"[[:space:]]*:[[:space:]]*"[^"]+"/) {
+            field=substr($0, RSTART, RLENGTH)
+            sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", field)
+            sub(/"$/, "", field)
+            ver=field
+        }
+        match($0,/"severity"[[:space:]]*:[[:space:]]*"[^"]+"/) {
+            field=substr($0, RSTART, RLENGTH)
+            sub(/^"severity"[[:space:]]*:[[:space:]]*"/, "", field)
+            sub(/"$/, "", field)
+            sev=field
+        }
         END{printf "%d|%s|%s",cv,ver,sev}'
     )
     CV=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $1}')

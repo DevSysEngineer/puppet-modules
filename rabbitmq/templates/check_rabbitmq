@@ -10,8 +10,8 @@ die() {
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null) || die "rabbitmqadmin not available"
 RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null) || die "rabbitmqctl not available"
+RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null || true)
 <% if @systemd_enable -%>
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 <% end -%>
@@ -217,7 +217,7 @@ fi
 # Sum per-queue rates into cluster-level publish/deliver rates when the managed HTTP config is usable.
 PUBLISH_RATE=U
 DELIVER_RATE=U
-if [ -r "$RABBITMQADMCONF" ]; then
+if [ -n "$RABBITMQADMIN" ] && [ -r "$RABBITMQADMCONF" ]; then
     RATE_DATA=$($RABBITMQADMIN --quiet --format=tsv --config "$RABBITMQADMCONF" list queues message_stats.publish_details.rate message_stats.deliver_get_details.rate 2>/dev/null)
     RATE_RC=$?
 
@@ -233,6 +233,9 @@ if [ -r "$RABBITMQADMCONF" ]; then
         RATE_NOTICE="rate metrics unavailable through rabbitmqadmin"
         [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
     fi
+elif [ -z "$RABBITMQADMIN" ]; then
+    RATE_NOTICE="rate metrics unavailable because rabbitmqadmin is not installed"
+    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
 else
     RATE_NOTICE="rate metrics unavailable because rabbitmqadmin config is not readable"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3

@@ -9,7 +9,6 @@ die() {
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
-BC=$(command -v bc 2>/dev/null) || die "bc not available"
 MYSQLADMIN=$(command -v mysqladmin 2>/dev/null) || die "mysqladmin not available"
 <% if @systemd_enable -%>
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
@@ -122,7 +121,7 @@ BUF_PAGES_TOTAL=$(parse_to_int "$(sf Innodb_buffer_pool_pages_total)")
 
 # Buffer-pool hit rate is computed only when read requests exist.
 if [ "$BUF_READ_REQ" -gt 0 ]; then
-    HIT_RATE_PCT=$(printf '%s\n' "scale=1; (1-($BUF_READS/$BUF_READ_REQ))*100" | $BC)
+    HIT_RATE_PCT=$($AWK -v reads="$BUF_READS" -v requests="$BUF_READ_REQ" 'BEGIN { printf "%.1f", (1 - (reads / requests)) * 100 }')
 else
     HIT_RATE_PCT="N/A"
 fi

@@ -516,6 +516,8 @@ node 'webserver.dev.xxxx.nl' {
 
 RabbitMQ is een open-source berichtensysteem dat werkt volgens het Advanced Message Queuing Protocol (AMQP). Het wordt vaak gebruikt voor het beheren en afhandelen van berichten tussen verschillende applicaties of componenten binnen een gedistribueerd systeem. RabbitMQ zorgt ervoor dat berichten betrouwbaar en asynchroon kunnen worden uitgewisseld, wat essentieel is voor schaalbare en robuuste applicaties. Dit onderdeel maakt het mogelijk om RabbitMQ te installeren en te configureren.
 
+De RabbitMQ-monitoringcheck gebruikt `rabbitmqctl` voor service- en queue-status. `rabbitmqadmin` wordt alleen gebruikt voor publish- en deliver-rate metrics; als die CLI of de beheerde config ontbreekt, blijft de queuecontrole werken en wordt de check alleen `UNKNOWN` wanneer er geen zwaardere queue- of servicefout is.
+
 #### Voorbeeld
 Hieronder een voorbeeld hoe je RabbitMQ configureert in je Puppet omgeving:
 
