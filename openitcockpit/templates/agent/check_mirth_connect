@@ -29,14 +29,17 @@ NOW=$($DATE +%s)
 
 # Queue thresholds and grace period preserve the existing warning-before-critical behavior.
 CRIT_Q=30
+DETAIL_LIMIT=${DETAIL_LIMIT:-10}
 GRACE=600 # seconds before CRITICAL for queues
 WARN_Q=25 # queued-message threshold
 
 # Queue and status state accumulates direct causes for the summary.
 QUEUE_CRIT=0
 QUEUE_ISSUES=0
+QUEUE_SHOWN=0
 MAX_Q=0
 STATUS_ISSUES=0
+STATUS_SHOWN=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
 
@@ -45,6 +48,7 @@ STATE_DIR="/etc/openitcockpit-agent/state"
 STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
 
 # CLI options only change connection config and queue grace behavior.
+OPTERR=0
 while getopts 'c:t:w:' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
@@ -53,6 +57,8 @@ while getopts 'c:t:w:' opt; do
         *) die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]"
 
 case "$GRACE" in
     ''|*[!0-9]*) die "queue grace must be numeric" ;;
@@ -63,9 +69,14 @@ esac
 case "$CRIT_Q" in
     ''|*[!0-9]*) die "queue critical threshold must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+esac
 [ "$CRIT_Q" -ge "$WARN_Q" ] || die "queue critical threshold must be greater than or equal to warning threshold"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
 [ -x "$MCCOMMAND" ] || die "mccommand not available at ${MCCOMMAND}"
+[ -r "$CONFIG" ] || die "config file ${CONFIG} is not readable"
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
@@ -166,7 +177,13 @@ while IFS='|' read -r _c chan q recv sent; do
     STATUS=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
     case "$STATUS" in
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
-        *) STATUS_ISSUES=$((STATUS_ISSUES+1)); SUMMARY_STATUS="${SUMMARY_STATUS}${chan}(${STATUS:-Unknown}), ";;
+        *)
+            STATUS_ISSUES=$((STATUS_ISSUES+1))
+            if [ "$STATUS_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+                SUMMARY_STATUS="${SUMMARY_STATUS}${SUMMARY_STATUS:+, }${chan}(${STATUS:-Unknown})"
+                STATUS_SHOWN=$((STATUS_SHOWN + 1))
+            fi
+            ;;
     esac
 
     if [ "${q:-0}" -ge "$CRIT_Q" ]; then
@@ -179,23 +196,33 @@ while IFS='|' read -r _c chan q recv sent; do
 
         # Keep the visible queue list cause-oriented for the summary.
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
-        SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
+        if [ "$QUEUE_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }${chan}(${q})"
+            QUEUE_SHOWN=$((QUEUE_SHOWN + 1))
+        fi
     elif [ "${q:-0}" -gt "$WARN_Q" ]; then
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
-        SUMMARY_QUEUE="${SUMMARY_QUEUE}${chan}(${q}), "
+        if [ "$QUEUE_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }${chan}(${q})"
+            QUEUE_SHOWN=$((QUEUE_SHOWN + 1))
+        fi
     fi
 done <"$WORK_DIR/parsed_channels.txt"
 
 # Persist only channels still above the warning threshold; stale state is removed.
 if [ -f "$WORK_DIR/new_state" ]; then
-    $MV "$WORK_DIR/new_state" "$STATE_FILE"
+    $MV "$WORK_DIR/new_state" "$STATE_FILE" 2>/dev/null || die "queue state file ${STATE_FILE} could not be updated"
 else
-    [ -f "$STATE_FILE" ] && $RM -f "$STATE_FILE"
+    if [ -f "$STATE_FILE" ]; then
+        $RM -f "$STATE_FILE" 2>/dev/null || die "queue state file ${STATE_FILE} could not be removed"
+    fi
 fi
 
-# Trim trailing separators after all dynamic channel text is collected.
-SUMMARY_QUEUE=${SUMMARY_QUEUE%%, }
-SUMMARY_STATUS=${SUMMARY_STATUS%%, }
+# Make list truncation explicit in the short output without hiding the issue count.
+QUEUE_MORE=$((QUEUE_ISSUES - QUEUE_SHOWN))
+STATUS_MORE=$((STATUS_ISSUES - STATUS_SHOWN))
+[ "$QUEUE_MORE" -gt 0 ] && SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }+${QUEUE_MORE} more"
+[ "$STATUS_MORE" -gt 0 ] && SUMMARY_STATUS="${SUMMARY_STATUS}${SUMMARY_STATUS:+, }+${STATUS_MORE} more"
 
 # Perfdata exposes channel count, maximum queue depth, and status issue count.
 PERF_DATA="channels=${TOTAL_CHANS};;;0 queue=${MAX_Q};${WARN_Q};${CRIT_Q};0 issues=${STATUS_ISSUES};;1;0"

@@ -3,13 +3,8 @@
 
 # Fail helper
 die() {
-    printf 'memory pressure check cannot run: %s\n' "$*"
+    printf 'Memory pressure check cannot run: %s\n' "$*"
     exit 3
-}
-
-# Option parser helper: every supported threshold option requires one value.
-need_arg() {
-    [ "$#" -ge 2 ] || die "missing value for $1"
 }
 
 # Binary checks
@@ -58,109 +53,29 @@ LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_MEMORY_PRESSURE_NL__"
 
 # Parse options. Puppet normally supplies these through monitoring_custom cmd, but the script stays directly usable for Nagios, Naemon, Icinga, and debugging.
-usage() {
-    printf '%s\n' "Usage: $0 [options]"
-    printf '%s\n' ''
-    printf '%s\n' 'Options:'
-    printf '%s\n' '      --memory-available-warning <size>       Override selected profile warning threshold'
-    printf '%s\n' '      --memory-available-critical <size>      Override selected profile critical threshold'
-    printf '%s\n' '      --swap-free-warning <size>              Override selected profile warning threshold'
-    printf '%s\n' '      --swap-free-critical <size>             Override selected profile critical threshold'
-    printf '%s\n' '  -w, --swap-warning-percent <0-100>          Perfdata context only. Default: 80'
-    printf '%s\n' '  -c, --swap-critical-percent <0-100>         Perfdata context only. Default: 95'
-    printf '%s\n' '      --swap-io-warning-kib <number>          Default: 1'
-    printf '%s\n' '      --swap-io-critical-kib <number>         Default: 64'
-    printf '%s\n' '      --swap-io-critical-samples <number>     Default: 2'
-    printf '%s\n' '      --include-top-swap-processes            Include process swap usage in long output'
-    printf '%s\n' '      --no-include-top-swap-processes         Disable process swap usage in long output'
-    printf '%s\n' '      --top-swap-processes-limit <number>     Default: 10'
-    printf '%s\n' '      --sample-count <number>                 Default: 3'
-    printf '%s\n' '      --sample-interval <seconds>             Default: 1'
-    printf '%s\n' '  -h, --help'
-}
-
-# Keep option handling POSIX-compatible; long options are accepted explicitly because getopts cannot parse them portably.
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        -w|--swap-warning-percent)
-            need_arg "$1" "$@"
-            shift
-            SWAP_WARNING_PERCENT=$1
-            ;;
-        -c|--swap-critical-percent)
-            need_arg "$1" "$@"
-            shift
-            SWAP_CRITICAL_PERCENT=$1
-            ;;
-        # Manual MemAvailable threshold overrides use absolute sizes and keep profile selection inside the check logic.
-        --memory-available-warning)
-            need_arg "$1" "$@"
-            shift
-            MEM_AVAILABLE_WARNING_OVERRIDE=$1
-            ;;
-        --memory-available-critical)
-            need_arg "$1" "$@"
-            shift
-            MEM_AVAILABLE_CRITICAL_OVERRIDE=$1
-            ;;
-        # Manual SwapFree threshold overrides use absolute sizes and are combined with memory headroom and active swap I/O.
-        --swap-free-warning)
-            need_arg "$1" "$@"
-            shift
-            SWAP_FREE_WARNING_OVERRIDE=$1
-            ;;
-        --swap-free-critical)
-            need_arg "$1" "$@"
-            shift
-            SWAP_FREE_CRITICAL_OVERRIDE=$1
-            ;;
-        --swap-io-warning-kib)
-            need_arg "$1" "$@"
-            shift
-            SWAP_IO_WARNING_KIB=$1
-            ;;
-        --swap-io-critical-kib)
-            need_arg "$1" "$@"
-            shift
-            SWAP_IO_CRITICAL_KIB=$1
-            ;;
-        --swap-io-critical-samples)
-            need_arg "$1" "$@"
-            shift
-            SWAP_IO_CRITICAL_SAMPLE_MIN=$1
-            ;;
-        # Top-swap process detail is diagnostic long output and does not affect status.
-        --include-top-swap-processes)
-            INCLUDE_TOP_SWAP_PROCESSES=1
-            ;;
-        --no-include-top-swap-processes)
-            INCLUDE_TOP_SWAP_PROCESSES=0
-            ;;
-        --top-swap-processes-limit)
-            need_arg "$1" "$@"
-            shift
-            TOP_SWAP_PROCESSES_LIMIT=$1
-            ;;
-        --sample-count)
-            need_arg "$1" "$@"
-            shift
-            SAMPLE_COUNT=$1
-            ;;
-        --sample-interval)
-            need_arg "$1" "$@"
-            shift
-            SAMPLE_INTERVAL=$1
-            ;;
-        -h|--help)
-            usage
-            exit "$STATE_OK"
-            ;;
-        *)
-            die "invalid option: $1"
-            ;;
+USAGE_TEXT="Usage: $0 [-w swap_warning_percent] [-c swap_critical_percent] [-m memory_available_warning] [-M memory_available_critical] [-f swap_free_warning] [-F swap_free_critical] [-i swap_io_warning_kib] [-I swap_io_critical_kib] [-n swap_io_critical_samples] [-p] [-P] [-l top_swap_processes_limit] [-s sample_count] [-t sample_interval]"
+OPTERR=0
+while getopts 'w:c:m:M:f:F:i:I:n:pPl:s:t:' opt; do
+    case "$opt" in
+        w) SWAP_WARNING_PERCENT="$OPTARG" ;;
+        c) SWAP_CRITICAL_PERCENT="$OPTARG" ;;
+        m) MEM_AVAILABLE_WARNING_OVERRIDE="$OPTARG" ;;
+        M) MEM_AVAILABLE_CRITICAL_OVERRIDE="$OPTARG" ;;
+        f) SWAP_FREE_WARNING_OVERRIDE="$OPTARG" ;;
+        F) SWAP_FREE_CRITICAL_OVERRIDE="$OPTARG" ;;
+        i) SWAP_IO_WARNING_KIB="$OPTARG" ;;
+        I) SWAP_IO_CRITICAL_KIB="$OPTARG" ;;
+        n) SWAP_IO_CRITICAL_SAMPLE_MIN="$OPTARG" ;;
+        p) INCLUDE_TOP_SWAP_PROCESSES=1 ;;
+        P) INCLUDE_TOP_SWAP_PROCESSES=0 ;;
+        l) TOP_SWAP_PROCESSES_LIMIT="$OPTARG" ;;
+        s) SAMPLE_COUNT="$OPTARG" ;;
+        t) SAMPLE_INTERVAL="$OPTARG" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
-    shift
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
@@ -740,7 +655,7 @@ elif [ "$SWAP_FREE_LOW" -eq 1 ]; then
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_WARNING_SAMPLE_COUNT" -gt 0 ]; then
     # Light or one-off current swapping is reported as WARNING so operators can inspect the host without treating a single spike as critical pressure.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure elevated: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+    SUMMARY="Memory pressure elevated: active swap I/O observed: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
 else
     EXIT_CODE=$STATE_OK
     if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then

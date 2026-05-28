@@ -3,7 +3,7 @@
 
 # Fail helper used for missing dependencies and unreadable Docker output.
 die() {
-    printf 'compose check cannot run: %s\n' "$*"
+    printf 'Compose check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -74,13 +74,9 @@ HEALTH_UNHEALTHY=0
 HEALTH_REQUIRED_MISSING=0
 PRESENT_SERVICES=""
 
-# Print usage help for invalid command-line invocations.
-usage() {
-    printf '%s\n' "Usage: $0 -d <project_directory> [-p <project_name>] [-f <compose_file>] [-e <env_file>] [-n <name>] [-g <seconds>] [-l <lines>] [-x <services>] [-H <services>] [-P <profiles>] [-O]"
-    exit 3
-}
-
 # CLI options define the Compose identity, expected exceptions, and diagnostic limits.
+USAGE_TEXT="Usage: $0 -d project_directory [-p project_name] [-f compose_file] [-e env_file] [-n name] [-g seconds] [-l lines] [-x services] [-H services] [-P profiles] [-O]"
+OPTERR=0
 while getopts 'd:p:f:e:n:g:l:x:H:P:O' opt; do
     case "$opt" in
         d) PROJECT_DIRECTORY="$OPTARG" ;;
@@ -94,9 +90,11 @@ while getopts 'd:p:f:e:n:g:l:x:H:P:O' opt; do
         H) HEALTH_REQUIRED="$OPTARG" ;;
         P) PROFILE_LIST="$OPTARG" ;;
         O) ORPHAN_CRITICAL=1 ;;
-        *) usage ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 # Check whether a value contains only decimal digits.
 is_number() {
@@ -357,11 +355,12 @@ docker_inspect_containers() {
 }
 
 # Validate options before Docker is contacted.
-[ -n "$PROJECT_DIRECTORY" ] || usage
+[ -n "$PROJECT_DIRECTORY" ] || die "$USAGE_TEXT"
 [ -d "$PROJECT_DIRECTORY" ] || die "compose project directory '$PROJECT_DIRECTORY' does not exist"
 [ -r "$PROJECT_DIRECTORY" ] || die "compose project directory '$PROJECT_DIRECTORY' is not readable"
 is_number "$STARTING_GRACE" || die "starting grace must be numeric"
 is_number "$DETAIL_LIMIT" || die "detail limit must be numeric"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
 if [ -n "$PROJECT_NAME" ]; then
     case "$PROJECT_NAME" in
@@ -631,7 +630,8 @@ else
     STATE_CODE=0
 fi
 
-SUMMARY="compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
+SUMMARY="Compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy"
+[ "$CONTAINERS_WITHOUT_HEALTHCHECK" -gt 0 ] && SUMMARY="${SUMMARY}, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
 [ "$COMPOSE_SERVICES_MISSING" -gt 0 ] && SUMMARY="${SUMMARY}, ${COMPOSE_SERVICES_MISSING} missing"
 [ "$HEALTH_UNHEALTHY" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_UNHEALTHY} unhealthy"
 [ "$HEALTH_STARTING" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_STARTING} starting"

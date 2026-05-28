@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'systemd-timesyncd check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -33,7 +33,7 @@ STRAT_WARN=10
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'systemd-timesyncd check failed: %s\n' "$*"
     exit 2
 }
 

@@ -25,11 +25,6 @@ die() {
     exit 3
 }
 
-# Options that take values fail early so later validation never sees shifted arguments.
-need_arg() {
-    [ "$#" -ge 2 ] || die "missing value for $1"
-}
-
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk command not found"
 DATE=$(command -v date 2>/dev/null) || die "date command not found"
@@ -91,107 +86,29 @@ SUMMARY_WARNING=''
 SUMMARY_UNKNOWN=''
 PERFDATA=''
 
-# Parse options
-usage() {
-    printf '%s\n' "Usage: $0 [options]"
-    printf '%s\n' ''
-    printf '%s\n' 'Options:'
-    printf '%s\n' '  --check-config <path>                    Defaults to /etc/vnstat-monitoring.conf'
-    printf '%s\n' '  --vnstat-config <path>                   Defaults to /etc/vnstat.conf for explicit MaxBandwidth fallback'
-    printf '%s\n' '  --include <regex>'
-    printf '%s\n' '  --exclude <regex>                         Replaces the built-in default exclude regex'
-    printf '%s\n' '  --capacity-warning-percent <number>'
-    printf '%s\n' '  --capacity-critical-percent <number>'
-    printf '%s\n' '  --growth-day-warning-percent <number>'
-    printf '%s\n' '  --growth-day-critical-percent <number>'
-    printf '%s\n' '  --growth-month-warning-percent <number>'
-    printf '%s\n' '  --growth-month-critical-percent <number>'
-    printf '%s\n' '  --last-update-warning-seconds <number>'
-    printf '%s\n' '  --last-update-critical-seconds <number>'
-    printf '%s\n' '  --detail-limit <interfaces>                 Maximum interface detail blocks in long output, default 20'
-    printf '%s\n' '  --help'
-}
-
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --check-config)
-            need_arg "$1" "$@"
-            shift
-            CHECK_CONFIG=$1
-            ;;
-        --vnstat-config)
-            need_arg "$1" "$@"
-            shift
-            VNSTAT_CONFIG=$1
-            ;;
-        --include)
-            need_arg "$1" "$@"
-            shift
-            INCLUDE_REGEX=$1
-            ;;
-        --exclude)
-            need_arg "$1" "$@"
-            shift
-            EXCLUDE_REGEX=$1
-            ;;
-        # Capacity thresholds compare current p95 traffic against the effective interface speed.
-        --capacity-warning-percent)
-            need_arg "$1" "$@"
-            shift
-            CAPACITY_WARNING_PERCENT=$1
-            ;;
-        --capacity-critical-percent)
-            need_arg "$1" "$@"
-            shift
-            CAPACITY_CRITICAL_PERCENT=$1
-            ;;
-        --growth-day-warning-percent)
-            need_arg "$1" "$@"
-            shift
-            GROWTH_DAY_WARNING_PERCENT=$1
-            ;;
-        --growth-day-critical-percent)
-            need_arg "$1" "$@"
-            shift
-            GROWTH_DAY_CRITICAL_PERCENT=$1
-            ;;
-        # Growth thresholds compare current traffic against the previous day or month.
-        --growth-month-warning-percent)
-            need_arg "$1" "$@"
-            shift
-            GROWTH_MONTH_WARNING_PERCENT=$1
-            ;;
-        --growth-month-critical-percent)
-            need_arg "$1" "$@"
-            shift
-            GROWTH_MONTH_CRITICAL_PERCENT=$1
-            ;;
-        --last-update-warning-seconds)
-            need_arg "$1" "$@"
-            shift
-            LAST_UPDATE_WARNING_SECONDS=$1
-            ;;
-        --last-update-critical-seconds)
-            need_arg "$1" "$@"
-            shift
-            LAST_UPDATE_CRITICAL_SECONDS=$1
-            ;;
-        # Detail limit bounds interface blocks in long output while keeping summary and perfdata complete.
-        --detail-limit)
-            need_arg "$1" "$@"
-            shift
-            DETAIL_LIMIT=$1
-            ;;
-        --help)
-            usage
-            exit "$STATE_OK"
-            ;;
-        *)
-            die "invalid option: $1"
-            ;;
+# CLI options tune config paths, filters, thresholds, and bounded long output.
+USAGE_TEXT="Usage: $0 [-C check_config] [-V vnstat_config] [-i include_regex] [-x exclude_regex] [-w capacity_warning_percent] [-c capacity_critical_percent] [-d growth_day_warning_percent] [-D growth_day_critical_percent] [-m growth_month_warning_percent] [-M growth_month_critical_percent] [-u last_update_warning_seconds] [-U last_update_critical_seconds] [-l detail_limit]"
+OPTERR=0
+while getopts 'C:V:i:x:w:c:d:D:m:M:u:U:l:' opt; do
+    case "$opt" in
+        C) CHECK_CONFIG="$OPTARG" ;;
+        V) VNSTAT_CONFIG="$OPTARG" ;;
+        i) INCLUDE_REGEX="$OPTARG" ;;
+        x) EXCLUDE_REGEX="$OPTARG" ;;
+        w) CAPACITY_WARNING_PERCENT="$OPTARG" ;;
+        c) CAPACITY_CRITICAL_PERCENT="$OPTARG" ;;
+        d) GROWTH_DAY_WARNING_PERCENT="$OPTARG" ;;
+        D) GROWTH_DAY_CRITICAL_PERCENT="$OPTARG" ;;
+        m) GROWTH_MONTH_WARNING_PERCENT="$OPTARG" ;;
+        M) GROWTH_MONTH_CRITICAL_PERCENT="$OPTARG" ;;
+        u) LAST_UPDATE_WARNING_SECONDS="$OPTARG" ;;
+        U) LAST_UPDATE_CRITICAL_SECONDS="$OPTARG" ;;
+        l) DETAIL_LIMIT="$OPTARG" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
-    shift
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 # Read the first diagnostic line from command output.
 first_line_value() {
@@ -671,7 +588,7 @@ showconfig_limit_mbit() {
         if is_positive_number "$_iface_limit"; then
             printf '%s|MaxBW%s from vnStat showconfig\n' "$_iface_limit" "$1"
         else
-            printf '%s|MaxBW%s is 0 in vnStat showconfig\n' 'U' "$1"
+            printf '%s|no positive interface capacity configured\n' 'U'
         fi
         return
     fi
@@ -692,9 +609,9 @@ showconfig_limit_mbit() {
     if is_positive_number "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"; then
         printf '%s|MaxBandwidth from %s\n' "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT" "$VNSTAT_CONFIG"
     elif [ -n "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT" ] && is_number "$EXPLICIT_GLOBAL_MAXBANDWIDTH_MBIT"; then
-        printf '%s|MaxBandwidth is 0 in %s\n' 'U' "$VNSTAT_CONFIG"
+        printf '%s|no positive global fallback capacity configured\n' 'U'
     else
-        printf '%s|no MaxBW interface limit, no parseable BandwidthDetection speed (%s), and no explicit MaxBandwidth value in %s\n' 'U' "$_detection_note" "$VNSTAT_CONFIG"
+        printf '%s|no reliable positive interface capacity available\n' 'U'
     fi
 }
 
@@ -1029,7 +946,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
     else
         CAPACITY_PCT=$(calc_percent "$P95_MBIT" "$INTERFACE_LIMIT_MBIT")
         CAPACITY_STATE=$(threshold_status "$CAPACITY_PCT" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT")
-        CAPACITY_NOTE="of ${INTERFACE_LIMIT_MBIT} Mbit/s (${LIMIT_SOURCE})"
+        CAPACITY_NOTE=''
     fi
     INTERFACE_STATE=$(max_state "$INTERFACE_STATE" "$CAPACITY_STATE")
     case "$CAPACITY_STATE" in
@@ -1121,7 +1038,7 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
         elif [ "$CAPACITY_STATE" = 'UNKNOWN' ]; then
             printf '  Capacity: unavailable (%s)\n' "$(monitor_text_value "$CAPACITY_NOTE")"
         else
-            printf '  Capacity: %s%% %s\n' "$(format_number "$CAPACITY_PCT")" "$(monitor_text_value "$CAPACITY_NOTE")"
+            printf '  Capacity: %s%%\n' "$(format_number "$CAPACITY_PCT")"
         fi
 
         if [ "$DAY_BASELINE_AVAILABLE" -eq 1 ]; then

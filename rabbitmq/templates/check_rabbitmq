@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'RabbitMQ check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -18,6 +18,7 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
 # Queue depth thresholds apply only to queues with consumers.
+DETAIL_LIMIT=${DETAIL_LIMIT:-5}
 WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
 
@@ -25,6 +26,7 @@ CRIT="30" # critical threshold for queue backlog (via -c)
 RABBITMQADMCONF="<%= @admin_config_path %>" # path to rabbitmqadmin config file (adjust as needed)
 
 # CLI options keep the same external contract as the generated custom check registration.
+OPTERR=0
 while getopts 'w:c:C:' opt; do
   case "$opt" in
     w) WARN="$OPTARG" ;;
@@ -33,10 +35,19 @@ while getopts 'w:c:C:' opt; do
     *) die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]" ;;
   esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]"
+for numeric_value in "$WARN" "$CRIT" "$DETAIL_LIMIT"; do
+  case "$numeric_value" in
+    ''|*[!0-9]*) die "queue thresholds and detail limit must be numeric" ;;
+  esac
+done
+[ "$CRIT" -ge "$WARN" ] || die "critical queue threshold must be greater than or equal to warning threshold"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'RabbitMQ check failed: %s\n' "$*"
     exit 2
 }
 
@@ -136,18 +147,22 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
                 MAX_MSG_CRIT=$MESSAGES
                 MAX_Q_CRIT="$QUEUE_NAME"
             fi
-            ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
-            CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
-            CRIT_SHOWN=$((CRIT_SHOWN + 1))
+            if [ "$CRIT_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+                ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
+                CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
+                CRIT_SHOWN=$((CRIT_SHOWN + 1))
+            fi
         elif [ "$MESSAGES" -ge "$WARN" ]; then
             WARN_COUNT=$((WARN_COUNT + 1))
             if [ "$MESSAGES" -gt "$MAX_MSG_WARN" ]; then
                 MAX_MSG_WARN=$MESSAGES
                 MAX_Q_WARN="$QUEUE_NAME"
             fi
-            ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
-            WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
-            WARN_SHOWN=$((WARN_SHOWN + 1))
+            if [ "$WARN_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+                ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
+                WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
+                WARN_SHOWN=$((WARN_SHOWN + 1))
+            fi
         fi
     fi
 
@@ -158,9 +173,11 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
             LARGEST_ORPHAN_MSG=$MESSAGES
             LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
         fi
-        ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
-        ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
-        ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
+        if [ "$ORPHAN_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
+            ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
+            ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
+        fi
     fi
 done <<EOF
 $QUEUE_DATA

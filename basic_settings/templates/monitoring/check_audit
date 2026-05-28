@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'Auditd check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -38,17 +38,25 @@ MSG="Auditd running"
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 
 # CLI options tune queue and lost-event thresholds without changing the managed rule set.
-while getopts 'q:d' opt; do
+OPTERR=0
+while getopts 'q:d:' opt; do
     case "$opt" in
         q) QUEUE_WARN="$OPTARG" ;;
         d) DROPPED_CRIT="$OPTARG" ;;
         *) die "Usage: $0 [-q <int>] [-d <int>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-q <int>] [-d <int>]"
+
+# Runtime thresholds are numeric audit counters and must fail before host state is evaluated.
+case "$DROPPED_CRIT" in
+    ''|*[!0-9]*) die "dropped threshold must be numeric" ;;
+esac
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'Auditd check failed: %s\n' "$*"
     exit 2
 }
 
@@ -89,7 +97,12 @@ KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
 
 # Account, configuration, anomaly, syscall, and key events are security-sensitive.
 if [ "$ACCT" -gt 0 ] || [ "$ANOM" -gt 0 ] || [ "$CFG" -gt 0 ] || [ "$FAIL" -gt 0 ] || [ "$KEYS" -gt 0 ]; then
-    MSG="Strange audit behavior observed"
+    MSG="Auditd security events"
+    [ "$ACCT" -gt 0 ] && MSG="$MSG, account changes $ACCT"
+    [ "$ANOM" -gt 0 ] && MSG="$MSG, anomaly events $ANOM"
+    [ "$CFG" -gt 0 ] && MSG="$MSG, config changes $CFG"
+    [ "$FAIL" -gt 0 ] && MSG="$MSG, failed syscalls $FAIL"
+    [ "$KEYS" -gt 0 ] && MSG="$MSG, keyed events $KEYS"
     STATE_CODE=2
 fi
 
@@ -141,9 +154,15 @@ AV_STAT=$($AUDITCTL -s 2>/dev/null)
 BACKLOG=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
 LOST=$(printf "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
 BLIMIT=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p'); : "${BLIMIT:=0}"
+case "$BACKLOG" in (*[!0-9]*) BACKLOG=0 ;; esac
+case "$LOST" in (*[!0-9]*) LOST=0 ;; esac
+case "$BLIMIT" in (*[!0-9]*) BLIMIT=0 ;; esac
 
 # Use the kernel backlog limit as default warning threshold when Puppet did not pass one.
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
+case "$QUEUE_WARN" in
+    ''|*[!0-9]*) die "queue warning threshold must be numeric" ;;
+esac
 if [ "$BACKLOG" -gt "$QUEUE_WARN" ]; then
     MSG="$MSG, backlog $BACKLOG"
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1
@@ -155,7 +174,7 @@ fi
 
 # augenrules --check reports when generated rule files differ from the loaded ruleset.
 if $AUGENRULES --check >/dev/null 2>&1; then
-    MSG="$MSG, augenrules OK"
+    MSG="$MSG, augenrules in sync"
 else
     MSG="$MSG, augenrules diff"
     [ $STATE_CODE -lt 1 ] && STATE_CODE=1

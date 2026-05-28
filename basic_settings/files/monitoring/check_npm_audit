@@ -39,6 +39,7 @@ SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
 STATE_CODE=3
 
 # CLI options select the audited project and the visible check name.
+OPTERR=0
 while getopts 'd:n:' opt; do
     case "$opt" in
         d) CHECK_DIR="$OPTARG" ;;
@@ -46,11 +47,17 @@ while getopts 'd:n:' opt; do
         *) die "Usage: $0 -d <directory> [-n <name>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 -d <directory> [-n <name>]"
 
 # Validate options
 [ -n "$CHECK_DIR" ] || die "Usage: $0 -d <directory> [-n <name>]"
 [ -d "$CHECK_DIR" ] || die "directory '$CHECK_DIR' does not exist"
 [ -r "$CHECK_DIR" ] || die "directory '$CHECK_DIR' is not readable"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "DETAIL_LIMIT must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 
 # Read the first useful diagnostic line and ignore npm notice noise.
 first_line() {
@@ -453,7 +460,16 @@ case "$PKG_TOTAL" in
     1) PKG_TEXT='1 vulnerable package' ;;
     *) PKG_TEXT="${PKG_TOTAL} vulnerable packages" ;;
 esac
-SUMMARY="${CHECK_NAME}: ${PKG_TEXT}; low ${LOW_COUNT}, moderate ${MODERATE_COUNT}, high ${HIGH_COUNT}, critical ${CRITICAL_COUNT}"
+
+# Keep the short output free of zero-count severity categories; full counters remain in perfdata.
+SEVERITY_TEXT=''
+[ "$LOW_COUNT" -gt 0 ] && SEVERITY_TEXT="${SEVERITY_TEXT}${SEVERITY_TEXT:+, }low ${LOW_COUNT}"
+[ "$MODERATE_COUNT" -gt 0 ] && SEVERITY_TEXT="${SEVERITY_TEXT}${SEVERITY_TEXT:+, }moderate ${MODERATE_COUNT}"
+[ "$HIGH_COUNT" -gt 0 ] && SEVERITY_TEXT="${SEVERITY_TEXT}${SEVERITY_TEXT:+, }high ${HIGH_COUNT}"
+[ "$CRITICAL_COUNT" -gt 0 ] && SEVERITY_TEXT="${SEVERITY_TEXT}${SEVERITY_TEXT:+, }critical ${CRITICAL_COUNT}"
+SUMMARY="${CHECK_NAME}: ${PKG_TEXT}"
+[ -n "$SEVERITY_TEXT" ] && SUMMARY="${SUMMARY}; ${SEVERITY_TEXT}"
+
 PERF_DATA="vuln_total=${VULN_TOTAL};"
 PERF_DATA="$PERF_DATA vuln_info=${INFO_COUNT};"
 PERF_DATA="$PERF_DATA vuln_low=${LOW_COUNT};"

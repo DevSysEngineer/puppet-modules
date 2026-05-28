@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'ESET check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -58,7 +58,8 @@ esac
 [ "$SCAN_HISTORY_LIMIT" -ge 1 ] || SCAN_HISTORY_LIMIT=5
 
 # CLI thresholds keep operational tuning outside of the static template.
-while getopts 'n:N:s:S:u:U:h' opt; do
+OPTERR=0
+while getopts 'n:N:u:U:' opt; do
   case "$opt" in
     n) WARN_NO_SCAN_DAYS="$OPTARG" ;;
     N) CRIT_NO_SCAN_DAYS="$OPTARG" ;;
@@ -67,10 +68,19 @@ while getopts 'n:N:s:S:u:U:h' opt; do
     *) die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]" ;;
   esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]"
+for threshold_value in "$WARN_NO_SCAN_DAYS" "$CRIT_NO_SCAN_DAYS" "$WARN_UPDATE_MIN" "$CRIT_UPDATE_MIN"; do
+    case "$threshold_value" in
+        ''|*[!0-9]*) die "scan and update thresholds must be numeric" ;;
+    esac
+done
+[ "$CRIT_NO_SCAN_DAYS" -ge "$WARN_NO_SCAN_DAYS" ] || die "critical scan threshold must be greater than or equal to warning threshold"
+[ "$CRIT_UPDATE_MIN" -ge "$WARN_UPDATE_MIN" ] || die "critical update threshold must be greater than or equal to warning threshold"
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'ESET check failed: %s\n' "$*"
     exit 2
 }
 
@@ -180,6 +190,10 @@ LINE=$($UPD -l 2>/dev/null | $GREP -m1 "Detection engine")
 if [ -n "$LINE" ]; then
     ENGINE_VER=$(printf '%s' "$LINE" | $AWK '{print $2}')
 fi
+ENGINE_VER_METRIC=$ENGINE_VER
+case "$ENGINE_VER_METRIC" in
+    ''|*[!0-9.]*|*.*.*) ENGINE_VER_METRIC=U ;;
+esac
 
 # ESET log output is reused for update age and recent update errors.
 LOG_CSV=$($LSLOG -c 2>/dev/null)
@@ -259,20 +273,53 @@ DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{prin
 
 # Update age is computed from the latest successful detection-engine update log line.
 LAST_OK=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Detection Engine was successfully updated" | $TAIL -n 1)
-[ -n "$LAST_OK" ] && UPDATE_AGE_MIN=$(( (NOW_EPOCH-$($DATE -d "$(printf '%s' "$LAST_OK"| $CUT -d ',' -f1)" +%s))/60 ))
-[ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "no upd $((UPDATE_AGE_MIN/60))h"
-[ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "upd gap $((UPDATE_AGE_MIN/60))h"
+if [ -n "$LAST_OK" ]; then
+    LAST_OK_TS=$($DATE -d "$(printf '%s' "$LAST_OK" | $CUT -d ',' -f1)" +%s 2>/dev/null || printf '')
+    case "$LAST_OK_TS" in
+        ''|*[!0-9]*)
+            UPDATE_AGE_MIN=U
+            add_crit "engine update timestamp could not be parsed"
+            ;;
+        *)
+            UPDATE_AGE_MIN=$(( (NOW_EPOCH - LAST_OK_TS) / 60 ))
+            [ "$UPDATE_AGE_MIN" -lt 0 ] && UPDATE_AGE_MIN=0
+            ;;
+    esac
+else
+    UPDATE_AGE_MIN=U
+    add_crit "no successful engine update found"
+fi
+if [ "$UPDATE_AGE_MIN" != U ]; then
+    [ "$UPDATE_AGE_MIN" -ge "$CRIT_UPDATE_MIN" ] && add_crit "engine update ${UPDATE_AGE_MIN}m old"
+    [ "$UPDATE_AGE_MIN" -ge "$WARN_UPDATE_MIN" ] && [ "$UPDATE_AGE_MIN" -lt "$CRIT_UPDATE_MIN" ] && add_warn "engine update ${UPDATE_AGE_MIN}m old"
+fi
 
 # Recent updater errors are WARNING-only because a successful update may still be recent.
-UPDATES_FAILED=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}' | while read -r TS; do [ $(( NOW_EPOCH - $($DATE -d "$TS" +%s 2>/dev/null) )) -le 3600 ] && printf x; done | $WC -l | $AWK '{print $1}')
+UPDATES_FAILED=0
+UPDATE_FAILED_TIMESTAMPS=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Cannot check new application update" | $AWK -F ',' '{print $1}')
+while IFS= read -r TS; do
+    [ -n "$TS" ] || continue
+    TS_EPOCH=$($DATE -d "$TS" +%s 2>/dev/null || printf '')
+    case "$TS_EPOCH" in
+        ''|*[!0-9]*) continue ;;
+    esac
+    [ $((NOW_EPOCH - TS_EPOCH)) -le 3600 ] && UPDATES_FAILED=$((UPDATES_FAILED + 1))
+done <<EOF
+$UPDATE_FAILED_TIMESTAMPS
+EOF
 [ "$UPDATES_FAILED" -gt 0 ] && add_warn "$UPDATES_FAILED update errors (1h)"
  
 # Start the summary with the engine and latest scan because those are the operator-facing health anchors.
+if [ "$UPDATE_AGE_MIN" = U ]; then
+    UPDATE_AGE_TEXT="unknown"
+else
+    UPDATE_AGE_TEXT="${UPDATE_AGE_MIN}m"
+fi
 if [ "$LAST_SCAN_EPOCH" -gt 0 ]; then
     LAST_SCAN_HUMAN=$($DATE -d "@$LAST_SCAN_EPOCH" '+%Y-%m-%d %H:%M')
-    MSG="ESET engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m); Last scan ${LAST_SCAN_HUMAN}"
+    MSG="ESET engine version $ENGINE_VER (update age ${UPDATE_AGE_TEXT}); last scan ${LAST_SCAN_HUMAN}"
 else
-    MSG="ESET engine version $ENGINE_VER (age ${UPDATE_AGE_MIN}m)"
+    MSG="ESET engine version $ENGINE_VER (update age ${UPDATE_AGE_TEXT})"
 fi
 
 # CRITICAL causes take precedence over WARNING causes.
@@ -284,15 +331,21 @@ fi
 [ -n "$WARN_MSG" ] && MSG="$MSG; attention: $WARN_MSG"
 
 # Convert day/minute thresholds to seconds for perfdata UOM consistency.
-UPDATE_AGE_SECONDS=$(( UPDATE_AGE_MIN * 60 ))
+if [ "$UPDATE_AGE_MIN" = U ]; then
+    UPDATE_AGE_SECONDS=U
+    UPDATE_AGE_METRIC=U
+else
+    UPDATE_AGE_SECONDS=$(( UPDATE_AGE_MIN * 60 ))
+    UPDATE_AGE_METRIC="${UPDATE_AGE_SECONDS}s"
+fi
 WARN_UPDATE_SECONDS=$(( WARN_UPDATE_MIN * 60 ))
 CRIT_UPDATE_SECONDS=$(( CRIT_UPDATE_MIN * 60 ))
 LAST_SCAN_AGE_SECONDS=$(( LAST_SCAN_AGE * 86400 ))
 WARN_NO_SCAN_SECONDS=$(( WARN_NO_SCAN_DAYS * 86400 ))
 CRIT_NO_SCAN_SECONDS=$(( CRIT_NO_SCAN_DAYS * 86400 ))
 
-PERF="engine_version=${ENGINE_VER}"
-PERF="$PERF update_age=${UPDATE_AGE_SECONDS}s;${WARN_UPDATE_SECONDS};${CRIT_UPDATE_SECONDS};0"
+PERF="engine_version=${ENGINE_VER_METRIC}"
+PERF="$PERF update_age=${UPDATE_AGE_METRIC};${WARN_UPDATE_SECONDS};${CRIT_UPDATE_SECONDS};0"
 PERF="$PERF update_failed=${UPDATES_FAILED}"
 PERF="$PERF detections=${DETECTIONS_TOTAL}"
 PERF="$PERF scans_total=${SCANS_TOTAL}"

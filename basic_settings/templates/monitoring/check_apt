@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'APT check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -31,6 +31,7 @@ CHANGELOG_CACHE_DIR=/var/cache/check_apt/changelogs
 CHANGELOG_FETCH_TIMEOUT=6
 CHANGELOG_MAX_LINES=120
 CHANGELOG_TOTAL_BUDGET=20
+SECURITY_PACKAGE_SUMMARY_LIMIT=${SECURITY_PACKAGE_SUMMARY_LIMIT:-10}
 
 # Long output is assembled in-memory and emitted only after the perfdata line.
 LONG_OUTPUT=""
@@ -56,12 +57,23 @@ GRACE=172800 # 48h
 CHECK_START=$($DATE +%s)
 
 # CLI option overrides the metadata-age grace period for this invocation.
+OPTERR=0
 while getopts "c:" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
         *) die "Usage: $0 [-c <seconds>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-c <seconds>]"
+case "$GRACE" in
+    ''|*[!0-9]*) die "metadata-age grace period must be numeric" ;;
+esac
+case "$SECURITY_PACKAGE_SUMMARY_LIMIT" in
+    ''|*[!0-9]*) die "security package summary limit must be numeric" ;;
+esac
+[ "$GRACE" -ge 1 ] || die "metadata-age grace period must be at least 1"
+[ "$SECURITY_PACKAGE_SUMMARY_LIMIT" -ge 1 ] || die "security package summary limit must be at least 1"
 
 # Append one line to the long output buffer.
 append_long() {
@@ -154,7 +166,7 @@ APT_SIM_OUTPUT=$(LC_ALL=C DEBIAN_FRONTEND=noninteractive $APTGET -s -o Debug::No
 APT_SIM_RC=$?
 
 # Resolver failures are UNKNOWN because the check cannot trust package counts.
-if [ $APT_SIM_RC -ne 0 ]; then    
+if [ $APT_SIM_RC -ne 0 ]; then
     # Extract first 10 error/warning lines
     APT_SIM_ERR=$(printf '%s\n' "$APT_SIM_OUTPUT" | $AWK '
         BEGIN{c=0}
@@ -167,7 +179,7 @@ if [ $APT_SIM_RC -ne 0 ]; then
     ')
 
     # Return the resolver failure directly; perfdata would be misleading here.
-    printf 'APT simulation failed (rc=%s). %s\n' "$APT_SIM_RC" "$APT_SIM_ERR"
+    printf 'APT simulation failed with exit %s: %s\n' "$APT_SIM_RC" "$APT_SIM_ERR"
     exit 3
 fi
 
@@ -307,16 +319,23 @@ TIMER_UPGRADE_ACTIVE=0
 UNATTENDED_ACTIVE=0
 <% end -%>
 
-# Start the summary with freshness and update counts before auxiliary causes.
+# Start the summary with only meaningful freshness and update causes; the healthy path is filled in after all optional causes have been evaluated.
 MSG="APT"
 if [ "$TIMESTAMP_UNKNOWN" -eq 0 ]; then
     if [ "$LAST_UPDATE_AGE_SEC" -ge "$GRACE" ]; then
         DAYS=$((LAST_UPDATE_AGE_SEC / 86400))
         MSG="$MSG metadata ${DAYS} days old."
     fi
-    MSG="$MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
 else
-    MSG="$MSG could not determine last 'apt update' timestamp. ${UPDATES_TOTAL} updates detected (${UPDATES_SECURITY} security)."
+    MSG="$MSG could not determine last 'apt update' timestamp."
+fi
+
+if [ "$UPDATES_TOTAL" -gt 0 ]; then
+    if [ "$UPDATES_SECURITY" -gt 0 ]; then
+        MSG="$MSG ${UPDATES_TOTAL} updates (${UPDATES_SECURITY} security)."
+    else
+        MSG="$MSG ${UPDATES_TOTAL} updates."
+    fi
 fi
 
 # Add inactive automation units to the direct cause list.
@@ -335,10 +354,27 @@ if [ "$UPDATES_BLACKLISTED" -gt 0 ]; then
     MSG="$MSG ${UPDATES_BLACKLISTED} blacklisted."
 fi
 
+[ "$MSG" = "APT" ] && MSG="APT is healthy."
+
 # Security packages
 if [ "$UPDATES_SECURITY" -gt 0 ]; then
-    SEC_CSV=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F: '/^SECPKG:/{pkgs[++n]=$2} END{for(i=1;i<=n;i++){printf "%s%s",(i>1?", ":""),pkgs[i]}}')
-    MSG="$MSG Security packages: ${SEC_CSV}."
+    SEC_CSV=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F: -v max="$SECURITY_PACKAGE_SUMMARY_LIMIT" '
+        /^SECPKG:/ {
+            total++
+            if (shown < max) {
+                pkgs[++shown] = $2
+            }
+        }
+        END {
+            for (i = 1; i <= shown; i++) {
+                printf "%s%s", (i > 1 ? ", " : ""), pkgs[i]
+            }
+            if (total > shown) {
+                printf "%s+%d more", (shown > 0 ? ", " : ""), total - shown
+            }
+        }
+    ')
+    [ -n "$SEC_CSV" ] && MSG="$MSG Security packages: ${SEC_CSV}."
 
     # Keep this flow inline; it is only used once and sits next to the summary
     # output that depends on it.

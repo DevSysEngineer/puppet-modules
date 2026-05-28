@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'Network check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -74,6 +74,7 @@ WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
 # CLI options can narrow service and interface scope for one check invocation.
+OPTERR=0
 while getopts 's:i:' opt; do
     case "$opt" in
         s) SERVICES="$OPTARG" ;;
@@ -81,6 +82,8 @@ while getopts 's:i:' opt; do
         *) die "Usage: $0 [-s <services>] [-i <iface globs>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-s <services>] [-i <iface globs>]"
 
 # Append one critical reason to the summary.
 add_crit() {
@@ -187,7 +190,8 @@ fi
 
 # Enumerate interfaces from the kernel and exclude loopback from operational checks.
 MATCHED_IF_COUNT=0
-for IFACE in $($IP -o link show | $AWK -F': ' '{print $2}'); do
+for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
+    IFACE=${IFACE_RAW%%@*}
     [ "$IFACE" = "lo" ] && continue
 
     # Apply filters; if none supplied, accept all
@@ -411,14 +415,20 @@ fi
 [ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
 # Compose status message (compact)
-MSG="Public IPs: $PUBIP_SUMMARY; IPv4 addresses ${IPV4_TOTAL}; IPv6 addresses ${IPV6_TOTAL}"
+MSG="Network public IPs: $PUBIP_SUMMARY; IPv4 addresses ${IPV4_TOTAL}; IPv6 addresses ${IPV6_TOTAL}"
 [ -n "$IF_SUMMARY" ] && MSG="$MSG; interfaces:$IF_SUMMARY"
-[ -n "$SERVICES_LIST" ] && MSG="$MSG; services active ${SVC_ACTIVE}, inactive ${SVC_INACTIVE}"
+if [ -n "$SERVICES_LIST" ]; then
+    if [ "$SVC_INACTIVE" -gt 0 ]; then
+        MSG="$MSG; services inactive ${SVC_INACTIVE}"
+    else
+        MSG="$MSG; services active ${SVC_ACTIVE}"
+    fi
+fi
 [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"
 
 # Finalize message/state
 if [ -n "$CRIT_MSG" ]; then
-    MSG="$CRIT_MSG; $MSG"
+    MSG="Network $CRIT_MSG; $MSG"
     STATE_CODE=2
 fi
 

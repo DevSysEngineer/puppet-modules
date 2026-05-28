@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'systemd timer check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -34,8 +34,12 @@ esac
 case "$MAXLOG" in
     ''|*[!0-9]*) die "MAXLOG must be numeric" ;;
 esac
+case "$WINDOW" in
+    ''|*[!0-9]*) die "WINDOW must be numeric" ;;
+esac
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
+[ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
 
 # Emit the summary line and optional long output.
 emit_check() {
@@ -157,18 +161,18 @@ fi
 # If the window contained any failure markers, force CRITICAL even if current unit props say success
 if printf "%s\n" "$RESULT_LINE" | $GREP -qi 'Failed with result\|status=[1-9]'; then
     emit_check \
-        "$SERVICE_UNIT failed (Result=exit-code, Exit=${EXIT_CODE}, Code=${MAIN_CODE_PROP}, Status=${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
+        "$SERVICE_UNIT failed with result exit-code, exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
         "$PERFDATA"
     exit 2
 fi
 
 # With no explicit failure marker, report the normalized unit-property outcome.
 emit_check \
-    "$SERVICE_UNIT $RESULT (Exit=${EXIT_CODE}, Code=${MAIN_CODE_PROP}, Status=${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
+    "$SERVICE_UNIT $RESULT with exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
     "$PERFDATA"
 
 case "${EXIT_CODE}" in
     0) exit 0 ;;
     U) exit 1 ;;
     *) exit 2 ;;
- esac
+esac

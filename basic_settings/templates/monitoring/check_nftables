@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'nftables check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -40,7 +40,7 @@ esac
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'nftables check failed: %s\n' "$*"
     exit 2
 }
 
@@ -478,11 +478,11 @@ PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 
 # Empty tables or chains indicate a loaded but ineffective firewall.
 if [ -n "$CHAIN_EMPTY" ]; then
-    emit_check "No rules in chain(s): $CHAIN_EMPTY" "$PERF_DATA"
+    emit_check "nftables has no rules in chain(s): $CHAIN_EMPTY" "$PERF_DATA"
     exit 2
 fi
 if [ -n "$TABLE_EMPTY" ]; then
-    emit_check "No rules in table(s): $TABLE_EMPTY" "$PERF_DATA"
+    emit_check "nftables has no rules in table(s): $TABLE_EMPTY" "$PERF_DATA"
     exit 2
 fi
 
@@ -496,5 +496,5 @@ else
 fi
 
 # Final healthy summary includes rule/table counts and bounded blacklist detail.
-emit_check "$TOTAL_RULES rules in $TABLE_COUNT table(s), $BLACKLIST_SUMMARY" "$PERF_DATA"
+emit_check "nftables has $TOTAL_RULES rules in $TABLE_COUNT table(s), $BLACKLIST_SUMMARY" "$PERF_DATA"
 exit 0

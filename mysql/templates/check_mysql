@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'MySQL check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -40,16 +40,19 @@ add_issue() {
 }
 
 # CLI options only select the credentials file; thresholds are intentionally fixed by the managed check.
+OPTERR=0
 while getopts "c:" opt; do
     case "$opt" in
         c) DEFAULTS_FILE="$OPTARG" ;;
         *) die "Usage: $0 [-c <config_file>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-c <config_file>]"
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'MySQL check failed: %s\n' "$*"
     exit 2
 }
 
@@ -169,9 +172,11 @@ if [ "$HIT_RATE_PCT" != "N/A" ]; then
     fi
     WARN_HIT_ABS=$WARN_HIT_PCT
     CRIT_HIT_ABS=$CRIT_HIT_PCT
+    HIT_RATE_METRIC="${HIT_RATE_PCT}%"
 else
     WARN_HIT_ABS=""
     CRIT_HIT_ABS=""
+    HIT_RATE_METRIC=U
 fi
 
 # Buffer wait events indicate pressure even when the hit-rate threshold has not fired.
@@ -195,7 +200,7 @@ PERF="curr_connections=${THREADS_CONNECTED};${WARN_CURR_ABS};${CRIT_CURR_ABS};0;
 PERF="${PERF}max_used_connections=${MAX_USED_CONN};${WARN_PEAK_ABS};${CRIT_PEAK_ABS};0;${MAX_CONNECTIONS} "
 PERF="${PERF}threads_running=${THREADS_RUNNING};;;0 "
 PERF="${PERF}slow_queries=${SLOW_QUERIES};;;0 "
-PERF="${PERF}hit_rate=${HIT_RATE_PCT}%;${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 "
+PERF="${PERF}hit_rate=${HIT_RATE_METRIC};${WARN_HIT_ABS};${CRIT_HIT_ABS};0;100 "
 PERF="${PERF}innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_TOTAL}"
 
 # Emit one monitoring line; the summary is sanitized so dynamic MySQL text cannot add perfdata separators.

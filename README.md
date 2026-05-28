@@ -590,7 +590,7 @@ De checkconfiguratie staat in `/etc/vnstat-monitoring.conf` en is root-only (`06
 
 Voor bandbreedte-afhankelijke berekeningen gebruikt `check_vnstat_interfaces` eerst `MaxBW<interface>` uit de effectieve vnStat-configuratie, daarna een strikt parsebare snelheid uit `vnstat --iflist`, en daarna een positieve globale `MaxBandwidth` uit `/etc/vnstat.conf`. De standaard `MaxBandwidth 0` betekent bewust geen globale capaciteit. Als geen betrouwbare positieve capaciteit beschikbaar is, wordt de capaciteitcontrole voor die interface overgeslagen en staat de reden in de long output. WARNING-, CRITICAL- en UNKNOWN-redenen staan ook direct in de korte output, zodat je niet eerst de long output hoeft te doorzoeken.
 
-De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `--detail-limit <aantal>` kun je het aantal interfaceblokken in de long output begrenzen; de korte output en perfdata blijven volledig.
+De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `-l <aantal>` kun je het aantal interfaceblokken in de long output begrenzen; de korte output en perfdata blijven volledig.
 
 #### Voorbeeld
 

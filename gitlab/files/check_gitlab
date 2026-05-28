@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'GitLab check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -18,6 +18,9 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # License warning lead time is configurable through the environment for direct check use.
 LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
+case "$LIC_WARN_DAYS" in
+    ''|*[!0-9]*) die "LIC_WARN_DAYS must be numeric" ;;
+esac
 
 # Runtime state is built from omnibus service status, Rails output, and license checks.
 STATE_CODE=0
@@ -92,6 +95,9 @@ fi
 GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
+    case "$B" in
+        ''|*[!0-9]*) continue ;;
+    esac
     MB=$(( B / 1048576 ))
     SAFE=$(sanitize_label "$N")
 
@@ -102,7 +108,7 @@ EOF
 
 # License checks are skipped for CE/no-license installations and evaluated for EE output only.
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
-if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {exit 0} END{exit 1}'; then
+if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
   LIC_MODE="none"
 else
   LIC_MODE="ee"
@@ -125,13 +131,16 @@ if [ "$LIC_MODE" = "ee" ]; then
     fi
 
     # User overage becomes CRITICAL only when it is materially above the license cap.
-    if [ -n "$CURR" ] && [ -n "$MAX" ]; then
+    case "$CURR:$MAX" in
+        *[!0-9:]*|:*) CURR=""; MAX="" ;;
+    esac
+    if [ -n "$CURR" ] && [ -n "$MAX" ] && [ "$MAX" -gt 0 ]; then
         PERF="${PERF} active_users=${CURR};;;0; user_limit=${MAX};;;0;"
         OVER=$(( CURR - MAX ))
         if [ "$OVER" -gt 0 ]; then
             PCT=$(( OVER * 100 / MAX ))
             if [ "$PCT" -gt 10 ]; then STATE_CODE=2; else [ $STATE_CODE -lt 1 ] && STATE_CODE=1; fi
-            MSG="${MSG}${MSG:+; }Over licence: +${OVER} users"
+            MSG="${MSG}${MSG:+; }License user limit exceeded by ${OVER} user(s)"
             PERF="${PERF} overage=${OVER};;;0"
         fi
     fi

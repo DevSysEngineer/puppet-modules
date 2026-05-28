@@ -40,6 +40,7 @@ FAIL_RE=${FAIL_RE:-'Failed with result|status=[1-9][0-9]*|segfault|core dumped|f
 WARN_RE=${WARN_RE:-''} # keep empty by default (avoid noisy WARNINGs)
 
 # CLI options override environment schedule controls for one invocation.
+OPTERR=0
 while getopts "W:D:a" OPT; do
     case "$OPT" in
         W) ACTIVE_WINDOWS="$OPTARG" ;;
@@ -65,8 +66,28 @@ esac
 case "$MAXLOG" in
     ''|*[!0-9]*) die "MAXLOG must be numeric" ;;
 esac
+case "$WINDOW" in
+    ''|*[!0-9]*) die "WINDOW must be numeric" ;;
+esac
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
+[ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
+case "$REQUIRE_ACTIVE" in
+    0|1) : ;;
+    *) die "REQUIRE_ACTIVE must be 0 or 1" ;;
+esac
+case "$SCAN_LOGS" in
+    0|1) : ;;
+    *) die "SCAN_LOGS must be 0 or 1" ;;
+esac
+case "$SCAN_LOGS_OUTSIDE" in
+    0|1) : ;;
+    *) die "SCAN_LOGS_OUTSIDE must be 0 or 1" ;;
+esac
+case "$ACTIVE_ALERT_OUTSIDE" in
+    0|1) : ;;
+    *) die "ACTIVE_ALERT_OUTSIDE must be 0 or 1" ;;
+esac
 
 # Track whether any schedule input exists so outside-window behavior is explicit.
 if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then
@@ -323,12 +344,14 @@ elif [ "$ACTIVE_STATE" != "active" ] && [ -n "$STATE_CHANGE_TS" ] && [ "$STATE_C
     REF_TS=$STATE_CHANGE_TS
 fi
 
-# Pull only recent journal entries and extract the last matching failure/warning marker.
-JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null || true)
-if [ -n "$JOURNAL_RAW" ]; then
-    FAIL_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$FAIL_RE" | $TAIL -n1)
-    if [ -n "$WARN_RE" ]; then
-        WARN_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$WARN_RE" | $TAIL -n1)
+# Pull only recent journal entries when runtime policy allows log scanning.
+if [ "$SCAN_LOGS" = "1" ] && { [ "$IN_SCHEDULE" = "1" ] || [ "$SCAN_LOGS_OUTSIDE" = "1" ]; }; then
+    JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null || true)
+    if [ -n "$JOURNAL_RAW" ]; then
+        FAIL_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$FAIL_RE" | $TAIL -n1)
+        if [ -n "$WARN_RE" ]; then
+            WARN_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$WARN_RE" | $TAIL -n1)
+        fi
     fi
 fi
 

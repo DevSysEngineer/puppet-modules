@@ -3,7 +3,7 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'SSH check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -16,37 +16,79 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
 <% end -%>
-WC=$(command -v wc 2>/dev/null) || die "wc not available"
 WHO=$(command -v who 2>/dev/null) || die "who not available"
 
 # Session thresholds are intentionally simple because this check is a local SSH exposure signal.
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
+DETAIL_LIMIT=${DETAIL_LIMIT:-10}
 MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
 
 # CLI overrides are runtime thresholds only; the managed allowlist still comes from Puppet.
-while getopts 'c:w:i:a:' opt; do
+OPTERR=0
+while getopts 'c:w:t:i:a:' opt; do
     case "$opt" in
         c) CRIT_THRESH="$OPTARG" ;;
         w) WARN_THRESH="$OPTARG" ;;
+        t) MAX_AGE="$OPTARG" ;;
         i) MAX_IDLE="$OPTARG" ;;
         a) MAX_AGE="$OPTARG" ;;
-        *) die "Usage: $0 [-c <crit>] [-w <warn>] [-t <fail-minutes>] [-i <max-idle>] [-a <max-age>]" ;;
+        *) die "Usage: $0 [-c <crit>] [-w <warn>] [-t <max-age>] [-i <max-idle>] [-a <max-age>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-c <crit>] [-w <warn>] [-t <max-age>] [-i <max-idle>] [-a <max-age>]"
+for numeric_value in "$CRIT_THRESH" "$WARN_THRESH" "$MAX_IDLE" "$MAX_AGE"; do
+    case "$numeric_value" in
+        ''|*[!0-9]*) die "session thresholds must be numeric" ;;
+    esac
+done
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+esac
+[ "$CRIT_THRESH" -ge "$WARN_THRESH" ] || die "critical session threshold must be greater than or equal to warning threshold"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$*"
+    printf 'SSH check failed: %s\n' "$*"
     exit 2
 }
 
 # Keep user names and journal fragments safe before the real perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Render a bounded comma-separated list for short output.
+cap_csv_list() {
+    printf '%s\n' "$1" | $AWK -F',' -v max="$DETAIL_LIMIT" '
+        {
+            for (i = 1; i <= NF; i++) {
+                item = $i
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
+                if (item == "") {
+                    continue
+                }
+                total++
+                if (shown < max) {
+                    shown++
+                    items[shown] = item
+                }
+            }
+        }
+        END {
+            for (i = 1; i <= shown; i++) {
+                printf "%s%s", (i > 1 ? ", " : ""), items[i]
+            }
+            if (total > shown) {
+                printf "%s+%d more", (shown > 0 ? ", " : ""), total - shown
+            }
+        }
+    '
 }
 
 # Check the service first so daemon failures are reported before session parsing.
@@ -96,7 +138,7 @@ while read -r USER TTY LOGIN_DATE LOGIN_TIME IDLE _; do
 
     # TTY process ownership catches root escalation after a non-root login.
     TTY_PROCS=$($PS -t "$TTY" -o user=)
-    PROC_COUNT=$(printf '%s\n' "$TTY_PROCS" | $WC -l)
+    PROC_COUNT=$(printf '%s\n' "$TTY_PROCS" | $AWK 'NF { count++ } END { print count + 0 }')
     case "$TTY_PROCS" in
         *root*) ROOT_LOGIN=true ;;
     esac
@@ -241,12 +283,14 @@ fi
 
 # Build the visible cause list without Nagios state labels.
 EXTRA=""
+BAD_WL_USERS_TEXT=$(cap_csv_list "$BAD_WL_USERS")
+USERS_LIST_TEXT=$(cap_csv_list "$USERS_LIST")
 [ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
 [ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age ${MAX_SESSION_AGE_MIN}m, "
-[ -n "$BAD_WL_USERS" ] && EXTRA="${EXTRA}failed logins for '$BAD_WL_USERS', "
+[ -n "$BAD_WL_USERS_TEXT" ] && EXTRA="${EXTRA}failed logins for '$BAD_WL_USERS_TEXT', "
 [ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched allowlist failures, "
 [ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
-[ -n "$USERS_LIST" ] && EXTRA="${EXTRA}users: $USERS_LIST, "
+[ -n "$USERS_LIST_TEXT" ] && EXTRA="${EXTRA}users: $USERS_LIST_TEXT, "
 EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
 [ -n "$EXTRA" ] && EXTRA="; $EXTRA"
 

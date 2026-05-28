@@ -3,7 +3,7 @@
 
 # Fail helper used for missing runtime dependencies.
 die() {
-    printf '%s\n' "$*"
+    printf 'systemd configuration check cannot run: %s\n' "$*"
     exit 3
 }
 
@@ -91,11 +91,8 @@ MANAGER_STATE_RC=U
 NEED_DAEMON_RELOAD_RC=U
 VERIFY_RC=U
 
-# Print usage help for invalid command-line invocations.
-usage() {
-    printf '%s\n' "Usage: $0 [-g seconds] [-m verify-lines] [-d detail-lines] [-q] [--strict-reload] [--show-raw-verify]"
-    exit 3
-}
+# Usage text is shared by option parsing and numeric validation failures.
+USAGE_TEXT="Usage: $0 [-g seconds] [-m verify_lines] [-d detail_lines] [-q] [-r] [-R]"
 
 # Check whether a value contains only decimal digits.
 is_number() {
@@ -636,52 +633,26 @@ inspect_bad_units() {
 }
 
 # Parse validation options before any systemd calls so invalid invocations fail cleanly.
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -g)
-            [ $# -ge 2 ] || usage
-            BOOT_GRACE=$2
-            shift 2
-            ;;
-        -m)
-            [ $# -ge 2 ] || usage
-            MAX_VERIFY_LINES=$2
-            shift 2
-            ;;
-        -d)
-            [ $# -ge 2 ] || usage
-            MAX_DETAIL_LINES=$2
-            shift 2
-            ;;
-        -q)
-            QUIET=1
-            shift
-            ;;
-        --strict-reload)
-            STRICT_RELOAD=1
-            shift
-            ;;
-        --show-raw-verify)
-            SHOW_RAW_VERIFY=1
-            shift
-            ;;
-        --)
-            shift
-            break
-            ;;
-        -*)
-            usage
-            ;;
-        *)
-            break
-            ;;
+OPTERR=0
+while getopts 'g:m:d:qrR' opt; do
+    case "$opt" in
+        g) BOOT_GRACE="$OPTARG" ;;
+        m) MAX_VERIFY_LINES="$OPTARG" ;;
+        d) MAX_DETAIL_LINES="$OPTARG" ;;
+        q) QUIET=1 ;;
+        r) STRICT_RELOAD=1 ;;
+        R) SHOW_RAW_VERIFY=1 ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
+shift $((OPTIND - 1))
 
-[ $# -eq 0 ] || usage
-is_number "$BOOT_GRACE" || usage
-is_number "$MAX_DETAIL_LINES" || usage
-is_number "$MAX_VERIFY_LINES" || usage
+[ $# -eq 0 ] || die "$USAGE_TEXT"
+is_number "$BOOT_GRACE" || die "$USAGE_TEXT"
+is_number "$MAX_DETAIL_LINES" || die "$USAGE_TEXT"
+is_number "$MAX_VERIFY_LINES" || die "$USAGE_TEXT"
+[ "$MAX_DETAIL_LINES" -ge 1 ] || die "detail line limit must be at least 1"
+[ "$MAX_VERIFY_LINES" -ge 1 ] || die "verify line limit must be at least 1"
 
 # Boot grace suppresses transient manager states immediately after startup.
 if [ -r /proc/uptime ]; then
@@ -931,9 +902,7 @@ printf '%s\n' "Boot grace active: ${BOOT_GRACE_TEXT}"
 printf '%s\n' "Default target: ${DEFAULT_TARGET}"
 printf '%s\n' "Default target LoadState: ${DEFAULT_TARGET_LOAD_STATE}"
 printf '%s\n' "Need daemon reload: ${NEED_DAEMON_RELOAD}"
-printf '%s\n' "Unit state filter: ${BAD_UNIT_FILTER}"
 printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
-printf '%s\n' "Max detail lines per section: ${MAX_DETAIL_LINES}"
 printf '%s\n' ""
 
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then

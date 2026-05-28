@@ -3,11 +3,11 @@
 
 # Fail helper
 die() {
-    printf '%s\n' "$*"
+    printf 'USB check cannot run: %s\n' "$*"
     exit 3
 }
 
-# Check binaries
+# Binary checks
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
@@ -69,6 +69,7 @@ WHITELIST_SERIALS_ACTIVE=""
 WHITELIST_VP_IDS_ACTIVE=""
 
 # Parse options (each expects an argument)
+OPTERR=0
 while getopts "w:e:a:" OPT; do
     case "$OPT" in
         w) WHITELIST_IDS="$OPTARG" ;;
@@ -77,6 +78,8 @@ while getopts "w:e:a:" OPT; do
         *) die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]" ;;
     esac
 done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "Usage: $0 [-w <list>] [-e <list>] [-a <list>]"
 
 # Keep USB product, manufacturer, and serial text safe before the perfdata delimiter.
 monitor_text_value() {
@@ -489,13 +492,13 @@ ANYREQ_MATCHED_LIST=$(printf '%s' "$ANYREQ_MATCHED_LIST" | $SED 's/^, //')
 # - active any-required policy failures
 if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ -n "$EXPECTED_LIST_MISSING" ]; then
     STATUS_CODE=2
-    [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="Unauthorized USB device(s) detected: $UNAUTHORIZED_DEV_LIST. "
-    [ -n "$EXPECTED_LIST_MISSING" ] && MSG="${MSG}Expected USB device(s) missing: $EXPECTED_LIST_MISSING. "
+    [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="USB unauthorized device(s) detected: $UNAUTHORIZED_DEV_LIST. "
+    [ -n "$EXPECTED_LIST_MISSING" ] && MSG="${MSG}USB expected device(s) missing: $EXPECTED_LIST_MISSING. "
 else
     if [ -n "$EXPECTED_SERIALS_ACTIVE" ] || [ -n "$EXPECTED_VP_IDS_ACTIVE" ]; then
-        MSG="All expected USB device(s) present. "
+        MSG="USB has all expected devices present. "
     else
-        MSG="No unauthorized USB devices detected. "
+        MSG="USB has no unauthorized devices detected. "
     fi
 fi
 
@@ -503,7 +506,7 @@ fi
 if [ "$ANYREQ_TOTAL_COUNT" -gt 0 ] && [ "$ANYREQ_PRESENT_COUNT" -eq 0 ]; then
     ANYREQ_OK=0
     STATUS_CODE=2
-    MSG="${MSG}Any-required policy not met (none present from provided list). "
+    MSG="${MSG}USB any-required policy not met (none present from provided list). "
 fi
 
 # Tails
