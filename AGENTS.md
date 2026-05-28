@@ -224,6 +224,7 @@ Monitoring output conventions:
 - Do not prepend or label short-output cause lists with Nagios state names such as `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`. The short output should name the checked object and direct cause, while the exit code carries the machine state.
 - When a check returns WARNING, CRITICAL, or UNKNOWN, include the primary interface, unit, resource, or object and the direct cause in the short output. Long output is for diagnosis and supporting detail, not for discovering the main reason the check failed.
 - Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
+- Do not print threshold inventories, final decision labels, or explanatory decision rationale in monitoring long output. Thresholds belong in perfdata when useful, and the direct alert cause belongs in the short output.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
 - Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
 - Do not encode units in perfdata labels, including prefixes or suffixes such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, `_pct`, `_bytes`, `_seconds`, `_mbit`, or `_bps`. Put units in the perfdata UOM field (unit of measurement), for example `%`, `B`, `s`, or `Mbps`, and keep labels compact and stable.

@@ -34,15 +34,17 @@ MEM_AVAILABLE_WARNING_PERCENT=20
 MEM_AVAILABLE_CRITICAL_PERCENT=10
 SWAP_IO_WARNING_KIB=1
 SWAP_IO_CRITICAL_KIB=64
+SWAP_IO_CRITICAL_SAMPLE_MIN=2
 INCLUDE_TOP_SWAP_PROCESSES=1
 TOP_SWAP_PROCESSES_LIMIT=10
+SAMPLE_COUNT=3
 SAMPLE_INTERVAL=1
 
-# Data paths can be overridden by the environment for lightweight validation
-# without adding a separate fixture parser or config file to the runtime check.
+# Data paths can be overridden by the environment for lightweight validation without adding a separate fixture parser or config file to the runtime check.
 MEMINFO_PATH=${MEMINFO_PATH:-/proc/meminfo}
 VMSTAT_PATH=${VMSTAT_PATH:-/proc/vmstat}
-VMSTAT_SECOND_PATH=${VMSTAT_SECOND_PATH:-}
+VMSTAT_SAMPLE_PATHS=${VMSTAT_SAMPLE_PATHS:-}
+VMSTAT_SECOND_PATH=${VMSTAT_SECOND_PATH:-} # Backward-compatible single-sample fixture path when VMSTAT_SAMPLE_PATHS is not set.
 PRESSURE_MEMORY_PATH=${PRESSURE_MEMORY_PATH:-/proc/pressure/memory}
 PROC_PATH=${PROC_PATH:-/proc}
 PASSWD_PATH=${PASSWD_PATH:-/etc/passwd}
@@ -63,9 +65,11 @@ usage() {
     printf '%s\n' '      --mem-available-critical-percent <0-100> Default: 10'
     printf '%s\n' '      --swap-io-warning-kib <number>          Default: 1'
     printf '%s\n' '      --swap-io-critical-kib <number>         Default: 64'
+    printf '%s\n' '      --swap-io-critical-samples <number>     Default: 2'
     printf '%s\n' '      --include-top-swap-processes            Include process swap usage in long output'
     printf '%s\n' '      --no-include-top-swap-processes         Disable process swap usage in long output'
     printf '%s\n' '      --top-swap-processes-limit <number>     Default: 10'
+    printf '%s\n' '      --sample-count <number>                 Default: 3'
     printf '%s\n' '      --sample-interval <seconds>             Default: 1'
     printf '%s\n' '  -h, --help'
 }
@@ -104,6 +108,11 @@ while [ "$#" -gt 0 ]; do
             shift
             SWAP_IO_CRITICAL_KIB=$1
             ;;
+        --swap-io-critical-samples)
+            need_arg "$1" "$@"
+            shift
+            SWAP_IO_CRITICAL_SAMPLE_MIN=$1
+            ;;
         # Top-swap process detail is diagnostic long output and does not affect status.
         --include-top-swap-processes)
             INCLUDE_TOP_SWAP_PROCESSES=1
@@ -115,6 +124,11 @@ while [ "$#" -gt 0 ]; do
             need_arg "$1" "$@"
             shift
             TOP_SWAP_PROCESSES_LIMIT=$1
+            ;;
+        --sample-count)
+            need_arg "$1" "$@"
+            shift
+            SAMPLE_COUNT=$1
             ;;
         --sample-interval)
             need_arg "$1" "$@"
@@ -139,6 +153,16 @@ monitor_text_value() {
 
 # Append one diagnostic line to the long output buffer.
 append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Append pre-serialized diagnostic lines that already use the long-output separator.
+append_long_block() {
+    [ -n "$1" ] || return
     if [ -z "$LONG_OUTPUT" ]; then
         LONG_OUTPUT=$1
     else
@@ -223,6 +247,38 @@ read_vmstat_counters() {
     ' "$1"
 }
 
+# Select the next vmstat input. Production uses the same procfs file after sleeping; validation can provide comma-separated fixture paths.
+set_next_vmstat_sample_path() {
+    if [ -n "$VMSTAT_SAMPLE_PATHS_REMAINING" ]; then
+        case "$VMSTAT_SAMPLE_PATHS_REMAINING" in
+            *,*)
+                VMSTAT_NEXT_READ_PATH=${VMSTAT_SAMPLE_PATHS_REMAINING%%,*}
+                VMSTAT_SAMPLE_PATHS_REMAINING=${VMSTAT_SAMPLE_PATHS_REMAINING#*,}
+                ;;
+            *)
+                VMSTAT_NEXT_READ_PATH=$VMSTAT_SAMPLE_PATHS_REMAINING
+                VMSTAT_SAMPLE_PATHS_REMAINING=""
+                ;;
+        esac
+    elif [ -n "$VMSTAT_SECOND_PATH" ] && [ "$SAMPLE_INDEX" -eq 1 ]; then
+        VMSTAT_NEXT_READ_PATH=$VMSTAT_SECOND_PATH
+    else
+        # Production sampling waits between cumulative-counter reads so each delta represents one interval.
+        $SLEEP "$SAMPLE_INTERVAL"
+        VMSTAT_NEXT_READ_PATH=$VMSTAT_PATH
+    fi
+}
+
+# Store one sampled swap-I/O line for later diagnostic output.
+append_swap_io_sample() {
+    SAMPLE_LINE="Swap I/O sample ${1}: swap-in ${2} KiB/s, swap-out ${3} KiB/s"
+    if [ -z "$SWAP_IO_SAMPLE_OUTPUT" ]; then
+        SWAP_IO_SAMPLE_OUTPUT=$SAMPLE_LINE
+    else
+        SWAP_IO_SAMPLE_OUTPUT="${SWAP_IO_SAMPLE_OUTPUT}${LONG_OUTPUT_SEP}$SAMPLE_LINE"
+    fi
+}
+
 # Swap process details are best-effort long output and must not change the check state.
 print_top_swap_processes() {
     [ "$INCLUDE_TOP_SWAP_PROCESSES" -eq 1 ] || return
@@ -304,10 +360,15 @@ validate_percent 'memory available warning percent' "$MEM_AVAILABLE_WARNING_PERC
 validate_percent 'memory available critical percent' "$MEM_AVAILABLE_CRITICAL_PERCENT"
 validate_uint 'swap I/O warning KiB' "$SWAP_IO_WARNING_KIB"
 validate_uint 'swap I/O critical KiB' "$SWAP_IO_CRITICAL_KIB"
+validate_uint 'swap I/O critical samples' "$SWAP_IO_CRITICAL_SAMPLE_MIN"
 validate_uint 'top swap processes limit' "$TOP_SWAP_PROCESSES_LIMIT"
+validate_uint 'sample count' "$SAMPLE_COUNT"
 validate_uint 'sample interval' "$SAMPLE_INTERVAL"
 [ "$TOP_SWAP_PROCESSES_LIMIT" -ge 1 ] || die "top swap processes limit must be at least 1"
+[ "$SAMPLE_COUNT" -ge 1 ] || die "sample count must be at least 1"
 [ "$SAMPLE_INTERVAL" -ge 1 ] || die "sample interval must be at least 1"
+[ "$SWAP_IO_CRITICAL_SAMPLE_MIN" -ge 1 ] || die "swap I/O critical samples must be at least 1"
+[ "$SWAP_IO_CRITICAL_SAMPLE_MIN" -le "$SAMPLE_COUNT" ] || die "swap I/O critical samples must be less than or equal to sample count"
 [ "$SWAP_CRITICAL_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] || die "swap critical percent must be greater than or equal to warning percent"
 [ "$MEM_AVAILABLE_CRITICAL_PERCENT" -le "$MEM_AVAILABLE_WARNING_PERCENT" ] || die "memory available critical percent must be less than or equal to warning percent"
 [ "$SWAP_IO_CRITICAL_KIB" -ge "$SWAP_IO_WARNING_KIB" ] || die "swap I/O critical threshold must be greater than or equal to warning threshold"
@@ -391,6 +452,14 @@ SWAP_IO_AVAILABLE=0
 SWAP_IO_NOTE=""
 SWAP_IN_KIB_PER_SEC=0
 SWAP_OUT_KIB_PER_SEC=0
+SWAP_IN_WARNING_SAMPLE_COUNT=0
+SWAP_OUT_WARNING_SAMPLE_COUNT=0
+SWAP_IO_WARNING_SAMPLE_COUNT=0
+SWAP_IN_CRITICAL_SAMPLE_COUNT=0
+SWAP_OUT_CRITICAL_SAMPLE_COUNT=0
+SWAP_IO_CRITICAL_SAMPLE_COUNT=0
+SWAP_IO_SAMPLE_COUNT=0
+SWAP_IO_SAMPLE_OUTPUT=""
 
 # Convert cumulative pswpin/pswpout page counters to KiB/s. getconf is optional
 # because a 4096 byte fallback is safe enough when page size cannot be queried.
@@ -404,106 +473,137 @@ case "$PAGE_SIZE_BYTES" in
 esac
 [ "$PAGE_SIZE_BYTES" -gt 0 ] || PAGE_SIZE_BYTES=4096
 
-# Take two samples to detect current swap pressure instead of historical swap
-# occupancy. If vmstat cannot be read, continue with memory/swap percentages.
-VMSTAT_FIRST=$(read_vmstat_counters "$VMSTAT_PATH" 2>/dev/null || true)
-if [ -n "$VMSTAT_FIRST" ]; then
-    set -- $VMSTAT_FIRST
-    PSWPIN_FIRST=$1
-    PSWPOUT_FIRST=$2
-
-    if [ -z "$VMSTAT_SECOND_PATH" ]; then
-        # Production sampling waits briefly; tests may override the second path.
-        $SLEEP "$SAMPLE_INTERVAL"
-        VMSTAT_SECOND_READ_PATH=$VMSTAT_PATH
-    else
-        VMSTAT_SECOND_READ_PATH=$VMSTAT_SECOND_PATH
-    fi
-
-    VMSTAT_SECOND=$(read_vmstat_counters "$VMSTAT_SECOND_READ_PATH" 2>/dev/null || true)
-    if [ -n "$VMSTAT_SECOND" ]; then
-        set -- $VMSTAT_SECOND
-        PSWPIN_SECOND=$1
-        PSWPOUT_SECOND=$2
-        if [ "$PSWPIN_SECOND" -ge "$PSWPIN_FIRST" ] && [ "$PSWPOUT_SECOND" -ge "$PSWPOUT_FIRST" ]; then
-            # pswpin/pswpout are page counters since boot, so only the delta
-            # over the sample interval represents active swap I/O.
-            PSWPIN_DELTA=$((PSWPIN_SECOND - PSWPIN_FIRST))
-            PSWPOUT_DELTA=$((PSWPOUT_SECOND - PSWPOUT_FIRST))
-            SWAP_IN_KIB_PER_SEC=$((PSWPIN_DELTA * PAGE_SIZE_BYTES / 1024 / SAMPLE_INTERVAL))
-            SWAP_OUT_KIB_PER_SEC=$((PSWPOUT_DELTA * PAGE_SIZE_BYTES / 1024 / SAMPLE_INTERVAL))
-            SWAP_IO_AVAILABLE=1
-        else
-            # Counter reset or wrap is rare, but treating it as unavailable is
-            # safer than making a pressure decision from a negative delta.
-            SWAP_IO_NOTE="active swap I/O could not be checked because pswpin/pswpout counters moved backwards"
-        fi
-    else
-        SWAP_IO_NOTE="active swap I/O could not be checked because ${VMSTAT_SECOND_READ_PATH} is unavailable or missing pswpin/pswpout"
-    fi
+# Take multiple deltas to distinguish sustained swap pressure from one short spike. If vmstat cannot be read, continue with memory/swap percentages.
+if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
+    VMSTAT_CURRENT=""
+    SWAP_IO_NOTE="active swap I/O not sampled because no swap is configured"
 else
+    VMSTAT_CURRENT=$(read_vmstat_counters "$VMSTAT_PATH" 2>/dev/null || true)
+fi
+
+if [ "$SWAP_TOTAL_KIB" -gt 0 ] && [ -n "$VMSTAT_CURRENT" ]; then
+    set -- $VMSTAT_CURRENT
+    PSWPIN_CURRENT=$1
+    PSWPOUT_CURRENT=$2
+    SAMPLE_INDEX=1
+    VMSTAT_SAMPLE_PATHS_REMAINING=$VMSTAT_SAMPLE_PATHS
+
+    while [ "$SAMPLE_INDEX" -le "$SAMPLE_COUNT" ]; do
+        set_next_vmstat_sample_path
+        VMSTAT_NEXT=$(read_vmstat_counters "$VMSTAT_NEXT_READ_PATH" 2>/dev/null || true)
+        if [ -n "$VMSTAT_NEXT" ]; then
+            set -- $VMSTAT_NEXT
+            PSWPIN_NEXT=$1
+            PSWPOUT_NEXT=$2
+            if [ "$PSWPIN_NEXT" -ge "$PSWPIN_CURRENT" ] && [ "$PSWPOUT_NEXT" -ge "$PSWPOUT_CURRENT" ]; then
+                # pswpin/pswpout are page counters since boot, so each delta represents active swap I/O during one sample interval.
+                PSWPIN_DELTA=$((PSWPIN_NEXT - PSWPIN_CURRENT))
+                PSWPOUT_DELTA=$((PSWPOUT_NEXT - PSWPOUT_CURRENT))
+                SAMPLE_SWAP_IN_KIB_PER_SEC=$((PSWPIN_DELTA * PAGE_SIZE_BYTES / 1024 / SAMPLE_INTERVAL))
+                SAMPLE_SWAP_OUT_KIB_PER_SEC=$((PSWPOUT_DELTA * PAGE_SIZE_BYTES / 1024 / SAMPLE_INTERVAL))
+                SWAP_IO_SAMPLE_COUNT=$((SWAP_IO_SAMPLE_COUNT + 1))
+                append_swap_io_sample "$SWAP_IO_SAMPLE_COUNT" "$SAMPLE_SWAP_IN_KIB_PER_SEC" "$SAMPLE_SWAP_OUT_KIB_PER_SEC"
+
+                # Perfdata and summary use the highest observed sample so short visible activity is not hidden by averaging.
+                [ "$SAMPLE_SWAP_IN_KIB_PER_SEC" -gt "$SWAP_IN_KIB_PER_SEC" ] && SWAP_IN_KIB_PER_SEC=$SAMPLE_SWAP_IN_KIB_PER_SEC
+                [ "$SAMPLE_SWAP_OUT_KIB_PER_SEC" -gt "$SWAP_OUT_KIB_PER_SEC" ] && SWAP_OUT_KIB_PER_SEC=$SAMPLE_SWAP_OUT_KIB_PER_SEC
+
+                SAMPLE_IO_WARNING=0
+                SAMPLE_IO_CRITICAL=0
+                if [ "$SAMPLE_SWAP_IN_KIB_PER_SEC" -ge "$SWAP_IO_WARNING_KIB" ]; then
+                    SWAP_IN_WARNING_SAMPLE_COUNT=$((SWAP_IN_WARNING_SAMPLE_COUNT + 1))
+                    SAMPLE_IO_WARNING=1
+                fi
+                if [ "$SAMPLE_SWAP_OUT_KIB_PER_SEC" -ge "$SWAP_IO_WARNING_KIB" ]; then
+                    SWAP_OUT_WARNING_SAMPLE_COUNT=$((SWAP_OUT_WARNING_SAMPLE_COUNT + 1))
+                    SAMPLE_IO_WARNING=1
+                fi
+                if [ "$SAMPLE_IO_WARNING" -eq 1 ]; then
+                    SWAP_IO_WARNING_SAMPLE_COUNT=$((SWAP_IO_WARNING_SAMPLE_COUNT + 1))
+                fi
+
+                if [ "$SAMPLE_SWAP_IN_KIB_PER_SEC" -ge "$SWAP_IO_CRITICAL_KIB" ]; then
+                    SWAP_IN_CRITICAL_SAMPLE_COUNT=$((SWAP_IN_CRITICAL_SAMPLE_COUNT + 1))
+                    SAMPLE_IO_CRITICAL=1
+                fi
+                if [ "$SAMPLE_SWAP_OUT_KIB_PER_SEC" -ge "$SWAP_IO_CRITICAL_KIB" ]; then
+                    SWAP_OUT_CRITICAL_SAMPLE_COUNT=$((SWAP_OUT_CRITICAL_SAMPLE_COUNT + 1))
+                    SAMPLE_IO_CRITICAL=1
+                fi
+                if [ "$SAMPLE_IO_CRITICAL" -eq 1 ]; then
+                    SWAP_IO_CRITICAL_SAMPLE_COUNT=$((SWAP_IO_CRITICAL_SAMPLE_COUNT + 1))
+                fi
+
+                PSWPIN_CURRENT=$PSWPIN_NEXT
+                PSWPOUT_CURRENT=$PSWPOUT_NEXT
+            else
+                # Counter reset or wrap is rare, but treating the remaining samples as unavailable is safer than making a pressure decision from a negative delta.
+                SWAP_IO_NOTE="active swap I/O sampling stopped because pswpin/pswpout counters moved backwards"
+                break
+            fi
+        else
+            SWAP_IO_NOTE="active swap I/O sampling stopped because ${VMSTAT_NEXT_READ_PATH} is unavailable or missing pswpin/pswpout"
+            break
+        fi
+        SAMPLE_INDEX=$((SAMPLE_INDEX + 1))
+    done
+
+    if [ "$SWAP_IO_SAMPLE_COUNT" -gt 0 ]; then
+        SWAP_IO_AVAILABLE=1
+        if [ "$SWAP_IO_SAMPLE_COUNT" -lt "$SAMPLE_COUNT" ] && [ -z "$SWAP_IO_NOTE" ]; then
+            SWAP_IO_NOTE="active swap I/O sampling completed only ${SWAP_IO_SAMPLE_COUNT} of ${SAMPLE_COUNT} samples"
+        fi
+    elif [ -z "$SWAP_IO_NOTE" ]; then
+        SWAP_IO_NOTE="active swap I/O could not be checked because no usable samples were collected from ${VMSTAT_PATH}"
+    fi
+elif [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
     SWAP_IO_NOTE="active swap I/O could not be checked because ${VMSTAT_PATH} is unavailable or missing pswpin/pswpout"
 fi
 
-# Decide status from active swap I/O first, then combined swap and MemAvailable
-# thresholds. Swap occupancy alone is intentionally not a WARNING or CRITICAL.
+# Decide status from combined memory headroom, swap occupancy, and sustained swap I/O. Swap occupancy alone is intentionally not a WARNING or CRITICAL.
 MEM_AVAILABLE_HUMAN=$(format_kib "$MEM_AVAILABLE_KIB")
 if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
     # Hosts without swap are not automatically broken; they are reported as
     # healthy unless the site policy adds a separate swap-presence check.
-    FINAL_STATE='OK'
     EXIT_CODE=$STATE_OK
     SUMMARY="Memory pressure healthy: no swap configured; memory available ${MEM_AVAILABLE_PERCENT}% (${MEM_AVAILABLE_HUMAN})"
-    DECISION="No swap is configured. This check treats that as healthy and reports memory availability only."
-elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && { [ "$SWAP_IN_KIB_PER_SEC" -gt "$SWAP_IO_CRITICAL_KIB" ] || [ "$SWAP_OUT_KIB_PER_SEC" -gt "$SWAP_IO_CRITICAL_KIB" ]; }; then
-    # Active swap I/O is the strongest pressure signal and can alert even before
-    # swap occupancy or MemAvailable percentages look severe.
-    FINAL_STATE='CRITICAL'
-    EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: swap I/O is critical with swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
-    DECISION="Active swap I/O is above the critical threshold, which is treated as immediate memory pressure."
 elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_CRITICAL_PERCENT" ]; then
-    # High swap plus critically low MemAvailable is pressure even when the short
-    # sample did not catch active swap I/O.
-    FINAL_STATE='CRITICAL'
+    # Nearly exhausted swap plus critically low MemAvailable is pressure even when the sample window does not catch active swap I/O.
     EXIT_CODE=$STATE_CRITICAL
-    if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-        SUMMARY="Memory pressure active: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
-    else
-        SUMMARY="Memory pressure active: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; active swap I/O unavailable"
-    fi
-    DECISION="Swap usage is at or above the critical threshold and MemAvailable is below the critical threshold."
-elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && { [ "$SWAP_IN_KIB_PER_SEC" -gt "$SWAP_IO_WARNING_KIB" ] || [ "$SWAP_OUT_KIB_PER_SEC" -gt "$SWAP_IO_WARNING_KIB" ]; }; then
-    # Light current swapping is reported as WARNING so operators can inspect the
-    # host before it becomes sustained critical pressure.
-    FINAL_STATE='WARNING'
-    EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: active swap I/O observed with swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s; swap ${SWAP_USED_PERCENT}% used; memory available ${MEM_AVAILABLE_PERCENT}%"
-    DECISION="Active swap I/O is above the warning threshold but below the critical threshold."
+    SUMMARY="Memory pressure active: swap is nearly exhausted and memory available is critical at ${MEM_AVAILABLE_PERCENT}%; swap ${SWAP_USED_PERCENT}% used; swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ]; then
+    # Sustained swap-in plus swap-out is a stronger thrashing signal than either direction alone.
+    EXIT_CODE=$STATE_CRITICAL
+    SUMMARY="Memory pressure active: sustained swap-in and swap-out are detected: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_USED_PERCENT" -ge "$SWAP_CRITICAL_PERCENT" ]; then
+    # Sustained swap-out while swap is nearly exhausted indicates current pressure, not merely old passive swap occupancy.
+    EXIT_CODE=$STATE_CRITICAL
+    SUMMARY="Memory pressure active: swap is nearly exhausted and sustained swap-out is detected: swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_WARNING_PERCENT" ]; then
+    # Sustained swap-out with low MemAvailable means the kernel is actively trying to free RAM by writing pages to swap.
+    EXIT_CODE=$STATE_CRITICAL
+    SUMMARY="Memory pressure active: sustained swap-out with low memory available: swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ]; then
+    # Sustained critical swap I/O is actionable even when swap occupancy has not yet crossed a capacity threshold.
+    EXIT_CODE=$STATE_CRITICAL
+    SUMMARY="Memory pressure active: sustained swap I/O is detected: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
 elif [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$MEM_AVAILABLE_PERCENT" -lt "$MEM_AVAILABLE_WARNING_PERCENT" ]; then
-    # Occupied swap becomes actionable only when reclaim headroom is also small.
-    FINAL_STATE='WARNING'
+    # Occupied swap becomes actionable when reclaim headroom is also small.
     EXIT_CODE=$STATE_WARNING
-    if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-        SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
-    else
-        SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; active swap I/O unavailable"
-    fi
-    DECISION="Swap usage is at or above the warning threshold and MemAvailable is below the warning threshold."
+    SUMMARY="Memory pressure warning: swap ${SWAP_USED_PERCENT}% used and memory available ${MEM_AVAILABLE_PERCENT}%; swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s and swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_WARNING_SAMPLE_COUNT" -gt 0 ]; then
+    # Light or one-off current swapping is reported as WARNING so operators can inspect the host without treating a single spike as critical pressure.
+    EXIT_CODE=$STATE_WARNING
+    SUMMARY="Memory pressure warning: active swap I/O observed without sustained critical pressure: swap-in max ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s, swap ${SWAP_USED_PERCENT}% used, memory available ${MEM_AVAILABLE_PERCENT}%"
 else
-    FINAL_STATE='OK'
     EXIT_CODE=$STATE_OK
     if [ "$SWAP_USED_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] && [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_KIB_PER_SEC" -eq 0 ] && [ "$SWAP_OUT_KIB_PER_SEC" -eq 0 ]; then
-        # This is the expected false-positive reduction path: old swap pages can
-        # remain allocated while the host has enough available memory.
+        # This is the expected false-positive reduction path: old swap pages can remain allocated while the host has enough available memory.
         SUMMARY="Memory pressure healthy: swap is ${SWAP_USED_PERCENT}% used but inactive; no active swap I/O and ${MEM_AVAILABLE_HUMAN} memory available"
-        DECISION="Swap usage is high, but MemAvailable is above the warning threshold and no active swap I/O was detected."
     elif [ "$SWAP_IO_AVAILABLE" -eq 0 ]; then
         SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used; active swap I/O unavailable"
-        DECISION="MemAvailable and swap usage are within thresholds. Active swap I/O was not available, so no I/O-based decision was made."
     else
         SUMMARY="Memory pressure healthy: memory available ${MEM_AVAILABLE_PERCENT}%, swap ${SWAP_USED_PERCENT}% used, no active swap I/O detected"
-        DECISION="MemAvailable, swap usage, and active swap I/O are within thresholds."
     fi
 fi
 
@@ -537,7 +637,9 @@ append_long "SReclaimable: ${SRECLAIMABLE_KIB} KiB"
 append_long "Shmem: ${SHMEM_KIB} KiB"
 append_long "Unevictable: ${UNEVICTABLE_KIB} KiB"
 if [ "$SWAP_IO_AVAILABLE" -eq 1 ]; then
-    append_long "Swap I/O: swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s, swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    append_long "Swap I/O samples: ${SWAP_IO_SAMPLE_COUNT}/${SAMPLE_COUNT} collected over ${SAMPLE_INTERVAL}s intervals; max swap-in ${SWAP_IN_KIB_PER_SEC} KiB/s, max swap-out ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    append_long_block "$SWAP_IO_SAMPLE_OUTPUT"
+    [ -n "$SWAP_IO_NOTE" ] && append_long "Swap I/O note: ${SWAP_IO_NOTE}"
 else
     append_long "Swap I/O: unavailable"
     append_long "Swap I/O note: ${SWAP_IO_NOTE}"
@@ -552,16 +654,6 @@ if [ -r "$PRESSURE_MEMORY_PATH" ]; then
 else
     append_long "Memory PSI: unavailable"
 fi
-
-# Record the exact thresholds and final rationale to avoid ambiguity during
-# incident review or when per-host overrides differ from defaults.
-THRESHOLDS="Thresholds: swap warning=${SWAP_WARNING_PERCENT}%, swap critical=${SWAP_CRITICAL_PERCENT}%"
-THRESHOLDS="${THRESHOLDS}, memory available warning=${MEM_AVAILABLE_WARNING_PERCENT}%"
-THRESHOLDS="${THRESHOLDS}, memory available critical=${MEM_AVAILABLE_CRITICAL_PERCENT}%"
-THRESHOLDS="${THRESHOLDS}, swap I/O warning=${SWAP_IO_WARNING_KIB} KiB/s"
-THRESHOLDS="${THRESHOLDS}, swap I/O critical=${SWAP_IO_CRITICAL_KIB} KiB/s"
-append_long "$THRESHOLDS"
-append_long "Decision: ${FINAL_STATE} - ${DECISION}"
 
 emit_check "$SUMMARY" "$PERFDATA"
 exit "$EXIT_CODE"
