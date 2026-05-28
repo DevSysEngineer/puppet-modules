@@ -138,13 +138,18 @@ append_issue_detail() {
 # Record a CRITICAL reason.
 add_critical() {
     CRITICAL_REASONS=$(append_reason "$CRITICAL_REASONS" "$1")
-    append_issue_detail "Needs immediate attention: $1"
+    append_issue_detail "- $1"
 }
 
 # Record a WARNING reason.
 add_warning() {
     WARNING_REASONS=$(append_reason "$WARNING_REASONS" "$1")
-    append_issue_detail "Needs attention: $1"
+    append_issue_detail "- $1"
+}
+
+# Return the first semicolon-separated reason for the short output.
+first_reason() {
+    printf '%s\n' "$1" | $AWK -F'; ' '{ print $1; exit }'
 }
 
 # Append one comma-separated item if it is not already present.
@@ -621,7 +626,7 @@ IFS=$old_ifs
 
 COMPOSE_SERVICES_PRESENT=$(count_csv "$PRESENT_SERVICES")
 
-# Compose a compact Nagios summary and perfdata.
+# Compose a compact Nagios summary and put the primary alert cause before aggregate counters.
 if [ -n "$CRITICAL_REASONS" ]; then
     STATE_CODE=2
 elif [ -n "$WARNING_REASONS" ]; then
@@ -630,7 +635,15 @@ else
     STATE_CODE=0
 fi
 
-SUMMARY="Compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy"
+if [ -n "$CRITICAL_REASONS" ]; then
+    PRIMARY_REASON=$(first_reason "$CRITICAL_REASONS")
+    SUMMARY="Compose ${CHECK_NAME}: ${PRIMARY_REASON}; ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy"
+elif [ -n "$WARNING_REASONS" ]; then
+    PRIMARY_REASON=$(first_reason "$WARNING_REASONS")
+    SUMMARY="Compose ${CHECK_NAME}: ${PRIMARY_REASON}; ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy"
+else
+    SUMMARY="Compose ${CHECK_NAME}: ${CONTAINERS_RUNNING}/${CONTAINERS_TOTAL} running, ${HEALTH_HEALTHY} healthy"
+fi
 [ "$CONTAINERS_WITHOUT_HEALTHCHECK" -gt 0 ] && SUMMARY="${SUMMARY}, ${CONTAINERS_WITHOUT_HEALTHCHECK} no-healthcheck"
 [ "$COMPOSE_SERVICES_MISSING" -gt 0 ] && SUMMARY="${SUMMARY}, ${COMPOSE_SERVICES_MISSING} missing"
 [ "$HEALTH_UNHEALTHY" -gt 0 ] && SUMMARY="${SUMMARY}, ${HEALTH_UNHEALTHY} unhealthy"

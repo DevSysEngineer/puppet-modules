@@ -30,8 +30,7 @@ INDENT='    '
 REFERENCE_SEARCH_ROOTS='/etc/systemd/system,/run/systemd/system,/run/systemd/generator,/run/systemd/generator.early,/run/systemd/generator.late,/usr/lib/systemd/system,/lib/systemd/system'
 
 # Known runtime quirk rules that should be treated as contextual findings.
-# Add a rule ID below and define its CLASS, UNIT, REFERENCE_PATTERN, and
-# optional REQUIRED_FILE variables to extend the matcher without new functions.
+# Add a rule ID below and define its CLASS, UNIT, REFERENCE_PATTERN, and optional REQUIRED_FILE variables to extend the matcher without new functions.
 KNOWN_RUNTIME_QUIRK_IDS='NETPLAN_OVS,RABBITMQ_EPMD'
 QUIRK_NETPLAN_OVS_CLASS='netplan-ovs-generated-reference'
 QUIRK_NETPLAN_OVS_UNIT='ovsdb-server.service'
@@ -755,8 +754,7 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
     esac
 fi
 
-# Fall back to plain verify on older systemd releases that lack
-# --recursive-errors=yes, while preferring the stricter path when available.
+# Fall back to plain verify on older systemd releases that lack --recursive-errors=yes, while preferring the stricter path when available.
 VERIFY_HELP=$($SYSTEMD_ANALYZE verify --help 2>&1 || true)
 printf '%s\n' "$VERIFY_HELP" | $AWK 'index($0, "recursive-errors") { found = 1 } END { exit(found ? 0 : 1) }'
 if [ $? -eq 0 ]; then
@@ -793,8 +791,7 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
     fi
 fi
 
-# This scan is intentionally limited to load and parser style failures, not
-# general runtime state, to keep the check scoped to systemd configuration.
+# This scan is intentionally limited to load and parser style failures, not general runtime state, to keep the check scoped to systemd configuration.
 LIST_UNITS_OUTPUT=$($SYSTEMCTL list-units --all --plain --no-legend --no-pager --state="$BAD_UNIT_FILTER" 2>/dev/null)
 LIST_UNITS_RC=$?
 LIST_UNITS_RAW=$(printf '%s\n' "$LIST_UNITS_OUTPUT" | $AWK 'NF { if (count) printf ","; printf "%s", $0; count++ }')
@@ -809,8 +806,7 @@ else
     fi
 fi
 
-# Manager state is contextual only here. Boot grace softens transitional states,
-# but never suppresses real config or load errors collected above.
+# Manager state is contextual only here. Boot grace softens transitional states, but never suppresses real config or load errors collected above.
 case "$MANAGER_STATE" in
     degraded|maintenance)
         add_warning "manager state ${MANAGER_STATE}"

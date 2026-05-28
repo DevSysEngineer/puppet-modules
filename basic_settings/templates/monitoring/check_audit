@@ -217,8 +217,7 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
             [ $STATE_CODE -lt 1 ] && STATE_CODE=1
         fi
     else
-        # No previous kernel detected in the journal. We cannot confirm the prior
-        # version, but a change may have occurred. Emit a warning without details.
+        # No previous kernel detected in the journal. We cannot confirm the prior version, but a change may have occurred. Emit a warning without details.
         MSG="$MSG, kernel change? (previous kernel not retrieved)"
         [ $STATE_CODE -lt 1 ] && STATE_CODE=1
     fi

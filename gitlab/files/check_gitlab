@@ -32,6 +32,25 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
+# Read the first useful diagnostic line from command output.
+first_line() {
+    printf '%s\n' "$1" | $SED -n '
+        s/[[:space:]]\+$//
+        /^[[:space:]]*$/d
+        p
+        q
+    '
+}
+
+# Emit one monitoring line with optional perfdata.
+emit_check() {
+    if [ -n "${2:-}" ]; then
+        printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
+    else
+        printf '%s\n' "$(monitor_text_value "$1")"
+    fi
+}
+
 # GitLab group paths may contain characters that are not safe in perfdata labels.
 sanitize_label() {
     label=$(printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g; s/^_//; s/_$//')
@@ -44,52 +63,74 @@ sanitize_label() {
 
 # gitlab-ctl status is the fastest omnibus-wide signal for stopped components.
 SVC_RAW=$($GITLAB_CTL status 2>&1)
+SVC_RC=$?
 DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
-[ -n "$DOWN" ] && STATE_CODE=2 && MSG="${MSG}${MSG:+; }Service(s) down: $(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')"
+if [ -n "$DOWN" ]; then
+    DOWN_LIST=$(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')
+    emit_check "GitLab service(s) down: ${DOWN_LIST}"
+    exit 2
+fi
+[ "$SVC_RC" -eq 0 ] || {
+    SVC_ERROR=$(first_line "$SVC_RAW")
+    [ -n "$SVC_ERROR" ] || SVC_ERROR="gitlab-ctl status exited with ${SVC_RC}"
+    emit_check "GitLab service status could not be read: ${SVC_ERROR}"
+    exit 3
+}
 
 # A single Rails runner keeps expensive application boot cost to one process.
 RAILS_RAW=$($GITLAB_RAILS runner -e production '
+    # Normalize fields before writing tagged shell records so the check does not need to parse JSON with text tools.
+    def check_field(value)
+      value.to_s.gsub(/[\r\n|]+/, " ").strip
+    end
+
+    def check_value(source, key)
+      if source.respond_to?(:[])
+        begin
+          value = source[key.to_s]
+          value = source[key.to_sym] if value.nil?
+          return value
+        rescue StandardError
+          # Some cache objects expose [] but reject one of the key types; method access below is the fallback.
+        end
+      end
+      if source.respond_to?(key)
+        source.public_send(key)
+      end
+    end
+
     # Trigger remote version check and tag the result so the shell parser can split sections safely.
     Gitlab::Version::VersionCheckCronWorker.new.perform
     sleep 5
     vc = Rails.cache.read("version_check")
-    puts "VC|#{vc ? vc.to_json : "nil"}"
+    if vc
+      critical = check_value(vc, :critical_vulnerability) ? 1 : 0
+      version = check_field(check_value(vc, :version))
+      severity = check_field(check_value(vc, :severity))
+      puts "VC|#{critical}|#{version}|#{severity}"
+    else
+      puts "VC|0||"
+    end
+
     # Group storage is emitted as a separate tagged stream for perfdata generation.
     Namespace.where(type: "Group").find_each do |g|
-    size = 0
-    if g.respond_to?(:root_storage_statistics) && g.root_storage_statistics
+      size = 0
+      if g.respond_to?(:root_storage_statistics) && g.root_storage_statistics
         size = g.root_storage_statistics.storage_size || 0
-    elsif g.respond_to?(:statistics) && g.statistics
+      elsif g.respond_to?(:statistics) && g.statistics
         size = g.statistics.storage_size || 0
-    end
-    puts "GR|#{g.full_path}|#{size}"
+      end
+      puts "GR|#{check_field(g.full_path)}|#{size}"
     end
 ' 2>/dev/null) || die "gitlab-rails runner failed"
 
-# Parse only the fields needed to decide update severity from the cached version check JSON.
-VC_RAW=$(printf '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {sub(/^VC\|/, "", $0); print; exit}')
-if [ "$VC_RAW" != "nil" ] && [ -n "$VC_RAW" ]; then
-    DATA=$(printf '%s' "$VC_RAW" | $AWK '
-        BEGIN{cv=0;ver="";sev=""}
-        /"critical_vulnerability": *true/ {cv=1}
-        match($0,/"version"[[:space:]]*:[[:space:]]*"[^"]+"/) {
-            field=substr($0, RSTART, RLENGTH)
-            sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", field)
-            sub(/"$/, "", field)
-            ver=field
-        }
-        match($0,/"severity"[[:space:]]*:[[:space:]]*"[^"]+"/) {
-            field=substr($0, RSTART, RLENGTH)
-            sub(/^"severity"[[:space:]]*:[[:space:]]*"/, "", field)
-            sub(/"$/, "", field)
-            sev=field
-        }
-        END{printf "%d|%s|%s",cv,ver,sev}'
-    )
-    CV=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $1}')
-    NEW_VER=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $2}')
-    SEV=$(printf '%s\n' "$DATA" | $AWK -F'|' '{print $3}')
-    
+# Parse the tagged version-check fields emitted by Rails.
+VC_LINE=$(printf '%s\n' "$RAILS_RAW" | $AWK -F'|' '/^VC\|/ {print; exit}')
+if [ -n "$VC_LINE" ]; then
+    CV=$(printf '%s\n' "$VC_LINE" | $AWK -F'|' '{print $2 + 0}')
+    NEW_VER=$(printf '%s\n' "$VC_LINE" | $AWK -F'|' '{print $3}')
+    SEV=$(printf '%s\n' "$VC_LINE" | $AWK -F'|' '{print $4}')
+
     if [ "$CV" -eq 1 ]; then
         STATE_CODE=2
         MSG="${MSG}${MSG:+; }GitLab critical security update available (-> $NEW_VER)"
@@ -118,10 +159,17 @@ EOF
 
 # License checks are skipped for CE/no-license installations and evaluated for EE output only.
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
-if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
-  LIC_MODE="none"
+LIC_RC=$?
+if [ "$LIC_RC" -ne 0 ]; then
+    LIC_MODE="unavailable"
+    LIC_ERROR=$(first_line "$LIC_RAW")
+    [ -n "$LIC_ERROR" ] || LIC_ERROR="gitlab-rake gitlab:license:info exited with ${LIC_RC}"
+    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
+    MSG="${MSG}${MSG:+; }GitLab license info unavailable: ${LIC_ERROR}"
+elif printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
+    LIC_MODE="none"
 else
-  LIC_MODE="ee"
+    LIC_MODE="ee"
 fi
 
 if [ "$LIC_MODE" = "ee" ]; then
@@ -135,8 +183,13 @@ if [ "$LIC_MODE" = "ee" ]; then
         EXP_S=$($DATE -d "$EXP" +%s 2>/dev/null || printf '0')
         if [ "$EXP_S" -gt 0 ]; then
             DLEFT=$(( (EXP_S - NOW) / 86400 ))
-            if [ "$DLEFT" -le 0 ]; then STATE_CODE=1; MSG="${MSG}${MSG:+; }License expired";
-            elif [ "$DLEFT" -le "$LIC_WARN_DAYS" ]; then [ $STATE_CODE -lt 1 ] && STATE_CODE=1; MSG="${MSG}${MSG:+; }License expires in ${DLEFT}d"; fi
+            if [ "$DLEFT" -le 0 ]; then
+                [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+                MSG="${MSG}${MSG:+; }GitLab license expired"
+            elif [ "$DLEFT" -le "$LIC_WARN_DAYS" ]; then
+                [ $STATE_CODE -lt 1 ] && STATE_CODE=1
+                MSG="${MSG}${MSG:+; }GitLab license expires in ${DLEFT}d"
+            fi
         fi
     fi
 
@@ -150,7 +203,7 @@ if [ "$LIC_MODE" = "ee" ]; then
         if [ "$OVER" -gt 0 ]; then
             PCT=$(( OVER * 100 / MAX ))
             if [ "$PCT" -gt 10 ]; then STATE_CODE=2; else [ $STATE_CODE -lt 1 ] && STATE_CODE=1; fi
-            MSG="${MSG}${MSG:+; }License user limit exceeded by ${OVER} user(s)"
+            MSG="${MSG}${MSG:+; }GitLab license user limit exceeded by ${OVER} user(s)"
             PERF="${PERF} overage=${OVER};;;0"
         fi
     fi
@@ -161,9 +214,5 @@ fi
 PERF=${PERF# }
 
 # Emit one monitoring line and sanitize GitLab-provided text before perfdata.
-if [ -n "$PERF" ]; then
-    printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
-else
-    printf '%s\n' "$(monitor_text_value "$MSG")"
-fi
+emit_check "$MSG" "$PERF"
 exit "$STATE_CODE"

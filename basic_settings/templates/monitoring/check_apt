@@ -196,7 +196,7 @@ if [ $APT_SIM_RC -ne 0 ]; then
     ')
 
     # Return the resolver failure directly; perfdata would be misleading here.
-    printf 'APT simulation failed with exit %s: %s\n' "$APT_SIM_RC" "$APT_SIM_ERR"
+    printf '%s\n' "$(monitor_text_value "APT simulation failed with exit ${APT_SIM_RC}: ${APT_SIM_ERR}")"
     exit 3
 fi
 
@@ -393,8 +393,7 @@ if [ "$UPDATES_SECURITY" -gt 0 ]; then
     ')
     [ -n "$SEC_CSV" ] && MSG="$MSG Security packages: ${SEC_CSV}."
 
-    # Keep this flow inline; it is only used once and sits next to the summary
-    # output that depends on it.
+    # Keep this flow inline; it is only used once and sits next to the summary output that depends on it.
     if [ -n "$TIMEOUT" ]; then
         SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F '\t' '$1 == "SECINFO" { print $2 "|" $3 "|" $4 }')
         if [ -n "$SECURITY_META" ]; then
@@ -412,8 +411,7 @@ $SECURITY_META
 EOF
 
             if [ -n "$GROUP_INPUT" ]; then
-                # Group binary packages by source package so one changelog fetch can
-                # cover related packages such as vim/vim-runtime/xxd or kernel sets.
+                # Group binary packages by source package so one changelog fetch can cover related packages such as vim/vim-runtime/xxd or kernel sets.
                 SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | $AWK -F '|' '
                     {
                         key=$1 "|" $4

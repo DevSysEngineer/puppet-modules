@@ -242,8 +242,7 @@ AGE_METRIC="$LAST_RUN_AGE"
 TIME_TOTAL_METRIC="${TIME_TOTAL}s"
 TIME_CONF_RETR_METRIC="${TIME_CONF_RETR}s"
 
-# exit_code: warn=1;crit=1; min=0;max=1
-# plugin_state: warn=1;crit=2; min=0;max=2
+# Perfdata exposes run age, resource/event totals, and agent timing.
 PERF="last_run_age=${AGE_METRIC};${WARN_AGE};${CRIT_AGE};0"
 PERF="$PERF resources_total=${RES_TOTAL}"
 PERF="$PERF resources_changed=${RES_CHANGED}"
@@ -255,7 +254,7 @@ PERF="$PERF events_total=${EV_TOTAL}"
 PERF="$PERF time_total=${TIME_TOTAL_METRIC}"
 PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 
-# Output with return code
+# Emit the final Nagios line; the exit code carries the machine-readable state.
 case "$EXITCODE_STATE" in
   0) emit_check "Puppet is running (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 0 ;;
   1) emit_check "Puppet needs attention (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;

@@ -26,8 +26,9 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-10}
 MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
+USAGE_TEXT="Usage: $0 [-c <crit>] [-w <warn>] [-t <max-age>] [-a <max-age>] [-i <max-idle>]"
 
-# CLI overrides are runtime thresholds only; the managed allowlist still comes from Puppet.
+# CLI overrides are runtime thresholds only; `-a` is kept as a compatibility alias for `-t`.
 OPTERR=0
 while getopts 'c:w:t:i:a:' opt; do
     case "$opt" in
@@ -36,11 +37,11 @@ while getopts 'c:w:t:i:a:' opt; do
         t) MAX_AGE="$OPTARG" ;;
         i) MAX_IDLE="$OPTARG" ;;
         a) MAX_AGE="$OPTARG" ;;
-        *) die "Usage: $0 [-c <crit>] [-w <warn>] [-t <max-age>] [-i <max-idle>] [-a <max-age>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-c <crit>] [-w <warn>] [-t <max-age>] [-i <max-idle>] [-a <max-age>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 for numeric_value in "$CRIT_THRESH" "$WARN_THRESH" "$MAX_IDLE" "$MAX_AGE"; do
     case "$numeric_value" in
         ''|*[!0-9]*) die "session thresholds must be numeric" ;;

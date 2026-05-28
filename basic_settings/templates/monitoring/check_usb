@@ -19,12 +19,9 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 # - whitelist: matching active item is allowed but not required
 # - any-required: at least one active item from the set must be present
 #
-# "configured" keeps every known USB identifier from the config, regardless of
-# time/day. "active" keeps only the subset that is relevant right now.
-# Unauthorized detection uses the configured expected/any lists so a known
-# device does not suddenly become unauthorized outside its active window.
-# Missing/required checks use the active lists so alerts only happen when the
-# current time/day says the rule matters.
+# "configured" keeps every known USB identifier from the config, regardless of time/day. "active" keeps only the subset that is relevant right now.
+# Unauthorized detection uses the configured expected/any lists so a known device does not suddenly become unauthorized outside its active window.
+# Missing/required checks use the active lists so alerts only happen when the current time/day says the rule matters.
 # Any-required input and active/configured match state.
 ANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
@@ -273,8 +270,7 @@ NOW_MIN=$(hm2min "$NOW_HM")
 TODAY_DOW=$($DATE +%u)  # 1=Mon .. 7=Sun
 
 # Build the active lists for "now".
-# For expected/any-required we also keep the configured lists so those devices
-# stay authorized outside their active window.
+# For expected/any-required we also keep the configured lists so those devices stay authorized outside their active window.
 # Expected
 for ITEM in $EXPECTED_LIST; do
     parse_item "$ITEM"
@@ -351,8 +347,7 @@ done
 [ -n "$ANYREQ_VP_IDS_ACTIVE" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_VP_IDS_ACTIVE" | $WC -w) ))
 
 # Enumerate attached USB devices via sysfs.
-# Linux Foundation root hubs (vendor 1d6b) are host controllers, not endpoint
-# devices, so they are ignored for this check.
+# Linux Foundation root hubs (vendor 1d6b) are host controllers, not endpoint devices, so they are ignored for this check.
 for DEVPATH in /sys/bus/usb/devices/*; do
     [ -f "$DEVPATH/idVendor" ] || continue
 
@@ -386,8 +381,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     IN_ANYREQ=0
     IN_ANYREQ_ALLOWED=0
 
-    # Timed expected rules only require presence in their active window, but
-    # matching devices must remain authorized outside that window.
+    # Timed expected rules only require presence in their active window, but matching devices must remain authorized outside that window.
     if [ -n "$SERIAL" ]; then
         for EXP_SER in $EXPECTED_SERIALS_CONFIGURED; do
             [ "$SERIAL" = "$EXP_SER" ] && IN_EXPECTED_ALLOWED=1 && break
@@ -399,8 +393,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Active expected match. This is what counts toward "missing expected"
-    # and the expected perfdata.
+    # Active expected match counts toward "missing expected" and the expected perfdata.
     if [ -n "$SERIAL" ]; then
         for EXP_SER in $EXPECTED_SERIALS_ACTIVE; do
             [ "$SERIAL" = "$EXP_SER" ] && IN_EXPECTED=1 && break
@@ -424,8 +417,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Timed any-required rules only enforce "at least one present" in their
-    # active window, but matching devices must remain authorized outside it.
+    # Timed any-required rules only enforce "at least one present" in their active window, but matching devices must remain authorized outside it.
     if [ -n "$SERIAL" ]; then
         for AR_SER in $ANYREQ_SERIALS_CONFIGURED; do
             [ "$SERIAL" = "$AR_SER" ] && IN_ANYREQ_ALLOWED=1 && break
@@ -437,8 +429,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         done
     fi
 
-    # Active any-required match. This is only used for the "at least one
-    # present" policy inside the current active window.
+    # Active any-required match is only used for the "at least one present" policy inside the current active window.
     if [ -n "$SERIAL" ]; then
         for AR_SER in $ANYREQ_SERIALS_ACTIVE; do
             [ "$SERIAL" = "$AR_SER" ] && IN_ANYREQ=1 && break
@@ -472,8 +463,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     fi
 
     # Unauthorized only if the device is unknown to every allow source.
-    # Expected/any-required use the configured lists here, not the active
-    # lists, so a known timed device does not alert outside its own window.
+    # Expected/any-required use the configured lists here, not the active lists, so a known timed device does not alert outside its own window.
     if [ $IN_EXPECTED_ALLOWED -eq 0 ] && [ $IN_WHITELIST -eq 0 ] && [ $IN_ANYREQ_ALLOWED -eq 0 ]; then
         UNAUTHORIZED_COUNT=$(( UNAUTHORIZED_COUNT + 1 ))
         UNAUTHORIZED_DETAIL="$DEVNAME"
@@ -489,8 +479,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     fi
 done
 
-# Only active expected items can be missing. Expected rules outside their
-# window/day are intentionally ignored here.
+# Only active expected items can be missing. Expected rules outside their window/day are intentionally ignored here.
 for EXP in $EXPECTED_SERIALS_ACTIVE; do
     FOUND=0
     for DEVPATH in /sys/bus/usb/devices/*; do

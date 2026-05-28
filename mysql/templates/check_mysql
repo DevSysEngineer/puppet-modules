@@ -55,11 +55,6 @@ crit() {
     exit 2
 }
 
-# Run a command quietly and return its original exit code.
-run() {
-    "$@" 2>/dev/null
-}
-
 # Keep MySQL status text safe before the real perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
@@ -100,11 +95,11 @@ $SYSTEMDCTL is-active --quiet "mysql.service" || crit "MySQL service is not acti
 
 <% end -%>
 # mysqladmin ping confirms the daemon is accepting local administrative connections.
-run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" ping >/dev/null || crit "MySQL service running but not responding"
+$MYSQLADMIN --defaults-file="$DEFAULTS_FILE" ping >/dev/null 2>/dev/null || crit "MySQL service running but not responding"
 
 # Cache status and variables from one point in time so derived metrics are internally consistent.
-STATUS_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" extended-status) || die "Cannot read extended-status"
-VAR_OUT=$(run "$MYSQLADMIN" --defaults-file="$DEFAULTS_FILE" variables) || die "Cannot read variables"
+STATUS_OUT=$($MYSQLADMIN --defaults-file="$DEFAULTS_FILE" extended-status 2>/dev/null) || die "Cannot read extended-status"
+VAR_OUT=$($MYSQLADMIN --defaults-file="$DEFAULTS_FILE" variables 2>/dev/null) || die "Cannot read variables"
 
 # Pull only the counters used for status and perfdata; absent fields become zero below.
 THREADS_CONNECTED=$(parse_to_int "$(sf Threads_connected)")

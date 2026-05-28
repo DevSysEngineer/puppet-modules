@@ -300,17 +300,16 @@ append_swap_io_sample() {
 # Swap process details are best-effort long output and must not change the check state.
 print_top_swap_processes() {
     [ "$INCLUDE_TOP_SWAP_PROCESSES" -eq 1 ] || return
-    printf '%s\n' 'Top swap users:'
+    monitor_text_value 'Top swap users:'
 
-    # Per-process swap details are diagnostic only; missing helpers or /proc
-    # access should never change the memory pressure status.
+    # Per-process swap details are diagnostic only; missing helpers or /proc access should never change the memory pressure status.
     if [ -z "$SORT" ]; then
-        printf '%s\n' 'Top swap users unavailable: sort command not available'
+        monitor_text_value 'Top swap users unavailable: sort command not available'
         return
     fi
 
     if [ ! -d "$PROC_PATH" ]; then
-        printf '%s\n' "Top swap users unavailable: ${PROC_PATH} is not a directory"
+        monitor_text_value "Top swap users unavailable: ${PROC_PATH} is not a directory"
         return
     fi
 
@@ -393,7 +392,7 @@ validate_uint 'sample interval' "$SAMPLE_INTERVAL"
 
 # /proc/meminfo is the authoritative source for this check. Missing required memory fields make the result UNKNOWN because no safe pressure decision exists.
 [ -r "$MEMINFO_PATH" ] || {
-    printf 'Memory pressure cannot be checked: %s is unavailable\n' "$MEMINFO_PATH"
+    monitor_text_value "Memory pressure cannot be checked: ${MEMINFO_PATH} is unavailable"
     exit "$STATE_UNKNOWN"
 }
 
@@ -417,7 +416,7 @@ MEMINFO_VALUES=$($AWK '
             value(shmem), value(unevictable)
     }
 ' "$MEMINFO_PATH") || {
-    printf 'Memory pressure cannot be checked: unable to parse %s\n' "$MEMINFO_PATH"
+    monitor_text_value "Memory pressure cannot be checked: unable to parse ${MEMINFO_PATH}"
     exit "$STATE_UNKNOWN"
 }
 
@@ -436,19 +435,19 @@ UNEVICTABLE_KIB=$(numeric_or_zero "${10}")
 # MemTotal, MemAvailable, SwapTotal and SwapFree are required for the decision tree. Secondary fields are useful diagnostics and fall back to zero above.
 case "$MEM_TOTAL_KIB:$MEM_AVAILABLE_KIB:$SWAP_TOTAL_KIB:$SWAP_FREE_KIB" in
     *U*|*[!0-9:]*)
-        printf 'Memory pressure cannot be checked: %s misses required MemTotal, MemAvailable, SwapTotal, or SwapFree values\n' "$MEMINFO_PATH"
+        monitor_text_value "Memory pressure cannot be checked: ${MEMINFO_PATH} misses required MemTotal, MemAvailable, SwapTotal, or SwapFree values"
         exit "$STATE_UNKNOWN"
         ;;
 esac
 
 [ "$MEM_TOTAL_KIB" -gt 0 ] || {
-    printf 'Memory pressure cannot be checked: MemTotal is zero in %s\n' "$MEMINFO_PATH"
+    monitor_text_value "Memory pressure cannot be checked: MemTotal is zero in ${MEMINFO_PATH}"
     exit "$STATE_UNKNOWN"
 }
 
 # A negative computed swap-used value means procfs data is inconsistent enough that an operator should see UNKNOWN instead of a misleading OK.
 if [ "$SWAP_FREE_KIB" -gt "$SWAP_TOTAL_KIB" ]; then
-    printf 'Memory pressure cannot be checked: SwapFree is greater than SwapTotal in %s\n' "$MEMINFO_PATH"
+    monitor_text_value "Memory pressure cannot be checked: SwapFree is greater than SwapTotal in ${MEMINFO_PATH}"
     exit "$STATE_UNKNOWN"
 fi
 
