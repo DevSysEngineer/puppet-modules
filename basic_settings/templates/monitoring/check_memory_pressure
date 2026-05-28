@@ -57,8 +57,7 @@ PASSWD_PATH=${PASSWD_PATH:-/etc/passwd}
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_MEMORY_PRESSURE_NL__"
 
-# Parse options. Puppet normally supplies these through monitoring_custom cmd,
-# but the script stays directly usable for Nagios, Naemon, Icinga, and debugging.
+# Parse options. Puppet normally supplies these through monitoring_custom cmd, but the script stays directly usable for Nagios, Naemon, Icinga, and debugging.
 usage() {
     printf '%s\n' "Usage: $0 [options]"
     printf '%s\n' ''
@@ -456,8 +455,7 @@ print_top_swap_processes() {
     print_sanitized_block "$TOP_SWAP_OUTPUT"
 }
 
-# Validate options before reading system state so configuration mistakes return
-# UNKNOWN instead of being mixed with real host pressure signals.
+# Validate options before reading system state so configuration mistakes return UNKNOWN instead of being mixed with real host pressure signals.
 validate_percent 'swap warning percent' "$SWAP_WARNING_PERCENT"
 validate_percent 'swap critical percent' "$SWAP_CRITICAL_PERCENT"
 [ -z "$MEM_AVAILABLE_WARNING_OVERRIDE" ] || validate_size 'memory available warning override' "$MEM_AVAILABLE_WARNING_OVERRIDE"
@@ -478,15 +476,13 @@ validate_uint 'sample interval' "$SAMPLE_INTERVAL"
 [ "$SWAP_CRITICAL_PERCENT" -ge "$SWAP_WARNING_PERCENT" ] || die "swap critical percent must be greater than or equal to warning percent"
 [ "$SWAP_IO_CRITICAL_KIB" -ge "$SWAP_IO_WARNING_KIB" ] || die "swap I/O critical threshold must be greater than or equal to warning threshold"
 
-# /proc/meminfo is the authoritative source for this check. Missing required
-# memory fields make the result UNKNOWN because no safe pressure decision exists.
+# /proc/meminfo is the authoritative source for this check. Missing required memory fields make the result UNKNOWN because no safe pressure decision exists.
 [ -r "$MEMINFO_PATH" ] || {
     printf 'Memory pressure cannot be checked: %s is unavailable\n' "$MEMINFO_PATH"
     exit "$STATE_UNKNOWN"
 }
 
-# Collect all fields used for the summary, long output and perfdata in one pass
-# so a fast-changing /proc/meminfo snapshot stays internally consistent.
+# Collect all fields used for the summary, long output and perfdata in one pass so a fast-changing /proc/meminfo snapshot stays internally consistent.
 MEMINFO_VALUES=$($AWK '
     function value(raw) { return raw == "" ? "U" : raw }
     $1 == "MemTotal:" { mem_total=$2 }
@@ -522,8 +518,7 @@ SRECLAIMABLE_KIB=$(numeric_or_zero "$8")
 SHMEM_KIB=$(numeric_or_zero "$9")
 UNEVICTABLE_KIB=$(numeric_or_zero "${10}")
 
-# MemTotal, MemAvailable, SwapTotal and SwapFree are required for the decision
-# tree. Secondary fields are useful diagnostics and fall back to zero above.
+# MemTotal, MemAvailable, SwapTotal and SwapFree are required for the decision tree. Secondary fields are useful diagnostics and fall back to zero above.
 case "$MEM_TOTAL_KIB:$MEM_AVAILABLE_KIB:$SWAP_TOTAL_KIB:$SWAP_FREE_KIB" in
     *U*|*[!0-9:]*)
         printf 'Memory pressure cannot be checked: %s misses required MemTotal, MemAvailable, SwapTotal, or SwapFree values\n' "$MEMINFO_PATH"
@@ -536,8 +531,7 @@ esac
     exit "$STATE_UNKNOWN"
 }
 
-# A negative computed swap-used value means procfs data is inconsistent enough
-# that an operator should see UNKNOWN instead of a misleading OK.
+# A negative computed swap-used value means procfs data is inconsistent enough that an operator should see UNKNOWN instead of a misleading OK.
 if [ "$SWAP_FREE_KIB" -gt "$SWAP_TOTAL_KIB" ]; then
     printf 'Memory pressure cannot be checked: SwapFree is greater than SwapTotal in %s\n' "$MEMINFO_PATH"
     exit "$STATE_UNKNOWN"
@@ -599,8 +593,7 @@ SWAP_IO_CRITICAL_SAMPLE_COUNT=0
 SWAP_IO_SAMPLE_COUNT=0
 SWAP_IO_SAMPLE_OUTPUT=""
 
-# Convert cumulative pswpin/pswpout page counters to KiB/s. getconf is optional
-# because a 4096 byte fallback is safe enough when page size cannot be queried.
+# Convert cumulative pswpin/pswpout page counters to KiB/s. getconf is optional because a 4096 byte fallback is safe enough when page size cannot be queried.
 if [ -n "$GETCONF" ]; then
     PAGE_SIZE_BYTES=$($GETCONF PAGESIZE 2>/dev/null || printf '%s\n' 4096)
 else
@@ -719,7 +712,7 @@ fi
 if [ "$MEM_AVAILABLE_CRITICAL" -eq 1 ]; then
     # Critically low MemAvailable is direct memory pressure even when swap I/O is quiet.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: memory available is critically low: ${MEM_AVAILABLE_HUMAN} available, critical limit ${MEM_AVAILABLE_CRITICAL_HUMAN}"
+    SUMMARY="Memory pressure active: memory available is critically low: ${MEM_AVAILABLE_HUMAN} available"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ]; then
     # Sustained swap-in plus swap-out is a stronger thrashing signal than either direction alone.
     EXIT_CODE=$STATE_CRITICAL
@@ -727,23 +720,23 @@ elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IN_CRITICAL_SAMPLE_COUNT" -ge "$
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$MEM_AVAILABLE_LOW" -eq 1 ]; then
     # Sustained swap-out with low MemAvailable means the kernel is actively trying to free RAM by writing pages to swap.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: low memory headroom and active swap-out detected: memory available ${MEM_AVAILABLE_HUMAN}, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    SUMMARY="Memory pressure active: low memory headroom and active swap-out detected: memory available ${MEM_AVAILABLE_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_OUT_CRITICAL_SAMPLE_COUNT" -ge "$SWAP_IO_CRITICAL_SAMPLE_MIN" ] && [ "$SWAP_FREE_CRITICAL" -eq 1 ]; then
     # Active swap-out while swap free space is critically low means the kernel is still trying to write to nearly exhausted swap.
     EXIT_CODE=$STATE_CRITICAL
-    SUMMARY="Memory pressure active: swap free is critically low and active swap-out is detected: swap free ${SWAP_FREE_HUMAN}, critical limit ${SWAP_FREE_CRITICAL_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
+    SUMMARY="Memory pressure active: swap free is critically low and active swap-out is detected: swap free ${SWAP_FREE_HUMAN}, swap-out max ${SWAP_OUT_KIB_PER_SEC} KiB/s"
 elif [ "$MEM_AVAILABLE_LOW" -eq 1 ] && [ "$SWAP_FREE_CRITICAL" -eq 1 ]; then
     # Low memory headroom plus critically low swap free space deserves attention even without sampled current swap-out.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: memory available is low and swap free is critically low: memory available ${MEM_AVAILABLE_HUMAN}, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
+    SUMMARY="Memory pressure warning: memory available is low and swap free is critically low: memory available ${MEM_AVAILABLE_HUMAN}, swap free ${SWAP_FREE_HUMAN}"
 elif [ "$MEM_AVAILABLE_LOW" -eq 1 ]; then
     # MemAvailable is a headroom signal: warn before the host reaches critical pressure.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: memory available is low: ${MEM_AVAILABLE_HUMAN} available, warning limit ${MEM_AVAILABLE_WARNING_HUMAN}, critical limit ${MEM_AVAILABLE_CRITICAL_HUMAN}"
+    SUMMARY="Memory pressure warning: memory available is low: ${MEM_AVAILABLE_HUMAN} available"
 elif [ "$SWAP_FREE_LOW" -eq 1 ]; then
     # Low SwapFree is warning-level when memory headroom is still healthy and no critical swap pressure is sampled.
     EXIT_CODE=$STATE_WARNING
-    SUMMARY="Memory pressure warning: swap free is low: ${SWAP_FREE_HUMAN} free, warning limit ${SWAP_FREE_WARNING_HUMAN}, critical limit ${SWAP_FREE_CRITICAL_HUMAN}; memory available ${MEM_AVAILABLE_HUMAN}"
+    SUMMARY="Memory pressure warning: swap free is low: ${SWAP_FREE_HUMAN} free; memory available ${MEM_AVAILABLE_HUMAN}"
 elif [ "$SWAP_IO_AVAILABLE" -eq 1 ] && [ "$SWAP_IO_WARNING_SAMPLE_COUNT" -gt 0 ]; then
     # Light or one-off current swapping is reported as WARNING so operators can inspect the host without treating a single spike as critical pressure.
     EXIT_CODE=$STATE_WARNING
@@ -763,8 +756,7 @@ else
     fi
 fi
 
-# Build perfdata with stable labels and UOMs. Labels intentionally avoid unit
-# suffixes so graph history stays stable if thresholds change.
+# Build perfdata with stable lowercase snake_case labels and UOMs. Labels intentionally avoid unit suffixes so graph history stays stable if thresholds change.
 PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB;;;;"
 PERFDATA="${PERFDATA} memory_headroom=${MEM_AVAILABLE_PERCENT}%;;;0;100"
 PERFDATA="${PERFDATA} memory_warning_limit=${MEM_AVAILABLE_WARNING_KIB}KB;;;;"
