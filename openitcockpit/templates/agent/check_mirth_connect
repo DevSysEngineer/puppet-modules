@@ -224,7 +224,7 @@ STATUS_MORE=$((STATUS_ISSUES - STATUS_SHOWN))
 # Perfdata exposes channel count, maximum queue depth, and status issue count.
 PERF_DATA="channels=${TOTAL_CHANS};;;0 queue=${MAX_Q};${WARN_Q};${CRIT_Q};0 issues=${STATUS_ISSUES};;1;0"
 if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
-    PERF_DATA="$PERF_DATA total_received=${tot_recv};;;0 total_sent=${tot_sent};;;0"
+    PERF_DATA="$PERF_DATA total_received=${tot_recv}c total_sent=${tot_sent}c"
 fi
 
 # Status issues take precedence over aged queue warnings in the final state.

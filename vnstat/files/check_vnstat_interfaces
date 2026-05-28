@@ -269,6 +269,15 @@ append_interface_block() {
     LONG_DETAIL_COUNT=$((LONG_DETAIL_COUNT + 1))
 }
 
+# Emit one long-output section with exactly one blank line before it.
+emit_long_section() {
+    _long_section=$1
+    [ -n "$_long_section" ] || return
+
+    printf '\n'
+    monitor_text_value "$_long_section"
+}
+
 # Nagios metric labels cannot safely contain arbitrary interface characters.
 sanitize_label() {
     _label=$(printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g')
@@ -713,7 +722,7 @@ $INTERFACES
 EOF
 
 if [ "$CHECKED_COUNT" -eq 0 ]; then
-    printf '%s | interfaces_checked=0;;;; interfaces_ignored=%s;;;;\n' "$(monitor_text_value 'vnStat has no interfaces after filtering')" "$IGNORED_COUNT"
+    printf '%s | interfaces_checked=0 interfaces_ignored=%s\n' "$(monitor_text_value 'vnStat has no interfaces after filtering')" "$IGNORED_COUNT"
     monitor_text_value 'Ignored interfaces:'
     if [ "$IGNORED_COUNT" -gt 0 ]; then
         printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
@@ -1006,15 +1015,15 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
     # Build compact Nagios perfdata directly in memory because the final first line depends on all interfaces.
     INTERFACE_PERFDATA=$(
-        printf '%s_p95=%s;%s;%s;0;' "$LABEL" "$(perf_value "$P95_MBIT" 'Mbps')" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
+        printf '%s_p95=%s;%s;%s;0' "$LABEL" "$(perf_value "$P95_MBIT" 'Mbps')" "$P95_WARNING_MBIT" "$P95_CRITICAL_MBIT"
         printf ' %s_cap=%s;%s;%s;0;100' "$LABEL" "$(perf_value "$CAPACITY_PCT" '%')" "$CAPACITY_WARNING_PERCENT" "$CAPACITY_CRITICAL_PERCENT"
-        printf ' %s_growth_day=%s;%s;%s;;' "$LABEL" "$(perf_value "$DAY_GROWTH_PCT" '%')" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
-        printf ' %s_growth_month=%s;%s;%s;;' "$LABEL" "$(perf_value "$MONTH_GROWTH_PCT" '%')" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
-        printf ' %s_rx_day=%s;;;;' "$LABEL" "$(perf_value "$RX_DAY" 'B')"
-        printf ' %s_tx_day=%s;;;;' "$LABEL" "$(perf_value "$TX_DAY" 'B')"
-        printf ' %s_rx_month=%s;;;;' "$LABEL" "$(perf_value "$RX_MONTH" 'B')"
-        printf ' %s_tx_month=%s;;;;' "$LABEL" "$(perf_value "$TX_MONTH" 'B')"
-        printf ' %s_age=%s;%s;%s;0;' "$LABEL" "$(perf_value "$LAST_UPDATE_AGE" 's')" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
+        printf ' %s_growth_day=%s;%s;%s' "$LABEL" "$(perf_value "$DAY_GROWTH_PCT" '%')" "$GROWTH_DAY_WARNING_PERCENT" "$GROWTH_DAY_CRITICAL_PERCENT"
+        printf ' %s_growth_month=%s;%s;%s' "$LABEL" "$(perf_value "$MONTH_GROWTH_PCT" '%')" "$GROWTH_MONTH_WARNING_PERCENT" "$GROWTH_MONTH_CRITICAL_PERCENT"
+        printf ' %s_rx_day=%s' "$LABEL" "$(perf_value "$RX_DAY" 'B')"
+        printf ' %s_tx_day=%s' "$LABEL" "$(perf_value "$TX_DAY" 'B')"
+        printf ' %s_rx_month=%s' "$LABEL" "$(perf_value "$RX_MONTH" 'B')"
+        printf ' %s_tx_month=%s' "$LABEL" "$(perf_value "$TX_MONTH" 'B')"
+        printf ' %s_age=%s;%s;%s;0' "$LABEL" "$(perf_value "$LAST_UPDATE_AGE" 's')" "$LAST_UPDATE_WARNING_SECONDS" "$LAST_UPDATE_CRITICAL_SECONDS"
     )
     PERFDATA="${PERFDATA}${PERFDATA:+ }${INTERFACE_PERFDATA}"
 
@@ -1134,16 +1143,18 @@ monitor_text_value "  Ignored interfaces: $IGNORED_COUNT"
 if [ "$LONG_DETAIL_TRUNCATED" -gt 0 ]; then
     monitor_text_value "  Interface detail output truncated: $LONG_DETAIL_TRUNCATED block(s) omitted after $LONG_DETAIL_COUNT shown"
 fi
-printf '\n'
-[ -n "$LONG_CRITICAL" ] && { monitor_text_value "$LONG_CRITICAL"; printf '\n\n'; }
-[ -n "$LONG_WARNING" ] && { monitor_text_value "$LONG_WARNING"; printf '\n\n'; }
-[ -n "$LONG_UNKNOWN" ] && { monitor_text_value "$LONG_UNKNOWN"; printf '\n\n'; }
-[ -n "$LONG_OK" ] && { monitor_text_value "$LONG_OK"; printf '\n\n'; }
-monitor_text_value 'Ignored interfaces:'
-if [ "$IGNORED_COUNT" -gt 0 ]; then
-    printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
-else
-    monitor_text_value '  none'
-fi
+emit_long_section "$LONG_CRITICAL"
+emit_long_section "$LONG_WARNING"
+emit_long_section "$LONG_UNKNOWN"
+emit_long_section "$LONG_OK"
+IGNORED_BLOCK=$(
+    printf 'Ignored interfaces:\n'
+    if [ "$IGNORED_COUNT" -gt 0 ]; then
+        printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
+    else
+        printf '  none\n'
+    fi
+)
+emit_long_section "$IGNORED_BLOCK"
 
 exit "$FINAL_EXIT"

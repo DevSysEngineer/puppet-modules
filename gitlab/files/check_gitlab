@@ -152,7 +152,7 @@ while IFS='|' read -r N B; do
     MB=$(( B / 1048576 ))
     SAFE=$(sanitize_label "$N")
 
-    PERF="${PERF} group_${SAFE}=${MB}MB;;;0;"
+    PERF="${PERF} group_${SAFE}=${MB}MB;;;0"
 done <<EOF
 $GROUPS
 EOF
@@ -198,7 +198,7 @@ if [ "$LIC_MODE" = "ee" ]; then
         *[!0-9:]*|:*) CURR=""; MAX="" ;;
     esac
     if [ -n "$CURR" ] && [ -n "$MAX" ] && [ "$MAX" -gt 0 ]; then
-        PERF="${PERF} active_users=${CURR};;;0; user_limit=${MAX};;;0;"
+        PERF="${PERF} active_users=${CURR};;;0 user_limit=${MAX};;;0"
         OVER=$(( CURR - MAX ))
         if [ "$OVER" -gt 0 ]; then
             PCT=$(( OVER * 100 / MAX ))

@@ -229,8 +229,11 @@ Monitoring output conventions:
 - Do not print threshold values, threshold inventories, final decision labels, or explanatory decision rationale in monitoring summaries or long output. Thresholds belong in perfdata when useful, while operator-readable output should focus on the checked object, current measured values, and the direct alert cause.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
 - Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
+- Do not emit consecutive blank lines in monitoring output. Separate the summary, detail sections, and repeated object blocks with at most one blank line, and avoid trailing blank lines after the final section.
 - Perfdata labels must be lowercase snake_case, for example `memory_used`, not `Memory_Used`; labels must start with a lowercase letter and use only lowercase letters, digits, and underscores.
 - Do not encode units in perfdata labels, including prefixes or suffixes such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, `_pct`, `_bytes`, `_seconds`, `_mbit`, or `_bps`. Put units in the perfdata UOM field (unit of measurement), for example `%`, `B`, `s`, or `Mbps`, and keep labels compact and stable.
+- Do not pad absent perfdata fields with empty semicolons. When warning, critical, minimum, and maximum are all absent, emit `label=value` instead of `label=value;` or `label=value;;;;`; include semicolons only through the last populated optional field, for example `label=value;warn;crit` or `label=value;;;0`.
+- Use the `c` UOM for monotonic continuous counters, such as packet counters, byte counters, cumulative event totals, and restart counters that only increase until the source resets. Do not use `c` for gauges, bounded inventory counts, current utilization, high-water marks, rates, or period totals that reset on a schedule.
 - Keep summary text cause-oriented; put detailed counters in perfdata or long output.
 - Print the most diagnostically important long-output section first.
 - Long detail sections must have a configurable line limit and state explicitly when output was truncated.

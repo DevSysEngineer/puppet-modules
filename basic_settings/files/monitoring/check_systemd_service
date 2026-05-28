@@ -372,7 +372,8 @@ fi
 # Perfdata mirrors the service state age, restart count, exit status, and schedule state.
 ACTIVE_AGE_METRIC=$(metric_value_with_unit "$ACTIVE_AGE" s)
 LAST_CHANGE_AGE_METRIC=$(metric_value_with_unit "$LAST_CHANGE_AGE" s)
-PERFDATA="active_age=${ACTIVE_AGE_METRIC} last_change_age=${LAST_CHANGE_AGE_METRIC} restarts=${NRESTARTS:-U} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
+RESTARTS_METRIC=$(metric_value_with_unit "${NRESTARTS:-U}" c)
+PERFDATA="active_age=${ACTIVE_AGE_METRIC} last_change_age=${LAST_CHANGE_AGE_METRIC} restarts=${RESTARTS_METRIC} exit_code=${EXEC_STATUS:-U} in_schedule=${IN_SCHEDULE}"
 
 # Outside schedule (no -a): always OK, but include full status/perfdata
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then

@@ -312,15 +312,15 @@ EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
 # Perfdata carries both active-session counters and journal classification totals.
 AGE_CRIT_METRIC=0
 [ "$AGE_CRIT" = true ] && AGE_CRIT_METRIC=1
-PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0;"
-PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT};;;;"
-PERF_DATA="$PERF_DATA fail_total=${FAIL_TOTAL};;;;"
-PERF_DATA="$PERF_DATA fail_wl_unmatched=${FAIL_WL_UNMATCHED};;;;"
-PERF_DATA="$PERF_DATA fail_oth_total=${FAIL_OTH_TOTAL};;;;"
-PERF_DATA="$PERF_DATA fail_oth_unmatched=${FAIL_OTH_UNMATCHED};;;;"
-PERF_DATA="$PERF_DATA abort_wl=${ABORT_WL};;;;"
-PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH};;;;"
-PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC};;;;"
+PERF_DATA="sessions=${ACTIVE_SESSIONS};${WARN_THRESH};${CRIT_THRESH};0"
+PERF_DATA="$PERF_DATA zombies=${ZOMBIE_COUNT}"
+PERF_DATA="$PERF_DATA fail_total=${FAIL_TOTAL}"
+PERF_DATA="$PERF_DATA fail_wl_unmatched=${FAIL_WL_UNMATCHED}"
+PERF_DATA="$PERF_DATA fail_oth_total=${FAIL_OTH_TOTAL}"
+PERF_DATA="$PERF_DATA fail_oth_unmatched=${FAIL_OTH_UNMATCHED}"
+PERF_DATA="$PERF_DATA abort_wl=${ABORT_WL}"
+PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH}"
+PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC}"
 
 # Output for monitoring; dynamic user names are sanitized before the perfdata delimiter.
 SUMMARY="SSH sessions active: ${ACTIVE_SESSIONS}${EXTRA}"

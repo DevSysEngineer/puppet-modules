@@ -383,12 +383,12 @@ EOF
 
     [ "$HAS_V6" -eq 0 ] && [ "$V6_GLOB" -gt 0 ] && HAS_V6=1
 
-    # Per-interface perfdata
+    # Per-interface perfdata. Kernel byte and error statistics are monotonic counters, so they use the Nagios `c` UOM.
     PERF="${PERF:+$PERF }if_${IF_LBL}_up=${IS_UP};;;0;1"
-    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx=${RX_BYTES}B;;;0"
-    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx=${TX_BYTES}B;;;0"
-    [ -n "$RX_ERRS" ] && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS};;;0"
-    [ -n "$TX_ERRS" ] && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS};;;0"
+    [ -n "$RX_BYTES" ] && PERF="$PERF if_${IF_LBL}_rx=${RX_BYTES}c"
+    [ -n "$TX_BYTES" ] && PERF="$PERF if_${IF_LBL}_tx=${TX_BYTES}c"
+    [ -n "$RX_ERRS" ] && PERF="$PERF if_${IF_LBL}_rx_errors=${RX_ERRS}c"
+    [ -n "$TX_ERRS" ] && PERF="$PERF if_${IF_LBL}_tx_errors=${TX_ERRS}c"
     [ -n "$MTU" ] && PERF="$PERF if_${IF_LBL}_mtu=${MTU};;;0"
 
     # /sys speed is Mb/s; keep the label unit-free and put Mbps in the UOM.
