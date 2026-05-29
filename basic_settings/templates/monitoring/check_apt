@@ -316,6 +316,7 @@ fi
 
 <% if @systemd_enable -%>
 # Check apt automation units so disabled unattended updates are visible.
+APT_AUTOMATION_CHECKED=1
 if $SYSTEMCTL is-active --quiet apt-daily.timer; then
     TIMER_DAILY_ACTIVE=1
 else
@@ -332,6 +333,7 @@ else
     UNATTENDED_ACTIVE=0
 fi
 <% else -%>
+APT_AUTOMATION_CHECKED=0
 TIMER_DAILY_ACTIVE=0
 TIMER_UPGRADE_ACTIVE=0
 UNATTENDED_ACTIVE=0
@@ -356,15 +358,26 @@ if [ "$UPDATES_TOTAL" -gt 0 ]; then
     fi
 fi
 
-# Add inactive automation units to the direct cause list.
-[ "$TIMER_DAILY_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily.timer inactive!"
-[ "$TIMER_UPGRADE_ACTIVE" -eq 0 ] && MSG="$MSG apt-daily-upgrade.timer inactive!"
-[ "$UNATTENDED_ACTIVE" -eq 0 ] && MSG="$MSG unattended-upgrades.service inactive!"
+# Inactive automation units are warning-level operational findings because package freshness now depends on manual intervention.
+if [ "$APT_AUTOMATION_CHECKED" -eq 1 ]; then
+    if [ "$TIMER_DAILY_ACTIVE" -eq 0 ]; then
+        MSG="$MSG apt-daily.timer inactive."
+        [ "$STATE_CODE" -lt 1 ] && STATE_CODE=1
+    fi
+    if [ "$TIMER_UPGRADE_ACTIVE" -eq 0 ]; then
+        MSG="$MSG apt-daily-upgrade.timer inactive."
+        [ "$STATE_CODE" -lt 1 ] && STATE_CODE=1
+    fi
+    if [ "$UNATTENDED_ACTIVE" -eq 0 ]; then
+        MSG="$MSG unattended-upgrades.service inactive."
+        [ "$STATE_CODE" -lt 1 ] && STATE_CODE=1
+    fi
+fi
 
 # A required reboot is operationally critical even when no update remains pending.
 if [ -e /var/run/reboot-required ]; then
-    MSG="$MSG Reboot required!"
-    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=2
+    MSG="$MSG Reboot required."
+    [ "$STATE_CODE" -lt 2 ] && STATE_CODE=2
 fi
 
 # Blacklisted updates are counted separately so operators can distinguish held packages.

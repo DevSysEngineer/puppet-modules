@@ -86,6 +86,11 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
+# Strip carriage returns, terminal escape sequences, and non-printable bytes before the CLI text is parsed or rendered.
+strip_terminal_control() {
+    $TR -d '\r' | $AWK '{ gsub(/\033\[[0-9;]*[A-Za-z]/, ""); print }' | $TR -cd '\11\12\40-\176'
+}
+
 # Append one line to the long output buffer.
 append_long() {
     if [ -z "$LONG_OUTPUT" ]; then
@@ -137,8 +142,13 @@ $SYSTEMDCTL is-active --quiet "mcservice.service" || crit "service is not active
 $PS -C mcservice >/dev/null 2>&1 || crit "service is not active"
 <% end -%>
 
-# mccommand requires script files, so keep command input and parse artifacts in a private workdir.
-WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || die "mktemp failed"
+# mccommand requires script files, so keep command input, parse artifacts, and persistent state updates private until cleanup.
+WORK_UMASK=$(umask)
+umask 077
+WORK_DIR=$($MKTEMP -d "/tmp/mirthcheck.XXXXXX") || {
+    umask "$WORK_UMASK"
+    die "mktemp failed"
+}
 trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 
 # Request channel statistics through mccommand because it is the supported local interface.
@@ -147,7 +157,7 @@ OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "
 [ -n "$OUTPUT_RAW" ] || crit "returned empty stats output"
 
 # Normalize terminal control characters before AWK parses channel sections.
-OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
+OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | strip_terminal_control)
 printf '%s\n' "$OUTPUT_CLEAN" | $AWK '
   function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
   function emit(){
@@ -175,7 +185,7 @@ STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die 
 [ -n "$STATUS_RAW" ] || crit "returned empty status output"
 
 # Build a name|status map from the CLI output.
-STATUS_CLEAN=$(printf '%s\n' "$STATUS_RAW" | $TR -d '\r' | $SED -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | $TR -cd '\11\12\40-\176')
+STATUS_CLEAN=$(printf '%s\n' "$STATUS_RAW" | strip_terminal_control)
 printf '%s\n' "$STATUS_CLEAN" | $AWK '
   BEGIN{in_tbl=0}
   /^ID[[:space:]]+Status[[:space:]]+Name/ { in_tbl=1; next }
@@ -237,6 +247,7 @@ else
         $RM -f "$STATE_FILE" 2>/dev/null || die "queue state file ${STATE_FILE} could not be removed"
     fi
 fi
+umask "$WORK_UMASK"
 
 # Make list truncation explicit in bounded channel lists without hiding the issue count.
 QUEUE_MORE=$((QUEUE_ISSUES - QUEUE_SHOWN))

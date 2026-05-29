@@ -596,7 +596,7 @@ print_failed_units_section() {
             printf '%s\n' "Reason: ${FAILED_UNIT_SCAN_ERROR}"
         fi
         printf '%s\n' ""
-        printf '%s\n' 'Interpretation:'
+        printf '%s\n' 'Failed-unit context:'
         printf '%s\n' 'The check could not determine the failed runtime units behind the degraded manager state.'
         printf '%s\n' 'Escalate to server operations for manual investigation.'
         return
@@ -605,7 +605,7 @@ print_failed_units_section() {
     if [ "$FAILED_UNITS" -eq 0 ]; then
         printf '%s\n' 'Failed units causing degraded state: none returned'
         printf '%s\n' ""
-        printf '%s\n' 'Interpretation:'
+        printf '%s\n' 'Failed-unit context:'
         printf '%s\n' 'systemd reports degraded, but no failed units were returned by systemctl list-units --failed.'
         printf '%s\n' 'Escalate to server operations for manual investigation.'
         return
@@ -627,7 +627,7 @@ print_failed_units_section() {
     fi
 
     printf '%s\n' ""
-    printf '%s\n' 'Interpretation:'
+    printf '%s\n' 'Failed-unit context:'
     if [ -n "$CRITICAL_REASONS" ]; then
         printf '%s\n' 'Systemd configuration errors were also found by this check.'
         printf '%s\n' 'Review the configuration findings first; the failed runtime units explain why the manager state is degraded.'
@@ -1048,44 +1048,44 @@ printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
 printf '%s\n' ""
 
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
-    printf '%s\n' 'Configuration result: invalid, default target is invalid or unavailable'
+    printf '%s\n' 'Configuration finding: default target is invalid or unavailable'
 elif [ "$LIST_UNITS_RC" -ne 0 ]; then
-    printf '%s\n' 'Configuration result: inconclusive, load/config unit scan failed'
+    printf '%s\n' 'Configuration finding: load/config unit scan failed'
 elif [ "$BAD_LOAD_UNITS" -gt 0 ]; then
-    printf '%s\n' "Configuration result: invalid, ${BAD_LOAD_UNITS} actionable load/config error(s) found"
+    printf '%s\n' "Configuration finding: ${BAD_LOAD_UNITS} actionable load/config error(s) found"
 elif [ "$VERIFY_EXIT_NONZERO" = '1' ]; then
-    printf '%s\n' 'Configuration result: invalid, systemd-analyze verify failed'
+    printf '%s\n' 'Configuration finding: systemd-analyze verify failed'
 elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
-    printf '%s\n' "Configuration result: invalid, default target load state ${DEFAULT_TARGET_LOAD_STATE}"
+    printf '%s\n' "Configuration finding: default target load state ${DEFAULT_TARGET_LOAD_STATE}"
 elif [ "$NEED_DAEMON_RELOAD" = 'yes' ]; then
     if [ "$STRICT_RELOAD" -eq 1 ]; then
-        printf '%s\n' 'Configuration result: invalid, daemon-reload is required'
+        printf '%s\n' 'Configuration finding: daemon-reload is required'
     else
-        printf '%s\n' 'Configuration result: valid but daemon-reload is required'
+        printf '%s\n' 'Configuration finding: daemon-reload is required but no actionable load/config errors were found'
     fi
 else
-    printf '%s\n' 'Configuration result: no actionable load/config errors found'
+    printf '%s\n' 'Configuration finding: no actionable load/config errors found'
 fi
 
 case "$MANAGER_STATE" in
     degraded)
         if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
-            printf '%s\n' 'Runtime manager result: degraded, but failed units are unavailable'
+            printf '%s\n' 'Runtime manager context: degraded, but failed units are unavailable'
         elif [ "$FAILED_UNITS" -gt 0 ]; then
-            printf '%s\n' "Runtime manager result: degraded because ${FAILED_UNITS} unit(s) are failed"
+            printf '%s\n' "Runtime manager context: degraded because ${FAILED_UNITS} unit(s) are failed"
         else
-            printf '%s\n' 'Runtime manager result: degraded, but no failed units were returned'
+            printf '%s\n' 'Runtime manager context: degraded, but no failed units were returned'
         fi
         ;;
     starting|initializing|stopping)
         if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
-            printf '%s\n' "Runtime manager result: ${MANAGER_STATE} during boot grace"
+            printf '%s\n' "Runtime manager context: ${MANAGER_STATE} during boot grace"
         else
-            printf '%s\n' "Runtime manager result: ${MANAGER_STATE}"
+            printf '%s\n' "Runtime manager context: ${MANAGER_STATE}"
         fi
         ;;
     *)
-        printf '%s\n' "Runtime manager result: ${MANAGER_STATE}"
+        printf '%s\n' "Runtime manager context: ${MANAGER_STATE}"
         ;;
 esac
 
@@ -1123,6 +1123,12 @@ if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
     printf '%s\n' ""
     print_detail_section 'Contextual not-found units not counted as config errors' "$CONTEXTUAL_NOT_FOUND_UNITS" "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
 fi
+
+printf '%s\n' ""
+printf '%s\n' 'Interpretation:'
+printf '%s\n' 'Default target validity, default target load state, systemd-analyze verify output, actionable load/config units, and optional strict daemon-reload handling decide the configuration exit code.'
+printf '%s\n' 'The systemd manager state and failed-unit list provide runtime context; degraded runtime units affect this check as non-critical findings unless actionable configuration errors are also present.'
+printf '%s\n' 'Inspect actionable load/config errors first, then verify failed runtime units and daemon-reload state when the summary names those findings.'
 } | sanitize_monitor_output
 
 exit "$STATE"
