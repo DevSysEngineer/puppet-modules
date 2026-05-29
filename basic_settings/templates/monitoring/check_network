@@ -461,6 +461,11 @@ if [ "$IF_DETAIL_TRUNCATED" -gt 0 ]; then
     append_long "Interface details truncated: ${IF_DETAIL_TRUNCATED} omitted after ${DETAIL_LIMIT} shown"
 fi
 
+# Explain which parts of the network inventory can change the monitoring state.
+append_long "Interpretation:"
+append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface address lists, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
+append_long "Inspect named down services or wired interfaces first. Public-IP values of n/a are contextual unless the summary also reports a direct interface or service failure."
+
 # Compose a cause-oriented short output; counters stay in perfdata and interface inventory stays in long output.
 MSG="Network is healthy; public IPs: $PUBIP_SUMMARY"
 [ -n "$FAILOVER_NOTE" ] && MSG="$MSG; $FAILOVER_NOTE"

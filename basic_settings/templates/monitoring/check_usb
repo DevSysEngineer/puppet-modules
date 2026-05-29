@@ -8,6 +8,7 @@ die() {
 }
 
 # Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
@@ -50,6 +51,8 @@ EXPECTED_VP_IDS_ACTIVE=""
 
 # Time state and final monitoring status are captured once for deterministic rule evaluation.
 DETAIL_LIMIT=${DETAIL_LIMIT:-10}
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_USB_NL__"
 MSG=""
 NOW_HM=""
 NOW_MIN=0
@@ -95,7 +98,41 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
-# Append one bounded detail item to a comma-separated summary list.
+# Append one line to the long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Emit the short monitoring line and the bounded device detail output.
+emit_check() {
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
+    fi
+}
+
+# Append one semicolon-separated cause to the short output.
+append_summary_reason() {
+    if [ -n "$1" ]; then
+        printf '%s; %s' "$1" "$2"
+    else
+        printf '%s' "$2"
+    fi
+}
+
+# Append one bounded detail item to a comma-separated device list.
 append_detail_item() {
     # $1 = current list, $2 = item to append
     if [ -z "$1" ]; then
@@ -105,14 +142,22 @@ append_detail_item() {
     fi
 }
 
+# Normalize decimal time fields before POSIX shell arithmetic so 08 and 09 are not interpreted as octal.
+strip_leading_zeroes() {
+    VALUE=$1
+    while [ "${VALUE#0}" != "$VALUE" ]; do
+        VALUE=${VALUE#0}
+    done
+    [ -n "$VALUE" ] || VALUE=0
+    printf '%s\n' "$VALUE"
+}
+
 # Convert HH:MM to minutes since midnight.
 hm2min() {
     H=${1%:*}
     M=${1#*:}
-    H=$(printf '%s' "$H" | $SED 's/^0\+//')
-    M=$(printf '%s' "$M" | $SED 's/^0\+//')
-    [ -z "$H" ] && H=0
-    [ -z "$M" ] && M=0
+    H=$(strip_leading_zeroes "$H")
+    M=$(strip_leading_zeroes "$M")
     case "$H" in (*[!0-9]*) H=0 ;; esac
     case "$M" in (*[!0-9]*) M=0 ;; esac
     printf '%s\n' "$(( H*60 + M ))"
@@ -515,7 +560,7 @@ for EXP in $EXPECTED_VP_IDS_ACTIVE; do
     fi
 done
 
-# Mark truncated detail lists explicitly so short output stays bounded without hiding counts.
+# Mark truncated detail lists explicitly so long output stays bounded without hiding counts.
 [ "$UNAUTHORIZED_COUNT" -gt "$UNAUTHORIZED_SHOWN" ] && UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "+$(( UNAUTHORIZED_COUNT - UNAUTHORIZED_SHOWN )) more")
 [ "$EXPECTED_MISSING_COUNT" -gt "$EXPECTED_MISSING_SHOWN" ] && EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "+$(( EXPECTED_MISSING_COUNT - EXPECTED_MISSING_SHOWN )) more")
 [ "$ANYREQ_PRESENT_COUNT" -gt "$ANYREQ_MATCHED_SHOWN" ] && ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "+$(( ANYREQ_PRESENT_COUNT - ANYREQ_MATCHED_SHOWN )) more")
@@ -527,13 +572,21 @@ done
 # - active any-required policy failures
 if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
     STATUS_CODE=2
-    [ $UNAUTHORIZED_COUNT -gt 0 ] && MSG="USB unauthorized device(s) detected: $UNAUTHORIZED_DEV_LIST. "
-    [ "$EXPECTED_MISSING_COUNT" -gt 0 ] && MSG="${MSG}USB expected device(s) missing: $EXPECTED_LIST_MISSING. "
+    if [ $UNAUTHORIZED_COUNT -gt 0 ]; then
+        UNAUTHORIZED_SUMMARY="USB unauthorized device(s) detected: ${UNAUTHORIZED_COUNT}"
+        [ -n "$UNAUTHORIZED_DEV_LIST" ] && UNAUTHORIZED_SUMMARY="${UNAUTHORIZED_SUMMARY} (${UNAUTHORIZED_DEV_LIST%%, *})"
+        MSG=$(append_summary_reason "$MSG" "$UNAUTHORIZED_SUMMARY")
+    fi
+    if [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
+        EXPECTED_MISSING_SUMMARY="USB expected device(s) missing: ${EXPECTED_MISSING_COUNT}"
+        [ -n "$EXPECTED_LIST_MISSING" ] && EXPECTED_MISSING_SUMMARY="${EXPECTED_MISSING_SUMMARY} (${EXPECTED_LIST_MISSING%%, *})"
+        MSG=$(append_summary_reason "$MSG" "$EXPECTED_MISSING_SUMMARY")
+    fi
 else
     if [ -n "$EXPECTED_SERIALS_ACTIVE" ] || [ -n "$EXPECTED_VP_IDS_ACTIVE" ]; then
-        MSG="USB has all expected devices present. "
+        MSG="USB has all expected devices present"
     else
-        MSG="USB has no unauthorized devices detected. "
+        MSG="USB has no unauthorized devices detected"
     fi
 fi
 
@@ -541,17 +594,26 @@ fi
 if [ "$ANYREQ_TOTAL_COUNT" -gt 0 ] && [ "$ANYREQ_PRESENT_COUNT" -eq 0 ]; then
     ANYREQ_OK=0
     STATUS_CODE=2
-    MSG="${MSG}USB any-required policy not met (none present from provided list). "
+    MSG=$(append_summary_reason "$MSG" "USB any-required policy not met")
 fi
 
-# Tails
-[ -n "$ANYREQ_MATCHED_LIST" ]  && MSG="${MSG}Any-required matched: $ANYREQ_MATCHED_LIST. "
-[ -n "$WHITELISTED_DEV_LIST" ] && MSG="${MSG}Whitelisted attached: $WHITELISTED_DEV_LIST. "
+# Keep device lists out of the short output; long output is bounded and explicitly marks truncation.
+append_long "Attached USB endpoint devices: ${TOTAL_DEV}"
+append_long "Active expected devices: ${EXPECTED_PRESENT_COUNT}/${EXPECTED_TOTAL_COUNT} present"
+append_long "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL_COUNT} present"
+[ -n "$UNAUTHORIZED_DEV_LIST" ] && append_long "Unauthorized devices: ${UNAUTHORIZED_DEV_LIST}"
+[ -n "$EXPECTED_LIST_MISSING" ] && append_long "Expected devices missing: ${EXPECTED_LIST_MISSING}"
+[ -n "$ANYREQ_MATCHED_LIST" ] && append_long "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
+[ -n "$WHITELISTED_DEV_LIST" ] && append_long "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
+append_long "Interpretation:"
+append_long "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."
+append_long "Whitelist and matched any-required device lists are diagnostic context; timed rules authorize known devices outside their active windows but only require presence during active windows."
+append_long "Inspect the listed unauthorized or missing USB identifiers first, then update the Puppet USB policy if the device is expected for this host and time window."
 
 # Perfdata (ACTIVE items only for expected/any-required totals)
 PERF="usb_total=${TOTAL_DEV}"
 PERF="$PERF expected_present=${EXPECTED_PRESENT_COUNT}"
-PERF="$PERF expected_missing=$(( EXPECTED_TOTAL_COUNT - EXPECTED_PRESENT_COUNT ))"
+PERF="$PERF expected_missing=${EXPECTED_MISSING_COUNT}"
 PERF="$PERF whitelisted_present=${WHITELISTED_COUNT}"
 PERF="$PERF unauthorized_count=${UNAUTHORIZED_COUNT};;1"
 PERF="$PERF any_required_total=${ANYREQ_TOTAL_COUNT}"
@@ -559,5 +621,5 @@ PERF="$PERF any_required_present=${ANYREQ_PRESENT_COUNT}"
 PERF="$PERF any_required_ok=${ANYREQ_OK}"
 
 # Output one monitoring line; sysfs-provided device text is sanitized before perfdata.
-printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
+emit_check "$MSG" "$PERF"
 exit $STATUS_CODE

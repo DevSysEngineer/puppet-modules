@@ -104,14 +104,22 @@ if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then
     SCHEDULE_DEFINED=1
 fi
 
+# Normalize decimal time fields before POSIX shell arithmetic so 08 and 09 are not interpreted as octal.
+strip_leading_zeroes() {
+    VALUE=$1
+    while [ "${VALUE#0}" != "$VALUE" ]; do
+        VALUE=${VALUE#0}
+    done
+    [ -n "$VALUE" ] || VALUE=0
+    printf '%s\n' "$VALUE"
+}
+
 # Convert HH:MM to minutes since midnight.
 hm2min() {
     H=${1%:*}
     M=${1#*:}
-    H=$(printf '%s' "$H" | $SED 's/^0\+//')
-    M=$(printf '%s' "$M" | $SED 's/^0\+//')
-    [ -z "$H" ] && H=0
-    [ -z "$M" ] && M=0
+    H=$(strip_leading_zeroes "$H")
+    M=$(strip_leading_zeroes "$M")
     case "$H" in (*[!0-9]*) H=0 ;; esac
     case "$M" in (*[!0-9]*) M=0 ;; esac
     printf '%s\n' "$(( H*60 + M ))"
@@ -377,6 +385,18 @@ if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     fi
 else
     JOURNAL_JOINED=""
+fi
+
+# Add interpretation after journal details when long output exists.
+if [ -n "$JOURNAL_JOINED" ]; then
+    JOURNAL_JOINED=$(
+        {
+            printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' 'Interpretation:'
+            printf '%s\n' 'systemctl unit properties, schedule policy, require-active policy, and configured journal failure/warning regex matches decide the exit code.'
+            printf '%s\n' 'Other journal lines are bounded diagnostic context. Inspect the named unit status and recent journal first when the summary reports inactive, failed, transitional, outside-schedule, or marker-based service state.'
+        }
+    )
 fi
 
 # Perfdata mirrors the service state age, restart count, exit status, and schedule state.

@@ -42,6 +42,8 @@ STATUS_ISSUES=0
 STATUS_SHOWN=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_MIRTH_CONNECT_NL__"
 
 # Persistent queue state tracks how long channels have been above the warning threshold.
 STATE_DIR="/etc/openitcockpit-agent/state"
@@ -84,12 +86,32 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
+# Append one line to the long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
 # Emit one monitoring line; perfdata is attached by the caller when available.
 emit_check() {
     if [ -n "${2:-}" ]; then
         printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     else
         printf '%s\n' "$(monitor_text_value "$1")"
+    fi
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
     fi
 }
 
@@ -216,7 +238,7 @@ else
     fi
 fi
 
-# Make list truncation explicit in the short output without hiding the issue count.
+# Make list truncation explicit in bounded channel lists without hiding the issue count.
 QUEUE_MORE=$((QUEUE_ISSUES - QUEUE_SHOWN))
 STATUS_MORE=$((STATUS_ISSUES - STATUS_SHOWN))
 [ "$QUEUE_MORE" -gt 0 ] && SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }+${QUEUE_MORE} more"
@@ -228,13 +250,24 @@ if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
     PERF_DATA="$PERF_DATA total_received=${tot_recv}c total_sent=${tot_sent}c"
 fi
 
+# Long output keeps channel names bounded while preserving the direct cause in the short output.
+append_long "Channels checked: ${TOTAL_CHANS}"
+[ "$STATUS_ISSUES" -gt 0 ] && append_long "Channels not running: ${SUMMARY_STATUS}"
+[ "$QUEUE_ISSUES" -gt 0 ] && append_long "Channels with queued messages: ${SUMMARY_QUEUE}"
+append_long "Interpretation:"
+append_long "Channel started/stopped state and queued-message age decide the exit code; received/sent totals and maximum queue depth are supporting metrics."
+append_long "Queued channels affect the exit code only after they stay elevated for the configured grace window. Inspect the listed channel status or queue in Mirth Connect before restarting services."
+
 # Status issues take precedence over aged queue warnings in the final state.
 if [ "$STATUS_ISSUES" -gt 0 ]; then
-    crit "${STATUS_ISSUES} channel(s) not running: ${SUMMARY_STATUS}" "$PERF_DATA"
+    STATUS_PRIMARY=${SUMMARY_STATUS%%, *}
+    crit "${STATUS_ISSUES} channel(s) not running${STATUS_PRIMARY:+: $STATUS_PRIMARY}" "$PERF_DATA"
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
-    crit "${QUEUE_ISSUES} channel(s) queue stayed high: ${SUMMARY_QUEUE}" "$PERF_DATA"
+    QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
+    crit "${QUEUE_ISSUES} channel(s) queue stayed high${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
-    emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages: ${SUMMARY_QUEUE}" "$PERF_DATA"
+    QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
+    emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
     exit 1
 fi
 

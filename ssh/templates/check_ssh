@@ -23,6 +23,8 @@ ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
 DETAIL_LIMIT=${DETAIL_LIMIT:-10}
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_SSH_NL__"
 MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
@@ -53,9 +55,9 @@ esac
 [ "$CRIT_THRESH" -ge "$WARN_THRESH" ] || die "critical session threshold must be greater than or equal to warning threshold"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
 
-# Emit a CRITICAL result and stop immediately.
+# Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'SSH check failed: %s\n' "$*"
+    printf 'SSH %s\n' "$*"
     exit 2
 }
 
@@ -64,7 +66,41 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
-# Render a bounded comma-separated list for short output.
+# Append one line to the long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Emit one monitoring line followed by sanitized session and journal detail.
+emit_check() {
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
+    fi
+}
+
+# Append one semicolon-separated cause to the short output.
+append_summary_reason() {
+    if [ -n "$1" ]; then
+        printf '%s; %s' "$1" "$2"
+    else
+        printf '%s' "$2"
+    fi
+}
+
+# Render a bounded comma-separated list for long output.
 cap_csv_list() {
     printf '%s\n' "$1" | $AWK -F',' -v max="$DETAIL_LIMIT" '
         {
@@ -94,9 +130,9 @@ cap_csv_list() {
 
 # Check the service first so daemon failures are reported before session parsing.
 <% if @systemd_enable -%>
-$SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "SSH service is not active"
+$SYSTEMDCTL is-active --quiet "<%= @service %>" || crit "service is not active"
 <% else -%>
-$PS -C sshd >/dev/null 2>&1 || crit "SSH service is not active"
+$PS -C sshd >/dev/null 2>&1 || crit "service is not active"
 <% end -%>
 
 # Current sessions are classified from who(1) plus TTY process state.
@@ -296,18 +332,28 @@ if [ "$STATE_CODE" -lt 1 ]; then
     fi
 fi
 
-# Build the visible cause list without Nagios state labels.
-EXTRA=""
+# Build the visible cause list without Nagios state labels and keep user lists in long output.
+SUMMARY_CAUSES=""
 BAD_WL_USERS_TEXT=$(cap_csv_list "$BAD_WL_USERS")
 USERS_LIST_TEXT=$(cap_csv_list "$USERS_LIST")
-[ "$ROOT_LOGIN" = true ] && EXTRA="${EXTRA}root login, "
-[ "$AGE_CRIT" = true ] && EXTRA="${EXTRA}session age ${MAX_SESSION_AGE_MIN}m, "
-[ -n "$BAD_WL_USERS_TEXT" ] && EXTRA="${EXTRA}failed logins for '$BAD_WL_USERS_TEXT', "
-[ "$FAIL_WL_UNMATCHED" -gt 0 ] && EXTRA="${EXTRA}${FAIL_WL_UNMATCHED} unmatched allowlist failures, "
-[ "$ZOMBIE_COUNT" -gt 0 ] && EXTRA="${EXTRA}${ZOMBIE_COUNT} zombies, "
-[ -n "$USERS_LIST_TEXT" ] && EXTRA="${EXTRA}users: $USERS_LIST_TEXT, "
-EXTRA=$(printf '%s' "$EXTRA" | $SED 's/, $//')
-[ -n "$EXTRA" ] && EXTRA="; $EXTRA"
+[ "$ROOT_LOGIN" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "root login detected")
+[ "$AGE_CRIT" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "session age ${MAX_SESSION_AGE_MIN}m")
+if [ "$FAIL_WL_UNMATCHED" -gt 0 ]; then
+    ALLOWLIST_FAILURE_SUMMARY="${FAIL_WL_UNMATCHED} unmatched allowlist failure(s)"
+    [ -n "$BAD_WL_USERS_TEXT" ] && ALLOWLIST_FAILURE_SUMMARY="${ALLOWLIST_FAILURE_SUMMARY} for ${BAD_WL_USERS_TEXT%%, *}"
+    SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "$ALLOWLIST_FAILURE_SUMMARY")
+fi
+[ "$ZOMBIE_COUNT" -gt 0 ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "${ZOMBIE_COUNT} zombie sshd process(es)")
+
+# Long output shows bounded user and journal-classification context.
+append_long "Session totals: active=${ACTIVE_SESSIONS}, maximum age=${MAX_SESSION_AGE_MIN}m, root login=${ROOT_LOGIN}"
+[ -n "$USERS_LIST_TEXT" ] && append_long "Active users: ${USERS_LIST_TEXT}"
+[ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
+append_long "Authentication counters: total failures=${FAIL_TOTAL}, allowlist unmatched=${FAIL_WL_UNMATCHED}, other raw=${FAIL_OTH_TOTAL}, other unmatched=${FAIL_OTH_UNMATCHED}, allowlist aborts=${ABORT_WL}, other aborts=${ABORT_OTH}"
+[ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
+append_long "Interpretation:"
+append_long "Active session count, root login detection, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."
+append_long "Non-allowlist authentication failures and user-initiated aborts are context only. Inspect active sessions and allowlisted-user failures first when the summary reports SSH exposure."
 
 # Perfdata carries both active-session counters and journal classification totals.
 AGE_CRIT_METRIC=0
@@ -323,6 +369,7 @@ PERF_DATA="$PERF_DATA abort_oth=${ABORT_OTH}"
 PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC}"
 
 # Output for monitoring; dynamic user names are sanitized before the perfdata delimiter.
-SUMMARY="SSH sessions active: ${ACTIVE_SESSIONS}${EXTRA}"
-printf '%s | %s\n' "$(monitor_text_value "$SUMMARY")" "$PERF_DATA"
+SUMMARY="SSH sessions active: ${ACTIVE_SESSIONS}"
+[ -n "$SUMMARY_CAUSES" ] && SUMMARY="${SUMMARY}; ${SUMMARY_CAUSES}"
+emit_check "$SUMMARY" "$PERF_DATA"
 exit "$STATE_CODE"

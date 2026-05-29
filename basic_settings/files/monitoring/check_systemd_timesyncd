@@ -31,9 +31,9 @@ ROOT_WARN=0.5 # 500ms
 STRAT_CRIT=15 # >15 ~= unsynchronised
 STRAT_WARN=10
 
-# Emit a CRITICAL result and stop immediately.
+# Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'systemd-timesyncd check failed: %s\n' "$*"
+    printf 'systemd-timesyncd %s\n' "$*"
     exit 2
 }
 
@@ -63,7 +63,7 @@ get_num_unit() {
 }
 
 # Verify the unit before asking timedatectl for synchronization state.
-$SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "systemd-timesyncd.service is not active"
+$SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "service is not active"
 
 # `NTPSynchronized` is the primary binary health signal for the clock.
 NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null) || die "NTPSynchronized status not available"

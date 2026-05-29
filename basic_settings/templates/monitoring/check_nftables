@@ -38,9 +38,9 @@ case "$FILTER_ITEMS_LIMIT" in
 esac
 [ "$FILTER_ITEMS_LIMIT" -ge 1 ] || FILTER_ITEMS_LIMIT=50
 
-# Emit a CRITICAL result and stop immediately.
+# Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'nftables check failed: %s\n' "$*"
+    printf 'nftables %s\n' "$*"
     exit 2
 }
 
@@ -172,13 +172,13 @@ append_filter_section() {
 
 <% if @systemd_enable -%>
 # Verify the service when systemd is available before reading the live ruleset.
-$SYSTEMCTL is-active --quiet "nftables" || crit "nftables service is not active"
+$SYSTEMCTL is-active --quiet "nftables" || crit "service is not active"
 
 <% end -%>
 
 # Reading the live ruleset validates nft access without assuming a loadable kernel module.
-RULESET=$($NFT list ruleset 2>/dev/null) || crit "cannot get ruleset"
-[ -z "$RULESET" ] && crit "Ruleset empty"
+RULESET=$($NFT list ruleset 2>/dev/null) || crit "ruleset cannot be read"
+[ -z "$RULESET" ] && crit "ruleset is empty"
 
 # Analyze ruleset structure
 RULESET_STATS=$(printf '%s' "$RULESET" | $AWK '
@@ -475,6 +475,13 @@ fi
 PERFDATA_BUFFER=$(printf '%b' "$PERFDATA_BUFFER" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 [ -n "$PERFDATA_BUFFER" ] && PERF_DATA="$PERF_DATA $PERFDATA_BUFFER"
+
+# Explain dynamic blocklist sections when the ruleset produced long output.
+if [ -n "$LONG_OUTPUT" ]; then
+    append_long "Interpretation:"
+    append_long "Blacklist sections show dynamic inet/filter sets referenced by drop or reject rules; empty table and chain checks, nftables service state, and ruleset readability decide the exit code."
+    append_long "Named and inline counter perfdata is context for traffic volume. Inspect the named empty table/chain first when the summary reports a firewall structure failure."
+fi
 
 # Empty tables or chains indicate a loaded but ineffective firewall.
 if [ -n "$CHAIN_EMPTY" ]; then

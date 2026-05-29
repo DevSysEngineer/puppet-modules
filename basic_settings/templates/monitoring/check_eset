@@ -79,9 +79,9 @@ done
 [ "$CRIT_NO_SCAN_DAYS" -ge "$WARN_NO_SCAN_DAYS" ] || die "critical scan threshold must be greater than or equal to warning threshold"
 [ "$CRIT_UPDATE_MIN" -ge "$WARN_UPDATE_MIN" ] || die "critical update threshold must be greater than or equal to warning threshold"
 
-# Emit a CRITICAL result and stop immediately.
+# Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'ESET check failed: %s\n' "$*"
+    printf 'ESET %s\n' "$*"
     exit 2
 }
 
@@ -168,9 +168,9 @@ parse_scan_csv() {
 
 # Verify the ESET service before checking daemon internals.
 <% if @systemd_enable -%>
-$SYSTEMDCTL is-active --quiet "efs.service" || crit "ESET service is not active"
+$SYSTEMDCTL is-active --quiet "efs.service" || crit "service is not active"
 <% else -%>
-$PS -C efs >/dev/null 2>&1 || crit "ESET service is not active"
+$PS -C efs >/dev/null 2>&1 || crit "service is not active"
 <% end -%>
 
 # Core daemon checks catch partial ESET failures that systemd may not expose.
@@ -262,6 +262,16 @@ if [ -n "$SCAN_HISTORY" ]; then
 else
     LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans: none"
 fi
+
+# Explain how ESET scan history relates to the status decision.
+LONG_OUTPUT=$(
+    {
+        printf '%s\n' "$LONG_OUTPUT"
+        printf '%s\n' 'Interpretation:'
+        printf '%s\n' 'Daemon/module health, engine update age, latest scan age, latest scan detections, and recent update errors decide the exit code.'
+        printf '%s\n' 'Scan history is bounded diagnostic context. Inspect ESET services, kernel modules, updater logs, and the latest scan result when the summary reports stale updates, stale scans, missing protection, detections, or cleaned files.'
+    }
+)
 
 # Stale scans and detections are status causes; full scan history stays in long output.
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"

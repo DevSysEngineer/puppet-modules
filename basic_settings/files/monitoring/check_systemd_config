@@ -101,6 +101,41 @@ VERIFY_RC=U
 # Usage text is shared by option parsing and numeric validation failures.
 USAGE_TEXT="Usage: $0 [-g seconds] [-m verify_lines] [-d detail_lines] [-q] [-r] [-R]"
 
+# Parse validation options before helper definitions and systemd calls so invalid invocations fail cleanly during setup.
+OPTERR=0
+while getopts 'g:m:d:qrR' opt; do
+    case "$opt" in
+        g) BOOT_GRACE="$OPTARG" ;;
+        m) MAX_VERIFY_LINES="$OPTARG" ;;
+        d)
+            MAX_DETAIL_LINES="$OPTARG"
+            MAX_FAILED_UNIT_LINES="$OPTARG"
+            ;;
+        q) QUIET=1 ;;
+        r) STRICT_RELOAD=1 ;;
+        R) SHOW_RAW_VERIFY=1 ;;
+        *) die "$USAGE_TEXT" ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+[ $# -eq 0 ] || die "$USAGE_TEXT"
+case "$BOOT_GRACE" in
+    ''|*[!0-9]*) die "$USAGE_TEXT" ;;
+esac
+case "$MAX_DETAIL_LINES" in
+    ''|*[!0-9]*) die "$USAGE_TEXT" ;;
+esac
+case "$MAX_FAILED_UNIT_LINES" in
+    ''|*[!0-9]*) die "$USAGE_TEXT" ;;
+esac
+case "$MAX_VERIFY_LINES" in
+    ''|*[!0-9]*) die "$USAGE_TEXT" ;;
+esac
+[ "$MAX_DETAIL_LINES" -ge 1 ] || die "detail line limit must be at least 1"
+[ "$MAX_FAILED_UNIT_LINES" -ge 1 ] || die "failed-unit line limit must be at least 1"
+[ "$MAX_VERIFY_LINES" -ge 1 ] || die "verify line limit must be at least 1"
+
 # Check whether a value contains only decimal digits.
 is_number() {
     case "$1" in
@@ -740,33 +775,6 @@ inspect_bad_units() {
     IFS=$OLD_IFS
 }
 
-# Parse validation options before any systemd calls so invalid invocations fail cleanly.
-OPTERR=0
-while getopts 'g:m:d:qrR' opt; do
-    case "$opt" in
-        g) BOOT_GRACE="$OPTARG" ;;
-        m) MAX_VERIFY_LINES="$OPTARG" ;;
-        d)
-            MAX_DETAIL_LINES="$OPTARG"
-            MAX_FAILED_UNIT_LINES="$OPTARG"
-            ;;
-        q) QUIET=1 ;;
-        r) STRICT_RELOAD=1 ;;
-        R) SHOW_RAW_VERIFY=1 ;;
-        *) die "$USAGE_TEXT" ;;
-    esac
-done
-shift $((OPTIND - 1))
-
-[ $# -eq 0 ] || die "$USAGE_TEXT"
-is_number "$BOOT_GRACE" || die "$USAGE_TEXT"
-is_number "$MAX_DETAIL_LINES" || die "$USAGE_TEXT"
-is_number "$MAX_FAILED_UNIT_LINES" || die "$USAGE_TEXT"
-is_number "$MAX_VERIFY_LINES" || die "$USAGE_TEXT"
-[ "$MAX_DETAIL_LINES" -ge 1 ] || die "detail line limit must be at least 1"
-[ "$MAX_FAILED_UNIT_LINES" -ge 1 ] || die "failed-unit line limit must be at least 1"
-[ "$MAX_VERIFY_LINES" -ge 1 ] || die "verify line limit must be at least 1"
-
 # Boot grace suppresses transient manager states immediately after startup.
 if [ -r /proc/uptime ]; then
     IFS=' ' read -r UPTIME_RAW _ </proc/uptime
@@ -984,7 +992,7 @@ elif [ -n "$WARNING_REASONS" ]; then
         SUMMARY_BASE=$DEGRADED_STANDALONE_SUMMARY
         SUMMARY_REASONS=''
     else
-        SUMMARY_BASE='systemd configuration needs attention'
+        SUMMARY_BASE='systemd configuration has non-critical findings'
         SUMMARY_REASONS=$WARNING_REASONS
     fi
 else

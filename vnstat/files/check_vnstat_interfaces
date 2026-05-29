@@ -181,8 +181,8 @@ state_exit_code() {
 # Translate internal Nagios state names into operator-readable long-output text.
 state_detail_text() {
     case "$1" in
-        CRITICAL) printf '%s' 'needs immediate attention' ;;
-        WARNING)  printf '%s' 'needs attention' ;;
+        CRITICAL) printf '%s' 'exceeds configured traffic or freshness limits' ;;
+        WARNING)  printf '%s' 'has elevated traffic or freshness findings' ;;
         UNKNOWN)  printf '%s' 'has incomplete data' ;;
         *)        printf '%s' 'healthy' ;;
     esac
@@ -729,6 +729,9 @@ if [ "$CHECKED_COUNT" -eq 0 ]; then
     else
         monitor_text_value '  none'
     fi
+    monitor_text_value 'Interpretation:'
+    monitor_text_value '  Interface include/exclude filters removed every vnStat interface, so no traffic, capacity, growth, or freshness checks were evaluated.'
+    monitor_text_value '  Adjust the include or exclude regexes, or verify that vnStat is tracking the expected interfaces.'
     exit "$STATE_UNKNOWN"
 fi
 
@@ -1102,13 +1105,13 @@ FINAL_EXIT=$(state_exit_code "$FINAL_STATE")
 if [ "$FINAL_EXIT" -eq 0 ]; then
     SUMMARY_TEXT="vnStat interfaces are healthy: ${OK_COUNT} checked"
 else
-    SUMMARY_TEXT='vnStat interfaces need attention:'
+    SUMMARY_TEXT='vnStat interfaces have findings:'
     SUMMARY_SEPARATOR=' '
     if [ "$CRITICAL_COUNT" -gt 0 ]; then
         if [ -n "$SUMMARY_CRITICAL" ]; then
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_CRITICAL}"
         else
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} interface(s) need immediate attention"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${CRITICAL_COUNT} interface(s) exceed configured limits"
         fi
         SUMMARY_SEPARATOR='; '
     fi
@@ -1116,7 +1119,7 @@ else
         if [ -n "$SUMMARY_WARNING" ]; then
             SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${SUMMARY_WARNING}"
         else
-            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} interface(s) need attention"
+            SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${WARNING_COUNT} interface(s) have elevated traffic or freshness findings"
         fi
         SUMMARY_SEPARATOR='; '
     fi
@@ -1134,8 +1137,8 @@ fi
 printf '%s | %s\n' "$(monitor_text_value "$SUMMARY_TEXT")" "$PERFDATA"
 
 monitor_text_value 'Summary:'
-if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_text_value "  Needs immediate attention: $NAMES_CRITICAL"; fi
-if [ "$WARNING_COUNT" -gt 0 ]; then monitor_text_value "  Needs attention: $NAMES_WARNING"; fi
+if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_text_value "  Exceeds configured limits: $NAMES_CRITICAL"; fi
+if [ "$WARNING_COUNT" -gt 0 ]; then monitor_text_value "  Elevated traffic or freshness findings: $NAMES_WARNING"; fi
 if [ "$UNKNOWN_COUNT" -gt 0 ]; then monitor_text_value "  Incomplete data: $NAMES_UNKNOWN"; fi
 if [ "$OK_COUNT" -gt 0 ]; then monitor_text_value "  Healthy interfaces: $NAMES_OK"; fi
 monitor_text_value "  Checked interfaces: $CHECKED_COUNT"
@@ -1156,5 +1159,9 @@ IGNORED_BLOCK=$(
     fi
 )
 emit_long_section "$IGNORED_BLOCK"
+monitor_text_value 'Interpretation:'
+monitor_text_value '  Interface sections are grouped by final interface state. Last update age, 95th percentile thresholds when configured, capacity thresholds when a reliable capacity exists, and growth thresholds decide the exit code.'
+monitor_text_value '  Skipped capacity or growth lines explain data that was outside scope or lacked a baseline; ignored interfaces are filtered out and do not affect the exit code.'
+monitor_text_value '  Inspect interfaces named in the summary first, then check vnstatd freshness, interface capacity configuration, and vnStat JSON output when UNKNOWN or stale data is reported.'
 
 exit "$FINAL_EXIT"

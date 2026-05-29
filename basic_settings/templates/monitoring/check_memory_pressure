@@ -720,5 +720,10 @@ else
     append_long "Memory PSI: unavailable"
 fi
 
+# Explain the combined memory decision so operators can distinguish status inputs from supporting context.
+append_long "Interpretation:"
+append_long "MemAvailable, SwapFree, and sustained swap I/O samples decide the exit code; swap utilization percentage, cache fields, PSI lines, and top swap users are supporting context for diagnosis."
+append_long "Inspect current memory consumers and recent workload changes first when the summary reports low headroom, low swap free space, or active swap I/O."
+
 emit_check "$SUMMARY" "$PERFDATA"
 exit "$EXIT_CODE"

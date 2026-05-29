@@ -524,6 +524,13 @@ EOF
     fi
 fi
 
+# Explain the status scope after any changelog diagnostics so OpenITCOCKPIT operators can triage from long output alone.
+if [ -n "$LONG_OUTPUT" ]; then
+    append_long "Interpretation:"
+    append_long "Security changelogs are diagnostic context for pending security updates; package counts, metadata age, inactive APT automation units, blacklist counts, and reboot-required state decide the exit code."
+    append_long "Inspect APT automation and package changelogs on the host when the summary names stale metadata, security updates, inactive timers, or a required reboot."
+fi
+
 # Perfdata exposes update counts and metadata age with unit-free labels.
 PERF_DATA="total_updates=${UPDATES_TOTAL};1;;0"
 PERF_DATA="$PERF_DATA security_updates=${UPDATES_SECURITY};;1;0"

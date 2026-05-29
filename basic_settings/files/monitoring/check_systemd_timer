@@ -148,6 +148,18 @@ else
     JOURNAL_JOINED=""
 fi
 
+# Add interpretation after journal details when long output exists.
+if [ -n "$JOURNAL_JOINED" ]; then
+    JOURNAL_JOINED=$(
+        {
+            printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' 'Interpretation:'
+            printf '%s\n' 'The paired service result from the timer window and current unit properties decide the exit code; journal lines are bounded context from the last trigger window.'
+            printf '%s\n' 'Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome.'
+        }
+    )
+fi
+
 # Perfdata exposes timer age and the last observed service exit status.
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 
