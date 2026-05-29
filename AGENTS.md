@@ -290,7 +290,7 @@ Detail output:
 - For checks with non-trivial long output, include an `Interpretation:` section or equivalent short explanatory lines after the primary findings. It must explain how to read the displayed data, what is inside or outside the check scope, whether contextual findings affected the exit code, and what the operator should inspect or escalate next. Keep it factual and do not repeat threshold inventories, perfdata, or final decision labels.
 - Print the most diagnostically important long-output section first.
 - Long detail sections must have a configurable line limit and state explicitly when output was truncated.
-- Do not emit consecutive blank lines in monitoring output. Separate the summary, detail sections, and repeated object blocks with at most one blank line, and avoid trailing blank lines after the final section.
+- Do not emit consecutive blank lines in monitoring output. Use exactly one blank line to separate distinct output sections when that improves readability, and avoid leading or trailing blank lines.
 - Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
 
 Perfdata:

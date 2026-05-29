@@ -50,6 +50,7 @@ PASSWD_PATH=${PASSWD_PATH:-/etc/passwd}
 
 # Output buffers
 LONG_OUTPUT=""
+LONG_OUTPUT_LAST_BLANK=0
 LONG_OUTPUT_SEP="__CHECK_MEMORY_PRESSURE_NL__"
 
 # Parse options. Puppet normally supplies these through monitoring_custom cmd, but the script stays directly usable for Nagios, Naemon, Icinga, and debugging.
@@ -82,13 +83,22 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
-# Append one diagnostic line to the long output buffer.
+# Append one diagnostic line to the long output buffer, preserving at most one blank separator between sections.
 append_long() {
+    if [ -z "$1" ]; then
+        [ -n "$LONG_OUTPUT" ] || return
+        [ "$LONG_OUTPUT_LAST_BLANK" -eq 0 ] || return
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}"
+        LONG_OUTPUT_LAST_BLANK=1
+        return
+    fi
+
     if [ -z "$LONG_OUTPUT" ]; then
         LONG_OUTPUT=$1
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+    LONG_OUTPUT_LAST_BLANK=0
 }
 
 # Append pre-serialized diagnostic lines that already use the long-output separator.
@@ -300,6 +310,7 @@ append_swap_io_sample() {
 # Swap process details are best-effort long output and must not change the check state.
 print_top_swap_processes() {
     [ "$INCLUDE_TOP_SWAP_PROCESSES" -eq 1 ] || return
+    [ -n "$LONG_OUTPUT" ] && printf '\n'
     monitor_text_value 'Top swap users:'
 
     # Per-process swap details are diagnostic only; missing helpers or /proc access should never change the memory pressure status.
@@ -717,6 +728,7 @@ else
 fi
 
 # Explain the combined memory decision so operators can distinguish status inputs from supporting context.
+append_long ""
 append_long "Interpretation:"
 append_long "MemAvailable, SwapFree, and sustained swap I/O samples decide the exit code; swap utilization percentage, cache fields, PSI lines, and top swap users are supporting context for diagnosis."
 append_long "Inspect current memory consumers and recent workload changes first when the summary reports low headroom, low swap free space, or active swap I/O."
