@@ -319,6 +319,7 @@ if [ -n "$HW_SEG" ]; then
 fi
 
 # Explain which audit findings are alert scope and which lines are supporting context.
+append_long ""
 append_long "Interpretation:"
 append_long "Audit event counters, journal errors, loaded rule count, backlog/lost counters, augenrules state, recent reboot context, and kernel-change context can affect the exit code."
 append_long "Latest keys and hardware context help identify the affected host or event source but do not by themselves add severity beyond the counters above."

@@ -483,6 +483,7 @@ PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 
 # Explain dynamic blocklist sections when the ruleset produced long output.
 if [ -n "$LONG_OUTPUT" ]; then
+    append_long ""
     append_long "Interpretation:"
     append_long "Ruleset structure lines show the table and chain inventory used for firewall effectiveness checks; blacklist sections show dynamic inet/filter sets referenced by drop or reject rules."
     append_long "Empty table and chain checks, nftables service state, and ruleset readability decide the exit code."

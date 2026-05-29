@@ -431,6 +431,7 @@ if [ -n "$DETAILS" ]; then
     DETAILS=$(
         {
             printf '%s\n' "$DETAILS"
+            printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'Severity counts from npm audit decide the exit code; package lines explain which direct or transitive dependencies contributed to those counts.'
             printf '%s\n' 'Fix metadata is context from npm audit. Inspect package-lock changes and run an application-specific remediation workflow before applying automatic fixes.'

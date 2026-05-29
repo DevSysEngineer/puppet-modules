@@ -239,6 +239,7 @@ if [ -n "$JOURNAL_JOINED" ]; then
     JOURNAL_JOINED=$(
         {
             printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context for the same agent run path.'
             printf '%s\n' 'Inspect the Puppet service, catalog errors, and the named lastrun summary file when the summary reports stale runs, failed resources, failed events, or a disabled agent.'

@@ -350,6 +350,7 @@ append_long "Session totals: ${ACTIVE_SESSIONS} active, maximum age ${MAX_SESSIO
 [ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
 append_long "Authentication counters: ${FAIL_TOTAL} total failures, ${FAIL_WL_UNMATCHED} allowlist unmatched, ${FAIL_OTH_TOTAL} other raw, ${FAIL_OTH_UNMATCHED} other unmatched, ${ABORT_WL} allowlist aborts, ${ABORT_OTH} other aborts"
 [ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
+append_long ""
 append_long "Interpretation:"
 append_long "Active session count, root login detection, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."
 append_long "Non-allowlist authentication failures and user-initiated aborts are context only. Inspect active sessions and allowlisted-user failures first when the summary reports SSH exposure."

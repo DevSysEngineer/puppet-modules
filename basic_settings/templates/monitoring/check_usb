@@ -603,6 +603,7 @@ append_long "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL
 [ -n "$EXPECTED_LIST_MISSING" ] && append_long "Expected devices missing: ${EXPECTED_LIST_MISSING}"
 [ -n "$ANYREQ_MATCHED_LIST" ] && append_long "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
 [ -n "$WHITELISTED_DEV_LIST" ] && append_long "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
+append_long ""
 append_long "Interpretation:"
 append_long "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."
 append_long "Whitelist and matched any-required device lists are diagnostic context; timed rules authorize known devices outside their active windows but only require presence during active windows."

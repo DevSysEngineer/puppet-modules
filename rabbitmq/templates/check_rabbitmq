@@ -274,6 +274,7 @@ if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
     [ "$MORE" -gt 0 ] && append_long "No-consumer queue details truncated: ${MORE} additional queue(s)"
 fi
 [ -n "$RATE_NOTICE" ] && append_long "Rate metric context: ${RATE_NOTICE}"
+append_long ""
 append_long "Interpretation:"
 append_long "Queue depth for queues with consumers decides queue severity; rate-metric availability affects the exit code only when queue depth is otherwise healthy."
 append_long "Queues with messages but no consumers are diagnostic context and do not raise severity by themselves."

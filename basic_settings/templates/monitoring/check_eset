@@ -267,6 +267,7 @@ fi
 LONG_OUTPUT=$(
     {
         printf '%s\n' "$LONG_OUTPUT"
+        printf '%s\n' ''
         printf '%s\n' 'Interpretation:'
         printf '%s\n' 'Daemon/module health, engine update age, latest scan age, latest scan detections, and recent update errors decide the exit code.'
         printf '%s\n' 'Scan history is bounded diagnostic context. Inspect ESET services, kernel modules, updater logs, and the latest scan result when the summary reports stale updates, stale scans, missing protection, detections, or cleaned files.'

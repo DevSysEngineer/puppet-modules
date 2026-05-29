@@ -680,6 +680,7 @@ if [ -n "$CONTAINER_DETAILS" ]; then
 fi
 
 # Explain how the operator should read the collected Compose state without repeating thresholds or perfdata.
+append_long ""
 append_long "Interpretation:"
 append_long "Issues are the direct causes that affected the exit code; container lines show the bounded runtime inventory used to diagnose those causes."
 append_long "Restart increases, missing rendered services, unhealthy or unexpected container states, missing required healthchecks, and orphan policy can affect the exit code; image names and normal running inventory are context."

@@ -729,6 +729,7 @@ if [ "$CHECKED_COUNT" -eq 0 ]; then
     else
         monitor_text_value '  none'
     fi
+    printf '\n'
     monitor_text_value 'Interpretation:'
     monitor_text_value '  Interface include/exclude filters removed every vnStat interface, so no traffic, capacity, growth, or freshness checks were evaluated.'
     monitor_text_value '  Adjust the include or exclude regexes, or verify that vnStat is tracking the expected interfaces.'
@@ -1159,6 +1160,7 @@ IGNORED_BLOCK=$(
     fi
 )
 emit_long_section "$IGNORED_BLOCK"
+printf '\n'
 monitor_text_value 'Interpretation:'
 monitor_text_value '  Interface sections are grouped by final interface state. Last update age, 95th percentile thresholds when configured, capacity thresholds when a reliable capacity exists, and growth thresholds decide the exit code.'
 monitor_text_value '  Skipped capacity or growth lines explain data that was outside scope or lacked a baseline; ignored interfaces are filtered out and do not affect the exit code.'

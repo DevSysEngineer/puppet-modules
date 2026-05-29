@@ -392,6 +392,7 @@ if [ -n "$JOURNAL_JOINED" ]; then
     JOURNAL_JOINED=$(
         {
             printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'systemctl unit properties, schedule policy, require-active policy, and configured journal failure/warning regex matches decide the exit code.'
             printf '%s\n' 'Other journal lines are bounded diagnostic context. Inspect the named unit status and recent journal first when the summary reports inactive, failed, transitional, outside-schedule, or marker-based service state.'

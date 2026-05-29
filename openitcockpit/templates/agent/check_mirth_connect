@@ -265,6 +265,7 @@ fi
 append_long "Channels checked: ${TOTAL_CHANS}"
 [ "$STATUS_ISSUES" -gt 0 ] && append_long "Channels not running: ${SUMMARY_STATUS}"
 [ "$QUEUE_ISSUES" -gt 0 ] && append_long "Channels with queued messages: ${SUMMARY_QUEUE}"
+append_long ""
 append_long "Interpretation:"
 append_long "Channel started/stopped state and queued-message age decide the exit code; received/sent totals and maximum queue depth are supporting metrics."
 append_long "Queued channels affect the exit code only after they stay elevated for the configured grace window. Inspect the listed channel status or queue in Mirth Connect before restarting services."

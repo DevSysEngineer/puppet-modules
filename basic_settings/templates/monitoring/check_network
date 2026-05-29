@@ -462,6 +462,7 @@ if [ "$IF_DETAIL_TRUNCATED" -gt 0 ]; then
 fi
 
 # Explain which parts of the network inventory can change the monitoring state.
+append_long ""
 append_long "Interpretation:"
 append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface address lists, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
 append_long "Inspect named down services or wired interfaces first. Public-IP values of n/a are contextual unless the summary also reports a direct interface or service failure."
