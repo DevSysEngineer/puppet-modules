@@ -232,19 +232,19 @@ done <<EOF
 $GROUP_RECORDS
 EOF
 
-# License checks are skipped for CE/no-license installations and evaluated for EE output only.
+# License checks treat CE/no-license installations as normal and evaluate EE output only when a license exists.
 LIC_RAW=$($GITLAB_RAKE gitlab:license:info 2>&1)
 LIC_RC=$?
-if [ "$LIC_RC" -ne 0 ]; then
+if printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
+    LIC_MODE="none"
+    LIC_CONTEXT="no license applied"
+elif [ "$LIC_RC" -ne 0 ]; then
     LIC_MODE="unavailable"
     LIC_ERROR=$(first_line "$LIC_RAW")
     [ -n "$LIC_ERROR" ] || LIC_ERROR="gitlab-rake gitlab:license:info exited with ${LIC_RC}"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
     MSG="${MSG}${MSG:+; }GitLab license info unavailable: ${LIC_ERROR}"
     LIC_CONTEXT="unavailable: ${LIC_ERROR}"
-elif printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
-    LIC_MODE="none"
-    LIC_CONTEXT="no license applied"
 else
     LIC_MODE="ee"
     LIC_CONTEXT="EE license detected"
@@ -300,7 +300,7 @@ append_long "Group storage: ${GROUP_COUNT} group(s), total ${GROUP_STORAGE_TOTAL
 limit_long_output_details
 append_long ""
 append_long "Interpretation:"
-append_long "Omnibus service state, Rails version-check result, and EE license availability, expiry, or user overage can affect the exit code."
+append_long "Omnibus service state, Rails version-check result, unexpected license command failures, and EE license expiry or user overage can affect the exit code; no-license installations are treated as normal."
 append_long "Group storage is emitted as perfdata for capacity trending and does not change severity by itself. Inspect stopped services, pending security updates, or license findings first when the summary names them."
 
 # Finalize the short output; perfdata is optional because CE may have no group/license counters.
