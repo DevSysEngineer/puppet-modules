@@ -118,6 +118,14 @@ monitor_text_value() {
     printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
 }
 
+# Attach a custom perfdata UOM only when the value is numeric; Nagios U stays unit-free.
+metric_with_unit() {
+    case "$1" in
+        ''|U) printf '%s' 'U' ;;
+        *)    printf '%s%s' "$1" "$2" ;;
+    esac
+}
+
 # Append one line to the long output buffer.
 append_long() {
     if [ -z "$LONG_OUTPUT" ]; then
@@ -315,13 +323,15 @@ append_long "Queue depth for queues with consumers decides queue severity; rate-
 append_long "Queues with messages but no consumers are diagnostic context and do not raise severity by themselves."
 append_long "Inspect the listed high or elevated backlog queues first. When only rate metrics are unavailable, verify rabbitmqadmin and the managed HTTP config while queue health continues to be checked through rabbitmqctl."
 
-# Perfdata keeps labels stable and leaves units implicit for broker counters.
+# Perfdata keeps labels stable; message rates use a custom messages-per-second UOM.
+PUBLISH_RATE_METRIC=$(metric_with_unit "$PUBLISH_RATE" msgps)
+DELIVER_RATE_METRIC=$(metric_with_unit "$DELIVER_RATE" msgps)
 PERF="total_messages=${TOTAL_MSG}"
 PERF="$PERF messages_ready=${TOTAL_READY}"
 PERF="$PERF messages_unack=${TOTAL_UNACK}"
 PERF="$PERF max_queue_depth=${MAX_MSG};${WARN};${CRIT};0"
-PERF="$PERF publish_rate=${PUBLISH_RATE}"
-PERF="$PERF deliver_rate=${DELIVER_RATE}"
+PERF="$PERF publish_rate=${PUBLISH_RATE_METRIC}"
+PERF="$PERF deliver_rate=${DELIVER_RATE_METRIC}"
 PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
 PERF="$PERF queues_total=${QUEUE_COUNT}"
 

@@ -76,6 +76,14 @@ monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
 }
 
+# Attach a custom perfdata UOM only when the value is numeric; Nagios U stays unit-free.
+metric_with_unit() {
+    case "$1" in
+        ''|U) printf '%s' 'U' ;;
+        *)    printf '%s%s' "$1" "$2" ;;
+    esac
+}
+
 # Append a semicolon-separated reason to an existing summary bucket.
 append_reason() {
     if [ -n "$1" ]; then
@@ -368,6 +376,7 @@ append_long "Inspect auditd, augenrules, and the named audit keys first when the
 EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
 EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
 EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
+EVENT_RATE_METRIC=$(metric_with_unit "$EVENT_RESULT" eps)
 
 # Perfdata mirrors every status-relevant counter with stable, unit-free labels.
 PERF="acct_changes=${ACCT};;1"
@@ -375,7 +384,7 @@ PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
 PERF="$PERF dropped=${LOST}c;;${DROPPED_CRIT}"
 PERF="$PERF errors=${ERROR_COUNT}c;;1"
-PERF="$PERF event_rate=${EVENT_RESULT}"
+PERF="$PERF event_rate=${EVENT_RATE_METRIC}"
 PERF="$PERF failed_auth=${FAILED_AUTH}"
 PERF="$PERF failed_syscalls=${FAIL};;1"
 PERF="$PERF keys=${KEYS};;1"
