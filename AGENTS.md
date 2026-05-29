@@ -253,6 +253,8 @@ Data handling and output construction:
 - Do not use temporary files or `TMPDIR` just to collect perfdata, long output, counters, or sort-order buffers. Prefer direct `printf` and shell variables; use `mktemp` only when an external command genuinely needs a file or the data is too large or unsafe to keep in variables.
 - Do not create shell variable assignments with literal blank lines embedded in quoted strings. Use `printf` formatting, explicit separators, or direct output instead.
 - Do not add wrapper functions that only hide one `printf`, assignment, or append operation. Add a function only when the name captures domain meaning, centralizes real validation/formatting, or removes meaningful duplication.
+- Before adding a long-output normalizer, sanitizer, or blank-line collapsing helper, inspect the specific output path that feeds it. Add that helper only when runtime data, external command output, or intentionally emitted section separators can actually produce raw pipes, leading or trailing blanks, or repeated blank lines; otherwise keep the local renderer simple and document why normalization is needed when it is not obvious.
+- Do not pipe fixed literal monitoring text through a pipe sanitizer as a default pattern. Sanitize pipes where dynamic values, external command output, file content, regexes, user names, unit names, resource names, or other runtime text enter the output; print static literal lines directly when they cannot contain `|`.
 - Represent embedded line breaks with `printf` formatting and escaped `\n`.
 - Use explicit sentinel tokens for serialized command-substitution metadata instead of newline-marker tricks.
 - Store shell lists as comma-separated values and split them deliberately.

@@ -285,14 +285,43 @@ metric_value_with_unit() {
     fi
 }
 
-# Nagios treats raw pipes after the first output line as perfdata separators.
-sanitize_monitor_output() {
+# Sanitize dynamic monitoring text that may contain Nagios perfdata delimiters.
+sanitize_monitor_stream() {
     $AWK '{ gsub(/[|]/, "[or]"); print }'
+}
+
+# Keep dynamic text safe before adding it to the monitoring output.
+sanitize_monitor_text() {
+    printf '%s\n' "$1" | sanitize_monitor_stream
+}
+
+# The rendered report has many conditional sections, so bound blank separators after dynamic lines have been sanitized at their source.
+normalize_monitor_output() {
+    $AWK '
+        function emit_line(line) {
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") {
+                if (printed && !pending_blank) {
+                    pending_blank = 1
+                }
+                return
+            }
+            if (pending_blank) {
+                print ""
+                pending_blank = 0
+            }
+            print line
+            printed = 1
+        }
+        {
+            emit_line($0)
+        }
+    '
 }
 
 # Keep the first line safe before adding the real perfdata delimiter.
 monitor_text_value() {
-    printf '%s\n' "$1" | sanitize_monitor_output | $AWK 'NR == 1 { print; exit }'
+    sanitize_monitor_text "$1" | $AWK 'NR == 1 { print; exit }'
 }
 
 # Append one unique reference path to the current comma-separated list.
@@ -376,7 +405,7 @@ print_detail_block() {
 
     for DETAIL_LINE in $1; do
         [ -n "$DETAIL_LINE" ] || continue
-        printf '%b\n' "$DETAIL_LINE"
+        printf '%b\n' "$DETAIL_LINE" | sanitize_monitor_stream
     done
 
     IFS=$OLD_IFS
@@ -613,7 +642,7 @@ print_failed_units_section() {
 
     if [ "$FAILED_UNITS" -gt "$MAX_FAILED_UNIT_LINES" ]; then
         printf '%s\n' "Failed units causing degraded state (showing first ${MAX_FAILED_UNIT_LINES} of ${FAILED_UNITS}):"
-        printf '%s\n' "$FAILED_UNIT_DETAILS" | $AWK -v max="$MAX_FAILED_UNIT_LINES" '
+        printf '%s\n' "$FAILED_UNIT_DETAILS" | sanitize_monitor_stream | $AWK -v max="$MAX_FAILED_UNIT_LINES" '
             NR <= max { print }
             END {
                 if (NR > max) {
@@ -623,7 +652,7 @@ print_failed_units_section() {
         '
     else
         printf '%s\n' "Failed units causing degraded state (${FAILED_UNITS}):"
-        printf '%s\n' "$FAILED_UNIT_DETAILS"
+        printf '%s\n' "$FAILED_UNIT_DETAILS" | sanitize_monitor_stream
     fi
 
     printf '%s\n' ""
@@ -1072,20 +1101,20 @@ case "$MANAGER_STATE" in
         if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
             printf '%s\n' 'Runtime manager context: degraded, but failed units are unavailable'
         elif [ "$FAILED_UNITS" -gt 0 ]; then
-            printf '%s\n' "Runtime manager context: degraded because ${FAILED_UNITS} unit(s) are failed"
+            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: degraded because ${FAILED_UNITS} unit(s) are failed")"
         else
             printf '%s\n' 'Runtime manager context: degraded, but no failed units were returned'
         fi
         ;;
     starting|initializing|stopping)
         if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
-            printf '%s\n' "Runtime manager context: ${MANAGER_STATE} during boot grace"
+            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE} during boot grace")"
         else
-            printf '%s\n' "Runtime manager context: ${MANAGER_STATE}"
+            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE}")"
         fi
         ;;
     *)
-        printf '%s\n' "Runtime manager context: ${MANAGER_STATE}"
+        printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE}")"
         ;;
 esac
 
@@ -1099,10 +1128,10 @@ elif [ "$VERIFY_MESSAGES" -eq 0 ]; then
     printf '%s\n' 'systemd-analyze verify output: no messages'
 elif [ "$SHOW_RAW_VERIFY" -eq 1 ] || [ "$VERIFY_MESSAGES" -le "$MAX_VERIFY_LINES" ]; then
     printf '%s\n' "systemd-analyze verify output (${VERIFY_MESSAGES} lines):"
-    printf '%s\n' "$VERIFY_OUTPUT"
+    sanitize_monitor_text "$VERIFY_OUTPUT"
 else
     printf '%s\n' "systemd-analyze verify output (first ${MAX_VERIFY_LINES} of ${VERIFY_MESSAGES} lines):"
-    printf '%s\n' "$VERIFY_OUTPUT" | $AWK -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
+    printf '%s\n' "$VERIFY_OUTPUT" | sanitize_monitor_stream | $AWK -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
     printf '%s\n' '[truncated]'
 fi
 
@@ -1129,6 +1158,6 @@ printf '%s\n' 'Interpretation:'
 printf '%s\n' 'Default target validity, default target load state, systemd-analyze verify output, actionable load/config units, and optional strict daemon-reload handling decide the configuration exit code.'
 printf '%s\n' 'The systemd manager state and failed-unit list provide runtime context; degraded runtime units affect this check as non-critical findings unless actionable configuration errors are also present.'
 printf '%s\n' 'Inspect actionable load/config errors first, then verify failed runtime units and daemon-reload state when the summary names those findings.'
-} | sanitize_monitor_output
+} | normalize_monitor_output
 
 exit "$STATE"

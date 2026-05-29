@@ -36,6 +36,7 @@ SECURITY_PACKAGE_SUMMARY_LIMIT=${SECURITY_PACKAGE_SUMMARY_LIMIT:-10}
 
 # Long output is assembled in-memory and emitted only after the perfdata line.
 LONG_OUTPUT=""
+LONG_OUTPUT_LAST_BLANK=0
 LONG_OUTPUT_SEP="__CHECK_APT_NL__"
 
 # Update counters are parsed from the apt simulation output.
@@ -93,18 +94,63 @@ esac
 [ "$CHANGELOG_TOTAL_BUDGET" -ge 1 ] || die "changelog runtime budget must be at least 1"
 [ "$SECURITY_PACKAGE_SUMMARY_LIMIT" -ge 1 ] || die "security package summary limit must be at least 1"
 
-# Append one line to the long output buffer.
+# Append one line to the long output buffer while preserving at most one blank separator.
 append_long() {
+    if [ -z "$1" ]; then
+        [ -n "$LONG_OUTPUT" ] || return
+        [ "$LONG_OUTPUT_LAST_BLANK" -eq 0 ] || return
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}"
+        LONG_OUTPUT_LAST_BLANK=1
+        return
+    fi
+
     if [ -z "$LONG_OUTPUT" ]; then
         LONG_OUTPUT=$1
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+    LONG_OUTPUT_LAST_BLANK=0
 }
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# APT changelog snippets are external multi-line text, so sanitize pipes and collapse accidental blanks before storing them.
+sanitize_external_block() {
+    printf '%s\n' "$1" | $AWK '
+        function emit_line(line) {
+            gsub(/[|]/, "[or]", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == "") {
+                if (printed && !pending_blank) {
+                    pending_blank = 1
+                }
+                return
+            }
+            if (pending_blank) {
+                print ""
+                pending_blank = 0
+            }
+            print line
+            printed = 1
+        }
+        {
+            emit_line($0)
+        }
+    '
+}
+
+# Append a sanitized external text block as individual long-output lines.
+append_external_block() {
+    [ -n "$1" ] || return
+
+    while IFS= read -r line; do
+        append_long "$line"
+    done <<EOF
+$1
+EOF
 }
 
 # Emit the summary line and optional long output.
@@ -115,7 +161,6 @@ emit_check() {
             BEGIN {
                 count = split(data, lines, sep)
                 for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
                     printf "%s\n", lines[i]
                 }
             }
@@ -501,9 +546,9 @@ EOF
                             # Each long-output section names the source package and covered binaries.
                             append_long ""
                             if [ -n "$oldver" ]; then
-                                append_long "[${source_pkg}] ${packages} (${oldver} -> ${newver})"
+                                append_long "$(monitor_text_value "[${source_pkg}] ${packages} (${oldver} -> ${newver})")"
                             else
-                                append_long "[${source_pkg}] ${packages} (not installed -> ${newver})"
+                                append_long "$(monitor_text_value "[${source_pkg}] ${packages} (not installed -> ${newver})")"
                             fi
 
                             if [ "$FETCH_RC" -ne 0 ] || [ -z "$RAW_CHANGELOG" ]; then
@@ -522,7 +567,7 @@ EOF
                                 continue
                             fi
 
-                            append_long "$FILTERED_CHANGELOG"
+                            append_external_block "$(sanitize_external_block "$FILTERED_CHANGELOG")"
                         done <<EOF
 $SECURITY_GROUPS
 EOF
@@ -539,6 +584,7 @@ fi
 
 # Explain the status scope after any changelog diagnostics so OpenITCOCKPIT operators can triage from long output alone.
 if [ -n "$LONG_OUTPUT" ]; then
+    append_long ""
     append_long "Interpretation:"
     append_long "Security changelogs are diagnostic context for pending security updates; package counts, metadata age, inactive APT automation units, blacklist counts, and reboot-required state decide the exit code."
     append_long "Inspect APT automation and package changelogs on the host when the summary names stale metadata, security updates, inactive timers, or a required reboot."
