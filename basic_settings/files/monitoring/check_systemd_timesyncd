@@ -16,6 +16,8 @@ TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not availa
 
 # Status buffers collect the direct CRITICAL and WARNING causes.
 CRIT_MSG=""
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_SYSTEMD_TIMESYNCD_NL__"
 WARN_MSG=""
 STATE_CODE=0
 
@@ -55,6 +57,31 @@ ge() {
 # Keep server/status text safe before the real perfdata delimiter.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Append one diagnostic line to the long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
+}
+
+# Emit one monitoring line followed by fixed time-synchronization context.
+emit_check() {
+    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
+    fi
 }
 
 # Extract a numeric value and its unit from timedatectl output.
@@ -150,6 +177,14 @@ PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5"
 PERF="$PERF delay=${DELAY_SEC}s;;;0"
 PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
+# Detail output explains the measured time source quality without repeating threshold inventories.
+append_long "Timesyncd server: ${SERVER:-unknown}"
+append_long "Clock synchronized: ${NTPSYNC:-unknown}"
+append_long "Observed timing: offset ${ABS_OFFSET}s, jitter ${JITTER_SEC}s, root distance ${ROTDIST_SEC}s, delay ${DELAY_SEC}s, stratum ${STRAT}"
+append_long "Interpretation:"
+append_long "systemd-timesyncd service state, NTPSynchronized, absolute offset, jitter, root distance, and stratum decide the exit code."
+append_long "Inspect the configured NTP servers, DNS, routing, and systemd-timesyncd journal when the summary reports an unsynchronised clock or poor time quality."
+
 # Emit one monitoring line; server names are sanitized before the perfdata delimiter.
-printf '%s | %s\n' "$(monitor_text_value "$MSG")" "$PERF"
+emit_check "$MSG" "$PERF"
 exit "$STATE_CODE"
