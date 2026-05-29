@@ -319,7 +319,7 @@ done <<EOF
 $UPDATE_FAILED_TIMESTAMPS
 EOF
 [ "$UPDATES_FAILED" -gt 0 ] && add_warn "$UPDATES_FAILED update errors (1h)"
- 
+
 # Start the summary with the engine and latest scan because those are the operator-facing health anchors.
 if [ "$UPDATE_AGE_MIN" = U ]; then
     UPDATE_AGE_TEXT="unknown"

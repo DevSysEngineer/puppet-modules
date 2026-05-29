@@ -23,13 +23,30 @@ case "$LIC_WARN_DAYS" in
 esac
 
 # Runtime state is built from omnibus service status, Rails output, and license checks.
+GROUP_COUNT=0
+GROUP_STORAGE_MAX_MB=0
+GROUP_STORAGE_MAX_NAME=""
+GROUP_STORAGE_TOTAL_MB=0
+LIC_CONTEXT="unknown"
+LONG_OUTPUT=""
+LONG_OUTPUT_SEP="__CHECK_GITLAB_NL__"
 STATE_CODE=0
 MSG=""
 PERF=""
+VERSION_CONTEXT="version check data unavailable"
 
 # Nagios treats raw pipes after the first output line as perfdata separators.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Append one line to the diagnostic long output buffer.
+append_long() {
+    if [ -z "$LONG_OUTPUT" ]; then
+        LONG_OUTPUT=$1
+    else
+        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
+    fi
 }
 
 # Read the first useful diagnostic line from command output.
@@ -48,6 +65,17 @@ emit_check() {
         printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     else
         printf '%s\n' "$(monitor_text_value "$1")"
+    fi
+    if [ -n "$LONG_OUTPUT" ]; then
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    gsub(/[|]/, "[or]", lines[i])
+                    print lines[i]
+                }
+            }
+        '
     fi
 }
 
@@ -134,16 +162,19 @@ if [ -n "$VC_LINE" ]; then
     if [ "$CV" -eq 1 ]; then
         STATE_CODE=2
         MSG="${MSG}${MSG:+; }GitLab critical security update available (-> $NEW_VER)"
+        VERSION_CONTEXT="critical security update available: ${NEW_VER:-unknown}${SEV:+ ($SEV)}"
     elif [ "$SEV" = "success" ] || [ -z "$NEW_VER" ]; then
+        VERSION_CONTEXT="up to date"
         : # Up-to-date
     else
         [ $STATE_CODE -lt 1 ] && STATE_CODE=1
         MSG="${MSG}${MSG:+; }GitLab update available ($SEV: $NEW_VER)"
+        VERSION_CONTEXT="update available: ${NEW_VER:-unknown}${SEV:+ ($SEV)}"
     fi
 fi
 
-# Build per-group storage perfdata; group paths are label-sanitized but values remain raw megabytes.
-GROUPS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
+# Build per-group storage perfdata and compact aggregate context; group paths are label-sanitized but values remain raw megabytes.
+GROUP_RECORDS=$(printf '%s' "$RAILS_RAW" | $AWK -F'|' '/^GR\|/ {sub(/^GR\|/, "", $0); print}')
 while IFS='|' read -r N B; do
     [ -z "$N" ] && continue
     case "$B" in
@@ -151,10 +182,16 @@ while IFS='|' read -r N B; do
     esac
     MB=$(( B / 1048576 ))
     SAFE=$(sanitize_label "$N")
+    GROUP_COUNT=$((GROUP_COUNT + 1))
+    GROUP_STORAGE_TOTAL_MB=$((GROUP_STORAGE_TOTAL_MB + MB))
+    if [ "$MB" -gt "$GROUP_STORAGE_MAX_MB" ]; then
+        GROUP_STORAGE_MAX_MB=$MB
+        GROUP_STORAGE_MAX_NAME=$N
+    fi
 
     PERF="${PERF} group_${SAFE}=${MB}MB;;;0"
 done <<EOF
-$GROUPS
+$GROUP_RECORDS
 EOF
 
 # License checks are skipped for CE/no-license installations and evaluated for EE output only.
@@ -166,10 +203,13 @@ if [ "$LIC_RC" -ne 0 ]; then
     [ -n "$LIC_ERROR" ] || LIC_ERROR="gitlab-rake gitlab:license:info exited with ${LIC_RC}"
     [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
     MSG="${MSG}${MSG:+; }GitLab license info unavailable: ${LIC_ERROR}"
+    LIC_CONTEXT="unavailable: ${LIC_ERROR}"
 elif printf '%s\n' "$LIC_RAW" | $AWK '/No license has been applied/ {found=1} END{exit found ? 0 : 1}'; then
     LIC_MODE="none"
+    LIC_CONTEXT="no license applied"
 else
     LIC_MODE="ee"
+    LIC_CONTEXT="EE license detected"
 fi
 
 if [ "$LIC_MODE" = "ee" ]; then
@@ -186,9 +226,13 @@ if [ "$LIC_MODE" = "ee" ]; then
             if [ "$DLEFT" -le 0 ]; then
                 [ $STATE_CODE -lt 1 ] && STATE_CODE=1
                 MSG="${MSG}${MSG:+; }GitLab license expired"
+                LIC_CONTEXT="${LIC_CONTEXT}; expired"
             elif [ "$DLEFT" -le "$LIC_WARN_DAYS" ]; then
                 [ $STATE_CODE -lt 1 ] && STATE_CODE=1
                 MSG="${MSG}${MSG:+; }GitLab license expires in ${DLEFT}d"
+                LIC_CONTEXT="${LIC_CONTEXT}; expires in ${DLEFT}d"
+            else
+                LIC_CONTEXT="${LIC_CONTEXT}; expires in ${DLEFT}d"
             fi
         fi
     fi
@@ -199,6 +243,7 @@ if [ "$LIC_MODE" = "ee" ]; then
     esac
     if [ -n "$CURR" ] && [ -n "$MAX" ] && [ "$MAX" -gt 0 ]; then
         PERF="${PERF} active_users=${CURR};;;0 user_limit=${MAX};;;0"
+        LIC_CONTEXT="${LIC_CONTEXT}; users ${CURR}/${MAX}"
         OVER=$(( CURR - MAX ))
         if [ "$OVER" -gt 0 ]; then
             PCT=$(( OVER * 100 / MAX ))
@@ -208,6 +253,15 @@ if [ "$LIC_MODE" = "ee" ]; then
         fi
     fi
 fi
+
+# Long output explains the independent GitLab checks without flooding operators with every group metric.
+append_long "Version check: ${VERSION_CONTEXT}"
+append_long "License: ${LIC_CONTEXT}"
+append_long "Group storage: ${GROUP_COUNT} group(s), total ${GROUP_STORAGE_TOTAL_MB} MB"
+[ -n "$GROUP_STORAGE_MAX_NAME" ] && append_long "Largest group storage: ${GROUP_STORAGE_MAX_NAME} (${GROUP_STORAGE_MAX_MB} MB)"
+append_long "Interpretation:"
+append_long "Omnibus service state, Rails version-check result, and EE license availability, expiry, or user overage can affect the exit code."
+append_long "Group storage is emitted as perfdata for capacity trending and does not change severity by itself. Inspect stopped services, pending security updates, or license findings first when the summary names them."
 
 # Finalize the short output; perfdata is optional because CE may have no group/license counters.
 [ -z "$MSG" ] && MSG="GitLab is running"

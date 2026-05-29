@@ -9,7 +9,6 @@ die() {
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
-CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"

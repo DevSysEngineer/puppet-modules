@@ -271,6 +271,11 @@ done <<EOF
 $RULESET_STATS
 EOF
 
+# Always expose the evaluated ruleset structure so empty table/chain alerts have immediate detail output.
+append_long "Ruleset structure: ${TOTAL_RULES} rule(s) in ${TABLE_COUNT} table(s)"
+[ -n "$CHAIN_EMPTY" ] && append_long "Empty chains: ${CHAIN_EMPTY}"
+[ -n "$TABLE_EMPTY" ] && append_long "Empty tables: ${TABLE_EMPTY}"
+
 # Find dynamic inet/filter sets that are actually referenced by drop/reject rules.
 FILTER_SETS=$(printf '%s' "$RULESET" | $AWK '
 BEGIN {
@@ -383,7 +388,7 @@ if [ -n "$FILTER_SETS" ]; then
 
         BL_ITEMS=$((BL_ITEMS + $#))
 
-        if [ "$FILTER_SECTION_COUNT" -gt 0 ]; then
+        if [ -n "$LONG_OUTPUT" ]; then
             append_long ""
         fi
 
@@ -471,15 +476,16 @@ $INLINE_CTRS
 EOF
 fi
 
-# Sort counter perfdata by packet count so the busiest rules appear first.
-PERFDATA_BUFFER=$(printf '%b' "$PERFDATA_BUFFER" | $SORT -k2,2nr | $AWK '{printf "%s=%s ", $1, $2}')
+# Sort counter perfdata by packet count so the busiest rules appear first without leaving a trailing perfdata separator space.
+PERFDATA_BUFFER=$(printf '%b' "$PERFDATA_BUFFER" | $SORT -k2,2nr | $AWK 'NF { printf "%s%s=%s", sep, $1, $2; sep=" " }')
 PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 [ -n "$PERFDATA_BUFFER" ] && PERF_DATA="$PERF_DATA $PERFDATA_BUFFER"
 
 # Explain dynamic blocklist sections when the ruleset produced long output.
 if [ -n "$LONG_OUTPUT" ]; then
     append_long "Interpretation:"
-    append_long "Blacklist sections show dynamic inet/filter sets referenced by drop or reject rules; empty table and chain checks, nftables service state, and ruleset readability decide the exit code."
+    append_long "Ruleset structure lines show the table and chain inventory used for firewall effectiveness checks; blacklist sections show dynamic inet/filter sets referenced by drop or reject rules."
+    append_long "Empty table and chain checks, nftables service state, and ruleset readability decide the exit code."
     append_long "Named and inline counter perfdata is context for traffic volume. Inspect the named empty table/chain first when the summary reports a firewall structure failure."
 fi
 
