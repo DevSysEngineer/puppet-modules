@@ -239,8 +239,8 @@ while IFS='|' read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
             ;;
         HISTORY)
             # History lines are diagnostic only and are capped in the long output below.
-            DETAIL_LINE="- ${COL1}: status=${COL2}, scanned=${COL3}, cleaned=${COL4}, detections=${COL5}, duration=${COL6}"
-            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered_by=${COL7}"
+            DETAIL_LINE="- ${COL1}: status ${COL2}, scanned ${COL3}, cleaned ${COL4}, detections ${COL5}, duration ${COL6}"
+            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered by ${COL7}"
             if [ -z "$SCAN_HISTORY" ]; then
                 SCAN_HISTORY=$DETAIL_LINE
             else

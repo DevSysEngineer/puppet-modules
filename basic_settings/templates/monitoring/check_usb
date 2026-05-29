@@ -574,12 +574,10 @@ if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
     STATUS_CODE=2
     if [ $UNAUTHORIZED_COUNT -gt 0 ]; then
         UNAUTHORIZED_SUMMARY="USB unauthorized device(s) detected: ${UNAUTHORIZED_COUNT}"
-        [ -n "$UNAUTHORIZED_DEV_LIST" ] && UNAUTHORIZED_SUMMARY="${UNAUTHORIZED_SUMMARY} (${UNAUTHORIZED_DEV_LIST%%, *})"
         MSG=$(append_summary_reason "$MSG" "$UNAUTHORIZED_SUMMARY")
     fi
     if [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
         EXPECTED_MISSING_SUMMARY="USB expected device(s) missing: ${EXPECTED_MISSING_COUNT}"
-        [ -n "$EXPECTED_LIST_MISSING" ] && EXPECTED_MISSING_SUMMARY="${EXPECTED_MISSING_SUMMARY} (${EXPECTED_LIST_MISSING%%, *})"
         MSG=$(append_summary_reason "$MSG" "$EXPECTED_MISSING_SUMMARY")
     fi
 else

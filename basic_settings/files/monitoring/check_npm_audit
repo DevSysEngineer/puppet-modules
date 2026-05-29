@@ -401,9 +401,9 @@ run_jq '
       + .severity
       + ", "
       + (if .is_direct then "direct" else "transitive" end)
-      + ", range="
+      + ", range "
       + .range
-      + ", fix="
+      + ", fix "
       + .fix_label
       + "] - "
       + (.advisories | join("; "))

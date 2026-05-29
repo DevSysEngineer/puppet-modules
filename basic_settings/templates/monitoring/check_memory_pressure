@@ -344,7 +344,7 @@ print_top_swap_processes() {
                         }
                         gsub(/[|]/, "[or]", user)
                         gsub(/[|]/, "[or]", name)
-                        printf "%010d %d KiB swap, %d KiB rss, user=%s, process=%s, pid=%s\n", swp, swp, rss + 0, user, name, pid
+                        printf "%010d %d KiB swap, %d KiB RSS, user %s, process %s, PID %s\n", swp, swp, rss + 0, user, name, pid
                     }
                 }
             ' "$STATUS_PATH"
@@ -670,18 +670,14 @@ else
     fi
 fi
 
-# Build perfdata with stable lowercase snake_case labels and UOMs. Labels intentionally avoid unit suffixes so graph history stays stable if thresholds change.
-PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB"
+# Build perfdata with stable lowercase snake_case labels and UOMs; low-water thresholds use Nagios range syntax so lower values alert correctly.
+PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB;${MEM_AVAILABLE_WARNING_KIB}:;${MEM_AVAILABLE_CRITICAL_KIB}:;0;${MEM_TOTAL_KIB}"
 PERFDATA="${PERFDATA} memory_headroom=${MEM_AVAILABLE_PERCENT}%;;;0;100"
-PERFDATA="${PERFDATA} memory_warning_limit=${MEM_AVAILABLE_WARNING_KIB}KB"
-PERFDATA="${PERFDATA} memory_critical_limit=${MEM_AVAILABLE_CRITICAL_KIB}KB"
 PERFDATA="${PERFDATA} swap_used=${SWAP_USED_KIB}KB"
 PERFDATA="${PERFDATA} swap_utilization=${SWAP_USED_PERCENT}%;${SWAP_WARNING_PERCENT};${SWAP_CRITICAL_PERCENT};0;100"
-PERFDATA="${PERFDATA} swap_free=${SWAP_FREE_KIB}KB"
-PERFDATA="${PERFDATA} swap_free_warning=${SWAP_FREE_WARNING_KIB}KB"
-PERFDATA="${PERFDATA} swap_free_critical=${SWAP_FREE_CRITICAL_KIB}KB"
-PERFDATA="${PERFDATA} swap_in=${SWAP_IN_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
-PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_KIB_PER_SEC}KB;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
+PERFDATA="${PERFDATA} swap_free=${SWAP_FREE_KIB}KB;${SWAP_FREE_WARNING_KIB}:;${SWAP_FREE_CRITICAL_KIB}:;0;${SWAP_TOTAL_KIB}"
+PERFDATA="${PERFDATA} swap_in=${SWAP_IN_KIB_PER_SEC};${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
+PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_KIB_PER_SEC};${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
 PERFDATA="${PERFDATA} swap_cached=${SWAP_CACHED_KIB}KB"
 PERFDATA="${PERFDATA} buffers=${BUFFERS_KIB}KB"
 PERFDATA="${PERFDATA} cached=${CACHED_KIB}KB"

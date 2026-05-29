@@ -180,7 +180,8 @@ ERROR_SNIPPET=${ERR_COMBINED#*|}
 
 # Journal errors override earlier OK text because they show audit runtime failure.
 if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
-    add_critical "journal errors since boot: ${ERROR_SNIPPET:-unknown}"
+    add_critical "journal errors since boot ${ERROR_COUNT}"
+    append_long "Latest audit journal errors: ${ERROR_SNIPPET:-unknown}"
 fi
 <% else -%>
 ERROR_COUNT=0
@@ -332,8 +333,8 @@ EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
 PERF="acct_changes=${ACCT};;1"
 PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
-PERF="$PERF dropped=${LOST};;${DROPPED_CRIT}"
-PERF="$PERF errors=${ERROR_COUNT};;1"
+PERF="$PERF dropped=${LOST}c;;${DROPPED_CRIT}"
+PERF="$PERF errors=${ERROR_COUNT}c;;1"
 PERF="$PERF event_rate=${EVENT_RESULT}"
 PERF="$PERF failed_auth=${FAILED_AUTH}"
 PERF="$PERF failed_syscalls=${FAIL};;1"

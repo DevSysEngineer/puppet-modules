@@ -599,7 +599,7 @@ while IFS='	' read -r container_id container_name service_name image_name restar
     esac
 
     # Long output is capped separately so each container can contribute detail without unbounded output.
-    detail_line="- ${service_name:-unknown}/${container_name:-unknown}: image=${image_name:-unknown} state=${state_status:-unknown} health=${health_status:-none} restarts=${restart_count:-0} exit=${exit_code:-0}"
+    detail_line="- ${service_name:-unknown}/${container_name:-unknown}: image ${image_name:-unknown}, state ${state_status:-unknown}, health ${health_status:-none}, restarts ${restart_count:-0}, exit ${exit_code:-0}"
     append_container_detail "$detail_line"
     if [ -n "$health_output" ] && { [ "$health_status" = "unhealthy" ] || [ "$health_status" = "starting" ]; }; then
         append_container_detail "  health: ${health_output}"
@@ -659,7 +659,7 @@ PERFDATA="${PERFDATA} containers_healthy=${HEALTH_HEALTHY} containers_unhealthy=
 PERFDATA="${PERFDATA} containers_starting_too_long=${HEALTH_STARTING_TOO_LONG} containers_without_healthcheck=${CONTAINERS_WITHOUT_HEALTHCHECK}"
 PERFDATA="${PERFDATA} containers_health_required_missing=${HEALTH_REQUIRED_MISSING} compose_services_expected=${COMPOSE_SERVICES_EXPECTED}"
 PERFDATA="${PERFDATA} compose_services_present=${COMPOSE_SERVICES_PRESENT} compose_services_missing=${COMPOSE_SERVICES_MISSING}"
-PERFDATA="${PERFDATA} compose_orphans=${COMPOSE_ORPHANS} container_restarts_total=${CONTAINER_RESTARTS_TOTAL} container_restarts_increased=${CONTAINER_RESTARTS_INCREASED}"
+PERFDATA="${PERFDATA} compose_orphans=${COMPOSE_ORPHANS} container_restarts_total=${CONTAINER_RESTARTS_TOTAL}c container_restarts_increased=${CONTAINER_RESTARTS_INCREASED}"
 
 append_long "Project: ${CHECK_NAME}"
 append_long "Project directory: ${PROJECT_DIRECTORY}"

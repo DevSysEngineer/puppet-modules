@@ -463,7 +463,7 @@ fi
 # A recent journal failure marker upgrades an otherwise active service to CRITICAL.
 if [ -n "$FAIL_LINE" ]; then
     emit_check \
-        "$SERVICE_UNIT is active but the journal contains failure marker \"$FAIL_LINE\"; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
+        "$SERVICE_UNIT is active but the journal contains a recent failure marker; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 2
 fi
@@ -471,7 +471,7 @@ fi
 # Warning markers are opt-in through WARN_RE and only affect otherwise healthy services.
 if [ -n "$WARN_LINE" ]; then
     emit_check \
-        "$SERVICE_UNIT journal contains warning marker \"$WARN_LINE\"; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
+        "$SERVICE_UNIT journal contains a recent warning marker; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 1
 fi

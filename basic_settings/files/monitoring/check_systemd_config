@@ -576,7 +576,7 @@ collect_failed_units() {
                     description = "(no description)"
                 }
                 gsub(/[[:cntrl:]]/, " ", description)
-                printf "- %s; load=%s; active=%s; sub=%s; description=%s\n", $1, $2, $3, $4, description
+                printf "- %s; load state %s; active state %s; sub state %s; description %s\n", $1, $2, $3, $4, description
             }
         ')
     else
@@ -854,7 +854,7 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
         DEFAULT_TARGET_LOAD_STATE=unknown
         add_unknown 'default target LoadState unavailable'
     elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
-        add_critical "default target load=${DEFAULT_TARGET_LOAD_STATE}"
+        add_critical "default target load state ${DEFAULT_TARGET_LOAD_STATE}"
     fi
 
     NEED_DAEMON_RELOAD_RAW=$($SYSTEMCTL show -p NeedDaemonReload --value "$DEFAULT_TARGET" 2>/dev/null)
@@ -865,9 +865,9 @@ if [ "$DEFAULT_TARGET_VALID" -eq 1 ]; then
         yes)
             DAEMON_RELOAD_METRIC=1
             if [ "$STRICT_RELOAD" -eq 1 ]; then
-                add_critical 'daemon_reload=yes'
+                add_critical 'daemon reload required'
             else
-                add_warning 'daemon_reload=yes'
+                add_warning 'daemon reload required'
             fi
             ;;
         no)
@@ -1056,7 +1056,7 @@ elif [ "$BAD_LOAD_UNITS" -gt 0 ]; then
 elif [ "$VERIFY_EXIT_NONZERO" = '1' ]; then
     printf '%s\n' 'Configuration result: invalid, systemd-analyze verify failed'
 elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
-    printf '%s\n' "Configuration result: invalid, default target load=${DEFAULT_TARGET_LOAD_STATE}"
+    printf '%s\n' "Configuration result: invalid, default target load state ${DEFAULT_TARGET_LOAD_STATE}"
 elif [ "$NEED_DAEMON_RELOAD" = 'yes' ]; then
     if [ "$STRICT_RELOAD" -eq 1 ]; then
         printf '%s\n' 'Configuration result: invalid, daemon-reload is required'

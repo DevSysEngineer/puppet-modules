@@ -340,16 +340,15 @@ USERS_LIST_TEXT=$(cap_csv_list "$USERS_LIST")
 [ "$AGE_CRIT" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "session age ${MAX_SESSION_AGE_MIN}m")
 if [ "$FAIL_WL_UNMATCHED" -gt 0 ]; then
     ALLOWLIST_FAILURE_SUMMARY="${FAIL_WL_UNMATCHED} unmatched allowlist failure(s)"
-    [ -n "$BAD_WL_USERS_TEXT" ] && ALLOWLIST_FAILURE_SUMMARY="${ALLOWLIST_FAILURE_SUMMARY} for ${BAD_WL_USERS_TEXT%%, *}"
     SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "$ALLOWLIST_FAILURE_SUMMARY")
 fi
 [ "$ZOMBIE_COUNT" -gt 0 ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "${ZOMBIE_COUNT} zombie sshd process(es)")
 
 # Long output shows bounded user and journal-classification context.
-append_long "Session totals: active=${ACTIVE_SESSIONS}, maximum age=${MAX_SESSION_AGE_MIN}m, root login=${ROOT_LOGIN}"
+append_long "Session totals: ${ACTIVE_SESSIONS} active, maximum age ${MAX_SESSION_AGE_MIN}m, root login ${ROOT_LOGIN}"
 [ -n "$USERS_LIST_TEXT" ] && append_long "Active users: ${USERS_LIST_TEXT}"
 [ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
-append_long "Authentication counters: total failures=${FAIL_TOTAL}, allowlist unmatched=${FAIL_WL_UNMATCHED}, other raw=${FAIL_OTH_TOTAL}, other unmatched=${FAIL_OTH_UNMATCHED}, allowlist aborts=${ABORT_WL}, other aborts=${ABORT_OTH}"
+append_long "Authentication counters: ${FAIL_TOTAL} total failures, ${FAIL_WL_UNMATCHED} allowlist unmatched, ${FAIL_OTH_TOTAL} other raw, ${FAIL_OTH_UNMATCHED} other unmatched, ${ABORT_WL} allowlist aborts, ${ABORT_OTH} other aborts"
 [ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
 append_long "Interpretation:"
 append_long "Active session count, root login detection, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."
