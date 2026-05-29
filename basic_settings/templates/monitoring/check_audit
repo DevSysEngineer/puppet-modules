@@ -36,6 +36,7 @@ QUEUE_WARN=""
 CRITICAL_REASONS=""
 HW_SEG=""
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_AUDIT_NL__"
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 USAGE_TEXT="Usage: $0 [-q <int>] [-d <int>]"
@@ -57,6 +58,10 @@ shift $((OPTIND - 1))
 case "$DROPPED_CRIT" in
     ''|*[!0-9]*) die "dropped threshold must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Read the first trimmed line from a file.
 trim_file() {
@@ -99,6 +104,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit the summary line, perfdata, and sanitized detail output.
@@ -319,6 +357,7 @@ if [ -n "$HW_SEG" ]; then
 fi
 
 # Explain which audit findings are alert scope and which lines are supporting context.
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Audit event counters, journal errors, loaded rule count, backlog/lost counters, augenrules state, recent reboot context, and kernel-change context can affect the exit code."

@@ -17,6 +17,7 @@ TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not availa
 # Status buffers collect the direct CRITICAL and WARNING causes.
 CRIT_MSG=""
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_SYSTEMD_TIMESYNCD_NL__"
 WARN_MSG=""
 STATE_CODE=0
@@ -32,6 +33,12 @@ ROOT_WARN=0.5 # 500ms
 # High stratum is treated as a synchronization quality signal.
 STRAT_CRIT=15 # >15 ~= unsynchronised
 STRAT_WARN=10
+
+# Validate the long-output cap before any diagnostic details are rendered.
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
@@ -66,6 +73,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit one monitoring line followed by fixed time-synchronization context.
@@ -181,6 +221,7 @@ PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 append_long "Timesyncd server: ${SERVER:-unknown}"
 append_long "Clock synchronized: ${NTPSYNC:-unknown}"
 append_long "Observed timing: offset ${ABS_OFFSET}s, jitter ${JITTER_SEC}s, root distance ${ROTDIST_SEC}s, delay ${DELAY_SEC}s, stratum ${STRAT}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "systemd-timesyncd service state, NTPSynchronized, absolute offset, jitter, root distance, and stratum decide the exit code."

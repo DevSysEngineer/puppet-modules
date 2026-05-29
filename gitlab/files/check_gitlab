@@ -18,9 +18,14 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # License warning lead time is configurable through the environment for direct check use.
 LIC_WARN_DAYS=${LIC_WARN_DAYS:-30}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 case "$LIC_WARN_DAYS" in
     ''|*[!0-9]*) die "LIC_WARN_DAYS must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "DETAIL_LIMIT must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 
 # Runtime state is built from omnibus service status, Rails output, and license checks.
 GROUP_COUNT=0
@@ -47,6 +52,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Read the first useful diagnostic line from command output.
@@ -259,6 +297,7 @@ append_long "Version check: ${VERSION_CONTEXT}"
 append_long "License: ${LIC_CONTEXT}"
 append_long "Group storage: ${GROUP_COUNT} group(s), total ${GROUP_STORAGE_TOTAL_MB} MB"
 [ -n "$GROUP_STORAGE_MAX_NAME" ] && append_long "Largest group storage: ${GROUP_STORAGE_MAX_NAME} (${GROUP_STORAGE_MAX_MB} MB)"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Omnibus service state, Rails version-check result, and EE license availability, expiry, or user overage can affect the exit code."

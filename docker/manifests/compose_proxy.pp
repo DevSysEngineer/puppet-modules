@@ -58,8 +58,7 @@
 #   Redirects public HTTP to HTTPS when public certificates are configured.
 #
 # @param monitoring_detail_limit
-#   Maximum number of long-output detail lines emitted by the Compose monitoring
-#   check.
+#   Maximum number of diagnostic characters emitted before the Compose monitoring `Interpretation:` section.
 #
 # @param monitoring_expected_exited
 #   Container names that are allowed to be exited without making the stack
@@ -146,7 +145,7 @@ define docker::compose_proxy (
   Boolean                                       $http3_enable                  = false,
   Boolean                                       $http_enable                   = true,
   Boolean                                       $https_force                   = true,
-  Integer                                       $monitoring_detail_limit       = 30,
+  Integer                                       $monitoring_detail_limit       = 6000,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited    = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required    = [],
   Integer                                       $monitoring_interval           = 300,

@@ -20,6 +20,7 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
 LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000} # max characters before Interpretation
 
 # The service name follows the timer name; this matches systemd's common .timer/.service pairing.
 USAGE_TEXT="Usage: $0 <timer>"
@@ -37,9 +38,13 @@ esac
 case "$WINDOW" in
     ''|*[!0-9]*) die "WINDOW must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "DETAIL_LIMIT must be numeric" ;;
+esac
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
 [ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 
 # Emit the summary line and optional long output.
 emit_check() {
@@ -64,6 +69,29 @@ format_journal_lines() {
                 line = substr(line, 1, max) "... [line truncated]"
             }
             print "- " line
+        }
+    '
+}
+
+# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_text_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
         }
     '
 }
@@ -151,7 +179,7 @@ fi
 if [ -n "$JOURNAL_JOINED" ]; then
     JOURNAL_JOINED=$(
         {
-            printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'The paired service result from the timer window and current unit properties decide the exit code; journal lines are bounded context from the last trigger window.'

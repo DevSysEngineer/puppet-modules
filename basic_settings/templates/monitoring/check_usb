@@ -27,7 +27,6 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 ANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
 ANYREQ_MATCHED_LIST=""
-ANYREQ_MATCHED_SHOWN=0
 ANYREQ_OK=1
 ANYREQ_PRESENT_COUNT=0
 ANYREQ_SERIALS_CONFIGURED=""
@@ -41,7 +40,6 @@ EXPECTED_IDS="" # -e CSV
 EXPECTED_LIST="<%= @usb_expected_correct %>"
 EXPECTED_LIST_MISSING=""
 EXPECTED_MISSING_COUNT=0
-EXPECTED_MISSING_SHOWN=0
 EXPECTED_PRESENT_COUNT=0
 EXPECTED_SERIALS_CONFIGURED=""
 EXPECTED_SERIALS_ACTIVE=""
@@ -50,7 +48,7 @@ EXPECTED_VP_IDS_CONFIGURED=""
 EXPECTED_VP_IDS_ACTIVE=""
 
 # Time state and final monitoring status are captured once for deterministic rule evaluation.
-DETAIL_LIMIT=${DETAIL_LIMIT:-10}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_USB_NL__"
 MSG=""
@@ -63,19 +61,17 @@ STATUS_CODE=0
 TOTAL_DEV=0
 UNAUTHORIZED_COUNT=0
 UNAUTHORIZED_DEV_LIST=""
-UNAUTHORIZED_SHOWN=0
 
 # Whitelist entries authorize matching devices without making them required.
 WHITELISTED_COUNT=0
 WHITELISTED_DEV_LIST=""
-WHITELISTED_SHOWN=0
 WHITELIST_IDS="" # -w CSV
 WHITELIST_LIST="<%= @usb_whitelist_correct %>"
 WHITELIST_SERIALS_ACTIVE=""
 WHITELIST_VP_IDS_ACTIVE=""
 
 # Parse rule and output options for one check invocation.
-USAGE="Usage: $0 [-w <list>] [-e <list>] [-a <list>] [-l <detail_limit>]"
+USAGE="Usage: $0 [-w <list>] [-e <list>] [-a <list>] [-l <chars>]"
 OPTERR=0
 while getopts "w:e:a:l:" OPT; do
     case "$OPT" in
@@ -105,6 +101,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit the short monitoring line and the bounded device detail output.
@@ -490,21 +519,15 @@ for DEVPATH in /sys/bus/usb/devices/*; do
     [ $IN_EXPECTED  -eq 1 ] && EXPECTED_PRESENT_COUNT=$(( EXPECTED_PRESENT_COUNT + 1 ))
     if [ $IN_WHITELIST -eq 1 ]; then
         WHITELISTED_COUNT=$(( WHITELISTED_COUNT + 1 ))
-        if [ "$WHITELISTED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
-            WHITELISTED_DETAIL="$DEVNAME"
-            [ -n "$SERIAL" ] && WHITELISTED_DETAIL="$WHITELISTED_DETAIL (SN: $SERIAL)"
-            WHITELISTED_DEV_LIST=$(append_detail_item "$WHITELISTED_DEV_LIST" "$WHITELISTED_DETAIL")
-            WHITELISTED_SHOWN=$(( WHITELISTED_SHOWN + 1 ))
-        fi
+        WHITELISTED_DETAIL="$DEVNAME"
+        [ -n "$SERIAL" ] && WHITELISTED_DETAIL="$WHITELISTED_DETAIL (SN: $SERIAL)"
+        WHITELISTED_DEV_LIST=$(append_detail_item "$WHITELISTED_DEV_LIST" "$WHITELISTED_DETAIL")
     fi
     if [ $IN_ANYREQ -eq 1 ]; then
         ANYREQ_PRESENT_COUNT=$(( ANYREQ_PRESENT_COUNT + 1 ))
-        if [ "$ANYREQ_MATCHED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
-            ANYREQ_DETAIL="$DEVNAME"
-            [ -n "$SERIAL" ] && ANYREQ_DETAIL="$ANYREQ_DETAIL (SN: $SERIAL)"
-            ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "$ANYREQ_DETAIL")
-            ANYREQ_MATCHED_SHOWN=$(( ANYREQ_MATCHED_SHOWN + 1 ))
-        fi
+        ANYREQ_DETAIL="$DEVNAME"
+        [ -n "$SERIAL" ] && ANYREQ_DETAIL="$ANYREQ_DETAIL (SN: $SERIAL)"
+        ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "$ANYREQ_DETAIL")
     fi
 
     # Unauthorized only if the device is unknown to every allow source.
@@ -517,10 +540,7 @@ for DEVPATH in /sys/bus/usb/devices/*; do
         else
             UNAUTHORIZED_DETAIL="$UNAUTHORIZED_DETAIL (no serial)"
         fi
-        if [ "$UNAUTHORIZED_SHOWN" -lt "$DETAIL_LIMIT" ]; then
-            UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "$UNAUTHORIZED_DETAIL")
-            UNAUTHORIZED_SHOWN=$(( UNAUTHORIZED_SHOWN + 1 ))
-        fi
+        UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "$UNAUTHORIZED_DETAIL")
     fi
 done
 
@@ -535,10 +555,7 @@ for EXP in $EXPECTED_SERIALS_ACTIVE; do
     done
     if [ $FOUND -eq 0 ]; then
         EXPECTED_MISSING_COUNT=$(( EXPECTED_MISSING_COUNT + 1 ))
-        if [ "$EXPECTED_MISSING_SHOWN" -lt "$DETAIL_LIMIT" ]; then
-            EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
-            EXPECTED_MISSING_SHOWN=$(( EXPECTED_MISSING_SHOWN + 1 ))
-        fi
+        EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
     fi
 done
 
@@ -553,18 +570,9 @@ for EXP in $EXPECTED_VP_IDS_ACTIVE; do
     done
     if [ $FOUND -eq 0 ]; then
         EXPECTED_MISSING_COUNT=$(( EXPECTED_MISSING_COUNT + 1 ))
-        if [ "$EXPECTED_MISSING_SHOWN" -lt "$DETAIL_LIMIT" ]; then
-            EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
-            EXPECTED_MISSING_SHOWN=$(( EXPECTED_MISSING_SHOWN + 1 ))
-        fi
+        EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "$EXP")
     fi
 done
-
-# Mark truncated detail lists explicitly so long output stays bounded without hiding counts.
-[ "$UNAUTHORIZED_COUNT" -gt "$UNAUTHORIZED_SHOWN" ] && UNAUTHORIZED_DEV_LIST=$(append_detail_item "$UNAUTHORIZED_DEV_LIST" "+$(( UNAUTHORIZED_COUNT - UNAUTHORIZED_SHOWN )) more")
-[ "$EXPECTED_MISSING_COUNT" -gt "$EXPECTED_MISSING_SHOWN" ] && EXPECTED_LIST_MISSING=$(append_detail_item "$EXPECTED_LIST_MISSING" "+$(( EXPECTED_MISSING_COUNT - EXPECTED_MISSING_SHOWN )) more")
-[ "$ANYREQ_PRESENT_COUNT" -gt "$ANYREQ_MATCHED_SHOWN" ] && ANYREQ_MATCHED_LIST=$(append_detail_item "$ANYREQ_MATCHED_LIST" "+$(( ANYREQ_PRESENT_COUNT - ANYREQ_MATCHED_SHOWN )) more")
-[ "$WHITELISTED_COUNT" -gt "$WHITELISTED_SHOWN" ] && WHITELISTED_DEV_LIST=$(append_detail_item "$WHITELISTED_DEV_LIST" "+$(( WHITELISTED_COUNT - WHITELISTED_SHOWN )) more")
 
 # Status combines:
 # - unknown attached devices
@@ -603,6 +611,7 @@ append_long "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL
 [ -n "$EXPECTED_LIST_MISSING" ] && append_long "Expected devices missing: ${EXPECTED_LIST_MISSING}"
 [ -n "$ANYREQ_MATCHED_LIST" ] && append_long "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
 [ -n "$WHITELISTED_DEV_LIST" ] && append_long "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."

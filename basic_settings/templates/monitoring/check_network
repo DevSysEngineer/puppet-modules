@@ -33,12 +33,10 @@ FAILOVER_NOTE=""
 HAS_V4=0
 HAS_V6=0
 
-# Interface filter input and bounded interface-detail state.
-DETAIL_LIMIT=${DETAIL_LIMIT:-20}
+# Interface filter input and bounded long-output state.
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 IF_FILTERS=""
 IF_LIST="<%= @interfaces_str %>"
-IF_DETAIL_COUNT=0
-IF_DETAIL_TRUNCATED=0
 
 # IPv4 address class counters are emitted as global perfdata.
 IPV4_CGNAT=0
@@ -78,7 +76,7 @@ WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
 # CLI options can narrow service/interface scope and bound interface detail output for one check invocation.
-USAGE_TEXT="Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]"
+USAGE_TEXT="Usage: $0 [-s <services>] [-i <iface globs>] [-l <chars>]"
 OPTERR=0
 while getopts 's:i:l:' opt; do
     case "$opt" in
@@ -120,14 +118,42 @@ append_long() {
     fi
 }
 
-# Store one interface detail line while preserving a predictable long-output size.
+# Store one interface detail line; final long output is capped once before Interpretation.
 append_interface_detail() {
-    IF_DETAIL_COUNT=$((IF_DETAIL_COUNT + 1))
-    if [ "$IF_DETAIL_COUNT" -le "$DETAIL_LIMIT" ]; then
-        append_long "$1"
-    else
-        IF_DETAIL_TRUNCATED=$((IF_DETAIL_TRUNCATED + 1))
-    fi
+    append_long "$1"
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit one monitoring line followed by sanitized interface details.
@@ -456,12 +482,8 @@ fi
 # No usable interface is a direct network failure regardless of failover policy.
 [ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
 
-# Add explicit truncation text after the collected interface detail lines.
-if [ "$IF_DETAIL_TRUNCATED" -gt 0 ]; then
-    append_long "Interface details truncated: ${IF_DETAIL_TRUNCATED} omitted after ${DETAIL_LIMIT} shown"
-fi
-
 # Explain which parts of the network inventory can change the monitoring state.
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface address lists, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."

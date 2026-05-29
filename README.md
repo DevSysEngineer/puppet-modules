@@ -592,7 +592,7 @@ De checkconfiguratie staat in `/etc/vnstat-monitoring.conf` en is root-only (`06
 
 Voor bandbreedte-afhankelijke berekeningen gebruikt `check_vnstat_interfaces` eerst `MaxBW<interface>` uit de effectieve vnStat-configuratie, daarna een strikt parsebare snelheid uit `vnstat --iflist`, en daarna een positieve globale `MaxBandwidth` uit `/etc/vnstat.conf`. De standaard `MaxBandwidth 0` betekent bewust geen globale capaciteit. Als geen betrouwbare positieve capaciteit beschikbaar is, wordt de capaciteitcontrole voor die interface overgeslagen en staat de reden in de long output. WARNING-, CRITICAL- en UNKNOWN-redenen staan ook direct in de korte output, zodat je niet eerst de long output hoeft te doorzoeken.
 
-De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `-l <aantal>` kun je het aantal interfaceblokken in de long output begrenzen; de korte output en perfdata blijven volledig.
+De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `-l <tekens>` kun je de diagnostische long output vóór `Interpretation:` begrenzen; de korte output, perfdata en interpretatie blijven volledig.
 
 #### Voorbeeld
 
@@ -628,7 +628,7 @@ De checks houden perfdata-labels bewust vrij van eenheden. Labels zijn lowercase
 
 Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de gemeten afwijking. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken en herhaalt geen drempelwaarden; de exitcode draagt de machinestatus en drempels staan waar nuttig in perfdata. De long output blijft bedoeld voor diagnose en extra context.
 
-Checks die veel detail kunnen opleveren, zoals APT-beveiligingschangelogs, SSH-sessies, RabbitMQ-queues, Mirth Connect-kanalen, Docker Compose-containers en USB-apparaatlijsten, begrenzen die uitvoer en melden expliciet wanneer details zijn ingekort. Niet-triviale long output bevat een korte `Interpretation:`-sectie die uitlegt welke bevindingen de exitcode bepalen, welke regels alleen context zijn en waar een operator als eerste moet kijken.
+Checks die veel detail kunnen opleveren, zoals APT-beveiligingschangelogs, SSH-sessies, RabbitMQ-queues, Mirth Connect-kanalen, Docker Compose-containers en USB-apparaatlijsten, begrenzen die uitvoer en melden expliciet wanneer details zijn ingekort. Niet-triviale long output eindigt met een korte `Interpretation:`-sectie die uitlegt welke bevindingen de exitcode bepalen, welke regels alleen context zijn en waar een operator als eerste moet kijken; details erboven worden standaard begrensd met `DETAIL_LIMIT=6000`, zodat deze interpretatie zichtbaar blijft.
 
 - [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
 - [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)

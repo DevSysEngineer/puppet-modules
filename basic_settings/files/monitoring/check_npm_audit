@@ -8,6 +8,7 @@ die() {
 }
 
 # Binary checks
+AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 BASENAME=$(command -v basename 2>/dev/null) || die "basename not available"
 JQ=$(command -v jq 2>/dev/null) || die "jq not available"
 NPM=$(command -v npm 2>/dev/null) || die "npm not available"
@@ -25,7 +26,7 @@ CHECK_DIR=""
 CHECK_NAME=""
 
 # Long output is capped independently from the summary and perfdata.
-DETAIL_LIMIT=${DETAIL_LIMIT:-20}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 DETAILS=""
 
 # jq and npm capture helpers use explicit sentinels to preserve stdout/stderr boundaries.
@@ -59,6 +60,29 @@ case "$DETAIL_LIMIT" in
     ''|*[!0-9]*) die "DETAIL_LIMIT must be numeric" ;;
 esac
 [ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_text_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
+        }
+    '
+}
 
 # Read the first useful diagnostic line and ignore npm notice noise.
 first_line() {
@@ -410,27 +434,11 @@ run_jq '
 ' || die "$CHECK_NAME: $(report_error)"
 DETAILS=$JQ_OUTPUT
 
-# Keep the long output bounded and say explicitly when it was truncated.
-DETAIL_LINES=$(printf '%s\n' "$DETAILS" | $SED '/^$/d' | $SED -n '$=')
-case "$DETAIL_LINES" in
-    ''|*[!0-9]*) DETAIL_LINES=0 ;;
-esac
-
-if [ "$DETAIL_LINES" -gt "$DETAIL_LIMIT" ]; then
-    DETAILS=$(
-        {
-            printf '%s\n' "- Showing first ${DETAIL_LIMIT} vulnerable package lines"
-            printf '%s\n' "$DETAILS" | $SED -n "1,${DETAIL_LIMIT}p"
-            printf '%s\n' "[truncated after ${DETAIL_LIMIT} lines]"
-        }
-    )
-fi
-
 # Explain npm's package-level detail after the primary vulnerability findings.
 if [ -n "$DETAILS" ]; then
     DETAILS=$(
         {
-            printf '%s\n' "$DETAILS"
+            printf '%s\n' "$DETAILS" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'Severity counts from npm audit decide the exit code; package lines explain which direct or transitive dependencies contributed to those counts.'

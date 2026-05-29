@@ -18,7 +18,7 @@
 #   Compose file paths passed to the monitoring plugin.
 #
 # @param detail_limit
-#   Maximum number of long-output detail lines emitted by the check.
+#   Maximum number of diagnostic characters emitted before the `Interpretation:` section.
 #
 # @param ensure
 #   Controls whether the monitoring check is present or absent.
@@ -57,7 +57,7 @@
 define docker::compose_monitoring (
   Pattern[/\A\/[A-Za-z0-9._\/-]+\z/]            $project_directory,
   Array[String]                                 $compose_files     = [],
-  Integer                                       $detail_limit      = 30,
+  Integer                                       $detail_limit      = 6000,
   Enum['present','absent']                      $ensure            = present,
   Optional[String]                              $env_file          = undef,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $expected_exited   = [],

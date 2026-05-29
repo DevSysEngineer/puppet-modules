@@ -32,6 +32,7 @@ CHANGELOG_FETCH_TIMEOUT=${CHANGELOG_FETCH_TIMEOUT:-6}
 CHANGELOG_GROUP_LIMIT=${CHANGELOG_GROUP_LIMIT:-10}
 CHANGELOG_MAX_LINES=${CHANGELOG_MAX_LINES:-120}
 CHANGELOG_TOTAL_BUDGET=${CHANGELOG_TOTAL_BUDGET:-20}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 SECURITY_PACKAGE_SUMMARY_LIMIT=${SECURITY_PACKAGE_SUMMARY_LIMIT:-10}
 
 # Long output is assembled in-memory and emitted only after the perfdata line.
@@ -84,6 +85,9 @@ esac
 case "$CHANGELOG_TOTAL_BUDGET" in
     ''|*[!0-9]*) die "changelog runtime budget must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
 case "$SECURITY_PACKAGE_SUMMARY_LIMIT" in
     ''|*[!0-9]*) die "security package summary limit must be numeric" ;;
 esac
@@ -92,6 +96,7 @@ esac
 [ "$CHANGELOG_GROUP_LIMIT" -ge 1 ] || die "changelog group limit must be at least 1"
 [ "$CHANGELOG_MAX_LINES" -ge 1 ] || die "changelog line limit must be at least 1"
 [ "$CHANGELOG_TOTAL_BUDGET" -ge 1 ] || die "changelog runtime budget must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 [ "$SECURITY_PACKAGE_SUMMARY_LIMIT" -ge 1 ] || die "security package summary limit must be at least 1"
 
 # Append one line to the long output buffer while preserving at most one blank separator.
@@ -151,6 +156,40 @@ append_external_block() {
     done <<EOF
 $1
 EOF
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
+    LONG_OUTPUT_LAST_BLANK=0
 }
 
 # Emit the summary line and optional long output.
@@ -584,6 +623,7 @@ fi
 
 # Explain the status scope after any changelog diagnostics so OpenITCOCKPIT operators can triage from long output alone.
 if [ -n "$LONG_OUTPUT" ]; then
+    limit_long_output_details
     append_long ""
     append_long "Interpretation:"
     append_long "Security changelogs are diagnostic context for pending security updates; package counts, metadata age, inactive APT automation units, blacklist counts, and reboot-required state decide the exit code."

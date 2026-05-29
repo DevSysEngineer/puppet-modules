@@ -17,7 +17,7 @@ node 'container-basic.example.org' {
     compose_checksum           => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     compose_source             => 'https://downloads.example.org/example/docker-compose.yml',
     env_source                 => 'puppet:///modules/profile/example.env',
-    monitoring_detail_limit    => 50,
+    monitoring_detail_limit    => 6000,
     monitoring_expected_exited => ['migrate'],
     monitoring_health_required => ['web', 'db'],
     monitoring_interval        => 300,
@@ -66,7 +66,7 @@ node 'container-proxy.example.org' {
     http3_enable                  => false,
     http_enable                   => true,
     https_force                   => true,
-    monitoring_detail_limit       => 50,
+    monitoring_detail_limit       => 6000,
     monitoring_expected_exited    => ['migrate'],
     monitoring_health_required    => ['web'],
     monitoring_interval           => 300,
@@ -113,7 +113,7 @@ node 'authentik.example.org' {
   }
 
   class { 'docker::authentik':
-    monitoring_detail_limit    => 50,
+    monitoring_detail_limit    => 6000,
     monitoring_expected_exited => ['worker'],
     monitoring_health_required => ['server'],
     monitoring_interval        => 300,
@@ -154,7 +154,7 @@ node 'twenty.example.org' {
     encryption_key               => Sensitive('replace-with-encryption-key'),
     fallback_encryption_key      => Sensitive('replace-with-old-encryption-key'),
     host                         => '127.0.0.1',
-    monitoring_detail_limit      => 50,
+    monitoring_detail_limit      => 6000,
     monitoring_expected_exited   => ['worker'],
     monitoring_health_required   => ['server', 'worker'],
     monitoring_interval          => 300,

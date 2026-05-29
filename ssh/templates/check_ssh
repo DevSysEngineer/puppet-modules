@@ -22,8 +22,8 @@ WHO=$(command -v who 2>/dev/null) || die "who not available"
 ALLOWED_USERS="<%= @check_users_str %>"
 CRIT_THRESH=2      # critical session count (active)
 WARN_THRESH=1      # warning session count (active)
-DETAIL_LIMIT=${DETAIL_LIMIT:-10}
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_SSH_NL__"
 MAX_IDLE=5         # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=30         # minutes: session age > MAX_AGE => CRITICAL
@@ -50,10 +50,10 @@ for numeric_value in "$CRIT_THRESH" "$WARN_THRESH" "$MAX_IDLE" "$MAX_AGE"; do
     esac
 done
 case "$DETAIL_LIMIT" in
-    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
 esac
 [ "$CRIT_THRESH" -ge "$WARN_THRESH" ] || die "critical session threshold must be greater than or equal to warning threshold"
-[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
@@ -73,6 +73,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit one monitoring line followed by sanitized session and journal detail.
@@ -100,9 +133,9 @@ append_summary_reason() {
     fi
 }
 
-# Render a bounded comma-separated list for long output.
+# Render a comma-separated list for long output; final diagnostics are capped once before Interpretation.
 cap_csv_list() {
-    printf '%s\n' "$1" | $AWK -F',' -v max="$DETAIL_LIMIT" '
+    printf '%s\n' "$1" | $AWK -F',' '
         {
             for (i = 1; i <= NF; i++) {
                 item = $i
@@ -110,19 +143,13 @@ cap_csv_list() {
                 if (item == "") {
                     continue
                 }
-                total++
-                if (shown < max) {
-                    shown++
-                    items[shown] = item
-                }
+                shown++
+                items[shown] = item
             }
         }
         END {
             for (i = 1; i <= shown; i++) {
                 printf "%s%s", (i > 1 ? ", " : ""), items[i]
-            }
-            if (total > shown) {
-                printf "%s+%d more", (shown > 0 ? ", " : ""), total - shown
             }
         }
     '
@@ -350,6 +377,7 @@ append_long "Session totals: ${ACTIVE_SESSIONS} active, maximum age ${MAX_SESSIO
 [ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
 append_long "Authentication counters: ${FAIL_TOTAL} total failures, ${FAIL_WL_UNMATCHED} allowlist unmatched, ${FAIL_OTH_TOTAL} other raw, ${FAIL_OTH_UNMATCHED} other unmatched, ${ABORT_WL} allowlist aborts, ${ABORT_OTH} other aborts"
 [ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Active session count, root login detection, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."

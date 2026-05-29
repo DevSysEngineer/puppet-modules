@@ -29,8 +29,9 @@ NOW=$($DATE +%s)
 
 # Queue thresholds and grace period preserve the existing warning-before-critical behavior.
 CRIT_Q=30
-DETAIL_LIMIT=${DETAIL_LIMIT:-10}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 GRACE=600 # seconds before CRITICAL for queues
+SUMMARY_ITEM_LIMIT=10
 WARN_Q=25 # queued-message threshold
 
 # Queue and status state accumulates direct causes for the summary.
@@ -73,10 +74,10 @@ case "$CRIT_Q" in
     ''|*[!0-9]*) die "queue critical threshold must be numeric" ;;
 esac
 case "$DETAIL_LIMIT" in
-    ''|*[!0-9]*) die "detail limit must be numeric" ;;
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
 esac
 [ "$CRIT_Q" -ge "$WARN_Q" ] || die "queue critical threshold must be greater than or equal to warning threshold"
-[ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 [ -x "$MCCOMMAND" ] || die "mccommand not available at ${MCCOMMAND}"
 [ -r "$CONFIG" ] || die "config file ${CONFIG} is not readable"
@@ -98,6 +99,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit one monitoring line; perfdata is attached by the caller when available.
@@ -209,7 +243,7 @@ while IFS='|' read -r _c chan q recv sent; do
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
         *)
             STATUS_ISSUES=$((STATUS_ISSUES+1))
-            if [ "$STATUS_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            if [ "$STATUS_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
                 SUMMARY_STATUS="${SUMMARY_STATUS}${SUMMARY_STATUS:+, }${chan}(${STATUS:-Unknown})"
                 STATUS_SHOWN=$((STATUS_SHOWN + 1))
             fi
@@ -226,13 +260,13 @@ while IFS='|' read -r _c chan q recv sent; do
 
         # Keep the visible queue list cause-oriented for the summary.
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
-        if [ "$QUEUE_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+        if [ "$QUEUE_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
             SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }${chan}(${q})"
             QUEUE_SHOWN=$((QUEUE_SHOWN + 1))
         fi
     elif [ "${q:-0}" -gt "$WARN_Q" ]; then
         QUEUE_ISSUES=$((QUEUE_ISSUES+1))
-        if [ "$QUEUE_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+        if [ "$QUEUE_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
             SUMMARY_QUEUE="${SUMMARY_QUEUE}${SUMMARY_QUEUE:+, }${chan}(${q})"
             QUEUE_SHOWN=$((QUEUE_SHOWN + 1))
         fi
@@ -265,6 +299,7 @@ fi
 append_long "Channels checked: ${TOTAL_CHANS}"
 [ "$STATUS_ISSUES" -gt 0 ] && append_long "Channels not running: ${SUMMARY_STATUS}"
 [ "$QUEUE_ISSUES" -gt 0 ] && append_long "Channels with queued messages: ${SUMMARY_QUEUE}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Channel started/stopped state and queued-message age decide the exit code; received/sent totals and maximum queue depth are supporting metrics."

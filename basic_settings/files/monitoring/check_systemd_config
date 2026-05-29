@@ -19,6 +19,7 @@ BOOT_GRACE=300
 MAX_DETAIL_LINES=10
 MAX_FAILED_UNIT_LINES=10
 MAX_VERIFY_LINES=10
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 QUIET=0
 SHOW_RAW_VERIFY=0
 STRICT_RELOAD=0
@@ -132,9 +133,13 @@ esac
 case "$MAX_VERIFY_LINES" in
     ''|*[!0-9]*) die "$USAGE_TEXT" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
 [ "$MAX_DETAIL_LINES" -ge 1 ] || die "detail line limit must be at least 1"
 [ "$MAX_FAILED_UNIT_LINES" -ge 1 ] || die "failed-unit line limit must be at least 1"
 [ "$MAX_VERIFY_LINES" -ge 1 ] || die "verify line limit must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Check whether a value contains only decimal digits.
 is_number() {
@@ -315,6 +320,29 @@ normalize_monitor_output() {
         }
         {
             emit_line($0)
+        }
+    '
+}
+
+# Bound the diagnostic report before Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
         }
     '
 }
@@ -1152,12 +1180,12 @@ if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
     printf '%s\n' ""
     print_detail_section 'Contextual not-found units not counted as config errors' "$CONTEXTUAL_NOT_FOUND_UNITS" "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
 fi
+} | normalize_monitor_output | limit_long_output_details
 
 printf '%s\n' ""
 printf '%s\n' 'Interpretation:'
 printf '%s\n' 'Default target validity, default target load state, systemd-analyze verify output, actionable load/config units, and optional strict daemon-reload handling decide the configuration exit code.'
 printf '%s\n' 'The systemd manager state and failed-unit list provide runtime context; degraded runtime units affect this check as non-critical findings unless actionable configuration errors are also present.'
 printf '%s\n' 'Inspect actionable load/config errors first, then verify failed runtime units and daemon-reload state when the summary names those findings.'
-} | normalize_monitor_output
 
 exit "$STATE"

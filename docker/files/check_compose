@@ -28,8 +28,8 @@ PROFILE_LIST=""
 PROJECT_DIRECTORY=""
 PROJECT_NAME=""
 
-# Runtime policy knobs control tolerated startup, expected exits, health requirements, and orphan severity.
-DETAIL_LIMIT=${DETAIL_LIMIT:-30}
+# Runtime policy knobs control tolerated startup, expected exits, health requirements, orphan severity, and total diagnostic size.
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 EXPECTED_EXITED=""
 EXPECTED_LIST=""
 HEALTH_REQUIRED=""
@@ -43,8 +43,6 @@ STATE_TMP=""
 
 # Summary and long-output buffers keep status causes separate from diagnostics.
 CONTAINER_DETAILS=""
-CONTAINER_DETAILS_COUNT=0
-CONTAINER_DETAILS_TRUNCATED=0
 CRITICAL_REASONS=""
 ISSUE_DETAILS=""
 LONG_OUTPUT=""
@@ -75,7 +73,7 @@ HEALTH_REQUIRED_MISSING=0
 PRESENT_SERVICES=""
 
 # CLI options define the Compose identity, expected exceptions, and diagnostic limits.
-USAGE_TEXT="Usage: $0 -d project_directory [-p project_name] [-f compose_file] [-e env_file] [-n name] [-g seconds] [-l lines] [-x services] [-H services] [-P profiles] [-O]"
+USAGE_TEXT="Usage: $0 -d project_directory [-p project_name] [-f compose_file] [-e env_file] [-n name] [-g seconds] [-l chars] [-x services] [-H services] [-P profiles] [-O]"
 OPTERR=0
 while getopts 'd:p:f:e:n:g:l:x:H:P:O' opt; do
     case "$opt" in
@@ -246,17 +244,45 @@ append_long_buffer() {
     fi
 }
 
-# Append one capped container detail line.
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
+}
+
+# Append one container detail line; final long output is capped once before Interpretation.
 append_container_detail() {
-    CONTAINER_DETAILS_COUNT=$((CONTAINER_DETAILS_COUNT + 1))
-    if [ "$CONTAINER_DETAILS_COUNT" -le "$DETAIL_LIMIT" ]; then
-        if [ -z "$CONTAINER_DETAILS" ]; then
-            CONTAINER_DETAILS=$1
-        else
-            CONTAINER_DETAILS="${CONTAINER_DETAILS}${LONG_OUTPUT_SEP}$1"
-        fi
+    if [ -z "$CONTAINER_DETAILS" ]; then
+        CONTAINER_DETAILS=$1
     else
-        CONTAINER_DETAILS_TRUNCATED=$((CONTAINER_DETAILS_TRUNCATED + 1))
+        CONTAINER_DETAILS="${CONTAINER_DETAILS}${LONG_OUTPUT_SEP}$1"
     fi
 }
 
@@ -674,12 +700,10 @@ fi
 if [ -n "$CONTAINER_DETAILS" ]; then
     append_long "Containers:"
     append_long_buffer "$CONTAINER_DETAILS"
-    if [ "$CONTAINER_DETAILS_TRUNCATED" -gt 0 ]; then
-        append_long "... (${CONTAINER_DETAILS_TRUNCATED} container detail lines truncated)"
-    fi
 fi
 
 # Explain how the operator should read the collected Compose state without repeating thresholds or perfdata.
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Issues are the direct causes that affected the exit code; container lines show the bounded runtime inventory used to diagnose those causes."

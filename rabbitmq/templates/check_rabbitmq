@@ -18,7 +18,8 @@ SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
 # Queue depth thresholds apply only to queues with consumers.
-DETAIL_LIMIT=${DETAIL_LIMIT:-5}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
+SUMMARY_ITEM_LIMIT=5
 WARN="25" # warning threshold for queue backlog (can be set via -w)
 CRIT="30" # critical threshold for queue backlog (via -c)
 
@@ -40,7 +41,7 @@ shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
 for numeric_value in "$WARN" "$CRIT" "$DETAIL_LIMIT"; do
   case "$numeric_value" in
-    ''|*[!0-9]*) die "queue thresholds and detail limit must be numeric" ;;
+    ''|*[!0-9]*) die "queue thresholds and output limits must be numeric" ;;
   esac
 done
 [ "$CRIT" -ge "$WARN" ] || die "critical queue threshold must be greater than or equal to warning threshold"
@@ -126,6 +127,39 @@ append_long() {
     fi
 }
 
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
+}
+
 # Emit one monitoring line followed by sanitized queue detail.
 emit_check() {
     printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
@@ -176,7 +210,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
                 MAX_MSG_CRIT=$MESSAGES
                 MAX_Q_CRIT="$QUEUE_NAME"
             fi
-            if [ "$CRIT_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            if [ "$CRIT_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
                 ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
                 CRIT_LIST=$(append_item "$CRIT_LIST" "$ITEM")
                 CRIT_SHOWN=$((CRIT_SHOWN + 1))
@@ -187,7 +221,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
                 MAX_MSG_WARN=$MESSAGES
                 MAX_Q_WARN="$QUEUE_NAME"
             fi
-            if [ "$WARN_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+            if [ "$WARN_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
                 ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
                 WARN_LIST=$(append_item "$WARN_LIST" "$ITEM")
                 WARN_SHOWN=$((WARN_SHOWN + 1))
@@ -202,7 +236,7 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
             LARGEST_ORPHAN_MSG=$MESSAGES
             LARGEST_ORPHAN_QUEUE="$QUEUE_NAME"
         fi
-        if [ "$ORPHAN_SHOWN" -lt "$DETAIL_LIMIT" ]; then
+        if [ "$ORPHAN_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
             ITEM=$(queue_item "$QUEUE_NAME" "$MESSAGES")
             ORPHAN_LIST=$(append_item "$ORPHAN_LIST" "$ITEM")
             ORPHAN_SHOWN=$((ORPHAN_SHOWN + 1))
@@ -274,6 +308,7 @@ if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
     [ "$MORE" -gt 0 ] && append_long "No-consumer queue details truncated: ${MORE} additional queue(s)"
 fi
 [ -n "$RATE_NOTICE" ] && append_long "Rate metric context: ${RATE_NOTICE}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "Queue depth for queues with consumers decides queue severity; rate-metric availability affects the exit code only when queue depth is otherwise healthy."

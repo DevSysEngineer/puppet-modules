@@ -27,6 +27,7 @@ CRIT_HIT_PCT=90         # CRITICAL when buffer hit < 90%
 
 # Runtime state collects the worst status and human-readable causes.
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_MYSQL_NL__"
 STATE_CODE=0
 ISSUES=""
@@ -42,6 +43,10 @@ while getopts "c:" opt; do
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
@@ -70,6 +75,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Emit one monitoring line followed by the fixed MySQL diagnostic context.
@@ -223,6 +261,7 @@ OUTPUT_MSG="MySQL is responding"
 append_long "Connection usage: ${THREADS_CONNECTED}/${MAX_CONNECTIONS} current, ${MAX_USED_CONN}/${MAX_CONNECTIONS} historical peak, ${THREADS_RUNNING} running thread(s)"
 append_long "InnoDB buffer pool: hit rate ${HIT_RATE_TEXT}, ${BUF_PAGES_FREE}/${BUF_PAGES_TOTAL} pages free, ${BUF_WAIT_FREE} wait event(s)"
 append_long "Workload counters: uptime ${UPTIME}s, slow queries ${SLOW_QUERIES}"
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "mysqladmin ping, current connection usage, historical connection peak, buffer hit rate, InnoDB wait events, and slow-query count decide the exit code."

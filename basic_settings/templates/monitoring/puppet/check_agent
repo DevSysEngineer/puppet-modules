@@ -32,6 +32,7 @@ STATUS_DETAIL="no changes"
 JOURNAL_JOINED=""
 LOG_LINES=${LOG_LINES:-20}
 LOG_SCAN_LINES=${LOG_SCAN_LINES:-100}
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 
 # CLI options tune last-run age thresholds without changing the managed check registration.
 USAGE_TEXT="Usage: $0 [-w warn_seconds] [-c crit_seconds]"
@@ -50,9 +51,13 @@ for numeric_value in "$WARN_AGE" "$CRIT_AGE" "$LOG_LINES" "$LOG_SCAN_LINES"; do
         ''|*[!0-9]*) die "age thresholds and log limits must be numeric" ;;
     esac
 done
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
 [ "$CRIT_AGE" -ge "$WARN_AGE" ] || die "critical age must be greater than or equal to warning age"
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$LOG_SCAN_LINES" -ge 1 ] || die "LOG_SCAN_LINES must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit the summary line and optional long output.
 emit_check() {
@@ -66,6 +71,29 @@ emit_check() {
 # Nagios treats raw pipes after the first output line as perfdata separators.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_text_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
+        }
+    '
 }
 
 # Emit a direct CRITICAL result and stop immediately.
@@ -238,7 +266,7 @@ JOURNAL_JOINED=""
 if [ -n "$JOURNAL_JOINED" ]; then
     JOURNAL_JOINED=$(
         {
-            printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context for the same agent run path.'

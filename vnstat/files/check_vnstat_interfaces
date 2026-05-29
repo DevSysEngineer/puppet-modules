@@ -49,7 +49,7 @@ GROWTH_MONTH_WARNING_PERCENT='25'
 GROWTH_MONTH_CRITICAL_PERCENT='50'
 LAST_UPDATE_WARNING_SECONDS='900'
 LAST_UPDATE_CRITICAL_SECONDS='1800'
-DETAIL_LIMIT='20'
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 
 # Runtime state collected while all interfaces are evaluated.
 CHECK_CONFIG_AVAILABLE=0
@@ -74,15 +74,13 @@ LONG_CRITICAL=''
 LONG_WARNING=''
 LONG_UNKNOWN=''
 LONG_OK=''
-LONG_DETAIL_COUNT=0
-LONG_DETAIL_TRUNCATED=0
 SUMMARY_CRITICAL=''
 SUMMARY_WARNING=''
 SUMMARY_UNKNOWN=''
 PERFDATA=''
 
 # CLI options tune config paths, filters, thresholds, and bounded long output.
-USAGE_TEXT="Usage: $0 [-C check_config] [-V vnstat_config] [-i include_regex] [-x exclude_regex] [-w capacity_warning_percent] [-c capacity_critical_percent] [-d growth_day_warning_percent] [-D growth_day_critical_percent] [-m growth_month_warning_percent] [-M growth_month_critical_percent] [-u last_update_warning_seconds] [-U last_update_critical_seconds] [-l detail_limit]"
+USAGE_TEXT="Usage: $0 [-C check_config] [-V vnstat_config] [-i include_regex] [-x exclude_regex] [-w capacity_warning_percent] [-c capacity_critical_percent] [-d growth_day_warning_percent] [-D growth_day_critical_percent] [-m growth_month_warning_percent] [-M growth_month_critical_percent] [-u last_update_warning_seconds] [-U last_update_critical_seconds] [-l chars]"
 OPTERR=0
 while getopts 'C:V:i:x:w:c:d:D:m:M:u:U:l:' opt; do
     case "$opt" in
@@ -241,15 +239,10 @@ add_summary_issue() {
     esac
 }
 
-# Keep interface long output bounded while preserving the full summary and perfdata.
+# Store interface long output while preserving the full summary and perfdata.
 append_interface_block() {
     _interface_state=$1
     _interface_block=$2
-
-    if [ "$LONG_DETAIL_COUNT" -ge "$DETAIL_LIMIT" ]; then
-        LONG_DETAIL_TRUNCATED=$((LONG_DETAIL_TRUNCATED + 1))
-        return
-    fi
 
     case "$_interface_state" in
         CRITICAL)
@@ -266,7 +259,6 @@ append_interface_block() {
             ;;
     esac
 
-    LONG_DETAIL_COUNT=$((LONG_DETAIL_COUNT + 1))
 }
 
 # Emit one long-output section with exactly one blank line before it.
@@ -276,6 +268,29 @@ emit_long_section() {
 
     printf '\n'
     monitor_text_value "$_long_section"
+}
+
+# Bound diagnostic sections before Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
+        }
+    '
 }
 
 # Nagios metric labels cannot safely contain arbitrary interface characters.
@@ -723,12 +738,14 @@ EOF
 
 if [ "$CHECKED_COUNT" -eq 0 ]; then
     printf '%s | interfaces_checked=0 interfaces_ignored=%s\n' "$(monitor_text_value 'vnStat has no interfaces after filtering')" "$IGNORED_COUNT"
-    monitor_text_value 'Ignored interfaces:'
-    if [ "$IGNORED_COUNT" -gt 0 ]; then
-        printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
-    else
-        monitor_text_value '  none'
-    fi
+    {
+        monitor_text_value 'Ignored interfaces:'
+        if [ "$IGNORED_COUNT" -gt 0 ]; then
+            printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
+        else
+            monitor_text_value '  none'
+        fi
+    } | limit_long_output_details
     printf '\n'
     monitor_text_value 'Interpretation:'
     monitor_text_value '  Interface include/exclude filters removed every vnStat interface, so no traffic, capacity, growth, or freshness checks were evaluated.'
@@ -1137,29 +1154,28 @@ fi
 
 printf '%s | %s\n' "$(monitor_text_value "$SUMMARY_TEXT")" "$PERFDATA"
 
-monitor_text_value 'Summary:'
-if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_text_value "  Exceeds configured limits: $NAMES_CRITICAL"; fi
-if [ "$WARNING_COUNT" -gt 0 ]; then monitor_text_value "  Elevated traffic or freshness findings: $NAMES_WARNING"; fi
-if [ "$UNKNOWN_COUNT" -gt 0 ]; then monitor_text_value "  Incomplete data: $NAMES_UNKNOWN"; fi
-if [ "$OK_COUNT" -gt 0 ]; then monitor_text_value "  Healthy interfaces: $NAMES_OK"; fi
-monitor_text_value "  Checked interfaces: $CHECKED_COUNT"
-monitor_text_value "  Ignored interfaces: $IGNORED_COUNT"
-if [ "$LONG_DETAIL_TRUNCATED" -gt 0 ]; then
-    monitor_text_value "  Interface detail output truncated: $LONG_DETAIL_TRUNCATED block(s) omitted after $LONG_DETAIL_COUNT shown"
-fi
-emit_long_section "$LONG_CRITICAL"
-emit_long_section "$LONG_WARNING"
-emit_long_section "$LONG_UNKNOWN"
-emit_long_section "$LONG_OK"
-IGNORED_BLOCK=$(
-    printf 'Ignored interfaces:\n'
-    if [ "$IGNORED_COUNT" -gt 0 ]; then
-        printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
-    else
-        printf '  none\n'
-    fi
-)
-emit_long_section "$IGNORED_BLOCK"
+{
+    monitor_text_value 'Summary:'
+    if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_text_value "  Exceeds configured limits: $NAMES_CRITICAL"; fi
+    if [ "$WARNING_COUNT" -gt 0 ]; then monitor_text_value "  Elevated traffic or freshness findings: $NAMES_WARNING"; fi
+    if [ "$UNKNOWN_COUNT" -gt 0 ]; then monitor_text_value "  Incomplete data: $NAMES_UNKNOWN"; fi
+    if [ "$OK_COUNT" -gt 0 ]; then monitor_text_value "  Healthy interfaces: $NAMES_OK"; fi
+    monitor_text_value "  Checked interfaces: $CHECKED_COUNT"
+    monitor_text_value "  Ignored interfaces: $IGNORED_COUNT"
+    emit_long_section "$LONG_CRITICAL"
+    emit_long_section "$LONG_WARNING"
+    emit_long_section "$LONG_UNKNOWN"
+    emit_long_section "$LONG_OK"
+    IGNORED_BLOCK=$(
+        printf 'Ignored interfaces:\n'
+        if [ "$IGNORED_COUNT" -gt 0 ]; then
+            printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
+        else
+            printf '  none\n'
+        fi
+    )
+    emit_long_section "$IGNORED_BLOCK"
+} | limit_long_output_details
 printf '\n'
 monitor_text_value 'Interpretation:'
 monitor_text_value '  Interface sections are grouped by final interface state. Last update age, 95th percentile thresholds when configured, capacity thresholds when a reliable capacity exists, and growth thresholds decide the exit code.'

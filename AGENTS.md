@@ -289,9 +289,11 @@ Summary line:
 Detail output:
 
 - Monitoring detail output must explain the first line by showing the affected component, the observed state, the likely cause when known, whether the issue is actionable by this check, and the recommended next step or escalation path when useful.
-- For checks with non-trivial long output, include an `Interpretation:` section or equivalent short explanatory lines after the primary findings. It must explain how to read the displayed data, what is inside or outside the check scope, whether contextual findings affected the exit code, and what the operator should inspect or escalate next. Keep it factual and do not repeat threshold inventories, perfdata, or final decision labels.
+- For checks with non-trivial long output, make `Interpretation:` the final long-output section after all primary findings and supporting details. It must explain how to read the displayed data, what is inside or outside the check scope, whether contextual findings affected the exit code, and what the operator should inspect or escalate next. Keep it factual and do not repeat threshold inventories, perfdata, or final decision labels.
 - Print the most diagnostically important long-output section first.
-- Long detail sections must have a configurable line limit and state explicitly when output was truncated.
+- Each monitoring check must use one long-output truncation method for its diagnostic body. Do not combine separate line, item, block, and character caps on the same long-output path; choose the one method that matches the check's operator contract and name its public setting accordingly. Separate caps are allowed only for a different output surface, such as short-output cause lists or command input sampling, and must not also truncate the same long-output diagnostics.
+- Long detail sections must have one configurable size limit and state explicitly when output was truncated.
+- When long output can exceed monitoring UI limits, apply a configurable total character limit to the diagnostic content above `Interpretation:` and emit the truncation marker before `Interpretation:` so the final guidance cannot be pushed out of view by earlier details.
 - Do not emit consecutive blank lines in monitoring output. Use exactly one blank line to separate distinct output sections when that improves readability, and avoid leading or trailing blank lines.
 - Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
 

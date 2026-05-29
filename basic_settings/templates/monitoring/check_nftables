@@ -21,6 +21,7 @@ BL_ITEMS=0
 FILTER_SECTION_COUNT=0
 FILTER_ITEMS_LIMIT=${FILTER_ITEMS_LIMIT:-50}
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_NFT_NL__"
 
 # Perfdata is sorted after collection so busiest counters are easiest to inspect.
@@ -37,6 +38,10 @@ case "$FILTER_ITEMS_LIMIT" in
     ''|*[!0-9]*) FILTER_ITEMS_LIMIT=50 ;;
 esac
 [ "$FILTER_ITEMS_LIMIT" -ge 1 ] || FILTER_ITEMS_LIMIT=50
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
@@ -61,6 +66,39 @@ append_long() {
     else
         LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
     fi
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
 }
 
 # Keep nftables object names safe before the real perfdata delimiter.
@@ -483,6 +521,7 @@ PERF_DATA="rules_total=$TOTAL_RULES blacklist_items=$BL_ITEMS"
 
 # Explain dynamic blocklist sections when the ruleset produced long output.
 if [ -n "$LONG_OUTPUT" ]; then
+    limit_long_output_details
     append_long ""
     append_long "Interpretation:"
     append_long "Ruleset structure lines show the table and chain inventory used for firewall effectiveness checks; blacklist sections show dynamic inet/filter sets referenced by drop or reject rules."

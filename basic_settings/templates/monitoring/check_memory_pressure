@@ -51,6 +51,7 @@ PASSWD_PATH=${PASSWD_PATH:-/etc/passwd}
 # Output buffers
 LONG_OUTPUT=""
 LONG_OUTPUT_LAST_BLANK=0
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_MEMORY_PRESSURE_NL__"
 
 # Parse options. Puppet normally supplies these through monitoring_custom cmd, but the script stays directly usable for Nagios, Naemon, Icinga, and debugging.
@@ -77,6 +78,10 @@ while getopts 'w:c:m:M:f:F:i:I:n:pPl:s:t:' opt; do
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Keep monitoring text safe before and after the real perfdata delimiter.
 monitor_text_value() {
@@ -111,12 +116,41 @@ append_long_block() {
     fi
 }
 
-# Print one block with raw pipes sanitized for Nagios continuation lines.
-print_sanitized_block() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_long_output_details() {
+    [ -n "$LONG_OUTPUT" ] || return
+
+    LONG_OUTPUT=$(
+        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
+            function emit(line) {
+                printf "%s%s", (printed ? sep : ""), line
+                printed = 1
+            }
+            BEGIN {
+                count = split(data, lines, sep)
+                for (i = 1; i <= count; i++) {
+                    line = lines[i]
+                    line_len = length(line)
+                    separator_len = printed ? 1 : 0
+                    if (used + separator_len + line_len <= max) {
+                        emit(line)
+                        used += separator_len + line_len
+                        continue
+                    }
+                    remaining = max - used - separator_len
+                    if (remaining > 0) {
+                        emit(substr(line, 1, remaining) "... [detail truncated]")
+                    }
+                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
+                    exit
+                }
+            }
+        '
+    )
+    LONG_OUTPUT_LAST_BLANK=0
 }
 
-# Emit the summary line, fixed long output, and optional process details.
+# Emit the summary line and fixed long output.
 emit_check() {
     printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
     if [ -n "$LONG_OUTPUT" ]; then
@@ -130,7 +164,6 @@ emit_check() {
             }
         '
     fi
-    print_top_swap_processes
 }
 
 # Numeric validation helpers keep CLI error handling consistent.
@@ -308,19 +341,19 @@ append_swap_io_sample() {
 }
 
 # Swap process details are best-effort long output and must not change the check state.
-print_top_swap_processes() {
+append_top_swap_processes() {
     [ "$INCLUDE_TOP_SWAP_PROCESSES" -eq 1 ] || return
-    [ -n "$LONG_OUTPUT" ] && printf '\n'
-    monitor_text_value 'Top swap users:'
+    append_long ""
+    append_long 'Top swap users:'
 
     # Per-process swap details are diagnostic only; missing helpers or /proc access should never change the memory pressure status.
     if [ -z "$SORT" ]; then
-        monitor_text_value 'Top swap users unavailable: sort command not available'
+        append_long 'Top swap users unavailable: sort command not available'
         return
     fi
 
     if [ ! -d "$PROC_PATH" ]; then
-        monitor_text_value "Top swap users unavailable: ${PROC_PATH} is not a directory"
+        append_long "Top swap users unavailable: ${PROC_PATH} is not a directory"
         return
     fi
 
@@ -377,7 +410,11 @@ print_top_swap_processes() {
             }
         '
     )
-    print_sanitized_block "$TOP_SWAP_OUTPUT"
+    while IFS= read -r top_swap_line; do
+        append_long "$top_swap_line"
+    done <<EOF
+$TOP_SWAP_OUTPUT
+EOF
 }
 
 # Validate options before reading system state so configuration mistakes return UNKNOWN instead of being mixed with real host pressure signals.
@@ -728,6 +765,8 @@ else
 fi
 
 # Explain the combined memory decision so operators can distinguish status inputs from supporting context.
+append_top_swap_processes
+limit_long_output_details
 append_long ""
 append_long "Interpretation:"
 append_long "MemAvailable, SwapFree, and sustained swap I/O samples decide the exit code; swap utilization percentage, cache fields, PSI lines, and top swap users are supporting context for diagnosis."

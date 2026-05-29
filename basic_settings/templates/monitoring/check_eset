@@ -42,6 +42,7 @@ LAST_SCAN_SECS=0
 
 # ESET command paths and long-output buffers.
 LONG_OUTPUT=""
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 SCAN_HISTORY_LIMIT=${SCAN_HISTORY_LIMIT:-5}
 LSLOG=/opt/eset/efs/bin/lslog
 UPD=/opt/eset/efs/bin/upd
@@ -56,6 +57,10 @@ case "$SCAN_HISTORY_LIMIT" in
     ''|*[!0-9]*) SCAN_HISTORY_LIMIT=5 ;;
 esac
 [ "$SCAN_HISTORY_LIMIT" -ge 1 ] || SCAN_HISTORY_LIMIT=5
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
+esac
+[ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # CLI thresholds keep operational tuning outside of the static template.
 USAGE_TEXT="Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]"
@@ -106,6 +111,29 @@ emit_check() {
 # Nagios treats raw pipes after the first output line as perfdata separators.
 monitor_text_value() {
     printf '%s\n' "$1" | $SED 's/|/[or]/g'
+}
+
+# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_text_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
+        }
+    '
 }
 
 # Parse the scan CSV once into typed records for latest-scan metrics and capped history.
@@ -266,7 +294,7 @@ fi
 # Explain how ESET scan history relates to the status decision.
 LONG_OUTPUT=$(
     {
-        printf '%s\n' "$LONG_OUTPUT"
+        printf '%s\n' "$LONG_OUTPUT" | limit_text_details
         printf '%s\n' ''
         printf '%s\n' 'Interpretation:'
         printf '%s\n' 'Daemon/module health, engine update age, latest scan age, latest scan detections, and recent update errors decide the exit code.'

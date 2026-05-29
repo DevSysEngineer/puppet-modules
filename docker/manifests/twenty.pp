@@ -50,8 +50,7 @@
 #   default is `127.0.0.1`.
 #
 # @param monitoring_detail_limit
-#   Maximum number of long-output detail lines emitted by the Compose monitoring
-#   check.
+#   Maximum number of diagnostic characters emitted before the Compose monitoring `Interpretation:` section.
 #
 # @param monitoring_expected_exited
 #   Container names that are allowed to be exited without making the stack
@@ -145,7 +144,7 @@ class docker::twenty (
   Enum['present','absent']                      $ensure                       = present,
   Optional[Sensitive[String]]                   $fallback_encryption_key      = undef,
   Pattern[/\A[^\r\n]+\z/]                       $host                         = '127.0.0.1',
-  Integer                                       $monitoring_detail_limit      = 30,
+  Integer                                       $monitoring_detail_limit      = 6000,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited   = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required   = [],
   Integer                                       $monitoring_interval          = 300,

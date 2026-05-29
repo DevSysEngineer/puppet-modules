@@ -22,6 +22,7 @@ TR=$(command -v tr 2>/dev/null) || die "tr not available"
 LOG_LINES=${LOG_LINES:-20}              # max journal lines to print below the summary
 WINDOW=${WINDOW:-600}                   # seconds of journal to scan (default 10m)
 MAXLOG=${MAXLOG:-1000}                  # max characters per journal line in long output
+DETAIL_LIMIT=${DETAIL_LIMIT:-6000} # max characters before Interpretation
 REQUIRE_ACTIVE=${REQUIRE_ACTIVE:-1}     # 1=service must be active, 0=oneshot-style allowed
 SCAN_LOGS=${SCAN_LOGS:-1}               # 1=scan journal, 0=skip
 
@@ -70,9 +71,13 @@ esac
 case "$WINDOW" in
     ''|*[!0-9]*) die "WINDOW must be numeric" ;;
 esac
+case "$DETAIL_LIMIT" in
+    ''|*[!0-9]*) die "DETAIL_LIMIT must be numeric" ;;
+esac
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
 [ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
+[ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 case "$REQUIRE_ACTIVE" in
     0|1) : ;;
     *) die "REQUIRE_ACTIVE must be 0 or 1" ;;
@@ -284,6 +289,29 @@ format_journal_lines() {
     '
 }
 
+# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
+limit_text_details() {
+    $AWK -v max="$DETAIL_LIMIT" '
+        {
+            line = $0
+            line_len = length(line)
+            separator_len = printed ? 1 : 0
+            if (used + separator_len + line_len <= max) {
+                print line
+                used += separator_len + line_len
+                printed = 1
+                next
+            }
+            remaining = max - used - separator_len
+            if (remaining > 0) {
+                print substr(line, 1, remaining) "... [detail truncated]"
+            }
+            print "Long output details truncated after " max " characters to keep Interpretation visible."
+            exit
+        }
+    '
+}
+
 # Pull all required systemd properties in one call to reduce check latency.
 SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p LoadState -p ActiveState -p SubState -p Result \
@@ -391,7 +419,7 @@ fi
 if [ -n "$JOURNAL_JOINED" ]; then
     JOURNAL_JOINED=$(
         {
-            printf '%s\n' "$JOURNAL_JOINED"
+            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
             printf '%s\n' 'systemctl unit properties, schedule policy, require-active policy, and configured journal failure/warning regex matches decide the exit code.'
