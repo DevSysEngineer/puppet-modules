@@ -40,19 +40,20 @@ FAIL_RE=${FAIL_RE:-'Failed with result|status=[1-9][0-9]*|segfault|core dumped|f
 WARN_RE=${WARN_RE:-''} # keep empty by default (avoid noisy WARNINGs)
 
 # CLI options override environment schedule controls for one invocation.
+USAGE_TEXT="Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
 OPTERR=0
 while getopts "W:D:a" OPT; do
     case "$OPT" in
         W) ACTIVE_WINDOWS="$OPTARG" ;;
         D) ACTIVE_DAYS="$OPTARG" ;;
         a) ACTIVE_ALERT_OUTSIDE=1 ;;
-        *) die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
 
 # Accept both bare service names and fully-qualified .service units.
-[ "$#" -eq 1 ] || die "Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] <service>"
+[ "$#" -eq 1 ] || die "$USAGE_TEXT"
 UNIT=$1
 case "$UNIT" in
     *.service) SERVICE_UNIT="$UNIT" ;;
@@ -88,6 +89,15 @@ case "$ACTIVE_ALERT_OUTSIDE" in
     0|1) : ;;
     *) die "ACTIVE_ALERT_OUTSIDE must be 0 or 1" ;;
 esac
+
+# Validate operator-provided journal regexes before grep is used for state decisions.
+validate_regex() {
+    [ -n "$2" ] || return 0
+    $GREP -E "$2" /dev/null >/dev/null 2>&1
+    [ "$?" -eq 2 ] && die "invalid $1 regex"
+}
+validate_regex 'FAIL_RE' "$FAIL_RE"
+validate_regex 'WARN_RE' "$WARN_RE"
 
 # Track whether any schedule input exists so outside-window behavior is explicit.
 if [ -n "$ACTIVE_WINDOWS" ] || [ -n "$ACTIVE_DAYS" ]; then

@@ -39,15 +39,16 @@ add_issue() {
 }
 
 # CLI options only select the credentials file; thresholds are intentionally fixed by the managed check.
+USAGE_TEXT="Usage: $0 [-c <config_file>]"
 OPTERR=0
 while getopts "c:" opt; do
     case "$opt" in
         c) DEFAULTS_FILE="$OPTARG" ;;
-        *) die "Usage: $0 [-c <config_file>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-c <config_file>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 # Emit a CRITICAL result and stop immediately.
 crit() {

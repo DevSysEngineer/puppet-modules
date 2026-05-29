@@ -78,17 +78,18 @@ WIRED_UP_COUNT=0
 WIRED_UP_LIST=""
 
 # CLI options can narrow service/interface scope and bound interface detail output for one check invocation.
+USAGE_TEXT="Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]"
 OPTERR=0
 while getopts 's:i:l:' opt; do
     case "$opt" in
         s) SERVICES="$OPTARG" ;;
         i) IF_FILTERS="$OPTARG" ;;
         l) DETAIL_LIMIT="$OPTARG" ;;
-        *) die "Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-s <services>] [-i <iface globs>] [-l <detail_limit>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 case "$DETAIL_LIMIT" in
     ''|*[!0-9]*) die "detail limit must be numeric" ;;
 esac

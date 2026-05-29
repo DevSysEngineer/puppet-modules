@@ -26,17 +26,18 @@ CRIT="30" # critical threshold for queue backlog (via -c)
 RABBITMQADMCONF="<%= @admin_config_path %>"
 
 # CLI options keep the same external contract as the generated custom check registration.
+USAGE_TEXT="Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]"
 OPTERR=0
 while getopts 'w:c:C:' opt; do
   case "$opt" in
     w) WARN="$OPTARG" ;;
     c) CRIT="$OPTARG" ;;
     C) RABBITMQADMCONF="$OPTARG" ;;
-    *) die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]" ;;
+    *) die "$USAGE_TEXT" ;;
   esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-w <warn_threshold>] [-c <crit_threshold>] [-C <rabbitmqadmin.conf>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 for numeric_value in "$WARN" "$CRIT" "$DETAIL_LIMIT"; do
   case "$numeric_value" in
     ''|*[!0-9]*) die "queue thresholds and detail limit must be numeric" ;;

@@ -39,19 +39,20 @@ SEP_STATUS="__CHECK_NPM_AUDIT_STATUS_$$__"
 STATE_CODE=3
 
 # CLI options select the audited project and the visible check name.
+USAGE_TEXT="Usage: $0 -d <directory> [-n <name>]"
 OPTERR=0
 while getopts 'd:n:' opt; do
     case "$opt" in
         d) CHECK_DIR="$OPTARG" ;;
         n) CHECK_NAME="$OPTARG" ;;
-        *) die "Usage: $0 -d <directory> [-n <name>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 -d <directory> [-n <name>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 # Validate options
-[ -n "$CHECK_DIR" ] || die "Usage: $0 -d <directory> [-n <name>]"
+[ -n "$CHECK_DIR" ] || die "$USAGE_TEXT"
 [ -d "$CHECK_DIR" ] || die "directory '$CHECK_DIR' does not exist"
 [ -r "$CHECK_DIR" ] || die "directory '$CHECK_DIR' is not readable"
 case "$DETAIL_LIMIT" in

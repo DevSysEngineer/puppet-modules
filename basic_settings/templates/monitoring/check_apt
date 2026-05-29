@@ -58,15 +58,16 @@ GRACE=172800 # 48h
 CHECK_START=$($DATE +%s)
 
 # CLI option overrides the metadata-age grace period for this invocation.
+USAGE_TEXT="Usage: $0 [-c <seconds>]"
 OPTERR=0
 while getopts "c:" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
-        *) die "Usage: $0 [-c <seconds>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-c <seconds>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 case "$GRACE" in
     ''|*[!0-9]*) die "metadata-age grace period must be numeric" ;;
 esac

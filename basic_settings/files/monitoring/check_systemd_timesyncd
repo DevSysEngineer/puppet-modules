@@ -66,10 +66,11 @@ get_num_unit() {
 $SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "systemd-timesyncd.service is not active"
 
 # `NTPSynchronized` is the primary binary health signal for the clock.
-NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null)
+NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null) || die "NTPSynchronized status not available"
 case "$NTPSYNC" in
     yes|1) : ;;
     no|0|"") add_crit "clock not synchronised" ;;
+    *) die "NTPSynchronized returned unexpected value: $NTPSYNC" ;;
 esac
 
 # Read the human timesync status once and parse all numeric metrics from that snapshot.

@@ -58,6 +58,7 @@ esac
 [ "$SCAN_HISTORY_LIMIT" -ge 1 ] || SCAN_HISTORY_LIMIT=5
 
 # CLI thresholds keep operational tuning outside of the static template.
+USAGE_TEXT="Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]"
 OPTERR=0
 while getopts 'n:N:u:U:' opt; do
   case "$opt" in
@@ -65,11 +66,11 @@ while getopts 'n:N:u:U:' opt; do
     N) CRIT_NO_SCAN_DAYS="$OPTARG" ;;
     u) WARN_UPDATE_MIN="$OPTARG" ;;
     U) CRIT_UPDATE_MIN="$OPTARG" ;;
-    *) die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]" ;;
+    *) die "$USAGE_TEXT" ;;
   esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-n <days>] [-N <days>] [-u <min>] [-U <min>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 for threshold_value in "$WARN_NO_SCAN_DAYS" "$CRIT_NO_SCAN_DAYS" "$WARN_UPDATE_MIN" "$CRIT_UPDATE_MIN"; do
     case "$threshold_value" in
         ''|*[!0-9]*) die "scan and update thresholds must be numeric" ;;

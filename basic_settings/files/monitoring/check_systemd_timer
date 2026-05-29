@@ -23,7 +23,8 @@ LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 
 # The service name follows the timer name; this matches systemd's common .timer/.service pairing.
-[ "$#" -eq 1 ] || die "Usage: $0 <timer>"
+USAGE_TEXT="Usage: $0 <timer>"
+[ "$#" -eq 1 ] || die "$USAGE_TEXT"
 TIMER_UNIT=$1
 SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
@@ -90,7 +91,7 @@ LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
 NOW_TS=$($DATE +%s)
 [ -n "${LAST_RUN_TS:-}" ] || {
     emit_check "${TIMER_UNIT} last run could not be parsed" "last_run_age=U exit_code=U"
-    exit 1
+    exit 3
 }
 
 LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
@@ -171,8 +172,9 @@ emit_check \
     "$SERVICE_UNIT $RESULT with exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
     "$PERFDATA"
 
+# Unknown exit status means the timer outcome is inconclusive, not a service failure.
 case "${EXIT_CODE}" in
     0) exit 0 ;;
-    U) exit 1 ;;
+    U) exit 3 ;;
     *) exit 2 ;;
 esac

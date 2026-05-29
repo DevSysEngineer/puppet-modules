@@ -48,17 +48,18 @@ STATE_DIR="/etc/openitcockpit-agent/state"
 STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
 
 # CLI options only change connection config and queue grace behavior.
+USAGE_TEXT="Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]"
 OPTERR=0
 while getopts 'c:t:w:' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
         t) GRACE="$OPTARG" ;;
         w) WARN_Q="$OPTARG" ;;
-        *) die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]" ;;
+        *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
-[ "$#" -eq 0 ] || die "Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>]"
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
 case "$GRACE" in
     ''|*[!0-9]*) die "queue grace must be numeric" ;;
