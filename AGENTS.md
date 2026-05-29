@@ -221,24 +221,44 @@ Shell conventions:
 
 Monitoring output conventions:
 
+Audience and scope:
+
+- Monitoring checks must produce actionable output for operators who may only see the result in OpenITCOCKPIT or on a wallboard and may not have direct shell access to the host.
+- When a check has a deliberate limited scope, the output must make that scope clear. For example, if a check primarily validates configuration but also reports runtime context, the output must distinguish between configuration errors, runtime failures, contextual warnings, and unknown or inconclusive states.
+- Contextual findings may be shown in detail output, but must not affect the exit code unless they are part of the check's defined scope.
+
+Summary line:
+
 - Emit one natural, operator-readable summary line plus optional perfdata or long output.
+- The first output line must be specific enough to support triage. It must not only state that something is wrong, but also explain what is wrong and whether escalation is likely needed.
 - The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
+- When a monitoring UI displays a state prefix such as `WARNING:` or `CRITICAL:` from the Nagios exit code, the check-owned text after that prefix must still be specific. Avoid generic output bodies such as `needs attention`, `state degraded`, or `check failed`; prefer specific bodies such as `systemd manager degraded: 2 failed unit(s); no systemd config errors found`, `systemd configuration invalid: 1 actionable bad-setting unit found`, or `systemd configuration check inconclusive: systemctl unavailable`.
 - Do not prepend or label short-output cause lists with Nagios state names such as `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`. The short output should name the checked object and direct cause, while the exit code carries the machine state.
 - When a check returns WARNING, CRITICAL, or UNKNOWN, include the primary interface, unit, resource, or object and the direct cause in the short output. Long output is for diagnosis and supporting detail, not for discovering the main reason the check failed.
+- Keep summary text cause-oriented; put detailed counters in perfdata or long output.
 - Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
 - Do not print threshold values, threshold inventories, final decision labels, or explanatory decision rationale in monitoring summaries or long output. Thresholds belong in perfdata when useful, while operator-readable output should focus on the checked object, current measured values, and the direct alert cause.
 - Do not embed perfdata-style `key=value` fragments in the summary text.
-- Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
+
+Detail output:
+
+- Monitoring detail output must explain the first line by showing the affected component, the observed state, the likely cause when known, whether the issue is actionable by this check, and the recommended next step or escalation path when useful.
+- Print the most diagnostically important long-output section first.
+- Long detail sections must have a configurable line limit and state explicitly when output was truncated.
 - Do not emit consecutive blank lines in monitoring output. Separate the summary, detail sections, and repeated object blocks with at most one blank line, and avoid trailing blank lines after the final section.
+- Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
+
+Perfdata:
+
 - Perfdata labels must be lowercase snake_case, for example `memory_used`, not `Memory_Used`; labels must start with a lowercase letter and use only lowercase letters, digits, and underscores.
 - Do not encode units in perfdata labels, including prefixes or suffixes such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, `_pct`, `_bytes`, `_seconds`, `_mbit`, or `_bps`. Put units in the perfdata UOM field (unit of measurement), for example `%`, `B`, `s`, or `Mbps`, and keep labels compact and stable.
 - Do not pad absent perfdata fields with empty semicolons. When warning, critical, minimum, and maximum are all absent, emit `label=value` instead of `label=value;` or `label=value;;;;`; include semicolons only through the last populated optional field, for example `label=value;warn;crit` or `label=value;;;0`.
 - Use the `c` UOM for monotonic continuous counters, such as packet counters, byte counters, cumulative event totals, and restart counters that only increase until the source resets. Do not use `c` for gauges, bounded inventory counts, current utilization, high-water marks, rates, or period totals that reset on a schedule.
-- Keep summary text cause-oriented; put detailed counters in perfdata or long output.
-- Print the most diagnostically important long-output section first.
-- Long detail sections must have a configurable line limit and state explicitly when output was truncated.
 
-When changing monitoring checks, preserve the external contract unless the task explicitly changes it. The contract includes exit codes, summary-line shape, perfdata keys, option flags, generated path names, and registration names.
+Exit codes and contracts:
+
+- Avoid changing exit-code semantics without documenting the operational reason.
+- When changing monitoring checks, preserve the external contract unless the task explicitly changes it. The contract includes exit codes, summary-line shape, perfdata keys, option flags, generated path names, and registration names.
 
 ### Dependencies
 

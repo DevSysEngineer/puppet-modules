@@ -17,6 +17,7 @@ SYSTEMD_ANALYZE=$(command -v systemd-analyze 2>/dev/null) || die "systemd-analyz
 # Runtime options that control boot grace, output limits, and stricter reload handling.
 BOOT_GRACE=300
 MAX_DETAIL_LINES=10
+MAX_FAILED_UNIT_LINES=10
 MAX_VERIFY_LINES=10
 QUIET=0
 SHOW_RAW_VERIFY=0
@@ -49,6 +50,10 @@ DAEMON_RELOAD_METRIC=U
 DEFAULT_TARGET=unknown
 DEFAULT_TARGET_VALID=0
 DEFAULT_TARGET_LOAD_STATE=unknown
+FAILED_UNITS=0
+FAILED_UNITS_UNKNOWN=0
+FAILED_UNIT_DETAILS=''
+FAILED_UNIT_SCAN_ERROR=''
 KNOWN_RUNTIME_QUIRK_COUNT=0
 MANAGER_STATE=unknown
 MANAGER_STATE_CODE=7
@@ -63,6 +68,8 @@ VERIFY_OUTPUT=''
 
 # Aggregated reasons collected while determining the final Nagios status.
 CRITICAL_REASONS=''
+DEGRADED_STANDALONE_SUMMARY=''
+MANAGER_WARNING_REASON=''
 UNKNOWN_REASONS=''
 WARNING_REASONS=''
 
@@ -84,6 +91,7 @@ MATCHED_RUNTIME_QUIRK_CLASS=''
 # Return codes captured from the external commands the check relies on.
 DEFAULT_TARGET_RC=U
 DEPENDENCY_TREE_RC=U
+FAILED_UNIT_SCAN_RC=U
 LOAD_STATE_RC=U
 LIST_UNITS_RC=U
 MANAGER_STATE_RC=U
@@ -494,6 +502,107 @@ print_detail_section() {
     fi
 }
 
+# Collect failed runtime units only as explanatory context for a degraded systemd manager state.
+collect_failed_units() {
+    FAILED_UNIT_SCAN_OUTPUT=$($SYSTEMCTL list-units --failed --plain --no-legend --no-pager 2>&1)
+    FAILED_UNIT_SCAN_RC=$?
+
+    if [ "$FAILED_UNIT_SCAN_RC" -ne 0 ]; then
+        FAILED_UNITS=U
+        FAILED_UNITS_UNKNOWN=1
+        FAILED_UNIT_SCAN_ERROR=$(monitor_text_value "$FAILED_UNIT_SCAN_OUTPUT")
+        [ -n "$FAILED_UNIT_SCAN_ERROR" ] || FAILED_UNIT_SCAN_ERROR="systemctl list-units --failed exited with ${FAILED_UNIT_SCAN_RC}"
+        return
+    fi
+
+    # The expected list-units layout is UNIT LOAD ACTIVE SUB DESCRIPTION; anything else would make the explanation unreliable.
+    printf '%s\n' "$FAILED_UNIT_SCAN_OUTPUT" | $AWK 'NF && (NF < 4 || $3 != "failed") { bad = 1 } END { exit(bad ? 1 : 0) }'
+    if [ $? -ne 0 ]; then
+        FAILED_UNITS=U
+        FAILED_UNITS_UNKNOWN=1
+        FAILED_UNIT_SCAN_ERROR='systemctl list-units --failed returned an unexpected format'
+        return
+    fi
+
+    FAILED_UNITS=$(printf '%s\n' "$FAILED_UNIT_SCAN_OUTPUT" | $AWK 'NF { count++ } END { print count + 0 }')
+    FAILED_UNITS_UNKNOWN=0
+
+    if [ "$FAILED_UNITS" -gt 0 ]; then
+        FAILED_UNIT_DETAILS=$(printf '%s\n' "$FAILED_UNIT_SCAN_OUTPUT" | $AWK '
+            NF {
+                description = ""
+                for (field_index = 5; field_index <= NF; field_index++) {
+                    if (description != "") {
+                        description = description " "
+                    }
+                    description = description $field_index
+                }
+                if (description == "") {
+                    description = "(no description)"
+                }
+                gsub(/[[:cntrl:]]/, " ", description)
+                printf "- %s; load=%s; active=%s; sub=%s; description=%s\n", $1, $2, $3, $4, description
+            }
+        ')
+    else
+        FAILED_UNIT_DETAILS=''
+    fi
+}
+
+# Print bounded failed-unit context without changing the check into a service-health check.
+print_failed_units_section() {
+    if [ "$MANAGER_STATE" != 'degraded' ]; then
+        return
+    fi
+
+    if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
+        printf '%s\n' 'Failed units causing degraded state: unavailable'
+        if [ -n "$FAILED_UNIT_SCAN_ERROR" ]; then
+            printf '%s\n' "Reason: ${FAILED_UNIT_SCAN_ERROR}"
+        fi
+        printf '%s\n' ""
+        printf '%s\n' 'Interpretation:'
+        printf '%s\n' 'The check could not determine the failed runtime units behind the degraded manager state.'
+        printf '%s\n' 'Escalate to server operations for manual investigation.'
+        return
+    fi
+
+    if [ "$FAILED_UNITS" -eq 0 ]; then
+        printf '%s\n' 'Failed units causing degraded state: none returned'
+        printf '%s\n' ""
+        printf '%s\n' 'Interpretation:'
+        printf '%s\n' 'systemd reports degraded, but no failed units were returned by systemctl list-units --failed.'
+        printf '%s\n' 'Escalate to server operations for manual investigation.'
+        return
+    fi
+
+    if [ "$FAILED_UNITS" -gt "$MAX_FAILED_UNIT_LINES" ]; then
+        printf '%s\n' "Failed units causing degraded state (showing first ${MAX_FAILED_UNIT_LINES} of ${FAILED_UNITS}):"
+        printf '%s\n' "$FAILED_UNIT_DETAILS" | $AWK -v max="$MAX_FAILED_UNIT_LINES" '
+            NR <= max { print }
+            END {
+                if (NR > max) {
+                    print "[truncated after " max " lines]"
+                }
+            }
+        '
+    else
+        printf '%s\n' "Failed units causing degraded state (${FAILED_UNITS}):"
+        printf '%s\n' "$FAILED_UNIT_DETAILS"
+    fi
+
+    printf '%s\n' ""
+    printf '%s\n' 'Interpretation:'
+    if [ -n "$CRITICAL_REASONS" ]; then
+        printf '%s\n' 'Systemd configuration errors were also found by this check.'
+        printf '%s\n' 'Review the configuration findings first; the failed runtime units explain why the manager state is degraded.'
+    else
+        printf '%s\n' 'No systemd configuration errors were found by this check.'
+        printf '%s\n' 'The degraded manager state is caused by failed runtime units.'
+        printf '%s\n' 'Escalate to server/application operations if these failed units are unexpected.'
+    fi
+}
+
 # Check whether the verify output explicitly mentions the current unit.
 verify_mentions_unit() {
     [ -n "$VERIFY_OUTPUT" ] || return 1
@@ -637,7 +746,10 @@ while getopts 'g:m:d:qrR' opt; do
     case "$opt" in
         g) BOOT_GRACE="$OPTARG" ;;
         m) MAX_VERIFY_LINES="$OPTARG" ;;
-        d) MAX_DETAIL_LINES="$OPTARG" ;;
+        d)
+            MAX_DETAIL_LINES="$OPTARG"
+            MAX_FAILED_UNIT_LINES="$OPTARG"
+            ;;
         q) QUIET=1 ;;
         r) STRICT_RELOAD=1 ;;
         R) SHOW_RAW_VERIFY=1 ;;
@@ -649,8 +761,10 @@ shift $((OPTIND - 1))
 [ $# -eq 0 ] || die "$USAGE_TEXT"
 is_number "$BOOT_GRACE" || die "$USAGE_TEXT"
 is_number "$MAX_DETAIL_LINES" || die "$USAGE_TEXT"
+is_number "$MAX_FAILED_UNIT_LINES" || die "$USAGE_TEXT"
 is_number "$MAX_VERIFY_LINES" || die "$USAGE_TEXT"
 [ "$MAX_DETAIL_LINES" -ge 1 ] || die "detail line limit must be at least 1"
+[ "$MAX_FAILED_UNIT_LINES" -ge 1 ] || die "failed-unit line limit must be at least 1"
 [ "$MAX_VERIFY_LINES" -ge 1 ] || die "verify line limit must be at least 1"
 
 # Boot grace suppresses transient manager states immediately after startup.
@@ -697,6 +811,10 @@ esac
 
 if [ -z "$MANAGER_STATE_RAW" ] && [ "$MANAGER_STATE_RC" -ne 0 ]; then
     add_unknown 'manager state unavailable'
+fi
+
+if [ "$MANAGER_STATE" = 'degraded' ]; then
+    collect_failed_units
 fi
 
 # The default target anchors recursive verification and daemon-reload checks.
@@ -802,13 +920,26 @@ else
     BAD_LOAD_UNITS=0
     inspect_bad_units
     if [ "$BAD_LOAD_UNITS" -gt 0 ]; then
-        add_critical 'load/config errors detected'
+        add_critical "${BAD_LOAD_UNITS} actionable load/config error(s)"
     fi
 fi
 
 # Manager state is contextual only here. Boot grace softens transitional states, but never suppresses real config or load errors collected above.
 case "$MANAGER_STATE" in
-    degraded|maintenance)
+    degraded)
+        if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
+            MANAGER_WARNING_REASON='manager degraded; failed units unavailable'
+            DEGRADED_STANDALONE_SUMMARY='systemd manager degraded: cause unclear; failed units unavailable; no systemd config errors found'
+        elif [ "$FAILED_UNITS" -gt 0 ]; then
+            MANAGER_WARNING_REASON="manager degraded with ${FAILED_UNITS} failed unit(s)"
+            DEGRADED_STANDALONE_SUMMARY="systemd manager degraded: ${FAILED_UNITS} failed unit(s); no systemd config errors found"
+        else
+            MANAGER_WARNING_REASON='manager degraded; no failed units returned'
+            DEGRADED_STANDALONE_SUMMARY='systemd manager degraded: cause unclear; no failed units returned; no systemd config errors found'
+        fi
+        add_warning "$MANAGER_WARNING_REASON"
+        ;;
+    maintenance)
         add_warning "manager state ${MANAGER_STATE}"
         ;;
     starting|initializing|stopping)
@@ -849,8 +980,13 @@ elif [ -n "$UNKNOWN_REASONS" ]; then
     fi
 elif [ -n "$WARNING_REASONS" ]; then
     STATE=1
-    SUMMARY_BASE='systemd configuration needs attention'
-    SUMMARY_REASONS=$WARNING_REASONS
+    if [ "$MANAGER_STATE" = 'degraded' ] && [ "$WARNING_REASONS" = "$MANAGER_WARNING_REASON" ]; then
+        SUMMARY_BASE=$DEGRADED_STANDALONE_SUMMARY
+        SUMMARY_REASONS=''
+    else
+        SUMMARY_BASE='systemd configuration needs attention'
+        SUMMARY_REASONS=$WARNING_REASONS
+    fi
 else
     STATE=0
     SUMMARY_BASE='systemd configuration valid'
@@ -865,6 +1001,8 @@ fi
 
 PERFDATA="manager_state_code=$(metric_value "$MANAGER_STATE_CODE")"
 PERFDATA="${PERFDATA} bad_load_units=$(metric_value "$BAD_LOAD_UNITS")"
+PERFDATA="${PERFDATA} failed_units=$(metric_value "$FAILED_UNITS")"
+PERFDATA="${PERFDATA} failed_units_unknown=$(metric_value "$FAILED_UNITS_UNKNOWN")"
 PERFDATA="${PERFDATA} contextual_not_found_units=$(metric_value "$CONTEXTUAL_NOT_FOUND_UNITS")"
 PERFDATA="${PERFDATA} known_runtime_quirks=$(metric_value "$KNOWN_RUNTIME_QUIRK_COUNT")"
 PERFDATA="${PERFDATA} daemon_reload=$(metric_value "$DAEMON_RELOAD_METRIC")"
@@ -902,6 +1040,50 @@ printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
 printf '%s\n' ""
 
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
+    printf '%s\n' 'Configuration result: invalid, default target is invalid or unavailable'
+elif [ "$LIST_UNITS_RC" -ne 0 ]; then
+    printf '%s\n' 'Configuration result: inconclusive, load/config unit scan failed'
+elif [ "$BAD_LOAD_UNITS" -gt 0 ]; then
+    printf '%s\n' "Configuration result: invalid, ${BAD_LOAD_UNITS} actionable load/config error(s) found"
+elif [ "$VERIFY_EXIT_NONZERO" = '1' ]; then
+    printf '%s\n' 'Configuration result: invalid, systemd-analyze verify failed'
+elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
+    printf '%s\n' "Configuration result: invalid, default target load=${DEFAULT_TARGET_LOAD_STATE}"
+elif [ "$NEED_DAEMON_RELOAD" = 'yes' ]; then
+    if [ "$STRICT_RELOAD" -eq 1 ]; then
+        printf '%s\n' 'Configuration result: invalid, daemon-reload is required'
+    else
+        printf '%s\n' 'Configuration result: valid but daemon-reload is required'
+    fi
+else
+    printf '%s\n' 'Configuration result: no actionable load/config errors found'
+fi
+
+case "$MANAGER_STATE" in
+    degraded)
+        if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
+            printf '%s\n' 'Runtime manager result: degraded, but failed units are unavailable'
+        elif [ "$FAILED_UNITS" -gt 0 ]; then
+            printf '%s\n' "Runtime manager result: degraded because ${FAILED_UNITS} unit(s) are failed"
+        else
+            printf '%s\n' 'Runtime manager result: degraded, but no failed units were returned'
+        fi
+        ;;
+    starting|initializing|stopping)
+        if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
+            printf '%s\n' "Runtime manager result: ${MANAGER_STATE} during boot grace"
+        else
+            printf '%s\n' "Runtime manager result: ${MANAGER_STATE}"
+        fi
+        ;;
+    *)
+        printf '%s\n' "Runtime manager result: ${MANAGER_STATE}"
+        ;;
+esac
+
+printf '%s\n' ""
+
+if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
     printf '%s\n' 'systemd-analyze verify output: skipped because the default target is invalid'
 elif [ "$VERIFY_MESSAGES" = 'U' ]; then
     printf '%s\n' 'systemd-analyze verify output: unavailable'
@@ -922,6 +1104,11 @@ if [ "$LIST_UNITS_RC" -eq 0 ]; then
     print_detail_section 'Actionable units with load/config errors' "$BAD_LOAD_UNITS" "$ACTIONABLE_NOT_FOUND_DETAILS" "$ACTIONABLE_ERROR_DETAILS" "$ACTIONABLE_BAD_SETTING_DETAILS" "$ACTIONABLE_OTHER_DETAILS" 0
 else
     printf '%s\n' 'Actionable units with load/config errors: unavailable'
+fi
+
+if [ "$MANAGER_STATE" = 'degraded' ]; then
+    printf '%s\n' ""
+    print_failed_units_section
 fi
 
 if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
