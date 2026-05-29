@@ -228,6 +228,7 @@ Script baseline and command dependencies:
 
 - Monitoring checks must be POSIX `sh` scripts with `#!/bin/sh` and Nagios-style exit codes. Do not use Bash-only syntax or behavior in checks, including arrays, `[[ ... ]]`, `(( ... ))`, `function name`, process substitution, here-strings, `pipefail`, `read -d`, or Bash-specific parameter expansion.
 - Before changing or adding a monitoring check, inspect comparable checks in this repository and follow their section order, state variables, helper placement, and output style unless there is a concrete reason to deviate.
+- Do not reinvent monitoring-check structure, parsers, renderers, severity aggregation, long-output buffering, truncation handling, perfdata formatting, or interpretation sections when a comparable check already solves the same problem. Start from the closest existing implementation, reuse its proven pattern, and only introduce a new pattern when the existing ones do not fit the check's scope; document the reason in code or the final response when the deviation affects review.
 - Discover dependencies with direct `command -v` assignments, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
 - Invoke command-path variables directly in command position, for example `$AWK ...`, `$SED ...`, and `$SYSTEMCTL ...`; do not wrap that command word in quotes. Keep normal quoting for arguments, data variables, tests, and assignments.
 - Use shell builtins such as `printf` directly.
@@ -286,6 +287,7 @@ Summary line:
 Detail output:
 
 - Monitoring detail output must explain the first line by showing the affected component, the observed state, the likely cause when known, whether the issue is actionable by this check, and the recommended next step or escalation path when useful.
+- For checks with non-trivial long output, include an `Interpretation:` section or equivalent short explanatory lines after the primary findings. It must explain how to read the displayed data, what is inside or outside the check scope, whether contextual findings affected the exit code, and what the operator should inspect or escalate next. Keep it factual and do not repeat threshold inventories, perfdata, or final decision labels.
 - Print the most diagnostically important long-output section first.
 - Long detail sections must have a configurable line limit and state explicitly when output was truncated.
 - Do not emit consecutive blank lines in monitoring output. Separate the summary, detail sections, and repeated object blocks with at most one blank line, and avoid trailing blank lines after the final section.
