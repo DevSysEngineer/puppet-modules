@@ -218,6 +218,7 @@ Belangrijk om te weten:
 - Compose-monitoring kan controleren of containers healthy zijn, of bepaalde eenmalige containers normaal mogen eindigen en of er orphan containers achterblijven.
 - `docker::compose_proxy` maakt naast de Compose-stack een Nginx-vhost aan. De upstream is standaard HTTPS; gebruik HTTP alleen als de containerapplicatie echt geen TLS ondersteunt.
 - De wrappers `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack.
+- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken of te herstellen in de draaiende Authentik Compose-stack. Geef `compose_name => 'authentik'` mee bij de wrapper `docker::authentik`; gebruik een andere waarde alleen bij een eigen gelijkwaardige `docker::compose`-stack met een andere titel. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen.
 
 #### Voorbeelden
 
@@ -277,6 +278,28 @@ node 'containerhost.dev.xxxx.nl' {
     }
 }
 ```
+
+Een Authentik-admingebruiker beheren nadat de stack draait:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    class { 'docker::authentik':
+        pg_pass    => Sensitive('replace-with-postgresql-password'),
+        secret_key => Sensitive('replace-with-secret-key'),
+    }
+
+    docker::authentik_admin { 'kevin.admin':
+        compose_name => 'authentik',
+        email        => 'info@example.org',
+        password     => Sensitive('replace-with-authentik-admin-password'),
+        require      => Class['docker::authentik'],
+    }
+}
+```
+
+Als alleen de admin-groep ontbreekt of verkeerd staat, kun je in de Authentik-projectmap ook de herstelactie van Authentik zelf gebruiken: `docker compose run --rm server ak create_admin_group kevin.admin`.
 
 Meer Docker-varianten staan in [`examples/docker.pp`](examples/docker.pp).
 

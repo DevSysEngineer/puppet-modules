@@ -35,6 +35,9 @@
 #   Controls whether the Authentik Compose project directory and service are
 #   present or absent.
 #
+# @param image_tag
+#   Docker image tag written as `AUTHENTIK_TAG`.
+#
 # @param monitoring_detail_limit
 #   Maximum number of diagnostic characters emitted before the Compose monitoring `Interpretation:` section.
 #
@@ -87,9 +90,6 @@
 #   default is `false` because the bundled stack exposes local HTTPS on `9443`
 #   with an application-managed certificate.
 #
-# @param tag
-#   Docker image tag written as `AUTHENTIK_TAG`.
-#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated
 #   Compose service. The default is `services`.
@@ -99,6 +99,7 @@ class docker::authentik (
   Sensitive[String]                             $pg_pass,
   Sensitive[String]                             $secret_key,
   Enum['present','absent']                      $ensure                      = present,
+  String                                        $image_tag                   = '2026.2.2',
   Integer                                       $monitoring_detail_limit     = 6000,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited  = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required  = [],
@@ -114,7 +115,6 @@ class docker::authentik (
   Optional[String]                              $ssl_certificate_key         = undef,
   Optional[String]                              $ssl_certificate_trusted     = undef,
   Boolean                                       $ssl_verify                  = false,
-  String                                        $tag                         = '2026.2.2',
   String                                        $target                      = 'services'
 ) {
   # Generate .env content for the Compose stack based on the provided parameters.
@@ -122,7 +122,7 @@ class docker::authentik (
 
   # Use the proxy wrapper only when a public Nginx vhost is requested.
   if ($server_name != undef) {
-    docker::compose_proxy { 'authentik':
+    docker::compose_proxy { $name:
       ensure                     => $ensure,
       env_content                => $env_content,
       compose_source             => 'puppet:///modules/docker/authentik.yaml',
@@ -144,7 +144,7 @@ class docker::authentik (
       target                     => $target,
     }
   } else {
-    docker::compose { 'authentik':
+    docker::compose { $name:
       ensure                     => $ensure,
       compose_source             => 'puppet:///modules/docker/authentik.yaml',
       env_content                => $env_content,

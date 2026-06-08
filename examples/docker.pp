@@ -130,9 +130,16 @@ node 'authentik.example.org' {
     ssl_certificate_key        => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
     ssl_certificate_trusted    => '/etc/letsencrypt/live/auth.example.org/chain.pem',
     ssl_verify                 => false,
-    tag                        => '2026.2.2',
+    image_tag                  => '2026.2.2',
     target                     => 'services',
     require                    => [Class['docker'], Class['nginx']],
+  }
+
+  docker::authentik_admin { 'kevin.admin':
+    compose_name => 'authentik',
+    email        => 'info@example.org',
+    password     => Sensitive('replace-with-authentik-admin-password'),
+    require      => Class['docker::authentik'],
   }
 }
 
@@ -182,7 +189,7 @@ node 'twenty.example.org' {
     storage_s3_region            => 'eu-central-1',
     storage_s3_secret_access_key => Sensitive('replace-with-s3-secret-access-key'),
     storage_type                 => 's3',
-    tag                          => 'latest',
+    image_tag                    => 'latest',
     target                       => 'services',
     require                      => [Class['docker'], Class['nginx']],
   }

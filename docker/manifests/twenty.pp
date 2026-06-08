@@ -49,6 +49,9 @@
 #   Local Twenty upstream host used by Nginx when `server_name` is set. The
 #   default is `127.0.0.1`.
 #
+# @param image_tag
+#   Docker image tag written as `TAG`.
+#
 # @param monitoring_detail_limit
 #   Maximum number of diagnostic characters emitted before the Compose monitoring `Interpretation:` section.
 #
@@ -129,9 +132,6 @@
 # @param storage_type
 #   Twenty storage backend written as `STORAGE_TYPE`.
 #
-# @param tag
-#   Docker image tag written as `TAG`.
-#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated
 #   Compose service. The default is `services`.
@@ -144,6 +144,7 @@ class docker::twenty (
   Enum['present','absent']                      $ensure                       = present,
   Optional[Sensitive[String]]                   $fallback_encryption_key      = undef,
   Pattern[/\A[^\r\n]+\z/]                       $host                         = '127.0.0.1',
+  Pattern[/\A[^\r\n]+\z/]                       $image_tag                    = 'latest',
   Integer                                       $monitoring_detail_limit      = 6000,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_expected_exited   = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_health_required   = [],
@@ -169,7 +170,6 @@ class docker::twenty (
   Optional[Pattern[/\A[^\r\n]*\z/]]             $storage_s3_region            = undef,
   Optional[Sensitive[String]]                   $storage_s3_secret_access_key = undef,
   Enum['local','s3']                            $storage_type                 = 'local',
-  Pattern[/\A[^\r\n]+\z/]                       $tag                          = 'latest',
   String                                        $target                       = 'services'
 ) {
   # Generate .env content for the Compose stack based on the provided parameters.

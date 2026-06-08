@@ -87,10 +87,13 @@ define docker::compose (
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
   if ($name =~ /\A[a-zA-Z0-9_.-]+\z/) {
-    # Set up variables for file paths and service names based on the title of the defined resource.
-    $app_dir = "/opt/docker/${name}"
-    $compose_file = "${app_dir}/docker-compose.yml"
-    $env_file = "${app_dir}/.env"
+    # Set up paths, cross-resource lookup aliases, and service names based on the title of the defined resource.
+    $project_directory = "/opt/docker/${name}"
+    $compose_file = "${project_directory}/docker-compose.yml"
+    $env_file = "${project_directory}/.env"
+    $project_directory_alias = "docker_compose_${name}_project_directory"
+    $compose_file_alias = "docker_compose_${name}_compose_file"
+    $env_file_alias = "docker_compose_${name}_env_file"
     $service_name = "docker-compose-${name}"
     $daemon_reload = "docker_compose_systemd_daemon_reload_${name}"
 
@@ -155,8 +158,10 @@ define docker::compose (
           }
 
           # Create a directory for docker-compose
-          file { $app_dir:
+          file { $project_directory:
             ensure => directory,
+            alias  => $project_directory_alias,
+            path   => $project_directory,
             owner  => 'root',
             group  => 'root',
             mode   => '0700',
@@ -166,29 +171,38 @@ define docker::compose (
           if ($env_source != undef or $env_content != undef) {
             file { $env_file:
               ensure  => file,
+              path    => $env_file,
+              alias   => $env_file_alias,
               source  => $env_source,
               content => $env_file_content,
               owner   => 'root',
               group   => 'root',
               mode    => '0600',
-              require => File[$app_dir],
+              require => File[$project_directory],
             }
-            $env_cmd = " --env-file ${env_file}"
+            $compose_env_command = " --env-file ${env_file}"
             $compose_require = File[$env_file]
             $env_monitoring = $env_file
           } else {
-            $env_cmd = ''
-            $compose_require = File[$app_dir]
+            $compose_env_command = ''
+            $compose_require = File[$project_directory]
             $env_monitoring = undef
           }
+
+          # Keep Compose commands local; other defined types consume the managed File aliases above.
+          $compose_config_command = "/usr/bin/docker compose --project-directory ${project_directory}${compose_env_command} --file % config --quiet"
+          $compose_up_command = "/usr/bin/docker compose --project-name ${name} --project-directory ${project_directory}${compose_env_command} --file ${compose_file} up --detach --remove-orphans"
+          $compose_down_command = "/usr/bin/docker compose --project-name ${name} --project-directory ${project_directory}${compose_env_command} --file ${compose_file} down --remove-orphans"
 
           # Sync and validate the compose file before it is promoted into the project directory.
           file { $compose_file:
             ensure         => file,
+            path           => $compose_file,
+            alias          => $compose_file_alias,
             source         => $compose_source,
             checksum       => 'sha256',
             checksum_value => $compose_checksum_value,
-            validate_cmd   => "/usr/bin/docker compose --project-directory ${app_dir}${env_cmd} --file % config --quiet",
+            validate_cmd   => $compose_config_command,
             owner          => 'root',
             group          => 'root',
             mode           => '0600',
@@ -219,8 +233,8 @@ define docker::compose (
               monitoring_package => $monitoring_package,
               service_subscribe  => $service_subscribe,
               service            => {
-                'ExecStart'               => "/usr/bin/docker compose --project-name ${name} --project-directory ${app_dir}${env_cmd} --file ${compose_file} up --detach --remove-orphans",
-                'ExecStop'                => "/usr/bin/docker compose --project-name ${name} --project-directory ${app_dir}${env_cmd} --file ${compose_file} down --remove-orphans",
+                'ExecStart'               => $compose_up_command,
+                'ExecStop'                => $compose_down_command,
                 'LockPersonality'         => 'true',
                 'MemoryDenyWriteExecute'  => 'true',
                 'NoNewPrivileges'         => 'true',
@@ -241,7 +255,7 @@ define docker::compose (
                 'Type'                    => 'oneshot',
                 'UMask'                   => '0077',
                 'User'                    => 'root',
-                'WorkingDirectory'        => $app_dir,
+                'WorkingDirectory'        => $project_directory,
               },
               unit               => stdlib::merge($unit_failure, {
                   'After'    => ['docker.service', 'network-online.target'],
@@ -266,7 +280,7 @@ define docker::compose (
 
           # Monitor the rendered Compose stack separately from the orchestration service unit.
           docker::compose_monitoring { $name:
-            project_directory => $app_dir,
+            project_directory => $project_directory,
             compose_files     => [$compose_file],
             detail_limit      => $monitoring_detail_limit,
             env_file          => $env_monitoring,
@@ -289,7 +303,7 @@ define docker::compose (
       }
     } else {
       # Remove the directory for docker-compose
-      file { $app_dir:
+      file { $project_directory:
         ensure => absent,
         force  => true,
       }
