@@ -255,10 +255,10 @@ define docker::authentik (
     if ($smtp_from == undef or ($smtp_from != undef and $smtp_from == '')) {
       if ($smtp_host_correct != undef) {
         if ($server_name != undef and $server_name != '') {
-          $smtp_from_correct = "authentik@${server_name}"
+          $smtp_from_correct = "noreply@${server_name}"
         } elsif ($basic_settings_defined) {
           if ($basic_settings::server_fdqn != '') {
-            $smtp_from_correct = "authentik@${basic_settings::server_fdqn}"
+            $smtp_from_correct = "noreply@${basic_settings::server_fdqn}"
           } else {
             $smtp_from_correct = undef
           }
