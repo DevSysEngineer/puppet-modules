@@ -217,8 +217,8 @@ Belangrijk om te weten:
 - Een `.env` kan uit `env_source` of `env_content` komen. Gebruik voor wachtwoorden en tokens altijd `Sensitive(...)`, omdat deze waarden anders te makkelijk in logs of diffs terechtkomen.
 - Compose-monitoring kan controleren of containers healthy zijn, of bepaalde eenmalige containers normaal mogen eindigen en of er orphan containers achterblijven.
 - `docker::compose_proxy` maakt naast de Compose-stack een Nginx-vhost aan. De upstream is standaard HTTPS; gebruik HTTP alleen als de containerapplicatie echt geen TLS ondersteunt.
-- De defined types `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. De resource title wordt de Compose stacknaam, waardoor je meerdere instanties kunt declareren zolang poorten, hostnamen en publieke URL's niet botsen. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack.
-- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken of te herstellen in de draaiende Authentik Compose-stack. Geef `compose_name` dezelfde waarde als de titel van de bijbehorende `docker::authentik` of `docker::compose` resource. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen.
+- De defined types `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. De resource title wordt de Compose stacknaam, waardoor je meerdere instanties kunt declareren zolang poorten, hostnamen en publieke URL's niet botsen. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack. `docker::authentik` verwijdert standaard de bootstrap-gebruiker `akadmin`; zet `akadmin_remove => false` als je die gebruiker expliciet wilt behouden.
+- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken, te herstellen of te verwijderen in de draaiende Authentik Compose-stack. Geef `compose_name` dezelfde waarde als de titel van de bijbehorende `docker::authentik` of `docker::compose` resource. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen. Bij `ensure => absent` zijn `email` en `password` niet nodig.
 
 #### Voorbeelden
 
@@ -294,6 +294,25 @@ node 'containerhost.dev.xxxx.nl' {
         compose_name => 'authentik',
         email        => 'info@example.org',
         password     => Sensitive('replace-with-authentik-admin-password'),
+        require      => Docker::Authentik['authentik'],
+    }
+}
+```
+
+Een Authentik-gebruiker verwijderen zonder e-mailadres of wachtwoord:
+
+```puppet
+node 'containerhost.dev.xxxx.nl' {
+    class { 'docker': }
+
+    docker::authentik { 'authentik':
+        pg_pass    => Sensitive('replace-with-postgresql-password'),
+        secret_key => Sensitive('replace-with-secret-key'),
+    }
+
+    docker::authentik_admin { 'old.admin':
+        compose_name => 'authentik',
+        ensure       => absent,
         require      => Docker::Authentik['authentik'],
     }
 }

@@ -88,6 +88,7 @@ Preparation:
 
 - Read `README.md` and the relevant module files first.
 - Check `git status --short` and preserve unrelated user changes.
+- When the user has already edited code to correct an agent's approach, inspect and preserve that edit as the current preferred pattern. Do not reapply an earlier approach from conversation memory unless the user explicitly asks for it.
 - Identify whether the change touches a first-party module or a vendored submodule.
 - Inspect the touched module's `metadata.json` when present.
 - Read related `manifests/`, `templates/`, `files/`, README sections, examples, and systemd units before changing structure or behavior.
@@ -170,7 +171,9 @@ Resource ordering and local integration:
 
 - Preserve explicit `require`, `notify`, and `subscribe` relationships. This repository relies on visible ordering more than implicit autorequires.
 - Keep monitoring and audit wiring close to the managed resource.
-- When a defined type consumes data from another defined type, keep one authoritative source for that data. Do not reconstruct derived paths, filenames, ports, unit names, or other dependency-owned values in the consumer when the source resource can expose them through managed resources or an explicitly accepted API; read the data from that source and add catalog validation for the contract. If the user has rejected adding parameters to the source defined type, do not add hidden, internal, or undocumented parameters to work around that rejection.
+- When a defined type depends on another class or defined-type resource that may or may not be declared, keep the dependent code inside the positive `if defined(...)` branch and put the clear `fail(...)` in the `else`. Bind `require` to the actual declared resource or documented anchor inside that branch. Do not create a resource reference before the existence check has succeeded, and do not let the manifest continue after a failed contract check.
+- When a defined type consumes data from another defined type, keep one authoritative source for that data. Do not reconstruct derived paths, filenames, ports, unit names, or other dependency-owned values in the consumer when the source resource can expose them through managed resources, resource aliases, service titles, or an explicitly accepted API; read the data from that source and add catalog validation for the contract.
+- If the source defined type does not expose enough data and the user rejects expanding its public interface, do not add hidden, internal, undocumented, or convenience parameters to work around that rejection. Use an already accepted contract or a runtime lookup against stable external metadata when that keeps dependency-owned values in one place.
 
 Public settings and compatibility:
 
@@ -327,6 +330,7 @@ Language and ownership:
 
 - Write technical documentation in English. This includes Puppet Strings documentation, examples outside the Dutch README, changelog entries, and this `AGENTS.md` file.
 - When adding or changing instructions in `AGENTS.md`, write them as project-wide rules rather than rules tied to one class, defined type, function, template, or recent change. Mention a specific module or class only when the rule truly applies only there; otherwise describe the general pattern and use concrete names only as optional examples.
+- When adding learned behavior to `AGENTS.md`, place one generic rule in the narrowest relevant section instead of duplicating the same instruction in multiple sections or with multiple wording variants.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise. README examples may contain Puppet code, but the surrounding explanation must stay Dutch.
 - Keep documentation close to the code it describes, unless the topic belongs in the root README or a separate architecture/operations document.
 

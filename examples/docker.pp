@@ -113,6 +113,8 @@ node 'authentik.example.org' {
   }
 
   docker::authentik { 'authentik':
+    akadmin_remove             => true,
+    image_tag                  => '2026.2.2',
     monitoring_detail_limit    => 6000,
     monitoring_expected_exited => ['worker'],
     monitoring_health_required => ['server'],
@@ -130,7 +132,6 @@ node 'authentik.example.org' {
     ssl_certificate_key        => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
     ssl_certificate_trusted    => '/etc/letsencrypt/live/auth.example.org/chain.pem',
     ssl_verify                 => false,
-    image_tag                  => '2026.2.2',
     target                     => 'services',
     require                    => [Class['docker'], Class['nginx']],
   }
@@ -139,6 +140,12 @@ node 'authentik.example.org' {
     compose_name => 'authentik',
     email        => 'info@example.org',
     password     => Sensitive('replace-with-authentik-admin-password'),
+    require      => Docker::Authentik['authentik'],
+  }
+
+  docker::authentik_admin { 'old.admin':
+    compose_name => 'authentik',
+    ensure       => absent,
     require      => Docker::Authentik['authentik'],
   }
 }

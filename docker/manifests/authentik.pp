@@ -5,7 +5,9 @@
 # the Compose project name, so multiple Authentik stacks can be managed on the
 # same host when ports and public names do not conflict. When `server_name` is
 # set, declare `nginx` as well so `docker::compose_proxy` can add the reverse
-# proxy; otherwise the defined type declares `docker::compose` directly.
+# proxy; otherwise the defined type declares `docker::compose` directly. By
+# default, the bundled bootstrap `akadmin` user is removed after the stack is
+# managed.
 #
 # @example Deploy Authentik with generated `.env` content
 #   class { 'docker': }
@@ -32,6 +34,10 @@
 #
 # @param secret_key
 #   Secret key written as `AUTHENTIK_SECRET_KEY` in the generated `.env` file.
+#
+# @param akadmin_remove
+#   Removes the bundled Authentik bootstrap `akadmin` user through
+#   `docker::authentik_admin` when `true`.
 #
 # @param ensure
 #   Controls whether the Authentik Compose project directory and service are
@@ -100,6 +106,7 @@
 define docker::authentik (
   Sensitive[String]                             $pg_pass,
   Sensitive[String]                             $secret_key,
+  Boolean                                       $akadmin_remove              = true,
   Enum['present','absent']                      $ensure                      = present,
   String                                        $image_tag                   = '2026.2.2',
   Integer                                       $monitoring_detail_limit     = 6000,
@@ -170,6 +177,16 @@ define docker::authentik (
         monitoring_timeout         => $monitoring_timeout,
         target                     => $target,
         require                    => Class['docker'],
+      }
+    }
+
+    if ($ensure == present and $akadmin_remove) {
+      # Remove Authentik's bundled bootstrap admin user through the managed Compose stack contract.
+      docker::authentik_admin { "${name}_akadmin":
+        compose_name => $name,
+        ensure       => absent,
+        username     => 'akadmin',
+        require      => Docker::Compose[$name],
       }
     }
   }
