@@ -84,6 +84,30 @@
 #   Optional public Nginx `server_name`. When unset, only `docker::compose` is
 #   declared.
 #
+# @param smtp_from
+#   Optional sender address written as `AUTHENTIK_EMAIL__FROM`. `undef` derives `authentik@<server_name>` or `authentik@basic_settings::server_fdqn` when SMTP is active.
+#
+# @param smtp_host
+#   Optional SMTP relay host written as `AUTHENTIK_EMAIL__HOST`. `undef` inherits `basic_settings::smtp_server` when `basic_settings` is declared.
+#
+# @param smtp_password
+#   Optional SMTP password written as `AUTHENTIK_EMAIL__PASSWORD`. Empty values are omitted from the generated `.env` file.
+#
+# @param smtp_port
+#   Optional SMTP relay port written as `AUTHENTIK_EMAIL__PORT`. `undef` uses `25` only when an SMTP host is available.
+#
+# @param smtp_timeout
+#   Optional SMTP timeout in seconds written as `AUTHENTIK_EMAIL__TIMEOUT`. `undef` uses `10` only when an SMTP host is available.
+#
+# @param smtp_use_ssl
+#   Optional implicit TLS/SSL setting written as `AUTHENTIK_EMAIL__USE_SSL`. `undef` uses `false` only when an SMTP host is available.
+#
+# @param smtp_use_tls
+#   Optional STARTTLS setting written as `AUTHENTIK_EMAIL__USE_TLS`. `undef` uses `false` only when an SMTP host is available.
+#
+# @param smtp_username
+#   Optional SMTP username written as `AUTHENTIK_EMAIL__USERNAME`. Empty values are omitted from the generated `.env` file.
+#
 # @param ssl_certificate
 #   Public TLS certificate path for the generated Nginx vhost.
 #
@@ -120,6 +144,14 @@ define docker::authentik (
   Integer[1, 65535]                             $port                        = 9443,
   Enum['http','https']                          $scheme                      = 'https',
   Optional[String]                              $server_name                 = undef,
+  Optional[Pattern[/\A[^\r\n]*\z/]]             $smtp_from                   = undef,
+  Optional[Pattern[/\A[^\r\n]*\z/]]             $smtp_host                   = undef,
+  Optional[Sensitive[String]]                   $smtp_password               = undef,
+  Optional[Integer[1, 65535]]                   $smtp_port                   = undef,
+  Optional[Integer[1]]                          $smtp_timeout                = undef,
+  Optional[Boolean]                             $smtp_use_ssl                = undef,
+  Optional[Boolean]                             $smtp_use_tls                = undef,
+  Optional[Pattern[/\A[^\r\n]*\z/]]             $smtp_username               = undef,
   Optional[String]                              $ssl_certificate             = undef,
   Optional[String]                              $ssl_certificate_key         = undef,
   Optional[String]                              $ssl_certificate_trusted     = undef,
@@ -129,65 +161,184 @@ define docker::authentik (
   # Validate required parent classes before delegating to the shared Compose wrappers.
   $docker_defined = defined(Class['docker'])
   $nginx_defined = defined(Class['nginx'])
+  $basic_settings_defined = defined(Class['basic_settings'])
 
-  if (!$docker_defined) {
-    fail('docker::authentik requires the docker class before it can create the Compose stack.')
-  } elsif ($server_name != undef and !$nginx_defined) {
-    fail('docker::authentik requires the nginx class before it can create a reverse proxy vhost.')
-  } else {
-    # Generate .env content for the Compose stack based on the provided parameters.
-    $env_content = Sensitive.new(template('docker/authentik.env'))
-
-    # Use the proxy wrapper only when a public Nginx vhost is requested.
-    if ($server_name != undef) {
-      docker::compose_proxy { $name:
-        ensure                     => $ensure,
-        env_content                => $env_content,
-        compose_source             => 'puppet:///modules/docker/authentik.yaml',
-        monitoring_detail_limit    => $monitoring_detail_limit,
-        monitoring_expected_exited => $monitoring_expected_exited,
-        monitoring_health_required => $monitoring_health_required,
-        monitoring_interval        => $monitoring_interval,
-        monitoring_orphan_critical => $monitoring_orphan_critical,
-        monitoring_profiles        => $monitoring_profiles,
-        monitoring_starting_grace  => $monitoring_starting_grace,
-        monitoring_timeout         => $monitoring_timeout,
-        proxy_port                 => $port,
-        proxy_scheme               => $scheme,
-        proxy_ssl_verify           => $ssl_verify,
-        server_name                => $server_name,
-        ssl_certificate            => $ssl_certificate,
-        ssl_certificate_key        => $ssl_certificate_key,
-        ssl_certificate_trusted    => $ssl_certificate_trusted,
-        target                     => $target,
-        require                    => Class['docker'],
+  if ($docker_defined and ($server_name == undef or $nginx_defined)) {
+    # Resolve the SMTP relay host with the same explicit-then-basic_settings ordering used by GitLab's SMTP configuration.
+    if ($smtp_host == undef or ($smtp_host != undef and $smtp_host == '')) {
+      if ($basic_settings_defined) {
+        if ($basic_settings::smtp_server != '') {
+          $smtp_host_correct = $basic_settings::smtp_server
+        } else {
+          $smtp_host_correct = undef
+        }
+      } else {
+        $smtp_host_correct = undef
       }
     } else {
-      docker::compose { $name:
-        ensure                     => $ensure,
-        compose_source             => 'puppet:///modules/docker/authentik.yaml',
-        env_content                => $env_content,
-        monitoring_detail_limit    => $monitoring_detail_limit,
-        monitoring_expected_exited => $monitoring_expected_exited,
-        monitoring_health_required => $monitoring_health_required,
-        monitoring_interval        => $monitoring_interval,
-        monitoring_orphan_critical => $monitoring_orphan_critical,
-        monitoring_profiles        => $monitoring_profiles,
-        monitoring_starting_grace  => $monitoring_starting_grace,
-        monitoring_timeout         => $monitoring_timeout,
-        target                     => $target,
-        require                    => Class['docker'],
+      $smtp_host_correct = $smtp_host
+    }
+
+    # Use Authentik's documented SMTP defaults only after SMTP is active through a resolved host.
+    if ($smtp_port == undef) {
+      if ($smtp_host_correct != undef) {
+        $smtp_port_correct = 25
+      } else {
+        $smtp_port_correct = undef
+      }
+    } else {
+      $smtp_port_correct = $smtp_port
+    }
+
+    if ($smtp_timeout == undef) {
+      if ($smtp_host_correct != undef) {
+        $smtp_timeout_correct = 10
+      } else {
+        $smtp_timeout_correct = undef
+      }
+    } else {
+      $smtp_timeout_correct = $smtp_timeout
+    }
+
+    if ($smtp_use_ssl == undef) {
+      if ($smtp_host_correct != undef) {
+        $smtp_use_ssl_correct = false
+      } else {
+        $smtp_use_ssl_correct = undef
+      }
+    } else {
+      $smtp_use_ssl_correct = $smtp_use_ssl
+    }
+
+    if ($smtp_use_tls == undef) {
+      if ($smtp_host_correct != undef) {
+        $smtp_use_tls_correct = false
+      } else {
+        $smtp_use_tls_correct = undef
+      }
+    } else {
+      $smtp_use_tls_correct = $smtp_use_tls
+    }
+
+    if ($smtp_use_ssl_correct == true and $smtp_use_tls_correct == true) {
+      $smtp_tls_fail_text = 'docker::authentik cannot enable both smtp_use_ssl and smtp_use_tls for the same SMTP connection.'
+    } else {
+      $smtp_tls_fail_text = undef
+    }
+
+    # Keep optional SMTP authentication values out of the generated .env file when callers leave them empty.
+    if ($smtp_username == undef or ($smtp_username != undef and $smtp_username == '')) {
+      $smtp_username_correct = undef
+    } else {
+      $smtp_username_correct = $smtp_username
+    }
+
+    if ($smtp_password == undef) {
+      $smtp_password_correct = undef
+      $smtp_password_fail_text = undef
+    } else {
+      $smtp_password_unwrapped = $smtp_password.unwrap
+      if ($smtp_password_unwrapped =~ /\A[^\r\n]*\z/) {
+        if ($smtp_password_unwrapped == '') {
+          $smtp_password_correct = undef
+        } else {
+          $smtp_password_correct = $smtp_password_unwrapped
+        }
+        $smtp_password_fail_text = undef
+      } else {
+        $smtp_password_correct = undef
+        $smtp_password_fail_text = 'docker::authentik smtp_password must not contain newlines.'
       }
     }
 
-    if ($ensure == present and $akadmin_remove) {
-      # Remove Authentik's bundled bootstrap admin user through the managed Compose stack contract.
-      docker::authentik_admin { "${name}_akadmin":
-        compose_name => $name,
-        ensure       => absent,
-        username     => 'akadmin',
-        require      => Docker::Compose[$name],
+    # Derive a sender address from the public Authentik name or the central server FQDN when SMTP is active and no explicit sender is set.
+    if ($smtp_from == undef or ($smtp_from != undef and $smtp_from == '')) {
+      if ($smtp_host_correct != undef) {
+        if ($server_name != undef and $server_name != '') {
+          $smtp_from_correct = "authentik@${server_name}"
+        } elsif ($basic_settings_defined) {
+          if ($basic_settings::server_fdqn != '') {
+            $smtp_from_correct = "authentik@${basic_settings::server_fdqn}"
+          } else {
+            $smtp_from_correct = undef
+          }
+        } else {
+          $smtp_from_correct = undef
+        }
+      } else {
+        $smtp_from_correct = undef
       }
+    } else {
+      $smtp_from_correct = $smtp_from
     }
+
+    if ($smtp_tls_fail_text == undef) {
+      $smtp_validation_fail_text = $smtp_password_fail_text
+    } else {
+      $smtp_validation_fail_text = $smtp_tls_fail_text
+    }
+
+    if ($smtp_validation_fail_text == undef) {
+      # Generate .env content for the Compose stack based on the provided parameters.
+      $env_content = Sensitive.new(template('docker/authentik.env'))
+
+      # Use the proxy wrapper only when a public Nginx vhost is requested.
+      if ($server_name != undef) {
+        docker::compose_proxy { $name:
+          ensure                     => $ensure,
+          env_content                => $env_content,
+          compose_source             => 'puppet:///modules/docker/authentik.yaml',
+          monitoring_detail_limit    => $monitoring_detail_limit,
+          monitoring_expected_exited => $monitoring_expected_exited,
+          monitoring_health_required => $monitoring_health_required,
+          monitoring_interval        => $monitoring_interval,
+          monitoring_orphan_critical => $monitoring_orphan_critical,
+          monitoring_profiles        => $monitoring_profiles,
+          monitoring_starting_grace  => $monitoring_starting_grace,
+          monitoring_timeout         => $monitoring_timeout,
+          proxy_port                 => $port,
+          proxy_scheme               => $scheme,
+          proxy_ssl_verify           => $ssl_verify,
+          server_name                => $server_name,
+          ssl_certificate            => $ssl_certificate,
+          ssl_certificate_key        => $ssl_certificate_key,
+          ssl_certificate_trusted    => $ssl_certificate_trusted,
+          target                     => $target,
+          require                    => Class['docker'],
+        }
+      } else {
+        docker::compose { $name:
+          ensure                     => $ensure,
+          compose_source             => 'puppet:///modules/docker/authentik.yaml',
+          env_content                => $env_content,
+          monitoring_detail_limit    => $monitoring_detail_limit,
+          monitoring_expected_exited => $monitoring_expected_exited,
+          monitoring_health_required => $monitoring_health_required,
+          monitoring_interval        => $monitoring_interval,
+          monitoring_orphan_critical => $monitoring_orphan_critical,
+          monitoring_profiles        => $monitoring_profiles,
+          monitoring_starting_grace  => $monitoring_starting_grace,
+          monitoring_timeout         => $monitoring_timeout,
+          target                     => $target,
+          require                    => Class['docker'],
+        }
+      }
+
+      if ($ensure == present and $akadmin_remove) {
+        # Remove Authentik's bundled bootstrap admin user through the managed Compose stack contract.
+        docker::authentik_admin { "${name}_akadmin":
+          ensure       => absent,
+          compose_name => $name,
+          username     => 'akadmin',
+          require      => Docker::Compose[$name],
+        }
+      }
+    } else {
+      fail($smtp_validation_fail_text)
+    }
+  } elsif ($docker_defined) {
+    fail('docker::authentik requires the nginx class before it can create a reverse proxy vhost.')
+  } else {
+    fail('docker::authentik requires the docker class before it can create the Compose stack.')
   }
 }
