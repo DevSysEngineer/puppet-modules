@@ -170,6 +170,7 @@ Resource ordering and local integration:
 
 - Preserve explicit `require`, `notify`, and `subscribe` relationships. This repository relies on visible ordering more than implicit autorequires.
 - Keep monitoring and audit wiring close to the managed resource.
+- When a defined type consumes data from another defined type, keep one authoritative source for that data. Do not reconstruct derived paths, filenames, ports, unit names, or other dependency-owned values in the consumer when the source resource can expose them through managed resources or an explicitly accepted API; read the data from that source and add catalog validation for the contract. If the user has rejected adding parameters to the source defined type, do not add hidden, internal, or undocumented parameters to work around that rejection.
 
 Public settings and compatibility:
 

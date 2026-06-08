@@ -7,10 +7,9 @@
 # generated Puppet `exec` command and guard are also marked sensitive so the
 # secret is not written to normal Puppet output.
 #
-# Declare `docker::authentik` or an equivalent `docker::compose` stack before
-# using this defined type. The `compose_name` parameter must match that Compose
-# resource title. The stack must already be running; this resource does not start
-# or restart Authentik.
+# Declare `docker::authentik` or an equivalent `docker::compose` stack with the
+# same `compose_name`. The stack must already be running; this resource does not
+# start or restart Authentik.
 #
 # @example Create or repair an Authentik admin account
 #   docker::authentik_admin { 'kevin.admin':
@@ -48,170 +47,147 @@ define docker::authentik_admin (
   Integer[1]                                  $timeout      = 120,
   Optional[Pattern[/\A[A-Za-z0-9@._+-]+\z/]]  $username     = undef
 ) {
-  # Resolve compose lookup resources published by docker::compose from its local path variables.
-  $compose_defined = defined(Docker::Compose[$compose_name])
-  $project_directory_resource = "docker_compose_${compose_name}_project_directory"
-  $compose_file_resource = "docker_compose_${compose_name}_compose_file"
-  $env_file_resource = "docker_compose_${compose_name}_env_file"
-  $project_directory_defined = defined(File[$project_directory_resource])
-  $compose_file_defined = defined(File[$compose_file_resource])
-  $env_file_defined = defined(File[$env_file_resource])
+  # Keep the catalog relationship to the Compose stack while resolving the running container from Docker labels at execution time.
+  $compose_require = Docker::Compose[$compose_name]
+  $service = 'server'
 
-  # Validate that the dependent compose stack is present and has published all required path resources.
-  if (!$compose_defined) {
-    $compose_fail_text = "docker::authentik_admin requires Docker::Compose[${compose_name}] in the catalog."
-  } elsif (Docker::Compose[$compose_name]['ensure'] != present) {
-    $compose_fail_text = "docker::authentik_admin requires Docker::Compose[${compose_name}] with ensure => present."
-  } elsif (!$project_directory_defined) {
-    $compose_fail_text = "docker::authentik_admin requires File[${project_directory_resource}] from Docker::Compose[${compose_name}]."
-  } elsif (!$compose_file_defined) {
-    $compose_fail_text = "docker::authentik_admin requires File[${compose_file_resource}] from Docker::Compose[${compose_name}]."
-  } elsif (!$env_file_defined) {
-    $compose_fail_text = "docker::authentik_admin requires File[${env_file_resource}] from Docker::Compose[${compose_name}]."
-  } else {
-    $compose_fail_text = undef
+  # Resolve the optional username before validation and command construction.
+  $username_correct = $username ? {
+    undef   => $title,
+    default => $username,
   }
 
-  if ($compose_fail_text == undef) {
-    # Read the exact paths from the resources managed by docker::compose.
-    $project_directory = File[$project_directory_resource]['path']
-    $compose_file = File[$compose_file_resource]['path']
-    $env_file = File[$env_file_resource]['path']
-    $service = 'server'
+  # Validate title-derived usernames and passwords before using them in the generated command.
+  if ($username_correct =~ /\A[A-Za-z0-9@._+-]+\z/) {
+    $password_unwrapped = $password.unwrap
 
-    # Resolve the optional username before validation and command construction.
-    $username_correct = $username ? {
-      undef   => $title,
-      default => $username,
-    }
+    if ($password_unwrapped =~ /\A[^\r\n]+\z/) {
+      # Escape all dynamic shell words at the Docker CLI boundary.
+      $compose_name_shell = stdlib::shell_escape($compose_name)
+      $email_shell = stdlib::shell_escape($email)
+      $group_name_shell = stdlib::shell_escape($group_name)
+      $password_shell = stdlib::shell_escape($password_unwrapped)
+      $service_shell = stdlib::shell_escape($service)
+      $username_shell = stdlib::shell_escape($username_correct)
 
-    # Validate title-derived usernames and passwords before using them in the generated command.
-    if ($username_correct =~ /\A[A-Za-z0-9@._+-]+\z/) {
-      $password_unwrapped = $password.unwrap
+      # Locate the running Compose service container by Docker labels so no compose path values are duplicated in this defined type.
+      $container_lookup_command = join([
+          'container_id=$(/usr/bin/docker ps',
+          "--filter label=com.docker.compose.project=${compose_name_shell}",
+          "--filter label=com.docker.compose.service=${service_shell}",
+          "--format '{{.ID}}'",
+          '| /usr/bin/head -n 1)',
+      ], ' ')
+      $container_required_command = 'test -n "$container_id" || exit 1'
 
-      if ($password_unwrapped =~ /\A[^\r\n]+\z/) {
-        # Escape all dynamic shell words at the Docker CLI boundary.
-        $compose_file_shell = stdlib::shell_escape($compose_file)
-        $compose_name_shell = stdlib::shell_escape($compose_name)
-        $email_shell = stdlib::shell_escape($email)
-        $env_file_shell = stdlib::shell_escape($env_file)
-        $group_name_shell = stdlib::shell_escape($group_name)
-        $password_shell = stdlib::shell_escape($password_unwrapped)
-        $project_directory_shell = stdlib::shell_escape($project_directory)
-        $service_shell = stdlib::shell_escape($service)
-        $username_shell = stdlib::shell_escape($username_correct)
+      # Pass managed Authentik values as environment variables to keep the Python block static.
+      $authentik_env_args = join([
+          "-e AK_ADMIN_USERNAME=${username_shell}",
+          "-e AK_ADMIN_EMAIL=${email_shell}",
+          "-e AK_ADMIN_PASSWORD=${password_shell}",
+          "-e AK_ADMIN_GROUP=${group_name_shell}",
+      ], ' ')
+      $docker_exec_command = join([
+          '/usr/bin/docker exec -i',
+          $authentik_env_args,
+          '"$container_id"',
+          'ak shell',
+      ], ' ')
 
-        # Keep the Compose invocation identical to the managed service identity.
-        $compose_command = join([
-            '/usr/bin/docker compose',
-            "--project-name ${compose_name_shell}",
-            "--project-directory ${project_directory_shell}",
-            "--env-file ${env_file_shell}",
-            "--file ${compose_file_shell}",
-        ], ' ')
+      # The guard confirms the user, password, active state, email, and superuser group membership.
+      $check_python = join([
+          'import os',
+          'from authentik.core.models import Group, User',
+          '',
+          'username = os.environ["AK_ADMIN_USERNAME"]',
+          'email = os.environ["AK_ADMIN_EMAIL"]',
+          'password = os.environ["AK_ADMIN_PASSWORD"]',
+          'group_name = os.environ["AK_ADMIN_GROUP"]',
+          '',
+          'try:',
+          '    user = User.objects.get(username=username)',
+          'except User.DoesNotExist:',
+          '    raise SystemExit(1)',
+          '',
+          'if not user.is_active:',
+          '    raise SystemExit(1)',
+          'if user.email != email:',
+          '    raise SystemExit(1)',
+          'if not user.check_password(password):',
+          '    raise SystemExit(1)',
+          'if not user.groups.filter(name=group_name, is_superuser=True).exists():',
+          '    raise SystemExit(1)',
+      ], "\n")
 
-        # Pass managed Authentik values as environment variables to keep the Python block static.
-        $authentik_env_args = join([
-            "-e AK_ADMIN_USERNAME=${username_shell}",
-            "-e AK_ADMIN_EMAIL=${email_shell}",
-            "-e AK_ADMIN_PASSWORD=${password_shell}",
-            "-e AK_ADMIN_GROUP=${group_name_shell}",
-        ], ' ')
+      # The update path creates missing objects and only mutates existing fields that drifted.
+      $update_python = join([
+          'import os',
+          'from authentik.core.models import Group, User',
+          '',
+          'username = os.environ["AK_ADMIN_USERNAME"]',
+          'email = os.environ["AK_ADMIN_EMAIL"]',
+          'password = os.environ["AK_ADMIN_PASSWORD"]',
+          'group_name = os.environ["AK_ADMIN_GROUP"]',
+          '',
+          'user, created = User.objects.get_or_create(',
+          '    username=username,',
+          '    defaults={',
+          '        "path": "users",',
+          '        "name": username,',
+          '        "email": email,',
+          '    },',
+          ')',
+          '',
+          'user.name = user.name or username',
+          'user.path = user.path or "users"',
+          'user.email = email',
+          'user.is_active = True',
+          'if created or not user.check_password(password):',
+          '    user.set_password(password)',
+          'user.save()',
+          '',
+          'group, group_created = Group.objects.get_or_create(',
+          '    name=group_name,',
+          '    defaults={"is_superuser": True},',
+          ')',
+          'if not group.is_superuser:',
+          '    group.is_superuser = True',
+          '    group.save()',
+          'if not user.groups.filter(pk=group.pk).exists():',
+          '    user.groups.add(group)',
+          '',
+          'print("authentik admin user %s is active and has superuser access through %s" % (username, group.name))',
+      ], "\n")
 
-        # The guard confirms the user, password, active state, email, and superuser group membership.
-        $check_python = join([
-            'import os',
-            'from authentik.core.models import Group, User',
-            '',
-            'username = os.environ["AK_ADMIN_USERNAME"]',
-            'email = os.environ["AK_ADMIN_EMAIL"]',
-            'password = os.environ["AK_ADMIN_PASSWORD"]',
-            'group_name = os.environ["AK_ADMIN_GROUP"]',
-            '',
-            'try:',
-            '    user = User.objects.get(username=username)',
-            'except User.DoesNotExist:',
-            '    raise SystemExit(1)',
-            '',
-            'if not user.is_active:',
-            '    raise SystemExit(1)',
-            'if user.email != email:',
-            '    raise SystemExit(1)',
-            'if not user.check_password(password):',
-            '    raise SystemExit(1)',
-            'if not user.groups.filter(name=group_name, is_superuser=True).exists():',
-            '    raise SystemExit(1)',
-        ], "\n")
+      # Build heredoc commands for Puppet's shell provider so Python code is sent through stdin.
+      $check_command = join([
+          $container_lookup_command,
+          $container_required_command,
+          "${docker_exec_command} <<'PY'",
+          $check_python,
+          'PY',
+      ], "\n")
+      $update_command = join([
+          $container_lookup_command,
+          $container_required_command,
+          "${docker_exec_command} <<'PY'",
+          $update_python,
+          'PY',
+      ], "\n")
 
-        # The update path creates missing objects and only mutates existing fields that drifted.
-        $update_python = join([
-            'import os',
-            'from authentik.core.models import Group, User',
-            '',
-            'username = os.environ["AK_ADMIN_USERNAME"]',
-            'email = os.environ["AK_ADMIN_EMAIL"]',
-            'password = os.environ["AK_ADMIN_PASSWORD"]',
-            'group_name = os.environ["AK_ADMIN_GROUP"]',
-            '',
-            'user, created = User.objects.get_or_create(',
-            '    username=username,',
-            '    defaults={',
-            '        "path": "users",',
-            '        "name": username,',
-            '        "email": email,',
-            '    },',
-            ')',
-            '',
-            'user.name = user.name or username',
-            'user.path = user.path or "users"',
-            'user.email = email',
-            'user.is_active = True',
-            'if created or not user.check_password(password):',
-            '    user.set_password(password)',
-            'user.save()',
-            '',
-            'group, group_created = Group.objects.get_or_create(',
-            '    name=group_name,',
-            '    defaults={"is_superuser": True},',
-            ')',
-            'if not group.is_superuser:',
-            '    group.is_superuser = True',
-            '    group.save()',
-            'if not user.groups.filter(pk=group.pk).exists():',
-            '    user.groups.add(group)',
-            '',
-            'print("authentik admin user %s is active and has superuser access through %s" % (username, group.name))',
-        ], "\n")
-
-        # Build heredoc commands for Puppet's shell provider so Python code is sent through stdin.
-        $check_command = join([
-            "${compose_command} exec -T ${authentik_env_args} ${service_shell} ak shell <<'PY'",
-            $check_python,
-            'PY',
-        ], "\n")
-        $update_command = join([
-            "${compose_command} exec -T ${authentik_env_args} ${service_shell} ak shell <<'PY'",
-            $update_python,
-            'PY',
-        ], "\n")
-
-        # Run the Authentik mutation only when the guard detects drift.
-        exec { "docker_authentik_admin_${compose_name}_${username_correct}":
-          command   => Sensitive.new($update_command),
-          cwd       => $project_directory,
-          logoutput => false,
-          provider  => shell,
-          require   => Docker::Compose[$compose_name],
-          timeout   => $timeout,
-          unless    => Sensitive.new($check_command),
-        }
-      } else {
-        fail('docker::authentik_admin password must not be empty or contain newlines.')
+      # Run the Authentik mutation only when the guard detects drift.
+      exec { "docker_authentik_admin_${compose_name}_${username_correct}":
+        command   => Sensitive.new($update_command),
+        logoutput => false,
+        provider  => shell,
+        require   => $compose_require,
+        timeout   => $timeout,
+        unless    => Sensitive.new($check_command),
       }
     } else {
-      fail('docker::authentik_admin usernames may only contain letters, numbers, at signs, dots, underscores, plus signs, and hyphens.')
+      fail('docker::authentik_admin password must not be empty or contain newlines.')
     }
   } else {
-    fail($compose_fail_text)
+    fail('docker::authentik_admin usernames may only contain letters, numbers, at signs, dots, underscores, plus signs, and hyphens.')
   }
 }
