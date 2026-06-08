@@ -62,12 +62,24 @@ define docker::authentik_admin (
   Integer[1]                                  $timeout     = 120,
   Optional[Pattern[/\A[A-Za-z0-9@._+-]+\z/]]  $username    = undef
 ) {
-  # Validate that the Compose stack resource is already declared before binding the runtime admin action to it.
+  # Resolve the best currently visible catalog anchor without assuming wrapper bodies have already been evaluated.
   $compose_defined = defined(Docker::Compose[$compose_name])
+  $compose_proxy_defined = defined(Docker::Compose_proxy[$compose_name])
+  $authentik_defined = defined(Docker::Authentik[$compose_name])
   if ($compose_defined) {
-    # Use the Compose resource as the required anchor for the generated exec so the admin user is managed after the stack is up.
     $compose_require = Docker::Compose[$compose_name]
+    $compose_contract_fail_text = undef
+  } elsif ($compose_proxy_defined) {
+    $compose_require = Docker::Compose_proxy[$compose_name]
+    $compose_contract_fail_text = undef
+  } elsif ($authentik_defined) {
+    $compose_require = Docker::Authentik[$compose_name]
+    $compose_contract_fail_text = undef
+  } else {
+    $compose_contract_fail_text = "docker::authentik_admin requires Docker::Compose[${compose_name}], Docker::Compose_proxy[${compose_name}], or Docker::Authentik[${compose_name}] in the catalog."
+  }
 
+  if ($compose_contract_fail_text == undef) {
     # Resolve the running container from Docker labels at execution time instead of duplicating Compose-owned paths here.
     $service = 'server'
 
@@ -256,6 +268,6 @@ define docker::authentik_admin (
       fail($present_input_fail_text)
     }
   } else {
-    fail("docker::authentik_admin requires Docker::Compose[${compose_name}] in the catalog.")
+    fail($compose_contract_fail_text)
   }
 }
