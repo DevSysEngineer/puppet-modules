@@ -17,7 +17,7 @@
 #     compose_name => 'authentik',
 #     email        => 'info@example.org',
 #     password     => Sensitive('replace-with-admin-password'),
-#     require      => Class['docker::authentik'],
+#     require      => Docker::Authentik['authentik'],
 #   }
 #
 # @param compose_name

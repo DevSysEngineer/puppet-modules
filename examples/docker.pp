@@ -1,4 +1,4 @@
-# Docker-focused examples for Compose stacks, reverse proxies, and bundled app wrappers.
+# Docker-focused examples for Compose stacks, reverse proxies, and bundled app defined types.
 # Replace hostnames, paths, checksums, and secrets with environment data.
 
 node 'container-basic.example.org' {
@@ -112,7 +112,7 @@ node 'authentik.example.org' {
     require              => Class['basic_settings'],
   }
 
-  class { 'docker::authentik':
+  docker::authentik { 'authentik':
     monitoring_detail_limit    => 6000,
     monitoring_expected_exited => ['worker'],
     monitoring_health_required => ['server'],
@@ -139,7 +139,7 @@ node 'authentik.example.org' {
     compose_name => 'authentik',
     email        => 'info@example.org',
     password     => Sensitive('replace-with-authentik-admin-password'),
-    require      => Class['docker::authentik'],
+    require      => Docker::Authentik['authentik'],
   }
 }
 
@@ -158,7 +158,7 @@ node 'twenty.example.org' {
     require              => Class['basic_settings'],
   }
 
-  class { 'docker::twenty':
+  docker::twenty { 'twenty':
     encryption_key               => Sensitive('replace-with-encryption-key'),
     fallback_encryption_key      => Sensitive('replace-with-old-encryption-key'),
     host                         => '127.0.0.1',

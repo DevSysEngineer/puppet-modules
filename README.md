@@ -206,7 +206,7 @@ node 'webserver.dev.xxxx.nl' {
 
 ### Docker
 
-Docker installeert Docker CE en beheert Compose-projecten op een voorspelbare manier. Gebruik `docker::compose` voor een eigen stack, `docker::compose_proxy` wanneer die stack via Nginx bereikbaar moet zijn, en de meegeleverde wrappers zoals `docker::authentik` en `docker::twenty` voor de standaard Compose-bestanden in deze module.
+Docker installeert Docker CE en beheert Compose-projecten op een voorspelbare manier. Gebruik `docker::compose` voor een eigen stack, `docker::compose_proxy` wanneer die stack via Nginx bereikbaar moet zijn, en de meegeleverde defined types zoals `docker::authentik` en `docker::twenty` voor de standaard Compose-bestanden in deze module.
 
 Een Compose-bron kan uit de Puppet file server, een lokaal `file:///`-pad of een HTTPS-URL komen. Gevoelige `.env`-inhoud hoort in `Sensitive(...)`. Declareer `docker` zelf; gebruik je een proxyroute, declareer dan ook `nginx`.
 
@@ -217,8 +217,8 @@ Belangrijk om te weten:
 - Een `.env` kan uit `env_source` of `env_content` komen. Gebruik voor wachtwoorden en tokens altijd `Sensitive(...)`, omdat deze waarden anders te makkelijk in logs of diffs terechtkomen.
 - Compose-monitoring kan controleren of containers healthy zijn, of bepaalde eenmalige containers normaal mogen eindigen en of er orphan containers achterblijven.
 - `docker::compose_proxy` maakt naast de Compose-stack een Nginx-vhost aan. De upstream is standaard HTTPS; gebruik HTTP alleen als de containerapplicatie echt geen TLS ondersteunt.
-- De wrappers `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack.
-- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken of te herstellen in de draaiende Authentik Compose-stack. Geef `compose_name => 'authentik'` mee bij de wrapper `docker::authentik`; gebruik een andere waarde alleen bij een eigen gelijkwaardige `docker::compose`-stack met een andere titel. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen.
+- De defined types `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. De resource title wordt de Compose stacknaam, waardoor je meerdere instanties kunt declareren zolang poorten, hostnamen en publieke URL's niet botsen. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack.
+- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken of te herstellen in de draaiende Authentik Compose-stack. Geef `compose_name` dezelfde waarde als de titel van de bijbehorende `docker::authentik` of `docker::compose` resource. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen.
 
 #### Voorbeelden
 
@@ -266,13 +266,13 @@ node 'containerhost.dev.xxxx.nl' {
 }
 ```
 
-Een meegeleverde wrapper zonder eigen Compose-bestand:
+Een meegeleverd defined type zonder eigen Compose-bestand:
 
 ```puppet
 node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
-    class { 'docker::authentik':
+    docker::authentik { 'authentik':
         pg_pass    => Sensitive('replace-with-postgresql-password'),
         secret_key => Sensitive('replace-with-secret-key'),
     }
@@ -285,7 +285,7 @@ Een Authentik-admingebruiker beheren nadat de stack draait:
 node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
-    class { 'docker::authentik':
+    docker::authentik { 'authentik':
         pg_pass    => Sensitive('replace-with-postgresql-password'),
         secret_key => Sensitive('replace-with-secret-key'),
     }
@@ -294,7 +294,7 @@ node 'containerhost.dev.xxxx.nl' {
         compose_name => 'authentik',
         email        => 'info@example.org',
         password     => Sensitive('replace-with-authentik-admin-password'),
-        require      => Class['docker::authentik'],
+        require      => Docker::Authentik['authentik'],
     }
 }
 ```

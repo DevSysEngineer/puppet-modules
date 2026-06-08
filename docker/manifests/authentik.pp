@@ -1,14 +1,16 @@
 # @summary Deploys the bundled Authentik Docker Compose stack.
 #
-# This class deploys the module-shipped `docker/files/authentik.yaml` Compose
-# file. Declare `docker` before using it. When `server_name` is set, declare
-# `nginx` as well so `docker::compose_proxy` can add the reverse proxy;
-# otherwise the class declares `docker::compose` directly.
+# This defined type deploys the module-shipped `docker/files/authentik.yaml`
+# Compose file. Declare `docker` before using it. The resource title becomes
+# the Compose project name, so multiple Authentik stacks can be managed on the
+# same host when ports and public names do not conflict. When `server_name` is
+# set, declare `nginx` as well so `docker::compose_proxy` can add the reverse
+# proxy; otherwise the defined type declares `docker::compose` directly.
 #
 # @example Deploy Authentik with generated `.env` content
 #   class { 'docker': }
 #
-#   class { 'docker::authentik':
+#   docker::authentik { 'authentik':
 #     pg_pass     => Sensitive('change-me'),
 #     secret_key  => Sensitive('change-me'),
 #   }
@@ -17,7 +19,7 @@
 #   class { 'docker': }
 #   class { 'nginx': }
 #
-#   class { 'docker::authentik':
+#   docker::authentik { 'authentik':
 #     pg_pass             => Sensitive('change-me'),
 #     secret_key          => Sensitive('change-me'),
 #     server_name         => 'auth.example.org',
@@ -95,7 +97,7 @@
 #   Compose service. The default is `services`.
 #
 # @api public
-class docker::authentik (
+define docker::authentik (
   Sensitive[String]                             $pg_pass,
   Sensitive[String]                             $secret_key,
   Enum['present','absent']                      $ensure                      = present,
@@ -117,47 +119,58 @@ class docker::authentik (
   Boolean                                       $ssl_verify                  = false,
   String                                        $target                      = 'services'
 ) {
-  # Generate .env content for the Compose stack based on the provided parameters.
-  $env_content = Sensitive.new(template('docker/authentik.env'))
+  # Validate required parent classes before delegating to the shared Compose wrappers.
+  $docker_defined = defined(Class['docker'])
+  $nginx_defined = defined(Class['nginx'])
 
-  # Use the proxy wrapper only when a public Nginx vhost is requested.
-  if ($server_name != undef) {
-    docker::compose_proxy { $name:
-      ensure                     => $ensure,
-      env_content                => $env_content,
-      compose_source             => 'puppet:///modules/docker/authentik.yaml',
-      monitoring_detail_limit    => $monitoring_detail_limit,
-      monitoring_expected_exited => $monitoring_expected_exited,
-      monitoring_health_required => $monitoring_health_required,
-      monitoring_interval        => $monitoring_interval,
-      monitoring_orphan_critical => $monitoring_orphan_critical,
-      monitoring_profiles        => $monitoring_profiles,
-      monitoring_starting_grace  => $monitoring_starting_grace,
-      monitoring_timeout         => $monitoring_timeout,
-      proxy_port                 => $port,
-      proxy_scheme               => $scheme,
-      proxy_ssl_verify           => $ssl_verify,
-      server_name                => $server_name,
-      ssl_certificate            => $ssl_certificate,
-      ssl_certificate_key        => $ssl_certificate_key,
-      ssl_certificate_trusted    => $ssl_certificate_trusted,
-      target                     => $target,
-    }
+  if (!$docker_defined) {
+    fail('docker::authentik requires the docker class before it can create the Compose stack.')
+  } elsif ($server_name != undef and !$nginx_defined) {
+    fail('docker::authentik requires the nginx class before it can create a reverse proxy vhost.')
   } else {
-    docker::compose { $name:
-      ensure                     => $ensure,
-      compose_source             => 'puppet:///modules/docker/authentik.yaml',
-      env_content                => $env_content,
-      monitoring_detail_limit    => $monitoring_detail_limit,
-      monitoring_expected_exited => $monitoring_expected_exited,
-      monitoring_health_required => $monitoring_health_required,
-      monitoring_interval        => $monitoring_interval,
-      monitoring_orphan_critical => $monitoring_orphan_critical,
-      monitoring_profiles        => $monitoring_profiles,
-      monitoring_starting_grace  => $monitoring_starting_grace,
-      monitoring_timeout         => $monitoring_timeout,
-      target                     => $target,
-      require                    => Class['docker'],
+    # Generate .env content for the Compose stack based on the provided parameters.
+    $env_content = Sensitive.new(template('docker/authentik.env'))
+
+    # Use the proxy wrapper only when a public Nginx vhost is requested.
+    if ($server_name != undef) {
+      docker::compose_proxy { $name:
+        ensure                     => $ensure,
+        env_content                => $env_content,
+        compose_source             => 'puppet:///modules/docker/authentik.yaml',
+        monitoring_detail_limit    => $monitoring_detail_limit,
+        monitoring_expected_exited => $monitoring_expected_exited,
+        monitoring_health_required => $monitoring_health_required,
+        monitoring_interval        => $monitoring_interval,
+        monitoring_orphan_critical => $monitoring_orphan_critical,
+        monitoring_profiles        => $monitoring_profiles,
+        monitoring_starting_grace  => $monitoring_starting_grace,
+        monitoring_timeout         => $monitoring_timeout,
+        proxy_port                 => $port,
+        proxy_scheme               => $scheme,
+        proxy_ssl_verify           => $ssl_verify,
+        server_name                => $server_name,
+        ssl_certificate            => $ssl_certificate,
+        ssl_certificate_key        => $ssl_certificate_key,
+        ssl_certificate_trusted    => $ssl_certificate_trusted,
+        target                     => $target,
+        require                    => Class['docker'],
+      }
+    } else {
+      docker::compose { $name:
+        ensure                     => $ensure,
+        compose_source             => 'puppet:///modules/docker/authentik.yaml',
+        env_content                => $env_content,
+        monitoring_detail_limit    => $monitoring_detail_limit,
+        monitoring_expected_exited => $monitoring_expected_exited,
+        monitoring_health_required => $monitoring_health_required,
+        monitoring_interval        => $monitoring_interval,
+        monitoring_orphan_critical => $monitoring_orphan_critical,
+        monitoring_profiles        => $monitoring_profiles,
+        monitoring_starting_grace  => $monitoring_starting_grace,
+        monitoring_timeout         => $monitoring_timeout,
+        target                     => $target,
+        require                    => Class['docker'],
+      }
     }
   }
 }
