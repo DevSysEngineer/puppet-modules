@@ -130,6 +130,7 @@ node 'authentik.example.org' {
     ssl_certificate_key        => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
     ssl_certificate_trusted    => '/etc/letsencrypt/live/auth.example.org/chain.pem',
     ssl_verify                 => false,
+    tag                        => '2026.2.2',
     target                     => 'services',
     require                    => [Class['docker'], Class['nginx']],
   }

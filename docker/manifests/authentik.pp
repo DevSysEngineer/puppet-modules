@@ -87,6 +87,9 @@
 #   default is `false` because the bundled stack exposes local HTTPS on `9443`
 #   with an application-managed certificate.
 #
+# @param tag
+#   Docker image tag written as `AUTHENTIK_TAG`.
+#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated
 #   Compose service. The default is `services`.
@@ -111,6 +114,7 @@ class docker::authentik (
   Optional[String]                              $ssl_certificate_key         = undef,
   Optional[String]                              $ssl_certificate_trusted     = undef,
   Boolean                                       $ssl_verify                  = false,
+  String                                        $tag                         = '2026.2.2',
   String                                        $target                      = 'services'
 ) {
   # Generate .env content for the Compose stack based on the provided parameters.
