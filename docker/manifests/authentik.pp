@@ -288,6 +288,7 @@ define docker::authentik (
           ensure                     => $ensure,
           env_content                => $env_content,
           compose_source             => 'puppet:///modules/docker/authentik.yaml',
+          content_security_policy    => false,
           monitoring_detail_limit    => $monitoring_detail_limit,
           monitoring_expected_exited => $monitoring_expected_exited,
           monitoring_health_required => $monitoring_health_required,
