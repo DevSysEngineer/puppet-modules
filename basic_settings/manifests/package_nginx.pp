@@ -49,17 +49,17 @@ class basic_settings::package_nginx (
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://nginx.org/packages/mainline/${os_parent}\nSuites: ${os_name}\nComponents: nginx\nSigned-By:${key}\n"
+      $source  = "Types: deb\\nURIs: https://nginx.org/packages/mainline/${os_parent}\\nSuites: ${os_name}\\nComponents: nginx\\nSigned-By:${key}\\n"
     } else {
-      $source = "deb [signed-by=${key}] https://nginx.org/packages/mainline/${os_parent} ${os_name} nginx\n"
+      $source = "deb [signed-by=${key}] https://nginx.org/packages/mainline/${os_parent} ${os_name} nginx\\n"
     }
 
-    # Escape generated repo content before the shell writes it.
-    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    # Escape generated repo content as literal newline sequences before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
 
     # Install Nginx repo
     exec { 'package_nginx_source':
-      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }

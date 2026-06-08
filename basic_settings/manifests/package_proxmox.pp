@@ -49,18 +49,18 @@ class basic_settings::package_proxmox (
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: http://download.proxmox.com/debian/pve\nSuites: ${os_name}\nComponents: pve-no-subscription\nSigned-By:${key}\n"
+      $source  = "Types: deb\\nURIs: http://download.proxmox.com/debian/pve\\nSuites: ${os_name}\\nComponents: pve-no-subscription\\nSigned-By:${key}\\n"
     } else {
-      $source = "deb [signed-by=${key}] http://download.proxmox.com/debian/pve ${os_name} pve-no-subscription\n"
+      $source = "deb [signed-by=${key}] http://download.proxmox.com/debian/pve ${os_name} pve-no-subscription\\n"
     }
 
-    # Escape generated repo content and key URL before the shell writes or fetches them.
-    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    # Escape generated repo content as literal newline sequences and key URL before the shell writes or fetches them.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
     $key_url_shell = stdlib::shell_escape("https://enterprise.proxmox.com/debian/proxmox-release-${os_name}.gpg")
 
     # Install proxmox repo
     exec { 'package_proxmox_source':
-      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSLo ${key_shell} ${key_url_shell}; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSLo ${key_shell} ${key_url_shell}; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }

@@ -72,9 +72,9 @@ class basic_settings::package_openitcockpit (
 
       # Get source
       if ($deb_version == '822') {
-        $source  = "Types: deb\nURIs: ${url}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
+        $source  = "Types: deb\\nURIs: ${url}\\nSuites: ${os_name}\\nComponents: main\\nSigned-By:${key}\\n"
       } else {
-        $source = "deb [signed-by=${key}] ${url} ${os_name} main\n"
+        $source = "deb [signed-by=${key}] ${url} ${os_name} main\\n"
       }
     } else {
       # Set url
@@ -86,9 +86,9 @@ class basic_settings::package_openitcockpit (
 
       # Get source
       if ($deb_version == '822') {
-        $source  = "Types: deb\nURIs: ${url}\nSuites: deb\nComponents: main\nSigned-By:${key}\n"
+        $source  = "Types: deb\\nURIs: ${url}\\nSuites: deb\\nComponents: main\\nSigned-By:${key}\\n"
       } else {
-        $source = "deb [signed-by=${key}] ${url} deb main\n"
+        $source = "deb [signed-by=${key}] ${url} deb main\\n"
       }
     }
 
@@ -99,8 +99,8 @@ class basic_settings::package_openitcockpit (
       $license_correct = $license
     }
 
-    # Escape generated repo content before the shell writes it.
-    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    # Escape generated repo content as literal newline sequences before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
 
     # Install openitcockpit license
     file { 'package_openitcockpit_license':
@@ -115,7 +115,7 @@ class basic_settings::package_openitcockpit (
 
     # Install openitcockpit repo
     exec { 'package_openitcockpit_source':
-      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_shell}",
       require => [File['package_openitcockpit_license'], Package['curl']],
     }

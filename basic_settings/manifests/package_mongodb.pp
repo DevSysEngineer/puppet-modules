@@ -54,18 +54,18 @@ class basic_settings::package_mongodb (
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: https://repo.mongodb.org/apt/${os_parent}\nSuites: ${os_name}/mongodb-org/${version}\nComponents: main\nSigned-By:${key}\n"
+      $source  = "Types: deb\\nURIs: https://repo.mongodb.org/apt/${os_parent}\\nSuites: ${os_name}/mongodb-org/${version}\\nComponents: main\\nSigned-By:${key}\\n"
     } else {
-      $source = "deb [signed-by=${key}] https://repo.mongodb.org/apt/${os_parent} ${os_name}/mongodb-org/${version} main\n"
+      $source = "deb [signed-by=${key}] https://repo.mongodb.org/apt/${os_parent} ${os_name}/mongodb-org/${version} main\\n"
     }
 
-    # Escape generated repo content and key URL before the shell writes or fetches them.
-    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    # Escape generated repo content as literal newline sequences and key URL before the shell writes or fetches them.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
     $key_url_shell = stdlib::shell_escape("https://pgp.mongodb.com/server-${version}.asc")
 
     # Install mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL ${key_url_shell} | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL ${key_url_shell} | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }

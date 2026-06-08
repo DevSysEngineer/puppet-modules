@@ -61,26 +61,26 @@ class basic_settings::package_mozilla (
 
     # Get source
     if ($deb_version == '822') {
-      $source  = "Types: deb\nURIs: ${url}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key}\n"
+      $source  = "Types: deb\\nURIs: ${url}\\nSuites: ${os_name}\\nComponents: main\\nSigned-By:${key}\\n"
     } else {
-      $source = "deb [signed-by=${key}] ${url} ${os_name} main\n"
+      $source = "deb [signed-by=${key}] ${url} ${os_name} main\\n"
     }
 
-    # Escape generated repo content before the shell writes it.
-    $source_shell = stdlib::shell_escape("# Managed by puppet\n${source}")
+    # Escape generated repo content as literal newline sequences before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
 
     # Add mozilla repo
     case $os_parent {
       'ubuntu': {
         exec { 'package_mozilla_source':
-          command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+          command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
           unless  => "/usr/bin/test -e ${file_shell}",
           require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }
       }
       default: {
         exec { 'package_mozilla_source':
-          command => "/usr/bin/printf %s ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+          command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
           unless  => "/usr/bin/test -e ${file_shell}",
           require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
         }

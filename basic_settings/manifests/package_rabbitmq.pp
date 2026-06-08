@@ -54,27 +54,27 @@ class basic_settings::package_rabbitmq (
   if ($enable) {
     # Get source
     if ($deb_version == '822') {
-      $source_erlang  = "Types: deb\nURIs: https://deb1.rabbitmq.com/rabbitmq-erlang/${os_parent}/${os_name}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key_erlang}\n"
-      $source_server  = "Types: deb\nURIs: https://deb1.rabbitmq.com/rabbitmq-server/${os_parent}/${os_name}\nSuites: ${os_name}\nComponents: main\nSigned-By:${key_server}\n"
+      $source_erlang  = "Types: deb\\nURIs: https://deb1.rabbitmq.com/rabbitmq-erlang/${os_parent}/${os_name}\\nSuites: ${os_name}\\nComponents: main\\nSigned-By:${key_erlang}\\n"
+      $source_server  = "Types: deb\\nURIs: https://deb1.rabbitmq.com/rabbitmq-server/${os_parent}/${os_name}\\nSuites: ${os_name}\\nComponents: main\\nSigned-By:${key_server}\\n"
     } else {
-      $source_erlang = "deb [signed-by=${key_erlang}] https://deb1.rabbitmq.com/rabbitmq-erlang/${os_parent}/${os_name} ${os_name} main\n"
-      $source_server = "deb [signed-by=${key_server}] https://deb1.rabbitmq.com/rabbitmq-server/${os_parent}/${os_name} ${os_name} main\n"
+      $source_erlang = "deb [signed-by=${key_erlang}] https://deb1.rabbitmq.com/rabbitmq-erlang/${os_parent}/${os_name} ${os_name} main\\n"
+      $source_server = "deb [signed-by=${key_server}] https://deb1.rabbitmq.com/rabbitmq-server/${os_parent}/${os_name} ${os_name} main\\n"
     }
 
-    # Escape generated repo content before the shell writes it.
-    $source_erlang_shell = stdlib::shell_escape("# Managed by puppet\n${source_erlang}")
-    $source_server_shell = stdlib::shell_escape("# Managed by puppet\n${source_server}")
+    # Escape generated repo content as literal newline sequences before the shell writes it.
+    $source_erlang_shell = stdlib::shell_escape("# Managed by puppet\\n${source_erlang}")
+    $source_server_shell = stdlib::shell_escape("# Managed by puppet\\n${source_server}")
 
     # Install Rabbitmq erlang repo
     exec { 'package_rabbitmq_erlang_source':
-      command => "/usr/bin/printf %s ${source_erlang_shell} > ${file_erlang_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_erlang_shell} >/dev/null; chmod 644 ${key_erlang_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_erlang_shell} > ${file_erlang_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_erlang_shell} >/dev/null; chmod 644 ${key_erlang_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_erlang_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
 
     # Install Rabbitmq server repo
     exec { 'package_rabbitmq_server_source':
-      command => "/usr/bin/printf %s ${source_server_shell} > ${file_server_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server_shell} >/dev/null; chmod 644 ${key_server_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
+      command => "/usr/bin/printf %b ${source_server_shell} > ${file_server_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server_shell} >/dev/null; chmod 644 ${key_server_shell}; /usr/bin/apt-get update", #lint:ignore:140chars
       unless  => "/usr/bin/test -e ${file_server_shell}",
       require => Package['apt', 'apt-transport-https', 'curl', 'gnupg'],
     }
