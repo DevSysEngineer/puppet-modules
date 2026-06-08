@@ -274,7 +274,7 @@ define docker::compose_proxy (
         try_files                 => false,
         x_content_type_options    => $x_content_type_options,
         x_frame_options           => $x_frame_options,
-        require                   => [Class['nginx'], Docker::Compose[$name]],
+        require                   => Docker::Compose[$name],
       }
     }
   } else {
