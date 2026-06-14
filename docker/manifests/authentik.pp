@@ -284,11 +284,19 @@ define docker::authentik (
 
       # Use the proxy wrapper only when a public Nginx vhost is requested.
       if ($server_name != undef) {
+        # Determine the appropriate Content Security Policy img-src directive based on the presence of TLS
+        if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
+          $content_security_policy_img_src = 'https'
+        } else {
+          $content_security_policy_img_src = 'http: https'
+        }
+
+        # Setup compose proxy
         docker::compose_proxy { $name:
           ensure                     => $ensure,
           env_content                => $env_content,
           compose_source             => 'puppet:///modules/docker/authentik.yaml',
-          content_security_policy    => false,
+          content_security_policy    => "default-src 'self'; img-src ${content_security_policy_img_src}: data:; object-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';",
           monitoring_detail_limit    => $monitoring_detail_limit,
           monitoring_expected_exited => $monitoring_expected_exited,
           monitoring_health_required => $monitoring_health_required,

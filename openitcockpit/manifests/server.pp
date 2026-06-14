@@ -56,7 +56,7 @@ class openitcockpit::server (
   Optional[String]  $smtp_server              = undef,
   Optional[String]  $ssl_certificate          = undef,
   Optional[String]  $ssl_certificate_key      = undef,
-  Array             $webserver_directives     = [],
+  Array[String]     $webserver_directives     = [],
   Optional[String]  $webserver_gid            = undef,
   Optional[String]  $webserver_uid            = undef
 ) {
@@ -414,6 +414,19 @@ class openitcockpit::server (
     $ssl_content = ''
   }
 
+  # Security headers are fixed defaults; raw custom directives must not duplicate or override them.
+  $webserver_security_header_directives = filter($webserver_directives) |$directive| {
+    $directive =~ /(?i)^\s*add_header\s+(x-frame-options|x-content-type-options|content-security-policy|referrer-policy|strict-transport-security)(\s|;)/
+  }
+  if (!empty($webserver_security_header_directives)) {
+    $webserver_security_header_fail_text = join([
+        'openitcockpit::server webserver_directives must not set managed security headers because /etc/nginx/openitc/custom.conf manages them by default:',
+        join($webserver_security_header_directives, ', '),
+    ], ' ')
+  } else {
+    $webserver_security_header_fail_text = undef
+  }
+
   # Create openitc directory
   file { '/etc/nginx/openitc':
     ensure  => directory,
@@ -442,13 +455,17 @@ class openitcockpit::server (
   }
 
   # Create custom config file
-  file { '/etc/nginx/openitc/custom.conf':
-    ensure  => file,
-    content => template('openitcockpit/nginx/custom.conf'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    require => File['/etc/nginx/openitc'],
+  if ($webserver_security_header_fail_text == undef) {
+    file { '/etc/nginx/openitc/custom.conf':
+      ensure  => file,
+      content => template('openitcockpit/nginx/custom.conf'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      require => File['/etc/nginx/openitc'],
+    }
+  } else {
+    fail($webserver_security_header_fail_text)
   }
 
   # Check if php FPM is enabled
@@ -587,8 +604,8 @@ class openitcockpit::server (
     }
 
     $service_shared_files = stdlib::merge($service_base, {
-      # OpenITCOCKPIT components share runtime files between nagios, workers, and the webserver group.
-      'UMask'          => '0027',
+        # OpenITCOCKPIT components share runtime files between nagios, workers, and the webserver group.
+        'UMask'          => '0027',
     })
 
     basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_settings':
