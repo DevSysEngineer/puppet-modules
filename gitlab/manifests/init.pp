@@ -191,10 +191,25 @@ class gitlab (
   if (defined(Package['auditd'])) {
     basic_settings::security_audit { 'gitlab_exclude':
       rules   => [
+        # GitLab's bundled Prometheus periodically probes TSDB metadata; interrupted reads in that data directory are expected.
+        '-a never,exit -F arch=b32 -S open,openat,open_by_handle_at -F dir=/var/opt/gitlab/prometheus/data -F exe=/usr/local/lib/gitlab/embedded/bin/prometheus -F gid=gitlab-prometheus -F success=0', #lint:ignore:140chars
+        '-a never,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F dir=/var/opt/gitlab/prometheus/data -F exe=/usr/local/lib/gitlab/embedded/bin/prometheus -F gid=gitlab-prometheus -F success=0', #lint:ignore:140chars
+        # User-systemd setup for the GitLab account creates runtime markers, transient xattrs, and mount probes.
+        '-a never,exit -F arch=b32 -S mknodat,mount,umount2,chmod,fchmod,fchmodat,chown,fchown,fchownat,setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F exe=/usr/lib/systemd/systemd -F auid=git -F uid=git -F gid=git', #lint:ignore:140chars
+        '-a never,exit -F arch=b64 -S mknodat,mount,umount2,fchmod,fchmodat,fchown,fchownat,setxattr,lsetxattr,fsetxattr,removexattr,lremovexattr,fremovexattr -F exe=/usr/lib/systemd/systemd -F auid=git -F uid=git -F gid=git', #lint:ignore:140chars
+        # GitLab SSH sessions call systemctl for user-manager state checks; systemd-owned configuration writes remain audited.
+        '-a never,exit -F arch=b32 -F exe=/usr/bin/systemctl -F auid=git',
+        '-a never,exit -F arch=b64 -F exe=/usr/bin/systemctl -F auid=git',
+        # PAM and update-motd run a root-owned command chain inside Git SSH sessions; auditd cannot scope this to the shared account's argv.
+        '-a never,exit -F arch=b32 -S execve -F auid=git -F uid=root -F euid=root -F gid=root',
+        '-a never,exit -F arch=b64 -S execve -F auid=git -F uid=root -F euid=root -F gid=root',
+        # Prometheus reads kernel time-discipline state for its own metrics, which otherwise trips the baseline time-change audit rule.
         '-a never,exit -F arch=b32 -S adjtimex -F gid=gitlab-prometheus',
         '-a never,exit -F arch=b64 -S adjtimex -F gid=gitlab-prometheus',
+        # GitLab's bundled Ruby adjusts GitLab-managed runtime files during daemon housekeeping before any login audit session exists.
         '-a never,exit -F arch=b32 -S chmod -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F auid=unset',
         '-a never,exit -F arch=b64 -S chmod -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F auid=unset',
+        # GitLab's bundled Ruby opens repository data as the git group; keep this scoped to that executable and group.
         '-a never,exit -F arch=b32 -S open,openat,open_by_handle_at -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F gid=git',
         '-a never,exit -F arch=b64 -S openat,openat2,open_by_handle_at -F exe=/usr/local/lib/gitlab/embedded/bin/ruby -F gid=git',
       ],

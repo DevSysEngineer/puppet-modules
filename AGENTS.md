@@ -480,6 +480,7 @@ Dependencies, audit, and monitoring:
 
 - Does a new dependency add avoidable risk or complexity?
 - Does the new sensitive surface need matching audit or monitoring coverage?
+- When adding or changing audit exclusions, add a short code comment above each exception group that explains the benign runtime behavior, the audit key or syscall family it suppresses, and the scoping boundary such as executable, user, group, directory, or success state; also check nearby exclusions for overlap before adding another rule.
 
 Repository-specific security conventions:
 
