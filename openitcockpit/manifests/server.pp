@@ -92,6 +92,13 @@ class openitcockpit::server (
     $webserver_gid_correct = $webserver_gid
   }
 
+  # Set webserver notify
+  if ($nginx_enable) {
+    $webserver_notify = Service['nginx']
+  } else {
+    $webserver_notify = undef
+  }
+
   # Try to get server fdqn
   if ($server_fdqn == undef) {
     if (defined(Class['basic_settings'])) {
@@ -452,6 +459,7 @@ class openitcockpit::server (
     group   => 'root',
     mode    => '0600',
     require => File['/etc/nginx/openitc'],
+    notify  => $webserver_notify,
   }
 
   # Create custom config file
@@ -463,6 +471,7 @@ class openitcockpit::server (
       group   => 'root',
       mode    => '0600',
       require => File['/etc/nginx/openitc'],
+      notify  => $webserver_notify,
     }
   } else {
     fail($webserver_security_header_fail_text)
