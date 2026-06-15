@@ -150,14 +150,7 @@ class openitcockpit::server (
     }
   }
 
-  # Set requirements
-  if ($php_fpm_enable) {
-    $requirements = [File['/opt/openitc'], Class['php8::fpm']]
-  } else {
-    $requirements = File['/opt/openitc']
-  }
-
-  # Create dirs
+  # Create package prerequisite directories before the OpenITCOCKPIT package runs
   file { [
       "${install_dir_correct}/etc",
       "${install_dir_correct}/etc/carbon",
@@ -182,7 +175,7 @@ class openitcockpit::server (
       owner   => 'root',
       group   => 'root',
       mode    => '0755', # Important for internal scripts
-      require => $requirements,
+      require => File['/opt/openitc'],
   }
 
   # Create admin password file
