@@ -153,7 +153,7 @@ Basic settings omvatten de volgende subonderdelen:
 - **Kernel:** Pakketten/configuraties gerelateerd aan de kernel en optimalisatie ervan voor HPC-gebruik.
 - **Locale:** Pakketten/configuraties gerelateerd aan taalinstellingen.
 - **Login:** Pakketten/configuraties gerelateerd aan login en gebruikersbeheer.
-- **Netwerk:** Pakketten/configuraties gerelateerd aan netwerken en optimalisatie ervan voor HPC-gebruik.
+- **Netwerk:** Pakketten/configuraties gerelateerd aan netwerken, optioneel beheer van `/etc/hosts` via `concat`, en optimalisatie ervan voor HPC-gebruik.
 - **Packages:** Installeren van een pakketbeheerder en het verwijderen van andere pakketbeheerders indien mogelijk.
   - **Packages GitLab:** Configureren van APT-repo voor GitLab met bijbehorende sleutel.
   - **Packages MongoDB:** Configureren van APT-repo voor MongoDB met bijbehorende sleutel.
@@ -203,6 +203,29 @@ node 'webserver.dev.xxxx.nl' {
 ```
 
 `basic_settings::login_user` houdt home-, `.ssh`- en shell-startupbestanden privé. Wanneer je `home_source` of `private_key` gebruikt, moet de bron met `puppet:///`, `file:///` of `https://` beginnen; gewone HTTP-bronnen worden bewust geweigerd.
+
+`basic_settings::network` kan `/etc/hosts` via de aparte `basic_settings::hosts` class volledig met `concat` beheren. Zet hiervoor `hosts_enable => true` in `basic_settings` of direct op `basic_settings::network`, of declareer `basic_settings::hosts` los. De hosts-class schrijft de standaard localhost- en IPv6-regels en gebruikt de korte hostname samen met `server_fdqn` voor de `127.0.1.1`-regel. Als de volledige naam ontbreekt of gelijk is aan de korte hostname, wordt er geen lege of dubbele alias geschreven.
+
+Extra regels voeg je toe met `basic_settings::hosts_entry`. De commentaarregel gebruikt standaard de titel van de resource; geef `comment` mee wanneer de zichtbare omschrijving anders moet zijn.
+
+```puppet
+node 'webserver.dev.xxxx.nl' {
+    class { 'basic_settings':
+        hosts_enable => true,
+    }
+
+    basic_settings::hosts_entry { 'puppet':
+        ip       => '10.200.3.69',
+        hostname => 'puppet',
+    }
+
+    basic_settings::hosts_entry { 'checkmk':
+        ip       => '10.200.14.10',
+        hostname => 'bhr808619-prd.tools.vancis.io',
+        comment  => 'checkmk',
+    }
+}
+```
 
 ### Docker
 
@@ -725,6 +748,7 @@ De map `examples/` bevat uitgebreidere Puppet-snippets dan de README. Gebruik de
 - [examples/web.pp](examples/web.pp): Nginx, PHP-FPM, Let's Encrypt, security headers en reverse proxy's.
 - [examples/data-services.pp](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
 - [examples/monitoring.pp](examples/monitoring.pp): OpenITCOCKPIT-agent en custom monitoringchecks.
+- [examples/hosts.pp](examples/hosts.pp): Beheer van `/etc/hosts` via `basic_settings`, `basic_settings::network` en losse host entries.
 
 ## Contributie
 Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.

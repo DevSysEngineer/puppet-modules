@@ -1,11 +1,7 @@
-# @summary Manages firewall, DHCP, systemd-networkd, DNS resolver, LLDP, and network audit policy.
+# @summary Manages firewall, DHCP, systemd-networkd, DNS resolver, `/etc/hosts`, LLDP, and network audit policy.
 #
-# This class installs the selected firewall package, removes competing firewall
-# stacks when requested, manages DHCP client behavior, optional netplan and
-# wireless packages, systemd-networkd/resolved drop-ins, networkd-dispatcher
-# hooks, LLDP identity, monitoring checks, and audit rules for network tooling.
-# It reads kernel and monitoring state from `basic_settings` components when
-# they are present.
+# This class installs the selected firewall package, removes competing firewall stacks when requested, manages DHCP client behavior, optional `/etc/hosts` ownership, optional netplan and wireless packages, systemd-networkd/resolved drop-ins, networkd-dispatcher hooks, LLDP identity, monitoring checks, and audit rules for network tooling.
+# It reads kernel and monitoring state from `basic_settings` components when they are present.
 #
 # @example Manage the default nftables-based network profile
 #   class { 'basic_settings::network':
@@ -51,6 +47,9 @@
 # @param firewall_remove
 #   Purges competing firewall packages when `true`.
 #
+# @param hosts_enable
+#   Enables ownership of `/etc/hosts` through concat using the short hostname and `server_fdqn`.
+#
 # @param install_options
 #   Additional APT install options merged into selected package resources.
 #
@@ -82,6 +81,7 @@ class basic_settings::network (
   String                                      $environment            = 'production',
   String                                      $firewall_path          = '/etc/firewall.conf',
   Boolean                                     $firewall_remove        = true,
+  Boolean                                     $hosts_enable           = false,
   Array                                       $install_options        = [],
   Array                                       $interfaces             = ['eth*', 'ens*', 'wlan*'],
   String                                      $server_fdqn            = $facts['networking']['fqdn'],
@@ -126,6 +126,13 @@ class basic_settings::network (
     $communication_hostname = "${lldp_platform.downcase()}-${environment}"
   } else {
     $communication_hostname = regsubst($communication_name.downcase, '\s+', '-', 'G')
+  }
+
+  if ($hosts_enable) {
+    # Delegate hosts-file ownership to the dedicated hosts class while preserving the configured FQDN.
+    class { 'basic_settings::hosts':
+      server_fdqn => $server_fdqn,
+    }
   }
 
   # Default suspicious packages

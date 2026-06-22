@@ -64,6 +64,9 @@
 # @param gui_mode
 #   Selects GUI-related package behavior. `none` keeps the host minimal.
 #
+# @param hosts_enable
+#   Enables management of `/etc/hosts` through `basic_settings::network`.
+#
 # @param ip_configurator_package
 #   Optional network configuration frontend, currently `none` or `netplan.io`.
 #
@@ -293,6 +296,7 @@ class basic_settings (
   Boolean                               $gitlab_enable                              = false,
   Boolean                               $guest_agent_enable                         = false,
   Enum['none','kiosk','adwaita-icon']   $gui_mode                                   = 'none',
+  Boolean                               $hosts_enable                               = false,
   Enum['none','netplan.io']             $ip_configurator_package                    = 'none',
   Boolean                               $ip_dhcp_enable                             = true,
   Boolean                               $ip_ra_enable                               = true,
@@ -855,6 +859,7 @@ class basic_settings (
     environment          => $environment,
     firewall_package     => $firewall_package,
     firewall_remove      => $firewall_remove,
+    hosts_enable         => $hosts_enable,
     install_options      => $backports_install_options,
     interfaces           => $network_interfaces,
     server_fdqn          => $server_fdqn,
