@@ -1,7 +1,7 @@
 # @summary Deploys and monitors one Docker Compose project as a systemd service.
 #
 # This defined type creates a root-only project directory under `/opt/docker`,
-# manages optional `.env` content, syncs and validates a Compose file from an
+# manages optional `.env` content and project-local directories, syncs and validates a Compose file from an
 # HTTPS, local file, or Puppet file-server source, and creates a
 # `docker-compose-<title>.service` when the shared systemd wrapper is available.
 # It also registers a stack-level monitoring check so container health can be
@@ -64,6 +64,9 @@
 # @param monitoring_timeout
 #   Timeout in seconds for the Compose stack monitoring check.
 #
+# @param project_directories
+#   Optional single-segment directories created below the Compose project directory before the systemd service starts. Values may override owner, group, and mode. Only the directory entry is managed; contents remain unmanaged.
+#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated
 #   Compose service. The default is `services`.
@@ -83,6 +86,11 @@ define docker::compose (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_profiles         = [],
   Integer                                       $monitoring_starting_grace   = 300,
   Integer                                       $monitoring_timeout          = 60,
+  Hash[Pattern[/\A[A-Za-z0-9_.-]+\z/], Struct[{
+        Optional[owner] => String[1],
+        Optional[group] => String[1],
+        Optional[mode]  => Pattern[/\A[0-7]{4}\z/],
+  }]]                                           $project_directories         = {},
   String                                        $target                      = 'services'
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
@@ -167,6 +175,19 @@ define docker::compose (
             mode   => '0700',
           }
 
+          # Create requested bind-mount source directories while leaving their contents unmanaged.
+          $project_directory_resources = $project_directories.map |$directory_name, $directory_settings| {
+            $managed_directory = "${project_directory}/${directory_name}"
+            file { $managed_directory:
+              ensure  => directory,
+              owner   => pick($directory_settings['owner'], 'root'),
+              group   => pick($directory_settings['group'], 'root'),
+              mode    => pick($directory_settings['mode'], '0700'),
+              require => File[$project_directory],
+            }
+            File[$managed_directory]
+          }
+
           # Manage the environment file for the compose stack if either a source or content is provided.
           if ($env_source != undef or $env_content != undef) {
             file { $env_file:
@@ -212,12 +233,13 @@ define docker::compose (
           if (defined(Class['basic_settings::systemd'])) {
             # Determine the service subscription based
             if ($env_source != undef or $env_content != undef) {
-              $service_require = [Package['docker', 'docker-compose-plugin'], File[$compose_file], File[$env_file]]
+              $service_require_base = [Package['docker', 'docker-compose-plugin'], File[$compose_file], File[$env_file]]
               $service_subscribe = File[$compose_file, $env_file]
             } else {
-              $service_require = [Package['docker', 'docker-compose-plugin'], File[$compose_file]]
+              $service_require_base = [Package['docker', 'docker-compose-plugin'], File[$compose_file]]
               $service_subscribe = File[$compose_file]
             }
+            $service_require = concat($service_require_base, $project_directory_resources)
 
             # Reload systemd after the generated compose service unit changes.
             exec { $daemon_reload:

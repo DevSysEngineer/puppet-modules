@@ -306,6 +306,11 @@ define docker::authentik (
           monitoring_profiles        => $monitoring_profiles,
           monitoring_starting_grace  => $monitoring_starting_grace,
           monitoring_timeout         => $monitoring_timeout,
+          project_directories        => {
+            'custom-templates' => {
+              'mode' => '0775',
+            },
+          },
           proxy_port                 => $port,
           proxy_scheme               => $scheme,
           proxy_ssl_verify           => $ssl_verify,
@@ -329,6 +334,11 @@ define docker::authentik (
           monitoring_profiles        => $monitoring_profiles,
           monitoring_starting_grace  => $monitoring_starting_grace,
           monitoring_timeout         => $monitoring_timeout,
+          project_directories        => {
+            'custom-templates' => {
+              'mode' => '0775',
+            },
+          },
           target                     => $target,
           require                    => Class['docker'],
         }

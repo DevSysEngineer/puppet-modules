@@ -82,6 +82,9 @@
 # @param monitoring_timeout
 #   Timeout in seconds for the Compose stack monitoring check.
 #
+# @param project_directories
+#   Optional single-segment directories passed to `docker::compose` for creation below the Compose project directory. Values may override owner, group, and mode.
+#
 # @param proxy_extra_directives
 #   Additional directives appended to the generated Nginx proxy location.
 #
@@ -153,6 +156,11 @@ define docker::compose_proxy (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_profiles           = [],
   Integer                                       $monitoring_starting_grace     = 300,
   Integer                                       $monitoring_timeout            = 60,
+  Hash[Pattern[/\A[A-Za-z0-9_.-]+\z/], Struct[{
+      Optional[owner] => String[1],
+      Optional[group] => String[1],
+      Optional[mode]  => Pattern[/\A[0-7]{4}\z/],
+  }]]                                           $project_directories           = {},
   Array[String]                                 $proxy_extra_directives        = [],
   Pattern[/\A[^\r\n]+\z/]                       $proxy_host                    = '127.0.0.1',
   Pattern[/\A[^\r\n]+\z/]                       $proxy_read_timeout            = '86400',
@@ -243,6 +251,7 @@ define docker::compose_proxy (
       monitoring_profiles        => $monitoring_profiles,
       monitoring_starting_grace  => $monitoring_starting_grace,
       monitoring_timeout         => $monitoring_timeout,
+      project_directories        => $project_directories,
       target                     => $target,
       require                    => Class['docker'],
     }
