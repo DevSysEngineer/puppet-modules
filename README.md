@@ -528,6 +528,8 @@ Meer webservervarianten staan in [`examples/web.pp`](examples/web.pp).
 
 PHP is een veelgebruikte open-source scriptingtaal die speciaal is ontworpen voor webontwikkeling. Het wordt vaak gebruikt in combinatie met een webserver zoals Apache of Nginx om dynamische inhoud op webpagina's te genereren. Dit onderdeel maakt het mogelijk om PHP te installeren en te configureren. Wanneer `basic settings` wordt gebruikt, zal PHP worden geconfigureerd volgens de aanbevelingen van harde beveiliging.
 
+De gedeelde PHP-settings-template schrijft vaste hardening-instellingen, waaronder `expose_php = Off`. Geef module-managed PHP INI-settings daarom niet mee via `ini_settings`; de `php8::cli`- en `php8::fpm`-classes breken de catalogus bewust af wanneer zulke sleutels toch in de gerenderde settingshash terechtkomen.
+
 #### Voorbeeld
 Hieronder een voorbeeld hoe je PHP configureert in je Puppet omgeving:
 

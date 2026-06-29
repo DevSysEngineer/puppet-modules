@@ -1,5 +1,5 @@
 ;;; Provided courtesy of http://browscap.org/
-;;; Created on Sunday, June 16, 2024 at 11:25 AM GMT+0000
+;;; Created on Wednesday, February 19, 2025 at 03:58 PM GMT+0000
 ;;; Keep up with the latest goings-on with the project:
 ;;; Follow us on Twitter <https://twitter.com/browscap>, or...
 ;;; Like us on Facebook <https://facebook.com/browscap>, or...
@@ -8,8 +8,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Browscap Version
 
 [GJK_Browscap_Version]
-Version=6001007
-Released=Sun, 16 Jun 2024 11:25:25 +0000
+Version=6001008
+Released=Wed, 19 Feb 2025 15:58:54 +0000
 Format=php
 Type=LITE
 
@@ -23,6 +23,206 @@ Platform="unknown"
 isMobileDevice="false"
 isTablet="false"
 Device_Type="unknown"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 145.0
+
+[Chromium 145.0]
+Parent="DefaultProperties"
+Comment="Chromium 145.0"
+Browser="Chromium"
+Version="145.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/145.*Chrome/*Safari/*]
+Parent="Chromium 145.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/145.*Chrome/*Safari/*]
+Parent="Chromium 145.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/145.*Safari/*]
+Parent="Chromium 145.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 144.0
+
+[Chromium 144.0]
+Parent="DefaultProperties"
+Comment="Chromium 144.0"
+Browser="Chromium"
+Version="144.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/144.*Chrome/*Safari/*]
+Parent="Chromium 144.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/144.*Chrome/*Safari/*]
+Parent="Chromium 144.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/144.*Safari/*]
+Parent="Chromium 144.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 143.0
+
+[Chromium 143.0]
+Parent="DefaultProperties"
+Comment="Chromium 143.0"
+Browser="Chromium"
+Version="143.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/143.*Chrome/*Safari/*]
+Parent="Chromium 143.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/143.*Chrome/*Safari/*]
+Parent="Chromium 143.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/143.*Safari/*]
+Parent="Chromium 143.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 142.0
+
+[Chromium 142.0]
+Parent="DefaultProperties"
+Comment="Chromium 142.0"
+Browser="Chromium"
+Version="142.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/142.*Chrome/*Safari/*]
+Parent="Chromium 142.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/142.*Chrome/*Safari/*]
+Parent="Chromium 142.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/142.*Safari/*]
+Parent="Chromium 142.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 141.0
+
+[Chromium 141.0]
+Parent="DefaultProperties"
+Comment="Chromium 141.0"
+Browser="Chromium"
+Version="141.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/141.*Chrome/*Safari/*]
+Parent="Chromium 141.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/141.*Chrome/*Safari/*]
+Parent="Chromium 141.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/141.*Safari/*]
+Parent="Chromium 141.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 140.0
+
+[Chromium 140.0]
+Parent="DefaultProperties"
+Comment="Chromium 140.0"
+Browser="Chromium"
+Version="140.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/140.*Chrome/*Safari/*]
+Parent="Chromium 140.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/140.*Chrome/*Safari/*]
+Parent="Chromium 140.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/140.*Safari/*]
+Parent="Chromium 140.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 139.0
+
+[Chromium 139.0]
+Parent="DefaultProperties"
+Comment="Chromium 139.0"
+Browser="Chromium"
+Version="139.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/139.*Chrome/*Safari/*]
+Parent="Chromium 139.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/139.*Chrome/*Safari/*]
+Parent="Chromium 139.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/139.*Safari/*]
+Parent="Chromium 139.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 138.0
+
+[Chromium 138.0]
+Parent="DefaultProperties"
+Comment="Chromium 138.0"
+Browser="Chromium"
+Version="138.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/138.*Chrome/*Safari/*]
+Parent="Chromium 138.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/138.*Chrome/*Safari/*]
+Parent="Chromium 138.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/138.*Safari/*]
+Parent="Chromium 138.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 137.0
+
+[Chromium 137.0]
+Parent="DefaultProperties"
+Comment="Chromium 137.0"
+Browser="Chromium"
+Version="137.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/137.*Chrome/*Safari/*]
+Parent="Chromium 137.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/137.*Chrome/*Safari/*]
+Parent="Chromium 137.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/137.*Safari/*]
+Parent="Chromium 137.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 136.0
+
+[Chromium 136.0]
+Parent="DefaultProperties"
+Comment="Chromium 136.0"
+Browser="Chromium"
+Version="136.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (SMART-TV*Linux*) applewebkit* (*khtml*like*gecko*) Chromium/136.*Chrome/*Safari/*]
+Parent="Chromium 136.0"
+Device_Type="TV Device"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/136.*Chrome/*Safari/*]
+Parent="Chromium 136.0"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/136.*Safari/*]
+Parent="Chromium 136.0"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chromium 135.0
 
@@ -1813,6 +2013,196 @@ Device_Type="TV Device"
 
 [Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*)*Chromium/45.*Chrome/*Safari/*]
 Parent="Chromium 45.0"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 145.0
+
+[Android WebView 145.0]
+Parent="DefaultProperties"
+Comment="Android WebView 145.0"
+Browser="Android WebView"
+Version="145.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/145.0*Mobile*Safari*]
+Parent="Android WebView 145.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/145.0*Safari*]
+Parent="Android WebView 145.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 144.0
+
+[Android WebView 144.0]
+Parent="DefaultProperties"
+Comment="Android WebView 144.0"
+Browser="Android WebView"
+Version="144.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/144.0*Mobile*Safari*]
+Parent="Android WebView 144.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/144.0*Safari*]
+Parent="Android WebView 144.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 143.0
+
+[Android WebView 143.0]
+Parent="DefaultProperties"
+Comment="Android WebView 143.0"
+Browser="Android WebView"
+Version="143.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/143.0*Mobile*Safari*]
+Parent="Android WebView 143.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/143.0*Safari*]
+Parent="Android WebView 143.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 142.0
+
+[Android WebView 142.0]
+Parent="DefaultProperties"
+Comment="Android WebView 142.0"
+Browser="Android WebView"
+Version="142.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/142.0*Mobile*Safari*]
+Parent="Android WebView 142.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/142.0*Safari*]
+Parent="Android WebView 142.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 141.0
+
+[Android WebView 141.0]
+Parent="DefaultProperties"
+Comment="Android WebView 141.0"
+Browser="Android WebView"
+Version="141.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/141.0*Mobile*Safari*]
+Parent="Android WebView 141.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/141.0*Safari*]
+Parent="Android WebView 141.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 140.0
+
+[Android WebView 140.0]
+Parent="DefaultProperties"
+Comment="Android WebView 140.0"
+Browser="Android WebView"
+Version="140.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/140.0*Mobile*Safari*]
+Parent="Android WebView 140.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/140.0*Safari*]
+Parent="Android WebView 140.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 139.0
+
+[Android WebView 139.0]
+Parent="DefaultProperties"
+Comment="Android WebView 139.0"
+Browser="Android WebView"
+Version="139.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/139.0*Mobile*Safari*]
+Parent="Android WebView 139.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/139.0*Safari*]
+Parent="Android WebView 139.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 138.0
+
+[Android WebView 138.0]
+Parent="DefaultProperties"
+Comment="Android WebView 138.0"
+Browser="Android WebView"
+Version="138.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/138.0*Mobile*Safari*]
+Parent="Android WebView 138.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/138.0*Safari*]
+Parent="Android WebView 138.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 137.0
+
+[Android WebView 137.0]
+Parent="DefaultProperties"
+Comment="Android WebView 137.0"
+Browser="Android WebView"
+Version="137.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/137.0*Mobile*Safari*]
+Parent="Android WebView 137.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/137.0*Safari*]
+Parent="Android WebView 137.0"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 136.0
+
+[Android WebView 136.0]
+Parent="DefaultProperties"
+Comment="Android WebView 136.0"
+Browser="Android WebView"
+Version="136.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/136.0*Mobile*Safari*]
+Parent="Android WebView 136.0"
+
+[Mozilla/5.0 (*Linux*Android*)*applewebkit*(*khtml*like*gecko*)*Version/*Chrome/136.0*Safari*]
+Parent="Android WebView 136.0"
+isTablet="true"
+Device_Type="Tablet"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Android WebView 135.0
 
@@ -7539,7 +7929,237 @@ Platform="WinVista"
 Parent="Opera 27"
 Platform="MacOSX"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 135.0
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 145.0
+
+[Edge 145.0]
+Parent="DefaultProperties"
+Comment="Edge 145.0"
+Browser="Edge"
+Version="145.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/145.*]
+Parent="Edge 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/145.*]
+Parent="Edge 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/145.*]
+Parent="Edge 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/145.*]
+Parent="Edge 145.0"
+Platform="Win7"
+
+[Edge 144.0]
+Parent="DefaultProperties"
+Comment="Edge 144.0"
+Browser="Edge"
+Version="144.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/144.*]
+Parent="Edge 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/144.*]
+Parent="Edge 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/144.*]
+Parent="Edge 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/144.*]
+Parent="Edge 144.0"
+Platform="Win7"
+
+[Edge 143.0]
+Parent="DefaultProperties"
+Comment="Edge 143.0"
+Browser="Edge"
+Version="143.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/143.*]
+Parent="Edge 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/143.*]
+Parent="Edge 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/143.*]
+Parent="Edge 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/143.*]
+Parent="Edge 143.0"
+Platform="Win7"
+
+[Edge 142.0]
+Parent="DefaultProperties"
+Comment="Edge 142.0"
+Browser="Edge"
+Version="142.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/142.*]
+Parent="Edge 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/142.*]
+Parent="Edge 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/142.*]
+Parent="Edge 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/142.*]
+Parent="Edge 142.0"
+Platform="Win7"
+
+[Edge 141.0]
+Parent="DefaultProperties"
+Comment="Edge 141.0"
+Browser="Edge"
+Version="141.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/141.*]
+Parent="Edge 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/141.*]
+Parent="Edge 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/141.*]
+Parent="Edge 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/141.*]
+Parent="Edge 141.0"
+Platform="Win7"
+
+[Edge 140.0]
+Parent="DefaultProperties"
+Comment="Edge 140.0"
+Browser="Edge"
+Version="140.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/140.*]
+Parent="Edge 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/140.*]
+Parent="Edge 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/140.*]
+Parent="Edge 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/140.*]
+Parent="Edge 140.0"
+Platform="Win7"
+
+[Edge 139.0]
+Parent="DefaultProperties"
+Comment="Edge 139.0"
+Browser="Edge"
+Version="139.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/139.*]
+Parent="Edge 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/139.*]
+Parent="Edge 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/139.*]
+Parent="Edge 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/139.*]
+Parent="Edge 139.0"
+Platform="Win7"
+
+[Edge 138.0]
+Parent="DefaultProperties"
+Comment="Edge 138.0"
+Browser="Edge"
+Version="138.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/138.*]
+Parent="Edge 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/138.*]
+Parent="Edge 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/138.*]
+Parent="Edge 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/138.*]
+Parent="Edge 138.0"
+Platform="Win7"
+
+[Edge 137.0]
+Parent="DefaultProperties"
+Comment="Edge 137.0"
+Browser="Edge"
+Version="137.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/137.*]
+Parent="Edge 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/137.*]
+Parent="Edge 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/137.*]
+Parent="Edge 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/137.*]
+Parent="Edge 137.0"
+Platform="Win7"
+
+[Edge 136.0]
+Parent="DefaultProperties"
+Comment="Edge 136.0"
+Browser="Edge"
+Version="136.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/136.*]
+Parent="Edge 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/136.*]
+Parent="Edge 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/136.*]
+Parent="Edge 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/* Safari/* Edg/136.*]
+Parent="Edge 136.0"
+Platform="Win7"
 
 [Edge 135.0]
 Parent="DefaultProperties"
@@ -9372,6 +9992,186 @@ Platform="Win8"
 Parent="Headless Edge 76.0"
 Platform="Win7"
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 145.0 for iOS
+
+[Edge 145.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 145.0"
+Browser="Edge"
+Version="145.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/145.* Mobile/* Safari/*]
+Parent="Edge 145.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/145.* Mobile/* Safari/*]
+Parent="Edge 145.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 144.0 for iOS
+
+[Edge 144.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 144.0"
+Browser="Edge"
+Version="144.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/144.* Mobile/* Safari/*]
+Parent="Edge 144.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/144.* Mobile/* Safari/*]
+Parent="Edge 144.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 143.0 for iOS
+
+[Edge 143.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 143.0"
+Browser="Edge"
+Version="143.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/143.* Mobile/* Safari/*]
+Parent="Edge 143.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/143.* Mobile/* Safari/*]
+Parent="Edge 143.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 142.0 for iOS
+
+[Edge 142.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 142.0"
+Browser="Edge"
+Version="142.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/142.* Mobile/* Safari/*]
+Parent="Edge 142.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/142.* Mobile/* Safari/*]
+Parent="Edge 142.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 141.0 for iOS
+
+[Edge 141.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 141.0"
+Browser="Edge"
+Version="141.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/141.* Mobile/* Safari/*]
+Parent="Edge 141.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/141.* Mobile/* Safari/*]
+Parent="Edge 141.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 140.0 for iOS
+
+[Edge 140.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 140.0"
+Browser="Edge"
+Version="140.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/140.* Mobile/* Safari/*]
+Parent="Edge 140.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/140.* Mobile/* Safari/*]
+Parent="Edge 140.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 139.0 for iOS
+
+[Edge 139.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 139.0"
+Browser="Edge"
+Version="139.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/139.* Mobile/* Safari/*]
+Parent="Edge 139.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/139.* Mobile/* Safari/*]
+Parent="Edge 139.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 138.0 for iOS
+
+[Edge 138.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 138.0"
+Browser="Edge"
+Version="138.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/138.* Mobile/* Safari/*]
+Parent="Edge 138.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/138.* Mobile/* Safari/*]
+Parent="Edge 138.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 137.0 for iOS
+
+[Edge 137.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 137.0"
+Browser="Edge"
+Version="137.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/137.* Mobile/* Safari/*]
+Parent="Edge 137.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/137.* Mobile/* Safari/*]
+Parent="Edge 137.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 136.0 for iOS
+
+[Edge 136.0 for iOS]
+Parent="DefaultProperties"
+Comment="Edge 136.0"
+Browser="Edge"
+Version="136.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/136.* Mobile/* Safari/*]
+Parent="Edge 136.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/136.* Mobile/* Safari/*]
+Parent="Edge 136.0 for iOS"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 135.0 for iOS
 
 [Edge 135.0 for iOS]
@@ -10559,6 +11359,146 @@ Device_Type="Mobile Phone"
 
 [Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) Version/* EdgiOS/41.* Mobile/* Safari/*]
 Parent="Edge 41.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 145.0 for Android
+
+[Edge 145.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 145.0"
+Browser="Edge"
+Version="145.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/145.*]
+Parent="Edge 145.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 144.0 for Android
+
+[Edge 144.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 144.0"
+Browser="Edge"
+Version="144.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/144.*]
+Parent="Edge 144.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 143.0 for Android
+
+[Edge 143.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 143.0"
+Browser="Edge"
+Version="143.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/143.*]
+Parent="Edge 143.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 142.0 for Android
+
+[Edge 142.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 142.0"
+Browser="Edge"
+Version="142.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/142.*]
+Parent="Edge 142.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 141.0 for Android
+
+[Edge 141.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 141.0"
+Browser="Edge"
+Version="141.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/141.*]
+Parent="Edge 141.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 140.0 for Android
+
+[Edge 140.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 140.0"
+Browser="Edge"
+Version="140.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/140.*]
+Parent="Edge 140.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 139.0 for Android
+
+[Edge 139.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 139.0"
+Browser="Edge"
+Version="139.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/139.*]
+Parent="Edge 139.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 138.0 for Android
+
+[Edge 138.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 138.0"
+Browser="Edge"
+Version="138.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/138.*]
+Parent="Edge 138.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 137.0 for Android
+
+[Edge 137.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 137.0"
+Browser="Edge"
+Version="137.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/137.*]
+Parent="Edge 137.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 136.0 for Android
+
+[Edge 136.0 for Android]
+Parent="DefaultProperties"
+Comment="Edge 136.0"
+Browser="Edge"
+Version="136.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) applewebkit* (*khtml*like*gecko*) Chrome/* Mobile Safari/* EdgA/136.*]
+Parent="Edge 136.0 for Android"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Edge 135.0 for Android
 
@@ -13309,7 +14249,757 @@ Parent="Chrome 43.0 for Android"
 isTablet="true"
 Device_Type="Tablet"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 135.0
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 145.0
+
+[Chrome 145.0]
+Parent="DefaultProperties"
+Comment="Chrome 145.0"
+Browser="Chrome"
+Version="145.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Safari/*]
+Parent="Chrome 145.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/145.0* anonymized by*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/145.0* anonymized by*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/145.0* anonymized by*]
+Parent="Chrome 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/145.0* anonymized by*]
+Parent="Chrome 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/145.0* anonymized by*]
+Parent="Chrome 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Anonymisiert durch*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Anonymisiert durch*]
+Parent="Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Anonymisiert durch*]
+Parent="Chrome 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Anonymisiert durch*]
+Parent="Chrome 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/145.0*Anonymisiert durch*]
+Parent="Chrome 145.0"
+Platform="Win7"
+
+[Chrome 144.0]
+Parent="DefaultProperties"
+Comment="Chrome 144.0"
+Browser="Chrome"
+Version="144.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Safari/*]
+Parent="Chrome 144.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/144.0* anonymized by*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/144.0* anonymized by*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/144.0* anonymized by*]
+Parent="Chrome 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/144.0* anonymized by*]
+Parent="Chrome 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/144.0* anonymized by*]
+Parent="Chrome 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Anonymisiert durch*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Anonymisiert durch*]
+Parent="Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Anonymisiert durch*]
+Parent="Chrome 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Anonymisiert durch*]
+Parent="Chrome 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/144.0*Anonymisiert durch*]
+Parent="Chrome 144.0"
+Platform="Win7"
+
+[Chrome 143.0]
+Parent="DefaultProperties"
+Comment="Chrome 143.0"
+Browser="Chrome"
+Version="143.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Safari/*]
+Parent="Chrome 143.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/143.0* anonymized by*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/143.0* anonymized by*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/143.0* anonymized by*]
+Parent="Chrome 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/143.0* anonymized by*]
+Parent="Chrome 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/143.0* anonymized by*]
+Parent="Chrome 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Anonymisiert durch*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Anonymisiert durch*]
+Parent="Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Anonymisiert durch*]
+Parent="Chrome 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Anonymisiert durch*]
+Parent="Chrome 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/143.0*Anonymisiert durch*]
+Parent="Chrome 143.0"
+Platform="Win7"
+
+[Chrome 142.0]
+Parent="DefaultProperties"
+Comment="Chrome 142.0"
+Browser="Chrome"
+Version="142.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Safari/*]
+Parent="Chrome 142.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/142.0* anonymized by*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/142.0* anonymized by*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/142.0* anonymized by*]
+Parent="Chrome 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/142.0* anonymized by*]
+Parent="Chrome 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/142.0* anonymized by*]
+Parent="Chrome 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Anonymisiert durch*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Anonymisiert durch*]
+Parent="Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Anonymisiert durch*]
+Parent="Chrome 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Anonymisiert durch*]
+Parent="Chrome 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/142.0*Anonymisiert durch*]
+Parent="Chrome 142.0"
+Platform="Win7"
+
+[Chrome 141.0]
+Parent="DefaultProperties"
+Comment="Chrome 141.0"
+Browser="Chrome"
+Version="141.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Safari/*]
+Parent="Chrome 141.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/141.0* anonymized by*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/141.0* anonymized by*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/141.0* anonymized by*]
+Parent="Chrome 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/141.0* anonymized by*]
+Parent="Chrome 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/141.0* anonymized by*]
+Parent="Chrome 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Anonymisiert durch*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Anonymisiert durch*]
+Parent="Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Anonymisiert durch*]
+Parent="Chrome 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Anonymisiert durch*]
+Parent="Chrome 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/141.0*Anonymisiert durch*]
+Parent="Chrome 141.0"
+Platform="Win7"
+
+[Chrome 140.0]
+Parent="DefaultProperties"
+Comment="Chrome 140.0"
+Browser="Chrome"
+Version="140.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Safari/*]
+Parent="Chrome 140.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/140.0* anonymized by*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/140.0* anonymized by*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/140.0* anonymized by*]
+Parent="Chrome 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/140.0* anonymized by*]
+Parent="Chrome 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/140.0* anonymized by*]
+Parent="Chrome 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Anonymisiert durch*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Anonymisiert durch*]
+Parent="Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Anonymisiert durch*]
+Parent="Chrome 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Anonymisiert durch*]
+Parent="Chrome 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/140.0*Anonymisiert durch*]
+Parent="Chrome 140.0"
+Platform="Win7"
+
+[Chrome 139.0]
+Parent="DefaultProperties"
+Comment="Chrome 139.0"
+Browser="Chrome"
+Version="139.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Safari/*]
+Parent="Chrome 139.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/139.0* anonymized by*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/139.0* anonymized by*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/139.0* anonymized by*]
+Parent="Chrome 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/139.0* anonymized by*]
+Parent="Chrome 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/139.0* anonymized by*]
+Parent="Chrome 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Anonymisiert durch*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Anonymisiert durch*]
+Parent="Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Anonymisiert durch*]
+Parent="Chrome 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Anonymisiert durch*]
+Parent="Chrome 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/139.0*Anonymisiert durch*]
+Parent="Chrome 139.0"
+Platform="Win7"
+
+[Chrome 138.0]
+Parent="DefaultProperties"
+Comment="Chrome 138.0"
+Browser="Chrome"
+Version="138.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Safari/*]
+Parent="Chrome 138.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/138.0* anonymized by*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/138.0* anonymized by*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/138.0* anonymized by*]
+Parent="Chrome 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/138.0* anonymized by*]
+Parent="Chrome 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/138.0* anonymized by*]
+Parent="Chrome 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Anonymisiert durch*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Anonymisiert durch*]
+Parent="Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Anonymisiert durch*]
+Parent="Chrome 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Anonymisiert durch*]
+Parent="Chrome 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/138.0*Anonymisiert durch*]
+Parent="Chrome 138.0"
+Platform="Win7"
+
+[Chrome 137.0]
+Parent="DefaultProperties"
+Comment="Chrome 137.0"
+Browser="Chrome"
+Version="137.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Safari/*]
+Parent="Chrome 137.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/137.0* anonymized by*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/137.0* anonymized by*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/137.0* anonymized by*]
+Parent="Chrome 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/137.0* anonymized by*]
+Parent="Chrome 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/137.0* anonymized by*]
+Parent="Chrome 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Anonymisiert durch*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Anonymisiert durch*]
+Parent="Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Anonymisiert durch*]
+Parent="Chrome 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Anonymisiert durch*]
+Parent="Chrome 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/137.0*Anonymisiert durch*]
+Parent="Chrome 137.0"
+Platform="Win7"
+
+[Chrome 136.0]
+Parent="DefaultProperties"
+Comment="Chrome 136.0"
+Browser="Chrome"
+Version="136.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Safari/*]
+Parent="Chrome 136.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/136.0* anonymized by*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/136.0* anonymized by*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/136.0* anonymized by*]
+Parent="Chrome 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/136.0* anonymized by*]
+Parent="Chrome 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/136.0* anonymized by*]
+Parent="Chrome 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Anonymisiert durch*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Anonymisiert durch*]
+Parent="Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Anonymisiert durch*]
+Parent="Chrome 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Anonymisiert durch*]
+Parent="Chrome 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) Chrome/136.0*Anonymisiert durch*]
+Parent="Chrome 136.0"
+Platform="Win7"
 
 [Chrome 135.0]
 Parent="DefaultProperties"
@@ -19763,6 +21453,296 @@ Platform="Win8"
 Parent="Chrome 50.0"
 Platform="Win7"
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 145.0 for iOS
+
+[Chrome 145.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 145.0"
+Browser="Chrome"
+Version="145.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/145.0*Safari/*]
+Parent="Chrome 145.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/145.0*Safari/*]
+Parent="Chrome 145.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/145.0*Safari/*]
+Parent="Chrome 145.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/145.0*Safari/*]
+Parent="Chrome 145.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/145.0*Safari/*]
+Parent="Chrome 145.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 144.0 for iOS
+
+[Chrome 144.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 144.0"
+Browser="Chrome"
+Version="144.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/144.0*Safari/*]
+Parent="Chrome 144.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/144.0*Safari/*]
+Parent="Chrome 144.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/144.0*Safari/*]
+Parent="Chrome 144.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/144.0*Safari/*]
+Parent="Chrome 144.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/144.0*Safari/*]
+Parent="Chrome 144.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 143.0 for iOS
+
+[Chrome 143.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 143.0"
+Browser="Chrome"
+Version="143.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/143.0*Safari/*]
+Parent="Chrome 143.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/143.0*Safari/*]
+Parent="Chrome 143.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/143.0*Safari/*]
+Parent="Chrome 143.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/143.0*Safari/*]
+Parent="Chrome 143.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/143.0*Safari/*]
+Parent="Chrome 143.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 142.0 for iOS
+
+[Chrome 142.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 142.0"
+Browser="Chrome"
+Version="142.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/142.0*Safari/*]
+Parent="Chrome 142.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/142.0*Safari/*]
+Parent="Chrome 142.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/142.0*Safari/*]
+Parent="Chrome 142.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/142.0*Safari/*]
+Parent="Chrome 142.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/142.0*Safari/*]
+Parent="Chrome 142.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 141.0 for iOS
+
+[Chrome 141.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 141.0"
+Browser="Chrome"
+Version="141.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/141.0*Safari/*]
+Parent="Chrome 141.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/141.0*Safari/*]
+Parent="Chrome 141.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/141.0*Safari/*]
+Parent="Chrome 141.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/141.0*Safari/*]
+Parent="Chrome 141.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/141.0*Safari/*]
+Parent="Chrome 141.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 140.0 for iOS
+
+[Chrome 140.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 140.0"
+Browser="Chrome"
+Version="140.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/140.0*Safari/*]
+Parent="Chrome 140.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/140.0*Safari/*]
+Parent="Chrome 140.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/140.0*Safari/*]
+Parent="Chrome 140.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/140.0*Safari/*]
+Parent="Chrome 140.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/140.0*Safari/*]
+Parent="Chrome 140.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 139.0 for iOS
+
+[Chrome 139.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 139.0"
+Browser="Chrome"
+Version="139.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/139.0*Safari/*]
+Parent="Chrome 139.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/139.0*Safari/*]
+Parent="Chrome 139.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/139.0*Safari/*]
+Parent="Chrome 139.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/139.0*Safari/*]
+Parent="Chrome 139.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/139.0*Safari/*]
+Parent="Chrome 139.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 138.0 for iOS
+
+[Chrome 138.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 138.0"
+Browser="Chrome"
+Version="138.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/138.0*Safari/*]
+Parent="Chrome 138.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/138.0*Safari/*]
+Parent="Chrome 138.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/138.0*Safari/*]
+Parent="Chrome 138.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/138.0*Safari/*]
+Parent="Chrome 138.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/138.0*Safari/*]
+Parent="Chrome 138.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 137.0 for iOS
+
+[Chrome 137.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 137.0"
+Browser="Chrome"
+Version="137.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/137.0*Safari/*]
+Parent="Chrome 137.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/137.0*Safari/*]
+Parent="Chrome 137.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/137.0*Safari/*]
+Parent="Chrome 137.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/137.0*Safari/*]
+Parent="Chrome 137.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/137.0*Safari/*]
+Parent="Chrome 137.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 136.0 for iOS
+
+[Chrome 136.0 for iOS]
+Parent="DefaultProperties"
+Comment="Chrome 136.0"
+Browser="Chrome"
+Version="136.0"
+Platform="iOS"
+isMobileDevice="true"
+Device_Type="Mobile Device"
+
+[Mozilla/5.0 (iPhone*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/136.0*Safari/*]
+Parent="Chrome 136.0 for iOS"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (iPod*CPU iPhone OS * like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/136.0*Safari/*]
+Parent="Chrome 136.0 for iOS"
+
+[Mozilla/5.0 (iPad*CPU*OS* like Mac OS X*)*applewebkit*(*khtml*like*gecko*)*CriOS/136.0*Safari/*]
+Parent="Chrome 136.0 for iOS"
+isTablet="true"
+Device_Type="Tablet"
+
+[Mozilla/5.0 (*CPU iPhone OS * like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/136.0*Safari/*]
+Parent="Chrome 136.0 for iOS"
+
+[Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/136.0*Safari/*]
+Parent="Chrome 136.0 for iOS"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Chrome 135.0 for iOS
 
 [Chrome 135.0 for iOS]
@@ -22111,6 +24091,376 @@ Parent="Chrome 55.0 for iOS"
 
 [Mozilla/5.0 (*CPU*OS* like Mac OS X*) applewebkit* (*khtml*like*gecko*) *CriOS/55.0*Safari/*]
 Parent="Chrome 55.0 for iOS"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 145.0
+
+[Headless Chrome 145.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 145.0"
+Browser="Headless Chrome"
+Version="145.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/145.0* Safari/*]
+Parent="Headless Chrome 145.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 144.0
+
+[Headless Chrome 144.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 144.0"
+Browser="Headless Chrome"
+Version="144.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/144.0* Safari/*]
+Parent="Headless Chrome 144.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 143.0
+
+[Headless Chrome 143.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 143.0"
+Browser="Headless Chrome"
+Version="143.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/143.0* Safari/*]
+Parent="Headless Chrome 143.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 142.0
+
+[Headless Chrome 142.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 142.0"
+Browser="Headless Chrome"
+Version="142.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/142.0* Safari/*]
+Parent="Headless Chrome 142.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 141.0
+
+[Headless Chrome 141.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 141.0"
+Browser="Headless Chrome"
+Version="141.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/141.0* Safari/*]
+Parent="Headless Chrome 141.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 140.0
+
+[Headless Chrome 140.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 140.0"
+Browser="Headless Chrome"
+Version="140.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/140.0* Safari/*]
+Parent="Headless Chrome 140.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 139.0
+
+[Headless Chrome 139.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 139.0"
+Browser="Headless Chrome"
+Version="139.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/139.0* Safari/*]
+Parent="Headless Chrome 139.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 138.0
+
+[Headless Chrome 138.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 138.0"
+Browser="Headless Chrome"
+Version="138.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/138.0* Safari/*]
+Parent="Headless Chrome 138.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 137.0
+
+[Headless Chrome 137.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 137.0"
+Browser="Headless Chrome"
+Version="137.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/137.0* Safari/*]
+Parent="Headless Chrome 137.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 136.0
+
+[Headless Chrome 136.0]
+Parent="DefaultProperties"
+Comment="Headless Chrome 136.0"
+Browser="Headless Chrome"
+Version="136.0"
+Platform="Linux"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) applewebkit* (*khtml*like*gecko*) HeadlessChrome/136.0* Safari/*]
+Parent="Headless Chrome 136.0"
+Platform="MacOSX"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Headless Chrome 135.0
 
@@ -29631,6 +31981,1246 @@ Parent="IE 6.0 for Desktop"
 
 [Mozilla/5.0 (*MSIE 6.0*)*]
 Parent="IE 6.0 for Desktop"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 145.0
+
+[Firefox 145.0]
+Parent="DefaultProperties"
+Comment="Firefox 145.0"
+Browser="Firefox"
+Version="145.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:145*) Gecko* Firefox/145*anonymized by *]
+Parent="Firefox 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:145*) Gecko* Firefox/145*anonymized by *]
+Parent="Firefox 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:145*) Gecko* Firefox/145*anonymized by *]
+Parent="Firefox 145.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:145*) Gecko* Firefox/145*anonymized by *]
+Parent="Firefox 145.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:145*) Gecko* Firefox anonymized by *]
+Parent="Firefox 145.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/145.0* Anonymisiert*]
+Parent="Firefox 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/145.0* Anonymisiert*]
+Parent="Firefox 145.0"
+Platform="Win32"
+
+[Firefox/145.0*anonymized by Abelssoft*]
+Parent="Firefox 145.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/145.0*]
+Parent="Firefox 145.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 144.0
+
+[Firefox 144.0]
+Parent="DefaultProperties"
+Comment="Firefox 144.0"
+Browser="Firefox"
+Version="144.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:144*) Gecko* Firefox/144*anonymized by *]
+Parent="Firefox 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:144*) Gecko* Firefox/144*anonymized by *]
+Parent="Firefox 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:144*) Gecko* Firefox/144*anonymized by *]
+Parent="Firefox 144.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:144*) Gecko* Firefox/144*anonymized by *]
+Parent="Firefox 144.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:144*) Gecko* Firefox anonymized by *]
+Parent="Firefox 144.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/144.0* Anonymisiert*]
+Parent="Firefox 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/144.0* Anonymisiert*]
+Parent="Firefox 144.0"
+Platform="Win32"
+
+[Firefox/144.0*anonymized by Abelssoft*]
+Parent="Firefox 144.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/144.0*]
+Parent="Firefox 144.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 143.0
+
+[Firefox 143.0]
+Parent="DefaultProperties"
+Comment="Firefox 143.0"
+Browser="Firefox"
+Version="143.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:143*) Gecko* Firefox/143*anonymized by *]
+Parent="Firefox 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:143*) Gecko* Firefox/143*anonymized by *]
+Parent="Firefox 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:143*) Gecko* Firefox/143*anonymized by *]
+Parent="Firefox 143.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:143*) Gecko* Firefox/143*anonymized by *]
+Parent="Firefox 143.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:143*) Gecko* Firefox anonymized by *]
+Parent="Firefox 143.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/143.0* Anonymisiert*]
+Parent="Firefox 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/143.0* Anonymisiert*]
+Parent="Firefox 143.0"
+Platform="Win32"
+
+[Firefox/143.0*anonymized by Abelssoft*]
+Parent="Firefox 143.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/143.0*]
+Parent="Firefox 143.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 142.0
+
+[Firefox 142.0]
+Parent="DefaultProperties"
+Comment="Firefox 142.0"
+Browser="Firefox"
+Version="142.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:142*) Gecko* Firefox/142*anonymized by *]
+Parent="Firefox 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:142*) Gecko* Firefox/142*anonymized by *]
+Parent="Firefox 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:142*) Gecko* Firefox/142*anonymized by *]
+Parent="Firefox 142.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:142*) Gecko* Firefox/142*anonymized by *]
+Parent="Firefox 142.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:142*) Gecko* Firefox anonymized by *]
+Parent="Firefox 142.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/142.0* Anonymisiert*]
+Parent="Firefox 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/142.0* Anonymisiert*]
+Parent="Firefox 142.0"
+Platform="Win32"
+
+[Firefox/142.0*anonymized by Abelssoft*]
+Parent="Firefox 142.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/142.0*]
+Parent="Firefox 142.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 141.0
+
+[Firefox 141.0]
+Parent="DefaultProperties"
+Comment="Firefox 141.0"
+Browser="Firefox"
+Version="141.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:141*) Gecko* Firefox/141*anonymized by *]
+Parent="Firefox 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:141*) Gecko* Firefox/141*anonymized by *]
+Parent="Firefox 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:141*) Gecko* Firefox/141*anonymized by *]
+Parent="Firefox 141.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:141*) Gecko* Firefox/141*anonymized by *]
+Parent="Firefox 141.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:141*) Gecko* Firefox anonymized by *]
+Parent="Firefox 141.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/141.0* Anonymisiert*]
+Parent="Firefox 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/141.0* Anonymisiert*]
+Parent="Firefox 141.0"
+Platform="Win32"
+
+[Firefox/141.0*anonymized by Abelssoft*]
+Parent="Firefox 141.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/141.0*]
+Parent="Firefox 141.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 140.0
+
+[Firefox 140.0]
+Parent="DefaultProperties"
+Comment="Firefox 140.0"
+Browser="Firefox"
+Version="140.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:140*) Gecko* Firefox/140*anonymized by *]
+Parent="Firefox 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:140*) Gecko* Firefox/140*anonymized by *]
+Parent="Firefox 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:140*) Gecko* Firefox/140*anonymized by *]
+Parent="Firefox 140.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:140*) Gecko* Firefox/140*anonymized by *]
+Parent="Firefox 140.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:140*) Gecko* Firefox anonymized by *]
+Parent="Firefox 140.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/140.0* Anonymisiert*]
+Parent="Firefox 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/140.0* Anonymisiert*]
+Parent="Firefox 140.0"
+Platform="Win32"
+
+[Firefox/140.0*anonymized by Abelssoft*]
+Parent="Firefox 140.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/140.0*]
+Parent="Firefox 140.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 139.0
+
+[Firefox 139.0]
+Parent="DefaultProperties"
+Comment="Firefox 139.0"
+Browser="Firefox"
+Version="139.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:139*) Gecko* Firefox/139*anonymized by *]
+Parent="Firefox 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:139*) Gecko* Firefox/139*anonymized by *]
+Parent="Firefox 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:139*) Gecko* Firefox/139*anonymized by *]
+Parent="Firefox 139.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:139*) Gecko* Firefox/139*anonymized by *]
+Parent="Firefox 139.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:139*) Gecko* Firefox anonymized by *]
+Parent="Firefox 139.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/139.0* Anonymisiert*]
+Parent="Firefox 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/139.0* Anonymisiert*]
+Parent="Firefox 139.0"
+Platform="Win32"
+
+[Firefox/139.0*anonymized by Abelssoft*]
+Parent="Firefox 139.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/139.0*]
+Parent="Firefox 139.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 138.0
+
+[Firefox 138.0]
+Parent="DefaultProperties"
+Comment="Firefox 138.0"
+Browser="Firefox"
+Version="138.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:138*) Gecko* Firefox/138*anonymized by *]
+Parent="Firefox 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:138*) Gecko* Firefox/138*anonymized by *]
+Parent="Firefox 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:138*) Gecko* Firefox/138*anonymized by *]
+Parent="Firefox 138.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:138*) Gecko* Firefox/138*anonymized by *]
+Parent="Firefox 138.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:138*) Gecko* Firefox anonymized by *]
+Parent="Firefox 138.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/138.0* Anonymisiert*]
+Parent="Firefox 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/138.0* Anonymisiert*]
+Parent="Firefox 138.0"
+Platform="Win32"
+
+[Firefox/138.0*anonymized by Abelssoft*]
+Parent="Firefox 138.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/138.0*]
+Parent="Firefox 138.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 137.0
+
+[Firefox 137.0]
+Parent="DefaultProperties"
+Comment="Firefox 137.0"
+Browser="Firefox"
+Version="137.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:137*) Gecko* Firefox/137*anonymized by *]
+Parent="Firefox 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:137*) Gecko* Firefox/137*anonymized by *]
+Parent="Firefox 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:137*) Gecko* Firefox/137*anonymized by *]
+Parent="Firefox 137.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:137*) Gecko* Firefox/137*anonymized by *]
+Parent="Firefox 137.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:137*) Gecko* Firefox anonymized by *]
+Parent="Firefox 137.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/137.0* Anonymisiert*]
+Parent="Firefox 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/137.0* Anonymisiert*]
+Parent="Firefox 137.0"
+Platform="Win32"
+
+[Firefox/137.0*anonymized by Abelssoft*]
+Parent="Firefox 137.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/137.0*]
+Parent="Firefox 137.0"
+Platform="MacOSX"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 136.0
+
+[Firefox 136.0]
+Parent="DefaultProperties"
+Comment="Firefox 136.0"
+Browser="Firefox"
+Version="136.0"
+Device_Type="Desktop"
+
+[Mozilla/5.0 (*Linux*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Linux"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="MacOSX"
+
+[Mozilla/4.0 (*Linux*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Linux"
+
+[Mozilla/4.0 (*Windows NT 10.0*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.4*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/4.0 (*Windows NT 6.3*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8.1"
+
+[Mozilla/4.0 (*Windows NT 6.2*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8"
+
+[Mozilla/4.0 (*Windows NT 6.1*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="Win7"
+
+[Mozilla/4.0 (*Mac OS X*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+Platform="MacOSX"
+
+[Mozilla/5.0 (*Windows NT 6.2*; rv:136*) Gecko* Firefox/136*anonymized by *]
+Parent="Firefox 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*; rv:136*) Gecko* Firefox/136*anonymized by *]
+Parent="Firefox 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows NT 6.0*; rv:136*) Gecko* Firefox/136*anonymized by *]
+Parent="Firefox 136.0"
+Platform="WinVista"
+
+[Mozilla/5.0 (*Windows*; rv:136*) Gecko* Firefox/136*anonymized by *]
+Parent="Firefox 136.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows*; rv:136*) Gecko* Firefox anonymized by *]
+Parent="Firefox 136.0"
+Platform="Win32"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko* Firefox/136.0* Anonymisiert*]
+Parent="Firefox 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Windows*) Gecko* Firefox/136.0* Anonymisiert*]
+Parent="Firefox 136.0"
+Platform="Win32"
+
+[Firefox/136.0*anonymized by Abelssoft*]
+Parent="Firefox 136.0"
+Platform="Win32"
+
+[Mozilla/5.0 (masking-agent; rv:*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0"
+
+[Mozilla/5.0 (*Windows NT 10.0*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.4*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="Win10"
+
+[Mozilla/5.0 (*Windows NT 6.3*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8.1"
+
+[Mozilla/5.0 (*Windows NT 6.2*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="Win8"
+
+[Mozilla/5.0 (*Windows NT 6.1*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="Win7"
+
+[Mozilla/5.0 (*Mac OS X*) Gecko*/136.0*]
+Parent="Firefox 136.0"
+Platform="MacOSX"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 135.0
 
@@ -40759,6 +44349,226 @@ Device_Type="Mobile Phone"
 
 [Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/7.0*]
 Parent="Firefox 7.0 for Android"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 145.0 for Android
+
+[Firefox 145.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 145.0"
+Browser="Firefox"
+Version="145.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/145.0*]
+Parent="Firefox 145.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 144.0 for Android
+
+[Firefox 144.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 144.0"
+Browser="Firefox"
+Version="144.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/144.0*]
+Parent="Firefox 144.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 143.0 for Android
+
+[Firefox 143.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 143.0"
+Browser="Firefox"
+Version="143.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/143.0*]
+Parent="Firefox 143.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 142.0 for Android
+
+[Firefox 142.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 142.0"
+Browser="Firefox"
+Version="142.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/142.0*]
+Parent="Firefox 142.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 141.0 for Android
+
+[Firefox 141.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 141.0"
+Browser="Firefox"
+Version="141.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/141.0*]
+Parent="Firefox 141.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 140.0 for Android
+
+[Firefox 140.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 140.0"
+Browser="Firefox"
+Version="140.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/140.0*]
+Parent="Firefox 140.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 139.0 for Android
+
+[Firefox 139.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 139.0"
+Browser="Firefox"
+Version="139.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/139.0*]
+Parent="Firefox 139.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 138.0 for Android
+
+[Firefox 138.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 138.0"
+Browser="Firefox"
+Version="138.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/138.0*]
+Parent="Firefox 138.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 137.0 for Android
+
+[Firefox 137.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 137.0"
+Browser="Firefox"
+Version="137.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/137.0*]
+Parent="Firefox 137.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 136.0 for Android
+
+[Firefox 136.0 for Android]
+Parent="DefaultProperties"
+Comment="Firefox 136.0"
+Browser="Firefox"
+Version="136.0"
+Platform="Android"
+isMobileDevice="true"
+Device_Type="Mobile Phone"
+
+[Mozilla/5.0 (*Linux*Android*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0 for Android"
+
+[Mozilla/5.0 (*Android*Mobile*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0 for Android"
+
+[Mozilla/5.0 (*Android*Tablet*) Gecko* Firefox/136.0*]
+Parent="Firefox 136.0 for Android"
+isTablet="true"
+Device_Type="Tablet"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; Firefox 135.0 for Android
 
