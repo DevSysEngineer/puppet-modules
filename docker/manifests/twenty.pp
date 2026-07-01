@@ -1,19 +1,18 @@
 # @summary Deploys the bundled Twenty Docker Compose stack.
 #
-# This defined type deploys the module-shipped `docker/files/twenty.yaml`
-# Compose file. Declare `docker` before using it. The resource title becomes
-# the Compose project name, so multiple Twenty stacks can be managed on the same
-# host when ports, URLs, and public names do not conflict. When `server_name` is
-# set, declare `nginx` as well so `docker::compose_proxy` can add the reverse
-# proxy; otherwise the defined type declares `docker::compose` directly.
+# This defined type deploys the module-shipped `docker/files/twenty.yaml` Compose file.
+# Declare `docker` before using it.
+# The resource title becomes the Compose project name, so multiple Twenty stacks can be managed on the same host when ports and public names do not conflict.
+# When `server_name` is set, declare `nginx` as well so `docker::compose_proxy` can add the reverse proxy; otherwise the defined type declares `docker::compose` directly.
+# The generated `SERVER_URL` uses `scheme` with the first `server_name`, or `host` when `server_name` is unset.
 #
 # @example Deploy Twenty with generated `.env` content
 #   class { 'docker': }
 #
 #   docker::twenty { 'twenty':
 #     encryption_key       => Sensitive('change-me'),
+#     host                 => 'twenty.example.org',
 #     pg_database_password => Sensitive('change-me'),
-#     server_url           => 'https://twenty.example.org',
 #   }
 #
 # @example Deploy Twenty behind Nginx
@@ -24,7 +23,6 @@
 #     encryption_key       => Sensitive('change-me'),
 #     pg_database_password => Sensitive('change-me'),
 #     server_name          => 'twenty.example.org',
-#     server_url           => 'https://twenty.example.org',
 #     ssl_certificate      => '/etc/letsencrypt/live/twenty.example.org/fullchain.pem',
 #     ssl_certificate_key  => '/etc/letsencrypt/live/twenty.example.org/privkey.pem',
 #   }
@@ -35,10 +33,6 @@
 # @param pg_database_password
 #   PostgreSQL password written as `PG_DATABASE_PASSWORD`.
 #
-# @param server_url
-#   Public Twenty URL written as `SERVER_URL`. This is the URL Twenty advertises
-#   to users and workers, not the local Nginx upstream.
-#
 # @param ensure
 #   Controls whether the Twenty Compose project directory and service are
 #   present or absent.
@@ -48,8 +42,9 @@
 #   a key rotation.
 #
 # @param host
-#   Local Twenty upstream host used by Nginx when `server_name` is set. The
-#   default is `127.0.0.1`.
+#   Local Twenty upstream host used by Nginx when `server_name` is set.
+#   When `server_name` is unset, this is also used to derive `SERVER_URL`.
+#   The default is `127.0.0.1`.
 #
 # @param image_tag
 #   Docker image tag written as `TAG`.
@@ -96,12 +91,12 @@
 #   Redis connection URL written as `REDIS_URL`.
 #
 # @param scheme
-#   Local upstream scheme used by Nginx when `server_name` is set. The default
-#   is `https`, so local proxy traffic is encrypted when the proxy route is used.
+#   Scheme used to derive `SERVER_URL` and as the local upstream scheme for Nginx when `server_name` is set.
+#   The default is `https`, so local proxy traffic is encrypted when the proxy route is used.
 #
 # @param server_name
-#   Optional public Nginx `server_name`. When unset, only `docker::compose` is
-#   declared.
+#   Optional public Nginx `server_name`.
+#   When unset or empty, only `docker::compose` is declared and `SERVER_URL` is derived from `host`.
 #
 # @param ssl_certificate
 #   Public TLS certificate path for the generated Nginx vhost.
@@ -142,7 +137,6 @@
 define docker::twenty (
   Sensitive[String]                             $encryption_key,
   Sensitive[String]                             $pg_database_password,
-  Pattern[/\A[^\r\n]+\z/]                       $server_url,
   Enum['present','absent']                      $ensure                       = present,
   Optional[Sensitive[String]]                   $fallback_encryption_key      = undef,
   Pattern[/\A[^\r\n]+\z/]                       $host                         = '127.0.0.1',
@@ -178,16 +172,26 @@ define docker::twenty (
   $docker_defined = defined(Class['docker'])
   $nginx_defined = defined(Class['nginx'])
 
-  if (!$docker_defined) {
-    fail('docker::twenty requires the docker class before it can create the Compose stack.')
-  } elsif ($server_name != undef and !$nginx_defined) {
-    fail('docker::twenty requires the nginx class before it can create a reverse proxy vhost.')
+  if ($server_name == undef or ($server_name != undef and $server_name == '')) {
+    $server_name_correct = undef
   } else {
+    $server_name_correct = $server_name
+  }
+
+  if ($docker_defined and ($server_name_correct == undef or $nginx_defined)) {
+    # Build Twenty's public URL from the first public vhost name when available, otherwise from the direct host fallback.
+    if ($server_name_correct != undef) {
+      $server_url_host = split($server_name_correct, ' ')[0]
+      $server_url_correct = "${scheme}://${server_url_host}"
+    } else {
+      $server_url_correct = "${scheme}://${host}"
+    }
+
     # Generate .env content for the Compose stack based on the provided parameters.
     $env_content = Sensitive.new(template('docker/twenty.env'))
 
     # Use the proxy wrapper only when a public Nginx vhost is requested.
-    if ($server_name != undef) {
+    if ($server_name_correct != undef) {
       docker::compose_proxy { $name:
         ensure                     => $ensure,
         env_content                => $env_content,
@@ -204,7 +208,7 @@ define docker::twenty (
         proxy_port                 => $port,
         proxy_scheme               => $scheme,
         proxy_ssl_verify           => $ssl_verify,
-        server_name                => $server_name,
+        server_name                => $server_name_correct,
         ssl_certificate            => $ssl_certificate,
         ssl_certificate_key        => $ssl_certificate_key,
         ssl_certificate_trusted    => $ssl_certificate_trusted,
@@ -228,5 +232,9 @@ define docker::twenty (
         require                    => Class['docker'],
       }
     }
+  } elsif ($docker_defined) {
+    fail('docker::twenty requires the nginx class before it can create a reverse proxy vhost.')
+  } else {
+    fail('docker::twenty requires the docker class before it can create the Compose stack.')
   }
 }

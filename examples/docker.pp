@@ -190,7 +190,6 @@ node 'twenty.example.org' {
     redis_url                    => 'redis://redis:6379',
     scheme                       => 'https',
     server_name                  => 'twenty.example.org',
-    server_url                   => 'https://twenty.example.org',
     ssl_certificate              => '/etc/letsencrypt/live/twenty.example.org/fullchain.pem',
     ssl_certificate_key          => '/etc/letsencrypt/live/twenty.example.org/privkey.pem',
     ssl_certificate_trusted      => '/etc/letsencrypt/live/twenty.example.org/chain.pem',
