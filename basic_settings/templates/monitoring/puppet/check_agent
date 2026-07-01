@@ -28,10 +28,12 @@ LAST_RUN_AGE=U
 LAST_RUN_HUMAN="unknown"
 STATUS_DETAIL="no changes"
 
-# Journal long output is bounded by both scanned input and emitted line count.
+# Journal long output is bounded by Puppet's own last-run timestamp, runtime metric, fallback input, and emitted line count.
 JOURNAL_JOINED=""
 LOG_LINES=${LOG_LINES:-20}
 LOG_SCAN_LINES=${LOG_SCAN_LINES:-100}
+RUN_JOURNAL_START_GRACE=${RUN_JOURNAL_START_GRACE:-30}
+RUN_JOURNAL_END_GRACE=${RUN_JOURNAL_END_GRACE:-120}
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 
 # CLI options tune last-run age thresholds without changing the managed check registration.
@@ -46,9 +48,9 @@ while getopts "w:c:" opt; do
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
-for numeric_value in "$WARN_AGE" "$CRIT_AGE" "$LOG_LINES" "$LOG_SCAN_LINES"; do
+for numeric_value in "$WARN_AGE" "$CRIT_AGE" "$LOG_LINES" "$LOG_SCAN_LINES" "$RUN_JOURNAL_START_GRACE" "$RUN_JOURNAL_END_GRACE"; do
     case "$numeric_value" in
-        ''|*[!0-9]*) die "age thresholds and log limits must be numeric" ;;
+        ''|*[!0-9]*) die "age thresholds, log limits, and journal grace values must be numeric" ;;
     esac
 done
 case "$DETAIL_LIMIT" in
@@ -57,6 +59,8 @@ esac
 [ "$CRIT_AGE" -ge "$WARN_AGE" ] || die "critical age must be greater than or equal to warning age"
 [ "$LOG_LINES" -ge 1 ] || die "LOG_LINES must be at least 1"
 [ "$LOG_SCAN_LINES" -ge 1 ] || die "LOG_SCAN_LINES must be at least 1"
+[ "$RUN_JOURNAL_START_GRACE" -ge 0 ] || die "RUN_JOURNAL_START_GRACE must be zero or greater"
+[ "$RUN_JOURNAL_END_GRACE" -ge 0 ] || die "RUN_JOURNAL_END_GRACE must be zero or greater"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
 # Emit the summary line and optional long output.
@@ -230,31 +234,61 @@ if [ "$LAST_RUN_AGE" != "U" ]; then
     fi
 fi
 
-# Recent Puppet-tagged journal lines provide bounded context below the summary.
+# Recent Puppet-tagged journal lines provide bounded context for the same Puppet-timed last-run window below the summary.
 <% if @systemd_enable -%>
-JOURNAL_RAW=$($JOURNALCTL -n "$LOG_SCAN_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+JOURNAL_CONTEXT_LABEL="the last ${LOG_SCAN_LINES} unit log lines"
+if [ -n "$LAST_RUN_TS" ]; then
+    # Puppet reports last_run as the run completion time, so derive the start from the reported total runtime.
+    RUN_JOURNAL_RUNTIME=$($AWK -v runtime="$TIME_TOTAL" 'BEGIN {
+        runtime += 0
+        seconds = int(runtime)
+        if (runtime > seconds) {
+            seconds += 1
+        }
+        if (seconds > 0) {
+            print seconds
+        } else {
+            print 0
+        }
+    }')
+    RUN_JOURNAL_START=$((LAST_RUN_TS - RUN_JOURNAL_RUNTIME - RUN_JOURNAL_START_GRACE))
+    [ "$RUN_JOURNAL_START" -lt 0 ] && RUN_JOURNAL_START=0
+    RUN_JOURNAL_END=$((LAST_RUN_TS + RUN_JOURNAL_END_GRACE))
+    RUN_JOURNAL_SINCE=$($DATE -d "@$RUN_JOURNAL_START" '+%F %T' 2>/dev/null)
+    RUN_JOURNAL_UNTIL=$($DATE -d "@$RUN_JOURNAL_END" '+%F %T' 2>/dev/null)
+    if [ -n "$RUN_JOURNAL_SINCE" ] && [ -n "$RUN_JOURNAL_UNTIL" ]; then
+        JOURNAL_RAW=$($JOURNALCTL --since "$RUN_JOURNAL_SINCE" --until "$RUN_JOURNAL_UNTIL" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+        JOURNAL_CONTEXT_LABEL="the last Puppet run window (${RUN_JOURNAL_SINCE} to ${RUN_JOURNAL_UNTIL}, ${RUN_JOURNAL_RUNTIME}s runtime from lastrun summary)"
+    else
+        JOURNAL_RAW=$($JOURNALCTL -n "$LOG_SCAN_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+    fi
+else
+    JOURNAL_RAW=$($JOURNALCTL -n "$LOG_SCAN_LINES" -o short-iso -u "puppet.service" --no-pager 2>/dev/null || true)
+fi
 JOURNAL_FILTERED=$(filter_puppet_journal "$JOURNAL_RAW")
 JOURNAL_FILTERED_COUNT=$(printf '%s\n' "$JOURNAL_FILTERED" | $AWK 'NF { count++ } END { print count + 0 }')
 
 if [ "$JOURNAL_FILTERED_COUNT" -gt 0 ]; then
     JOURNAL_TRUNCATED=0
+    JOURNAL_OMITTED=0
     if [ "$JOURNAL_FILTERED_COUNT" -gt "$LOG_LINES" ]; then
+        JOURNAL_OMITTED=$((JOURNAL_FILTERED_COUNT - LOG_LINES))
         JOURNAL_FILTERED=$(printf '%s\n' "$JOURNAL_FILTERED" | $TAIL -n "$LOG_LINES")
         JOURNAL_TRUNCATED=1
     fi
 
-    if [ "$JOURNAL_TRUNCATED" -eq 1 ]; then
-        JOURNAL_JOINED=$(
-            {
-                printf '%s\n' "- Showing last ${LOG_LINES} Puppet journal lines (filtered from ${JOURNAL_FILTERED_COUNT} matches in the last ${LOG_SCAN_LINES} unit log lines)"
-                printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /'
-            }
-        )
-    else
-        JOURNAL_JOINED=$(printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /')
-    fi
+    JOURNAL_JOINED=$(
+        {
+            if [ "$JOURNAL_TRUNCATED" -eq 1 ]; then
+                printf '%s\n' "- Showing last ${LOG_LINES} Puppet journal lines from ${JOURNAL_CONTEXT_LABEL}; ${JOURNAL_OMITTED} older line(s) omitted"
+            else
+                printf '%s\n' "- Showing Puppet journal lines from ${JOURNAL_CONTEXT_LABEL}"
+            fi
+            printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /'
+        }
+    )
 elif [ -n "$JOURNAL_RAW" ]; then
-    JOURNAL_JOINED="- No Puppet-tagged journal lines found in the last ${LOG_SCAN_LINES} unit log lines"
+    JOURNAL_JOINED="- No Puppet-tagged journal lines found in ${JOURNAL_CONTEXT_LABEL}"
 else
     JOURNAL_JOINED=""
 fi
@@ -269,7 +303,7 @@ if [ -n "$JOURNAL_JOINED" ]; then
             printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
-            printf '%s\n' 'Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context for the same agent run path.'
+            printf '%s\n' 'Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context from the Puppet-timed last-run window.'
             printf '%s\n' 'Inspect the Puppet service, catalog errors, and the named lastrun summary file when the summary reports stale runs, failed resources, failed events, or a disabled agent.'
         }
     )

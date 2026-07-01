@@ -26,6 +26,7 @@ WC=$(command -v wc 2>/dev/null)   || die "wc not available"
 # Any-required input and active/configured match state.
 ANYREQ_IDS="" # -a CSV
 ANYREQ_LIST="<%= @usb_any_requirements_correct %>"
+ANYREQ_ACTIVE_REQUIREMENT_LIST=""
 ANYREQ_MATCHED_LIST=""
 ANYREQ_OK=1
 ANYREQ_PRESENT_COUNT=0
@@ -420,6 +421,14 @@ done
 [ -n "$ANYREQ_SERIALS_ACTIVE" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_SERIALS_ACTIVE" | $WC -w) ))
 [ -n "$ANYREQ_VP_IDS_ACTIVE" ] && ANYREQ_TOTAL_COUNT=$(( ANYREQ_TOTAL_COUNT + $(printf '%s\n' "$ANYREQ_VP_IDS_ACTIVE" | $WC -w) ))
 
+# Render active any-required policy identifiers because a failed policy may have no attached device to describe.
+for AR_SER in $ANYREQ_SERIALS_ACTIVE; do
+    ANYREQ_ACTIVE_REQUIREMENT_LIST=$(append_detail_item "$ANYREQ_ACTIVE_REQUIREMENT_LIST" "SN: $AR_SER")
+done
+for AR_ID in $ANYREQ_VP_IDS_ACTIVE; do
+    ANYREQ_ACTIVE_REQUIREMENT_LIST=$(append_detail_item "$ANYREQ_ACTIVE_REQUIREMENT_LIST" "VID:PID $AR_ID")
+done
+
 # Enumerate attached USB devices via sysfs.
 # Linux Foundation root hubs (vendor 1d6b) are host controllers, not endpoint devices, so they are ignored for this check.
 for DEVPATH in /sys/bus/usb/devices/*; do
@@ -578,29 +587,28 @@ done
 # - unknown attached devices
 # - active expected devices that are missing
 # - active any-required policy failures
-if [ $UNAUTHORIZED_COUNT -gt 0 ] || [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
+if [ $UNAUTHORIZED_COUNT -gt 0 ]; then
     STATUS_CODE=2
-    if [ $UNAUTHORIZED_COUNT -gt 0 ]; then
-        UNAUTHORIZED_SUMMARY="USB unauthorized device(s) detected: ${UNAUTHORIZED_COUNT}"
-        MSG=$(append_summary_reason "$MSG" "$UNAUTHORIZED_SUMMARY")
-    fi
-    if [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
-        EXPECTED_MISSING_SUMMARY="USB expected device(s) missing: ${EXPECTED_MISSING_COUNT}"
-        MSG=$(append_summary_reason "$MSG" "$EXPECTED_MISSING_SUMMARY")
-    fi
-else
-    if [ -n "$EXPECTED_SERIALS_ACTIVE" ] || [ -n "$EXPECTED_VP_IDS_ACTIVE" ]; then
-        MSG="USB has all expected devices present"
-    else
-        MSG="USB has no unauthorized devices detected"
-    fi
+    UNAUTHORIZED_SUMMARY="USB unauthorized device(s) detected: ${UNAUTHORIZED_COUNT}"
+    MSG=$(append_summary_reason "$MSG" "$UNAUTHORIZED_SUMMARY")
 fi
-
-# Any-required policy
+if [ "$EXPECTED_MISSING_COUNT" -gt 0 ]; then
+    STATUS_CODE=2
+    EXPECTED_MISSING_SUMMARY="USB expected device(s) missing: ${EXPECTED_MISSING_COUNT}"
+    MSG=$(append_summary_reason "$MSG" "$EXPECTED_MISSING_SUMMARY")
+fi
 if [ "$ANYREQ_TOTAL_COUNT" -gt 0 ] && [ "$ANYREQ_PRESENT_COUNT" -eq 0 ]; then
     ANYREQ_OK=0
     STATUS_CODE=2
-    MSG=$(append_summary_reason "$MSG" "USB any-required policy not met")
+    ANYREQ_MISSING_SUMMARY="USB any-required policy not met: 0 of ${ANYREQ_TOTAL_COUNT} active candidate(s) present"
+    MSG=$(append_summary_reason "$MSG" "$ANYREQ_MISSING_SUMMARY")
+fi
+if [ -z "$MSG" ]; then
+    if [ -n "$EXPECTED_SERIALS_ACTIVE" ] || [ -n "$EXPECTED_VP_IDS_ACTIVE" ] || [ "$ANYREQ_TOTAL_COUNT" -gt 0 ]; then
+        MSG="USB has all active device policies satisfied"
+    else
+        MSG="USB has no unauthorized devices detected"
+    fi
 fi
 
 # Keep device lists out of the short output; long output is bounded and explicitly marks truncation.
@@ -609,6 +617,7 @@ append_long "Active expected devices: ${EXPECTED_PRESENT_COUNT}/${EXPECTED_TOTAL
 append_long "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL_COUNT} present"
 [ -n "$UNAUTHORIZED_DEV_LIST" ] && append_long "Unauthorized devices: ${UNAUTHORIZED_DEV_LIST}"
 [ -n "$EXPECTED_LIST_MISSING" ] && append_long "Expected devices missing: ${EXPECTED_LIST_MISSING}"
+[ "$ANYREQ_OK" -eq 0 ] && [ -n "$ANYREQ_ACTIVE_REQUIREMENT_LIST" ] && append_long "Active any-required candidates that would satisfy the policy: ${ANYREQ_ACTIVE_REQUIREMENT_LIST}"
 [ -n "$ANYREQ_MATCHED_LIST" ] && append_long "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
 [ -n "$WHITELISTED_DEV_LIST" ] && append_long "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
 limit_long_output_details
@@ -616,7 +625,7 @@ append_long ""
 append_long "Interpretation:"
 append_long "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."
 append_long "Whitelist and matched any-required device lists are diagnostic context; timed rules authorize known devices outside their active windows but only require presence during active windows."
-append_long "Inspect the listed unauthorized or missing USB identifiers first, then update the Puppet USB policy if the device is expected for this host and time window."
+append_long "Inspect the listed unauthorized devices, missing expected identifiers, or active any-required candidates first, then update the Puppet USB policy if the device is expected for this host and time window."
 
 # Perfdata (ACTIVE items only for expected/any-required totals)
 PERF="usb_total=${TOTAL_DEV}"
