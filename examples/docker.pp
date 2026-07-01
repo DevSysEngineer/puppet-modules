@@ -114,6 +114,8 @@ node 'authentik.example.org' {
 
   docker::authentik { 'authentik':
     akadmin_remove             => true,
+    database_password          => Sensitive('replace-with-postgresql-password'),
+    secret_key                 => Sensitive('replace-with-authentik-secret-key'),
     image_tag                  => '2026.2.2',
     monitoring_detail_limit    => 6000,
     monitoring_expected_exited => ['worker'],
@@ -123,10 +125,8 @@ node 'authentik.example.org' {
     monitoring_profiles        => [],
     monitoring_starting_grace  => 600,
     monitoring_timeout         => 90,
-    pg_pass                    => Sensitive('replace-with-postgresql-password'),
     port                       => 9443,
     scheme                     => 'https',
-    secret_key                 => Sensitive('replace-with-authentik-secret-key'),
     server_name                => 'auth.example.org',
     smtp_from                  => 'authentik@example.org',
     smtp_password              => Sensitive('replace-with-authentik-smtp-password'),
@@ -171,8 +171,11 @@ node 'twenty.example.org' {
   }
 
   docker::twenty { 'twenty':
-    encryption_key               => Sensitive('replace-with-encryption-key'),
-    fallback_encryption_key      => Sensitive('replace-with-old-encryption-key'),
+    database_password            => Sensitive('replace-with-postgresql-password'),
+    secret_key                   => Sensitive('replace-with-secret-key'),
+    database_host                => 'db',
+    database_port                => 5432,
+    database_user                => 'postgres',
     host                         => '127.0.0.1',
     monitoring_detail_limit      => 6000,
     monitoring_expected_exited   => ['worker'],
@@ -182,13 +185,10 @@ node 'twenty.example.org' {
     monitoring_profiles          => [],
     monitoring_starting_grace    => 600,
     monitoring_timeout           => 90,
-    pg_database_host             => 'db',
-    pg_database_password         => Sensitive('replace-with-postgresql-password'),
-    pg_database_port             => 5432,
-    pg_database_user             => 'postgres',
     port                         => 3000,
     redis_url                    => 'redis://redis:6379',
     scheme                       => 'https',
+    secret_key_fallback          => Sensitive('replace-with-old-secret-key'),
     server_name                  => 'twenty.example.org',
     ssl_certificate              => '/etc/letsencrypt/live/twenty.example.org/fullchain.pem',
     ssl_certificate_key          => '/etc/letsencrypt/live/twenty.example.org/privkey.pem',

@@ -297,8 +297,8 @@ node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
     docker::authentik { 'authentik':
-        pg_pass    => Sensitive('replace-with-postgresql-password'),
-        secret_key => Sensitive('replace-with-secret-key'),
+        database_password => Sensitive('replace-with-postgresql-password'),
+        secret_key        => Sensitive('replace-with-secret-key'),
     }
 }
 ```
@@ -316,13 +316,13 @@ node 'containerhost.dev.xxxx.nl' {
     }
 
     docker::authentik { 'authentik':
-        pg_pass       => Sensitive('replace-with-postgresql-password'),
-        secret_key    => Sensitive('replace-with-secret-key'),
-        smtp_from     => 'authentik@example.org',
-        smtp_password => Sensitive('replace-with-smtp-password'),
-        smtp_port     => 587,
-        smtp_use_tls  => true,
-        smtp_username => 'authentik@example.org',
+        database_password => Sensitive('replace-with-postgresql-password'),
+        secret_key        => Sensitive('replace-with-secret-key'),
+        smtp_from         => 'authentik@example.org',
+        smtp_password     => Sensitive('replace-with-smtp-password'),
+        smtp_port         => 587,
+        smtp_use_tls      => true,
+        smtp_username     => 'authentik@example.org',
     }
 }
 ```
@@ -334,8 +334,8 @@ node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
     docker::authentik { 'authentik':
-        pg_pass    => Sensitive('replace-with-postgresql-password'),
-        secret_key => Sensitive('replace-with-secret-key'),
+        database_password => Sensitive('replace-with-postgresql-password'),
+        secret_key        => Sensitive('replace-with-secret-key'),
     }
 
     docker::authentik_admin { 'kevin.admin':
@@ -354,8 +354,8 @@ node 'containerhost.dev.xxxx.nl' {
     class { 'docker': }
 
     docker::authentik { 'authentik':
-        pg_pass    => Sensitive('replace-with-postgresql-password'),
-        secret_key => Sensitive('replace-with-secret-key'),
+        database_password => Sensitive('replace-with-postgresql-password'),
+        secret_key        => Sensitive('replace-with-secret-key'),
     }
 
     docker::authentik_admin { 'old.admin':

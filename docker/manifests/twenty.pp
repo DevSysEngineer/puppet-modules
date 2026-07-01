@@ -10,9 +10,9 @@
 #   class { 'docker': }
 #
 #   docker::twenty { 'twenty':
-#     encryption_key       => Sensitive('change-me'),
+#     database_password    => Sensitive('change-me'),
 #     host                 => 'twenty.example.org',
-#     pg_database_password => Sensitive('change-me'),
+#     secret_key           => Sensitive('change-me'),
 #   }
 #
 # @example Deploy Twenty behind Nginx
@@ -20,26 +20,31 @@
 #   class { 'nginx': }
 #
 #   docker::twenty { 'twenty':
-#     encryption_key       => Sensitive('change-me'),
-#     pg_database_password => Sensitive('change-me'),
+#     database_password    => Sensitive('change-me'),
+#     secret_key           => Sensitive('change-me'),
 #     server_name          => 'twenty.example.org',
 #     ssl_certificate      => '/etc/letsencrypt/live/twenty.example.org/fullchain.pem',
 #     ssl_certificate_key  => '/etc/letsencrypt/live/twenty.example.org/privkey.pem',
 #   }
 #
-# @param encryption_key
-#   Secret encryption key written as `ENCRYPTION_KEY`.
-#
-# @param pg_database_password
+# @param database_password
 #   PostgreSQL password written as `PG_DATABASE_PASSWORD`.
+#
+# @param secret_key
+#   Secret key written as `ENCRYPTION_KEY`.
+#
+# @param database_host
+#   PostgreSQL host written as `PG_DATABASE_HOST`.
+#
+# @param database_port
+#   PostgreSQL port written as `PG_DATABASE_PORT`.
+#
+# @param database_user
+#   PostgreSQL user written as `PG_DATABASE_USER`.
 #
 # @param ensure
 #   Controls whether the Twenty Compose project directory and service are
 #   present or absent.
-#
-# @param fallback_encryption_key
-#   Optional previous encryption key written as `FALLBACK_ENCRYPTION_KEY` during
-#   a key rotation.
 #
 # @param host
 #   Local Twenty upstream host used by Nginx when `server_name` is set.
@@ -74,15 +79,6 @@
 # @param monitoring_timeout
 #   Timeout in seconds for the Compose stack monitoring check.
 #
-# @param pg_database_host
-#   PostgreSQL host written as `PG_DATABASE_HOST`.
-#
-# @param pg_database_port
-#   PostgreSQL port written as `PG_DATABASE_PORT`.
-#
-# @param pg_database_user
-#   PostgreSQL user written as `PG_DATABASE_USER`.
-#
 # @param port
 #   Local Twenty upstream port used by Nginx when `server_name` is set. The
 #   default `3000` matches the bundled Compose listener.
@@ -93,6 +89,9 @@
 # @param scheme
 #   Scheme used to derive `SERVER_URL` and as the local upstream scheme for Nginx when `server_name` is set.
 #   The default is `https`, so local proxy traffic is encrypted when the proxy route is used.
+#
+# @param secret_key_fallback
+#   Optional previous secret key written as `FALLBACK_ENCRYPTION_KEY` during a key rotation.
 #
 # @param server_name
 #   Optional public Nginx `server_name`.
@@ -135,10 +134,12 @@
 #
 # @api public
 define docker::twenty (
-  Sensitive[String]                             $encryption_key,
-  Sensitive[String]                             $pg_database_password,
+  Sensitive[String]                             $database_password,
+  Sensitive[String]                             $secret_key,
+  Pattern[/\A[^\r\n]+\z/]                       $database_host                = 'db',
+  Integer[1, 65535]                             $database_port                = 5432,
+  Pattern[/\A[^\r\n]+\z/]                       $database_user                = 'postgres',
   Enum['present','absent']                      $ensure                       = present,
-  Optional[Sensitive[String]]                   $fallback_encryption_key      = undef,
   Pattern[/\A[^\r\n]+\z/]                       $host                         = '127.0.0.1',
   Pattern[/\A[^\r\n]+\z/]                       $image_tag                    = 'latest',
   Integer                                       $monitoring_detail_limit      = 6000,
@@ -149,12 +150,10 @@ define docker::twenty (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]         $monitoring_profiles          = [],
   Integer                                       $monitoring_starting_grace    = 300,
   Integer                                       $monitoring_timeout           = 60,
-  Pattern[/\A[^\r\n]+\z/]                       $pg_database_host             = 'db',
-  Integer[1, 65535]                             $pg_database_port             = 5432,
-  Pattern[/\A[^\r\n]+\z/]                       $pg_database_user             = 'postgres',
   Integer[1, 65535]                             $port                         = 3000,
   Pattern[/\A[^\r\n]+\z/]                       $redis_url                    = 'redis://redis:6379',
   Enum['http','https']                          $scheme                       = 'https',
+  Optional[Sensitive[String]]                   $secret_key_fallback          = undef,
   Optional[String]                              $server_name                  = undef,
   Optional[String]                              $ssl_certificate              = undef,
   Optional[String]                              $ssl_certificate_key          = undef,

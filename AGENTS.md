@@ -185,7 +185,7 @@ When replacing older split interfaces such as `*_enable` plus `*_custom`, `*_val
 
 Parameter ordering and formatting:
 
-- For groups of related Puppet parameters, start with the main topic and put the specific option after it in snake_case, for example `bandwidth_max`, `p95_warning`, and `p95_critical`. Avoid public class or defined-type parameter names that begin with a digit unless that exact syntax has been tested in the supported Puppet versions; prefer readable prefixes such as `p95_` for percentile-related settings.
+- For groups of related Puppet parameters, start with the main topic and put the specific option after it in snake_case, for example `bandwidth_max`, `p95_warning`, and `p95_critical`. Put fallback, previous, custom, max, min, warning, critical, and similar qualifiers after the base setting, for example `secret_key_fallback`, not `fallback_secret_key`. Avoid public class or defined-type parameter names that begin with a digit unless that exact syntax has been tested in the supported Puppet versions; prefer readable prefixes such as `p95_` for percentile-related settings.
 - In class and defined-type parameter lists, put mandatory parameters first and sort them alphabetically by parameter name.
 - Mandatory means the parameter is not typed as `Optional[...]` and has no default.
 - After mandatory parameters, put all optional parameters alphabetically. Optional means the parameter is typed as `Optional[...]` or has any default value.

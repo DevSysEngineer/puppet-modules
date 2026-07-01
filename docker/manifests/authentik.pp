@@ -13,8 +13,8 @@
 #   class { 'docker': }
 #
 #   docker::authentik { 'authentik':
-#     pg_pass     => Sensitive('change-me'),
-#     secret_key  => Sensitive('change-me'),
+#     database_password => Sensitive('change-me'),
+#     secret_key        => Sensitive('change-me'),
 #   }
 #
 # @example Deploy Authentik behind Nginx
@@ -22,14 +22,14 @@
 #   class { 'nginx': }
 #
 #   docker::authentik { 'authentik':
-#     pg_pass             => Sensitive('change-me'),
+#     database_password   => Sensitive('change-me'),
 #     secret_key          => Sensitive('change-me'),
 #     server_name         => 'auth.example.org',
 #     ssl_certificate     => '/etc/letsencrypt/live/auth.example.org/fullchain.pem',
 #     ssl_certificate_key => '/etc/letsencrypt/live/auth.example.org/privkey.pem',
 #   }
 #
-# @param pg_pass
+# @param database_password
 #   PostgreSQL password written as `PG_PASS` in the generated `.env` file.
 #
 # @param secret_key
@@ -128,7 +128,7 @@
 #
 # @api public
 define docker::authentik (
-  Sensitive[String]                             $pg_pass,
+  Sensitive[String]                             $database_password,
   Sensitive[String]                             $secret_key,
   Boolean                                       $akadmin_remove              = true,
   Enum['present','absent']                      $ensure                      = present,
