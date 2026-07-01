@@ -41,6 +41,7 @@ services:
       - server-local-data:/app/packages/twenty-server/.local-storage
     command: ["yarn", "worker:prod"]
     networks:
+      - frontend
       - backend
     environment:
       PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD:?database password required}@${PG_DATABASE_HOST:-db}:${PG_DATABASE_PORT:-5432}/default
