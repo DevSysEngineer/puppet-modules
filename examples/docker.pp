@@ -126,7 +126,6 @@ node 'authentik.example.org' {
     monitoring_starting_grace  => 600,
     monitoring_timeout         => 90,
     port                       => 9443,
-    scheme                     => 'https',
     server_name                => 'auth.example.org',
     smtp_from                  => 'authentik@example.org',
     smtp_password              => Sensitive('replace-with-authentik-smtp-password'),
@@ -149,8 +148,8 @@ node 'authentik.example.org' {
   }
 
   docker::authentik_admin { 'old.admin':
-    compose_name => 'authentik',
     ensure       => absent,
+    compose_name => 'authentik',
     require      => Docker::Authentik['authentik'],
   }
 }
@@ -193,7 +192,6 @@ node 'twenty.example.org' {
     ssl_certificate              => '/etc/letsencrypt/live/twenty.example.org/fullchain.pem',
     ssl_certificate_key          => '/etc/letsencrypt/live/twenty.example.org/privkey.pem',
     ssl_certificate_trusted      => '/etc/letsencrypt/live/twenty.example.org/chain.pem',
-    ssl_verify                   => false,
     storage_s3_access_key_id     => Sensitive('replace-with-s3-access-key-id'),
     storage_s3_endpoint          => 'https://s3.example.org',
     storage_s3_name              => 'twenty',

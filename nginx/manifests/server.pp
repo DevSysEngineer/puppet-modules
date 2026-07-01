@@ -259,8 +259,8 @@ define nginx::server (
   Optional[String]         $error_log                        = undef,
   Optional[Integer]        $fastcgi_read_timeout             = undef,
   Integer                  $fastopen                         = 0, # Global settings
-  Boolean                  $http2_enable                     = false,
-  Boolean                  $http3_enable                     = false,
+  Boolean                  $http2_enable                     = true,
+  Boolean                  $http3_enable                     = true,
   Boolean                  $http_enable                      = true,
   Boolean                  $http_ipv6                        = true,
   Integer                  $http_port                        = 80,

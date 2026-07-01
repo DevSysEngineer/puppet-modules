@@ -86,10 +86,6 @@
 # @param redis_url
 #   Redis connection URL written as `REDIS_URL`.
 #
-# @param scheme
-#   Scheme used to derive `SERVER_URL` and as the local upstream scheme for Nginx when `server_name` is set.
-#   The default is `https`, so local proxy traffic is encrypted when the proxy route is used.
-#
 # @param secret_key_fallback
 #   Optional previous secret key written as `FALLBACK_ENCRYPTION_KEY` during a key rotation.
 #
@@ -105,10 +101,6 @@
 #
 # @param ssl_certificate_trusted
 #   Optional trusted certificate path for public OCSP configuration.
-#
-# @param ssl_verify
-#   Verifies the Twenty upstream certificate when proxying over HTTPS. The
-#   default is `false` for local or self-signed upstream certificates.
 #
 # @param storage_s3_access_key_id
 #   Optional S3 access key ID written as `STORAGE_S3_ACCESS_KEY_ID`.
@@ -152,13 +144,11 @@ define docker::twenty (
   Integer                                       $monitoring_timeout           = 60,
   Integer[1, 65535]                             $port                         = 3000,
   Pattern[/\A[^\r\n]+\z/]                       $redis_url                    = 'redis://redis:6379',
-  Enum['http','https']                          $scheme                       = 'https',
   Optional[Sensitive[String]]                   $secret_key_fallback          = undef,
   Optional[String]                              $server_name                  = undef,
   Optional[String]                              $ssl_certificate              = undef,
   Optional[String]                              $ssl_certificate_key          = undef,
   Optional[String]                              $ssl_certificate_trusted      = undef,
-  Boolean                                       $ssl_verify                   = false,
   Optional[Sensitive[String]]                   $storage_s3_access_key_id     = undef,
   Optional[Pattern[/\A[^\r\n]*\z/]]             $storage_s3_endpoint          = undef,
   Optional[Pattern[/\A[^\r\n]*\z/]]             $storage_s3_name              = undef,
@@ -180,10 +170,17 @@ define docker::twenty (
   if ($docker_defined and ($server_name_correct == undef or $nginx_defined)) {
     # Build Twenty's public URL from the first public vhost name when available, otherwise from the direct host fallback.
     if ($server_name_correct != undef) {
+      # Determine the scheme based on the presence of TLS certificate and key.
+      if ($ssl_certificate != undef and $ssl_certificate_key != undef) {
+        $scheme = 'https'
+      } else {
+        $scheme = 'http'
+      }
+
       $server_url_host = split($server_name_correct, ' ')[0]
       $server_url_correct = "${scheme}://${server_url_host}"
     } else {
-      $server_url_correct = "${scheme}://${host}"
+      $server_url_correct = "http://${host}"
     }
 
     # Generate .env content for the Compose stack based on the provided parameters.
@@ -205,8 +202,7 @@ define docker::twenty (
         monitoring_timeout         => $monitoring_timeout,
         proxy_host                 => $host,
         proxy_port                 => $port,
-        proxy_scheme               => $scheme,
-        proxy_ssl_verify           => $ssl_verify,
+        proxy_scheme               => 'http', # The proxy scheme is always `http` because the Compose stack listens on HTTP, even when the public URL is HTTPS.
         server_name                => $server_name_correct,
         ssl_certificate            => $ssl_certificate,
         ssl_certificate_key        => $ssl_certificate_key,
