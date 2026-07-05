@@ -159,7 +159,7 @@ Basic settings omvatten de volgende subonderdelen:
   - **Packages MongoDB:** Configureren van APT-repo voor MongoDB met bijbehorende sleutel.
   - **Packages MySQL:** Configureren van APT-repo voor MySQL met bijbehorende sleutel.
   - **Packages Nginx:** Configureren van APT-repo voor Nginx met bijbehorende sleutel.
-  - **Packages Node:** Configureren en installeren van APT-repo voor Node.
+  - **Packages Node:** Configureren en installeren van APT-repo voor Node. De gedeelde Node.js-package-helper maakt de lokale groep `nodejs` aan en beperkt de root-owned npm-boom tot lees- en uitvoerrechten voor die groep. Voeg alleen gebruikers toe aan `nodejs` wanneer zij `npm` of `npx` moeten uitvoeren; gebruik geen `sudo`, root-shells of exportscripts die npm-commando's met verhoogde rechten draaien om package-rechten te omzeilen.
   - **Packages Proxmox:** Configureren van APT-repo voor Proxmox met bijbehorende sleutel.
   - **Packages RabbitMQ:** Configureren van APT-repo voor RabbitMQ met bijbehorende sleutel.
   - **Packages Sury:** Configureren van APT-repo voor Sury met bijbehorende sleutel.

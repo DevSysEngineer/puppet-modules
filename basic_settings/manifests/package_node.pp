@@ -1,8 +1,6 @@
 # @summary Manages the NodeSource APT repository and Node.js package.
 #
-# This private helper writes or removes the NodeSource APT source and signing
-# key, installs or purges `nodejs`, refreshes APT on repository changes, and adds
-# audit coverage for npm-related tooling when auditd is present.
+# This private helper writes or removes the NodeSource APT source and signing key, installs or purges `nodejs`, refreshes APT on repository changes, restricts npm and npx execution to the `nodejs` group, and adds audit coverage for npm-related tooling when auditd is present.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_node':
@@ -35,11 +33,13 @@ class basic_settings::package_node (
     $file = '/etc/apt/sources.list.d/nodesource.list'
   }
 
-  # Set keyrings file
+  # Set repository and permission-helper paths.
   $key = '/usr/share/keyrings/nodesource.gpg'
+  $npm_permission_helper_path = '/usr/local/lib/puppet/package-node-npm-permissions'
 
-  # Escape the keyring path before tee, chmod, and guard commands use it.
+  # Escape managed paths before shell commands and guards use them.
   $key_shell = stdlib::shell_escape($key)
+  $npm_permission_helper_path_shell = stdlib::shell_escape($npm_permission_helper_path)
 
   # Refresh the APT cache only after the managed repo state changes.
   exec { 'package_node_source_reload':
@@ -49,6 +49,12 @@ class basic_settings::package_node (
   }
 
   if ($enable) {
+    # The nodejs group is the local authorization boundary for running npm and npx without giving package-management rights.
+    group { 'nodejs':
+      ensure => present,
+      system => true,
+    }
+
     # Get source
     if ($deb_version == '822') {
       $source = "Types: deb\nURIs: https://deb.nodesource.com/node_${version}.x\nSuites: nodistro\nComponents: main\nSigned-By:${key}\n"
@@ -83,6 +89,33 @@ class basic_settings::package_node (
       require         => [File['package_node_source'], Exec['package_node_key'], Exec['package_node_source_reload']],
     }
 
+    # Ensure the shared Puppet helper directory exists before installing the npm permission helper.
+    if (!defined(File['/usr/local/lib/puppet'])) {
+      file { '/usr/local/lib/puppet':
+        ensure => directory,
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0755' # Helper scripts stored here need to be reachable by Puppet-managed commands.
+      }
+    }
+
+    # Install the permission helper separately so the recursive mode logic stays reviewable and avoids npm or npx execution.
+    file { $npm_permission_helper_path:
+      ensure  => file,
+      source  => 'puppet:///modules/basic_settings/package_node/npm-permissions',
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0700',
+      require => File['/usr/local/lib/puppet'],
+    }
+
+    # Keep the npm package tree root-owned while granting the nodejs group only read and execute access needed by npm and npx.
+    exec { 'package_node_npm_permissions':
+      command => $npm_permission_helper_path_shell,
+      unless  => "${npm_permission_helper_path_shell} --check",
+      require => [Group['nodejs'], Package['nodejs'], File[$npm_permission_helper_path]],
+    }
+
     # Create list of packages that is suspicious
     $suspicious_packages = ['/usr/local/npm']
 
@@ -96,6 +129,11 @@ class basic_settings::package_node (
     # Remove nodejs package
     package { 'nodejs':
       ensure  => purged,
+    }
+
+    # Remove the local npm permission helper when Node.js package management is disabled.
+    file { $npm_permission_helper_path:
+      ensure => absent,
     }
 
     # Remove the managed NodeSource repo file when the feature is disabled.

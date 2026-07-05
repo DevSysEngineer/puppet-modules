@@ -1,0 +1,105 @@
+#!/bin/sh
+# Managed by puppet
+
+# Fail helper for invalid package layouts or missing local tools.
+die() {
+    printf 'package_node npm permission helper cannot run: %s\n' "$*" >&2
+    exit 1
+}
+
+# Command dependencies are resolved explicitly because this helper may run before user login profiles are available.
+CHMOD=$(command -v chmod 2>/dev/null) || die "chmod not available"
+CHOWN=$(command -v chown 2>/dev/null) || die "chown not available"
+FIND=$(command -v find 2>/dev/null) || die "find not available"
+GETENT=$(command -v getent 2>/dev/null) || die "getent not available"
+READLINK=$(command -v readlink 2>/dev/null) || die "readlink not available"
+
+# Runtime constants for the NodeSource npm layout and the dedicated execution group.
+NODEJS_GROUP=nodejs
+NODE_MODULES_DIR=/usr/lib/node_modules
+NPM_BIN=/usr/bin/npm
+NPX_BIN=/usr/bin/npx
+
+# Support a check-only mode so Puppet can keep the exec idempotent.
+MODE=apply
+case "${1:-}" in
+    '')
+        ;;
+    --check)
+        MODE=check
+        ;;
+    *)
+        die "Usage: $0 [--check]"
+        ;;
+esac
+
+# Resolve and validate the package-owned entrypoints before changing permissions.
+$GETENT group "$NODEJS_GROUP" >/dev/null || die "group $NODEJS_GROUP is missing"
+[ -d "$NODE_MODULES_DIR" ] || die "$NODE_MODULES_DIR is missing"
+
+NPM_TARGET=$($READLINK -f "$NPM_BIN") || die "cannot resolve $NPM_BIN"
+NPX_TARGET=$($READLINK -f "$NPX_BIN") || die "cannot resolve $NPX_BIN"
+
+case "$NPM_TARGET" in
+    "$NODE_MODULES_DIR"/npm/bin/npm-cli.js)
+        NPM_TREE=$NODE_MODULES_DIR/npm
+        ;;
+    *)
+        die "$NPM_BIN resolves outside the expected NodeSource npm tree"
+        ;;
+esac
+
+case "$NPX_TARGET" in
+    "$NPM_TREE"/bin/npx-cli.js)
+        ;;
+    *)
+        die "$NPX_BIN resolves outside the expected NodeSource npm tree"
+        ;;
+esac
+
+# Check one path for exact root:nodejs ownership and the requested permission mode.
+path_has_mode() {
+    CHECK_PATH=$1
+    CHECK_MODE=$2
+
+    BAD_PATH=$($FIND "$CHECK_PATH" -maxdepth 0 \( ! -user root -o ! -group "$NODEJS_GROUP" -o ! -perm "$CHECK_MODE" \) -print -quit)
+    [ -z "$BAD_PATH" ]
+}
+
+# Check whether the npm tree already has only the read and execute permissions needed for execution by nodejs.
+permissions_are_correct() {
+    path_has_mode "$NODE_MODULES_DIR" 0750 || return 1
+    path_has_mode "$NPM_TARGET" 0750 || return 1
+    path_has_mode "$NPX_TARGET" 0750 || return 1
+
+    BAD_DIR=$($FIND "$NPM_TREE" -type d \( ! -user root -o ! -group "$NODEJS_GROUP" -o ! -perm 0750 \) -print -quit)
+    [ -z "$BAD_DIR" ] || return 1
+
+    BAD_EXEC_FILE=$($FIND "$NPM_TREE" -type f -perm /111 \( ! -user root -o ! -group "$NODEJS_GROUP" -o ! -perm 0750 \) -print -quit)
+    [ -z "$BAD_EXEC_FILE" ] || return 1
+
+    BAD_DATA_FILE=$($FIND "$NPM_TREE" -type f ! -perm /111 \( ! -user root -o ! -group "$NODEJS_GROUP" -o ! -perm 0640 \) -print -quit)
+    [ -z "$BAD_DATA_FILE" ] || return 1
+
+    return 0
+}
+
+if [ "$MODE" = check ]; then
+    permissions_are_correct
+    exit $?
+fi
+
+# Keep the global node_modules parent traversable only by root and members of nodejs.
+$CHOWN root:"$NODEJS_GROUP" "$NODE_MODULES_DIR"
+$CHMOD 0750 "$NODE_MODULES_DIR"
+
+# Directories require search access, while data files only need group read access for the Node.js interpreter.
+$FIND "$NPM_TREE" -type d -exec $CHOWN root:"$NODEJS_GROUP" {} + -exec $CHMOD 0750 {} +
+$FIND "$NPM_TREE" -type f ! -perm /111 -exec $CHOWN root:"$NODEJS_GROUP" {} + -exec $CHMOD 0640 {} +
+
+# Preserve package-shipped executable files for npm internals, but remove all group write and other access.
+$FIND "$NPM_TREE" -type f -perm /111 -exec $CHOWN root:"$NODEJS_GROUP" {} + -exec $CHMOD 0750 {} +
+
+# The public npm and npx entrypoints must remain executable even if a package update changes their mode.
+$CHOWN root:"$NODEJS_GROUP" "$NPM_TARGET" "$NPX_TARGET"
+$CHMOD 0750 "$NPM_TARGET" "$NPX_TARGET"
