@@ -1,758 +1,745 @@
 # Puppet-modules
-Welkom bij mijn Puppet-modules project. Dit is een uitgebreide module voor je Puppet-omgeving, bestaande uit verschillende onderdelen: `Basic settings`, `Docker`, `GitLab`, `Let's Encrypt`, `Nginx`, `PHP`, `MySQL`, `SSH`, `RabbitMQ` en `vnStat`. Deze onderdelen kunnen afzonderlijk of in combinatie worden gebruikt om je infrastructuur te verbeteren. Om deze uitbreiding mogelijk te maken, vertrouw ik op andere Puppet-modules, die ik heb toegevoegd als git-submodules. Ik wil graag de makers van [concat](https://github.com/puppetlabs/puppetlabs-concat.git), [debconf](https://github.com/smoeding/puppet-debconf.git), [reboot](https://github.com/puppetlabs/puppetlabs-reboot.git), [stdlib](https://github.com/puppetlabs/puppetlabs-stdlib.git) en [timezone](https://github.com/saz/puppet-timezone.git) bedanken voor hun waardevolle bijdragen.
+
+Dit project bevat Puppet-modules voor het inrichten en beheren van Debian- en Ubuntu-servers. Je kunt er een veilige serverbasis, pakketbronnen, netwerkconfiguratie, web- en databaseservices, containers, certificaten en monitoring mee beheren.
+
+De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet steeds dezelfde voorspelbare configuratie oplevert. Je kunt ze los gebruiken of combineren. `basic_settings` richt de serverbasis in en zorgt ervoor dat andere modules daarop kunnen aansluiten.
 
 > [!IMPORTANT]
-> **Perforce zet Puppet open-sourcecode achter betaalmuur**: In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je gaan betalen. Vind jij – net als ik – dat open source toegankelijk en vrij beschikbaar moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). Vox Pupuli biedt een drop-in replacement voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door openvox package van Vox Pupuli, zonder aanpassingen aan je bestaande configuratie.
+> **Perforce zet Puppet-open-sourcecode achter een betaalmuur:** In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je betalen. Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). OpenVox van Vox Pupuli is een drop-invervanger voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door het OpenVox-pakket zonder je bestaande Puppet-configuratie aan te passen.
 
 > [!CAUTION]
-> **Compatibiliteit**: Deze uitbreidingsmodule is ontworpen voor 64-bits besturingssystemen.
+> **Compatibiliteit:** Dit project is ontworpen voor 64-bits besturingssystemen. De volledige combinatie van modules is gericht op `amd64`.
 
 ## Inhoudsopgave
-- [Gebruik van voorbeelden](#gebruik-van-voorbeelden)
-- [Beveiligingsaanpassingen](#beveiligingsaanpassingen)
+
+- [Belangrijkste mogelijkheden](#belangrijkste-mogelijkheden)
+- [Ondersteuning en compatibiliteit](#ondersteuning-en-compatibiliteit)
+- [Technische uitgangspunten](#technische-uitgangspunten)
+- [Beveiliging en afwijkende standaardinstellingen](#beveiliging-en-afwijkende-standaardinstellingen)
 - [Monitoring](#monitoring)
 - [Installatie](#installatie)
+- [Quick start](#quick-start)
+- [Gebruik van voorbeelden en parameterdocumentatie](#gebruik-van-voorbeelden-en-parameterdocumentatie)
 - [Modules](#modules)
-  - [Basic settings](#basic-settings)
-  - [Docker](#docker)
-  - [Let's Encrypt](#lets-encrypt)
-  - [MySQL](#mysql)
-  - [GitLab](#gitlab)
-  - [Nginx](#nginx)
-  - [PHP](#php)
-  - [SSH](#ssh)
-  - [RabbitMQ](#rabbitmq)
-  - [VnStat](#vnstat)
-- [Checks](#checks)
-- [Voorbeelden](#voorbeelden)
+  - [`basic_settings`](#basic_settings)
+  - [`docker`](#docker)
+  - [`gitlab`](#gitlab)
+  - [`letsencrypt`](#letsencrypt)
+  - [`mysql`](#mysql)
+  - [`naemon`](#naemon)
+  - [`netplanio`](#netplanio)
+  - [`nginx`](#nginx)
+  - [`openitcockpit`](#openitcockpit)
+  - [`php8`](#php8)
+  - [`proxmox`](#proxmox)
+  - [`rabbitmq`](#rabbitmq)
+  - [`ssh`](#ssh)
+  - [`vnstat`](#vnstat)
+- [Beschikbare checks](#beschikbare-checks)
+- [Uitgebreide voorbeelden](#uitgebreide-voorbeelden)
 - [Contributie](#contributie)
 
-## Gebruik van voorbeelden
-De voorbeelden in deze README gebruiken `example.org`, `xxxx.nl`, `replace-with-...` en vergelijkbare waarden als plaatsvervangers. Vervang die altijd door je eigen hostnamen, paden, gebruikersnamen en geheimen.
+## Belangrijkste mogelijkheden
 
-Gebruik `Sensitive('...')` of `Sensitive.new(...)` voor wachtwoorden, tokens en andere geheimen. Zet echte geheimen niet letterlijk in gedeelde voorbeelden of documentatie.
+| Onderdeel | Doel |
+| --- | --- |
+| `basic_settings` | Algemene serverconfiguratie, hardening, APT-bronnen, netwerk, gebruikers, systemd en monitoringbasis. |
+| `docker` | Docker CE en beheerde Compose-stacks, inclusief optionele Nginx-proxy en monitoring. |
+| `gitlab` | GitLab EE-installatie, omnibusconfiguratie en koppeling met lokale services. |
+| `letsencrypt` | Certbot-instellingen en beheerde certificaataanvragen. |
+| `mysql` | MySQL-server, databases, gebruikers, grants en versleutelbare back-ups. |
+| `naemon` | Naemon-engine en host- en hostgroupconfiguratie voor OpenITCOCKPIT. |
+| `netplanio` | Netplan-configuratie voor ethernet en WiFi. |
+| `nginx` | Webservers, TLS, PHP-FPM-koppelingen en reverse proxies. |
+| `openitcockpit` | OpenITCOCKPIT-agent, servercomponenten en specifieke agentchecks. |
+| `php8` | PHP 8 CLI, extensies, PHP-FPM en afzonderlijke FPM-pools. |
+| `proxmox` | Proxmox VE-installatie en de overstap naar een Proxmox-kernel. |
+| `rabbitmq` | RabbitMQ, TLS, managementplugin, vhosts, exchanges, queues en gebruikers. |
+| `ssh` | Gehard OpenSSH-serverbeheer, alternatieve poorten, audit en monitoring. |
+| `vnstat` | Verkeersregistratie en capaciteitsmonitoring per netwerkinterface. |
+| Monitoring | Nagios-compatibele checks die automatisch voor OpenITCOCKPIT kunnen worden ingesteld. |
 
-De README geeft per module de bedoeling, belangrijke defaults en een paar bruikbare voorbeelden. Uitgebreide varianten staan in de map `examples/`, terwijl je editor, linter en Puppet Strings-documentatie de volledige parameterlijst van classes en defined types tonen.
+## Ondersteuning en compatibiliteit
 
-## Beveiligingsaanpassingen
-Binnen de verschillende onderdelen heb ik diverse beveiligingsverbeteringen geïmplementeerd, ook wel bekend als [hardening](https://en.wikipedia.org/wiki/Hardening_(computing)). Dit kan leiden tot afwijkend gedrag van softwarepakketten ten opzichte van de oorspronkelijke verwachtingen. Voorbeelden hiervan zijn extra opties in systemd zoals `PrivateTmp: true`, `ProtectHome: true`, `ProtectSystem: full` en `UMask=0077`, en aanpassingen aan GRUB zodat de kernel bij het opstarten in een hardening modus draait. Ook zijn PAM-instellingen zo aangepast dat bestanden via umask 0077 worden aangemaakt. Systemd-services krijgen deze umask expliciet per service wanneer dit veilig is; services die bewust bestanden, logs of sockets delen vallen terug op de standaard umask of krijgen per service een minder strikte en gemotiveerde niet-standaard waarde. Ik wil madaidan en zijn pagina [linux-hardening](https://madaidans-insecurities.github.io/guides/linux-hardening.html) bedanken voor de waardevolle tips; een groot deel van deze informatie heb ik als inspiratie gebruikt.
+Gebruik de modules bij voorkeur op Debian 12, Ubuntu 22.04 LTS of Ubuntu 24.04 LTS. Ubuntu 23.04 wordt nog door de code ondersteund, maar krijgt geen beveiligingsupdates meer en is daarom geen goede keuze voor nieuwe servers. Debian 11 en Debian 13 worden niet overal hetzelfde afgehandeld en zijn nog niet geschikt voor de volledige combinatie van modules.
 
-Daarnaast worden gevoelige lokale hulpbestanden, zoals APT-authenticatie voor OpenITCOCKPIT, tijdelijke installer-downloads en het lokale Grafana-beheerwachtwoord, zoveel mogelijk root-only opgeslagen om onnodige blootstelling aan lokale gebruikers te beperken.
+De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` werkt ook op andere 64-bits architecturen, maar pakketbronnen voor bijvoorbeeld MySQL en RabbitMQ worden daar niet altijd ingeschakeld. Test daarom iedere gewenste combinatie zelf wanneer je geen `amd64` gebruikt.
 
-Voor kernel-lockdown gebruikt `basic_settings` dezelfde expliciete vorm als andere hardeningwaarden met een veilige default: `kernel_security_lockdown => true` gebruikt de standaard `integrity`, `false` vertaalt naar `none`, en een string zoals `'confidentiality'` wordt als expliciete lockdownwaarde gebruikt. Bij Secure Boot blijft `integrity` de minimale waarde. Voor MGLRU gebruikt `kernel_mglru_enable => true` de standaard `min_ttl_ms` van `1000`, `false` schakelt MGLRU uit, en een integer stelt een eigen `min_ttl_ms` in.
+De modules zijn bedoeld voor Puppet 5.5 tot en met Puppet 8. `basic_settings` kan ook de pakketbron en pakketten voor OpenVox 8 beheren. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
 
-Hoewel vergelijkbare maatregelen door softwareleveranciers en Linux-distributies (zoals [Fedora](https://discussion.fedoraproject.org/t/f40-change-proposal-systemd-security-hardening-system-wide/96423/11)) worden toegepast, kies ik ervoor om deze aanpassingen ook in Puppet op te nemen. Dit is omdat niet alle distributies altijd de meest recente versie van de software gebruiken en er altijd een kans bestaat dat een specifieke beveiligingsaanpassing niet is doorgevoerd.
+Dit project gebruikt `concat`, `debconf`, `reboot`, `stdlib` en `timezone`. Deze modules worden als Git-submodules meegeleverd en moeten daarom tijdens de installatie ook worden opgehaald.
+
+> [!CAUTION]
+> Verschillende modules nemen bestaande configuratiebestanden of pakketkeuzes over. Pas een nieuwe catalogus eerst toe in een testomgeving, controleer wat Puppet wil wijzigen en test daarna de betreffende services. Je hoeft niet alle modules op iedere host te gebruiken.
+
+## Technische uitgangspunten
+
+- **Veilige standaardinstellingen:** Services en configuratiebestanden krijgen strengere rechten, TLS-instellingen en systemd-beperkingen wanneer dat veilig kan.
+- **Voorspelbaar beheer:** Puppet beheert bestanden, pakketten en onderlinge relaties. Een volgende Puppet-run hoort geen onnodige wijzigingen op te leveren.
+- **Vaste opstartvolgorde:** `basic_settings` maakt systemd-targets voor systeem-, opslag-, service-, productie- en helperprocessen. Andere modules kunnen hun services hieraan koppelen.
+- **Los of gecombineerd:** De meeste modules werken zelfstandig. Monitoring, logrotate, auditregels en systemd-koppelingen worden toegevoegd wanneer `basic_settings` ook wordt gebruikt.
+- **Geheimen uit profielen of Hiera:** Geef parameters met type `Sensitive[...]` door als `Sensitive(...)`. Haal wachtwoorden voor oudere parameters van het type String uit versleutelde Hiera-data of een profiel en zet ze niet rechtstreeks in manifests.
+- **Beheerde externe bronnen:** Gebruik HTTPS of `puppet:///` voor aangeleverde bestanden. Modules die externe inhoud accepteren weigeren plain HTTP waar dat een onnodig integriteitsrisico vormt.
+- **Parameters bij de code:** De Puppet Strings-comments bij classes en defined types beschrijven alle parameters, datatypes, standaardwaarden, afhankelijkheden, aangemaakte bestanden en afwijkend gedrag.
+
+## Beveiliging en afwijkende standaardinstellingen
+
+Deze modules gebruiken bewust strengere beveiligingsinstellingen dan veel standaardpakketten. Dat kan software of beheerprocedures breken die uitgaan van brede bestandstoegang, schrijfbare systeemmappen, zwakke TLS-instellingen of onbeperkte serviceprocessen. Test wijzigingen met de echte toepassing en controleer logs, sockets, certificaten en gedeelde bestanden voordat je productiehosts omzet.
+
+| Wijziging | Mogelijke impact | Vooraf controleren | Aanpassen |
+| --- | --- | --- | --- |
+| systemd-hardening en afgeschermde omgevingen | Een service kan geen apparaten, home-directory's, tijdelijke bestanden of beschermde systeempaden meer gebruiken. | De paden, hooks, plugins, sockets en hulpmiddelen die de service gebruikt. | Pas alleen de systemd-instelling aan die de service werkelijk in de weg zit. |
+| Strikte umask en bestanden voor alleen root | Bestanden die een webserver, back-upproces of beheergroep moet lezen kunnen te privé worden. | Eigenaar, groep en bestandsrechten van certificaten, logs, sockets, exports en back-ups. | Geef alleen de benodigde groep lees- of schrijfrechten en leg in de code uit waarom dit nodig is. |
+| Kernel-, netwerk- en GRUB-instellingen | Lockdown, sysctlwaarden of netwerkkeuzes kunnen drivers, virtualisatie en netwerkverkeer van applicaties beïnvloeden. | Secure Boot, kernelmodules, routing, firewall, congestion control en hersteltoegang. | Gebruik de betreffende `basic_settings`-parameters; met `false` kun je veel optionele hardening uitschakelen. |
+| SSH-hardening | Wachtwoordlogin, rootlogin, algoritmen of poorten kunnen bestaande toegang blokkeren. | Een werkende sleutel, toegestane gebruikers, firewall en een tweede beheersessie. | Pas `allow_users`, `password_authentication_users`, `permit_root_login` en de poorten aan. |
+| TLS en security headers | Oude clients, zelfondertekende certificaten of webapplicaties kunnen niet meer verbinden of onderdelen van een pagina blokkeren. | Certificaatketen, SNI, ondersteunde protocollen, CSP en TLS naar de achterliggende applicatie. | Geef alleen afwijkende protocollen, headers of certificaatcontrole op als daar een duidelijke reden voor is. |
+| Auditlogging en monitoring | Extra events en checks kunnen opslag, rechten en meldingsvolume beïnvloeden. | Auditregels, logrotatie, checktimeouts en monitoringontvangers. | Schakel alleen de controles in die je nodig hebt en pas waar nodig intervallen en limieten aan. |
+
+> [!WARNING]
+> `basic_settings` kan `/etc/hosts`, sudoers-inhoud, APT-bronnen, netwerkconfiguratie en andere belangrijke serverinstellingen beheren. Schakel een onderdeel uit wanneer die configuratie al ergens anders wordt beheerd. Gebruik bij een bestaande sudo-configuratie in eerste instantie `sudoers_dir_enable => false`.
+
+Voor kernel-lockdown kiest `kernel_security_lockdown => true` de waarde `integrity`. Met `false` wordt lockdown uitgeschakeld en met een string kun je zelf een modus opgeven. Bij Secure Boot blijft `integrity` de minimale waarde. Voor Multi-Gen LRU gebruikt `kernel_mglru_enable => true` een `min_ttl_ms` van 1000. Met `false` schakel je Multi-Gen LRU uit en met een integer stel je zelf `min_ttl_ms` in.
 
 ## Monitoring
-Binnen de verschillende onderdelen zijn diverse monitoringtools en -scripts beschikbaar. Wanneer je in de `basic_settings`-class de optie `monitoring_package` instelt met een ondersteund monitoringpakket, worden automatisch configuratiebestanden voor dat pakket aangemaakt. Gebruik je basic_settings niet, dan kun je de ingebouwde monitoringtools en -scripts altijd handmatig activeren vanuit andere onderdelen.
 
-Voor sommige processen, zoals firewall of SSH, is het niet voldoende om alleen te controleren of een proces draait. Vaak wil je ook verifiëren of het correct functioneert én performancegegevens kunnen uitlezen. Daarom zijn er voor bepaalde processen uitgebreide checks toegevoegd. De zichtbare statusregel van zo'n check hoort daarbij met het gecontroleerde onderdeel te beginnen en leesbare tekst te blijven; machinegerichte perfdata hoort in het perfdata-gedeelte en niet als `key=value`-tekst in de samenvatting. Perfdata gebruikt compacte Nagios-notatie: lege warn-, crit-, min- en max-velden worden niet opgevuld of met een losse puntkomma afgesloten, drempels staan waar mogelijk in de warn- en crit-velden in plaats van in losse inventarismetrics, en monotone tellers gebruiken de `c`-UOM. Checks met veel objecten, zoals netwerkinterfaces of containers, houden de korte statusregel compact en plaatsen begrensde details in de long output.
+OpenITCOCKPIT is het monitoringsysteem dat dit project automatisch kan instellen. Gebruik in `basic_settings` `monitoring_package => 'openitcockpit'`. Zet ook `monitoring_package_install => true` wanneer Puppet het agentpakket moet installeren. Andere modules voegen hun checks automatisch toe zodra OpenITCOCKPIT-monitoring is ingeschakeld.
 
-Op dit moment wordt alleen de [OpenITCOCKPIT](https://openitcockpit.io/)-agent ondersteund. Hieronder vind je een voorbeeldconfiguratie:
+De checks volgen het Nagios-pluginmodel en kunnen daardoor ook vanuit Naemon, Nagios of Icinga worden uitgevoerd. Ze gebruiken Nagios-exitcodes, noemen de belangrijkste oorzaak in de korte uitvoer, leveren perfdata voor grafieken en tonen extra uitleg in de long output. Controleer bij los gebruik welke commando's, argumenten en door Puppet ingevulde waarden de check nodig heeft.
 
-Voor maatwerkchecks gebruikt de repository `basic_settings::monitoring_custom`. Deze helper plaatst het script in de OpenITCOCKPIT-pluginmap, registreert `customchecks.ini` en kan via de parameter `cmd` vaste argumenten achter het scriptpad zetten.
+Met `basic_settings::monitoring_custom` kun je een eigen script in de OpenITCOCKPIT-pluginmap plaatsen en registreren. De defined types `monitoring_service`, `monitoring_timer` en `monitoring_npm_audit` zijn bedoeld voor veelvoorkomende systemd- en npm-controles. De checks zelf staan onder `files/` en `templates/`; zie ook [Beschikbare checks](#beschikbare-checks) en [`examples/monitoring.pp`](examples/monitoring.pp).
 
-`basic_settings::monitoring` plaatst daarnaast de gedeelde mailhelper `/usr/local/lib/puppet/monitoring-notify`. Shellscripts kunnen de mailbody via stdin doorgeven en het onderwerp als argument meegeven. Met `-t` of `--to` kan een script een eigen ontvanger blijven gebruiken; zonder die optie gebruikt de helper de `mail_to`-waarde van de monitoringclass.
-
-```sh
-printf '%s\n' "$body" | /usr/local/lib/puppet/monitoring-notify -t beheer@example.nl "Onderwerp"
-```
-
-```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'basic_settings':
-        monitoring_package          => 'openitcockpit',
-        monitoring_package_install  => true,
-    }
-
-    # Setup openitcockpit
-    class { 'openitcockpit': }
-
-    # Setup openitcockpit agent
-    class { 'openitcockpit::agent':
-        dockerstats_enable => false,
-        libvirt_enable     => false,
-        push_enable        => true,
-        push_url           => 'https://monitoring.xxxx.nl',
-        push_apikey        => Sensitive('XXXXXXX'), #lint:ignore:140chars
-        require            => Class['basic_settings'],
-    }
-}
-```
-
-Standaard is de OpenITCOCKPIT-agent nu conservatiever geconfigureerd: de ingebouwde webserver bindt standaard op `127.0.0.1`, Prometheus-export staat standaard uit en in push-mode wordt het TLS-certificaat van de server standaard gecontroleerd. Gebruik je pull-based monitoring of wil je de exporter bewust publiceren, stel dit dan expliciet in.
-
-### Voorbeeld
-
-Hieronder een voorbeeld wanneer je de agent bewust op het netwerk wilt laten luisteren:
-
-```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'openitcockpit::agent':
-        bind_address              => '0.0.0.0',
-        prometheus_enable         => true,
-        verify_server_certificate => true,
-    }
-}
-```
+De OpenITCOCKPIT-agent bindt standaard op `127.0.0.1`, publiceert de Prometheus-exporter standaard niet en verifieert in push-mode standaard het servercertificaat. Publiceer de agent of exporter alleen bewust en regel daarbij firewalling en TLS.
 
 ## Installatie
-Navigeer naar de hoofdmap van je Puppet-omgeving en voeg de submodule toe met het volgende commando:
 
-```bash
-git submodule add https://github.com/DevSysEngineer/puppet-modules.git global-modules
+Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
+
+1. Voeg dit project toe als Git-submodule:
+
+   ```sh
+   git submodule add https://github.com/DevSysEngineer/puppet-modules.git global-modules
+   ```
+
+2. Haal ook de modules op waarvan dit project afhankelijk is:
+
+   ```sh
+   git submodule update --init --recursive
+   ```
+
+3. Voeg in de gewenste Puppet environment een `environment.conf` toe. De extra `modulepath` maakt de modules uit `global-modules` zichtbaar naast de environmentmodules en de standaardmodulepaden:
+
+   ```ini
+   modulepath=$codedir/global-modules:$codedir/modules:$basemodulepath
+   manifest=./manifests
+   ```
+
+   Bij deze inrichting staat `global-modules` naast `environments` en `modules` onder de codedir:
+
+   ```text
+   Puppet/
+   ├── environments/
+   │   ├── development/
+   │   │   ├── environment.conf
+   │   │   └── manifests/
+   │   └── production/
+   │       ├── environment.conf
+   │       └── manifests/
+   ├── global-modules/
+   ├── modules/
+   └── .gitmodules
+   ```
+
+4. Controleer vanuit de juiste environment of Puppet de modules vindt:
+
+   ```sh
+   puppet module list --environment development
+   ```
+
+## Quick start
+
+Dit voorbeeld richt een geharde basis in, activeert OpenITCOCKPIT-monitoring en beheert SSH. De host blijft klein genoeg om eerst veilig te testen; een gecombineerde web-, container- en databaseconfiguratie staat in [`examples/site.pp`](examples/site.pp).
+
+```puppet
+node 'server01.example.org' {
+  class { 'basic_settings':
+    monitoring_package         => 'openitcockpit',
+    monitoring_package_install => true,
+    openitcockpit_enable       => true,
+    server_fdqn                => 'server01.example.org',
+  }
+
+  class { 'ssh':
+    allow_users       => ['admin'],
+    permit_root_login => false,
+    require           => Class['basic_settings'],
+  }
+
+  include openitcockpit
+
+  class { 'openitcockpit::agent':
+    push_apikey => Sensitive('replace-with-openitcockpit-api-key'),
+    push_enable => true,
+    push_url    => 'https://monitoring.example.org',
+    require     => Class['basic_settings'],
+  }
+}
 ```
 
-Voer vervolgens het volgende commando uit:
+Vervang de hostnaam, beheerder en API-key. Compileer eerst de catalogus en pas deze in een testomgeving toe; controleer daarna SSH-toegang en de agentregistratie voordat je dezelfde basis breder uitrolt.
 
-```bash
-git submodule update --init --recursive
-```
+## Gebruik van voorbeelden en parameterdocumentatie
 
-Als alles goed gaat, wordt de uitbreidingsmodule nu correct ingeladen in je Puppet Git-project. Nu moet alleen de Puppetserver nog weten dat deze map bestaat. Ga naar de `environments` map, kies de betreffende omgeving (bijvoorbeeld `development`). In deze omgeving bevindt zich een `manifests` map. Maak naast deze map een bestand met de naam `environment.conf` aan en plak de onderstaande configuratie:
+Voorbeelden gebruiken `example.org`, IP-adressen die voor documentatie zijn gereserveerd en waarden die met `replace-with-...` beginnen. Vervang deze waarden door gegevens uit je eigen profielen of Hiera. Gebruik `Sensitive(...)` waar dat wordt ondersteund en bewaar wachtwoorden voor oudere String-parameters versleuteld in Hiera.
 
-```
-modulepath=$codedir/global-modules:$codedir/modules:$basemodulepath
-manifest=./manifests
-```
-
-De mapstructuur zou er nu zo uit moeten zien:
-- Puppet
-  - environments
-    - development
-      - manifests
-      - environment.conf
-    - production
-      - manifests
-      - environment.conf
-  - global-modules
-  - modules
-  - .gitmodules
-
-Controleer of de uitbreidingsmodule met submodules correct is ingeladen met de volgende opdracht:
-
-```bash
-puppet module list
-```
+De README geeft per module één eenvoudig voorbeeld. In [`examples/`](examples/) staan grotere configuraties waarin je ook ziet hoe classes en resources met elkaar samenwerken. De comments direct boven een Puppet-class of defined type bevatten de volledige lijst met parameters, datatypes, standaardwaarden, aangemaakte bestanden, afhankelijkheden en de betekenis van `true`, `false` en `undef`.
 
 ## Modules
 
-### Basic settings
+### `basic_settings`
 
-Dit onderdeel bestaat uit subonderdelen die afzonderlijk kunnen worden toegepast zonder de hoofdklasse te gebruiken. Wanneer de hoofdklasse wordt aangeroepen, worden deze subonderdelen daarin geconfigureerd. Het doel van deze sectie is om een [headless server](https://en.wikipedia.org/wiki/Headless_computer) op te zetten met minimale GUI/UI-pakketten, om zo het verbruik van resources te minimaliseren. Daarnaast worden de serverinstellingen geoptimaliseerd voor High-performance computing ([HPC](https://en.wikipedia.org/wiki/High-performance_computing)).
+#### Doel
 
-Onnodige pakketten, zoals die voor energiebeheer op laptops, worden verwijderd omdat ze niet relevant zijn voor een serveromgeving. Pakketten zoals `mtr` en `rsync` worden daarentegen wel geïnstalleerd omdat ze vaak nodig zijn voor systeembeheerders. Ook worden beveiligingspakketten zoals `apparmor` en `auditd` geïnstalleerd om de server te beveiligen en te monitoren op verdachte activiteiten.
+`basic_settings` bouwt de gedeelde serverbasis voor Debian en Ubuntu. De class beheert onder meer APT-bronnen, minimale pakketten, standaardinstellingen voor kernel en netwerk, taal, tijdzone, gebruikers, inloggen, beveiliging, Puppet en de systemd-targets waarop andere modules kunnen aansluiten.
 
-> [!CAUTION]
-> **Sudo**: Wanneer `basic settings` gebruikt in een (bestaande) server waarin al sudo configuratie is toegepast, raad ik aan om de optie `sudoers_dir_enable` op `false` te zetten. Hierdoor blijft de bestaande configuratie behouden.
+Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is handig wanneer je bijvoorbeeld alleen gebruikers, `/etc/hosts`, een systemd-service, logrotate of een monitoringcheck wilt beheren.
 
-Basic settings omvatten de volgende subonderdelen:
+#### Belangrijkste eigenschappen
 
-- **Development:** Pakketten/configuraties gerelateerd aan ontwikkeling.
-- **IO:** Pakketten/configuraties gerelateerd aan opslag, uitschakelen van floppy's, etc.
-- **Kernel:** Pakketten/configuraties gerelateerd aan de kernel en optimalisatie ervan voor HPC-gebruik.
-- **Locale:** Pakketten/configuraties gerelateerd aan taalinstellingen.
-- **Login:** Pakketten/configuraties gerelateerd aan login en gebruikersbeheer.
-- **Netwerk:** Pakketten/configuraties gerelateerd aan netwerken, optioneel beheer van `/etc/hosts` via `concat`, en optimalisatie ervan voor HPC-gebruik.
-- **Packages:** Installeren van een pakketbeheerder en het verwijderen van andere pakketbeheerders indien mogelijk.
-  - **Packages GitLab:** Configureren van APT-repo voor GitLab met bijbehorende sleutel.
-  - **Packages MongoDB:** Configureren van APT-repo voor MongoDB met bijbehorende sleutel.
-  - **Packages MySQL:** Configureren van APT-repo voor MySQL met bijbehorende sleutel.
-  - **Packages Nginx:** Configureren van APT-repo voor Nginx met bijbehorende sleutel.
-  - **Packages Node:** Configureren en installeren van APT-repo voor Node. De gedeelde Node.js-package-helper maakt de lokale groep `nodejs` aan en beperkt de root-owned npm-boom tot lees- en uitvoerrechten voor die groep. Voeg alleen gebruikers toe aan `nodejs` wanneer zij `npm` of `npx` moeten uitvoeren; gebruik geen `sudo`, root-shells of exportscripts die npm-commando's met verhoogde rechten draaien om package-rechten te omzeilen.
-  - **Packages Proxmox:** Configureren van APT-repo voor Proxmox met bijbehorende sleutel.
-  - **Packages RabbitMQ:** Configureren van APT-repo voor RabbitMQ met bijbehorende sleutel.
-  - **Packages Sury:** Configureren van APT-repo voor Sury met bijbehorende sleutel.
-- **Pro:** Voor Ubuntu is het mogelijk om een Pro-abonnement af te nemen.
-- **Puppet:** Configureren van Puppet op de juiste manier.
-- **Security:** Installeren van benodigde beveiligingspakketten om de server te monitoren.
-- **Systemd:** Installeren van systemd en zorgen voor de juiste systeemdoelconfiguratie.
-- **Timezone:** Configureren van tijd/datum.
+- Beheert basispakketten en optionele APT-bronnen voor de andere modules.
+- Maakt gedeelde systemd-targets en hulpmiddelen voor services, timers, netwerken en drop-ins.
+- Beheert instellingen voor de kernel, het netwerk, inloggen, beveiliging, taal, opslag en Puppet.
+- Kan OpenITCOCKPIT-monitoring, auditregels, logrotate en meldingen bij mislukte services instellen.
+- Beheert optioneel `/etc/hosts` met vaste localhostrecords en aanvullende entries.
+- Ondersteunt Puppet- en OpenVox-pakketbronnen en serverinrichting.
 
-#### Voorbeelden
+#### Belangrijke aandachtspunten
 
-In het onderstaande voorbeeld zie je hoe `basic settings` kan worden aangeroepen:
+De class kan belangrijke serverconfiguratie en conflicterende pakketten vervangen. Controleer vooral sudoers, firewall, netwerk, bootloader, APT-bronnen, automatische updates en de gekozen bron voor Puppet Server. Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de class schakelt een niet-ondersteunde pakketbron daarom uit. `basic_settings::login_user` houdt home- en SSH-bestanden privé en accepteert voor aangeleverde home- of sleutelbestanden alleen `puppet:///`, `file:///` en HTTPS.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'basic_settings':
-        puppetserver_enable     => true,
-        mysql_enable            => true,
-        nginx_enable            => true,
-        sury_enable             => true,
-        systemd_ntp_extra_pools => ['ntp.time.nl']
-    }
+class { 'basic_settings':
+  hosts_enable              => true,
+  server_fdqn               => 'server01.example.org',
+  systemd_ntp_extra_pools   => ['ntp.example.org'],
 }
 ```
 
-Zoals eerder vermeld, bevat `basic settings` ook een login subonderdeel. In het onderstaande voorbeeld wordt een gebruiker toegevoegd. Wanneer de gebruiker aan de groep `wheel` wordt toegevoegd, mag de gebruiker `su` gebruiken.
+Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp).
+
+### `docker`
+
+#### Doel
+
+`docker` installeert Docker CE. `docker::compose` beheert een Compose-project onder `/opt/docker/<naam>`. Met `docker::compose_proxy` publiceer je zo'n Compose-stack via Nginx. De module bevat ook kant-en-klare configuraties voor Authentik en Twenty.
+
+#### Belangrijkste eigenschappen
+
+- Installeert Docker CE; de officiële APT-bron kan via `basic_settings` worden beheerd.
+- Accepteert Compose-bronnen via `puppet:///`, `file:///` of HTTPS en ondersteunt SHA256-controle voor downloads.
+- Beheert per Compose-stack een eigen projectmap, `.env`, extra mappen voor bind mounts en een systemd-service.
+- Kan containerstatus, healthchecks, toegestane eenmalige containers en orphans monitoren.
+- Kan een Compose-stack via een Nginx reverse proxy publiceren en gebruikt standaard HTTPS naar de containerapplicatie.
+- Levert Authentik- en Twenty-configuratie met `Sensitive` geheimen en een optionele Nginx-proxy.
+
+#### Belangrijke aandachtspunten
+
+Declareer `docker` vóór Compose-resources en zorg dat de Docker-pakketbron beschikbaar is. Geef de inhoud van `.env` met geheimen door als `Sensitive(...)` en gebruik voor gedownloade Compose-bestanden HTTPS met een checksum. `docker::compose_proxy` vereist `nginx` en gebruikt standaard HTTPS naar de achterliggende applicatie. Kies alleen HTTP als die applicatie geen TLS ondersteunt. `docker::authentik` verwijdert standaard de eerste beheerder `akadmin`; zet `akadmin_remove => false` als deze gebruiker moet blijven bestaan. Puppet maakt de map `custom-templates` aan, maar beheert de inhoud niet.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'basic_settings': }
+class { 'basic_settings':
+  docker_enable => true,
+}
 
-    basic_settings::login_user { 'beheer':
-        gid             => 1001,
-        home            => '/home/beheer',
-        password        => Sensitive('replace-with-password-hash'),
-        uid             => 1001,
-        authorized_keys => ['ssh-ed25519 AAAA... beheer@example.org'],
-        groups          => ['wheel'],
-    }
+class { 'docker':
+  require => Class['basic_settings'],
+}
+
+docker::compose { 'example':
+  compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
+  env_content    => Sensitive("COMPOSE_PROJECT_NAME=example\nAPP_SECRET=replace-with-secret\n"),
+  require        => Class['docker'],
 }
 ```
 
-`basic_settings::login_user` houdt home-, `.ssh`- en shell-startupbestanden privé. Wanneer je `home_source` of `private_key` gebruikt, moet de bron met `puppet:///`, `file:///` of `https://` beginnen; gewone HTTP-bronnen worden bewust geweigerd.
+Meer Compose-, proxy-, Authentik- en Twenty-varianten staan in [`examples/docker.pp`](examples/docker.pp).
 
-`basic_settings::network` kan `/etc/hosts` via de aparte `basic_settings::hosts` class volledig met `concat` beheren. Zet hiervoor `hosts_enable => true` in `basic_settings` of direct op `basic_settings::network`, of declareer `basic_settings::hosts` los. De hosts-class schrijft de standaard localhost- en IPv6-regels en gebruikt de korte hostname samen met `server_fdqn` voor de `127.0.1.1`-regel. Als de volledige naam ontbreekt of gelijk is aan de korte hostname, wordt er geen lege of dubbele alias geschreven. Met `hosts_localhost_aliases => ['puppet', 'test']` op `basic_settings` of `basic_settings::network` voeg je deze namen toe aan de localhost-regel, zodat die `127.0.0.1 localhost puppet test` wordt. Gebruik bij een directe declaratie van `basic_settings::hosts` hiervoor de parameter `localhost_aliases`.
+### `gitlab`
 
-Extra regels voeg je toe met `basic_settings::hosts_entry`. De commentaarregel gebruikt standaard de titel van de resource; geef `comment` mee wanneer de zichtbare omschrijving anders moet zijn.
+#### Doel
+
+`gitlab` installeert GitLab EE en koppelt de omnibusservice aan lokale systemd-, monitoring- en auditvoorzieningen. `gitlab::config` beheert `/etc/gitlab/gitlab.rb` en voert `gitlab-ctl reconfigure` uit wanneer de configuratie wijzigt.
+
+#### Belangrijkste eigenschappen
+
+- Installeert GitLab EE met een initiële rootgebruiker.
+- Kan `/opt/gitlab` naar een afzonderlijke installatielocatie verplaatsen.
+- Beheert HTTPS-, SSH-, SMTP-, Puma-, Sidekiq- en PostgreSQL-instellingen via `gitlab::config`.
+- Kan meldingen bij een mislukte service, auditregels en een GitLab-monitoringcheck instellen.
+- Kan de service aan het gedeelde `services`-target binden.
+
+#### Belangrijke aandachtspunten
+
+De GitLab APT-bron moet vóór de installatie beschikbaar zijn, bijvoorbeeld via `basic_settings` met `gitlab_enable => true`. Het eerste rootwachtwoord is nog een parameter van het type String. Haal dit wachtwoord uit versleutelde Hiera-data en zet het niet rechtstreeks in een manifest. Het verplaatsen van `/opt/gitlab` en het uitvoeren van `gitlab-ctl reconfigure` kunnen veel wijzigen; controleer daarom eerst opslag, back-ups en het onderhoudsvenster.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'basic_settings':
-        hosts_enable            => true,
-        hosts_localhost_aliases => ['puppet', 'test'],
-    }
+class { 'basic_settings':
+  gitlab_enable => true,
+}
 
-    basic_settings::hosts_entry { 'puppet':
-        ip       => '10.200.3.69',
-        hostname => 'puppet',
-    }
+class { 'gitlab':
+  root_password => lookup('gitlab::root_password'),
+  server_fdqn   => 'gitlab.example.org',
+  require       => Class['basic_settings'],
+}
 
-    basic_settings::hosts_entry { 'checkmk':
-        ip       => '10.200.14.10',
-        hostname => 'bhr808619-prd.tools.vancis.io',
-        comment  => 'checkmk',
-    }
+class { 'gitlab::config':
+  https   => true,
+  require => Class['gitlab'],
 }
 ```
 
-### Docker
+Een groter voorbeeld waarin GitLab samen met de serverbasis wordt gebruikt staat in [`examples/site.pp`](examples/site.pp).
 
-Docker installeert Docker CE en beheert Compose-projecten op een voorspelbare manier. Gebruik `docker::compose` voor een eigen stack, `docker::compose_proxy` wanneer die stack via Nginx bereikbaar moet zijn, en de meegeleverde defined types zoals `docker::authentik` en `docker::twenty` voor de standaard Compose-bestanden in deze module.
+### `letsencrypt`
 
-Een Compose-bron kan uit de Puppet file server, een lokaal `file:///`-pad of een HTTPS-URL komen. Gevoelige `.env`-inhoud hoort in `Sensitive(...)`. Declareer `docker` zelf; gebruik je een proxyroute, declareer dan ook `nginx`.
+#### Doel
 
-Belangrijk om te weten:
+`letsencrypt` installeert Certbot en beheert de algemene Certbot-instellingen. Met `letsencrypt::certificate` vraag je één certificaat voor één of meer domeinen aan via een gekozen Certbot-plugin.
 
-- `docker::compose` beheert per stack een eigen projectmap onder `/opt/docker/<naam>` en maakt de stack geschikt om via systemd mee te draaien in de doelstructuur van `basic_settings`.
-- Met `project_directories` kan `docker::compose` extra mappen direct onder de projectmap aanmaken voor bind mounts; alleen de map zelf wordt beheerd, niet de inhoud.
-- HTTP-bronnen voor Compose-bestanden worden bewust niet gebruikt. Gebruik `puppet:///`, `file:///` of `https://`; geef bij externe HTTPS-bronnen bij voorkeur een SHA256-checksum mee.
-- Een `.env` kan uit `env_source` of `env_content` komen. Gebruik voor wachtwoorden en tokens altijd `Sensitive(...)`, omdat deze waarden anders te makkelijk in logs of diffs terechtkomen.
-- Compose-monitoring kan controleren of containers healthy zijn, of bepaalde eenmalige containers normaal mogen eindigen en of er orphan containers achterblijven.
-- `docker::compose_proxy` maakt naast de Compose-stack een Nginx-vhost aan. De upstream is standaard HTTPS; gebruik HTTP alleen als de containerapplicatie echt geen TLS ondersteunt.
-- De defined types `docker::authentik` en `docker::twenty` genereren hun `.env` zelf uit parameters. De resource title wordt de Compose stacknaam, waardoor je meerdere instanties kunt declareren zolang poorten, hostnamen en publieke URL's niet botsen. Zet je `server_name`, dan wordt de Nginx-proxyroute gebruikt; zonder `server_name` blijft het bij de Compose-stack. `docker::twenty` schrijft `SERVER_URL` op basis van `scheme` en de eerste `server_name`, of op basis van `scheme` en `host` wanneer `server_name` leeg is. `docker::authentik` kan SMTP-variabelen renderen; `smtp_host` valt terug op `basic_settings::smtp_server`, en lege optionele waarden zoals `smtp_username` en `smtp_password` worden niet in de `.env` opgenomen. Voor Authentik wordt de `custom-templates`-map in de Compose-projectmap met mode `0775` aangemaakt, maar de inhoud blijft ongemanaged. `docker::authentik` verwijdert standaard de bootstrap-gebruiker `akadmin`; zet `akadmin_remove => false` als je die gebruiker expliciet wilt behouden.
-- Gebruik `docker::authentik_admin` om een Authentik-admingebruiker idempotent aan te maken, te herstellen of te verwijderen in de draaiende Authentik Compose-stack. Geef `compose_name` dezelfde waarde als de titel van de bijbehorende `docker::authentik` of `docker::compose` resource. Het adminwachtwoord hoort als `Sensitive(...)` uit Hiera of een profiel te komen en wordt niet in de Compose `.env` opgeslagen. Bij `ensure => absent` zijn `email` en `password` niet nodig.
+#### Belangrijkste eigenschappen
 
-#### Voorbeelden
+- Installeert Certbot zonder aanbevolen of voorgestelde extra pakketten.
+- Beheert `/etc/letsencrypt/cli.ini`, dat alleen door root kan worden gelezen, met het e-mailadres en de loginstellingen.
+- Stelt de systemd-prioriteit in en kan een melding sturen wanneer Certbot mislukt.
+- Gebruikt logrotate voor Certbotlogs wanneer logrotate door `basic_settings` wordt beheerd.
+- Kan certificaten aanvragen en verwijderen.
 
-Een eigen Compose-project uit de Puppet file server:
+#### Belangrijke aandachtspunten
+
+De gekozen Certbot-plugin moet geïnstalleerd en bruikbaar zijn. De standaardplugin van `letsencrypt::certificate` is `nginx`. Declareer daarom `nginx` en controleer DNS, poort 80 en 443 en de route die Certbot voor de controle gebruikt. Certbot kan bij het vernieuwen van een certificaat extra commando's uitvoeren; test daarom ook het herladen van services en de toegang tot certificaatbestanden.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
+class { 'letsencrypt':
+  mail_to => 'security@example.org',
+}
 
-    docker::compose { 'example':
-        compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
-    }
+class { 'nginx':
+  securitytxt_contacts => ['mailto:security@example.org'],
+  require              => Class['letsencrypt'],
+}
+
+letsencrypt::certificate { 'app.example.org':
+  domains => ['app.example.org', 'www.app.example.org'],
+  plugin  => 'nginx',
+  require => [Class['letsencrypt'], Class['nginx']],
 }
 ```
 
-Een Compose-project met `.env`-inhoud en monitoringbeleid:
+Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`](examples/web.pp).
+
+### `mysql`
+
+#### Doel
+
+`mysql` installeert en configureert de MySQL-server en maakt automatisch lokale back-ups. Met defined types beheer je databases, gebruikers en rechten. De module kan samenwerken met PHP-FPM, monitoring, systemd, logrotate en auditd.
+
+#### Belangrijkste eigenschappen
+
+- Beheert MySQL-serverinstellingen boven op een geharde standaardset.
+- Levert defined types voor databases, gebruikers en rechten.
+- Configureert `automysqlbackup` met een systemd-service en timer.
+- Kan back-ups comprimeren en versleutelen.
+- Registreert een MySQL-check wanneer monitoring actief is.
+- Kan de pakketversie en pakketbron van `basic_settings::package_mysql` overnemen.
+
+#### Belangrijke aandachtspunten
+
+`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. De root- en applicatiewachtwoorden zijn nog gewone String-parameters en horen daarom uit versleutelde Hiera-data te komen. Controleer of de bufferinstellingen bij het beschikbare RAM passen, test het terugzetten van back-ups en zorg dat de gekozen pakketversie overeenkomt met `package_version`.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
+class { 'basic_settings':
+  mysql_enable  => true,
+  mysql_version => 8.0,
+}
 
-    docker::compose { 'example':
-        compose_source             => 'file:///srv/puppet/files/example/docker-compose.yml',
-        env_content                => Sensitive.new("COMPOSE_PROJECT_NAME=example\nMYSQL_PASSWORD=replace-with-password\n"),
-        monitoring_health_required => ['web', 'db'],
-        monitoring_expected_exited => ['migrate'],
-    }
+class { 'mysql':
+  automysqlbackup_password => Sensitive('replace-with-backup-password'),
+  root_password            => lookup('mysql::root_password'),
+  require                  => Class['basic_settings'],
+}
+
+mysql::database { 'app':
+  ensure  => present,
+  require => Class['mysql'],
 }
 ```
 
-Een eigen Compose-project achter Nginx:
+Databases, gebruikers, grants, back-upinstellingen en RabbitMQ-combinaties staan in [`examples/data-services.pp`](examples/data-services.pp).
+
+### `naemon`
+
+#### Doel
+
+`naemon` installeert de OpenITCOCKPIT-variant van Naemon en beheert hosts en hostgroepen. De module is bedoeld als onderdeel van een OpenITCOCKPIT-server en niet als algemene zelfstandige Naemon-module.
+
+#### Belangrijkste eigenschappen
+
+- Installeert `openitcockpit-naemon` nadat het OpenITCOCKPIT-pakket beschikbaar is.
+- Beheert de directory met Naemon-configuratiefragmenten.
+- Levert defined types voor hosts en hostgroepen.
+- Koppelt de service aan het gedeelde helpers-target en kan een melding sturen wanneer de service mislukt.
+- Past systemd-hardening toe en maakt waar nodig de koppeling `nagios.service` voor software die die oude servicenaam verwacht.
+
+#### Belangrijke aandachtspunten
+
+Richt eerst de OpenITCOCKPIT-server in en zorg dat `Package['openitcockpit']` in de Puppet-catalogus staat. De module beheert de volledige configuratiemap en verwijdert bestanden die niet door Puppet worden beheerd. Zet daarom geen handmatig gemaakte Naemon-configuratie in die map.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
-    class { 'nginx': }
+include naemon
 
-    docker::compose_proxy { 'custom':
-        compose_source       => 'puppet:///modules/profile/custom/docker-compose.yml',
-        proxy_port           => 9443,
-        server_name          => 'custom.example.org',
-        ssl_certificate      => '/etc/letsencrypt/live/custom.example.org/fullchain.pem',
-        ssl_certificate_key  => '/etc/letsencrypt/live/custom.example.org/privkey.pem',
-    }
+naemon::host { 'web01':
+  address  => '192.0.2.10',
+  friendly => 'Webserver 01',
+  require  => Class['naemon'],
 }
 ```
 
-Een meegeleverd defined type zonder eigen Compose-bestand:
+De volledige OpenITCOCKPIT- en monitoringopbouw staat in [`examples/monitoring.pp`](examples/monitoring.pp).
+
+### `netplanio`
+
+#### Doel
+
+`netplanio` installeert Netplan en maakt netwerkconfiguratie voor ethernet en WiFi. De module gebruikt de DHCP- en IPv6-instellingen van `basic_settings::network` wanneer die class aanwezig is.
+
+#### Belangrijkste eigenschappen
+
+- Installeert `netplan.io` en beheert de module-eigen configuratiebestanden.
+- Ondersteunt DHCP, statische adressen, nameservers en routes per ethernetinterface.
+- Ondersteunt WiFi-accesspoints en optionele interface-instellingen.
+- Kan standaardinstellingen van `basic_settings::network` overnemen.
+- Past wijzigingen met Netplan toe nadat Puppet de benodigde bestanden en pakketten heeft klaargezet.
+
+#### Belangrijke aandachtspunten
+
+Een fout netwerkplan kan de beheerverbinding verbreken. Controleer interfacenamen, renderer, routes, gateway en nameservers via consoletoegang voordat Puppet de configuratie toepast. WiFi-hashes kunnen wachtwoorden bevatten; lever die data vanuit afgeschermde Hiera aan.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
+include netplanio
 
-    docker::authentik { 'authentik':
-        database_password => Sensitive('replace-with-postgresql-password'),
-        secret_key        => Sensitive('replace-with-secret-key'),
-    }
+netplanio::ethernet { 'primary':
+  addresses   => ['192.0.2.20/24'],
+  interface   => 'ens18',
+  nameservers => { 'addresses' => ['192.0.2.53'] },
+  routes      => { 'default' => { 'via' => '192.0.2.1' } },
+  require     => Class['netplanio'],
 }
 ```
 
-Authentik met SMTP via de centrale mailrelay:
+Een gecombineerde netwerkinrichting past in het basisprofiel van [`examples/site.pp`](examples/site.pp).
+
+### `nginx`
+
+#### Doel
+
+`nginx` installeert en configureert de Nginx-service. `nginx::server` beheert een website of reverse proxy met TLS, security headers, locations en optionele PHP-FPM-koppeling.
+
+#### Belangrijkste eigenschappen
+
+- Beheert algemene Nginx-, events- en HTTP-instellingen en gebruikt strenge TLS-instellingen.
+- Levert vhosts voor statische sites, PHP-applicaties en reverse proxies.
+- Ondersteunt HTTP/2, optioneel HTTP/3, HTTPS-forcering en certificate chains.
+- Beheert security headers en de gegevens in `security.txt`.
+- Werkt samen met Certbot, PHP-FPM, monitoring, auditd, logrotate en de gedeelde systemd-targets.
+- Controleert configuratie vóór een service-reload.
+
+#### Belangrijke aandachtspunten
+
+De module verwijdert Apache en neemt de Nginx-configuratie over. Controleer bestaande vhosts, document roots, certificaatrechten en gebruikte poorten. Gebruik voor reverse proxies bij voorkeur HTTPS naar de achterliggende applicatie. Schakel certificaatcontrole alleen uit voor een lokale of self-signed verbinding waarvoor dat echt nodig is. Gebruik HTTP alleen als de achterliggende applicatie geen TLS ondersteunt.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'basic_settings':
-        smtp_server => 'mail.example.org',
-    }
+class { 'nginx':
+  securitytxt_contacts => ['mailto:security@example.org'],
+}
 
-    class { 'docker':
-        require => Class['basic_settings'],
-    }
-
-    docker::authentik { 'authentik':
-        database_password => Sensitive('replace-with-postgresql-password'),
-        secret_key        => Sensitive('replace-with-secret-key'),
-        smtp_from         => 'authentik@example.org',
-        smtp_password     => Sensitive('replace-with-smtp-password'),
-        smtp_port         => 587,
-        smtp_use_tls      => true,
-        smtp_username     => 'authentik@example.org',
-    }
+nginx::server { 'app.example.org':
+  docroot        => '/var/www/app.example.org',
+  php_fpm_enable => false,
+  server_name    => 'app.example.org',
+  require        => Class['nginx'],
 }
 ```
 
-Een Authentik-admingebruiker beheren nadat de stack draait:
+TLS-, PHP-FPM-, security-header- en reverse-proxyvarianten staan in [`examples/web.pp`](examples/web.pp).
+
+### `openitcockpit`
+
+#### Doel
+
+De class `openitcockpit` groepeert de classes voor de OpenITCOCKPIT-agent en -server. `openitcockpit::agent` beheert de agentconfiguratie. `openitcockpit::server` richt de lokale server in en koppelt deze aan de andere benodigde modules.
+
+#### Belangrijkste eigenschappen
+
+- Beheert een agent in pull- of push-mode met selecteerbare ingebouwde metrics.
+- Gebruikt standaard loopbackbinding, uitgeschakelde Prometheus-export en TLS-certificaatcontrole.
+- Levert een Mirth Connect-agentcheck.
+- Kan de server koppelen aan Nginx, PHP-FPM, Naemon, Grafana en de gedeelde systemd-targets.
+- Slaat gevoelige Grafana- en pakketbrongegevens op in bestanden die alleen root kan lezen wanneer de betreffende parameter dit ondersteunt.
+- Sluit aan op de custom-checkregistratie van `basic_settings`.
+
+#### Belangrijke aandachtspunten
+
+Voor push-mode zijn `push_url` en een `Sensitive` API-key nodig. Maak de pull- of Prometheuspoorten alleen bereikbaar als de firewall en TLS goed zijn ingesteld. De serverclass gebruikt lokale onderdelen van Nginx, PHP-FPM, Naemon en Docker. Test een upgrade daarom voor de hele OpenITCOCKPIT-server en niet alleen voor één los onderdeel.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
+class { 'basic_settings':
+  openitcockpit_enable => true,
+}
 
-    docker::authentik { 'authentik':
-        database_password => Sensitive('replace-with-postgresql-password'),
-        secret_key        => Sensitive('replace-with-secret-key'),
-    }
+include openitcockpit
 
-    docker::authentik_admin { 'kevin.admin':
-        compose_name => 'authentik',
-        email        => 'info@example.org',
-        password     => Sensitive('replace-with-authentik-admin-password'),
-        require      => Docker::Authentik['authentik'],
-    }
+class { 'openitcockpit::agent':
+  push_apikey => Sensitive('replace-with-openitcockpit-api-key'),
+  push_enable => true,
+  push_url    => 'https://monitoring.example.org',
+  require     => Class['basic_settings'],
 }
 ```
 
-Een Authentik-gebruiker verwijderen zonder e-mailadres of wachtwoord:
+Pull-, push- en maatwerkcheckvarianten staan in [`examples/monitoring.pp`](examples/monitoring.pp).
+
+### `php8`
+
+#### Doel
+
+`php8` installeert een gekozen PHP 8 minorversie en extensies. `php8::cli` beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm_pool` beheren de FPM-service en afzonderlijke applicatiepools.
+
+#### Belangrijkste eigenschappen
+
+- Installeert alleen de PHP-extensies die je zelf inschakelt.
+- Beheert module-eigen INI-bestanden voor CLI en FPM.
+- Ondersteunt Composer voor CLI-workloads.
+- Levert meerdere FPM-pools met eigen gebruiker, socket en process-managerinstellingen.
+- Koppelt FPM aan Nginx, monitoring, systemd en de ingestelde tijdzone.
+- Voorkomt dat instellingen die de module zelf beheert via een vrije INI-hash worden overschreven.
+
+#### Belangrijke aandachtspunten
+
+Zorg dat de gekozen PHP-versie in de ingestelde APT-bron beschikbaar is, bijvoorbeeld via Sury in `basic_settings`. De gebruiker, groep en socketrechten van een FPM-pool moeten passen bij de webserver. Stem geheugenlimieten en het aantal PHP-processen af op het beschikbare geheugen en de applicatie.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'containerhost.dev.xxxx.nl' {
-    class { 'docker': }
+class { 'basic_settings':
+  sury_enable => true,
+}
 
-    docker::authentik { 'authentik':
-        database_password => Sensitive('replace-with-postgresql-password'),
-        secret_key        => Sensitive('replace-with-secret-key'),
-    }
+class { 'php8':
+  curl          => true,
+  mbstring      => true,
+  minor_version => 3,
+  require       => Class['basic_settings'],
+}
 
-    docker::authentik_admin { 'old.admin':
-        compose_name => 'authentik',
-        ensure       => absent,
-        require      => Docker::Authentik['authentik'],
-    }
+class { 'php8::fpm':
+  require => Class['php8'],
 }
 ```
 
-Als alleen de admin-groep ontbreekt of verkeerd staat, kun je in de Authentik-projectmap ook de herstelactie van Authentik zelf gebruiken: `docker compose run --rm server ak create_admin_group kevin.admin`.
+Een volledige PHP-FPM-pool met Nginx staat in [`examples/web.pp`](examples/web.pp).
 
-Meer Docker-varianten staan in [`examples/docker.pp`](examples/docker.pp).
+### `proxmox`
 
-### Let's Encrypt
+#### Doel
 
-Let's Encrypt is een gratis, geautomatiseerde en open certificaatautoriteit die SSL/TLS-certificaten uitgeeft om veilige HTTPS-verbindingen mogelijk te maken. Dit onderdeel integreert Let's Encrypt in je Puppet-omgeving, zodat je eenvoudig certificaten kunt aanvragen en beheren. Het ondersteunt zowel automatische certificaatvernieuwing als configuratie van bijbehorende webservers, zoals Nginx.
+`proxmox` installeert Proxmox VE op een host waarvan `basic_settings` de platformcontext heeft bepaald. De class beheert ook de overgang naar de Proxmox-kernel en verwijdert conflicterende generieke kernelpakketten.
 
-#### Voorbeeld
-Hieronder een voorbeeld hoe je Let's Encrypt gebruikt in je Puppet-omgeving:
+#### Belangrijkste eigenschappen
+
+- Installeert de Proxmox VE- en iSCSI-pakketten.
+- Installeert op het ondersteunde platform de verwachte PVE-kernel.
+- Plant een reboot na de kernelovergang.
+- Werkt GRUB bij na packagewijzigingen.
+- Verwijdert generieke Linux-imagepakketten en `os-prober` na de Proxmox-installatie.
+
+#### Belangrijke aandachtspunten
+
+Deze class wijzigt de kernel- en bootconfiguratie en kan daardoor een server onbruikbaar maken als er iets misgaat. De huidige code is gemaakt voor Debian 12 (`bookworm`) met `basic_settings`; gebruik haar niet op Ubuntu of een andere Debian-versie. `proxmox_enable => true` schakelt de Proxmox-pakketbron op dit moment niet in. `basic_settings` verwijdert bovendien de bron- en sleutelbestanden die zijn eigen Proxmox-helper zou gebruiken. Beheer de pakketbron daarom voorlopig in een apart profiel met andere bestandspaden. Zorg voor consoletoegang, een recente back-up en een onderhoudsvenster voordat je deze class toepast.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    letsencrypt::certificate { 'webserver.dev.xxxx.nl':
-        domains => ['webserver.dev.xxxx.nl'],
-    }
+include basic_settings
+
+# The profile must provide the repository without reusing paths owned by basic_settings.
+class { 'proxmox':
+  require => Class['basic_settings'],
 }
 ```
 
-### MySQL
+De plaats van Proxmox in een serverprofiel wordt getoond in [`examples/site.pp`](examples/site.pp).
 
-MySQL is een populair open-source relationeel databasebeheersysteem (RDBMS). Het wordt veel gebruikt voor het opslaan, ophalen en beheren van gegevens voor websites en applicaties. Dit onderdeel maakt het mogelijk om een MySQL-database server op te zetten en te configureren. Wanneer in `basic settings` de MySQL APT-repo is geactiveerd, probeert dit onderdeel de geselecteerde MySQL-versie te installeren in plaats van de standaardversie of databasevariant zoals MariaDB die vanuit het besturingssysteem wordt aangeboden. Indien `basic_settings` of het `security`-subonderdeel daarvan wordt gebruikt, worden verdachte commando's gemonitord door auditd.
+### `rabbitmq`
 
-Binnen het MySQL-onderdeel zit een ingebouwd back-upscript, dat is geforkt van [automysqlbackup](https://sourceforge.net/projects/automysqlbackup/). Dit back-upscript is op meerdere punten verbeterd. Standaard worden back-ups versleuteld met OpenSSL, waarbij PBKDF2 wordt gebruikt voor de sleutelafleiding. Back-ups kunnen handmatig worden ontsleuteld met het .enc-bestand en het bijbehorende wachtwoord. Het commando hiervoor is: `openssl enc -d -aes-256-cbc -pbkdf2 -in backup.sql.enc -out backup.sql -pass pass:..`.
+#### Doel
 
-#### Voorbeeld
-Hieronder een voorbeeld hoe je MySQL database opzet in je Puppet omgeving:
+`rabbitmq` installeert en configureert RabbitMQ Server. Aanvullende classes en defined types beheren AMQP/TLS-listeners, de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en permissies.
+
+#### Belangrijkste eigenschappen
+
+- Installeert Erlang en RabbitMQ en koppelt de service aan de gedeelde systemd-targets.
+- Beheert het maximale aantal open bestanden, de procesprioriteit en toegestane verouderde RabbitMQ-functies.
+- Ondersteunt TLS-listeners en kan plain AMQP uitschakelen zodra certificaten compleet zijn.
+- Beheert de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en rechten met Puppet.
+- Slaat gevoelige lokale gegevens op in configuratiebestanden die alleen root of de RabbitMQ-gebruiker kan lezen.
+- Registreert een RabbitMQ-check met queue- en brokerdiagnose.
+
+#### Belangrijke aandachtspunten
+
+Regel de RabbitMQ APT-bron vóór de installatie. `rabbitmq::tcp` houdt de gewone TCP-poort ingeschakeld zolang de TLS-certificaten niet compleet zijn, zodat RabbitMQ bereikbaar blijft. Controleer daarom of het CA-certificaat, servercertificaat en de privésleutel aanwezig zijn voordat je onversleuteld verkeer uitschakelt. De wachtwoorden voor de managementplugin zijn nog String-parameters en horen uit versleutelde Hiera-data te komen.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    /* Setup MySQL */
-    class { 'mysql':
-        automysqlbackup_password => Sensitive('replace-with-backup-password'),
-        root_password            => 'replace-with-root-password',
-    }
+class { 'basic_settings':
+  rabbitmq_enable => true,
+}
 
-    /* Maak database www aan */
-    mysql::database { 'www':
-        ensure => present
-    }
+class { 'rabbitmq':
+  require => Class['basic_settings'],
+}
 
-    /* Maak een databasegebruiker aan en verleen alle machtigingen aan de database */
-    mysql::user { 'www':
-        ensure    => present,
-        password  => 'replace-with-user-password',
-        username  => 'www',
-    }
-    ->
-    mysql::grant { 'www':
-        ensure  => present,
-        username  => 'www',
-        database  => 'www'
-    }
+class { 'rabbitmq::tcp':
+  ssl_ca_certificate  => '/etc/rabbitmq/ssl/ca.pem',
+  ssl_certificate     => '/etc/rabbitmq/ssl/cert.pem',
+  ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
+  tcp_enable          => false,
+  require             => Class['rabbitmq'],
 }
 ```
 
-### GitLab
+Vhosts, exchanges, queues, bindings en gebruikers staan in [`examples/data-services.pp`](examples/data-services.pp).
 
-GitLab is een populaire open-source DevOps-platform. Dit platform is voor softwareontwikkeling waar je en je team samen aan code kunnen werken. Het biedt functies zoals versiebeheer (het bijhouden van verschillende versies van je code), bugtracking (het bijhouden en oplossen van problemen in je software), en Continuous Integration/Continuous Deployment (CI/CD, wat helpt bij het automatisch testen en uitrollen van code).
+### `ssh`
 
-#### Voorbeeld
-Hieronder een voorbeeld hoe je een GitLab opzet in je Puppet omgeving:
+#### Doel
+
+`ssh` installeert en beheert een geharde OpenSSH-server. De class schrijft de loginbanner en SSH-configuratie, ondersteunt een tweede poort en kan auditregels en een SSH-controle instellen.
+
+#### Belangrijkste eigenschappen
+
+- Beheert toegestane gebruikers, rootlogin en gebruikersspecifieke wachtwoordauthenticatie.
+- Beperkt hostkey-algoritmen en configureert idle timeouts.
+- Ondersteunt een alternatieve poort met een afzonderlijke gebruikerslijst.
+- Houdt rekening met socket activation op Ubuntu-versies die dit gebruiken.
+- Registreert auditregels en een check die configuratie en sessiegedrag beoordeelt.
+- Beheert `/etc/ssh/sshd_config.d` als module-eigen configuratieboom.
+
+#### Belangrijke aandachtspunten
+
+De module purgeert onbekende bestanden in `/etc/ssh/sshd_config.d`. Verplaats of vertaal bestaande drop-ins voordat je haar activeert. Houd een tweede root- of consoleverbinding open en controleer sleutels, `allow_users`, firewall en eventuele socket activation vóór de eerste reload.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'gitlab.dev.xxxx.nl' {
-    /* Setup gitlab */
-    class { 'gitlab':
-        root_password   => 'replace-with-root-password',
-        server_fdqn     => 'gitlab.xxxx.nl'
-    }
-
-    /* Setup Gitlab config */
-    class { 'gitlab::config':
-        https                   => true,
-        ssh_host                => 'source.xxxx.nl',
-        ssh_port                => 2222,
-        ssl_certificate         => '/etc/gitlab/ssl/fullchain.pem',
-        ssl_certificate_key     => '/etc/gitlab/ssl/privkey.pem'
-    }
+class { 'ssh':
+  allow_users                   => ['admin', 'deploy'],
+  password_authentication_users => [],
+  permit_root_login             => false,
 }
 ```
 
-### Nginx
+SSH in een gecombineerd webhostprofiel staat in [`examples/site.pp`](examples/site.pp).
 
-Nginx installeert en beheert webservers en reverse proxies. Gebruik `nginx::server` voor een statische site, PHP-FPM-site of proxy-vhost. De module zet veilige defaults voor headers en `security.txt`, maar je kunt per vhost bewust afwijken wanneer een applicatie dat nodig heeft.
+### `vnstat`
 
-Belangrijk om te weten:
+#### Doel
 
-- De module gaat uit van Nginx als webserver en verwijdert Apache wanneer dat pakket aanwezig is. Gebruik dit dus niet op een host waar Apache bewust naast Nginx moet blijven draaien.
-- Met `basic_settings` wordt Nginx in de systemd-doelstructuur opgenomen en krijgt de service extra hardening. Daardoor kan gedrag strenger zijn dan bij de distributie-defaults.
-- Voor een statische vhost gebruik je een `docroot`. Voor een reverse proxy zet je `docroot => undef`, `try_files => false` en `php_fpm_enable => false`.
-- HTTPS wordt per vhost aangezet met `https_enable`, certificaatpaden en eventueel `https_force`. HTTP/2 en HTTP/3 staan niet impliciet voor iedere vhost aan; zet ze alleen aan wanneer je ze wilt gebruiken.
-- `security.txt` wordt standaard per vhost geregeld. Geef centrale of vhost-specifieke contacten mee, of zet `securitytxt_enable => false` wanneer een applicatie dit volledig zelf moet afhandelen.
-- Security headers hebben veilige defaults, maar vooral CSP en HSTS kunnen applicaties breken. Gebruik een eigen string voor maatwerk of `false` wanneer Nginx een header voor die vhost niet moet beheren.
-- Voor reverse proxies heeft versleutelde upstream-communicatie de voorkeur, ook lokaal. Bij self-signed upstreamcertificaten kun je certificaatcontrole uitzetten; plain HTTP is een bewuste uitzondering.
+`vnstat` installeert vnStat voor lokale verkeersregistratie en capaciteitsmonitoring. Met `vnstat::ethernet` stel je per netwerkinterface de bandbreedte en drempels voor het 95e percentiel in.
 
-#### Voorbeeld
-Een eenvoudige HTTPS-site:
+#### Belangrijkste eigenschappen
+
+- Beheert vnStatconfiguratie en laat nieuwe interfaces standaard automatisch ontdekken.
+- Ondersteunt één technische maximumsnelheid voor alle interfaces en een afwijkende waarde per interface.
+- Ondersteunt algemene p95-drempels en afwijkende drempels per interface.
+- Koppelt de daemon aan logrotate en de systemd-targets van `basic_settings` wanneer die beschikbaar zijn.
+- Registreert een controle die de werkelijke vnStatconfiguratie met het gemeten netwerkgebruik combineert.
+
+#### Belangrijke aandachtspunten
+
+`bandwidth_max` is de technische interfacesnelheid in Mbit/s, niet een databundel of waarschuwingsgrens. De standaardwaarde `0` schakelt de algemene vnStat-limiet uit. Een kritieke p95-drempel mag niet lager zijn dan de waarschuwing. Een waarde voor één interface gaat voor op de algemene waarde van de class.
+
+#### Basisvoorbeeld
 
 ```puppet
-node 'webserver.dev.xxxx.nl' {
-    class { 'nginx':
-        securitytxt_contacts => ['mailto:security@example.org'],
-    }
+class { 'vnstat':
+  bandwidth_max => 1000,
+  p95_critical  => 900,
+  p95_warning   => 700,
+}
 
-    nginx::server { 'app.example.org':
-        docroot             => '/var/www/app.example.org',
-        https_enable        => true,
-        https_force         => true,
-        server_name         => 'app.example.org',
-        ssl_certificate     => '/etc/letsencrypt/live/app.example.org/fullchain.pem',
-        ssl_certificate_key => '/etc/letsencrypt/live/app.example.org/privkey.pem',
-    }
+vnstat::ethernet { 'wan':
+  interface => 'ens192',
+  require   => Class['vnstat'],
 }
 ```
 
-Een reverse proxy:
+Meerdere interfaces en verschillende capaciteiten staan in [`examples/data-services.pp`](examples/data-services.pp).
 
-```puppet
-node 'proxy.dev.xxxx.nl' {
-    class { 'nginx': }
+## Beschikbare checks
 
-    nginx::server { 'app.example.org':
-        docroot             => undef,
-        https_enable        => true,
-        https_force         => true,
-        php_fpm_enable      => false,
-        server_name         => 'app.example.org',
-        ssl_certificate     => '/etc/letsencrypt/live/app.example.org/fullchain.pem',
-        ssl_certificate_key => '/etc/letsencrypt/live/app.example.org/privkey.pem',
-        try_files           => false,
-        location_directives => [
-            'proxy_pass https://127.0.0.1:8443;',
-            'proxy_ssl_verify off;',
-            'proxy_set_header Host $host;',
-            'proxy_set_header X-Real-IP $remote_addr;',
-            'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
-        ],
-    }
-}
-```
+De checks worden automatisch door relevante modules geregistreerd wanneer OpenITCOCKPIT-monitoring actief is. Je kunt ze ook los vanuit een Nagios-compatibele executor gebruiken. De script- en templatecomments zijn de technische bron voor argumenten, commandodependencies, drempels, exitcodes, perfdata en diagnose-uitvoer.
 
-Een vhost met eigen headerbeleid:
+- [`check_apt`](basic_settings/templates/monitoring/check_apt)
+- [`check_audit`](basic_settings/templates/monitoring/check_audit)
+- [`check_compose`](docker/files/check_compose)
+- [`check_eset`](basic_settings/templates/monitoring/check_eset)
+- [`check_gitlab`](gitlab/files/check_gitlab)
+- [`check_memory_pressure`](basic_settings/templates/monitoring/check_memory_pressure)
+- [`check_mirth_connect`](openitcockpit/templates/agent/check_mirth_connect)
+- [`check_mysql`](mysql/templates/check_mysql)
+- [`check_network`](basic_settings/templates/monitoring/check_network)
+- [`check_nftables`](basic_settings/templates/monitoring/check_nftables)
+- [`check_npm_audit`](basic_settings/files/monitoring/check_npm_audit)
+- [`check_puppet_agent`](basic_settings/templates/monitoring/puppet/check_agent)
+- [`check_rabbitmq`](rabbitmq/templates/check_rabbitmq)
+- [`check_ssh`](ssh/templates/check_ssh)
+- [`check_systemd_config`](basic_settings/files/monitoring/check_systemd_config)
+- [`check_systemd_service`](basic_settings/files/monitoring/check_systemd_service)
+- [`check_systemd_timer`](basic_settings/files/monitoring/check_systemd_timer)
+- [`check_systemd_timesyncd`](basic_settings/files/monitoring/check_systemd_timesyncd)
+- [`check_usb`](basic_settings/templates/monitoring/check_usb)
+- [`check_vnstat_interfaces`](vnstat/files/check_vnstat_interfaces)
 
-```puppet
-nginx::server { 'app.example.nl':
-    server_name               => 'app.example.nl',
-    docroot                   => '/var/www/app.example.nl',
-    x_frame_options           => 'DENY',
-    x_content_type_options    => 'nosniff',
-    referrer_policy           => 'same-origin',
-    content_security_policy   => "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
-    strict_transport_security => 'max-age=63072000; includeSubDomains; preload',
-}
-```
+## Uitgebreide voorbeelden
 
-Meer webservervarianten staan in [`examples/web.pp`](examples/web.pp).
+De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specifieke waarden in profielen of Hiera en neem voorbeeldgeheimen nooit letterlijk over.
 
-### PHP
-
-PHP is een veelgebruikte open-source scriptingtaal die speciaal is ontworpen voor webontwikkeling. Het wordt vaak gebruikt in combinatie met een webserver zoals Apache of Nginx om dynamische inhoud op webpagina's te genereren. Dit onderdeel maakt het mogelijk om PHP te installeren en te configureren. Wanneer `basic settings` wordt gebruikt, zal PHP worden geconfigureerd volgens de aanbevelingen van harde beveiliging.
-
-De gedeelde PHP-settings-template schrijft vaste hardening-instellingen, waaronder `expose_php = Off`. Geef module-managed PHP INI-settings daarom niet mee via `ini_settings`; de `php8::cli`- en `php8::fpm`-classes breken de catalogus bewust af wanneer zulke sleutels toch in de gerenderde settingshash terechtkomen.
-
-#### Voorbeeld
-Hieronder een voorbeeld hoe je PHP configureert in je Puppet omgeving:
-
-```puppet
-node 'webserver.dev.xxxx.nl' {
-
-    /* Standaard PHP instellingen */
-    $php_settings = {
-        'opcache.enable'                    => 1,
-        'opcache.enable_cli'                => 0,
-        'opcache.memory_consumption'        => 1024,
-        'opcache.interned_strings_buffer'   => 64,
-        'opcache.max_accelerated_files'     => 100000,
-        'opcache.max_wasted_percentage'     => 30,
-        'opcache.fast_shutdown'             => 1,
-        'opcache.validate_timestamps'       => 1,
-        'opcache.revalidate_freq'           => 60,
-        'opcache.save_comments'             => 0,
-        'max_execution_time'                => $fastcgi_read_timeout,
-        'post_max_size'                     => '20M',
-        'upload_max_filesize'               => '20M',
-        'memory_limit'                      => '128M',
-        'date.timezone'                     => $timezone
-    }
-
-    /* Standaard PHP-FPM instellingen */
-    $php_fpm_settings = {
-        'request_terminate_timeout' => $fastcgi_read_timeout
-    }
-
-    /* Setup PHP8 */
-    class { 'php8':
-        curl            => true,
-        gd              => true,
-        mbstring        => true,
-        minor_version   => 3,
-        mysql           => true,
-        xml             => true,
-        require         => Class['basic_settings']
-    }
-
-    /* PHP 8 cli */
-    class {'php8::cli':
-        ini_settings    => $php_settings,
-        require         => Class['basic_settings']
-    }
-
-    /* PHP 8 fpm */
-    class {'php8::fpm':
-        ini_settings    => stdlib::merge($php_settings, $php_fpm_settings),
-        require         => Class['nginx'] # Indien Nginx ook geïnstalleerd is op de server
-    }
-}
-```
-
-### SSH
-
-SSH (Secure Shell) is een cryptografisch netwerkprotocol voor veilige gegevenscommunicatie, remote shell services of command execution, en andere beveiligde netwerkdiensten tussen twee netwerkcomputers. Dit onderdeel maakt het mogelijk om OpenSSH te configureren volgens de aanbevelingen van harde beveiliging. Dit omvat onder andere het uitschakelen van root login, het beperken van het aantal toegestane authenticatiepogingen en het configureren van key-based authenticatie.
-
-`permit_root_login` gebruikt dezelfde expliciete hardeningvorm als andere veilige defaults: `false` schrijft `PermitRootLogin no`, `true` schrijft `yes`, en een string kan worden gebruikt voor OpenSSH-modi zoals `'prohibit-password'` of `'forced-commands-only'`.
-
-#### Voorbeeld
-Hieronder een voorbeeld hoe je SSH configureert in je Puppet omgeving:
-
-```puppet
-node 'webserver.dev.xxxx.nl' {
-
-    class { 'ssh':
-        password_authentication_users   => $users_external,
-        allow_users                     => $allow_ssh,
-    }
-}
-```
-
-### RabbitMQ
-
-RabbitMQ is een open-source berichtensysteem dat werkt volgens het Advanced Message Queuing Protocol (AMQP). Het wordt vaak gebruikt voor het beheren en afhandelen van berichten tussen verschillende applicaties of componenten binnen een gedistribueerd systeem. RabbitMQ zorgt ervoor dat berichten betrouwbaar en asynchroon kunnen worden uitgewisseld, wat essentieel is voor schaalbare en robuuste applicaties. Dit onderdeel maakt het mogelijk om RabbitMQ te installeren en te configureren.
-
-De RabbitMQ-monitoringcheck gebruikt `rabbitmqctl` voor service- en queue-status. `rabbitmqadmin` wordt alleen gebruikt voor publish- en deliver-rate metrics; als die CLI of de beheerde config ontbreekt, blijft de queuecontrole werken en wordt de check alleen `UNKNOWN` wanneer er geen zwaardere queue- of servicefout is.
-
-#### Voorbeeld
-Hieronder een voorbeeld hoe je RabbitMQ configureert in je Puppet omgeving:
-
-```puppet
-node 'webserver.dev.xxxx.nl' {
-
-    /* Setup RabbitMQ */
-    class { 'rabbitmq':
-        target => 'production',
-        require => Class['basic_settings']
-    }
-
-    /* Setup rabbitmq TLS */
-    class { 'rabbitmq::tcp':
-        ssl_ca_certificate      => '/etc/letsencrypt/live/rabbitmq.xxxx.nl/ca_cert.pem',
-        ssl_certificate         => '/etc/letsencrypt/live/rabbitmq.xxxx.nl/cert.pem',
-        ssl_certificate_key     => '/etc/letsencrypt/live/rabbitmq.xxxx.nl/privkey.pem'
-    }
-
-    /* Setup rabbitmq management */
-    class { 'rabbitmq::management':
-        admin_password      => 'wachtwoord',
-        default_queue_type  => 'quorum',
-        require             => Class['rabbitmq::tcp']
-    }
-    rabbitmq::management_exchange { 'failure_exchange':
-        require => Class['rabbitmq::management']
-    }
-    rabbitmq::management_queue { 'failure_messages':
-        type    => 'quorum',
-        require => Rabbitmq::Management_exchange['failure_exchange']
-    }
-    rabbitmq::management_queue { 'result_messages':
-        arguments => {
-            'x-dead-letter-exchange'    => 'failure_exchange',
-            'x-dead-letter-routing-key' => 'failure_messages'
-        },
-        type    => 'quorum',
-        require => Rabbitmq::Management_exchange['failure_exchange']
-    }
-    rabbitmq::management_binding { 'failure_binding':
-        source          => 'failure_exchange',
-        destination     => 'failure_messages',
-        routing_key     => 'failure_exchange',
-        require         => Rabbitmq::Management_exchange['failure_exchange']
-    }
-
-    /* Setup user */
-    rabbitmq::management_user { 'bookkeeper':
-        password    => 'wachtwoord',
-        tags        => undef,
-        require     => Class['accounts']
-    }
-    rabbitmq::management_user_permissions { 'bookkeeper_default':
-        user        => 'bookkeeper',
-        configure   => '',
-        write       => '.*',
-        read        => '.*'
-    }
-}
-```
-
-### VnStat
-
-vnStat houdt netwerkverbruik per interface bij. De `vnstat` class installeert het pakket en bouwt `/etc/vnstat.conf` op met `concat`. De basisconfiguratie laat `vnstatd` standaard alle nieuw gevonden interfaces toevoegen, zodat een server zonder extra resources al breed netwerkverkeer registreert. De globale `bandwidth_max` is standaard `0`; de module rendert daarmee `MaxBandwidth 0`, waardoor de globale vnStat-rejectlimiet uit blijft en de monitoringcheck deze waarde niet als positieve capaciteit gebruikt. Zet je `bandwidth_max` op een positieve waarde, dan wordt die globale `MaxBandwidth` een fallback voor interfaces zonder eigen limiet of bruikbare vnStat-detectie.
-
-Gebruik `vnstat::ethernet` voor interface-specifieke aanvullingen die niet in de globale template thuishoren. De define schrijft alleen een `MaxBW<interface>`-fragment wanneer `bandwidth_max` op de define is gezet. Interface-specifieke `bandwidth_max`-waarden hebben voor vnStat en de monitoringcheck voorrang boven de globale `bandwidth_max`. De oude parameternaam `max_bandwidth` wordt niet meer gebruikt; gebruik voortaan `bandwidth_max`.
-
-De 95th percentile-drempels voor de monitoringcheck heten `p95_warning` en `p95_critical`. Op classniveau zijn ze globale defaults voor alle interfaces; op `vnstat::ethernet` overschrijven ze de classwaarden per interface. Beide waarden zijn standaard `undef`. Als na het combineren van interface- en classniveau geen drempel bestaat, slaat de check de 95th-thresholdcontrole voor die interface over zonder foutstatus. Als één interfacewaarde is gezet en de andere classwaarde bestaat, schrijft de module de effectieve combinatie naar de monitoringconfiguratie.
-
-De checkconfiguratie staat in `/etc/vnstat-monitoring.conf` en is root-only (`0600`). Het formaat is bewust eenvoudig: `p95_warning <Mbit/s>`, `p95_critical <Mbit/s>`, `interface <naam> p95_warning <Mbit/s>` en `interface <naam> p95_critical <Mbit/s>`. Globale regels komen uit de `vnstat` class; interface-regels komen uit `vnstat::ethernet` en winnen van de globale defaults.
-
-Voor bandbreedte-afhankelijke berekeningen gebruikt `check_vnstat_interfaces` eerst `MaxBW<interface>` uit de effectieve vnStat-configuratie, daarna een strikt parsebare snelheid uit `vnstat --iflist`, en daarna een positieve globale `MaxBandwidth` uit `/etc/vnstat.conf`. De standaard `MaxBandwidth 0` betekent bewust geen globale capaciteit. Als geen betrouwbare positieve capaciteit beschikbaar is, wordt de capaciteitcontrole voor die interface overgeslagen en staat de reden in de long output. WARNING-, CRITICAL- en UNKNOWN-redenen staan ook direct in de korte output, zodat je niet eerst de long output hoeft te doorzoeken.
-
-De check levert perfdata voor p95, capaciteitsgebruik, dag- en maandgroei, actuele dag- en maandtotalen en de leeftijd van de laatste vnStat-update. Ontbrekende vorige-dag- of vorige-maanddata wordt als normale startsituatie behandeld en slaat alleen de betreffende groeicontrole over. Met `-l <tekens>` kun je de diagnostische long output vóór `Interpretation:` begrenzen; de korte output, perfdata en interpretatie blijven volledig.
-
-#### Voorbeeld
-
-Hieronder een voorbeeld waarin vnStat alle interfaces automatisch toevoegt, maar voor twee uplinks een bekende maximumsnelheid meekrijgt:
-
-```puppet
-node 'router.dev.xxxx.nl' {
-    class { 'vnstat':
-        bandwidth_max => 1000,
-        p95_critical  => 900,
-        p95_warning   => 700,
-    }
-
-    vnstat::ethernet { 'ens192':
-        bandwidth_max => 1000,
-    }
-
-    vnstat::ethernet { 'wan-uplink':
-        bandwidth_max => 10000,
-        interface     => 'ens224',
-        p95_critical  => 8000,
-        p95_warning   => 6000,
-    }
-}
-```
-
-Wanneer een nieuwere vnStat-versie extra interface-specifieke directives nodig heeft, hoort daarvoor een expliciete parameter in `vnstat::ethernet` te worden toegevoegd. Zo blijft zichtbaar welke configuratie de module ondersteunt.
-
-## Checks
-Voor dit project zijn diverse monitoring checks ontwikkeld waarmee je verschillende processen kunt bewaken. Binnen dit project worden de checks standaard aangeroepen door OpenITCOCKPIT, maar ze zijn bewust zo opgezet dat je ze ook kunt inzetten in andere monitoringsystemen zoals Naemon, Nagios of Icinga. Wil je alleen de checks gebruiken en niet de volledige module, dan is dat geen probleem. Houd er wel rekening mee dat sommige checks stukjes Ruby-code bevatten die je mogelijk moet verwijderen of aanpassen, afhankelijk van jouw omgeving.
-
-De checks houden perfdata-labels bewust vrij van eenheden. Labels zijn lowercase snake_case en beginnen met een letter; eenheden staan in de UOM van de perfdatawaarde, zoals `%`, `B`, `s` of `Mbps`, en long output wordt gesaneerd zodat ruwe `|`-tekens niet als extra perfdata-scheidingsteken worden geïnterpreteerd.
-
-Bij WARNING, CRITICAL of UNKNOWN hoort de korte output direct de belangrijkste oorzaak te noemen, zoals de interface, unit of resource en de gemeten afwijking. De korte output gebruikt geen losse statuslabels zoals `CRITICAL` of `WARNING` vóór de oorzaken en herhaalt geen drempelwaarden; de exitcode draagt de machinestatus en drempels staan waar nuttig in perfdata. De long output blijft bedoeld voor diagnose en extra context.
-
-Checks die veel detail kunnen opleveren, zoals APT-beveiligingschangelogs, SSH-sessies, RabbitMQ-queues, Mirth Connect-kanalen, Docker Compose-containers en USB-apparaatlijsten, begrenzen die uitvoer en melden expliciet wanneer details zijn ingekort. Niet-triviale long output eindigt met een korte `Interpretation:`-sectie die uitlegt welke bevindingen de exitcode bepalen, welke regels alleen context zijn en waar een operator als eerste moet kijken; details erboven worden standaard begrensd met `DETAIL_LIMIT=6000`, zodat deze interpretatie zichtbaar blijft.
-
-- [check_apt](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_apt)
-- [check_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_audit)
-- [check_compose](https://github.com/DevSysEngineer/puppet-modules/blob/main/docker/files/check_compose)
-- [check_eset](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_eset)
-- [check_gitlab](https://github.com/DevSysEngineer/puppet-modules/blob/main/gitlab/files/check_gitlab)
-- [check_memory_pressure](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_memory_pressure)
-- [check_mirth_connect](https://github.com/DevSysEngineer/puppet-modules/blob/main/openitcockpit/templates/agent/check_mirth_connect)
-- [check_mysql](https://github.com/DevSysEngineer/puppet-modules/blob/main/mysql/templates/check_mysql)
-- [check_network](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_network)
-- [check_nftables](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_nftables)
-- [check_npm_audit](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_npm_audit)
-- [check_puppet_agent](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/puppet/check_agent)
-- [check_rabbitmq](https://github.com/DevSysEngineer/puppet-modules/blob/main/rabbitmq/templates/check_rabbitmq)
-- [check_ssh](https://github.com/DevSysEngineer/puppet-modules/blob/main/ssh/templates/check_ssh)
-- [check_systemd_config](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_config)
-- [check_systemd_service](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_service)
-- [check_systemd_timer](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timer)
-- [check_systemd_timesyncd](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/files/monitoring/check_systemd_timesyncd)
-- [check_usb](https://github.com/DevSysEngineer/puppet-modules/blob/main/basic_settings/templates/monitoring/check_usb) # ID, ID@HH:MM-HH:MM, VID:PID@HH:MM-HH:MM, of ID:HH:MM-HH:MM
-- [check_vnstat_interfaces](https://github.com/DevSysEngineer/puppet-modules/blob/main/vnstat/files/check_vnstat_interfaces)
-
-## Voorbeelden
-De map `examples/` bevat uitgebreidere Puppet-snippets dan de README. Gebruik deze bestanden als startpunt voor profielen en om te zien hoe veelgebruikte opties samenhangen.
-
-- [examples/site.pp](examples/site.pp): Een compacte voorbeeldsite met basisinstellingen, webserver, PHP, SSH, Docker en MySQL.
-- [examples/docker.pp](examples/docker.pp): Docker Compose, monitoringopties, Nginx-proxy, Authentik en Twenty.
-- [examples/web.pp](examples/web.pp): Nginx, PHP-FPM, Let's Encrypt, security headers en reverse proxy's.
-- [examples/data-services.pp](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
-- [examples/monitoring.pp](examples/monitoring.pp): OpenITCOCKPIT-agent en custom monitoringchecks.
-- [examples/hosts.pp](examples/hosts.pp): Beheer van `/etc/hosts` via `basic_settings`, `basic_settings::network` en losse host entries.
+- [`examples/site.pp`](examples/site.pp): Gecombineerde basisinstellingen, webserver, PHP, SSH, Docker, MySQL en profielopbouw.
+- [`examples/docker.pp`](examples/docker.pp): Compose, monitoring, Nginx-proxy, Authentik en Twenty.
+- [`examples/web.pp`](examples/web.pp): Nginx, PHP-FPM, Let's Encrypt, TLS, security headers en reverse proxies.
+- [`examples/data-services.pp`](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
+- [`examples/monitoring.pp`](examples/monitoring.pp): OpenITCOCKPIT-agent, eigen checks en monitoringinstellingen.
+- [`examples/hosts.pp`](examples/hosts.pp): Beheer van `/etc/hosts` via de hoofdclass, networkclass en losse entries.
 
 ## Contributie
-Contributies zijn welkom! Voel je vrij om pull requests in te dienen of problemen te melden via GitHub.
+
+Pull requests en meldingen zijn welkom. Houd een wijziging bij de module waar deze bij hoort, werk voorbeelden en Puppet Strings bij wanneer openbare parameters veranderen en controleer de gevolgen voor beveiliging, monitoring en systemd volgens [`AGENTS.md`](AGENTS.md).

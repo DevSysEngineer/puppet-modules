@@ -45,6 +45,15 @@ node 'web01.example.org' {
     password_authentication_users => [],
     permit_root_login             => false,
   }
+
+  basic_settings::login_user { 'admin':
+    gid             => 1001,
+    home            => '/home/admin',
+    password        => Sensitive('replace-with-password-hash'),
+    uid             => 1001,
+    authorized_keys => ['ssh-ed25519 AAAA... admin@example.org'],
+    require         => Class['basic_settings'],
+  }
 }
 
 node 'container01.example.org' {
@@ -73,8 +82,8 @@ node 'database01.example.org' {
 
   class { 'mysql':
     automysqlbackup_password => Sensitive('replace-with-backup-password'),
-    root_password           => 'replace-with-root-password',
-    require                 => Class['basic_settings'],
+    root_password            => lookup('mysql::root_password'),
+    require                  => Class['basic_settings'],
   }
 
   mysql::database { 'app':
@@ -84,7 +93,7 @@ node 'database01.example.org' {
 
   mysql::user { 'app':
     ensure   => present,
-    password => 'replace-with-app-password',
+    password => lookup('mysql::app_password'),
     username => 'app',
     require  => Class['mysql'],
   }
@@ -94,5 +103,45 @@ node 'database01.example.org' {
     database => 'app',
     username => 'app',
     require  => [Mysql::Database['app'], Mysql::User['app']],
+  }
+}
+
+# Network example for a host that lets Netplan own the primary interface.
+node 'network01.example.org' {
+  include netplanio
+
+  netplanio::ethernet { 'primary':
+    addresses   => ['192.0.2.20/24'],
+    interface   => 'ens18',
+    nameservers => { 'addresses' => ['192.0.2.53'] },
+    routes      => { 'default' => { 'via' => '192.0.2.1' } },
+    require     => Class['netplanio'],
+  }
+}
+
+# GitLab credentials use protected Hiera data because the current public parameter is a String.
+node 'gitlab.example.org' {
+  class { 'basic_settings':
+    gitlab_enable => true,
+  }
+
+  class { 'gitlab':
+    root_password => lookup('gitlab::root_password'),
+    server_fdqn   => 'gitlab.example.org',
+    require       => Class['basic_settings'],
+  }
+
+  class { 'gitlab::config':
+    https   => true,
+    require => Class['gitlab'],
+  }
+}
+
+# Proxmox changes kernels and schedules a reboot; provide its repository without reusing paths owned by basic_settings.
+node 'proxmox01.example.org' {
+  include basic_settings
+
+  class { 'proxmox':
+    require => Class['basic_settings'],
   }
 }

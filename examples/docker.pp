@@ -140,7 +140,7 @@ node 'authentik.example.org' {
     require                    => [Class['docker'], Class['nginx']],
   }
 
-  docker::authentik_admin { 'kevin.admin':
+  docker::authentik_admin { 'platform.admin':
     compose_name => 'authentik',
     email        => 'info@example.org',
     password     => Sensitive('replace-with-authentik-admin-password'),

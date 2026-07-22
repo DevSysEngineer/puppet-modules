@@ -66,3 +66,46 @@ node 'pull-agent.example.org' {
     require                   => Class['basic_settings'],
   }
 }
+
+# Server-side composition expects the OpenITCOCKPIT repository and the local web stack.
+node 'monitoring.example.org' {
+  class { 'basic_settings':
+    monitoring_package   => 'openitcockpit',
+    nginx_enable         => true,
+    openitcockpit_enable => true,
+    sury_enable          => true,
+  }
+
+  class { 'nginx':
+    securitytxt_contacts => ['mailto:security@example.org'],
+    require              => Class['basic_settings'],
+  }
+
+  class { 'php8':
+    curl          => true,
+    minor_version => 3,
+    require       => Class['basic_settings'],
+  }
+
+  class { 'php8::fpm':
+    require => [Class['nginx'], Class['php8']],
+  }
+
+  include openitcockpit
+
+  class { 'openitcockpit::server':
+    grafana_password => Sensitive('replace-with-grafana-admin-password'),
+    server_fdqn      => 'monitoring.example.org',
+    require          => [Class['basic_settings'], Class['nginx'], Class['php8::fpm']],
+  }
+
+  class { 'naemon':
+    require => Class['openitcockpit::server'],
+  }
+
+  naemon::host { 'web01':
+    address  => '192.0.2.10',
+    friendly => 'Webserver 01',
+    require  => Class['naemon'],
+  }
+}

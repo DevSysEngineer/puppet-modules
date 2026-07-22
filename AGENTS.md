@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This file is the leading instruction file for AI coding agents working in this repository. Read it together with the root `README.md` before making changes. The README is written in Dutch and is the first source of truth for user-facing module behavior, supported use cases, and examples. This file explains how AI agents must work safely inside the repository.
+This file is the leading instruction file for AI coding agents working in this repository. Read it together with the root `README.md` before making changes. The README is the central Dutch user guide, `examples/` contains expanded scenarios, and Puppet Strings comments are the technical source of truth for public interfaces. This file explains how AI agents must work safely inside the repository.
 
 At the time of writing there are no nested `AGENTS.md`, `AGENTS.override.md`, or root `.github/copilot-instructions.md` files. If such files are added later, the root `AGENTS.md` remains the baseline. Lower-level instruction files may add stricter local rules, but they must not weaken or contradict this file.
 
 ## Repository Overview
 
-This repository contains first-party Puppet modules for Debian and Ubuntu servers. The modules focus on hardening, systemd-based service orchestration, OpenITCOCKPIT-oriented monitoring, and controlled APT package management. The README states that the project targets 64-bit systems. Do not broaden operating system, release, or architecture support claims without updating the relevant module metadata and the Dutch README in the same change.
+This repository contains first-party Puppet modules for Debian and Ubuntu servers. The modules focus on hardening, systemd-based service orchestration, OpenITCOCKPIT-oriented monitoring, and controlled APT package management. The complete module set primarily targets `amd64`; some platform code has narrower or broader architecture and release paths. Do not broaden operating system, release, architecture, Puppet, or OpenVox support claims without reconciling the implementation, relevant module metadata, available tests, and the Dutch README in the same change.
 
 First-party modules:
 
@@ -332,23 +332,38 @@ This repository prefers tight internal Puppet integration over large external Pu
 
 ## Documentation Standards
 
-Language and ownership:
+Documentation model and ownership:
 
 - Write technical documentation in English. This includes Puppet Strings documentation, examples outside the Dutch README, changelog entries, and this `AGENTS.md` file.
 - When adding or changing instructions in `AGENTS.md`, write them as project-wide rules rather than rules tied to one class, defined type, function, template, or recent change. Mention a specific module or class only when the rule truly applies only there; otherwise describe the general pattern and use concrete names only as optional examples.
 - When adding learned behavior to `AGENTS.md`, place one generic rule in the narrowest relevant section instead of duplicating the same instruction in multiple sections or with multiple wording variants.
 - Keep the root `README.md` in Dutch unless the user explicitly asks otherwise. README examples may contain Puppet code, but the surrounding explanation must stay Dutch.
-- Keep documentation close to the code it describes, unless the topic belongs in the root README or a separate architecture/operations document.
+- Treat `README.md` as the central user guide for the project introduction, capabilities, compatibility, installation, quick start, major security choices, module overviews, compact examples, and navigation to deeper information.
+- Do not create a `docs/` tree, a manual `REFERENCE.md`, or another documentation hierarchy for information that Puppet Strings can generate. Use `examples/` for expanded and combined configurations, Puppet Strings and nearby code comments for full parameter, default, dependency, security, fallback, and generated-resource behavior, and comments in scripts and templates for implementation contracts.
+- Keep internal implementation documentation as close as possible to the class, defined type, script, or template it describes. Keep developer workflow and review rules in `AGENTS.md`.
 
 README structure and examples:
 
-- Keep the README as a readable Dutch start guide with medium-depth operational detail, not as a shallow index and not as an exhaustive parameter reference. Each module section should explain what the module manages, important defaults, security and monitoring expectations, common integration choices, and the most important usage risks; leave full option semantics and internal implementation details to Puppet Strings comments, manifests, editor completion, and linter feedback.
+- Apply progressive disclosure in this order: purpose, standard usage, main properties, risks and limitations, compact example, and a link to expanded examples or Puppet Strings. A reader must understand what a component does before encountering internal detail.
+- Keep the README technically complete for operator decisions without turning it into an exhaustive parameter or implementation reference. It does not normally contain complete parameter lists, every parameter combination, detailed fallback chains, exact internal script behavior, per-check output contracts, exceptional recovery procedures, or developer-only implementation detail.
+- Before adding a README detail, decide whether every user needs it before use, whether it affects security or compatibility, whether the basic example requires it, and whether the authoritative explanation belongs with a Puppet parameter, script, template, or expanded example instead. Technical importance alone is not a reason to duplicate implementation documentation in the README.
 - Maintain a README `## Inhoudsopgave` near the top with links to the main sections and nested module links when module sections exist. Do not use `Legenda` when the intent is a table of contents.
-- Keep placeholder and secret-handling explanation in a short `## Gebruik van voorbeelden` section near the top. Explain placeholder hostnames, replacement values, and `Sensitive(...)` handling there instead of repeating that context in every section.
+- Keep placeholder and secret-handling explanation near the quick start. Explain placeholder hostnames, replacement values, Hiera use, and `Sensitive(...)` handling centrally instead of repeating that context in every section.
 - Put expanded usage variants in the `examples/` directory rather than making README module sections deeply nested. When a user-facing option set grows, add or update a focused example file and link it from the README.
-- Keep a bottom-level README `## Voorbeelden` link list, similar in spirit to `## Checks`, so users can find richer example files without turning each module section into full reference documentation.
-- Match the current README tone, structure, and sectioning. Use the existing `##` sections and `### Voorbeeld` / `### Voorbeelden` pattern, and keep prose concise, practical, and infrastructure-focused. Do not paste generic boilerplate.
+- Keep a bottom-level README expanded-examples link list, similar in spirit to the available-checks list, so users can find richer example files without turning each module section into full reference documentation.
+- Structure each main module section with its purpose, no more than five to eight important properties, pre-use conditions or risks, one compact basic example, a link to a relevant file under `examples/`, and a Puppet Strings pointer. When a section grows, remove repetition or move expanded scenarios and authoritative parameter detail to their correct layer before merely adding more README text.
+- Match the current README tone and structure, and keep prose direct, practical, and infrastructure-focused. Do not paste generic boilerplate or optimize for a shorter README at the expense of operational knowledge; accessibility and correct information placement determine the appropriate length.
+- Write the Dutch README in ordinary, accessible language. Prefer direct phrases such as "de modules in dit project" over repository-maintainer terms such as "first-party modules", and explain unavoidable metadata or implementation terms before using them.
+- Preserve intentional author viewpoints, warnings, and project context when reorganizing the README. Do not remove them merely to make the document sound neutral or uniformly polished.
+- Avoid generated-sounding prose, repeated stock sentences, abstract transition language, and synonyms that are uncommon in everyday technical Dutch. State what the module does, what can go wrong, and what the user should do in concrete terms.
 - Start README prose list items with a capital letter. Keep exact code identifiers, module names, class names, paths, and literals in their original case.
+
+Examples:
+
+- Reuse the existing scenario files under `examples/` before creating a new file. Add a file only when the subject does not fit an existing scenario and is substantial enough to stand alone.
+- Keep examples syntactically valid, executable for the documented scenario, aligned with current public interfaces, and limited to parameters needed to understand that scenario.
+- Use `example.org`, documentation address ranges, and `replace-with-...` placeholders. Do not include internal hostnames, addresses, usernames, domains, or real secrets. Use `Sensitive(...)` whenever the public datatype supports it and retrieve secrets for legacy String interfaces from protected Hiera data instead of embedding them in manifests.
+- Update examples whenever a public class, defined type, parameter, relationship, default, or required composition changes. Do not duplicate the same large code block in the README and `examples/`.
 
 Markdown style:
 
@@ -370,16 +385,22 @@ Public API documentation:
 
 - Document public Puppet classes and defined types with Puppet Strings-style comments directly above the element.
 - Use `@summary` for a short one-line purpose.
-- Add a short description when the class or defined type has operational impact, security impact, dependencies, generated files, managed services, or non-obvious behavior.
-- Document parameters with `@param`, including expected values, defaults, and operational effect where relevant.
-- Add an `@example` for reusable classes or defined types where usage is not immediately obvious.
+- Add a useful description of purpose, main behavior, important dependencies, possible impact on existing configuration, relevant security choices, and generated resources where applicable.
+- Document every public parameter with `@param`, including the datatype contract, default meaning, special `undef`, `true`, or `false` behavior, allowed values not already expressed by its type, and security or compatibility impact where relevant.
+- Add a simple `@example` for every public class and defined type.
 - Mark new classes, defined types, and functions as `@api public` or `@api private` where applicable.
+- Treat Puppet Strings as the authoritative public parameter reference. Do not copy its complete parameter documentation into the README; keep a README summary short and link or point to the source documentation.
 
 Interface types and review:
 
 - Keep public Puppet interfaces typed with `String`, `Boolean`, `Enum[...]`, `Optional[...]`, `Array[...]`, a stricter built-in type, or an appropriate type alias.
 - When changing a Puppet class, defined type, function, or template, verify whether its documentation still matches the implementation.
-- For every modified `.pp` file, check whether new or changed parameters are documented, documented defaults match the code, examples remain valid, API markings are still correct, and missing nearby documentation can be added immediately without creating unrelated churn.
+- For every modified `.pp` file, check whether new or changed parameters are documented, documented defaults match the code, examples remain valid, API markings are still correct, and missing nearby documentation can be added immediately without creating unrelated churn. Remove stale or duplicated documentation in the same change.
+
+Documentation review for code changes:
+
+- Check the affected public classes, defined types, parameters, defaults, accepted values, security behavior, compatibility, generated files, examples, README, Puppet Strings, and script or template comments. Update only the information layer affected by the change.
+- Keep one authoritative location for technical information. When information must appear in more than one layer, keep one location complete and the other a concise summary with a pointer.
 
 ## Validation And Testing
 

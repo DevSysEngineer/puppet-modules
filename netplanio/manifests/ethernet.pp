@@ -8,7 +8,7 @@
 #   netplanio::ethernet { 'ens18':
 #     addresses   => ['192.0.2.10/24'],
 #     dhcp_enable => false,
-#     routes      => { 'to' => 'default', 'via' => '192.0.2.1' },
+#     routes      => { 'default' => { 'via' => '192.0.2.1' } },
 #   }
 #
 # @param addresses
@@ -33,7 +33,7 @@
 #   Sets the netplan `optional` flag for the interface.
 #
 # @param routes
-#   Optional route hash rendered into the YAML.
+#   Optional route hash keyed by destination. Every destination maps to a hash containing at least `via`, for example `{ 'default' => { 'via' => '192.0.2.1' } }`.
 #
 # @api public
 define netplanio::ethernet (

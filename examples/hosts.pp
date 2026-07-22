@@ -10,13 +10,13 @@ node 'hosts-basic.example.org' {
 
   basic_settings::hosts_entry { 'puppet':
     hostname => 'puppet',
-    ip       => '10.200.3.69',
+    ip       => '192.0.2.10',
   }
 
-  basic_settings::hosts_entry { 'checkmk':
-    comment  => 'checkmk',
-    hostname => 'bhr808619-prd.tools.vancis.io',
-    ip       => '10.200.14.10',
+  basic_settings::hosts_entry { 'monitoring':
+    comment  => 'monitoring server',
+    hostname => 'monitoring.example.org',
+    ip       => '192.0.2.20',
   }
 }
 
@@ -30,7 +30,7 @@ node 'network-only.example.org' {
   basic_settings::hosts_entry { 'internal-api':
     comment  => 'internal api endpoint',
     hostname => 'api.internal.example.org',
-    ip       => '10.200.20.15',
+    ip       => '192.0.2.30',
   }
 }
 
@@ -41,6 +41,6 @@ node 'hosts-direct.example.org' {
 
   basic_settings::hosts_entry { 'mail-relay':
     hostname => 'mail-relay.internal.example.org',
-    ip       => '10.200.30.25',
+    ip       => '192.0.2.40',
   }
 }

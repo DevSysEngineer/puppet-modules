@@ -20,7 +20,7 @@ node 'database.example.org' {
     nice_level                => 12,
     package_name              => 'mysql',
     package_version           => 8.0,
-    root_password             => 'replace-with-root-password',
+    root_password             => lookup('mysql::root_password'),
     settings                  => {
       'innodb_buffer_pool_size' => '1G',
       'max_connections'         => 500,
@@ -39,7 +39,7 @@ node 'database.example.org' {
   mysql::user { 'app':
     ensure           => present,
     hostname         => 'localhost',
-    password         => 'replace-with-app-password',
+    password         => lookup('mysql::app_password'),
     password_latency => 'password',
     username         => 'app',
     require          => Class['mysql'],
@@ -86,7 +86,7 @@ node 'rabbitmq.example.org' {
   class { 'rabbitmq::management':
     admin_config_path   => '/etc/rabbitmq/rabbitmqadmin.conf',
     admin_enable        => true,
-    admin_password      => 'replace-with-admin-password',
+    admin_password      => lookup('rabbitmq::admin_password'),
     default_queue_type  => 'quorum',
     port                => 15672,
     ssl_port            => 15671,
@@ -140,7 +140,7 @@ node 'rabbitmq.example.org' {
 
   rabbitmq::management_user { 'app':
     ensure   => present,
-    password => 'replace-with-app-password',
+    password => lookup('rabbitmq::app_password'),
     tags     => [],
     require  => Class['rabbitmq::management'],
   }
