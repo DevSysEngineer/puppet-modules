@@ -61,7 +61,7 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 
 ## Ondersteuning en compatibiliteit
 
-Gebruik de modules bij voorkeur op Debian 12, Ubuntu 22.04 LTS of Ubuntu 24.04 LTS. Ubuntu 23.04 wordt nog door de code ondersteund, maar krijgt geen beveiligingsupdates meer en is daarom geen goede keuze voor nieuwe servers. Debian 11 en Debian 13 worden niet overal hetzelfde afgehandeld en zijn nog niet geschikt voor de volledige combinatie van modules.
+De modules ondersteunen Debian 11, Debian 12, Debian 13, Ubuntu 22.04 LTS, Ubuntu 23.04, Ubuntu 24.04 LTS en Ubuntu 26.04 LTS. Gebruik voor nieuwe servers bij voorkeur een release die nog reguliere beveiligingsupdates ontvangt. Sommige platformonderdelen hebben een beperktere ondersteuning; controleer daarom altijd de aandachtspunten bij de betreffende module.
 
 De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` werkt ook op andere 64-bits architecturen, maar pakketbronnen voor bijvoorbeeld MySQL en RabbitMQ worden daar niet altijd ingeschakeld. Test daarom iedere gewenste combinatie zelf wanneer je geen `amd64` gebruikt.
 

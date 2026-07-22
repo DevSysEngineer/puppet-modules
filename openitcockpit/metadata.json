@@ -22,7 +22,8 @@
             "operatingsystem": "Debian",
             "operatingsystemrelease": [
                 "11",
-                "12"
+                "12",
+                "13"
             ]
         },
         {
@@ -30,14 +31,15 @@
             "operatingsystemrelease": [
                 "22.04",
                 "23.04",
-                "24.04"
+                "24.04",
+                "26.04"
             ]
         }
     ],
     "requirements": [
         {
             "name": "puppet",
-            "version_requirement": ">= 5.5.0 < 9.0.0"
+            "version_requirement": ">= 5.5.0 < 10.0.0"
         }
     ],
     "tags": [

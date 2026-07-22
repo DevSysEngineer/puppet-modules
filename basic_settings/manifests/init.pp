@@ -395,7 +395,34 @@ class basic_settings (
       }
 
       # Do thing based on version
-      if ($facts['os']['release']['major'] == '24.04') { # LTS
+      if ($facts['os']['release']['major'] == '26.04') { # LTS
+        $backports_allow = false
+        $deb_version = '822'
+        $docker_allow = true
+        $gcc_version = 16
+        $gitlab_allow = true
+        $mongodb_allow = true
+        $mozilla_allow = true
+        if ($facts['os']['architecture'] == 'amd64') {
+          $mysql_allow = true
+          $rabbitmq_allow = true
+        } else {
+          $mysql_allow = false
+          $rabbitmq_allow = false
+        }
+        $nginx_allow = true
+        $nodejs_allow = true
+        $openitcockpit_allow = true
+        $openjdk_allow = true
+        $os_name = 'resolute'
+        $ram_disk_package = 'initramfs'
+        $proxmox_allow = false
+        $puppetserver_dirname = 'puppetserver'
+        $puppetserver_jdk = true
+        $puppetserver_package = "${puppetserver_prefix}server"
+        $sury_allow = true
+        $voxpupuli_allow = true
+      } elsif ($facts['os']['release']['major'] == '24.04') { # LTS
         $backports_allow = false
         $deb_version = '822'
         $docker_allow = true
