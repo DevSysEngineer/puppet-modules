@@ -50,6 +50,9 @@
 # @param hosts_enable
 #   Enables ownership of `/etc/hosts` through concat using the short hostname and `server_fdqn`.
 #
+# @param hosts_localhost_aliases
+#   Additional host aliases appended to the `127.0.0.1 localhost` record when hosts management is enabled.
+#
 # @param install_options
 #   Additional APT install options merged into selected package resources.
 #
@@ -82,6 +85,7 @@ class basic_settings::network (
   String                                      $firewall_path          = '/etc/firewall.conf',
   Boolean                                     $firewall_remove        = true,
   Boolean                                     $hosts_enable           = false,
+  Array[String[1]]                            $hosts_localhost_aliases = [],
   Array                                       $install_options        = [],
   Array                                       $interfaces             = ['eth*', 'ens*', 'wlan*'],
   String                                      $server_fdqn            = $facts['networking']['fqdn'],
@@ -131,7 +135,8 @@ class basic_settings::network (
   if ($hosts_enable) {
     # Delegate hosts-file ownership to the dedicated hosts class while preserving the configured FQDN.
     class { 'basic_settings::hosts':
-      server_fdqn => $server_fdqn,
+      localhost_aliases => $hosts_localhost_aliases,
+      server_fdqn       => $server_fdqn,
     }
   }
 

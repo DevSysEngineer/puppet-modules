@@ -3,8 +3,9 @@
 
 node 'hosts-basic.example.org' {
   class { 'basic_settings':
-    hosts_enable => true,
-    server_fdqn  => 'hosts-basic.example.org',
+    hosts_enable            => true,
+    hosts_localhost_aliases => ['puppet', 'test'],
+    server_fdqn             => 'hosts-basic.example.org',
   }
 
   basic_settings::hosts_entry { 'puppet':

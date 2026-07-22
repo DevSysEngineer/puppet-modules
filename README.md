@@ -204,14 +204,15 @@ node 'webserver.dev.xxxx.nl' {
 
 `basic_settings::login_user` houdt home-, `.ssh`- en shell-startupbestanden privé. Wanneer je `home_source` of `private_key` gebruikt, moet de bron met `puppet:///`, `file:///` of `https://` beginnen; gewone HTTP-bronnen worden bewust geweigerd.
 
-`basic_settings::network` kan `/etc/hosts` via de aparte `basic_settings::hosts` class volledig met `concat` beheren. Zet hiervoor `hosts_enable => true` in `basic_settings` of direct op `basic_settings::network`, of declareer `basic_settings::hosts` los. De hosts-class schrijft de standaard localhost- en IPv6-regels en gebruikt de korte hostname samen met `server_fdqn` voor de `127.0.1.1`-regel. Als de volledige naam ontbreekt of gelijk is aan de korte hostname, wordt er geen lege of dubbele alias geschreven.
+`basic_settings::network` kan `/etc/hosts` via de aparte `basic_settings::hosts` class volledig met `concat` beheren. Zet hiervoor `hosts_enable => true` in `basic_settings` of direct op `basic_settings::network`, of declareer `basic_settings::hosts` los. De hosts-class schrijft de standaard localhost- en IPv6-regels en gebruikt de korte hostname samen met `server_fdqn` voor de `127.0.1.1`-regel. Als de volledige naam ontbreekt of gelijk is aan de korte hostname, wordt er geen lege of dubbele alias geschreven. Met `hosts_localhost_aliases => ['puppet', 'test']` op `basic_settings` of `basic_settings::network` voeg je deze namen toe aan de localhost-regel, zodat die `127.0.0.1 localhost puppet test` wordt. Gebruik bij een directe declaratie van `basic_settings::hosts` hiervoor de parameter `localhost_aliases`.
 
 Extra regels voeg je toe met `basic_settings::hosts_entry`. De commentaarregel gebruikt standaard de titel van de resource; geef `comment` mee wanneer de zichtbare omschrijving anders moet zijn.
 
 ```puppet
 node 'webserver.dev.xxxx.nl' {
     class { 'basic_settings':
-        hosts_enable => true,
+        hosts_enable            => true,
+        hosts_localhost_aliases => ['puppet', 'test'],
     }
 
     basic_settings::hosts_entry { 'puppet':

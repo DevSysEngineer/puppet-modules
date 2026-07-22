@@ -67,6 +67,9 @@
 # @param hosts_enable
 #   Enables management of `/etc/hosts` through `basic_settings::network`.
 #
+# @param hosts_localhost_aliases
+#   Additional host aliases appended to the `127.0.0.1 localhost` record.
+#
 # @param ip_configurator_package
 #   Optional network configuration frontend, currently `none` or `netplan.io`.
 #
@@ -297,6 +300,7 @@ class basic_settings (
   Boolean                               $guest_agent_enable                         = false,
   Enum['none','kiosk','adwaita-icon']   $gui_mode                                   = 'none',
   Boolean                               $hosts_enable                               = false,
+  Array[String[1]]                      $hosts_localhost_aliases                    = [],
   Enum['none','netplan.io']             $ip_configurator_package                    = 'none',
   Boolean                               $ip_dhcp_enable                             = true,
   Boolean                               $ip_ra_enable                               = true,
@@ -851,20 +855,21 @@ class basic_settings (
 
   # Set network
   class { 'basic_settings::network':
-    antivirus_package    => $antivirus_package,
-    communication_name   => $communication_name,
-    configurator_package => $ip_configurator_package,
-    dhcp_enable          => $ip_dhcp_enable,
-    dns_dnssec           => $dns_dnssec,
-    environment          => $environment,
-    firewall_package     => $firewall_package,
-    firewall_remove      => $firewall_remove,
-    hosts_enable         => $hosts_enable,
-    install_options      => $backports_install_options,
-    interfaces           => $network_interfaces,
-    server_fdqn          => $server_fdqn,
-    wireless_enable      => $wireless_enable,
-    require              => [File['basic_settings_source'], Class['basic_settings::monitoring']],
+    antivirus_package       => $antivirus_package,
+    communication_name      => $communication_name,
+    configurator_package    => $ip_configurator_package,
+    dhcp_enable             => $ip_dhcp_enable,
+    dns_dnssec              => $dns_dnssec,
+    environment             => $environment,
+    firewall_package        => $firewall_package,
+    firewall_remove         => $firewall_remove,
+    hosts_enable            => $hosts_enable,
+    hosts_localhost_aliases => $hosts_localhost_aliases,
+    install_options         => $backports_install_options,
+    interfaces              => $network_interfaces,
+    server_fdqn             => $server_fdqn,
+    wireless_enable         => $wireless_enable,
+    require                 => [File['basic_settings_source'], Class['basic_settings::monitoring']],
   }
 
   # Set timezone
