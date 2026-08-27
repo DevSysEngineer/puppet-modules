@@ -1,418 +1,480 @@
 # AGENTS.md
 
-## Purpose
-
-This file is the leading instruction file for AI coding agents working in this repository. Read it together with the root `README.md` before making changes. The README is the central Dutch user guide, `examples/` contains expanded scenarios, and Puppet Strings comments are the technical source of truth for public interfaces. This file explains how AI agents must work safely inside the repository.
-
-At the time of writing there are no nested `AGENTS.md`, `AGENTS.override.md`, or root `.github/copilot-instructions.md` files. If such files are added later, the root `AGENTS.md` remains the baseline. Lower-level instruction files may add stricter local rules, but they must not weaken or contradict this file.
-
-## Repository Overview
-
-This repository contains first-party Puppet modules for Debian and Ubuntu servers. The modules focus on hardening, systemd-based service orchestration, OpenITCOCKPIT-oriented monitoring, and controlled APT package management. The complete module set primarily targets `amd64`; some platform code has narrower or broader architecture and release paths. Do not broaden operating system, release, architecture, Puppet, or OpenVox support claims without reconciling the implementation, relevant module metadata, available tests, and the Dutch README in the same change.
-
-First-party modules:
-
-- `basic_settings`
-- `docker`
-- `gitlab`
-- `letsencrypt`
-- `mysql`
-- `naemon`
-- `netplanio`
-- `nginx`
-- `openitcockpit`
-- `php8`
-- `proxmox`
-- `rabbitmq`
-- `ssh`
-- `vnstat`
-
-Vendored Git submodules:
-
-- `concat`
-- `debconf`
-- `reboot`
-- `stdlib`
-- `timezone`
-
-Do not treat vendored submodules as project style examples. Keep changes inside the first-party modules unless the task explicitly asks to update or patch a vendored dependency.
-
-Important layout:
-
-- Root `README.md`: Dutch user-facing documentation and examples.
-- Root `AGENTS.md`: AI-agent workflow, style, validation, and safety rules.
-- `<module>/metadata.json`: Puppet Forge metadata where present.
-- `<module>/manifests/`: Puppet classes and defined types.
-- `<module>/templates/`: ERB templates rendered by Puppet.
-- `<module>/files/`: Static files served through `puppet:///modules/...`.
-- `examples/`: Example Puppet usage.
-
-`basic_settings` is the foundation module. It provides shared orchestration for base packages, APT sources, systemd targets, monitoring plumbing, login policy, security tooling, package hygiene, kernel/network tuning, timezone, and Puppet runtime behavior. Prefer extending these local helpers over introducing external architecture.
-
-Shared primitives in `basic_settings` include:
-
-- `basic_settings::systemd_target`
-- `basic_settings::systemd_drop_in`
-- `basic_settings::systemd_service`
-- `basic_settings::systemd_timer`
-- `basic_settings::systemd_network`
-- `basic_settings::monitoring_service`
-- `basic_settings::monitoring_custom`
-- `basic_settings::monitoring_timer`
-- `basic_settings::monitoring_npm_audit`
-- `basic_settings::security_audit`
-- `basic_settings::io_logrotate`
-- `basic_settings::login_sudo`
-
-The systemd target ladder created by `basic_settings::systemd` is a core composition mechanism:
-
-- `${cluster_id}-system`
-- `${cluster_id}-storage`
-- `${cluster_id}-services`
-- `${cluster_id}-production`
-- `${cluster_id}-helpers`
-- `${cluster_id}-require-services`
-
-Service modules that integrate with `basic_settings` usually disable vendor service enablement, add a `basic_settings::systemd_drop_in`, bind the service to one of the shared targets, and add `OnFailure=notify-failed@%i.service` when monitoring is active.
-
-Monitoring is centralized around the OpenITCOCKPIT agent model:
-
-- `basic_settings::monitoring` prepares `/etc/openitcockpit-agent`.
-- Checks are installed under `/etc/openitcockpit-agent/plugins`.
-- `concat` and `concat::fragment` build `customchecks.ini`.
-- Shared monitoring defined types generate service, timer, and custom check registration instead of duplicating plugin wiring in each module.
-
-## Working Rules
-
-Preparation:
-
-- Read `README.md` and the relevant module files first.
-- Check `git status --short` and preserve unrelated user changes.
-- When the user has already edited code to correct an agent's approach, inspect and preserve that edit as the current preferred pattern. Do not reapply an earlier approach from conversation memory unless the user explicitly asks for it.
-- Identify whether the change touches a first-party module or a vendored submodule.
-- Inspect the touched module's `metadata.json` when present.
-- Read related `manifests/`, `templates/`, `files/`, README sections, examples, and systemd units before changing structure or behavior.
-- Check whether the module already integrates with `basic_settings`, `basic_settings::monitoring`, `basic_settings::systemd`, `basic_settings::security_audit`, `php8::fpm`, `nginx`, or another local module.
-- Look for existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
-
-Impact review:
-
-For every change, assess whether it affects:
-
-- Repository conventions or coding style.
-- Puppet abstractions, wrappers, or reusable patterns.
-- systemd units, ordering, targets, hardening, restart behavior, or failure handling.
-- Linux security behavior, permissions, users, groups, capabilities, sudo, or secrets.
-- Network behavior, ports, sockets, firewall assumptions, TLS, headers, or service dependencies.
-- Monitoring, logging, alerting, audit rules, or operational diagnostics.
-- Documentation, examples, supported platforms, or operational commands.
-
-Scope control:
-
-Keep edits scoped to the requested task and the affected module. Do not perform unrelated refactors. If a small refactor is needed to make the change safe or clear, keep it local and explain it in the final response.
-
-Systemd changes:
-
-When changing systemd-related code, inspect every generated or modified unit in scope, including `basic_settings::systemd_service`, `basic_settings::systemd_drop_in`, vendor-unit drop-ins, direct `service` resources, templates, files, and wrappers. Sort affected final systemd unit names alphabetically when reporting review decisions.
-
-## Coding Standards
-
-### Code Comments And Local Documentation
-
-These rules are the single source of truth for inline comments in Puppet manifests, ERB templates, generated configs, and scripts. Language-specific sections may define resource order, setup order, and public API documentation, but must not restate the general comment policy.
-
-Language and wrapping:
-
-- Write code comments in English unless the managed software requires another language for generated config comments.
-- Do not hard-wrap code comments, Puppet Strings text, generated config comments, or inline documentation at an arbitrary character count anywhere in the repository. Keep one comment sentence on one physical line; split only for real structure such as separate sentences, list items, examples, syntax requirements, or a genuinely complex list, and unwrap arbitrary line-length breaks when touching nearby comments.
-
-What to comment:
-
-- Add comments for purpose, context, constraints, side effects, external contracts, fallback behavior, security-sensitive decisions, and non-obvious control flow. Do not add obvious comments that only repeat the code.
-- Add short comments directly above non-obvious resource groups, `exec` resources, derived values, conditional directive lists, delegated resources, cleanup paths, shell escaping boundary preparation, shell parsing, classification, status aggregation, fallback handling, output-building blocks, and meaningful helper functions.
-- Put a short comment directly above each non-trivial function, helper, wrapper, template logic block, or reusable Puppet resource group. The comment should name its operational purpose and, when relevant, its inputs, output format, managed-resource impact, exit-code or monitoring impact, or preserved external contract.
-- Put orienting comments above each meaningful default, threshold, state, counter, summary, perfdata, path, permission, command, derived-value, and resource-relationship variable block. Split large assignment sections into smaller commented groups instead of leaving a long run under one generic header.
-- Avoid long uncommented parser, classifier, renderer, resource-construction, or validation runs, including embedded AWK, jq, Ruby, SQL, shell case/loop blocks, ERB branches, and Puppet conditionals. Add internal comments at the points where scope changes, input is normalized, records or resources are classified, status or relationships are aggregated, output is bounded, security boundaries are prepared, fallback behavior is selected, or external behavior is preserved.
-
-Review before finishing:
-
-- For new or materially changed Puppet manifests, shell scripts, shell templates, and generated configs, match the comment density of the surrounding well-documented code.
-- Before finishing a code change, review the diff for uncommented non-obvious blocks and stale, duplicated, unclear, or outdated nearby comments. If the user would need to add comments afterward to understand the change, add them before final validation.
-
-### Puppet
-
-Public interfaces and module boundaries:
-
-- Use explicit typed parameters for public classes and defined types.
-- Prefer parameterized classes plus small defined types over hidden behavior.
-- Keep module responsibilities narrow and composable, as in `php8`, `php8::fpm`, `php8::fpm_pool`, `rabbitmq`, and `rabbitmq::management`.
-- Reuse `basic_settings` helpers for systemd units, timers, sudoers, logrotate, monitoring, and audit resources before creating one-off implementations.
-- When a defined type requires a parent class, guard it with `defined(Class['...'])` and fail clearly if the class is missing.
-- When the same `defined(...)` check is needed multiple times in one manifest, assign it once to a clearly named variable and reuse that variable.
-
-Templates, files, and sources:
-
-- Use ERB templates through `template(...)`. This repository uses `templates/` plus ERB, not EPP.
-- When generated files differ only by a small optional scope, prefer one ERB template with clear conditional branches over multiple near-identical templates. Add a second template only when the generated formats or ownership boundaries are meaningfully different.
-- Use `files/` and `puppet:///modules/...` for static assets.
-- When validating file source URI schemes, include `puppet:///` wherever module files are valid input, not only `file:///` and HTTPS.
-- Prefer predictable paths and resource titles.
-
-Packages and managed file trees:
-
-- Keep package installation minimal with `install_options => ['--no-install-recommends', '--no-install-suggests']` unless a concrete package needs recommends or suggests.
-- Use `purge => true`, `recurse => true`, and `force => true` only for directories the module fully owns.
-- When recursively managing a mixed directory/file tree with Puppet `file`, do not use a numeric executable mode such as `0700` or `0750` as a blanket mode. Use a non-executable file mode such as `0600` when every regular file should be private and non-executable; Puppet adds directory search bits for numeric directory modes, so recursive `0600` still yields traversable `0700` directories.
-- If a recursively managed tree contains real executables, manage directory and file modes separately and add execute bits only to those executable files.
-- Preserve `replace => false` for installer-generated or first-create files that must survive later Puppet runs.
-- Keep file ownership and modes explicit.
-
-Resource ordering and local integration:
-
-- Preserve explicit `require`, `notify`, and `subscribe` relationships. This repository relies on visible ordering more than implicit autorequires.
-- Keep monitoring and audit wiring close to the managed resource.
-- When fixing dependency cycles, inspect the real catalog relationship and Puppet containment path first, then remove or narrow the illogical ordering edge at its source. Do not replace an intended Puppet relationship, such as `notify => Service['nginx']`, with ad hoc runtime commands like direct `systemctl`, `service`, or reload `exec` calls just to avoid a cycle; preserve the semantic resource relationship and adjust broad class-level ordering or bind to a narrower stable resource anchor instead.
-- When a defined type depends on another class or defined-type resource that may or may not be declared, keep the dependent code inside the positive `if defined(...)` branch and put the clear `fail(...)` in the `else`. Bind `require` to an accepted declared resource or documented anchor inside that branch. Do not create a resource reference before the existence check has succeeded, and do not let the manifest continue after a failed contract check.
-- Treat `defined(Resource[title])` as current catalog-evaluation visibility, not as a complete final-catalog query. When a dependency may be emitted by a wrapper defined type, do not check only the nested resource; check the accepted visible anchors in a stable order, such as direct resource, wrapper resource, then parent wrapper, and bind the relationship to the first visible anchor.
-- When a defined type consumes data from another defined type, keep one authoritative source for that data. Do not reconstruct derived paths, filenames, ports, unit names, or other dependency-owned values in the consumer when the source resource can expose them through managed resources, resource aliases, service titles, or an explicitly accepted API; read the data from that source and add catalog validation for the contract.
-- If the source defined type does not expose enough data and the user rejects expanding its public interface, do not add hidden, internal, undocumented, or convenience parameters to work around that rejection. Use an already accepted contract or a runtime lookup against stable external metadata when that keeps dependency-owned values in one place.
-
-Public settings and compatibility:
-
-For configurable hardening values that need a secure default, explicit opt-out, and custom override, prefer a single `Variant[Boolean, String]` parameter, or a narrow scalar variant such as `Variant[Boolean, Integer[0]]` for numeric values. Resolve it once into a clearly named `*_correct` variable near related logic: `true` means the named secure default, `false` disables the emitted setting, and the scalar value is the explicit override. Templates must consume the resolved value rather than reimplementing boolean/scalar handling.
-
-When replacing older split interfaces such as `*_enable` plus `*_custom`, `*_value`, or `*_max_age`, collapse the public API to the single meaningful setting name unless backwards compatibility is explicitly required.
-
-Parameter ordering and formatting:
-
-- For groups of related Puppet parameters, start with the main topic and put the specific option after it in snake_case, for example `bandwidth_max`, `p95_warning`, and `p95_critical`. Put fallback, previous, custom, max, min, warning, critical, and similar qualifiers after the base setting, for example `secret_key_fallback`, not `fallback_secret_key`. Avoid public class or defined-type parameter names that begin with a digit unless that exact syntax has been tested in the supported Puppet versions; prefer readable prefixes such as `p95_` for percentile-related settings.
-- In class and defined-type parameter lists, put mandatory parameters first and sort them alphabetically by parameter name.
-- Mandatory means the parameter is not typed as `Optional[...]` and has no default.
-- After mandatory parameters, put all optional parameters alphabetically. Optional means the parameter is typed as `Optional[...]` or has any default value.
-- If Puppet's left-to-right default evaluation requires a parameter to stay before another parameter, keep that dependency order and add a short trailing comment explaining why.
-- Align the type column, parameter-name column, `=` signs, and default values across the full parameter block.
-- Keep Puppet Strings `@param` entries in the same order as the class or defined-type parameter block so review can verify required and optional parameters without cross-referencing scattered documentation.
-
-Control flow and resource structure:
-
-- When a resource differs only by optional attributes, prefer one resource with precomputed `undef` values over duplicated resource blocks. Use this only when mutually exclusive attributes such as `source` and `content` cannot both be non-`undef`.
-- When several optional resources share the same outer guard, such as `ensure == present`, put that guard around the group and keep resource-specific checks inside it instead of repeating the same conjunction on every resource.
-- For guard-style control flow, including public input validation and source URI checks, keep the main resource path inside the positive condition branch and put exceptional `fail(...)`, `warning(...)`, or fallback handling in the `else` branch. Do not write a negative guard immediately followed by the main code path when the positive branch is easier to read.
-- For parent class, defined-type, or resource contract guards, put the large dependent code path first under the positive contract condition and place the smaller failure branches after it. Do not lead with short negative `fail(...)` branches before the main block.
-- For value-resolution conditionals, put the larger substantive branch first and put the smaller fallback or direct assignment in the final `else`, regardless of whether the larger branch handles an explicit value, inherited value, default, or fallback. When the present-value path does parsing, splitting, normalization, validation, resource construction, or multiple assignments, branch on value presence first, for example `if ($value_correct != undef) { ...derive from value... } else { ...fallback... }`.
-- When a conditional has one substantive branch and one trivial assignment, put the larger substantive branch first and the small assignment in the `else`, even when that means using a positive non-empty condition such as `if (!empty($values)) { ... } else { $value = undef }`. Do not lead with a tiny `undef`, `false`, or empty-list assignment when the meaningful work is in the alternate branch.
-- For optional feature validation, compute a short failure value such as `$threshold_fail_text` or `undef`, then keep the resource-emitting path under `if ($threshold_fail_text == undef)` and call `fail($threshold_fail_text)` in the `else`. This keeps validation close to the generated output it protects and avoids failing before unrelated resources are declared.
-- Do not place standalone `fail(...)` calls in the middle of derived-value setup or resource construction. Prefer one clearly named `*_fail_text` or validation result, then put the normal resource construction in the `if (... == undef)` branch and the `fail(...)` call in the final `else`.
-- Validate optional settings only when that optional feature is actually being emitted or inherited into generated output. Do not reject unset optional values, and do not validate a feature in a top-level guard when the relevant resource block may not be created.
-- When resolving inherited or defaulted values, use clearly named `*_correct` variables in the manifest and have templates emit those resolved values. Templates may still use raw parameters to decide whether a local override line should exist, but the value written should come from the resolved variable when inheritance can affect it.
-- Keep monitoring-specific configuration resources near the monitoring section of a manifest, rather than mixed into the primary daemon configuration block, unless the file is part of the daemon's own runtime configuration.
-- When combining arrays in Puppet code, use stdlib's `concat(...)` helper instead of the `+` operator. Generated configuration ordering must remain explicit and reviewable, such as Nginx directive order.
-
-Shell in Puppet:
-
-- Escape shell variables and command substitutions meant for the runtime shell inside double-quoted Puppet strings, for example `\$tmpdir`, `\$1`, and `\$(...)`.
-- Never interpolate raw Puppet values into `exec` `command`, `onlyif`, or `unless`.
-- Precompute shell-safe dynamic values with `stdlib::shell_escape(...)`, name them with a `_shell` suffix, and use them as unquoted shell words.
-- When an `exec` or systemd `ExecStart` uses `/bin/sh -c` or `/usr/bin/bash -c`, choose one escaping boundary. Either escape the dynamic shell words with `stdlib::shell_escape(...)` and pass the assembled script as one quoted `-c` argument, or escape a full static script once when it does not contain pre-escaped fragments. Do not pass a script assembled from `*_shell` fragments through `stdlib::shell_escape(...)` again.
-- When SQL statements intentionally use trailing semicolons, preserve them. Escape the full SQL string and use `provider => shell` when escaped semicolons or shell guards would otherwise be parsed as separate commands.
-- Prefer `/usr/bin/printf %s ${value_shell}` for dynamic shell content.
-- When escaped content is interpolated into a single shell command, do not pass real newline characters through `stdlib::shell_escape(...)` when the value must remain one shell word inside one command line. Represent intended line breaks as literal `\n` sequences, escape that string once with `stdlib::shell_escape(...)`, and decode the line breaks only at the chosen output boundary, for example with `/usr/bin/printf %b ${value_shell}`. Use backslash decoding only for controlled generated content; use a `file` resource or template for arbitrary runtime or user-provided multiline text.
-- Do not use recursive chmod with an executable mode such as `chmod -R 700` or `chmod -R 750` on mixed-content trees. Normalize directories and regular files separately with `find ... -type d` and `find ... -type f`, then add execute bits only to real executables.
-- For exported application source trees, use separate passes for directories and files, for example directories `0750` and regular files `0640`. Blanket executable modes make every regular file executable and should be avoided.
-
-Local readability:
-
-Do not introduce a local variable for a value used only once unless the variable name adds domain meaning or removes a real readability problem.
-
-### Shell Scripts And Monitoring Checks
-
-Treat new shell scripts and shell templates as POSIX shell by default and use `#!/bin/sh`. Use Bash only when the implementation requires Bash features. Known Bash exceptions are:
-
-- `basic_settings/templates/login/pam/notify`
-- `mysql/files/automysqlbackup`
-
-When touching an existing Bash script, keep Bash only if the implementation still needs it. State the reason in the final response when a Bash-only exception remains.
-
-Shell conventions:
-
-Script baseline and command dependencies:
-
-- Monitoring checks must be POSIX `sh` scripts with `#!/bin/sh` and Nagios-style exit codes. Do not use Bash-only syntax or behavior in checks, including arrays, `[[ ... ]]`, `(( ... ))`, `function name`, process substitution, here-strings, `pipefail`, `read -d`, or Bash-specific parameter expansion.
-- Before changing or adding a monitoring check, inspect comparable checks in this repository and follow their section order, state variables, helper placement, and output style unless there is a concrete reason to deviate.
-- Do not reinvent monitoring-check structure, parsers, renderers, severity aggregation, long-output buffering, truncation handling, perfdata formatting, or interpretation sections when a comparable check already solves the same problem. Start from the closest existing implementation, reuse its proven pattern, and only introduce a new pattern when the existing ones do not fit the check's scope; document the reason in code or the final response when the deviation affects review.
-- Discover dependencies with direct `command -v` assignments, for example `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
-- Invoke command-path variables directly in command position, for example `$AWK ...`, `$SED ...`, and `$SYSTEMCTL ...`; do not wrap that command word in quotes. Keep normal quoting for arguments, data variables, tests, and assignments.
-- Use shell builtins such as `printf` directly.
-- Quote variables consistently and keep command dependencies explicit.
-- Use `printf`, not non-portable `echo`.
-
-Monitoring setup and options:
-
-- Keep monitoring check setup in this order: fail helper, binary checks, default variables, option parsing, helper functions, then main logic.
-- Parse monitoring-check CLI options with one POSIX `while getopts '<flags>' opt; do ... done` block. Give every supported option one explicit `case` arm that assigns `OPTARG`, and use a final `*) die "Usage: $0 [...]" ;;` arm as the single help and invalid-option path, including `-h` when a help flag is listed in the option string.
-- Keep monitoring long output enabled by default and do not add `--long-output` or `--no-long-output` toggles unless the user explicitly asks for that behavior.
-
-Managed inputs and effective configuration:
-
-- Do not add a monitoring-check configuration file or config parser unless the user explicitly asks for it or the existing module already has that pattern.
-- When a monitoring check needs Puppet-provided variables or resolved parameters, place or move the check under `templates/` and render those values directly into shell assignments, similar to `EXPECTED_LIST="<%= @usb_expected_correct %>"`; keep ERB limited to direct variable insertion, keep Puppet preparation simple and limited to parameter defaults, serialization, and shell-safe values, and let the shell check validate threshold syntax, size values, ordering, and runtime meaning.
-- For each monitoring threshold or managed data value, choose one authoritative input path. Do not expose the same value through both CLI flags and a config file unless backwards compatibility is explicitly required; keep CLI flags for runtime filters or thresholds that are not yet managed by a config file.
-- When a monitoring check depends on managed daemon or application configuration, prefer the program's effective configuration output, such as `vnstat --showconfig`, over duplicate CLI flags, sysfs fallbacks, or parallel check-only configuration values.
-
-Data handling and output construction:
-
-- Do not use temporary files or `TMPDIR` just to collect perfdata, long output, counters, or sort-order buffers. Prefer direct `printf` and shell variables; use `mktemp` only when an external command genuinely needs a file or the data is too large or unsafe to keep in variables.
-- Do not create shell variable assignments with literal blank lines embedded in quoted strings. Use `printf` formatting, explicit separators, or direct output instead.
-- Do not add wrapper functions that only hide one `printf`, assignment, or append operation. Add a function only when the name captures domain meaning, centralizes real validation/formatting, or removes meaningful duplication.
-- Before adding a long-output normalizer, sanitizer, or blank-line collapsing helper, inspect the specific output path that feeds it. Add that helper only when runtime data, external command output, or intentionally emitted section separators can actually produce raw pipes, leading or trailing blanks, or repeated blank lines; otherwise keep the local renderer simple and document why normalization is needed when it is not obvious.
-- Do not pipe fixed literal monitoring text through a pipe sanitizer as a default pattern. Sanitize pipes where dynamic values, external command output, file content, regexes, user names, unit names, resource names, or other runtime text enter the output; print static literal lines directly when they cannot contain `|`.
-- Represent embedded line breaks with `printf` formatting and escaped `\n`.
-- Use explicit sentinel tokens for serialized command-substitution metadata instead of newline-marker tricks.
-- Store shell lists as comma-separated values and split them deliberately.
-- Keep single-use shell logic inline unless a function materially improves reuse or readability.
-- Prefer the main path in `if` branches and put smaller exceptional fallbacks in `else`.
-
-Executable permissions:
-
-- Only mark real executables as executable.
-
-Monitoring output conventions:
-
-Audience and scope:
-
-- Monitoring checks must produce actionable output for operators who may only see the result in OpenITCOCKPIT or on a wallboard and may not have direct shell access to the host.
-- When a check has a deliberate limited scope, the output must make that scope clear. For example, if a check primarily validates configuration but also reports runtime context, the output must distinguish between configuration errors, runtime failures, contextual warnings, and unknown or inconclusive states.
-- Contextual findings may be shown in detail output, but must not affect the exit code unless they are part of the check's defined scope.
-
-Summary line:
-
-- Emit one natural, operator-readable summary line plus optional perfdata or long output.
-- The first output line must be specific enough to support triage. It must not only state that something is wrong, but also explain what is wrong and whether escalation is likely needed.
-- The first visible monitoring output line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; rely on the Nagios exit code for machine state and start the text with the checked service, unit, module, or resource.
-- When a monitoring UI displays a state prefix such as `WARNING:` or `CRITICAL:` from the Nagios exit code, the check-owned text after that prefix must still be specific. Avoid generic output bodies such as `needs attention`, `state degraded`, or `check failed`; prefer specific bodies such as `systemd manager degraded: 2 failed unit(s); no systemd config errors found`, `systemd configuration invalid: 1 actionable bad-setting unit found`, or `systemd configuration check inconclusive: systemctl unavailable`.
-- Do not prepend or label short-output cause lists with Nagios state names such as `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`. The short output should name the checked object and direct cause, while the exit code carries the machine state.
-- When a check returns WARNING, CRITICAL, or UNKNOWN, include the primary interface, unit, resource, or object and the direct cause in the short output. Long output is for diagnosis and supporting detail, not for discovering the main reason the check failed.
-- Keep summary text cause-oriented; put detailed counters in perfdata or long output.
-- Do not list zero-count status categories in monitoring summaries. If there are no findings, say that the checked target is healthy or running as expected.
-- Do not print threshold values, threshold inventories, final decision labels, or explanatory decision rationale in monitoring summaries or long output. Thresholds belong in perfdata when useful, while operator-readable output should focus on the checked object, current measured values, and the direct alert cause.
-- Do not embed perfdata-style `key=value` fragments in the summary text.
-
-Detail output:
-
-- Monitoring detail output must explain the first line by showing the affected component, the observed state, the likely cause when known, whether the issue is actionable by this check, and the recommended next step or escalation path when useful.
-- For checks with non-trivial long output, make `Interpretation:` the final long-output section after all primary findings and supporting details. It must explain how to read the displayed data, what is inside or outside the check scope, whether contextual findings affected the exit code, and what the operator should inspect or escalate next. Keep it factual and do not repeat threshold inventories, perfdata, or final decision labels.
-- Print the most diagnostically important long-output section first.
-- Each monitoring check must use one long-output truncation method for its diagnostic body. Do not combine separate line, item, block, and character caps on the same long-output path; choose the one method that matches the check's operator contract and name its public setting accordingly. Separate caps are allowed only for a different output surface, such as short-output cause lists or command input sampling, and must not also truncate the same long-output diagnostics.
-- Long detail sections must have one configurable size limit and state explicitly when output was truncated.
-- When long output can exceed monitoring UI limits, apply a configurable total character limit to the diagnostic content above `Interpretation:` and emit the truncation marker before `Interpretation:` so the final guidance cannot be pushed out of view by earlier details.
-- Do not emit consecutive blank lines in monitoring output. Use exactly one blank line to separate distinct output sections when that improves readability, and avoid leading or trailing blank lines.
-- Do not print raw `|` characters in monitoring long output; Nagios-style parsers treat pipes on continuation lines as perfdata separators, so sanitize regexes, command output, and other runtime text before printing it after the first line.
-
-Perfdata:
-
-- Perfdata labels must be lowercase snake_case, for example `memory_used`, not `Memory_Used`; labels must start with a lowercase letter and use only lowercase letters, digits, and underscores.
-- Do not encode units in perfdata labels, including prefixes or suffixes such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, `_pct`, `_bytes`, `_seconds`, `_mbit`, or `_bps`. Put units in the perfdata UOM field (unit of measurement), for example `%`, `B`, `s`, or `Mbps`, and keep labels compact and stable.
-- Do not pad absent perfdata fields with empty semicolons. When warning, critical, minimum, and maximum are all absent, emit `label=value` instead of `label=value;` or `label=value;;;;`; include semicolons only through the last populated optional field, for example `label=value;warn;crit` or `label=value;;;0`.
-- Use the `c` UOM for monotonic continuous counters, such as packet counters, byte counters, cumulative event totals, and restart counters that only increase until the source resets. Do not use `c` for gauges, bounded inventory counts, current utilization, high-water marks, rates, or period totals that reset on a schedule.
-
-Exit codes and contracts:
-
-- Avoid changing exit-code semantics without documenting the operational reason.
-- When changing monitoring checks, preserve the external contract unless the task explicitly changes it. The contract includes exit codes, summary-line shape, perfdata keys, option flags, generated path names, and registration names.
+## Scope And Authority
+
+- This file is the leading instruction file for coding agents working in this repository.
+- Agents must read this file and the root `README.md` before making changes.
+- The root `AGENTS.md` is the project-wide baseline. A lower-level `AGENTS.md`, `AGENTS.override.md`, or applicable agent instruction file may add stricter local rules, but it must not weaken or contradict this file.
+- The root `README.md` is the central Dutch user guide.
+- Puppet Strings comments are the technical source of truth for public Puppet interfaces.
+- Expanded configuration scenarios belong in `examples/`.
+
+## Project Constraints
+
+### Supported Scope
+
+- This repository contains first-party Puppet modules for Debian and Ubuntu servers.
+- The complete module set primarily targets `amd64`. Individual platform paths may support a narrower or broader set of releases or architectures.
+- Support claims for operating systems, releases, architectures, Puppet, or OpenVox must match the implementation, relevant `metadata.json`, available validation, and the Dutch README in the same change.
+- Treat all module directories listed in the README as first-party except the vendored Git submodules `concat`, `debconf`, `reboot`, `stdlib`, and `timezone`.
+- Changes must remain inside first-party modules unless the task explicitly requires a vendored dependency change.
+- Vendored submodules must not be used as project style examples.
+
+### Foundation Architecture
+
+- `basic_settings` is the foundation module for shared packages, APT sources, systemd orchestration, monitoring, login policy, security tooling, package hygiene, kernel and network tuning, timezone, and Puppet runtime behavior.
+- Prefer extending an applicable `basic_settings` primitive over introducing parallel project architecture.
+- Reuse `basic_settings::systemd_target`, `basic_settings::systemd_drop_in`, `basic_settings::systemd_service`, `basic_settings::systemd_timer`, and `basic_settings::systemd_network` for shared systemd behavior.
+- Reuse `basic_settings::monitoring_service`, `basic_settings::monitoring_custom`, `basic_settings::monitoring_timer`, and `basic_settings::monitoring_npm_audit` for monitoring integration.
+- Reuse `basic_settings::security_audit`, `basic_settings::io_logrotate`, and `basic_settings::login_sudo` for audit, logrotate, and sudo integration.
+
+### systemd Composition
+
+- Preserve the target ladder `${cluster_id}-system`, `${cluster_id}-storage`, `${cluster_id}-services`, `${cluster_id}-production`, `${cluster_id}-helpers`, and `${cluster_id}-require-services` as a core composition contract.
+- A service integrated with `basic_settings` should disable vendor enablement.
+- An integrated service should use a `basic_settings::systemd_drop_in`.
+- An integrated service should bind to the appropriate shared target.
+- An integrated service should add `OnFailure=notify-failed@%i.service` when monitoring is active.
+- Systemd changes must account for generated units, local wrappers, vendor-unit drop-ins, direct `service` resources, templates, and static unit files in scope.
+- Reports about reviewed systemd units must list final unit names alphabetically.
+
+### Monitoring Architecture
+
+- Monitoring integration must use the OpenITCOCKPIT agent model already centralized in `basic_settings::monitoring`.
+- Monitoring plugins belong under `/etc/openitcockpit-agent/plugins`.
+- `customchecks.ini` must be composed through `concat` and `concat::fragment`.
+- Shared monitoring defined types must register services, timers, and custom checks instead of duplicating registration logic in feature modules.
 
 ### Dependencies
 
-This repository prefers tight internal Puppet integration over large external Puppet libraries.
+- Prefer local module implementation over a new community Puppet module.
+- Do not add external Docker, MySQL, Nginx, RabbitMQ, or comparable Puppet modules merely because they provide similar functionality.
+- Keep the project dependency set limited to `stdlib`, `concat`, `reboot`, `timezone`, and `debconf` unless a new dependency is justified.
+- A new dependency must document why the local modules cannot implement the requirement cleanly.
+- Prefer internal implementation when it provides better control over integration, security, systemd behavior, monitoring, or package policy.
 
-- Prefer extending local modules over adding community modules.
-- Do not add external Docker, MySQL, Nginx, RabbitMQ, or similar Puppet modules only because they exist.
-- Keep the current dependency set small: `stdlib`, `concat`, `reboot`, `timezone`, and `debconf`.
-- Justify any new dependency by explaining why local modules cannot handle the need cleanly.
-- Prefer internal implementation when it gives better control over integration, security, systemd behavior, monitoring, and package policy.
+## Working With The Existing Codebase
 
-## Documentation Standards
+### Preparation
 
-Documentation model and ownership:
+- Check `git status --short` before editing and preserve unrelated user changes.
+- Read the root README and the relevant module files before changing behavior or structure.
+- Inspect the touched module's `metadata.json` when it exists.
+- Inspect related manifests, templates, static files, README sections, examples, and systemd units.
+- Check existing integration with `basic_settings`, monitoring, systemd, security audit, `php8::fpm`, `nginx`, and other local modules relevant to the change.
+- Check existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
+- Treat a user's corrective edit as the current preferred pattern. Do not restore an earlier agent approach unless the user explicitly requests it.
 
-- Write technical documentation in English. This includes Puppet Strings documentation, examples outside the Dutch README, changelog entries, and this `AGENTS.md` file.
-- When adding or changing instructions in `AGENTS.md`, write them as project-wide rules rather than rules tied to one class, defined type, function, template, or recent change. Mention a specific module or class only when the rule truly applies only there; otherwise describe the general pattern and use concrete names only as optional examples.
-- When adding learned behavior to `AGENTS.md`, place one generic rule in the narrowest relevant section instead of duplicating the same instruction in multiple sections or with multiple wording variants.
-- Keep the root `README.md` in Dutch unless the user explicitly asks otherwise. README examples may contain Puppet code, but the surrounding explanation must stay Dutch.
-- Treat `README.md` as the central user guide for the project introduction, capabilities, compatibility, installation, quick start, major security choices, module overviews, compact examples, and navigation to deeper information.
-- Do not create a `docs/` tree, a manual `REFERENCE.md`, or another documentation hierarchy for information that Puppet Strings can generate. Use `examples/` for expanded and combined configurations, Puppet Strings and nearby code comments for full parameter, default, dependency, security, fallback, and generated-resource behavior, and comments in scripts and templates for implementation contracts.
-- Keep internal implementation documentation as close as possible to the class, defined type, script, or template it describes. Keep developer workflow and review rules in `AGENTS.md`.
+### Scope Control
 
-README structure and examples:
+- Keep changes scoped to the requested task and affected module.
+- Do not perform unrelated refactors.
+- A necessary supporting refactor must remain local and be explained in the final response.
 
-- Apply progressive disclosure in this order: purpose, standard usage, main properties, risks and limitations, compact example, and a link to expanded examples or Puppet Strings. A reader must understand what a component does before encountering internal detail.
-- Keep the README technically complete for operator decisions without turning it into an exhaustive parameter or implementation reference. It does not normally contain complete parameter lists, every parameter combination, detailed fallback chains, exact internal script behavior, per-check output contracts, exceptional recovery procedures, or developer-only implementation detail.
-- Before adding a README detail, decide whether every user needs it before use, whether it affects security or compatibility, whether the basic example requires it, and whether the authoritative explanation belongs with a Puppet parameter, script, template, or expanded example instead. Technical importance alone is not a reason to duplicate implementation documentation in the README.
-- Maintain a README `## Inhoudsopgave` near the top with links to the main sections and nested module links when module sections exist. Do not use `Legenda` when the intent is a table of contents.
-- Keep placeholder and secret-handling explanation near the quick start. Explain placeholder hostnames, replacement values, Hiera use, and `Sensitive(...)` handling centrally instead of repeating that context in every section.
-- Put expanded usage variants in the `examples/` directory rather than making README module sections deeply nested. When a user-facing option set grows, add or update a focused example file and link it from the README.
-- Keep a bottom-level README expanded-examples link list, similar in spirit to the available-checks list, so users can find richer example files without turning each module section into full reference documentation.
-- Structure each main module section with its purpose, no more than five to eight important properties, pre-use conditions or risks, one compact basic example, a link to a relevant file under `examples/`, and a Puppet Strings pointer. When a section grows, remove repetition or move expanded scenarios and authoritative parameter detail to their correct layer before merely adding more README text.
-- Match the current README tone and structure, and keep prose direct, practical, and infrastructure-focused. Do not paste generic boilerplate or optimize for a shorter README at the expense of operational knowledge; accessibility and correct information placement determine the appropriate length.
-- Write the Dutch README in ordinary, accessible language. Prefer direct phrases such as "de modules in dit project" over repository-maintainer terms such as "first-party modules", and explain unavoidable metadata or implementation terms before using them.
-- Preserve intentional author viewpoints, warnings, and project context when reorganizing the README. Do not remove them merely to make the document sound neutral or uniformly polished.
-- Avoid generated-sounding prose, repeated stock sentences, abstract transition language, and synonyms that are uncommon in everyday technical Dutch. State what the module does, what can go wrong, and what the user should do in concrete terms.
-- Start README prose list items with a capital letter. Keep exact code identifiers, module names, class names, paths, and literals in their original case.
+### Impact Review
 
-Examples:
+- Review effects on repository conventions, Puppet abstractions, and reusable wrappers.
+- Review effects on systemd ordering, targets, hardening, restart behavior, and failure handling.
+- Review effects on privileges, permissions, users, groups, capabilities, sudo, and secrets.
+- Review effects on networking, ports, sockets, firewalls, TLS, and service dependencies.
+- Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
+- Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
 
-- Reuse the existing scenario files under `examples/` before creating a new file. Add a file only when the subject does not fit an existing scenario and is substantial enough to stand alone.
-- Keep examples syntactically valid, executable for the documented scenario, aligned with current public interfaces, and limited to parameters needed to understand that scenario.
-- Use `example.org`, documentation address ranges, and `replace-with-...` placeholders. Do not include internal hostnames, addresses, usernames, domains, or real secrets. Use `Sensitive(...)` whenever the public datatype supports it and retrieve secrets for legacy String interfaces from protected Hiera data instead of embedding them in manifests.
-- Update examples whenever a public class, defined type, parameter, relationship, default, or required composition changes. Do not duplicate the same large code block in the README and `examples/`.
+## Implementation Standards
 
-Markdown style:
+### Comment Language And Format
 
-- Do not hard-wrap prose in any Markdown file (`*.md`), including `README.md` and `AGENTS.md`. Keep normal paragraphs and prose list items on one physical line unless Markdown syntax, tables, or code blocks require line breaks.
-- Keep documentation short, professional, and concrete. Describe operational impact and possible risks when they help an operator make a correct decision.
+- Write code comments in English unless managed software requires another language in generated configuration.
+- Do not hard-wrap code comments, Puppet Strings text, generated configuration comments, or inline documentation at an arbitrary width.
+- Keep one comment sentence on one physical line. Split only for real structure such as separate sentences, list items, examples, syntax requirements, or a genuinely complex list.
+- Unwrap arbitrary line-length breaks when touching nearby comments.
+- Comments must explain purpose, context, constraints, side effects, external contracts, fallback behavior, security decisions, or non-obvious control flow.
+- Do not add comments that merely restate the code.
 
-Change-driven updates:
+### Required Local Comments
 
-- When modifying existing behavior, check whether nearby documentation is missing, outdated, duplicated, unclear, or no longer aligned with the implementation.
-- Update documentation in the same change when behavior, parameters, templates, defaults, security settings, monitoring checks, examples, operational commands, export/build flows, or public APIs change.
-- Add or update example Puppet snippets when behavior changes materially.
-- If you add, rename, or remove a monitoring check, update the README `## Checks` section.
+- Add a short comment above each non-obvious resource group, `exec`, derived-value block, conditional directive list, delegated resource, or cleanup path.
+- Add a short comment above shell escaping boundaries, parsing, classification, status aggregation, fallback handling, and output-building blocks.
+- Add a short comment above each non-trivial function, helper, wrapper, template logic block, or reusable Puppet resource group.
+- State relevant inputs, output format, managed-resource impact, exit-code impact, or preserved external contract when those details prevent misuse.
+- Add orienting comments above meaningful groups of defaults, thresholds, state, counters, summaries, perfdata, paths, permissions, commands, derived values, and resource relationships.
+- Split long assignment runs into smaller commented groups.
+- Add internal comments where a parser, classifier, renderer, resource builder, or validation sequence changes scope or behavior.
 
-Meaningful README updates are required for new functionality, removed functionality, changed behavior, new user-facing parameters, changed module integration, changed operational assumptions, new monitoring checks, changed security expectations, or changed install/usage flow.
+### Comment Review
 
-## Puppet Documentation Standards
+- New or materially changed manifests, shell scripts, shell templates, and generated configurations must match the comment density of comparable well-documented code.
+- Review the diff for uncommented non-obvious blocks and for stale, duplicated, unclear, or outdated nearby comments.
+- Add missing explanatory comments before final validation when the changed code would otherwise require follow-up explanation.
 
-Public API documentation:
+### Puppet Public Interfaces
 
-- Document public Puppet classes and defined types with Puppet Strings-style comments directly above the element.
-- Use `@summary` for a short one-line purpose.
-- Add a useful description of purpose, main behavior, important dependencies, possible impact on existing configuration, relevant security choices, and generated resources where applicable.
-- Document every public parameter with `@param`, including the datatype contract, default meaning, special `undef`, `true`, or `false` behavior, allowed values not already expressed by its type, and security or compatibility impact where relevant.
-- Add a simple `@example` for every public class and defined type.
+- Public classes and defined types must use explicit typed parameters.
+- Prefer parameterized classes and small defined types over hidden behavior.
+- Keep module responsibilities narrow and composable.
+- A defined type that requires a parent class must guard the dependency with `defined(Class['...'])` and fail clearly when the class is absent.
+- Reuse one clearly named variable when the same `defined(...)` result is needed more than once in a manifest.
+- Public interfaces must use `String`, `Boolean`, `Enum[...]`, `Optional[...]`, `Array[...]`, a stricter built-in type, or an appropriate type alias.
+
+### Templates, Files, And Sources
+
+- Render templates with ERB through `template(...)`; do not introduce EPP.
+- Use one ERB template when generated files differ only by a small optional scope.
+- Add separate templates only when formats or ownership boundaries differ materially.
+- Serve static assets from `files/` through `puppet:///modules/...`.
+- Source URI validation must allow `puppet:///` whenever module files are valid input.
+- Resource paths and titles must be predictable.
+
+### Packages And Managed Trees
+
+- Package resources must use `install_options => ['--no-install-recommends', '--no-install-suggests']` unless a concrete package requires recommends or suggests.
+- Use `purge => true`, `recurse => true`, or `force => true` only for directories fully owned by the module.
+- Do not apply an executable numeric mode such as `0700` or `0750` recursively to a mixed file and directory tree.
+- A fully private tree containing no executables may use recursive mode `0600`; Puppet supplies directory search bits so directories become traversable as `0700`.
+- A tree containing executables must manage directory and regular-file modes separately.
+- Preserve `replace => false` for installer-generated or create-once files that must survive later Puppet runs.
+- File ownership and modes must be explicit.
+
+### Resource Relationships
+
+- Preserve explicit `require`, `notify`, and `subscribe` relationships; do not rely on implicit autorequires when ordering matters.
+- Keep monitoring and audit wiring near the managed resource.
+- Diagnose dependency cycles from the actual catalog relationships and containment path.
+- Resolve a cycle by removing or narrowing the illogical ordering edge at its source.
+- Do not replace an intended Puppet relationship with an ad hoc `systemctl`, `service`, or reload `exec` command merely to avoid a cycle.
+- Preserve semantic notifications such as `notify => Service['nginx']` and bind broad ordering to a narrower stable resource when necessary.
+
+### Catalog Dependency Contracts
+
+- Keep dependent code inside the positive `defined(...)` branch when a required class or defined-type resource may be absent.
+- Bind `require` only to an accepted resource or documented anchor after its existence check succeeds.
+- Put a clear `fail(...)` in the final `else` branch and do not continue after a failed dependency contract.
+- Treat `defined(Resource[title])` as current catalog-evaluation visibility, not as a final-catalog query.
+- When a wrapper may emit a dependency, check accepted visible anchors in stable order: direct resource, wrapper resource, then parent wrapper.
+- A consumer must not reconstruct paths, filenames, ports, unit names, or other values owned by another defined type when the source can expose them through a managed resource, alias, service title, or accepted API.
+- Catalog validation must cover the authoritative cross-resource contract.
+- If a public-interface expansion is rejected, do not add hidden or undocumented convenience parameters; use an accepted contract or stable external runtime metadata.
+
+### Public Settings
+
+- A configurable hardening value that needs a secure default, explicit opt-out, and custom override should use one `Variant[Boolean, String]` parameter or a narrow scalar variant such as `Variant[Boolean, Integer[0]]`.
+- Resolve that parameter once into a clearly named `*_correct` variable near the related logic.
+- In this pattern, `true` selects the documented secure default, `false` disables output, and the scalar value is the explicit override.
+- Templates must consume the resolved value instead of reimplementing boolean and scalar handling.
+- Replace split `*_enable` plus `*_custom`, `*_value`, or `*_max_age` interfaces with one meaningful setting unless backward compatibility is explicitly required.
+
+### Parameter Names And Order
+
+- Name related settings with the main topic first and qualifiers such as fallback, previous, custom, max, min, warning, or critical last.
+- Use snake_case names such as `bandwidth_max`, `p95_warning`, and `secret_key_fallback`.
+- Do not start a public parameter with a digit unless that syntax is validated for every supported Puppet version; use a readable prefix such as `p95_`.
+- List mandatory parameters first and sort them alphabetically.
+- A mandatory parameter has no default and is not typed as `Optional[...]`.
+- List optional parameters after mandatory parameters and sort them alphabetically.
+- An optional parameter is typed as `Optional[...]` or has a default value.
+- Keep a left-to-right default dependency out of alphabetical order only when required, and explain it with a short trailing comment.
+
+### Parameter Formatting And Documentation Order
+
+- Align type columns, parameter-name columns, `=` signs, and default values across the complete parameter block.
+- Keep Puppet Strings `@param` entries in the same order as the class or defined-type parameter block.
+
+### Puppet Resource Structure
+
+- Use one resource with precomputed `undef` attributes when resources differ only by optional attributes.
+- Use that pattern only when mutually exclusive attributes such as `source` and `content` cannot both be non-`undef`.
+- Put one shared outer guard around optional resources with the same condition, then keep resource-specific checks inside it.
+- Keep monitoring-specific configuration resources near the manifest's monitoring section unless the file belongs to the daemon's runtime configuration.
+- Combine arrays with stdlib `concat(...)`, not the `+` operator.
+- Generated configuration order must remain explicit and reviewable.
+
+### Puppet Control Flow
+
+- Put the main resource path in the positive branch of guard-style control flow.
+- Put exceptional `fail(...)`, `warning(...)`, or fallback behavior in the final `else` branch.
+- Put a large dependent path before its smaller failure branch for parent-class, defined-type, and resource-contract guards.
+- Put a substantive parsing, normalization, validation, resource-construction, or multi-assignment branch before a trivial fallback assignment.
+- Branch on value presence first when a present value requires substantive work.
+- Do not lead with a trivial `undef`, `false`, or empty-list assignment when the alternate branch contains the meaningful work.
+
+### Puppet Validation Flow
+
+- Represent optional-feature validation failure as a short named value such as `$threshold_fail_text`, or `undef` when valid.
+- Emit guarded resources under `if ($validation_fail_text == undef)` and call `fail($validation_fail_text)` in the final `else`.
+- Do not place standalone `fail(...)` calls in the middle of derived-value setup or resource construction.
+- Validate an optional setting only when that feature is emitted or inherited into generated output.
+- Do not reject an unset optional value.
+- Resolve inherited or defaulted values into clearly named `*_correct` variables.
+- Templates may use a raw parameter to decide whether a local override line exists, but must emit the resolved value when inheritance applies.
+
+### Shell Commands In Puppet
+
+- Escape runtime shell variables and substitutions inside double-quoted Puppet strings, including `\$tmpdir`, `\$1`, and `\$(...)`.
+- Never interpolate a raw Puppet value into an `exec` `command`, `onlyif`, or `unless`.
+- Precompute dynamic shell words with `stdlib::shell_escape(...)`, suffix their variable names with `_shell`, and use them as unquoted shell words.
+- A `/bin/sh -c` or `/usr/bin/bash -c` command must have one escaping boundary.
+- Pass a script assembled from pre-escaped `*_shell` words as one quoted `-c` argument; do not shell-escape the assembled script a second time.
+- A fully static script may instead be escaped once as the complete `-c` argument.
+
+### Shell Content And Permissions In Puppet
+
+- Preserve intentional trailing semicolons in SQL statements.
+- Escape the complete SQL string and use `provider => shell` when semicolons or shell guards would otherwise be parsed as separate commands.
+- Prefer `/usr/bin/printf %s ${value_shell}` for dynamic shell content.
+- Represent intended line breaks inside one shell word as literal `\n`, escape the value once, and decode it only at the controlled output boundary with a command such as `/usr/bin/printf %b ${value_shell}`.
+- Do not use backslash decoding for arbitrary runtime or user-provided multiline content; use a `file` resource or template.
+- Do not use recursive executable `chmod` modes on mixed-content trees.
+- Normalize directories and regular files with separate `find ... -type d` and `find ... -type f` passes so directory search permissions do not make regular files executable.
+- For exported application source trees, normalize directories and files separately; use modes such as `0750` for directories and `0640` for regular files unless the application requires another explicit mode.
+
+### Local Readability
+
+- Do not introduce a local variable used only once unless its name adds domain meaning or removes a real readability problem.
+
+## Shell Scripts And Monitoring Checks
+
+### Shell Baseline
+
+- New shell scripts and shell templates must be POSIX `sh` with `#!/bin/sh` unless the implementation requires Bash features.
+- Monitoring checks must be POSIX `sh` and return Nagios-compatible exit codes.
+- Monitoring checks must not use arrays, `[[ ... ]]`, `(( ... ))`, `function name`, process substitution, here-strings, `pipefail`, `read -d`, or Bash-specific parameter expansion.
+- `basic_settings/templates/login/pam/notify` and `mysql/files/automysqlbackup` are known Bash exceptions.
+- When touching an existing Bash script, keep Bash only if required features remain.
+- The final response must state why a touched script remains Bash-only.
+
+### Monitoring Check Reuse
+
+- Inspect comparable checks before adding or changing a monitoring check.
+- Follow the closest check's section order, state variables, helper placement, and output style unless a technical difference requires deviation.
+- Reuse an existing pattern for parsing, rendering, severity aggregation, long-output buffering, truncation, perfdata, and interpretation.
+- Introduce a new monitoring pattern only when existing patterns cannot meet the check's scope.
+- Document a material deviation in code or in the final response.
+
+### Commands And Quoting
+
+- Discover command dependencies with direct `command -v` assignments such as `TAIL=$(command -v tail 2>/dev/null) || die "tail not available"`.
+- Invoke command-path variables directly in command position, such as `$AWK ...`; do not quote the command word.
+- Quote command arguments, data variables, tests, and assignments consistently.
+- Use shell builtins directly.
+- Use `printf`, not non-portable `echo`.
+- Keep command dependencies explicit.
+
+### Setup And Options
+
+- Order monitoring-check setup as fail helper, binary checks, default variables, option parsing, helper functions, and main logic.
+- Parse CLI options with one POSIX `while getopts '<flags>' opt; do ... done` block.
+- Give every supported option one explicit `case` arm that assigns `OPTARG` where applicable.
+- Use one final `*) die "Usage: $0 [...]" ;;` arm for help and invalid options, including `-h` when it appears in the option string.
+- Long output must be enabled by default.
+- Do not add `--long-output` or `--no-long-output` switches unless the user explicitly requests them.
+
+### Puppet-Managed Inputs
+
+- Do not add a monitoring configuration file or parser unless the task explicitly requires it or the module already uses that pattern.
+- A check that needs Puppet-resolved data must live under `templates/` and render that data directly into shell assignments.
+- Keep ERB in a shell check limited to direct variable insertion.
+- Keep Puppet preparation limited to defaults, serialization, and shell-safe values.
+
+### Effective Monitoring Configuration
+
+- Validate threshold syntax, sizes, ordering, and runtime meaning in the shell check.
+- Give each threshold or managed value one authoritative input path.
+- Do not expose the same managed value through CLI flags and a configuration file unless backward compatibility requires both.
+- Keep CLI flags for runtime filters and for thresholds not managed through configuration.
+- Prefer a daemon's effective configuration output, such as `vnstat --showconfig`, over duplicate flags, sysfs fallbacks, or parallel check-only settings.
+
+### Data And Temporary Storage
+
+- Do not use temporary files or `TMPDIR` only to collect perfdata, long output, counters, or sort-order buffers.
+- Prefer shell variables and direct `printf` for bounded data.
+- Use `mktemp` only when an external command requires a file or the data is too large or unsafe for shell variables.
+- Do not create shell assignments containing literal blank lines inside quoted strings.
+- Represent embedded line breaks through `printf` formats and escaped `\n`.
+- Use explicit sentinel tokens for serialized command-substitution metadata instead of newline-marker tricks.
+- Store shell lists as comma-separated values and split them deliberately.
+
+### Helpers And Branches
+
+- Do not add a wrapper function that only hides one `printf`, assignment, or append operation.
+- Add a function only when its name captures domain meaning, it centralizes validation or formatting, or it removes meaningful duplication.
+- Keep single-use shell logic inline unless a helper materially improves readability.
+- Put the main shell path in the positive `if` branch and smaller exceptional fallbacks in the final `else`.
+
+### Monitoring Output Sanitization
+
+- Inspect the actual output path before adding a normalizer, sanitizer, or blank-line collapsing helper.
+- Add normalization only when runtime data, external output, or intentional section separators can produce unsafe pipes or unwanted blank lines.
+- Explain a non-obvious need for normalization in a nearby comment.
+- Sanitize raw `|` characters where dynamic values or external output enter long output because Nagios-style parsers can interpret pipes on continuation lines as perfdata separators.
+- Do not pipe fixed literal text through a sanitizer when it cannot contain `|`.
+- Do not emit consecutive, leading, or trailing blank lines.
+- Use exactly one blank line between distinct output sections when separation improves readability.
+
+### Monitoring Audience And Scope
+
+- Monitoring output must be actionable for operators who may see only OpenITCOCKPIT or a wallboard.
+- A deliberately limited check must state its scope in the output.
+- Distinguish configuration errors, runtime failures, contextual warnings, and unknown or inconclusive states when those categories are present.
+- Contextual findings may appear in detail output but must not affect the exit code unless they are in the check's defined scope.
+
+### Summary Line Format
+
+- Emit one natural, operator-readable summary line with optional perfdata and long output.
+- The first line must identify the checked service, unit, module, interface, or resource.
+- The first line must state the direct cause of a non-healthy result and indicate whether escalation is likely needed.
+- The first line must not begin with `OK`, `WARNING`, `CRITICAL`, or `UNKNOWN`; the Nagios exit code carries machine state.
+- Do not label short-output cause lists with Nagios state names.
+- Check-owned text must remain cause-specific when a monitoring UI adds its own state prefix.
+
+### Summary Line Content
+
+- A WARNING, CRITICAL, or UNKNOWN summary must name the primary affected object and direct cause.
+- Long output must support diagnosis rather than hide the primary cause.
+- Keep summary text cause-oriented and put detailed counters in perfdata or long output.
+- Do not list zero-count status categories.
+- If there are no findings, state that the target is healthy or running as expected.
+- Do not print threshold values, threshold inventories, final decision labels, or decision rationale in operator-readable output.
+- Put useful thresholds in perfdata instead of summary or long output.
+- Do not embed perfdata-style `key=value` fragments in summary text.
+
+### Detail Output
+
+- Detail output must explain the summary with the affected component, observed state, and likely cause when known.
+- Detail output must state whether the issue is actionable by the check and give a useful next step or escalation path when applicable.
+- Print the most diagnostically important section first.
+- For non-trivial long output, make `Interpretation:` the final section.
+- `Interpretation:` must explain displayed data, scope, contextual findings, and the next inspection or escalation step.
+- `Interpretation:` must remain factual and must not repeat perfdata.
+
+### Long-Output Limits
+
+- Each check must use one truncation method for its diagnostic body.
+- Do not combine line, item, block, and character caps on the same diagnostic path.
+- A separate cap is allowed for another output surface only when it does not also truncate the same diagnostics.
+- Long detail must have one configurable size limit and explicitly state when truncation occurs.
+- When UI limits are relevant, cap total diagnostic characters above `Interpretation:`.
+- Emit the truncation marker before `Interpretation:` so final guidance remains visible.
+
+### Perfdata
+
+- Perfdata labels must start with a lowercase letter and contain only lowercase letters, digits, and underscores.
+- Labels must be compact, stable snake_case names such as `memory_used`.
+- Do not encode units in labels with forms such as `pct_`, `bytes_`, `seconds_`, `mbit_`, `bps_`, or matching suffixes.
+- Put units in the UOM field, such as `%`, `B`, `s`, or `Mbps`.
+- Do not pad absent optional fields with empty semicolons; include semicolons only through the last populated field.
+- Use `c` for monotonic counters that increase until the source resets.
+- Do not use `c` for gauges, bounded inventory counts, current utilization, high-water marks, rates, or scheduled period totals.
+
+### Monitoring Contracts
+
+- Do not change exit-code semantics without documenting the operational reason.
+- Preserve exit codes, summary shape, perfdata keys, option flags, generated paths, and registration names unless the task explicitly changes the external contract.
+
+## Documentation
+
+### Ownership And Language
+
+- Write technical documentation in English, including Puppet Strings, examples outside the root README, changelog entries, and this file.
+- Keep the root README in Dutch unless the user explicitly requests another language.
+- Keep developer workflow and review policy in `AGENTS.md`.
+- Keep implementation documentation beside the class, defined type, script, or template it describes.
+- Do not copy project-wide policy into code comments.
+- Keep one authoritative location for each technical fact.
+- When a fact must appear in more than one layer, keep one complete source and use concise summaries with pointers elsewhere.
+
+### Documentation Layers
+
+- Use the README for the project introduction, capabilities, compatibility, installation, quick start, major security choices, module overviews, and navigation.
+- Use `examples/` for expanded and combined configurations.
+- Use Puppet Strings for parameters, defaults, dependencies, security behavior, fallbacks, and generated resources.
+- Use script and template comments for local implementation contracts.
+- Do not create a `docs/` tree or manual `REFERENCE.md` for information Puppet Strings can generate.
+- Use an ADR for architecture choices, considered alternatives, trade-offs, and lasting design decisions when such a record is requested or already established.
+- Use automated tests for concrete behavior, regressions, edge cases, and machine-verifiable contracts when the repository has an applicable test path.
+
+### README Content
+
+- Apply progressive disclosure in this order: purpose, standard usage, main properties, risks and limitations, compact example, then expanded examples or Puppet Strings.
+- Keep the README complete enough for operator decisions without turning it into an exhaustive parameter or implementation reference.
+- Do not duplicate complete parameter lists, fallback chains, internal script behavior, per-check output contracts, or developer-only detail in the README.
+- Put security- and compatibility-critical operational expectations in the README when users must know them before use.
+- Keep placeholder hostnames, replacement values, Hiera guidance, and `Sensitive(...)` handling near the quick start.
+- Maintain a `## Inhoudsopgave` near the top with main-section links and nested module links.
+- Do not label the table of contents `Legenda`.
+- Add a README detail only when users need it before use, it changes a security or compatibility decision, or the basic example requires it.
+
+### README Module Sections
+
+- Each main module section must explain its purpose before internal detail.
+- Include no more than five to eight important properties.
+- State pre-use conditions, operational risks, and limitations.
+- Include one compact basic example.
+- Link to a relevant scenario in `examples/` and point to Puppet Strings.
+- Move expanded variants and authoritative parameter detail to their proper layer when a section grows.
+- Maintain a bottom-level list of expanded examples.
+
+### README Style
+
+- Match the current direct, practical, infrastructure-focused tone.
+- Write ordinary, accessible Dutch around exact code identifiers.
+- Explain unavoidable metadata or implementation terminology before using it.
+- Preserve intentional author viewpoints, warnings, and project context when reorganizing content.
+- Do not replace concrete operational language with generic boilerplate, stock transitions, or uncommon synonyms.
+- Start README prose list items with a capital letter.
+- Preserve the case of identifiers, module names, class names, paths, and literals.
+- Do not shorten the README at the expense of operational knowledge.
+
+### Examples
+
+- Reuse an existing scenario file before creating another example.
+- Add an example file only when the subject does not fit an existing scenario and is substantial enough to stand alone.
+- Examples must be syntactically valid, executable for the scenario, aligned with public interfaces, and limited to parameters needed for understanding.
+- Use `example.org`, documentation address ranges, and `replace-with-...` placeholders.
+- Do not use internal hostnames, addresses, usernames, domains, real secrets, or other organization data in examples.
+- Use `Sensitive(...)` whenever the public datatype supports it.
+- Retrieve secrets for legacy String interfaces from protected Hiera data instead of embedding them in manifests.
+- Do not duplicate the same large code block in the README and `examples/`.
+
+### Puppet Strings
+
+- Document every public class and defined type directly above its declaration with Puppet Strings comments.
+- Add a one-line `@summary` and a useful description of purpose, behavior, dependencies, configuration impact, security choices, and generated resources where applicable.
+- Document every public parameter with `@param`.
+- Parameter documentation must cover the datatype contract, default meaning, special `undef`, `true`, or `false` behavior, and constraints not expressed by the type.
+- Document security and compatibility impact when relevant.
+- Add a simple `@example` to every public class and defined type.
 - Mark new classes, defined types, and functions as `@api public` or `@api private` where applicable.
-- Treat Puppet Strings as the authoritative public parameter reference. Do not copy its complete parameter documentation into the README; keep a README summary short and link or point to the source documentation.
+- Do not copy complete Puppet Strings parameter documentation into the README.
 
-Interface types and review:
+### Markdown
 
-- Keep public Puppet interfaces typed with `String`, `Boolean`, `Enum[...]`, `Optional[...]`, `Array[...]`, a stricter built-in type, or an appropriate type alias.
-- When changing a Puppet class, defined type, function, or template, verify whether its documentation still matches the implementation.
-- For every modified `.pp` file, check whether new or changed parameters are documented, documented defaults match the code, examples remain valid, API markings are still correct, and missing nearby documentation can be added immediately without creating unrelated churn. Remove stale or duplicated documentation in the same change.
+- Do not hard-wrap prose in Markdown files.
+- Keep each prose paragraph or list item on one physical line unless Markdown syntax, a table, or a code block requires line breaks.
+- Keep documentation professional, concrete, and focused on operational impact and risk.
 
-Documentation review for code changes:
+### Documentation Synchronization
 
-- Check the affected public classes, defined types, parameters, defaults, accepted values, security behavior, compatibility, generated files, examples, README, Puppet Strings, and script or template comments. Update only the information layer affected by the change.
-- Keep one authoritative location for technical information. When information must appear in more than one layer, keep one location complete and the other a concise summary with a pointer.
+- Check nearby documentation whenever behavior is modified.
+- Update affected documentation in the same change when behavior, parameters, templates, defaults, security, checks, examples, commands, build flows, or public APIs change.
+- Update examples when public classes, defined types, parameters, relationships, defaults, or required composition change.
+- Update the README `## Checks` section when a monitoring check is added, renamed, or removed.
+- A user-facing change to functionality, integration, operational assumptions, security expectations, installation, or usage requires an appropriate README update.
+- For each modified `.pp` file, verify parameter documentation, defaults, examples, API markings, and nearby stale or duplicate documentation.
+- Update only the documentation layers affected by the change.
 
 ## Validation And Testing
 
-Available test model:
+### Test Model
 
-There is no root first-party CI, root `Gemfile`, root `Rakefile`, or project-wide Puppet test suite for the custom modules. The vendored submodules have their own tooling; do not use those Rakefiles as validation for first-party modules.
+- The first-party modules have no root CI, root `Gemfile`, root `Rakefile`, or project-wide Puppet test suite.
+- Vendored submodule tooling must not be treated as validation for first-party modules.
+- Do not add an automated test directory, fixture harness, or generated test framework unless the user explicitly requests tests.
+- Run targeted validation for every touched file.
+- If required tooling is unavailable, state that in the final response and report the fallback checks performed.
 
-Do not add new automated test directories, fixture harnesses, or generated test frameworks for first-party modules unless the user explicitly asks for tests. Prefer targeted local validation commands and document those commands in the final response.
+### Change Discovery
 
-Run targeted checks for the files you touched. If a required command is not installed locally, state that clearly in the final response and explain what you checked instead.
-
-Discovery:
+Run the applicable discovery and whitespace checks:
 
 ```sh
 git diff --name-only
@@ -421,218 +483,269 @@ git diff --name-only -- 'metadata.json' '*/metadata.json'
 git diff --check
 ```
 
-Puppet manifests:
+### Puppet Manifests
 
-When Puppet tooling is available:
+When Puppet tooling is available, run:
 
 ```sh
 puppet parser validate <changed-manifest.pp> [...]
 puppet-lint <changed-manifest.pp> [...]
 ```
 
-Templates:
+### Templates
 
-```sh
-erb -P -x -T '-' <template-file> | ruby -c
-```
+- Validate ERB syntax with `erb -P -x -T '-' <template-file> | ruby -c`.
+- Treat the ERB command as Ruby and ERB syntax validation only.
+- Render representative output for each changed shell-template branch or mode.
+- Run `sh -n` or `bash -n` on the rendered shell output as appropriate.
 
-The ERB syntax check only validates Ruby/ERB syntax. For shell templates, render representative output for the changed branch or mode and then run `sh -n` or `bash -n` on the rendered script.
+### Shell Scripts And Metadata
 
-Shell scripts:
+- Validate POSIX scripts with `sh -n <changed-posix-script>`.
+- Validate Bash scripts with `bash -n <changed-bash-script>`.
+- Validate metadata with `ruby -rjson -e 'ARGV.each { |f| JSON.parse(File.read(f)); puts f }' <metadata.json> [...]`.
 
-```sh
-sh -n <changed-posix-script>
-bash -n <changed-bash-script>
-```
+### Functional Review
 
-Metadata:
+- Verify that changed class and defined-type guards match actual inclusion order.
+- Verify file modes, ownership, and `Sensitive[...]` or `Sensitive.new(...)` handling.
+- Verify monitoring, sudoers, logrotate, audit, and systemd paths against generated filenames and service names.
+- Exercise at least one representative success path and one practical error path for shell parsing, monitoring output, or status-handling changes.
+- Verify that changed public interfaces remain consistent across Puppet Strings, examples, and the README.
 
-```sh
-ruby -rjson -e 'ARGV.each { |f| JSON.parse(File.read(f)); puts f }' <metadata.json> [...]
-```
+## Security And Privacy
 
-Functional review:
+### Security Baseline
 
-For functional changes, also verify:
+- Treat security as a design requirement from the start of every change.
+- Preserve correct existing hardening.
+- Improve hardening only when application and operational behavior remain correct.
+- Preserve the strongest applicable rule when consolidating security guidance.
+- Do not silently remove an unclear, outdated, or incorrect security rule; replace it with the corrected rule and report the reason.
+- When a security requirement cannot be resolved from repository evidence, preserve the safer behavior and report the uncertainty for review.
 
-- Changed class and defined-type guards still match actual inclusion order.
-- File modes, ownership, and `Sensitive[...]` / `Sensitive.new(...)` handling are appropriate.
-- Monitoring, sudoers, logrotate, audit, and systemd paths still match generated filenames and service names.
-- Shell changes that affect parsing, monitoring output, or status handling have at least one representative success-path check and one practical error-path check.
-- Required README and AGENTS updates were considered.
+### External Disclosure
 
-## Security And Safety Boundaries
+- Treat every transfer outside an organization-controlled or explicitly approved environment as external disclosure.
+- External disclosure includes search queries, AI prompts, pasted text, uploads, screenshots, code snippets, forums, vendor portals, external issue trackers, code-sharing services, chat, email, and browser tools.
+- Approval to use an external service does not authorize every data type.
+- Data classification, least disclosure, and minimum-necessary rules apply to every approved external service.
+- Reduce an external question to the minimum technical facts required to understand the problem.
+- Prefer a generic description or minimal reproducible example containing only synthetic data.
 
-Security is a design requirement in this repository. Assess security during design, not only at final review. Preserve existing hardening where it is still correct, and improve it when that can be done without breaking the application.
+### Secrets And Authentication Material
 
-### Security Information Preservation
+- Never disclose a password, passphrase, API key, access token, refresh token, session identifier, cookie, backup code, or credential-bearing connection string externally.
+- Never disclose a private key, certificate material, CSR, certificate chain, keystore, truststore, secret file, token file, kubeconfig, or `.env` content externally.
+- Remove secrets completely before external use.
+- Partial masking, prefixes, suffixes, fingerprints, hashes, and encoded variants are not acceptable when they can identify or validate the original value.
+- Never put real secrets or credentials in code, comments, documentation, examples, tests, fixtures, logs, commits, tickets, prompts, or troubleshooting material.
+- Use clearly synthetic authentication values in every example and reproduction.
 
-This project relies heavily on security by design. Do not remove, simplify, or shorten security-related instructions if doing so would remove important context, rationale, risks, constraints, or operational safeguards.
+### Operational And Confidential Data
 
-When cleaning up duplicated or unclear security instructions:
+- Do not disclose raw operational, personal, medical, customer, employee, organization, or commercially confidential data outside the approved environment.
+- Treat logs, stack traces, HL7, FHIR, EDI, database records, exports, configuration files, packet captures, screenshots, source fragments, headers, and query parameters as potentially sensitive.
+- Treat hostnames, IP addresses, internal URLs, filenames, usernames, tenant identifiers, project identifiers, and metadata as potentially sensitive.
+- Do not upload a complete repository, database dump, configuration set, message archive, or log collection when a smaller synthetic reproduction is sufficient.
 
-- Preserve the strongest applicable security requirement.
-- Keep the reason behind security-sensitive rules when that reason helps prevent mistakes.
-- Merge duplicated security rules carefully so no requirement is weakened or lost.
-- Keep explicit warnings for secrets, credentials, permissions, TLS, headers, systemd hardening, infrastructure changes, input validation, and dependency changes where relevant.
-- If a security rule appears outdated or incorrect, do not remove it silently. Replace it with the corrected rule and briefly document why the change was made.
-- If there is uncertainty about a security requirement, keep the safer instruction and mark the point as needing review.
+### Anonymization And Synthetic Data
 
-### Security Review Checklist
+- Anonymize or replace all data with synthetic values before it leaves the approved environment.
+- Replace real names, identifiers, addresses, numbers, timestamps, domains, hostnames, and environment-specific values.
+- Preserve only relationships needed to reproduce the issue.
+- Use consistent synthetic placeholders when correlation matters, but never reuse production values.
+- Evaluate combinations of remaining fields for re-identification risk.
+- Do not call partially masked or pseudonymized data anonymous when re-identification remains reasonably possible.
 
-For every change to Puppet code, templates, scripts, services, timers, configs, or generated files, check:
+### Outbound Review
 
-Privilege and isolation:
+- Inspect the complete outbound content before sharing it.
+- Review logs, stack traces, shell history, command output, request and response headers, URLs, query strings, comments, filenames, metadata, screenshots, diffs, archives, and copied surrounding context.
+- Share only the smallest sanitized fragment required to solve the problem.
+- Do not disclose information when safe sanitization cannot be demonstrated with sufficient confidence.
+- Use approved internal documentation, tooling, colleagues, or secure support channels when external sharing is unsafe.
 
-- Can this run with less privilege or as a more constrained service user?
-- Can systemd isolation be tighter without breaking behavior?
-- Does the change introduce a trust boundary, sudo path, writable path, exposed port, capability, or privilege assumption?
-- Can the design be simplified to reduce attack surface?
+### Disclosure Incidents
 
-Files, permissions, and secrets:
+- Stop further sharing immediately when a secret or confidential value is disclosed accidentally.
+- Do not repeat the exposed value in follow-up communication.
+- Treat exposed credentials and key material as compromised.
+- Revoke or rotate compromised credentials and key material where applicable.
+- Follow the applicable security-incident procedure.
 
-- Are ownership and file modes as restrictive as the operational need allows?
-- Which runtime identity reads each generated file, and do parent directories grant only the needed traverse access?
-- Are secrets and sensitive config values kept out of world-readable files?
-- Is `Sensitive[...]` or `Sensitive.new(...)` needed for file content or `exec` commands?
-- Is execute permission granted only to true executables?
-- Is world-read or group-write access justified?
+### Privilege And Isolation Review
 
-Dependencies, audit, and monitoring:
+- Check whether changed code can run with less privilege or under a more constrained service identity.
+- Check whether systemd isolation can be tightened without breaking behavior.
+- Identify new trust boundaries, sudo paths, writable paths, exposed ports, capabilities, or privilege assumptions.
+- Prefer the simpler design when it reduces attack surface without violating requirements.
 
-- Does a new dependency add avoidable risk or complexity?
-- Does the new sensitive surface need matching audit or monitoring coverage?
-- When adding or changing audit exclusions, add a short code comment above each exception group that explains the benign runtime behavior, the audit key or syscall family it suppresses, and the scoping boundary such as executable, user, group, directory, or success state; also check nearby exclusions for overlap before adding another rule.
+### Files, Permissions, And Runtime Identities
 
-Repository-specific security conventions:
+- Set ownership and modes as restrictively as operational behavior permits.
+- Identify the runtime identity that reads each generated file.
+- Grant parent-directory traversal only to identities that require it.
+- Keep secrets and sensitive configuration out of world-readable files.
+- Use `Sensitive[...]` or `Sensitive.new(...)` when file content or command data requires redaction in Puppet reports.
+- Grant execute permission only to actual executables.
+- Justify world-readable or group-writable access.
 
-Common file modes:
+### Repository File-Mode Conventions
 
-- Config files are commonly `0600`.
-- Static daemon-readable fallback files should prefer root ownership with service-group read access, such as directory mode `0710` and file mode `0640`, instead of world-readable files.
-- Root-only scripts are commonly `0700`.
-- Sudoers files are `0440`.
-- SSH homes and `.ssh` paths are tightly permissioned.
-- Systemd unit files are usually `0644` where systemd requires it.
+- Config files should use mode `0600` unless another runtime identity needs access.
+- Static daemon-readable fallback files should use root ownership and service-group access, such as directory mode `0710` and file mode `0640`, instead of world-readable modes.
+- Root-only scripts should use mode `0700`.
+- Sudoers files must use mode `0440`.
+- SSH homes and `.ssh` paths must remain tightly permissioned.
+- Systemd unit files should use mode `0644` where systemd requires it.
+- Public HTTP exposure does not justify local filesystem read access for every user.
 
-Package, service, and audit defaults:
+### Dependencies, Audit, And Monitoring
 
-- Many services are hardened with systemd drop-ins instead of trusting package defaults.
-- Package installs usually use `--no-install-recommends` and `--no-install-suggests`.
-- Sensitive operations often add audit rules through `basic_settings::security_audit`.
+- Review new dependencies for avoidable risk and complexity.
+- Add audit or monitoring coverage when a new sensitive surface requires it.
+- Put a short comment above each changed audit-exclusion group.
+- An audit-exclusion comment must state the benign runtime behavior, suppressed audit key or syscall family, and scoping boundary.
+- Check nearby audit exclusions for overlap before adding another rule.
 
-HTTP exposure and encrypted upstreams:
+### Encrypted Transport
 
-- Reverse proxies and internal service-to-service upstreams must default to encrypted transport whenever the upstream can support it, including loopback and local Docker traffic. Plain HTTP is an explicit opt-out and must be documented with the reason the upstream cannot support HTTPS or another encrypted transport. Do not disable encryption merely to avoid certificate trust issues; prefer encrypted traffic with certificate verification disabled only for local or self-signed upstream certificates.
+- Reverse proxies and internal service-to-service upstreams must default to encrypted transport whenever the upstream supports it, including loopback and local Docker traffic.
+- Plain HTTP is an explicit opt-out and must document why the upstream cannot support encrypted transport.
+- Do not disable encryption merely to bypass certificate-trust problems.
+- For local or self-signed upstream certificates, prefer encrypted transport with verification disabled only when proper trust cannot be established within scope.
+- A weakened permission, sandbox, or trust model must be explained in code.
+- Update the README when a weakened security model changes an operational expectation.
 
-Public HTTP exposure does not imply every local user should have filesystem read access to the same file. If you must weaken a permission, sandbox, or trust model, document the reason in code and update the README when the operational expectation changes.
+## systemd Hardening
 
-### Data Sanitization Before External Use
+### Applicability
 
-Before using any external system, the internet, or a tool outside the local IDE or repository context, treat the material as potentially sensitive.
+- Review service-execution hardening for each concrete `.service` unit.
+- Do not apply service-execution options as generic defaults to `.timer`, `.socket`, `.mount`, `.path`, `.target`, `journald.conf`, `resolved.conf`, or `timesyncd.conf`.
+- For a timer, socket, or path unit, review the paired `.service` unit.
+- Do not add hardening blindly.
+- Prefer a documented exception over a setting that causes runtime failures or operational surprises.
 
-Never send raw code, configuration, logs, stack traces, screenshots, or operational data externally before checking whether they contain sensitive information. Remove, mask, or anonymize sensitive information first. Apply this rule to web searches, browser tools, external AI services, issue trackers, paste services, chat, email, vendor support, documentation sites, and any other external system.
+### Required Service Analysis
 
-Sensitive information includes at minimum:
+- Identify the final unit name and Puppet location.
+- Identify the template, wrapper, or vendor unit being modified.
+- Inspect `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, and `ExecStop`.
+- Inspect `User`, `Group`, supplementary groups, capabilities, sudo, and setuid use.
+- Inspect writable paths, generated files, directories, sockets, logs, and temporary-file behavior.
+- Inspect devices, home directories, credentials, network exposure, and package-management behavior.
+- Inspect runtime languages, interpreters, VMs, plugins, JIT or code generation, and process-introspection needs.
+- Record each candidate option as `apply`, `do not apply`, or `needs more research` in the related analysis.
 
-- Passwords, API keys, access tokens, session tokens, and private keys.
-- SSH keys, certificates, certificate material, token files, kubeconfigs, and `.env` files.
-- Connection strings and database credentials.
-- Internal hostnames, internal IP addresses, private URLs, usernames, tenant identifiers, and internal project identifiers that are not required for the question.
-- Customer data, patient data, and personal data.
+### UMask
 
-Prefer a rewritten or synthetic example over real production data. If there is any doubt whether content is sensitive, do not send it externally until it has been sanitized.
+- Set `UMask=0077` explicitly in the service-specific hash near `PrivateTmp`, `ProtectHome`, and `ProtectSystem` when private output is required.
+- Do not inject `UMask` invisibly from a generic wrapper or template.
+- Omit `UMask` when the service requires the normal Linux default `0022`.
+- Set a shared non-default mask such as `0027` per service and document the reason beside the override.
 
-### systemd Hardening
-
-Review systemd hardening per concrete `.service` unit. These service-execution options are not meaningful defaults for `.timer`, `.socket`, `.mount`, `.path`, `.target`, `journald.conf`, `resolved.conf`, `timesyncd.conf`, or similar daemon configuration drop-ins. For a timer, socket, or path unit, review the paired `.service` unit.
-
-For every new, changed, or newly reviewed service, identify:
-
-- Final unit name and Puppet location.
-- Template, wrapper, or vendor unit being modified.
-- `ExecStart`, `ExecStartPre`, `ExecStartPost`, `ExecReload`, and `ExecStop`.
-- Runtime `User`, `Group`, supplementary groups, capabilities, and sudo or setuid usage.
-- Writable paths, generated files, directories, sockets, logs, and temporary file behavior.
-- Device access, home directory access, credential paths, network exposure, and package-management behavior.
-- Runtime language, interpreter or VM, plugins, JIT/code generation, and process introspection needs.
-
-Mark every candidate option as `apply`, `do not apply`, or `needs more research` in the related analysis. Do not add hardening blindly. Prefer a documented exception over a hardening change that causes runtime failures or operational surprises.
-
-Add `UMask=0077` explicitly in the relevant service hash, close to other hardening options such as `PrivateTmp`, `ProtectHome`, and `ProtectSystem`. Do not inject it invisibly from a generic wrapper or template. If a service needs the normal Linux default mask `0022`, omit `UMask`. If it needs a shared non-default mask such as `0027`, set it per service and document the reason next to the override.
-
-Candidate options and required risk checks:
+### Candidate Option Review
 
 | Option | Do not apply until these risks are checked |
 | --- | --- |
 | `PrivateDevices=true` | Real device nodes, storage, hardware, USB, virtualization, containers, RTC, GPU, serial, smartcard, tape, scanner, printer, or low-level network devices. |
-| `PrivateTmp=true` | Intentional file exchange with other units through shared `/tmp` or `/var/tmp`. |
+| `PrivateTmp=true` | Intentional exchange with other units through shared `/tmp` or `/var/tmp`. |
 | `ProtectHome=true` | Required access to `/home`, `/root`, or `/run/user`, including SSH material, web content, backups, or application data. |
 | `ProtectSystem=full` | Writes under `/usr`, `/boot`, `/etc`, or other protected paths without matching writable exceptions. |
-| `SystemCallArchitectures=native` | 32-bit, legacy ABI, Wine, QEMU-user, emulation, `setarch`, or compatibility workloads. |
-| `RestrictSUIDSGID=true` | Install, restore, provisioning, package-management, or workflows that intentionally set SUID/SGID bits or SGID directories. |
-| `LockPersonality=true` | Software that changes execution domain, disables ASLR through personality, or uses compatibility modes. |
+| `SystemCallArchitectures=native` | 32-bit or legacy ABIs, Wine, QEMU-user, emulation, `setarch`, or compatibility workloads. |
+| `RestrictSUIDSGID=true` | Installation, restore, provisioning, package management, or workflows that set SUID or SGID bits or create SGID directories. |
+| `LockPersonality=true` | Execution-domain changes, ASLR changes through personality, or compatibility modes. |
 | `NoNewPrivileges=true` | `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, or runtime privilege escalation. |
-| `MemoryDenyWriteExecute=true` | JIT or runtime executable code: JVM, .NET, Node.js/V8, Chromium/Electron, LuaJIT, Erlang/BEAM native code, WebAssembly, database JIT, PCRE-JIT, plugins, executable stacks, trampolines, runtime patching, security/observability injection, `/dev/shm`, `memfd_create`, or unknown binary blobs. |
-| `ProtectHostname=true` | Hostname/domain changes, `hostnamectl`, cloud-init/provisioning hostname workflows, or agents that need real-time hostname changes for monitoring, inventory, licensing, clustering, or registration. |
-| `ProtectClock=true` | System or hardware clock changes, RTC access, time synchronization, `adjtimex`/`clock_adjtime`, wake alarms, time-discipline monitoring, backup/scheduling RTC behavior, NTP, chrony, `systemd-timesyncd`, `hwclock`, or VM guest tools. |
-| `ProtectControlGroups=true` | Container managers, VM/container runtimes, nested service managers, workload supervisors, resource-accounting agents, orchestration, troubleshooting tools, or services that manage or intentionally inspect cgroups. |
+| `MemoryDenyWriteExecute=true` | JIT or runtime code generation, executable stacks, trampolines, runtime patching, security or observability injection, `/dev/shm`, `memfd_create`, plugins, or unknown binaries. This includes JVM, .NET, Node.js/V8, Chromium/Electron, LuaJIT, Erlang/BEAM native code, WebAssembly, database JIT, and PCRE-JIT. |
+| `ProtectHostname=true` | Hostname or domain changes, `hostnamectl`, provisioning workflows, or agents that need live hostname changes for monitoring, inventory, licensing, clustering, or registration. |
+| `ProtectClock=true` | System or hardware clock changes, RTC access, `adjtimex` or `clock_adjtime`, time synchronization, wake alarms, backup or scheduling behavior, NTP, chrony, `systemd-timesyncd`, `hwclock`, or VM guest tools. |
+| `ProtectControlGroups=true` | Container or VM runtimes, nested service managers, supervisors, resource-accounting agents, orchestration, troubleshooting, or intentional cgroup inspection. |
 | `ProtectKernelLogs=true` | `/dev/kmsg`, `/proc/kmsg`, `dmesg`, kernel-log collectors, low-level security agents, troubleshooting agents, or monitoring plugins that inspect kernel messages. |
-| `ProtectKernelModules=true` | `modprobe`, `insmod`, `rmmod`, DKMS, kernel module build/install workflows, direct `/usr/lib/modules` access, storage, network, virtualization, container, hardware-management, security, or observability agents that depend on module operations. |
-| `ProtectKernelTunables=true` | Sysctl management, provisioning, firewall/network tuning, storage tuning, power or hardware management, container/virtualization setup, low-level security agents, or monitoring that inspects `/proc/kallsyms`, `/proc/kcore`, `/proc/sys`, `/sys`, `/proc/sysrq-trigger`, `/proc/acpi`, `/proc/fs`, or `/proc/irq`. |
-| `ProtectProc=invisible` | Cross-user process inspection, process supervisors, monitoring plugins, inventory agents, security agents, troubleshooting tools, applications that scan `/proc`, unrestricted root services, services retaining `CAP_SYS_PTRACE`, host-visible mount behavior, host `/proc` assumptions, or kernels without per-mount `hidepid` support. |
-| `UMask=0077` | Group-readable files, group-writable directories, shared Unix sockets, shared logs, web assets, backup artifacts, deployment outputs, temporary hand-offs, or package defaults that require `0022` or a documented shared mask such as `0027`. |
+| `ProtectKernelModules=true` | `modprobe`, `insmod`, `rmmod`, DKMS, module builds, direct `/usr/lib/modules` access, or storage, network, virtualization, container, hardware, security, and observability agents that manage modules. |
+| `ProtectKernelTunables=true` | Sysctl, firewall, network, storage, power, hardware, container, virtualization, or provisioning changes. Also check inspection of `/proc/kallsyms`, `/proc/kcore`, `/proc/sys`, `/sys`, `/proc/sysrq-trigger`, `/proc/acpi`, `/proc/fs`, and `/proc/irq`. |
+| `ProtectProc=invisible` | Cross-user process inspection, supervisors, monitoring, inventory, security, troubleshooting, `/proc` scanning, `CAP_SYS_PTRACE`, host-visible mounts, host `/proc` assumptions, or kernels without per-mount `hidepid`. |
+| `UMask=0077` | Group-readable files, group-writable directories, shared sockets, logs, web assets, backups, deployment output, temporary hand-offs, or package behavior requiring `0022` or a documented shared mask such as `0027`. |
 
-Known lower-risk candidates are simple internally generated oneshot services that execute a known native binary or root-only script and do not use shared temp files, shared generated files, shared sockets, shared logs, device access, protected-path writes, privilege escalation, compatibility ABIs, JIT/code generation, hostname or clock management, kernel logs/modules/tunables, cgroup management, cross-user process inspection, dynamic plugins, or unknown third-party binary behavior.
+### Lower-Risk Categories
 
-Known higher-risk categories include package-management and provisioning units, Puppet agent/server units, GitLab omnibus supervision, certbot renewals with hooks, SSH login/session units, monitoring executors, OpenITCOCKPIT server components, backup/restore services, services creating files for web servers or deployment users, services creating shared sockets or logs, services using file capabilities or devices, Java/JVM, .NET, Node.js/V8, browser/Electron, database-JIT, PCRE-JIT, plugin-based runtimes, and any service that may call `sudo`, `su`, `runuser`, `pkexec`, or application-specific helper binaries.
+- Lower-risk candidates are internally generated oneshot services that run a known native binary or root-only script and use none of the shared, privileged, compatibility, JIT, kernel, device, process-inspection, or plugin behaviors in the candidate matrix.
 
-When changing a generic systemd wrapper such as `basic_settings::systemd_service` or `basic_settings::systemd_drop_in`, inspect the wrapper and every known consumer. Add a wrapper default only when every current consumer is validated, or when the wrapper supports explicit per-service opt-outs with documented technical reasons.
+### Higher-Risk Categories
 
-## Definition Of Done
+- Treat package-management, provisioning, Puppet, GitLab omnibus, hooked Certbot renewal, SSH session, monitoring executor, OpenITCOCKPIT server, backup, and restore units as higher risk.
+- Treat services that create shared files or use capabilities or devices as higher risk.
+- Treat JIT and plugin runtimes as higher risk.
+- Treat processes that may invoke `sudo`, `su`, `runuser`, `pkexec`, setuid helpers, file capabilities, or application-specific helpers as higher risk.
 
-An AI-generated change is complete only when:
+### Generic Wrapper Hardening
 
-Context and scope:
+- A generic wrapper change must inspect the wrapper and every known consumer.
+- Add a wrapper hardening default only after validating every consumer or providing explicit per-service opt-outs with documented technical reasons.
 
-- The relevant README, module metadata, manifests, templates, files, and examples were inspected.
-- Changes are scoped to first-party modules unless dependency work was explicitly requested.
+## Completion Checklist
 
-Documentation and code quality:
+### Context And Scope
 
-- Duplicate, unclear, or outdated nearby documentation was fixed when affected.
-- The centralized code comment rules and technical documentation rules were followed.
-- User-facing README changes, when required, are in Dutch.
-- Puppet Strings documentation still matches changed public classes and defined types.
+- Confirm that relevant README sections, metadata, manifests, templates, files, examples, and generated units were inspected.
+- Confirm that changes remain scoped to first-party modules unless dependency work was explicitly requested.
+- Confirm that unrelated user changes were preserved.
 
-Security and operational review:
+### Code And Documentation
 
-- Security, permissions, secrets, systemd behavior, monitoring, logging, audit, and operational impact were reviewed for the touched area.
+- Confirm that centralized comment, implementation, and documentation rules were followed.
+- Confirm that nearby affected documentation is accurate, non-duplicative, and unambiguous.
+- Confirm that Puppet Strings matches changed public interfaces.
+- Confirm that required user-facing README changes are in Dutch.
 
-Validation and final reporting:
+### Security And Operations
 
-- Relevant validation commands were run, or unavailable commands are clearly reported with the fallback checks that were performed.
-- `git diff --check` passes.
-- The final response lists changed files or code paths, security/systemd review notes, README/AGENTS documentation decisions, validation run, and any open assumptions or follow-up input needed.
+- Confirm that permissions, secrets, systemd, monitoring, logging, audit, network exposure, and operational impact were reviewed for the touched area.
+- Confirm that no secret, credential, certificate, or key material was shared externally.
+- Confirm that externally used data was minimal and synthetic or sufficiently anonymized.
+- Confirm that logs, screenshots, headers, URLs, filenames, and metadata were reviewed before external use.
+- Confirm that no external disclosure occurred when safe sanitization could not be demonstrated.
 
-## Maintenance Of This File
+### Validation And Reporting
 
-Keep this `AGENTS.md` file up to date whenever repository conventions, documentation rules, validation commands, security requirements, coding standards, or operational workflows change.
+- Run relevant validation commands and report unavailable tooling plus fallback checks.
+- Require `git diff --check` to pass.
+- In the final response, list changed files or paths, relevant security and systemd review decisions, README and `AGENTS.md` documentation decisions, validation performed, and unresolved assumptions or required follow-up.
 
-When modifying this file:
+## Maintaining AGENTS.md
 
-Preserve and consolidate:
+### Content And Placement
 
-- Preserve the current intent of existing rules unless there is an explicit reason to change them.
-- Do not weaken existing documentation, validation, security, or review requirements without clearly documenting why.
-- Remove or merge duplicated instructions instead of adding another similar rule.
-- Resolve contradictions immediately so the file always contains one clear instruction.
-- Keep instructions concrete, compact, and understandable for AI agents that have no additional context.
+- Store only durable project-wide engineering rules; do not record task, ticket, bug, feature, or prompt history.
+- Identify the underlying objective, required behavior, scope, and necessary exceptions before adding a rule.
+- Keep feature-specific implementation detail in code, tests, documentation, specifications, or ADRs unless it is a lasting project-wide constraint.
+- Keep exact technical detail only when it is a required contract, constraint, exception, compatibility requirement, or security requirement.
+- Keep one authoritative location for every rule.
+- Place each rule in the narrowest relevant section.
+- Place each exception directly with the rule it modifies.
+- Leave this file unchanged when existing policy already covers the requested behavior completely and unambiguously.
 
-Update from recurring lessons:
+### Maintenance Triggers
 
-- If a repeated AI mistake is found during development or review, update `AGENTS.md` so the same mistake is less likely to happen again.
-- Process new insights into `AGENTS.md` when they affect how AI agents should work in this repository. This includes insights from code reviews, production issues, security findings, linting or test failures, recurring mistakes, changed tooling, changed architecture, or improved project conventions.
-- Treat `AGENTS.md` as a living document: when better instructions are discovered, add or refine them in a compact and non-duplicated way.
+- Update this file when a repository-wide convention, architecture constraint, validation command, security requirement, coding standard, or operational workflow changes.
+- Convert recurring review findings, production issues, security findings, test failures, tooling changes, and repeated agent mistakes into durable rules only when they generalize beyond one task.
+- Record the reusable behavior and constraint, not the event or prompt that revealed it.
 
-Whenever an AI agent modifies a file, it must also check whether documentation is missing, outdated, duplicated, unclear, or no longer aligned with current insights in the changed area. If documentation is affected, update it in the same change. If no documentation update is needed, no extra documentation should be added.
+### Editing Rules
+
+- Check whether an existing rule covers the behavior wholly or partly before adding content.
+- Update, broaden, or clarify the authoritative rule before creating a new one.
+- Add a new rule only for necessary durable behavior that is not already covered.
+- Remove duplicate and weaker variants when consolidating rules.
+- Use one primary requirement, prohibition, or decision per bullet.
+- Split independent topics into separate bullets or subsections.
+- Do not compress several requirements into dense prose to reduce line or bullet count.
+- Do not let a lower-level instruction weaken or duplicate project-wide policy.
+
+### Final Review
+
+- Verify that every change to this file is necessary, reusable, scannable, non-duplicative, unambiguous, and consistent with the rest of the document.
+- Verify that no obligation, prohibition, exception, compatibility contract, or security safeguard was weakened or lost.
+- Resolve contradictions when repository evidence determines the correct rule.
+- Preserve the safer existing behavior and report the ambiguity when a contradiction cannot be resolved from repository evidence.
