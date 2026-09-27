@@ -41,6 +41,9 @@
 #   Optional read-only executable and arguments inside the container, accepting Sensitive[String]. Exit 0 allows
 #   command; other exit codes skip it. Also runs during Puppet --noop. Default undef adds no prerequisite check.
 #
+# @param refreshonly
+#   Defaults to false. True executes only on refresh events; creates, onlyif and unless still guard execution.
+#
 # @param service
 #   Compose service label; exactly one running container must match. Defaults to undef; excludes container_name.
 #
@@ -68,6 +71,7 @@ define docker::compose_exec (
   Optional[Pattern[/\A\/[^\r\n]+\z/]]                    $creates        = undef,
   Hash[String, Variant[String, Sensitive[String]]]       $environment    = {},
   Optional[Array[Variant[String, Sensitive[String]], 1]] $onlyif         = undef,
+  Boolean                                                $refreshonly    = false,
   Optional[Pattern[/\A[A-Za-z0-9_.-]+\z/]]               $service        = undef,
   Optional[Pattern[/\A\/[^\r\n]+\z/]]                    $stdin_file     = undef,
   Integer[1]                                             $timeout        = 120,
@@ -176,17 +180,18 @@ define docker::compose_exec (
 
     # Keep the resource title stable for callers and inherit their require/notify relationships through containment.
     exec { $name:
-      command   => Sensitive.new(join([
+      command     => Sensitive.new(join([
         $container_lookup_command,
         join(concat([$docker_exec_command, $interactive_arg, '"$container_id"'], $command_args_shell, [$stdin_redirect]), ' '),
       ], "\n")),
-      creates   => $creates,
-      logoutput => false,
-      onlyif    => $onlyif_command,
-      provider  => shell,
-      require   => [Docker::Compose[$compose_name], File['/usr/local/lib/puppet/docker-compose-container']],
-      timeout   => $timeout,
-      unless    => $unless_command,
+      creates     => $creates,
+      logoutput   => false,
+      onlyif      => $onlyif_command,
+      provider    => shell,
+      refreshonly => $refreshonly,
+      require     => [Docker::Compose[$compose_name], File['/usr/local/lib/puppet/docker-compose-container']],
+      timeout     => $timeout,
+      unless      => $unless_command,
     }
   } else {
     fail('docker::compose_exec requires docker, exactly one of service or container_name, and valid environment keys.')

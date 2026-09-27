@@ -179,7 +179,7 @@ define docker::nextcloud_s3 (
           command      => $command,
           compose_name => $compose_name,
           timeout      => $occ_timeout,
-          unless       => ['config:system:get', '--output=json', '--default-value=null', 'objectstore', $name],
+          unless       => ['config:system:get', '--default-value=null', 'objectstore', $name],
           unless_json  => $expected_json,
         }
       } else {

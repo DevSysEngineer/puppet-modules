@@ -28,6 +28,13 @@
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
 #
+# Present stacks query Nextcloud's mimetype migration setup check through docker::nextcloud_occ. The installed OCC
+# command must support selecting a setup check by class. The read-only command repeats after the unchanged-state
+# guard; only a warning on that read produces a change and refresh.
+# A warning notifies the single ${name}_maintenance_repair_expensive OCC resource, which runs all expensive repair
+# steps with a one-hour timeout. Other detectors may notify this same resource. It runs only on refresh, still behind
+# the installation guard. Success makes no change; a failed or unreadable setup check fails without starting repair.
+#
 # Optional objectstore selections use the same guarded OCC path. Referenced stores must already exist or be declared
 # with docker::nextcloud_s3 and ensure present for this deployment; matching registrations run before selection.
 # Selecting primary object storage does not migrate existing files; prepare storage migration and backups first.
@@ -411,11 +418,31 @@ define docker::nextcloud (
             }
           }
 
+          # All detectors share this event-only repair; Nextcloud may include more than mimetype migrations.
+          docker::nextcloud_occ { "${name}_maintenance_repair_expensive":
+            command      => ['maintenance:repair', '--include-expensive'],
+            compose_name => $name,
+            refreshonly  => true,
+            timeout      => 3600,
+          }
+
+          # Only Nextcloud's own warning triggers maintenance; setup errors fail without sending a refresh.
+          $mimetype_check = 'OCA\Settings\SetupChecks\MimeTypeMigrationAvailable'
+          docker::nextcloud_occ { "${name}_mimetype_migrations":
+            command      => ['setupchecks', '', $mimetype_check],
+            compose_name => $name,
+            command_json => '"warning"',
+            json_path    => ['system', $mimetype_check, 'severity'],
+            json_returns => [0, 1],
+            unless_json  => '"success"',
+            notify       => Docker::Nextcloud_occ["${name}_maintenance_repair_expensive"],
+          }
+
           # The OCC wrapper orders guarded updates after the stack; installation must finish in AIO first.
           docker::nextcloud_occ { "${name}_default_quota":
             command      => ['config:app:set', 'files', 'default_quota', '--value', $default_quota],
             compose_name => $name,
-            unless       => ['config:app:get', 'files', 'default_quota', '--output=json'],
+            unless       => ['config:app:get', 'files', 'default_quota'],
             unless_json  => stdlib::to_json($default_quota),
           }
 
@@ -428,7 +455,7 @@ define docker::nextcloud (
               '--type=boolean',
             ],
             compose_name => $name,
-            unless       => ['config:system:get', 'allow_local_remote_servers', '--output=json'],
+            unless       => ['config:system:get', 'allow_local_remote_servers'],
             unless_json  => stdlib::to_json($allow_local_remote_servers),
           }
 
@@ -436,7 +463,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_files_max_chunk_size":
             command      => ['config:app:set', 'files', 'max_chunk_size', '--value', String($files_max_chunk_size)],
             compose_name => $name,
-            unless       => ['config:app:get', 'files', 'max_chunk_size', '--output=json'],
+            unless       => ['config:app:get', 'files', 'max_chunk_size'],
             unless_json  => stdlib::to_json(String($files_max_chunk_size)),
           }
 
@@ -444,7 +471,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_default_language":
             command      => ['config:system:set', 'default_language', '--value', $default_language],
             compose_name => $name,
-            unless       => ['config:system:get', 'default_language', '--output=json'],
+            unless       => ['config:system:get', 'default_language'],
             unless_json  => stdlib::to_json($default_language),
           }
 
@@ -452,7 +479,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_default_locale":
             command      => ['config:system:set', 'default_locale', '--value', $default_locale],
             compose_name => $name,
-            unless       => ['config:system:get', 'default_locale', '--output=json'],
+            unless       => ['config:system:get', 'default_locale'],
             unless_json  => stdlib::to_json($default_locale),
           }
 
@@ -460,7 +487,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_default_phone_region":
             command      => ['config:system:set', 'default_phone_region', '--value', $default_phone_region],
             compose_name => $name,
-            unless       => ['config:system:get', 'default_phone_region', '--output=json'],
+            unless       => ['config:system:get', 'default_phone_region'],
             unless_json  => stdlib::to_json($default_phone_region),
           }
 
@@ -468,7 +495,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_defaultapp":
             command      => ['config:system:set', 'defaultapp', '--value', $default_app],
             compose_name => $name,
-            unless       => ['config:system:get', 'defaultapp', '--output=json'],
+            unless       => ['config:system:get', 'defaultapp'],
             unless_json  => stdlib::to_json($default_app),
           }
 
@@ -476,7 +503,7 @@ define docker::nextcloud (
           docker::nextcloud_occ { "${name}_skeletondirectory":
             command      => ['config:system:set', 'skeletondirectory', '--value', $skeleton_directory],
             compose_name => $name,
-            unless       => ['config:system:get', 'skeletondirectory', '--output=json'],
+            unless       => ['config:system:get', 'skeletondirectory'],
             unless_json  => stdlib::to_json($skeleton_directory),
           }
 
@@ -491,7 +518,7 @@ define docker::nextcloud (
             docker::nextcloud_occ { "${name}_objectstore_${selection}":
               command      => ['config:system:set', 'objectstore', $selection, '--value', $store],
               compose_name => $name,
-              unless       => ['config:system:get', 'objectstore', $selection, '--output=json'],
+              unless       => ['config:system:get', 'objectstore', $selection],
               unless_json  => stdlib::to_json($store),
             }
 
@@ -621,7 +648,7 @@ define docker::nextcloud (
                     docker::nextcloud_occ { "${name}_${setting}":
                       command      => ['config:system:set', $setting, '--type=json', Sensitive("--value=${value_json}")],
                       compose_name => $name,
-                      unless       => ['config:system:get', $setting, '--output=json'],
+                      unless       => ['config:system:get', $setting],
                       unless_json  => Sensitive($value_json),
                     }
                   }
