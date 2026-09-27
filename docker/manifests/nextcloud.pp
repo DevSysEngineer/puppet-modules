@@ -19,12 +19,18 @@
 # Configure the application domain in AIO after providing its HTTPS reverse proxy; domain validation stays enabled.
 # Without server_name, the deployment must provide that HTTPS proxy separately on the same host.
 #
-# Present stacks always apply this deployment's global OCC defaults (`default_quota`, `default_language`,
-# `default_locale`, `default_phone_region`, `default_app`, `skeleton_directory`) through `docker::nextcloud_occ`, each
-# guarded so Puppet only writes on an actual difference. There is no opt-out for applying these six, only for their
-# values. SMTP has separate optional parameters below; use `docker::nextcloud_occ` directly for other settings.
+# Present stacks always apply this deployment's global OCC defaults (`allow_local_remote_servers`, `default_quota`,
+# `default_language`, `default_locale`, `default_phone_region`, `default_app`, `files_max_chunk_size`,
+# `skeleton_directory`) through
+# `docker::nextcloud_occ`. Puppet only writes on an actual difference. These settings are always managed, with
+# configurable values. SMTP and objectstore selections have optional parameters below; use `docker::nextcloud_occ`
+# for other settings.
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
+#
+# Optional objectstore selections use the same guarded OCC path. Referenced stores must already exist or be declared
+# with docker::nextcloud_s3 and ensure present for this deployment; matching registrations run before selection.
+# Selecting primary object storage does not migrate existing files; prepare storage migration and backups first.
 #
 # SMTP shares docker::authentik's parameter names, relay fallback and Sensitive password contract. A resolved relay
 # manages mail_smtpmode, mail_smtphost, mail_smtpsecure and boolean mail_smtpauth. Port, timeout, sender and credentials
@@ -68,6 +74,11 @@
 #   unrestricted.
 #   Uses the client address seen by Nginx. Does not restrict the application vhost or direct access to admin_port.
 #
+# @param allow_local_remote_servers
+#   Allows requests to remote servers with local addresses, such as federated shares and webcal services, when true.
+#   Defaults to false, retaining Nextcloud's restriction on these requests. Enable only for required local integrations.
+#   Written through OCC `config:system:set allow_local_remote_servers` with `--type=boolean`.
+#
 # @param default_app
 #   Global default app written through OCC `config:system:set defaultapp`.
 #
@@ -87,6 +98,10 @@
 #   Defaults to present. Delegates project lifecycle to `docker::compose`. Stop the AIO sibling containers through
 #   the admin UI before stopping the mastercontainer and follow the Compose removal contract. Absent removes the
 #   project directory, including its local backup directory; preserve backups elsewhere first. AIO volumes remain.
+#
+# @param files_max_chunk_size
+#   Maximum upload chunk size in bytes, written through OCC `config:app:set files max_chunk_size`.
+#   Defaults to 10485760 (10 MiB); 0 disables chunking.
 #
 # @param image_tag
 #   Docker image tag for the mastercontainer, written as `NEXTCLOUD_TAG`. Defaults to `latest`, matching upstream AIO
@@ -116,6 +131,16 @@
 #
 # @param monitoring_timeout
 #   Timeout in seconds for the Compose stack monitoring check.
+#
+# @param objectstore_default
+#   Named primary objectstore for newly created users, written through OCC `config:system:set objectstore default`.
+#   Defaults to undef, leaving the stored selection unmanaged, including when a previously supplied value is omitted.
+#   Existing users retain their store mapping; changing this value does not migrate their files.
+#
+# @param objectstore_root
+#   Named primary objectstore for files outside user storage, written through OCC `config:system:set objectstore root`.
+#   Defaults to undef, leaving the stored selection unmanaged, including when a previously supplied value is omitted.
+#   Nextcloud uses objectstore default when no root selection is stored. Changing this value does not migrate files.
 #
 # @param port
 #   Local HTTP upstream port written as APACHE_PORT and used by Nginx. Defaults to 11000 and binds to 127.0.0.1.
@@ -195,12 +220,14 @@ define docker::nextcloud (
   Integer[1, 65535]                     $admin_port                 = 8080,
   Optional[String[1]]                   $admin_server_name          = undef,
   Array[Stdlib::IP::Address]            $admin_whitelist_ips        = [],
+  Boolean                               $allow_local_remote_servers = false,
   String[1]                             $default_app                = 'files',
   String[1]                             $default_language           = 'nl',
   String[1]                             $default_locale             = 'nl_NL',
   String[1]                             $default_phone_region       = 'NL',
   String[1]                             $default_quota              = '10 GB',
   Enum['present', 'absent']             $ensure                     = present,
+  Integer[0]                            $files_max_chunk_size       = 10485760,
   Pattern[/\A[^\r\n]+\z/]               $image_tag                  = 'latest',
   Integer                               $monitoring_detail_limit    = 6000,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_expected_exited = [],
@@ -210,6 +237,8 @@ define docker::nextcloud (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_profiles        = [],
   Integer                               $monitoring_starting_grace  = 300,
   Integer                               $monitoring_timeout         = 60,
+  Optional[String[1]]                   $objectstore_default        = undef,
+  Optional[String[1]]                   $objectstore_root           = undef,
   Integer[1, 65535]                     $port                       = 11000,
   Optional[String[1]]                   $server_name                = undef,
   String                                $skeleton_directory         = '',
@@ -390,6 +419,27 @@ define docker::nextcloud (
             unless_json  => stdlib::to_json($default_quota),
           }
 
+          # Keep local remote requests restricted unless the deployment explicitly enables them.
+          docker::nextcloud_occ { "${name}_allow_local_remote_servers":
+            command      => [
+              'config:system:set',
+              'allow_local_remote_servers',
+              "--value=${allow_local_remote_servers}",
+              '--type=boolean',
+            ],
+            compose_name => $name,
+            unless       => ['config:system:get', 'allow_local_remote_servers', '--output=json'],
+            unless_json  => stdlib::to_json($allow_local_remote_servers),
+          }
+
+          # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
+          docker::nextcloud_occ { "${name}_files_max_chunk_size":
+            command      => ['config:app:set', 'files', 'max_chunk_size', '--value', String($files_max_chunk_size)],
+            compose_name => $name,
+            unless       => ['config:app:get', 'files', 'max_chunk_size', '--output=json'],
+            unless_json  => stdlib::to_json(String($files_max_chunk_size)),
+          }
+
           # Set the default UI language for new sessions.
           docker::nextcloud_occ { "${name}_default_language":
             command      => ['config:system:set', 'default_language', '--value', $default_language],
@@ -428,6 +478,26 @@ define docker::nextcloud (
             compose_name => $name,
             unless       => ['config:system:get', 'skeletondirectory', '--output=json'],
             unless_json  => stdlib::to_json($skeleton_directory),
+          }
+
+          # Omitted selections preserve existing storage configuration, including selections managed outside Puppet.
+          $objectstore_selections = {
+            'default' => $objectstore_default,
+            'root'    => $objectstore_root,
+          }.filter |$selection, $store| { $store != undef }
+
+          # Each selection changes only its own key and retains the named stores and existing user mappings.
+          $objectstore_selections.each |$selection, $store| {
+            docker::nextcloud_occ { "${name}_objectstore_${selection}":
+              command      => ['config:system:set', 'objectstore', $selection, '--value', $store],
+              compose_name => $name,
+              unless       => ['config:system:get', 'objectstore', $selection, '--output=json'],
+              unless_json  => stdlib::to_json($store),
+            }
+
+            # Order managed stores before use while allowing stores provisioned outside this catalog.
+            Docker::Nextcloud_s3 <| title == $store and compose_name == $name |>
+              -> Docker::Nextcloud_occ["${name}_objectstore_${selection}"]
           }
 
           # AIO's separate HTTPS admin endpoint reuses the same proxy implementation without deploying Compose twice.
