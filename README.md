@@ -62,13 +62,15 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 
 ## Ondersteuning en compatibiliteit
 
-De modules ondersteunen Debian 11, Debian 12, Debian 13, Ubuntu 22.04 LTS, Ubuntu 23.04, Ubuntu 24.04 LTS en Ubuntu 26.04 LTS. Gebruik voor nieuwe servers bij voorkeur een release die nog reguliere beveiligingsupdates ontvangt. Sommige platformonderdelen hebben een beperktere ondersteuning; controleer daarom altijd de aandachtspunten bij de betreffende module.
+De platformselectie van `basic_settings` bevat Debian 12, Debian 13, Ubuntu 22.04 LTS, Ubuntu 23.04, Ubuntu 24.04 LTS en Ubuntu 26.04 LTS. De [rootmetadata](metadata.json) beschrijven die projectbrede selectie. Sommige individuele modulemetadata noemen ook Debian 11, maar `basic_settings` heeft daarvoor geen platformmapping: het kiest `unknown` als releasenaam en schakelt aanvullende pakketbronnen uit. Gebruik Debian 11 daarom niet als ondersteunde basis voor de volledige combinatie. Gebruik voor nieuwe servers bij voorkeur een release die nog reguliere beveiligingsupdates ontvangt. Sommige platformonderdelen hebben een beperktere ondersteuning; controleer daarom altijd de aandachtspunten bij de betreffende module.
 
 De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` werkt ook op andere 64-bits architecturen, maar pakketbronnen voor bijvoorbeeld MySQL en RabbitMQ worden daar niet altijd ingeschakeld. Test daarom iedere gewenste combinatie zelf wanneer je geen `amd64` gebruikt.
 
-De modules zijn bedoeld voor Puppet 5.5 tot en met Puppet 8. `basic_settings` kan ook de pakketbron en pakketten voor OpenVox 8 beheren. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
+De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 die nog in individuele modulemetadata staat: `concat` 10 vereist Puppet 8 en `debconf` 8 vermeldt OpenVox vanaf 8.19 binnen majorversie 8. De rootmetadata volgen deze dependencygrenzen. `basic_settings` kan de pakketbron en pakketten voor OpenVox 8 beheren. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
 
 Dit project gebruikt `concat`, `debconf`, `reboot`, `stdlib` en `timezone`. Deze modules worden als Git-submodules meegeleverd en moeten daarom tijdens de installatie ook worden opgehaald.
+
+De rootmetadata beschrijven de ingeladen dependencies, maar hun onderlinge versievoorwaarden zijn niet allemaal verenigbaar. `timezone` 7.0.0 vereist `stm-debconf >= 2.0.0 < 7.0.0`, terwijl de checkout `debconf` 8.0.0 bevat. Los die bestaande dependencybotsing op voordat je de volledige combinatie als compatibel beschouwt. Een geslaagde metadata- of syntaxcontrole is daarvoor geen bewijs; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
 > [!CAUTION]
 > Verschillende modules nemen bestaande configuratiebestanden of pakketkeuzes over. Pas een nieuwe catalogus eerst toe in een testomgeving, controleer wat Puppet wil wijzigen en test daarna de betreffende services. Je hoeft niet alle modules op iedere host te gebruiken.
@@ -158,6 +160,8 @@ Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
    ```
 
 Gebruik de [toolinghandleiding voor je eigen project](.tools/lint/README.md#de-linter-gebruiken-in-een-ander-puppet-project) om de gedeelde controles voor je eigen Puppet- en Ruby-code in te richten.
+
+Het [versiebeleid](AGENTS.md#versioning-and-releases) beschrijft hoe het project compatibiliteit bij updates beoordeelt.
 
 ## Quick start
 

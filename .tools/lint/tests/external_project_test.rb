@@ -69,7 +69,7 @@ class ExternalProjectTest < Minitest::Test
   end
 
   def test_explicit_modulepath_resolves_vendored_names_and_refuses_escaping_symlinks
-    write('modules/stdlib/manifests/init.pp', 'class stdlib (String $value) {}')
+    write_module('stdlib', 'class stdlib (String $value) {}')
     write('manifests/site.pp', "class { 'stdlib': }\n")
     lint('manifests')
     refute @status.success?

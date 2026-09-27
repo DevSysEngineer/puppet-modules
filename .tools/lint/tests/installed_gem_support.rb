@@ -1,14 +1,18 @@
 # frozen_string_literal: true
 
 require 'bundler'
+require_relative '../../test/lint/metadata_support'
 
 # Build a gem and exercise it through a separate, offline consumer bundle.
 module InstalledGemSupport
-  ISOLATED_VARIABLES = %w[DEBUG RUBYOPT RUBYLIB PROJECT_LINT_MODULEPATH GITHUB_ACTION
-                          CODECLIMATE_REPORT_FILE MINITEST_REPORTERS_REPORTS_DIR].freeze
+  include MetadataSupport
+
+  ISOLATED_VARIABLES = %w[DEBUG RUBYOPT RUBYLIB PROJECT_LINT_MODULEPATH PROJECT_LINT_MODULES_PATH GITHUB_ACTION
+                          PROJECT_LINT_METADATA_PREFIX CODECLIMATE_REPORT_FILE MINITEST_REPORTERS_REPORTS_DIR].freeze
 
   def setup
     @project = Dir.mktmpdir('lint-consumer-')
+    prepare_metadata_project(@project)
     @gem_home = File.join(@project, 'installed gems')
     @env = Bundler.unbundled_env.reject do |key, _|
       key.start_with?('BUNDLE_') || ISOLATED_VARIABLES.include?(key)
@@ -42,7 +46,7 @@ module InstalledGemSupport
   def prepare_bundle
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
-      gem 'lint-project', '= 0.1.12', require: false
+      gem 'lint-project', '= 0.1.13', require: false
     RUBY
     run_success('bundle', 'install', '--local')
     run_success('bundle', 'info', '--path', 'lint-project')
@@ -51,9 +55,11 @@ module InstalledGemSupport
   end
 
   def prepare_project
+    @env['PROJECT_LINT_MODULES_PATH'] = 'modules'
+    @env['PROJECT_LINT_METADATA_PREFIX'] = 'example'
     write('.puppet-lint.rc', "--ignore-paths=dependencies/*,vendor/*,spec/*\n")
     write('manifests/site.pp', "$values = concat([1], [2])\n")
-    write('modules/profile/manifests/init.pp', 'class profile (String $value) {}')
+    write_module('profile', 'class profile (String $value) {}')
     write('dependencies/shared/manifests/init.pp', 'class shared (String $value) {}')
     write('spec/invalid.pp', "$values = [1] + [2]\n")
     @env['PROJECT_LINT_MODULEPATH'] = [File.join(@project, 'modules'), File.join(@project, 'dependencies')].join(':')
@@ -67,6 +73,11 @@ module InstalledGemSupport
     path = File.join(@project, relative)
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, content)
+  end
+
+  def write_module(name, code)
+    write("modules/#{name}/metadata.json", JSON.generate({ name: "example-#{name}", version: '7.4.0' }))
+    write("modules/#{name}/manifests/init.pp", code)
   end
 
   def read(relative)

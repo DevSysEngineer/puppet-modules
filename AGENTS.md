@@ -49,6 +49,7 @@ The first-party Puppet modules target Debian and Ubuntu servers. The complete mo
 - Run `git status --short` before editing.
 - Inspect the relevant module files and README sections before changing behavior or structure.
 - Inspect the touched module's `metadata.json` when it exists.
+- Apply the lint guide's [module metadata checks and content review](.tools/lint/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
 - Inspect related manifests, templates, static files, examples, and systemd units, including generated units.
 - Check existing integration with `basic_settings`, monitoring, systemd, security audit, `php8::fpm`, `nginx`, and other local modules relevant to the change.
 - Check existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
@@ -86,6 +87,36 @@ Apply the [implementation scope](#implementation-scope) when deciding whether ad
 
 - AI agents must never create, amend, or rewrite Git commits through Git commands, APIs, or other tools.
 - Leave validated changes in the working tree for human review and commit.
+
+### Versioning And Releases
+
+Use [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`MAJOR.MINOR.PATCH`) for project releases. The root `VERSION` file is the sole authority for the project version; root metadata and all first-party module metadata follow it. A breaking change in one first-party module therefore affects the release version of the entire module set, including unchanged modules. Consuming projects, imported shared projects, and external dependencies retain their own versions.
+
+#### Compatibility And Change Impact
+
+The public compatibility contract includes supported classes and defined types, parameters, Hiera settings, documented management behavior, and documented integration of the shared tooling.
+
+- Assess and record compatibility impact for every change against the latest published release. Unreleased intermediate implementations are not separate release baselines. Judge the effect on supported use, not the size of the diff.
+- Apply the following release levels; the highest required level across the release determines its version.
+
+| Level | Required for | Example from `3.2.4` |
+| --- | --- | --- |
+| MAJOR | Incompatible changes, such as removing or renaming a public parameter without compatibility support, making an optional parameter mandatory, or changing a default so supported use fails. | `4.0.0` |
+| MINOR | Compatible functionality, such as an optional parameter whose default preserves behavior, a new module or define, or announcing deprecation while retaining support. | `3.3.0` |
+| PATCH | Compatible bug fixes, such as correcting invalid generated configuration without changing the supported interface. | `3.2.5` |
+
+- Reset PATCH to zero for a MINOR increase; reset both MINOR and PATCH for a MAJOR increase. Treat components as integers: `3.9.0` can advance to `3.10.0`.
+- Treat removal of deprecated functionality as a MAJOR change when it breaks the public contract.
+- Include consuming projects in tooling compatibility review. Requiring a new version file or explicit configuration is a breaking integration change when the latest published release supported use without it.
+
+#### Release Preparation
+
+- Choose the final version when preparing a release. Do not increase it automatically per commit or lint run, or infer release impact from changed files.
+- Set the chosen project version in `VERSION`, then synchronize only the `version` fields in root and first-party module metadata. Preserve other metadata and the versions of imported projects and dependencies. Never derive or update `VERSION` from metadata or Git; any release tags follow the chosen version.
+- Include concrete migration instructions for affected consumers with every breaking change in the relevant usage documentation.
+- Keep published releases immutable. Deliver subsequent changes under a new version.
+
+The [lint guide](.tools/lint/README.md#versiebron-en-rapportage) owns version-file validation, metadata selection, synchronization instructions, and correction behavior. Review release impact manually; a passing consistency check does not establish compatibility. The lint gem has a separate package version and [release procedure](.tools/lint/README.md#een-gem-bouwen-en-versie-uitbrengen).
 
 ## Security And Privacy
 
@@ -265,7 +296,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Tool Test Structure
 
-- Keep tests of repository tools beside their implementation under `.tools/<tool-name>/tests/`; use `.tools/lint/tests/` for the linter.
+- Keep tests of repository tools beside their implementation under `.tools/<tool-name>/tests/`; use `.tools/lint/tests/` for the linter, except for the metadata regression suite under `.tools/test/lint/`.
 - Never create first-party test directories or test files elsewhere in the repository. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
 - Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
 - Keep tool-specific helpers and fixtures with that tool's tests.
@@ -273,8 +304,8 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 #### Tool Test Tasks
 
-- Keep `test` and the default root Rake task responsible for recursive discovery of `.tools/**/tests/**/*_test.rb`.
-- Keep `test:lint` limited to the linter tests under `.tools/lint/tests/`.
+- Keep `test` and the default root Rake task responsible for recursive discovery of `.tools/**/tests/**/*_test.rb` and `.tools/test/lint/**/*_test.rb`.
+- Keep `test:lint` limited to the linter tests under `.tools/lint/tests/` and `.tools/test/lint/`.
 
 #### Test Structure Maintenance
 

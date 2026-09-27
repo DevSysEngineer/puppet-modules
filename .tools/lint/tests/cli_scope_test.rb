@@ -20,6 +20,7 @@ class CliScopeTest < Minitest::Test
   end
 
   def test_cli_discovers_new_first_party_files_and_fails_on_a_project_check
+    prepare_metadata_project(@directory)
     copy_project_config(@directory)
     write_source("$values = concat([1], [2])\n", path: 'new.pp')
     assert_cli_success('.', directory: @directory)
@@ -68,10 +69,10 @@ class CliScopeTest < Minitest::Test
 
   def test_zero_selected_files_succeeds_but_json_proves_the_empty_selection
     write_file('empty/.keep', '')
-    assert_cli_success('--json', File.join(@directory, 'empty'))
+    assert_cli_success('--only-checks=project_arrays', '--json', File.join(@directory, 'empty'))
     assert_equal [], JSON.parse(@output)
     good = write_file('good.pp', "$values = concat([1], [2])\n")
-    assert_cli_success('--ignore-paths', good, '--json', good)
+    assert_cli_success('--only-checks=project_arrays', '--ignore-paths', good, '--json', good)
     assert_equal [], JSON.parse(@output)
   end
 end

@@ -70,8 +70,9 @@ class GuideContractTest < Minitest::Test
     refute_empty links, "Missing rule links for #{check}"
     links.each do |link|
       path, anchor = link.split('#', 2)
-      assert_includes RULES, path, check
-      target = File.join(File.dirname(GUIDE), path)
+      allowed = check == 'project_metadata' ? [''] : RULES
+      assert_includes allowed, path, check
+      target = path.empty? ? GUIDE : File.join(File.dirname(GUIDE), path)
       assert_path_exists target
       assert_includes anchors(File.read(target)), anchor, check
     end

@@ -3,6 +3,7 @@
 # Load upstream plugins before checks that can remove their original fix anchors.
 require 'puppet-lint'
 
+require 'project_lint/checks/metadata'
 require 'project_lint/checks/documentation'
 require 'project_lint/checks/documentation_layout'
 require 'project_lint/checks/suppressions'

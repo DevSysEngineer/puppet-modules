@@ -1,0 +1,53 @@
+{
+  "name": "puppet-modules",
+  "version": "2.0.0",
+  "author": "DevSysEngineer",
+  "summary": "Puppet modules for hardened Debian and Ubuntu server infrastructure",
+  "license": "Apache-2.0",
+  "source": "https://github.com/DevSysEngineer/puppet-modules",
+  "project_page": "https://github.com/DevSysEngineer/puppet-modules",
+  "issues_url": "https://github.com/DevSysEngineer/puppet-modules/issues",
+  "dependencies": [
+    {
+      "name": "puppetlabs-concat",
+      "version_requirement": ">= 10.0.0 < 11.0.0"
+    },
+    {
+      "name": "stm-debconf",
+      "version_requirement": ">= 8.0.0 < 9.0.0"
+    },
+    {
+      "name": "puppetlabs-reboot",
+      "version_requirement": ">= 5.0.0 < 6.0.0"
+    },
+    {
+      "name": "puppetlabs-stdlib",
+      "version_requirement": ">= 9.0.0 < 10.0.0"
+    },
+    {
+      "name": "saz-timezone",
+      "version_requirement": ">= 7.0.0 < 8.0.0"
+    }
+  ],
+  "operatingsystem_support": [
+    {
+      "operatingsystem": "Debian",
+      "operatingsystemrelease": ["12", "13"]
+    },
+    {
+      "operatingsystem": "Ubuntu",
+      "operatingsystemrelease": ["22.04", "23.04", "24.04", "26.04"]
+    }
+  ],
+  "requirements": [
+    {
+      "name": "puppet",
+      "version_requirement": ">= 8.0.0 < 9.0.0"
+    },
+    {
+      "name": "openvox",
+      "version_requirement": ">= 8.19.0 < 9.0.0"
+    }
+  ],
+  "tags": ["puppet-modules", "infrastructure", "debian", "ubuntu", "hardening", "monitoring"]
+}

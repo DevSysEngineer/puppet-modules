@@ -12,6 +12,7 @@ env:
   BUNDLE_VERSION: system
   BUNDLE_FROZEN: 'true'
   BUNDLE_PATH: vendor/bundle
+  PROJECT_LINT_MODULES_PATH: '.'
 
 defaults:
   run:

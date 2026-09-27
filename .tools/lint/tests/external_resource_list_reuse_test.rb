@@ -12,7 +12,7 @@ class ExternalResourceListReuseTest < Minitest::Test
 
   def test_installed_profile_detection_fix_and_idempotence
     relative = 'modules/example/manifests/init.pp'
-    write(relative, documented_pair)
+    write_module('example', documented_pair)
     lint(relative)
     refute @status.success?, @output + @errors
     assert_includes @output, 'project_resource_list_reuse'
@@ -22,7 +22,7 @@ class ExternalResourceListReuseTest < Minitest::Test
 
   def test_installed_profile_keeps_package_names_and_resource_references_separate
     relative = 'modules/example/manifests/init.pp'
-    write(relative, fixture('resource_dependencies/before'))
+    write_module('example', fixture('resource_dependencies/before'))
     lint(relative)
     refute @status.success?, @output + @errors
     assert_includes @output, 'project_resource_dependencies'
