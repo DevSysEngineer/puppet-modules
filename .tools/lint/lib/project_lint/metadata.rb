@@ -4,6 +4,7 @@ require 'json'
 require 'pathname'
 require 'project_lint/project_version'
 require 'project_lint/root_metadata'
+require 'project_lint/metadata_file'
 
 module ProjectLint
   # Project metadata is selected independently of manifests and dependency modulepaths.
@@ -12,6 +13,7 @@ module ProjectLint
 
     def initialize(root = Dir.pwd)
       @root = File.realpath(root)
+      @version_source = ProjectVersion.new(@root)
       @repository = File.file?(File.join(@root, '.tools/lint/lint-project.gemspec'))
     end
 
@@ -35,17 +37,23 @@ module ProjectLint
         return
       end
 
-      base = File.expand_path(path, @root)
-      return base if File.directory?(base)
+      configured_directory(File.expand_path(path, @root))
+    end
 
-      add('.puppet-lint.rc', 'modules_path: PROJECT_LINT_MODULES_PATH must refer to an existing directory')
+    def configured_directory(base)
+      unless File.directory?(base)
+        return add('.puppet-lint.rc', 'modules_path: PROJECT_LINT_MODULES_PATH must refer to an existing directory')
+      end
+      return base unless @version_source.foreign_directory?(base)
+
+      add('.puppet-lint.rc', 'modules_path: selects another project; run from its root with its own VERSION')
     end
 
     def module_directory?(base, name)
       return false if name.start_with?('.') || (@repository && REPOSITORY_EXCLUSIONS.include?(name))
 
       directory = File.join(base, name)
-      File.directory?(directory) && !File.symlink?(directory)
+      File.directory?(directory) && !File.symlink?(directory) && !@version_source.foreign_directory?(directory)
     end
 
     def excluded?(path)
@@ -54,8 +62,9 @@ module ProjectLint
       end
     end
 
-    def findings
+    def findings(fix: false)
       @findings = { 'metadata.json' => [] }
+      @fix = fix
       selected = paths
       selected.each { |path| @findings[path] = [] }
       version = project_version
@@ -66,7 +75,7 @@ module ProjectLint
     end
 
     def check_root(version)
-      data = read_metadata('metadata.json')
+      data = read_metadata('metadata.json', version, @repository ? 'puppet-modules' : nil)
       return unless data
 
       name = 'puppet-modules' if @repository
@@ -76,7 +85,7 @@ module ProjectLint
     end
 
     def project_version
-      ProjectVersion.new(@root).read
+      @version_source.read
     rescue ArgumentError => e
       add('VERSION', e.message)
     end
@@ -92,31 +101,27 @@ module ProjectLint
     end
 
     def check(path, version, prefix)
-      data = read_metadata(path)
+      expected_name = "#{prefix}-#{File.basename(File.dirname(path))}" if prefix
+      data = read_metadata(path, version, expected_name)
       return unless data
 
-      expected_name = "#{prefix}-#{File.basename(File.dirname(path))}" if prefix
       add(path, "name: expected #{expected_name}") if prefix && data['name'] != expected_name
       mismatch = ProjectVersion.mismatch(data['version'], version)
       add(path, mismatch) if mismatch
+      RootMetadata.new(data, version: version, name: expected_name).module_problems.each do |message|
+        add(path, message)
+      end
     end
 
-    def read_metadata(path)
-      data = JSON.parse(File.read(File.join(@root, path)))
-      return data if data.is_a?(Hash)
-
-      add(path, 'metadata: expected a JSON object')
-    rescue JSON::ParserError, EncodingError
-      add(path, 'metadata: invalid JSON; expected a JSON object')
-    rescue Errno::ENOENT
-      location = path == 'metadata.json' ? 'the project root' : 'every module directory'
-      add(path, "metadata: missing metadata.json; expected a file in #{location}")
-    rescue SystemCallError
-      add(path, 'metadata: cannot read metadata.json; expected a readable file')
+    def read_metadata(path, version, name)
+      file = MetadataFile.new(@root, path, version: version, name: name, fix: @fix)
+      data = file.read
+      file.problems.each { |message, kind| add(path, message, kind: kind) }
+      data
     end
 
-    def add(path, message)
-      (@findings[path] ||= []) << { check: :project_metadata, kind: :error, line: 1, column: 1,
+    def add(path, message, kind: :error)
+      (@findings[path] ||= []) << { check: :project_metadata, kind: kind, line: 1, column: 1,
                                     message: message, path: path, filename: File.basename(path),
                                     fullpath: File.join(@root, path) }
       nil

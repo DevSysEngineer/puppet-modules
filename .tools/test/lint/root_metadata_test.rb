@@ -63,8 +63,10 @@ class RootMetadataTest < Minitest::Test
     assert_equal [[]], JSON.parse(@output)
   end
 
-  def test_module_validation_stays_limited_to_its_existing_fields
-    metadata('modules/profile/metadata.json')
+  def test_module_validation_requires_only_the_module_schema_fields
+    fields = %w[name version author summary license source dependencies]
+    data = project_metadata(name: 'example-profile').slice(*fields)
+    write_file('modules/profile/metadata.json', JSON.generate(data))
     scan('.')
     assert_equal 0, @status.exitstatus, @output + @errors
     assert_empty @output

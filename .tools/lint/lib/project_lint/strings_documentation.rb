@@ -3,6 +3,36 @@
 module ProjectLint
   # Share Markdown-aware documentation handling between interface and layout checks.
   module StringsDocumentation
+    # Read comment blocks after earlier fixes have inserted or moved tokens.
+    module CurrentRows
+      def declaration_token(declaration)
+        tokens.find do |token|
+          %i[CLASS DEFINE].include?(token.type) && token.line == declaration.line && token.column == declaration.pos
+        end
+      end
+
+      def lines_before(declaration)
+        prefix = tokens.take(tokens.index(declaration_token(declaration)))
+        lines = prefix.slice_after { |token| token.type == :NEWLINE }.to_a
+        lines.pop if lines.last&.last&.type != :NEWLINE
+        lines
+      end
+
+      def comment_line?(line)
+        line.all? { |token| %i[COMMENT INDENT WHITESPACE NEWLINE].include?(token.type) }
+      end
+
+      def live_documentation_rows(declaration)
+        lines = lines_before(declaration).reverse.take_while { |line| comment_line?(line) }
+        rows = lines.reverse.map do |line|
+          token = line.find { |entry| entry.type == :COMMENT }
+          { token: token, text: token ? token.value.delete_prefix(' ') : '' }
+        end
+        trim_documentation_rows(rows)
+      end
+    end
+    include CurrentRows
+
     # Split prose without breaking markup or literal values.
     class ProseAtoms
       def initialize

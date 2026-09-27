@@ -10,11 +10,22 @@ class ExternalMetadataTest < Minitest::Test
   def test_installed_gem_checks_modules_even_when_only_manifests_are_selected
     write('modules/empty/files/example.txt', '')
     lint('--json', 'manifests')
-    assert_equal 1, @status.exitstatus, @output + @errors
-    assert_equal(['modules/empty/metadata.json'], JSON.parse(@output).flatten.map { |problem| problem['path'] })
-    write('modules/empty/metadata.json', JSON.generate({ name: 'example-empty', version: '7.4.0' }))
+    assert_includes metadata_problem('modules/empty/metadata.json')['message'], 'metadata: missing metadata.json'
+    write('modules/empty/metadata.json', JSON.generate(project_metadata(name: 'example-empty')))
     lint('manifests')
     assert_equal 0, @status.exitstatus, @output + @errors
+  end
+
+  def test_installed_gem_executes_partial_autofix_and_preserves_remaining_errors
+    write('metadata.json', JSON.generate(project_metadata('0.1.0')))
+    write('modules/empty/files/example.txt', '')
+    lint('--fix', '--only-checks=project_metadata', 'manifests')
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_includes read('metadata.json'), '"version":"7.4.0"'
+    assert_equal({ 'name' => 'example-empty', 'version' => '7.4.0' }, JSON.parse(read('modules/empty/metadata.json')))
+    assert_includes @output, 'dependencies: expected an array'
+    lint('--fix', '--only-checks=project_metadata', 'manifests')
+    refute_includes @output, ': fixed:'
   end
 
   def test_installed_gem_checks_the_consumer_root_and_own_version

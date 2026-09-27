@@ -3,11 +3,24 @@
 module ProjectLint
   # Carry non-manifest findings through the native CLI's reporting and exit-status loop.
   class MetadataPath < String
-    attr_reader :findings
-
-    def initialize(path, findings)
+    def initialize(path, scan)
       super(path)
-      @findings = findings
+      @scan = scan
+    end
+
+    def findings
+      @scan.results.fetch(to_s, [])
+    end
+  end
+
+  # Defer writes until native option parsing and file selection have completed.
+  class MetadataScan
+    def initialize(metadata)
+      @metadata = metadata
+    end
+
+    def results
+      @results ||= @metadata.findings(fix: PuppetLint.configuration.fix)
     end
   end
 
@@ -26,9 +39,8 @@ module ProjectLint
     end
 
     def extend_metadata_selection(arguments)
-      findings = Metadata.new.findings
-      return if findings.empty?
-
+      metadata = Metadata.new
+      findings = metadata.findings
       if File.directory?(arguments.first)
         directory = arguments.first
         arguments.replace(Dir.glob(["#{directory}/**/*.pp", "#{directory}/**/*.{yaml,yml}"]))
@@ -36,15 +48,15 @@ module ProjectLint
       arguments.reject! do |argument|
         PuppetLint.configuration.ignore_paths.any? { |pattern| File.fnmatch(pattern, argument) }
       end
-      append_metadata(arguments, findings)
+      append_metadata(arguments, findings, MetadataScan.new(metadata))
     end
 
-    def append_metadata(arguments, findings)
+    def append_metadata(arguments, findings, scan)
       findings.each do |path, problems|
         explicit = arguments.reject! { |argument| File.expand_path(argument) == File.expand_path(path) }
         next if problems.empty? && !explicit && !arguments.empty?
 
-        arguments << MetadataPath.new(path, problems)
+        arguments << MetadataPath.new(path, scan)
       end
     end
   end
@@ -64,7 +76,7 @@ module ProjectLint
       return super unless @metadata_findings
 
       @problems = @metadata_findings
-      @statistics[:error] = @problems.length
+      @statistics = { error: 0, warning: 0, fixed: 0 }.merge(@problems.map { |problem| problem[:kind] }.tally)
     end
 
     def get_context(message)

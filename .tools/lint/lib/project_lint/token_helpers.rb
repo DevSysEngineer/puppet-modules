@@ -4,6 +4,44 @@ module ProjectLint
   # Small helpers for native check fixes. Coordinates describe the original input;
   # widths and gaps must use the live tokens after earlier plugins have run.
   module TokenHelpers
+    def expression_span(node)
+      parts = [node] + ast.descendants(node)
+      start = parts.map(&:offset).min
+      finish = parts.map { |part| part.offset + part.length }.max
+      tokens_between_offsets(start, finish)
+    end
+
+    def tokens_between_offsets(start, finish)
+      starts = source_offsets
+      selected = tokens.select do |token|
+        position = starts.fetch(token.line - 1) + token.column - 1
+        position >= start && position < finish
+      end
+      [selected.first, selected.last]
+    end
+
+    def source_offsets
+      offset = 0
+      manifest_lines.map do |line|
+        start = offset
+        offset += line.length + 1
+        start
+      end
+    end
+
+    def reordered_tokens(spans, order)
+      entries = spans.map { |first, last| token_span(first, last) }
+      gaps = spans.each_cons(2).map { |left, right| token_span(left.last, right.first)[1...-1] }
+      order.each_with_index.flat_map { |entry, index| entries.fetch(entry) + (gaps[index] || []) }
+    end
+
+    def replace_tokens(first, last, replacement)
+      span = token_span(first, last)
+      index = tokens.index(first)
+      span.each { |token| remove_token(token) }
+      replacement.each_with_index { |token, offset| add_token(index + offset, token) }
+    end
+
     def bracket_closings
       openings = []
       tokens.each_with_object({}) do |token, closings|

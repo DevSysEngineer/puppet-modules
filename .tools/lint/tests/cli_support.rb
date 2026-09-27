@@ -68,6 +68,18 @@ module LintCliSupport
     assert_equal code, source
   end
 
+  def assert_native_fix(before, after, *checks)
+    options = ['--only-checks', checks.join(',')]
+    write_source(before)
+    assert_cli_failure(*options, @file)
+    assert_equal before, source
+    assert_cli_success('--fix', *options, @file)
+    assert_includes @output, ': fixed:'
+    assert_equal after, source
+    Puppet::Pops::Parser::EvaluatingParser.new.parse_string(source, @file)
+    assert_cli_stable(after, *options)
+  end
+
   def cli(*arguments, directory: LintTestSupport::ROOT, env: {}, project_config: true)
     options = project_config ? ['--no-config', '--config', '.puppet-lint.rc'] : []
     env = { 'PROJECT_LINT_MODULES_PATH' => '.' }.merge(env)

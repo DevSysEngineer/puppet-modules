@@ -22,6 +22,18 @@ module ProjectLint
       raise ArgumentError, 'version: cannot read VERSION; expected a readable file'
     end
 
+    def foreign_directory?(directory)
+      current = File.realpath(directory)
+      until current == @root || current == File.dirname(current)
+        return true if %w[VERSION .git .tools/lint/lint-project.gemspec].any? do |marker|
+          File.exist?(File.join(current, marker))
+        end
+
+        current = File.dirname(current)
+      end
+      false
+    end
+
     def self.mismatch(actual, expected)
       return if expected.nil? || actual == expected
 

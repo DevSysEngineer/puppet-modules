@@ -2,10 +2,12 @@
 
 # Load upstream plugins before checks that can remove their original fix anchors.
 require 'puppet-lint'
+require 'project_lint/native_fixes'
 
 require 'project_lint/checks/metadata'
-require 'project_lint/checks/documentation'
+require 'project_lint/checks/parameter_order'
 require 'project_lint/checks/documentation_layout'
+require 'project_lint/checks/documentation'
 require 'project_lint/checks/suppressions'
 require 'project_lint/checks/interface_calls'
 require 'project_lint/checks/parameter_passthrough'
@@ -18,7 +20,6 @@ require 'project_lint/checks/positive_flow'
 require 'project_lint/checks/shared_conditions'
 require 'project_lint/checks/class_check_reuse'
 require 'project_lint/checks/monitoring_backend'
-require 'project_lint/checks/parameter_order'
 require 'project_lint/checks/parameter_alignment'
 require 'project_lint/checks/packages'
 require 'project_lint/checks/exec_packages'

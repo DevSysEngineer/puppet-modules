@@ -26,6 +26,15 @@ module ProjectLint
       @problems
     end
 
+    def module_problems
+      string(@data, 'name') unless @name
+      %w[author summary license source].each { |key| string(@data, key) }
+      string(@data, 'version') unless @version
+      array(@data, 'dependencies')
+      named_versions('dependencies')
+      @problems
+    end
+
     def string(data, key, path = key)
       return if data[key].is_a?(String) && !data[key].strip.empty?
 

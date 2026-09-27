@@ -964,11 +964,11 @@ Aanwezigheid van tekst bewijst niet dat die tekst het gedrag beschrijft. Alleen 
 
 **Autofix**
 
-Geen voor beide meldingsvarianten.
+Voorwaardelijk voor de tagvolgorde; ontbrekende tags en beschrijvingen blijven handmatig.
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: de check kan ontbrekende of inhoudelijk onjuiste documentatie niet invullen.
+De fix sorteert een aaneengesloten groep bestaande `@param`-tags naar de actuele declaratievolgorde wanneer iedere parameter precies eenmaal voorkomt. De beschrijving en ingesprongen vervolgregels verhuizen met hun tag. Ontbrekende, onbekende of dubbele tags, onderbreking door andere inhoud en suppressions verhinderen de herschikking; de check verzint of verwijdert geen documentatie. Ontbrekende inhoud blokkeert andere zelfstandig veilige fixes niet.
 
 **Toegestane uitzonderingen**
 
@@ -1020,6 +1020,8 @@ Typeannotaties zoals @param [String] label worden herkend. Lege beschrijvingen, 
 Vergelijk iedere parameter, default, undef/true/false-betekenis, dependency, gegenereerde resource, fallback en beveiligings- of compatibiliteitsgevolg met de implementatie.
 
 **Verificatie**
+
+[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert bestaande tekst, samengestelde parameter- en tagsortering, onvolledige documentatie en een ongewijzigde tweede fixrun.
 
 De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_scope_test.rb](../tests/documentation_scope_test.rb), beschrijvingsscenario’s, en [interface_contract_test.rb](../tests/interface_contract_test.rb) controleren aanwezigheid en volgorde. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 

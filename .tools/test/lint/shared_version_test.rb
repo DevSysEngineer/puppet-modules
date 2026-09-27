@@ -32,16 +32,26 @@ class SharedVersionTest < Minitest::Test
     assert_equal 1, diagnostics(@output, 'project_metadata').size
   end
 
-  def test_version_change_reports_both_own_files_without_fixing_sources_or_metadata
+  def test_version_change_fixes_own_files_without_changing_the_shared_project
     before = metadata_snapshot
     write_file('VERSION', "4.0.0\n")
     scan('--fix', '.')
+    assert_own_versions_fixed(before)
+    assert_equal 0, @status.exitstatus, @output + @errors
+    assert_equal shared_metadata(before), shared_metadata(metadata_snapshot)
+    assert_equal "4.0.0\n", File.read(File.join(@directory, 'VERSION'))
+  end
+
+  def assert_own_versions_fixed(before)
     %w[metadata.json modules/profile/metadata.json].each do |path|
-      assert_metadata_error(path, 'version: expected 4.0.0 from VERSION; found "3.1.0"')
+      assert_includes @output, "#{path}:1:1: project_metadata: fixed: version: synchronized from VERSION"
+      assert_equal before.fetch(path).sub('3.1.0', '4.0.0'), File.read(File.join(@directory, path))
     end
     assert_equal 2, diagnostics(@output, 'project_metadata').size
-    assert_equal before, metadata_snapshot
-    assert_equal "4.0.0\n", File.read(File.join(@directory, 'VERSION'))
+  end
+
+  def shared_metadata(snapshot)
+    snapshot.select { |path, _| path.start_with?('global-modules/') }
   end
 
   def metadata_snapshot

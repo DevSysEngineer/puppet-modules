@@ -76,7 +76,7 @@ module InstalledGemSupport
   end
 
   def write_module(name, code)
-    write("modules/#{name}/metadata.json", JSON.generate({ name: "example-#{name}", version: '7.4.0' }))
+    write("modules/#{name}/metadata.json", JSON.generate(project_metadata(name: "example-#{name}")))
     write("modules/#{name}/manifests/init.pp", code)
   end
 

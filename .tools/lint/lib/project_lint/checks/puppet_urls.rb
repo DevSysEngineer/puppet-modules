@@ -20,5 +20,13 @@ module ProjectLint
       # No automatic fix: choosing a mount changes the source and requires knowledge of the fileserver layout.
     end
     PuppetLint.new_check(:project_puppet_urls) { include PuppetUrls }
+
+    # Upstream inserts modules/ even for configured files/ mounts; only the operator knows the intended source.
+    module PreservePuppetMount
+      def fix(_problem)
+        raise PuppetLint::NoFix
+      end
+    end
+    PuppetLint.configuration.check_object.fetch(:puppet_url_without_modules).prepend(PreservePuppetMount)
   end
 end

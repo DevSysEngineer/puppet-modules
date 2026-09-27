@@ -327,7 +327,7 @@ Geen
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: deze check heeft geen autofix; inhoudelijke correctie vereist de hieronder beschreven review.
+Geen van beide checks kiest automatisch een mount. Het projectentrypoint begrenst ook de native `puppet_url_without_modules`-fix: het blind invoegen van `modules/` zou een bestaande `files/`-bron veranderen. De bedoelde servermount en inhoud zijn alleen operationeel vast te stellen.
 
 **Toegestane uitzonderingen**
 
@@ -364,6 +364,8 @@ Een ingerichte en toegankelijke files-mount is toegestaan met de lokale bronmark
 Controleer mountprefix inclusief slash, dynamische paden, Puppet-servertoegang en gerenderde inhoud onder de lezende gebruiker; accepteer puppet:/// in de invoervalidatie van de afnemer.
 
 **Verificatie**
+
+[cli_diagnostics_test.rb](../tests/cli_diagnostics_test.rb) bewijst dat een volledige `--fix`-scan onbekende en `files/`-mounts zonder onderdrukking behoudt en de melding laat staan.
 
 De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [source_uri_test.rb](../tests/source_uri_test.rb), [resource_contract_test.rb](../tests/resource_contract_test.rb), [cli_diagnostics_test.rb](../tests/cli_diagnostics_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 

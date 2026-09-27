@@ -16,7 +16,18 @@ module MetadataCliSupport
   end
 
   def metadata(path, name: 'example-profile', version: '7.4.0')
-    write_file(path, JSON.generate({ 'name' => name, 'version' => version }))
+    write_file(path, JSON.generate(project_metadata(version, name: name)))
+  end
+
+  def contents(path)
+    File.read(File.join(@directory, path))
+  end
+
+  def assert_metadata_stable(paths, **options)
+    before = paths.to_h { |path| [path, contents(path)] }
+    scan('--fix', '.', **options)
+    assert_equal(before, paths.to_h { |path| [path, contents(path)] })
+    refute_includes @output, ': fixed:'
   end
 
   def repository_layout

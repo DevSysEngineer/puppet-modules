@@ -1175,11 +1175,11 @@ Publieke class- en defined-typeparameters, hun getypeerde declaratieblokken en l
 
 **Autofix**
 
-Geen voor alle drie meldingsvarianten.
+Voorwaardelijk voor de sorteermelding. Voorwaartse defaultafhankelijkheden en ontbrekende dependencycomments blijven handmatig.
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: de check herschikt geen parameters; lokale defaults kunnen de evaluatievolgorde veranderen.
+De fix sorteert parameters zonder default of met uitsluitend letterlijke defaults, met behoud van bestaande tokens en separators. Typen met variabelen of functieaanroepen, meerregelige parameterwaarden, comments en suppressions worden niet verplaatst: hun evaluatie of koppeling aan de parameter is niet bewezen. Lokale defaultafhankelijkheden blijven daarom ter review. Bestaande Strings-parametertags volgen bij de gecombineerde check dezelfde nieuwe volgorde, mits hun eigen fixvoorwaarden gelden.
 
 **Toegestane uitzonderingen**
 
@@ -1216,6 +1216,8 @@ Lokale defaultafhankelijkheid doorbreekt de alfabetische volgorde met de voorges
 Controleer beide sorteergroepen, iedere lokale defaultafhankelijkheid en de trailing comment met de afhankelijke $naam. Voeg geen default toe alleen om te sorteren.
 
 **Verificatie**
+
+[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
 De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
@@ -1953,7 +1955,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples
 
 **Norm**
 
-Combineer arrays met `concat($base, $extra)` en behoud de elementvolgorde. `project_arrays` meldt `+` bij herkenbare arrays, maar berekent geen dynamische typen en heeft geen autofix. Gebruik een eenmalige tussenvariabele wanneer de naam betekenis toevoegt of de code duidelijker maakt.
+Combineer arrays met `concat($base, $extra)` en behoud de elementvolgorde. `project_arrays` meldt `+` bij herkenbare arrays, maar berekent geen willekeurige dynamische typen. Gebruik een eenmalige tussenvariabele wanneer de naam betekenis toevoegt of de code duidelijker maakt.
 
 **Herkomst**
 
@@ -1977,11 +1979,11 @@ De check herkent arrayliterals en gevolgde lokale arraywaarden, maar berekent ge
 
 **Autofix**
 
-Geen
+Voorwaardelijk
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: deze check heeft geen autofix; inhoudelijke correctie vereist de hieronder beschreven review.
+De native fix zet een optelling op één regel om naar `concat(...)` wanneer beide operanden aantoonbaar arrays zijn: literals, Array-parameters, eenduidige eerdere lokale toekenningen of ketens daarvan. Hij behoudt evaluatie- en elementvolgorde, geneste arrays en eerdere quotecorrecties. Onbekende typen, meerregelige expressies en suppressions blijven staan; daar zijn typebetekenis of tokenindeling onvoldoende bewezen.
 
 **Toegestane uitzonderingen**
 
@@ -2018,6 +2020,8 @@ Getal + getal en hash + hash: toegestaan. Arrayliteral + arrayliteral: warning. 
 Bepaal de effectieve typen van dynamische waarden en vergelijk de volledige elementvolgorde vóór en na vervanging door concat.
 
 **Verificatie**
+
+[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
 De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [source_uri_test.rb](../tests/source_uri_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
@@ -2632,11 +2636,11 @@ Onbekende declaraties en splats verhinderen argumentcontrole. Filteranalyse slui
 
 **Autofix**
 
-Geen voor beide varianten.
+Voorwaardelijk voor ongefilterde inline identiteitshashes; gefilterde keys blijven handmatig.
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: deze check heeft geen autofix; inhoudelijke correctie vereist de hieronder beschreven review.
+Een inline hash op één regel wordt omgezet naar directe attributen wanneer iedere unieke key een geldige attribuutnaam is, exact de gelijknamige variabele doorgeeft en niet botst met een expliciet attribuut. Waarden en hun volgorde blijven behouden. Comments, suppressions, meerregelige hashes, filters en gedeelde hashtoekenningen blijven staan: de koppeling van commentaar, filterbetekenis of gevolgen voor andere afnemers vereisen review.
 
 **Toegestane uitzonderingen**
 
@@ -2673,6 +2677,8 @@ Een filter blijft behouden voor keys waarvoor afwijkende invoer een andere eindw
 Vergelijk per key de effectieve bronwaarde en ontvangende default en valideer catalogi vóór rechtstreekse doorgifte. Behoud nuttige filters voor andere keys en controleer alle hashafnemers en hoofdlettergevoelige ontvangende waarden.
 
 **Verificatie**
+
+[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
 De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [parameter_passthrough_test.rb](../tests/parameter_passthrough_test.rb), [parameter_filter_defaults_test.rb](../tests/parameter_filter_defaults_test.rb), [parameter_filter_predicate_test.rb](../tests/parameter_filter_predicate_test.rb), [parameter_filter_source_test.rb](../tests/parameter_filter_source_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 

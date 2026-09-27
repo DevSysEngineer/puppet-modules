@@ -26,10 +26,10 @@ class MetadataTest < Minitest::Test
     scan('modules')
     assert_equal 0, @status.exitstatus, @output + @errors
     metadata('modules/profile/metadata.json', version: '2.0.0')
-    shared = File.read(File.join(@directory, 'global-modules/docker/metadata.json'))
+    shared = contents('global-modules/docker/metadata.json')
     scan('--fix', 'modules')
-    assert_metadata_error('modules/profile/metadata.json', 'version: expected 7.4.0')
-    assert_equal shared, File.read(File.join(@directory, 'global-modules/docker/metadata.json'))
+    assert_equal 0, @status.exitstatus, @output + @errors
+    assert_equal shared, contents('global-modules/docker/metadata.json')
   end
 
   def test_consumer_missing_metadata_is_reported_once_even_with_multiple_manifests
@@ -68,7 +68,7 @@ class MetadataTest < Minitest::Test
     write_file('modules/profile/metadata.json', '{}')
     scan('.')
     assert_metadata_error('modules/profile/metadata.json', 'name: expected example-profile')
-    assert_equal 2, diagnostics(@output, 'project_metadata').size
+    assert_equal 7, diagnostics(@output, 'project_metadata').size
   end
 
   def test_technical_vendored_and_explicitly_excluded_directories_are_not_modules

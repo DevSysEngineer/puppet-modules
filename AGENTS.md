@@ -280,7 +280,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Development Environment
 
-- Set up development and CI through the [documented bundle setup](.tools/lint/README.md#installatie), using the root Gemfile, lockfile, standard CLI, and regression tests.
+- Set up development and CI through the [documented bundle setup](.tools/lint/README.md#installatie).
 
 ### Linting And Autofix
 
@@ -290,22 +290,16 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Linter Changes
 
-- Before changing the linter, apply the [architecture and check development procedures](.tools/lint/README.md#een-check-toevoegen-of-wijzigen), including their public-interface and consumer-validation requirements.
-- Use the [native autofix development procedure](.tools/lint/README.md#veilige-autofixes-ontwikkelen) for custom corrections and verify its detection, correction, rescan, idempotence, interaction, and suppression evidence.
+- For every linter change, follow the lint guide's [check development and validation procedures](.tools/lint/README.md#een-check-toevoegen-of-wijzigen) and review the result against them.
 - Report checks that appear suitable for safe detection or autofix but lack it as possible linter improvements. Implement them only when linter development is within the task's scope.
 
 ### Tool Test Structure
 
-- Keep tests of repository tools beside their implementation under `.tools/<tool-name>/tests/`; use `.tools/lint/tests/` for the linter, except for the metadata regression suite under `.tools/test/lint/`.
-- Never create first-party test directories or test files elsewhere in the repository. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
+- Apply the lint guide's [test location and task contracts](.tools/lint/README.md#tests-uitvoeren-en-uitbreiden) when adding or moving repository tool tests.
+- Never create first-party test directories or test files outside those documented locations. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
 - Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
 - Keep tool-specific helpers and fixtures with that tool's tests.
 - Introduce shared test helpers only when multiple tools actually need them.
-
-#### Tool Test Tasks
-
-- Keep `test` and the default root Rake task responsible for recursive discovery of `.tools/**/tests/**/*_test.rb` and `.tools/test/lint/**/*_test.rb`.
-- Keep `test:lint` limited to the linter tests under `.tools/lint/tests/` and `.tools/test/lint/`.
 
 #### Test Structure Maintenance
 
@@ -317,7 +311,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### CI Jobs And Reports
 
-- Apply the [CI and reporting procedures](.tools/lint/README.md#ci-van-deze-repository) when changing tooling or pipelines; verify job independence, report publication, exit-status preservation, and tracked-file checks.
+- Apply and verify the [CI and reporting procedures](.tools/lint/README.md#ci-van-deze-repository) when changing tooling or pipelines.
 - Never restore files to make a CI cleanliness check pass.
 
 ## Validation And Testing
@@ -342,7 +336,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Required Checks
 
-- Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change. Use this explicit configuration route for targeted scans and autofix as documented in the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
+- Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change, following the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
 - Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
 - Run all tool tests with `bundle exec rake test` after any corrections and before completing each change.
 - Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake validate:puppet` for the complete first-party manifest selection and its JUnit report before completion.
