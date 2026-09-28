@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'bundler'
-require_relative '../../test/lint/metadata_support'
+require_relative 'metadata_support'
 
 # Build a gem and exercise it through a separate, offline consumer bundle.
 module InstalledGemSupport

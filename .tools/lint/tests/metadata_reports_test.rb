@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../../lint/tests/test_helper'
+require_relative 'test_helper'
 require_relative 'metadata_cli_support'
 require 'project_lint/puppet_junit'
 require 'stringio'

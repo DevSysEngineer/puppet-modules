@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../../lint/tests/test_helper'
+require_relative 'test_helper'
 require_relative 'metadata_cli_support'
 
 # A consumer and its shared module project keep independent VERSION files and metadata.

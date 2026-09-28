@@ -297,6 +297,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Apply the lint guide's [test location and task contracts](.tools/lint/README.md#tests-uitvoeren-en-uitbreiden) when adding or moving repository tool tests.
 - Never create first-party test directories or test files outside those documented locations. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
+- Correct misplaced tests by moving them to the owning tool. Do not broaden test discovery or document an exception merely to accommodate their existing placement.
 - Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
 - Keep tool-specific helpers and fixtures with that tool's tests.
 - Introduce shared test helpers only when multiple tools actually need them.

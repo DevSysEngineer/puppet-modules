@@ -561,7 +561,7 @@ De melding toont alleen de aangetroffen waarde van `version`, geen overige metad
 
 Puppet-commentaar met `lint:ignore` onderdrukt deze bestandscontrole niet. `--only-checks project_metadata` selecteert de check voor onderzoek; laat voor de eindcontrole alle checks actief. Console, GitHub-annotaties, native JSON en de bestaande JUnit-converter verwerken dezelfde meldingen. Een geslaagde scan van uitsluitend metadata levert eveneens geldige JSON voor de converter op; dat bewijst niet dat manifests zijn gevalideerd.
 
-De [metadataregressietests](../test/lint/) controleren beide indelingen, root- en modulemetadata, projecten zonder modules, modules zonder manifests, expliciete modulelocaties en configuratiefouten, veldstructuur, foutmeldingen, uitsluitingen, onafhankelijke VERSION-bestanden, uitvoering zonder Git, naamgeving, daadwerkelijk herstel en behoud bij `--fix`, gedeeltelijke fixes, idempotentie en native rapportage. De pakkettest voert de controle uit vanuit een onafhankelijk geïnstalleerde gem.
+De [metadataregressietests](tests/) controleren beide indelingen, root- en modulemetadata, projecten zonder modules, modules zonder manifests, expliciete modulelocaties en configuratiefouten, veldstructuur, foutmeldingen, uitsluitingen, onafhankelijke VERSION-bestanden, uitvoering zonder Git, naamgeving, daadwerkelijk herstel en behoud bij `--fix`, gedeeltelijke fixes, idempotentie en native rapportage. De pakkettest voert de controle uit vanuit een onafhankelijk geïnstalleerde gem.
 
 #### Metadata automatisch herstellen
 
@@ -592,7 +592,7 @@ In een ander project voeg je `--fix` toe aan de [gedeelde lintaanroep](#eigen-co
 | Symbolische link of schrijffout | Geen schrijfhandeling via de link; fout blijft zichtbaar | Een eigen regulier bestand en passende schrijfrechten verzorgen |
 | Geen bekende velden of onbetrouwbare modulelocatie | Geen leeg basisobject of gegokte bestemming aanmaken | De concreet genoemde versiebron, eigenaar of modulelocatie instellen |
 
-Een onbekende dependencylijst wordt niet vertaald naar `[]`. Ontbrekende inhoud blijft bij de hercontrole een fout, ook na een gedeeltelijke correctie en in een volgende run. De fixrun controleert de herstelde metadata opnieuw op veldniveau; opgeloste versie- en bestandsmeldingen verdwijnen uit de actieve fouten. Een tweede `--fix` schrijft niets zolang geen nieuwe informatie of wijziging is aangeleverd. De [CLI-regressies](../test/lint/metadata_autofix_test.rb) en de [pakkettest](../test/lint/external_metadata_test.rb) controleren deze route buiten de repository met synthetische projecten.
+Een onbekende dependencylijst wordt niet vertaald naar `[]`. Ontbrekende inhoud blijft bij de hercontrole een fout, ook na een gedeeltelijke correctie en in een volgende run. De fixrun controleert de herstelde metadata opnieuw op veldniveau; opgeloste versie- en bestandsmeldingen verdwijnen uit de actieve fouten. Een tweede `--fix` schrijft niets zolang geen nieuwe informatie of wijziging is aangeleverd. De [CLI-regressies](tests/metadata_autofix_test.rb) en de [pakkettest](tests/external_metadata_test.rb) controleren deze route buiten de repository met synthetische projecten.
 
 ### Gecontroleerde configuratie- en selectiescenario’s
 
@@ -1558,7 +1558,7 @@ De namen `profile`, `production` en `quality/results` zijn voorbeelden. Voeg de 
 | Eigen rapportmap, bijvoorbeeld `.tools/quality/results/` | Gegenereerde validatie-, lint- en testrapporten van het eigen project. Kies de locatie zelf, bewaar de map buiten versiebeheer en schrijf niet naar de submodule. |
 | `.tools/<tool-name>/` | Eén map per eigen tool, met een concrete naam. Gebruik `bin/` voor uitvoerbare ingangen en `lib/` voor Ruby-librarycode wanneer die nodig zijn; een klein zelfstandig script mag rechtstreeks in de toolmap staan. |
 | `.tools/<tool-name>/tests/` | Houd gedragstests, helpers en fixtures bij de tool die ze controleren. De [testindeling en uitvoering](#eigen-tooltests) beschrijven ook bestaande testmappen. |
-| `Rakefile` | Houd eigen taken in de projectroot. Ontdek tooltests recursief onder `.tools/**/tests/**/*_test.rb` en voeg alleen bestaande tools toe als `test:<tool-name>`. |
+| `Rakefile` | Houd eigen taken in de projectroot. Ontdek tooltests recursief onder `.tools/*/tests/**/*_test.rb` en voeg alleen bestaande tools toe als `test:<tool-name>`. |
 
 Houd eigen taken voor deze controles beperkt tot de projectspecifieke selectie en het aanroepen van de [gedeelde tooling](#gedeelde-tooling-hergebruiken). Verbeteringen aan de checks, validators en rapportcommando's die voor alle afnemers gelden, horen in de gedeelde gem.
 
@@ -1859,7 +1859,7 @@ De normale CLI-aanroep en CI blijven alleen controleren. Schakel `fix` uitsluite
 
 ### Tests uitvoeren en uitbreiden
 
-Plaats tests van repositorytools naast hun implementatie onder `.tools/<tool-name>/tests/`. Gebruik voor de linter [`.tools/lint/tests/`](tests/), met de metadataregressies onder [`.tools/test/lint/`](../test/lint/) als uitzondering. De [projectbrede testscope](../../AGENTS.md#test-scope) bepaalt welk gedrag in repositorytests thuishoort.
+Plaats tests van repositorytools naast hun implementatie onder `.tools/<tool-name>/tests/`. Alle lintertests staan onder [`.tools/lint/tests/`](tests/), inclusief tests voor metadata, CLI, rapportage en gebruik vanuit andere projecten. Bewaar ook hun helpers en fixtures daar. De [projectbrede testscope](../../AGENTS.md#test-scope) bepaalt welk gedrag in repositorytests thuishoort.
 
 Voer tests uit vanuit de repositoryroot, na [installatie van de ontwikkelbundle](#gems-installeren):
 
@@ -1870,7 +1870,9 @@ bundle exec rake test
 bundle exec rake test:lint
 ```
 
-Houd in de root-Rakefile `test` en de standaardtaak verantwoordelijk voor recursieve discovery van `.tools/**/tests/**/*_test.rb` en `.tools/test/lint/**/*_test.rb`. Beperk `test:lint` tot `.tools/lint/tests/**/*_test.rb` en de metadataregressies onder `.tools/test/lint/**/*_test.rb`. De roottaak blijft het gezamenlijke startpunt voor CI. Controleer het gerapporteerde aantal tests en eventuele skips. Een geslaagde taak zonder uitgevoerde tests is onvoldoende.
+Houd in de root-Rakefile `test` en de standaardtaak verantwoordelijk voor recursieve discovery van `.tools/*/tests/**/*_test.rb`. Beperk `test:lint` tot `.tools/lint/tests/**/*_test.rb`. De roottaak blijft het gezamenlijke startpunt voor CI. Controleer het gerapporteerde aantal tests en eventuele skips. Een geslaagde taak zonder uitgevoerde tests is onvoldoende.
+
+De [teststructuurcontrole](tests/test_structure_test.rb) meldt testbestanden en testmappen onder `.tools/` die buiten de afgesproken indeling staan. Ze controleert ook met tijdelijke bestanden dat de Rake-taken geneste tests vinden en `test:lint` uitsluitend de lintertests selecteert. Daardoor voert de bestaande CI-testtaak deze controle automatisch uit.
 
 De bestaande testhelper gebruikt `minitest-reporters` voor console-uitvoer en JUnit XML uit dezelfde uitvoering. De rapporten staan per testklasse onder `.tools/lint/results/TEST-*.xml`, ook bij een gewone testfout. De helper bepaalt dit pad vanuit zijn eigen locatie en maakt de uitvoermap aan als die ontbreekt. Een mislukte assertion of onverwachte fout in een test blijft een foutcode opleveren.
 
@@ -1944,7 +1946,7 @@ Voer daarna `bundle install` uit. In een project met alleen tooltests kan de roo
 require 'rake/testtask'
 
 Rake::TestTask.new(:test) do |task|
-  task.pattern = '.tools/**/tests/**/*_test.rb'
+  task.pattern = '.tools/*/tests/**/*_test.rb'
   task.warning = false
 end
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../../test/lint/metadata_support'
+require_relative 'metadata_support'
 
 # Temporary files and subprocess assertions for native CLI integration tests.
 module LintCliSupport

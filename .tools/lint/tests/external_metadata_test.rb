@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative '../../lint/tests/test_helper'
-require_relative '../../lint/tests/installed_gem_support'
+require_relative 'test_helper'
+require_relative 'installed_gem_support'
 
 # Packaged consumers must execute the metadata hook without a source-tree runner.
 class ExternalMetadataTest < Minitest::Test
