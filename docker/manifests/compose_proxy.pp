@@ -56,6 +56,9 @@
 #   Shared deferred TCP accept setting passed to `docker::proxy`. Defaults to `false`, which adds no override.
 #   See `nginx::server::deferred` for shared-socket behavior.
 #
+# @param directives
+#   Additional Nginx server-level directives passed to `docker::proxy`. Defaults to an empty list.
+#
 # @param ensure
 #   Controls the Compose project state. The Nginx vhost is declared when this is `present`; when this is `absent`, only
 #   the Compose project removal is delegated.
@@ -189,6 +192,7 @@ define docker::compose_proxy (
   Optional[String]                             $compose_source                 = undef,
   Variant[Boolean, String]                     $content_security_policy        = true,
   Boolean                                      $deferred                       = false,
+  Array[String]                                $directives                     = [],
   Enum['present', 'absent']                    $ensure                         = present,
   Optional[Variant[String, Sensitive[String]]] $env_content                    = undef,
   Optional[String]                             $env_source                     = undef,
@@ -267,6 +271,7 @@ define docker::compose_proxy (
         client_max_body_size          => $client_max_body_size,
         content_security_policy       => $content_security_policy,
         deferred                      => $deferred,
+        directives                    => $directives,
         http2_enable                  => $http2_enable,
         http3_enable                  => $http3_enable,
         http_enable                   => $http_enable,

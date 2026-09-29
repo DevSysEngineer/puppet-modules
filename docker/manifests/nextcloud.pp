@@ -16,6 +16,7 @@
 # endpoints through the shared docker::proxy configuration, with docker::compose_proxy owning the application stack.
 # Both public endpoints request deferred, reuseport, so_keepalive on and multipath through nginx::server; its listener
 # option contracts define shared-socket behavior and platform requirements.
+# The application proxy enables sendfile, aio threads and aio_write at server level; Nginx requires --with-threads.
 # Public endpoints require a certificate and key; the certificate must cover every configured public name.
 # Without an admin vhost, use an SSH tunnel to the local admin_port to access the admin interface over HTTPS.
 # Configure the application domain in AIO after providing its HTTPS reverse proxy; domain validation stays enabled.
@@ -300,6 +301,11 @@ define docker::nextcloud (
               compose_content            => template('docker/nextcloud.yaml'),
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
               deferred                   => true,
+              directives                 => [
+                'sendfile on;',
+                'aio threads;',
+                'aio_write on;',
+              ],
               env_content                => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
