@@ -108,6 +108,8 @@ node 'container-proxy.example.org' {
     ssl_certificate               => '/etc/letsencrypt/live/custom.example.org/fullchain.pem',
     ssl_certificate_key           => '/etc/letsencrypt/live/custom.example.org/privkey.pem',
     ssl_certificate_trusted       => '/etc/letsencrypt/live/custom.example.org/chain.pem',
+    ssl_session_cache             => 'shared:SSL:10m',
+    ssl_session_timeout           => '10m',
     strict_transport_security     => 'max-age=31536000; includeSubDomains',
     target                        => 'services',
     x_content_type_options        => 'nosniff',

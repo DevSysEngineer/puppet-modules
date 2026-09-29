@@ -319,6 +319,8 @@ define docker::nextcloud (
               ssl_certificate            => $ssl_certificate,
               ssl_certificate_key        => $ssl_certificate_key,
               ssl_certificate_trusted    => $ssl_certificate_trusted,
+              ssl_session_cache          => 'shared:SSL:10m',
+              ssl_session_timeout        => '1d',
               target                     => $target,
               require                    => Class['docker'],
             }
@@ -547,6 +549,8 @@ define docker::nextcloud (
               ssl_certificate         => $ssl_certificate,
               ssl_certificate_key     => $ssl_certificate_key,
               ssl_certificate_trusted => $ssl_certificate_trusted,
+              ssl_session_cache       => 'shared:SSL:10m',
+              ssl_session_timeout     => '10m',
               require                 => Docker::Compose[$name],
             }
           }

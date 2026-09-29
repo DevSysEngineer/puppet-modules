@@ -256,6 +256,8 @@ define docker::twenty (
           ssl_certificate            => $ssl_certificate,
           ssl_certificate_key        => $ssl_certificate_key,
           ssl_certificate_trusted    => $ssl_certificate_trusted,
+          ssl_session_cache          => 'shared:SSL:10m',
+          ssl_session_timeout        => '10m',
           target                     => $target,
           require                    => Class['docker'],
         }

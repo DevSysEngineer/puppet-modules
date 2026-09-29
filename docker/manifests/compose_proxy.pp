@@ -141,6 +141,12 @@
 # @param ssl_certificate_trusted
 #   Optional trusted certificate path for public OCSP configuration.
 #
+# @param ssl_session_cache
+#   TLS session cache value passed to `docker::proxy`. Defaults to `shared:SSL:10m`.
+#
+# @param ssl_session_timeout
+#   TLS session timeout passed to `docker::proxy`. Defaults to `10m` (ten minutes).
+#
 # @param strict_transport_security
 #   HSTS header value passed to `nginx::server`.
 #
@@ -198,6 +204,8 @@ define docker::compose_proxy (
   Optional[String]                             $ssl_certificate                = undef,
   Optional[String]                             $ssl_certificate_key            = undef,
   Optional[String]                             $ssl_certificate_trusted        = undef,
+  String                                       $ssl_session_cache              = 'shared:SSL:10m',
+  String                                       $ssl_session_timeout            = '10m',
   Variant[Boolean, String]                     $strict_transport_security      = true,
   String                                       $target                         = 'services',
   Variant[Boolean, String]                     $x_content_type_options         = true,
@@ -253,6 +261,8 @@ define docker::compose_proxy (
         ssl_certificate               => $ssl_certificate,
         ssl_certificate_key           => $ssl_certificate_key,
         ssl_certificate_trusted       => $ssl_certificate_trusted,
+        ssl_session_cache             => $ssl_session_cache,
+        ssl_session_timeout           => $ssl_session_timeout,
         strict_transport_security     => $strict_transport_security,
         x_content_type_options        => $x_content_type_options,
         x_frame_options               => $x_frame_options,
