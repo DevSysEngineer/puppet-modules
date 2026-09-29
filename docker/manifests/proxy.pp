@@ -31,6 +31,10 @@
 # @param content_security_policy
 #   CSP header value passed to `nginx::server`.
 #
+# @param deferred
+#   Shared deferred TCP accept setting passed to `nginx::server`. Defaults to `false`, which adds no override.
+#   See `nginx::server::deferred` for shared-socket behavior.
+#
 # @param directives
 #   Additional Nginx server-level directives passed to nginx::server. Defaults to an empty list. Use this for access
 #   rules that must also cover the separately generated security.txt proxy location.
@@ -46,6 +50,10 @@
 #
 # @param https_force
 #   Redirects public HTTP to HTTPS when public certificates are configured.
+#
+# @param multipath
+#   Shared Multipath TCP listener setting passed to `nginx::server`. Defaults to `false`, which adds no override.
+#   See `nginx::server::multipath` for platform requirements and shared-socket behavior.
 #
 # @param proxy_extra_directives
 #   Additional directives appended to the generated Nginx proxy location.
@@ -72,6 +80,14 @@
 #
 # @param referrer_policy
 #   Referrer-Policy header value passed to `nginx::server`.
+#
+# @param reuseport
+#   Shared TCP and QUIC listener setting passed to `nginx::server`. Defaults to `false`, which adds no override.
+#   See `nginx::server::reuseport` for shared-socket behavior.
+#
+# @param so_keepalive
+#   Shared TCP keepalive setting passed unchanged to `nginx::server`. Defaults to `undef`, which adds no override.
+#   See `nginx::server::so_keepalive` for accepted strings and shared-socket behavior.
 #
 # @param ssl_certificate
 #   Public TLS certificate path for the generated Nginx vhost.
@@ -103,11 +119,13 @@ define docker::proxy (
   String                   $server_name,
   Optional[String]         $client_max_body_size          = undef,
   Variant[Boolean, String] $content_security_policy       = true,
+  Boolean                  $deferred                      = false,
   Array[String]            $directives                    = [],
   Boolean                  $http2_enable                  = true,
   Boolean                  $http3_enable                  = true,
   Boolean                  $http_enable                   = true,
   Boolean                  $https_force                   = true,
+  Boolean                  $multipath                     = false,
   Array[String]            $proxy_extra_directives        = [],
   Pattern[/\A[^\r\n]+\z/]  $proxy_host                    = '127.0.0.1',
   Pattern[/\A[^\r\n]+\z/]  $proxy_read_timeout            = '86400',
@@ -116,6 +134,8 @@ define docker::proxy (
   Boolean                  $proxy_ssl_verify              = false,
   Boolean                  $proxy_websocket               = true,
   Variant[Boolean, String] $referrer_policy               = true,
+  Boolean                  $reuseport                     = false,
+  Optional[String]         $so_keepalive                  = undef,
   Optional[String]         $ssl_certificate               = undef,
   Optional[String]         $ssl_certificate_key           = undef,
   Optional[String]         $ssl_certificate_trusted       = undef,
@@ -197,6 +217,7 @@ define docker::proxy (
       access_log                => $proxy_access_log,
       client_max_body_size      => $client_max_body_size,
       content_security_policy   => $content_security_policy,
+      deferred                  => $deferred,
       directives                => $directives,
       docroot                   => undef,
       error_log                 => $proxy_error_log,
@@ -206,9 +227,12 @@ define docker::proxy (
       https_enable              => $ssl_enable,
       https_force               => $https_force_correct,
       location_directives       => $location_directives,
+      multipath                 => $multipath,
       php_fpm_enable            => false,
       referrer_policy           => $referrer_policy,
+      reuseport                 => $reuseport,
       server_name               => $server_name,
+      so_keepalive              => $so_keepalive,
       ssl_certificate           => $ssl_certificate,
       ssl_certificate_key       => $ssl_certificate_key,
       ssl_certificate_trusted   => $ssl_certificate_trusted,

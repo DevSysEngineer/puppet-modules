@@ -12,8 +12,9 @@
 # The vhost already requires the package and configuration directory; use specific package or file resources for extra
 # dependencies.
 #
-# Socket options (`backlog`, `fastopen`, `multipath`, `reuseport`) are shared per listen address, port and transport,
-# including redirects. Repeated equal overrides are merged onto one listen directive in a shared `.inc` snippet.
+# Socket options (`backlog`, `deferred`, `fastopen`, `multipath`, `reuseport`, `so_keepalive`) are shared per listen
+# address, port and transport, including redirects. Repeated equal overrides are merged onto one listen directive in
+# a shared `.inc` snippet.
 # Conflicting effective values fail catalog compilation with the option and socket in the duplicate resource title.
 # Disabled defaults contribute no override and do not disable another vhost's setting. Absent vhosts contribute nothing.
 # Shared listeners must use the same address and port spelling.
@@ -62,6 +63,10 @@
 #
 # @param default_server
 #   Marks this vhost as the default server for generated listen directives.
+#
+# @param deferred
+#   Requests shared `deferred` on TCP listeners, including redirects. Defaults to `false`, which omits the option
+#   without vetoing another vhost's request. Repeated `true` values emit it once per TCP socket.
 #
 # @param directives
 #   Additional raw directives rendered at the server context.
@@ -229,6 +234,15 @@
 #   Space-separated Nginx `server_name` value. `undef` omits the directive and keeps the title fallback for
 #   security.txt; TLS monitoring then reports an unassessable target.
 #
+# @param so_keepalive
+#   Shared TCP keepalive setting for listeners, including redirects. The strings `on` and `off` enable and disable
+#   TCP keepalive. Use `[keepidle]:[keepintvl]:[keepcnt]` for custom values, for example `30m::10`.
+#   One or two components may be omitted while retaining
+#   both colons; omitted components use operating-system defaults. The string is rendered unchanged as
+#   `so_keepalive=<value>`. Defaults to `undef`, which omits the option and preserves operating-system behavior
+#   unless another vhost supplies an override for the socket. Matching strings are merged; conflicting strings
+#   fail catalog compilation. Never applied to QUIC listeners.
+#
 # @param ssl_buffer_size
 #   Optional `ssl_buffer_size` value.
 #
@@ -285,6 +299,7 @@ define nginx::server (
   Optional[String]          $client_max_body_size            = undef,
   Variant[Boolean, String]  $content_security_policy         = true,
   Boolean                   $default_server                  = false,
+  Boolean                   $deferred                        = false, # Global settings
   Array                     $directives                      = [],
   Optional[String]          $docroot                         = undef,
   Enum['present', 'absent'] $ensure                          = present,
@@ -335,6 +350,7 @@ define nginx::server (
   Optional[String]          $securitytxt_policy              = undef,
   Optional[Array]           $securitytxt_preferred_languages = undef,
   Optional[String]          $server_name                     = undef,
+  Optional[String]          $so_keepalive                    = undef, # Global settings
   Optional[Integer]         $ssl_buffer_size                 = undef,
   Optional[String]          $ssl_certificate                 = undef,
   Optional[String]          $ssl_certificate_key             = undef,
@@ -737,10 +753,12 @@ define nginx::server (
 
       # Disabled defaults do not veto another vhost's override; UDP supports only reuseport from these options.
       $listen_tcp_settings = {
-        'backlog'   => $backlog_value,
-        'fastopen'  => $fastopen_value,
-        'multipath' => $multipath ? { true => true, default => undef },
-        'reuseport' => $reuseport ? { true => true, default => undef },
+        'backlog'      => $backlog_value,
+        'deferred'     => $deferred ? { true => true, default => undef },
+        'fastopen'     => $fastopen_value,
+        'multipath'    => $multipath ? { true => true, default => undef },
+        'reuseport'    => $reuseport ? { true => true, default => undef },
+        'so_keepalive' => $so_keepalive,
       }
       $listen_udp_settings = { 'reuseport' => $listen_tcp_settings['reuseport'] }
 

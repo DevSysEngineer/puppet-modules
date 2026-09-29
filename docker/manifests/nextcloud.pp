@@ -14,6 +14,8 @@
 # The application upstream is HTTP on loopback because APACHE_PORT enables AIO's external reverse-proxy mode.
 # The admin upstream remains self-signed HTTPS on loopback. Optional server_name and admin_server_name publish these
 # endpoints through the shared docker::proxy configuration, with docker::compose_proxy owning the application stack.
+# Both public endpoints request deferred, reuseport, so_keepalive on and multipath through nginx::server; its listener
+# option contracts define shared-socket behavior and platform requirements.
 # Public endpoints require a certificate and key; the certificate must cover every configured public name.
 # Without an admin vhost, use an SSH tunnel to the local admin_port to access the admin interface over HTTPS.
 # Configure the application domain in AIO after providing its HTTPS reverse proxy; domain validation stays enabled.
@@ -297,6 +299,7 @@ define docker::nextcloud (
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
               compose_content            => template('docker/nextcloud.yaml'),
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
+              deferred                   => true,
               env_content                => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
@@ -306,6 +309,7 @@ define docker::nextcloud (
               monitoring_profiles        => $monitoring_profiles,
               monitoring_starting_grace  => $monitoring_starting_grace,
               monitoring_timeout         => $monitoring_timeout,
+              multipath                  => true,
               project_directories        => $project_directories,
               proxy_port                 => $port,
               proxy_extra_directives     => [
@@ -315,7 +319,9 @@ define docker::nextcloud (
               ],
               proxy_read_timeout         => '3610s',
               proxy_scheme               => 'http', # AIO disables application TLS when APACHE_PORT selects external proxy mode.
+              reuseport                  => true,
               server_name                => $server_name,
+              so_keepalive               => 'on',
               ssl_certificate            => $ssl_certificate,
               ssl_certificate_key        => $ssl_certificate_key,
               ssl_certificate_trusted    => $ssl_certificate_trusted,
@@ -541,11 +547,15 @@ define docker::nextcloud (
             # Apply access rules at server level so the security.txt proxy inherits the same restrictions.
             docker::proxy { "${name}_admin":
               content_security_policy => false,
+              deferred                => true,
               directives              => $admin_whitelist_directives,
+              multipath               => true,
               proxy_port              => $admin_port,
               proxy_scheme            => 'https',
               proxy_ssl_verify        => $ssl_verify,
+              reuseport               => true,
               server_name             => $admin_server_name,
+              so_keepalive            => 'on',
               ssl_certificate         => $ssl_certificate,
               ssl_certificate_key     => $ssl_certificate_key,
               ssl_certificate_trusted => $ssl_certificate_trusted,

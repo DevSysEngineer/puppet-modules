@@ -52,6 +52,10 @@
 # @param content_security_policy
 #   CSP header value passed to `nginx::server`.
 #
+# @param deferred
+#   Shared deferred TCP accept setting passed to `docker::proxy`. Defaults to `false`, which adds no override.
+#   See `nginx::server::deferred` for shared-socket behavior.
+#
 # @param ensure
 #   Controls the Compose project state. The Nginx vhost is declared when this is `present`; when this is `absent`, only
 #   the Compose project removal is delegated.
@@ -98,6 +102,10 @@
 # @param monitoring_timeout
 #   Timeout in seconds for the Compose stack monitoring check.
 #
+# @param multipath
+#   Shared Multipath TCP listener setting passed to `docker::proxy`. Defaults to `false`, which adds no override.
+#   See `nginx::server::multipath` for platform requirements and shared-socket behavior.
+#
 # @param project_directories
 #   Optional single-segment directories passed to `docker::compose` for creation below the Compose project directory.
 #   Values may override owner, group, and mode.
@@ -131,6 +139,14 @@
 #
 # @param referrer_policy
 #   Referrer-Policy header value passed to `nginx::server`.
+#
+# @param reuseport
+#   Shared TCP and QUIC listener setting passed to `docker::proxy`. Defaults to `false`, which adds no override.
+#   See `nginx::server::reuseport` for shared-socket behavior.
+#
+# @param so_keepalive
+#   Shared TCP keepalive setting passed unchanged to `docker::proxy`. Defaults to `undef`, which adds no override.
+#   See `nginx::server::so_keepalive` for accepted strings and shared-socket behavior.
 #
 # @param ssl_certificate
 #   Public TLS certificate path for the generated Nginx vhost.
@@ -172,6 +188,7 @@ define docker::compose_proxy (
   Optional[String]                             $compose_content                = undef,
   Optional[String]                             $compose_source                 = undef,
   Variant[Boolean, String]                     $content_security_policy        = true,
+  Boolean                                      $deferred                       = false,
   Enum['present', 'absent']                    $ensure                         = present,
   Optional[Variant[String, Sensitive[String]]] $env_content                    = undef,
   Optional[String]                             $env_source                     = undef,
@@ -187,6 +204,7 @@ define docker::compose_proxy (
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]        $monitoring_profiles            = [],
   Integer                                      $monitoring_starting_grace      = 300,
   Integer                                      $monitoring_timeout             = 60,
+  Boolean                                      $multipath                      = false,
   Hash[Pattern[/\A[A-Za-z0-9_.-]+\z/], Struct[{
         Optional[owner] => String[1],
         Optional[group] => String[1],
@@ -201,6 +219,8 @@ define docker::compose_proxy (
   Boolean                                      $proxy_websocket                = true,
   Enum['always', 'missing', 'never']           $pull                           = 'missing',
   Variant[Boolean, String]                     $referrer_policy                = true,
+  Boolean                                      $reuseport                      = false,
+  Optional[String]                             $so_keepalive                   = undef,
   Optional[String]                             $ssl_certificate                = undef,
   Optional[String]                             $ssl_certificate_key            = undef,
   Optional[String]                             $ssl_certificate_trusted        = undef,
@@ -246,10 +266,12 @@ define docker::compose_proxy (
         server_name                   => $server_name,
         client_max_body_size          => $client_max_body_size,
         content_security_policy       => $content_security_policy,
+        deferred                      => $deferred,
         http2_enable                  => $http2_enable,
         http3_enable                  => $http3_enable,
         http_enable                   => $http_enable,
         https_force                   => $https_force,
+        multipath                     => $multipath,
         proxy_extra_directives        => $proxy_extra_directives,
         proxy_host                    => $proxy_host,
         proxy_read_timeout            => $proxy_read_timeout,
@@ -258,6 +280,8 @@ define docker::compose_proxy (
         proxy_ssl_verify              => $proxy_ssl_verify,
         proxy_websocket               => $proxy_websocket,
         referrer_policy               => $referrer_policy,
+        reuseport                     => $reuseport,
+        so_keepalive                  => $so_keepalive,
         ssl_certificate               => $ssl_certificate,
         ssl_certificate_key           => $ssl_certificate_key,
         ssl_certificate_trusted       => $ssl_certificate_trusted,
