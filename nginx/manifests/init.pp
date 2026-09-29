@@ -311,7 +311,7 @@ class nginx (
     default => Service['nginx'],
   }
 
-  # Own the configuration directories and purge retired vhosts and the last unused QUIC fragment.
+  # Own the configuration directories and purge retired vhosts and unused shared QUIC and connection-upgrade files.
   file { [$config, '/etc/nginx/sites-enabled']:
     ensure  => directory,
     owner   => 'root',
@@ -334,6 +334,18 @@ class nginx (
     content => "# Managed by puppet\nquic_bpf on;\n",
     notify  => Service['nginx'],
     require => File[$config],
+  }
+
+  # Vhosts using $connection_upgrade share one HTTP-context map; the directory purge removes it after the last user.
+  @file { 'nginx_connection_upgrade':
+    ensure  => file,
+    path    => "${config}/0-connection-upgrade.conf",
+    source  => 'puppet:///modules/nginx/connection_upgrade.conf',
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0600',
+    require => File[$config],
+    before  => Service['nginx'],
   }
 
   # Create snippets directory

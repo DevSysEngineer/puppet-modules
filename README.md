@@ -663,6 +663,8 @@ Met `multipath => true` op `nginx::server` schakel je Multipath TCP in voor de T
 
 Gebruik voor reverse proxies bij voorkeur HTTPS naar de achterliggende applicatie. Schakel certificaatcontrole alleen uit voor een lokale of self-signed verbinding waarvoor dat echt nodig is. Gebruik HTTP alleen als de achterliggende applicatie geen TLS ondersteunt.
 
+Gebruik voor WebSockets de directives uit het [proxyvoorbeeld](examples/web.pp). `nginx::server` activeert daarbij automatisch de gedeelde `$connection_upgrade`-map. Staat het gebruik van die variabele alleen in een extern include-bestand, realiseer de map dan expliciet vanuit de verantwoordelijke Puppet-code volgens de [Puppet Strings bij `nginx::server`](nginx/manifests/server.pp).
+
 #### Basisvoorbeeld
 
 ```puppet

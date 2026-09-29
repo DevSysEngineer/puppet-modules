@@ -19,6 +19,15 @@
 # Disabled defaults contribute no override and do not disable another vhost's setting. Absent vhosts contribute nothing.
 # Shared listeners must use the same address and port spelling.
 #
+# Present vhosts using `$connection_upgrade` or `${connection_upgrade}` share the HTTP-context map in
+# `conf.d/0-connection-upgrade.conf`. Detection covers `directives`, `location_directives`, each entry's
+# `location_directives` in `locations`, and `php_fpm_directives` when PHP-FPM rendering is enabled. Comments and longer
+# variable names do not activate the map. Without an Upgrade request header, the map returns an empty value so
+# `proxy_set_header Connection $connection_upgrade;` omits the upstream Connection header.
+# External includes are not inspected: their owning Puppet code must call `realize(File['nginx_connection_upgrade'])`
+# and order that file before its dependent configuration, with service notifications as needed.
+# The configuration directory purge removes the map when no code realizes it anymore.
+#
 # @example Static HTTPS vhost with secure defaults
 #   nginx::server { 'www.example.org':
 #     docroot             => '/var/www/www.example.org',
@@ -205,8 +214,9 @@
 #   managed header.
 #
 # @param restart_service
-#   Notifies Nginx when this vhost file or its shared listener configuration changes if `true`. Shared listener changes
-#   notify the service when at least one participating vhost enables notifications.
+#   Notifies Nginx when this vhost file, shared listener configuration or connection-upgrade map changes if `true`.
+#   Shared listener and connection-upgrade changes notify the service when at least one participating vhost enables
+#   notifications.
 #
 # @param reuseport
 #   Requests shared `reuseport` on TCP and QUIC listeners. Repeated `true` values emit it once per socket. `false`
@@ -739,8 +749,32 @@ define nginx::server (
     $config_ensure = $ensure ? { present => file, default => absent }
     $config_notify = $restart_service ? { true => Service['nginx'], default => undef }
 
-    # Configure listeners and register certificate checks only for present vhosts.
+    # Configure shared dependencies, listeners and certificate checks only for present vhosts.
     if ($ensure == present) {
+      # Inspect only directive lists rendered by the vhost template, including enabled PHP-FPM locations.
+      $connection_upgrade_directives = flatten(concat(
+        $directives,
+        $location_directives,
+        $locations.map |$location| { $location['location_directives'] ? { undef => [], default => $location['location_directives'] } },
+        $php_fpm_enable ? { true => $php_fpm_directives, default => [] },
+      ))
+      $connection_upgrade_active = $connection_upgrade_directives.any |$directive| {
+        # Preserve quoted and escaped characters while removing comments before matching a complete Nginx variable name.
+        regsubst($directive, /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\\.)|#[^\r\n]*/, '\1', 'G')
+          =~ /\$(?:connection_upgrade(?![A-Za-z0-9_])|\{connection_upgrade\})/
+      }
+      if ($connection_upgrade_active) {
+        realize(File['nginx_connection_upgrade'])
+
+        # Every participant must be ready before a refresh, including vhosts that do not request one themselves.
+        File['nginx_connection_upgrade'] -> File[$config_file] -> Service['nginx']
+
+        # Any participant may request notifications without another vhost's opt-out overriding that choice.
+        if ($restart_service) {
+          File['nginx_connection_upgrade'] ~> Service['nginx']
+        }
+      }
+
       # Realize host-wide QUIC settings once, even when several active vhosts share them.
       if ($http3_active) {
         realize(File['nginx_quic'])
