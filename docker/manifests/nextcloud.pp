@@ -11,6 +11,11 @@
 # https://github.com/nextcloud/all-in-one/blob/main/multiple-instances.md.
 # This wrapper uses the local rootful Docker daemon. Compose monitoring covers the mastercontainer only.
 #
+# The Compose systemd service starts AIO's containers through /daily-backup.sh with START_CONTAINERS=1 after
+# starting the mastercontainer. On stop, STOP_CONTAINERS=1 stops AIO's containers before Compose stops the master.
+# Compose uses stop to retain the containers and shared nextcloud-aio network. Neither hook enables DAILY_BACKUP.
+# Before initial setup through the AIO interface, the upstream script exits successfully without lifecycle actions.
+#
 # The application upstream is HTTP on loopback because APACHE_PORT enables AIO's external reverse-proxy mode.
 # The admin upstream remains self-signed HTTPS on loopback. Optional server_name and admin_server_name publish these
 # endpoints through the shared docker::proxy configuration, with docker::compose_proxy owning the application stack.
@@ -106,8 +111,8 @@
 #   Global default storage quota written through OCC `config:app:set files default_quota`.
 #
 # @param ensure
-#   Defaults to present. Delegates project lifecycle to `docker::compose`. Stop the AIO sibling containers through
-#   the admin UI before stopping the mastercontainer and follow the Compose removal contract. Absent removes the
+#   Defaults to present. Delegates project lifecycle to `docker::compose`. Stop the Compose systemd service to stop
+#   AIO's containers and then the mastercontainer, and follow the Compose removal contract. Absent removes the
 #   project directory, including its local backup directory; preserve backups elsewhere first. AIO volumes remain.
 #
 # @param files_max_chunk_size
@@ -294,6 +299,14 @@ define docker::nextcloud (
           # Both the Compose listeners and Nginx upstreams receive their ports from this interface.
           $env_content = Sensitive.new(template('docker/nextcloud.env'))
 
+          # AIO owns its sibling containers; use its lifecycle entry point without enabling daily backups.
+          $nextcloud_start_post_commands = [
+            '/usr/bin/docker exec --env START_CONTAINERS=1 nextcloud-aio-mastercontainer /daily-backup.sh',
+          ]
+          $nextcloud_stop_pre_commands = [
+            '/usr/bin/docker exec --env STOP_CONTAINERS=1 nextcloud-aio-mastercontainer /daily-backup.sh',
+          ]
+
           # Use the proxy wrapper only when the Nextcloud application itself is published.
           if ($server_name != undef) {
             docker::compose_proxy { $name:
@@ -301,6 +314,7 @@ define docker::nextcloud (
               backlog                    => 0,
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
               compose_content            => template('docker/nextcloud.yaml'),
+              compose_stop_action        => 'stop',
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
               deferred                   => true,
               directives                 => [
@@ -335,6 +349,8 @@ define docker::nextcloud (
               ssl_certificate_trusted    => $ssl_certificate_trusted,
               ssl_session_cache          => 'shared:SSL:10m',
               ssl_session_timeout        => '1d',
+              start_post_commands        => $nextcloud_start_post_commands,
+              stop_pre_commands          => $nextcloud_stop_pre_commands,
               target                     => $target,
               require                    => Class['docker'],
             }
@@ -419,6 +435,7 @@ define docker::nextcloud (
             docker::compose { $name:
               ensure                     => $ensure,
               compose_content            => template('docker/nextcloud.yaml'),
+              compose_stop_action        => 'stop',
               env_content                => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
@@ -429,6 +446,8 @@ define docker::nextcloud (
               monitoring_starting_grace  => $monitoring_starting_grace,
               monitoring_timeout         => $monitoring_timeout,
               project_directories        => $project_directories,
+              start_post_commands        => $nextcloud_start_post_commands,
+              stop_pre_commands          => $nextcloud_stop_pre_commands,
               target                     => $target,
               require                    => Class['docker'],
             }

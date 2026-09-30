@@ -365,7 +365,9 @@ Puppet maakt `/opt/docker/<naam>/backup` aan op de Docker-host met eigenaar `roo
 
 Start vervolgens **Create backup**, bewaar de encryptiesleutel en stel na de eerste geslaagde backup de dagelijkse planning in volgens de [AIO-backupinstructies](https://github.com/nextcloud/all-in-one#backup). Het aanmaken van de map door Puppet activeert nog geen backups en selecteert de bestemming niet automatisch in AIO. Je kunt ook een hostpad buiten de Compose-projectmap of een externe Borg-repository kiezen.
 
-Bij `ensure => absent` verwijdert Compose de hele projectmap, inclusief de lokale backupmap en inhoud. Stel deze backups daarom eerst elders veilig. Stop vervolgens de door AIO beheerde containers via de admininterface en daarna de mastercontainer, volgens het Compose-verwijdercontract. AIO's named volumes blijven bestaan.
+Gebruik `systemctl stop docker-compose-<naam>.service` om de AIO-containers en daarna de mastercontainer te stoppen. De containers en het `nextcloud-aio`-netwerk blijven bestaan. Met `systemctl start docker-compose-<naam>.service` start je de stack weer. Deze acties starten geen backup; rond bij een nieuwe installatie eerst de configuratie via de AIO-interface af. Zie de [Puppet Strings](docker/manifests/nextcloud.pp) voor de lifecycle-hooks.
+
+Bij `ensure => absent` verwijdert Compose de hele projectmap, inclusief de lokale backupmap en inhoud. Stel deze backups daarom eerst elders veilig. Stop vervolgens de Compose-systemd-service volgens het Compose-verwijdercontract. AIO's named volumes blijven bestaan.
 
 Met `docker::nextcloud_s3` registreer je één S3-objectstore in een geïnstalleerde Nextcloud AIO-instance. Geef met `compose_name` de titel van de deployment door, zoals bij `docker::authentik_admin`. `docker::nextcloud_occ` controleert centraal of een `docker::compose`-, `docker::compose_proxy`- of `docker::nextcloud`-resource met die titel beschikbaar is en laat de OCC-opdrachten daarvan afhangen. Zonder zo'n resource mislukt de catalogusopbouw met een gerichte foutmelding. Een wrapper moet uiteindelijk de gelijknamige `docker::compose`-resource leveren.
 

@@ -45,6 +45,10 @@
 #   Optional Compose file source, default undef. Must start with `https://`, `file:///`, or `puppet:///`; excludes
 #   compose_content.
 #
+# @param compose_stop_action
+#   Compose action after stop_pre_commands. Defaults to down, which runs `down --remove-orphans`; stop retains
+#   containers and networks by running `stop`. Used only by the generated systemd service.
+#
 # @param ensure
 #   Defaults to present. Absent deletes the entire project directory, including database backups and project-local
 #   bind-mount data. Copy required data elsewhere and stop and disable the backup timer and service before removal.
@@ -95,6 +99,17 @@
 #   The CLI policy overrides pull_policy in the Compose file. Pull failures fail startup; there is no periodic update.
 #   Changing this parameter reloads the systemd unit; an already active stack uses it on its next service start.
 #
+# @param start_post_commands
+#   Ordered systemd ExecStartPost command lines after Compose starts. Defaults to [], omitting ExecStartPost.
+#   Each command must be nonempty and single-line, using systemd command syntax without an implicit shell.
+#   Commands run as root under the Compose service's hardening and timeouts. Callers must supply and order any
+#   extra executables or files before the stack. Do not include secrets: the unit is publicly readable.
+#
+# @param stop_pre_commands
+#   Ordered systemd ExecStop command lines before the Compose stop action. Defaults to [], adding no commands.
+#   Uses the same syntax, execution context and prerequisite contract as start_post_commands. A command failure
+#   skips the remaining ExecStop commands, including Compose; failures are not ignored.
+#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated Compose service. The default is
 #   `services`.
@@ -108,6 +123,7 @@ define docker::compose (
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]     $compose_checksum               = undef,
   Optional[String]                             $compose_content                = undef,
   Optional[String]                             $compose_source                 = undef,
+  Enum['down', 'stop']                         $compose_stop_action            = 'down',
   Enum['present', 'absent']                    $ensure                         = present,
   Optional[Variant[String, Sensitive[String]]] $env_content                    = undef,
   Optional[String]                             $env_source                     = undef,
@@ -125,6 +141,8 @@ define docker::compose (
         Optional[mode]  => Pattern[/\A[0-7]{4}\z/],
   }]]                                          $project_directories            = {},
   Enum['always', 'missing', 'never']           $pull                           = 'missing',
+  Array[Pattern[/\A[^\r\n]+\z/]]               $start_post_commands            = [],
+  Array[Pattern[/\A[^\r\n]+\z/]]               $stop_pre_commands              = [],
   String                                       $target                         = 'services',
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
@@ -266,7 +284,18 @@ define docker::compose (
               $service_name = "docker-compose-${name}"
               $service_packages = ['docker', 'docker-compose-plugin']
               $compose_up_command = "/usr/bin/docker compose --project-name ${name} --project-directory ${project_directory}${compose_env_command} --file ${compose_file} up --detach --remove-orphans --pull ${pull}" # lint:ignore:140chars
-              $compose_down_command = "/usr/bin/docker compose --project-name ${name} --project-directory ${project_directory}${compose_env_command} --file ${compose_file} down --remove-orphans" # lint:ignore:140chars
+              $compose_stop_arguments = $compose_stop_action ? {
+                'stop'  => 'stop',
+                default => 'down --remove-orphans',
+              }
+              $compose_stop_command = "/usr/bin/docker compose --project-name ${name} --project-directory ${project_directory}${compose_env_command} --file ${compose_file} ${compose_stop_arguments}" # lint:ignore:140chars
+              $exec_stop_commands = concat($stop_pre_commands, [$compose_stop_command])
+
+              # Omit the directive entirely unless the caller needs actions after Compose starts.
+              $service_start_post = $start_post_commands.empty ? {
+                true    => {},
+                default => { 'ExecStartPost' => $start_post_commands },
+              }
 
               # Subscribe to the managed project files using the array required by the shared service wrapper.
               if ($env_source == undef and $env_content == undef) {
@@ -293,9 +322,9 @@ define docker::compose (
                 monitoring_enable  => $docker::monitoring_enable,
                 monitoring_package => $monitoring_package,
                 service_subscribe  => $service_subscribe,
-                service            => {
+                service            => stdlib::merge($service_start_post, {
                   'ExecStart'               => $compose_up_command,
-                  'ExecStop'                => $compose_down_command,
+                  'ExecStop'                => $exec_stop_commands,
                   'LockPersonality'         => 'true',
                   'MemoryDenyWriteExecute'  => 'true',
                   'NoNewPrivileges'         => 'true',
@@ -317,7 +346,7 @@ define docker::compose (
                   'UMask'                   => '0077',
                   'User'                    => 'root',
                   'WorkingDirectory'        => $project_directory,
-                },
+                }),
                 unit               => stdlib::merge($unit_failure, {
                     'After'    => ['docker.service', 'network-online.target'],
                     'Requires' => 'docker.service',

@@ -53,6 +53,9 @@
 #   Optional Compose file source passed to docker::compose; defaults to undef. Must start with https://, file:///,
 #   or puppet:///; excludes compose_content.
 #
+# @param compose_stop_action
+#   Stop action passed unchanged to docker::compose. Defaults to down; stop retains containers and networks.
+#
 # @param content_security_policy
 #   CSP header value passed to `nginx::server`.
 #
@@ -170,6 +173,14 @@
 # @param ssl_session_timeout
 #   TLS session timeout passed to `docker::proxy`. Defaults to `10m` (ten minutes).
 #
+# @param start_post_commands
+#   Ordered ExecStartPost command lines passed unchanged to docker::compose. Defaults to [], adding no commands.
+#   See docker::compose for command syntax, execution context, prerequisites and secret-handling restrictions.
+#
+# @param stop_pre_commands
+#   Ordered ExecStop command lines passed unchanged to docker::compose before its stop action. Defaults to [].
+#   See docker::compose for the command contract and failure behavior.
+#
 # @param strict_transport_security
 #   HSTS header value passed to `nginx::server`.
 #
@@ -195,6 +206,7 @@ define docker::compose_proxy (
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]     $compose_checksum               = undef,
   Optional[String]                             $compose_content                = undef,
   Optional[String]                             $compose_source                 = undef,
+  Enum['down', 'stop']                         $compose_stop_action            = 'down',
   Variant[Boolean, String]                     $content_security_policy        = true,
   Boolean                                      $deferred                       = false,
   Array[String]                                $directives                     = [],
@@ -235,6 +247,8 @@ define docker::compose_proxy (
   Optional[String]                             $ssl_certificate_trusted        = undef,
   String                                       $ssl_session_cache              = 'shared:SSL:10m',
   String                                       $ssl_session_timeout            = '10m',
+  Array[Pattern[/\A[^\r\n]+\z/]]               $start_post_commands            = [],
+  Array[Pattern[/\A[^\r\n]+\z/]]               $stop_pre_commands              = [],
   Variant[Boolean, String]                     $strict_transport_security      = true,
   String                                       $target                         = 'services',
   Variant[Boolean, String]                     $x_content_type_options         = true,
@@ -252,6 +266,7 @@ define docker::compose_proxy (
       compose_checksum               => $compose_checksum,
       compose_content                => $compose_content,
       compose_source                 => $compose_source,
+      compose_stop_action            => $compose_stop_action,
       env_content                    => $env_content,
       env_source                     => $env_source,
       monitoring_detail_limit        => $monitoring_detail_limit,
@@ -264,6 +279,8 @@ define docker::compose_proxy (
       monitoring_timeout             => $monitoring_timeout,
       project_directories            => $project_directories,
       pull                           => $pull,
+      start_post_commands            => $start_post_commands,
+      stop_pre_commands              => $stop_pre_commands,
       target                         => $target,
       require                        => Class['docker'],
     }
