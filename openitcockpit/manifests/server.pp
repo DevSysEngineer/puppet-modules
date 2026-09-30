@@ -578,6 +578,16 @@ class openitcockpit::server (
           require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
         }
 
+        # Tie the services target to the monitoring websocket server lifecycle.
+        basic_settings::systemd_drop_in { 'openitcockpit_websocket_server_dependency':
+          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
+          unit          => {
+            'BindsTo'   => 'openitcockpit-websocket.service',
+          },
+          daemon_reload => 'openitcockpit_systemd_daemon_reload',
+          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+        }
+
         # Tie the services target to the monitoring command processor lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_dependency':
           target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
@@ -598,31 +608,11 @@ class openitcockpit::server (
           require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
         }
 
-        # Tie the services target to the push notification service lifecycle.
-        basic_settings::systemd_drop_in { 'openitcockpit_push_notification_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
-            'BindsTo'   => 'push_notification.service',
-          },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
-        }
-
         # Tie the services target to the status engine lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_statusengine_dependency':
           target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
           unit          => {
             'BindsTo'   => 'statusengine.service',
-          },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
-        }
-
-        # Tie the services target to the monitoring sudo server lifecycle.
-        basic_settings::systemd_drop_in { 'openitcockpit_sudo_server_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
-            'BindsTo'   => 'sudo_server.service',
           },
           daemon_reload => 'openitcockpit_systemd_daemon_reload',
           require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
