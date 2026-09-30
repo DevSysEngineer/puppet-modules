@@ -213,7 +213,7 @@ class openitcockpit::server (
       replace => false,
       owner   => 'root',
       group   => 'root',
-      mode    => '0600',
+      mode    => '0640',
       require => File["${install_dir_correct}/etc/grafana"],
     }
 
@@ -514,11 +514,10 @@ class openitcockpit::server (
       'gearman_worker',
       'openitcockpit-node',
       'openitcockpit-graphing',
+      'openitcockpit-websocket',
       'oitc_cmd',
       'oitc_cronjobs.timer',
-      'push_notification',
       'statusengine',
-      'sudo_server',
     ]
 
     # Disable service
@@ -680,6 +679,15 @@ class openitcockpit::server (
         require       => Package['openitcockpit'],
       }
 
+      # Apply shared file permissions and failure notifications to the websocket service.
+      basic_settings::systemd_drop_in { 'openitcockpit_websocket_settings':
+        target_unit   => 'openitcockpit-websocket.service',
+        unit          => $unit,
+        service       => $service_shared_files,
+        daemon_reload => 'openitcockpit_systemd_daemon_reload',
+        require       => Package['openitcockpit'],
+      }
+
       # Apply shared file permissions and failure notifications to the command processor.
       basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_settings':
         target_unit   => 'oitc_cmd.service',
@@ -698,27 +706,9 @@ class openitcockpit::server (
         require       => Package['openitcockpit'],
       }
 
-      # Apply shared file permissions and failure notifications to push notifications.
-      basic_settings::systemd_drop_in { 'openitcockpit_push_notification_settings':
-        target_unit   => 'push_notification.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
-      }
-
       # Apply shared file permissions and failure notifications to the status engine.
       basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
         target_unit   => 'statusengine.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
-      }
-
-      # Apply shared file permissions and failure notifications to the monitoring sudo server.
-      basic_settings::systemd_drop_in { 'openitcockpit_sudo_server_settings':
-        target_unit   => 'sudo_server.service',
         unit          => $unit,
         service       => $service_shared_files,
         daemon_reload => 'openitcockpit_systemd_daemon_reload',
