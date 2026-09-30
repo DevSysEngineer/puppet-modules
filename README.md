@@ -5,7 +5,7 @@ Dit project bevat Puppet-modules voor het inrichten en beheren van Debian- en Ub
 De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet steeds dezelfde voorspelbare configuratie oplevert. Je kunt ze los gebruiken of combineren. `basic_settings` richt de serverbasis in en zorgt ervoor dat andere modules daarop kunnen aansluiten.
 
 > [!IMPORTANT]
-> **Perforce zet Puppet-open-sourcecode achter een betaalmuur:** In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je betalen. Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). OpenVox van Vox Pupuli is een drop-invervanger voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door het OpenVox-pakket zonder je bestaande Puppet-configuratie aan te passen.
+> **Keuze voor OpenVox:** Perforce ontwikkelt Puppet verder in besloten repositories als Puppet Core. Gratis gebruik is beperkt tot 25 nodes onder de bijbehorende [licentievoorwaarden](https://www.puppet.com/blog/puppet-module-developer-eula-faq). Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Kies dan [OpenVox van Vox Pupuli](https://voxpupuli.org/openvox/), de open fork die compatibiliteit met Puppet nastreeft. Controleer vóór een overstap de [projectcompatibiliteit](#ondersteuning-en-compatibiliteit) en test je bestaande configuratie.
 
 > [!CAUTION]
 > **Compatibiliteit:** Dit project is ontworpen voor 64-bits besturingssystemen. De volledige combinatie van modules is gericht op `amd64`.
@@ -77,11 +77,8 @@ De rootmetadata beschrijven de ingeladen dependencies, maar hun onderlinge versi
 
 ## Technische uitgangspunten
 
-- **Veilige standaardinstellingen:** Services en configuratiebestanden krijgen strengere rechten, TLS-instellingen en systemd-beperkingen wanneer dat veilig kan.
-- **Voorspelbaar beheer:** Puppet beheert bestanden, pakketten en onderlinge relaties. Een volgende Puppet-run hoort geen onnodige wijzigingen op te leveren.
 - **Vaste opstartvolgorde:** `basic_settings` maakt systemd-targets voor systeem-, opslag-, service-, productie- en helperprocessen. Andere modules kunnen hun services hieraan koppelen.
-- **Los of gecombineerd:** De meeste modules werken zelfstandig. Monitoring, logrotate, auditregels en systemd-koppelingen worden toegevoegd wanneer `basic_settings` ook wordt gebruikt.
-- **Geheimen uit profielen of Hiera:** Geef parameters met type `Sensitive[...]` door als `Sensitive(...)`. Haal wachtwoorden voor oudere parameters van het type String uit versleutelde Hiera-data of een profiel en zet ze niet rechtstreeks in manifests.
+- **Gedeelde instellingen:** Declareer `basic_settings` vóór de modules die zijn instellingen en voorzieningen gebruiken. Zo kunnen zij onder meer monitoring, logrotate, audit en systemd overnemen. Controleer bij los gebruik de voorwaarden van de betreffende module.
 - **Beheerde externe bronnen:** Gebruik HTTPS of `puppet:///` voor aangeleverde bestanden. Modules die externe inhoud accepteren weigeren plain HTTP waar dat een onnodig integriteitsrisico vormt.
 
 ## Beveiliging en afwijkende standaardinstellingen
@@ -100,15 +97,13 @@ Deze modules gebruiken bewust strengere beveiligingsinstellingen dan veel standa
 > [!WARNING]
 > `basic_settings` kan `/etc/hosts`, sudoers-inhoud, APT-bronnen, netwerkconfiguratie en andere belangrijke serverinstellingen beheren. Schakel een onderdeel uit wanneer die configuratie al ergens anders wordt beheerd. Gebruik bij een bestaande sudo-configuratie in eerste instantie `sudoers_dir_enable => false`.
 
-Bij Secure Boot blijft `integrity` de minimale waarde voor kernel-lockdown, ook met `kernel_security_lockdown => false`. De [Puppet Strings bij `basic_settings::kernel`](basic_settings/manifests/kernel.pp) beschrijven de instelbare modi en de waarden voor Multi-Gen LRU.
+Bij Secure Boot blijft `integrity` de minimale waarde voor kernel-lockdown, ook met `kernel_security_lockdown => false`. Zie de [kernelinstellingen](basic_settings/manifests/kernel.pp) voor de beschikbare keuzes.
 
 ## Monitoring
 
 OpenITCOCKPIT is het monitoringsysteem dat dit project automatisch kan instellen. Gebruik in `basic_settings` `monitoring_package => 'openitcockpit'`. Zet ook `monitoring_package_install => true` wanneer Puppet het agentpakket moet installeren. Declareer `basic_settings` of `basic_settings::monitoring` vóór de serviceclasses waarvoor je monitoring wilt gebruiken. Die classes bepalen bij hun evaluatie of ze checks toevoegen.
 
-De checks volgen het Nagios-pluginmodel en kunnen daardoor ook vanuit Naemon, Nagios of Icinga worden uitgevoerd. Ze gebruiken Nagios-exitcodes, noemen de belangrijkste oorzaak in de korte uitvoer, leveren perfdata voor grafieken en tonen extra uitleg in de long output. Controleer bij los gebruik welke commando's, argumenten en door Puppet ingevulde waarden de check nodig heeft.
-
-Gebruik bij een geïnstalleerde check `-h` om de opties en bijbehorende omgevingsvariabelen te bekijken. Voor een eenmalige controle kun je hiermee drempels en uitvoerlimieten aanpassen. Commandline-opties gaan voor op omgevingsvariabelen. Pas bij langere looptijden ook de timeout van de executor aan: een instelling in het script verandert die niet.
+De checks werken ook met een Nagios-compatibele executor. Gebruik `-h` bij een geïnstalleerde check voor de opties en raadpleeg bij los gebruik de vereisten in de [scripts en templates](#beschikbare-checks). Pas bij langere looptijden ook de timeout van de executor aan: een instelling in het script verandert die niet.
 
 Met `basic_settings::monitoring_custom` kun je een eigen script in de OpenITCOCKPIT-pluginmap plaatsen en registreren. De defined types `monitoring_service`, `monitoring_timer` en `monitoring_npm_audit` zijn bedoeld voor veelvoorkomende systemd- en npm-controles. De checks zelf staan onder `files/` en `templates/`; zie ook [Beschikbare checks](#beschikbare-checks) en [`examples/monitoring.pp`](examples/monitoring.pp).
 
@@ -165,7 +160,7 @@ Het [versiebeleid](AGENTS.md#versioning-and-releases) beschrijft hoe het project
 
 ## Quick start
 
-Dit voorbeeld richt een geharde basis in, activeert OpenITCOCKPIT-monitoring en beheert SSH. De host blijft klein genoeg om eerst veilig te testen; een gecombineerde web-, container- en databaseconfiguratie staat in [`examples/site.pp`](examples/site.pp).
+Dit voorbeeld richt een geharde basis in, activeert OpenITCOCKPIT-monitoring en beheert SSH. Zorg vooraf dat de gekozen beheerder bestaat en met een sleutel kan inloggen; het voorbeeld maakt dat account niet aan. Een profiel met gebruikersbeheer staat in [`examples/site.pp`](examples/site.pp).
 
 ```puppet
 node 'server01.example.org' {
@@ -227,13 +222,9 @@ De class kan belangrijke serverconfiguratie en conflicterende pakketten vervange
 
 Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de class schakelt een niet-ondersteunde pakketbron daarom uit. Controleer of de benodigde pakketbronnen op jouw platform worden ingeschakeld.
 
-`basic_settings::login` stelt een timeout in voor interactieve Bash-shells: 15 minuten in `production` en 30 minuten in andere serveromgevingen. De shell sluit als je zo lang niets invoert aan de prompt. Stel `basic_settings::environment` in je profiel of Hiera in op de werkelijke serveromgeving; de Puppet-codeomgeving bepaalt deze waarde niet automatisch. Open na een wijziging een nieuwe login-shell om de timeout toe te passen. Controleer bij een afwijkende shell of profielinrichting of de timeout werkt; zie de [Puppet Strings bij `basic_settings::login`](basic_settings/manifests/login.pp).
+Interactieve Bash-shells sluiten na 15 minuten zonder invoer aan de prompt in `production`, en na 30 minuten in andere serveromgevingen. Hiervoor telt `basic_settings::environment`, niet de Puppet-codeomgeving. Open na een wijziging een nieuwe login-shell en controleer de werking bij afwijkende shells of profielen. Gestarte scripts kunnen deze timeout via `TMOUT` erven; de [login-documentatie](basic_settings/manifests/login.pp) beschrijft hoe je daarmee omgaat.
 
-Scripts die vanuit zo'n shell starten kunnen `TMOUT` erven, waardoor ook `read` en `select` een timeout krijgen. Geef zulke scripts waar nodig een eigen `read -t`-timeout of verwijder `TMOUT` uit hun eigen omgeving.
-
-Met `getty_enable` zet Puppet de niet-gereserveerde tekst- en seriële consoles uit `getty.target` bij iedere run aan of uit. De bestaande bootkoppelingen blijven behouden; systemd kan een gestopte console tussen Puppet-runs of bij een herstart opnieuw activeren. `gui_mode => 'kiosk'` houdt deze consoles ingeschakeld. Controleer vóór inschakelen of ze bruikbaar zijn. De agentfact `console_gettys` toont de ontdekte consoles of een detectiefout.
-
-Gebruikt een andere toepassing een console, reserveer dan de concrete getty-instance in `basic_settings`, bijvoorbeeld met `getty_reserved_units => ['getty@tty2.service']`. Puppet laat die instance buiten het algemene consolebeleid en activeert haar ook in kioskmodus niet opnieuw. Je regelt zelf het gebruik van de console; een reservering stopt of maskeert de getty niet. Zie de [Puppet Strings bij `basic_settings::login`](basic_settings/manifests/login.pp) voor het volledige contract.
+Puppet stopt standaard de ontdekte tekst- en seriële consoles; kioskmodus houdt ze aan. Controleer vóór de uitrol of je hersteltoegang behouden blijft. Dit beleid blokkeert heractivering door systemd of een herstart niet. Reserveer consoles die een andere toepassing beheert volgens de [getty-instellingen](basic_settings/manifests/login.pp); een reservering stopt of maskeert de console zelf niet.
 
 #### Basisvoorbeeld
 
@@ -251,36 +242,38 @@ Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site
 
 #### Doel
 
-`docker` installeert Docker CE. `docker::compose` beheert een Compose-project onder `/opt/docker/<naam>`. Met `docker::compose_proxy` publiceer je zo'n Compose-stack via Nginx. De module bevat ook kant-en-klare configuraties voor Authentik, Twenty, Nextcloud AIO en GitLab Runner.
+`docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose_proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO en GitLab Runner zijn er kant-en-klare configuraties.
 
 #### Belangrijkste eigenschappen
 
 - Installeert Docker CE; de officiële APT-bron kan via `basic_settings` worden beheerd.
 - Accepteert Compose-bronnen via `puppet:///`, `file:///` of HTTPS en ondersteunt SHA256-controle voor downloads.
-- Beheert per Compose-stack een eigen projectmap, `.env`, extra mappen voor bind mounts en een systemd-service.
+- Beheert per stack een eigen projectmap, `.env`, mappen voor bind mounts en een systemd-service.
 - Kan containerstatus, healthchecks, toegestane eenmalige containers, orphans en databaseback-ups monitoren.
-- Kan een Compose-stack via een Nginx reverse proxy publiceren en gebruikt standaard HTTPS naar de containerapplicatie.
-- Levert Authentik- en Twenty-configuratie met `Sensitive` geheimen, vaste PostgreSQL-back-ups en een optionele Nginx-proxy.
+- Publiceert applicaties desgewenst via een Nginx reverse proxy, standaard met HTTPS naar de applicatie.
+- Levert Authentik en Twenty met `Sensitive` geheimen en dagelijkse PostgreSQL-back-ups.
+- Beheert Nextcloud AIO met optionele beheerproxy, SMTP en benoemde S3-objectstores.
 - Levert GitLab Runner met optionele eenmalige registratie en behoud van de actieve runnerconfiguratie.
-- Beheert named S3-objectstores in een bestaande Nextcloud AIO-installatie via OCC.
 
 #### Belangrijke aandachtspunten
 
-Declareer `docker` vóór Compose-resources en zorg dat de Docker-pakketbron beschikbaar is. Voor het starten en beheren van de stacks als systemd-service is ook `basic_settings::systemd` nodig. Bij ingeschakelde databaseback-ups, waaronder Authentik en Twenty, is deze class verplicht.
+Declareer `docker` vóór Compose-resources en zorg dat de Docker-pakketbron beschikbaar is. Voor het starten en beheren van stacks als systemd-service is ook `basic_settings::systemd` nodig. Bij ingeschakelde databaseback-ups, waaronder Authentik en Twenty, is deze class verplicht. Het basisvoorbeeld richt beide voorzieningen in via `basic_settings`.
 
-`docker::compose` en `docker::compose_proxy` halen standaard ontbrekende images op (`pull => 'missing'`). Bestaande images worden hergebruikt, behalve bij de tag `latest`: Compose haalt die bij iedere start van de Compose-service opnieuw op. Met `pull => 'never'` moeten alle images vooraf lokaal aanwezig zijn. Zie de [Puppet Strings bij `docker::compose`](docker/manifests/compose.pp) voor alle opties.
+Een start of herstart kan nieuwe images ophalen, ook tijdens een serverstart. Compose hergebruikt standaard aanwezige images, behalve bij `latest`. Twenty en GitLab Runner halen bij `image_tag => 'latest'` altijd images op; bij Twenty geldt dat ook voor PostgreSQL en Redis. Houd dus rekening met upgrades en bereikbaarheid van de registry. Kies een andere updatewijze volgens de [Puppet Strings over `pull`](docker/manifests/compose.pp); `never` vereist dat alle images lokaal aanwezig zijn.
 
-Twenty en GitLab Runner kiezen bij `image_tag => 'latest'` automatisch `pull => 'always'`. Een start of herstart van hun Compose-service, ook tijdens een serverstart, kan daardoor een nieuwe versie in gebruik nemen en vereist toegang tot de registry. Bij Twenty geldt dit voor de hele stack, inclusief PostgreSQL en Redis. Andere tags gebruiken `missing`.
+Geef `.env`-inhoud met geheimen door als `Sensitive(...)` en gebruik voor gedownloade Compose-bestanden HTTPS met een checksum.
 
-Geef de inhoud van `.env` met geheimen door als `Sensitive(...)` en gebruik voor gedownloade Compose-bestanden HTTPS met een checksum.
+Declareer voor `docker::compose_proxy` ook `nginx`; kies alleen HTTP naar de achterliggende applicatie als die geen TLS ondersteunt.
 
-`docker::compose_proxy` vereist `nginx` en gebruikt standaard HTTPS naar de achterliggende applicatie. Kies alleen HTTP als die applicatie geen TLS ondersteunt.
+`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L121), of zet `akadmin_remove => false` om het account te behouden.
 
-`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`; zet `akadmin_remove => false` als deze gebruiker moet blijven bestaan. Het [Authentik-voorbeeld](examples/docker.pp) laat zien hoe je een eigen beheerder aanmaakt.
+Authentik en Nextcloud nemen zonder eigen relay de SMTP-relay over uit de gedeclareerde `basic_settings`. Controleer de transportbeveiliging: standaard gebruikt Authentik geen TLS en Nextcloud alleen STARTTLS als de relay dat aanbiedt. Verplichte versleuteling vraagt dus een expliciete keuze; zie de SMTP-contracten bij [Authentik](docker/manifests/authentik.pp) en [Nextcloud](docker/manifests/nextcloud.pp).
 
-`docker::compose` verwijdert bij `ensure => absent` de volledige projectmap, inclusief back-ups en lokale bind-mountgegevens. Bewaar benodigde gegevens dus vooraf op een andere locatie, stop de applicatiestack en stop en deactiveer de back-uptimer en -service. Laat vervallen systemd-bestanden door het centrale mapbeheer van je host opruimen en herlaad daarna systemd. Zie ook de [Puppet Strings bij `docker::compose`](docker/manifests/compose.pp).
+Bij `ensure => absent` verwijdert Compose de volledige projectmap, inclusief back-ups en lokale bind-mountgegevens, zonder zelf de applicatiecontainers te stoppen. Kopieer benodigde gegevens eerst naar een andere locatie. Ontkoppel de stack van het systemd-target, herlaad systemd en stop de stack terwijl de projectbestanden nog bestaan; stop en deactiveer ook de back-uptimer en -service. Laat vervallen unitbestanden door het centrale mapbeheer opruimen en herlaad systemd daarna opnieuw. Docker named volumes blijven bestaan. Zie het [verwijdervoorbeeld](examples/docker.pp#L46) en het [`ensure`-contract](docker/manifests/compose.pp).
 
 #### Basisvoorbeeld
+
+Plaats het Compose-bestand in je eigen profielmodule op het hieronder genoemde pad en vervang het voorbeeldgeheim door een waarde uit je beveiligde configuratie. Puppet maakt de projectmap en start de stack als `docker-compose-example.service`.
 
 ```puppet
 class { 'basic_settings':
@@ -300,17 +293,17 @@ docker::compose { 'example':
 }
 ```
 
-Compose-, proxy-, Authentik- en Twenty-varianten staan in [`examples/docker.pp`](examples/docker.pp), met een voorbeeld van een eenmalig commando via `docker::compose_exec`. Zie de Puppet Strings bij [`docker::compose_exec`](docker/manifests/compose_exec.pp) voor commando's en uitvoeringsvoorwaarden en bij [`docker::authentik`](docker/manifests/authentik.pp) voor de applicatie-instellingen en eigen templates.
+Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L4), [Nginx-proxy](examples/docker.pp#L58), [Authentik met eigen beheerder](examples/docker.pp#L121) en [Twenty met S3-opslag](examples/docker.pp#L184). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
 
-#### Databaseback-ups
+#### Databaseback-ups en herstel
 
-Authentik en Twenty krijgen automatisch een dagelijkse PostgreSQL-back-up om 05:00 uur in de lokale servertijd, met zeven dagen retentie. Voor een ander Compose-project geef je `backup_database_type => 'postgresql'` en `backup_service => 'db'` mee, waarbij je `db` vervangt door de databaseservicenaam uit je Compose-bestand. Deze parameters werken ook via `docker::compose_proxy`; Authentik en Twenty vullen ze zelf in. Met `backup_database_type => undef` declareert Puppet geen back-uptaak; bestaande back-ups blijven in de projectmap staan. Stop bij uitschakelen ook de actieve timer en service. Planning en retentie zijn op de generieke Compose-laag instelbaar; zie de [Puppet Strings](docker/manifests/compose.pp).
+Authentik en Twenty maken dagelijks om 05:00 uur in de lokale servertijd een PostgreSQL-back-up, met zeven dagen retentie. Bij deze wrappers kun je de back-up niet uitschakelen. Gebruik voor een eigen project het [Compose-scenario met databaseback-up](examples/docker.pp#L4). De [Compose Strings](docker/manifests/compose.pp) beschrijven de serviceselectie, planning en retentie; dezelfde instellingen zijn beschikbaar via `docker::compose_proxy`.
 
-De gekozen service moet precies één draaiende PostgreSQL-container hebben. De runner vindt die via de Compose-project- en servicelabels en exporteert de database uit `POSTGRES_DB`, met `POSTGRES_USER` als terugval en uiteindelijk `postgres`. Het wachtwoord komt uit `POSTGRES_PASSWORD` of `POSTGRES_PASSWORD_FILE`. De container moet `pg_dump`, `pg_dumpall` en `timeout` bevatten en PostgreSQL op TCP-poort 5432 met wachtwoordauthenticatie aanbieden; externe databases en `POSTGRES_USER_FILE` of `POSTGRES_DB_FILE` worden niet ondersteund. Zorg zelf dat de applicatie deze database gebruikt: de runner vergelijkt geen applicatieverbindingsgegevens. Bestaande initialisatievariabelen veranderen een reeds gevulde PostgreSQL-volume niet; voer databasewijzigingen en wachtwoordrotaties ook daadwerkelijk door.
+De back-up werkt met één draaiende PostgreSQL-container; externe databases vallen erbuiten. Controleer de [containervereisten bij `backup_service`](docker/manifests/compose.pp) en of de applicatie daadwerkelijk de geselecteerde database gebruikt. Voer databasewijzigingen en wachtwoordrotaties ook in PostgreSQL door; initialisatievariabelen wijzigen een bestaande database niet.
 
-Iedere geslaagde run schrijft één bestand `postgresql-<voltooiingstijd>-<run-id>.sql.gz` in `/opt/docker/<project>/backup`, met de voltooiingstijd in Unix-seconden. Het bevat eerst clusterbrede globals, waaronder rollen en tablespaces, en daarna de volledige applicatiedatabase met alle schemas en `CREATE DATABASE`. Zorg voor voldoende vrije ruimte voor een tijdelijke ongecomprimeerde export naast de gecomprimeerde back-ups. De map is alleen toegankelijk voor root en krijgt ook die rechten wanneer je haar via `project_directories` opgeeft.
+De exports staan in `/opt/docker/<project>/backup`, alleen toegankelijk voor root, en bevatten clusterbrede globals (rollen en tablespaces) en de applicatiedatabase met alle schemas. Houd ook ruimte vrij voor een tijdelijke ongecomprimeerde export. Applicatiebestanden, secrets, externe kopieën en herstel naar een gekozen tijdstip (PITR) vallen erbuiten. Voor Nextcloud gebruik je de afzonderlijke [AIO-back-ups](#aio-back-ups).
 
-Start na de eerste inrichting zelf een back-up en controleer het resultaat:
+Start na inrichting zelf een back-up en controleer de timer en het log; vervang `example` door de projectnaam:
 
 ```sh
 sudo systemctl start docker-compose-example-backup.service
@@ -318,11 +311,17 @@ sudo systemctl status docker-compose-example-backup.timer
 sudo journalctl -u docker-compose-example-backup.service
 ```
 
-De bestaande systemd-monitoring meldt uitvoeringsfouten. `check_compose` controleert of een afgerond, niet-leeg back-upbestand maximaal 86.400 seconden oud is en of er na die run nog verlopen bestanden staan. De controle leest de voltooiingstijd uit de bestandsnaam en controleert geen SQL-inhoud of herstelbaarheid. Een mislukte nieuwe poging maakt een nog recente vorige back-up niet ongeldig. Dagelijkse planning garandeert niet voortdurend een back-up binnen 24 uur: langere runs, timervertraging en de wintertijdwisseling kunnen tijdelijk een ouderdomsalarm geven. Een gemiste timerstart wordt ingehaald, zonder historische snapshots te reconstrueren.
+Bij actieve monitoring meldt de systemd-integratie uitvoeringsfouten. `check_compose` controleert ouderdom en verlopen bestanden, geen SQL-inhoud of herstelbaarheid. Een mislukte poging kan samengaan met een nog recente vorige back-up. De ouderdomsgrens is 24 uur: langere runs, timervertraging en de wintertijdwisseling kunnen tijdelijk een alarm geven. Een gemiste timerstart wordt ingehaald, zonder historische snapshots te reconstrueren.
 
-Een export heeft in de container een eigen tijdslimiet van maximaal 3.500 seconden. Bij het stoppen van de hosttaak kan die export nog doorlopen tot deze limiet. Een achtergebleven `/tmp/puppet-compose-backup` in de databasecontainer blokkeert nieuwe runs; verwijder die alleen nadat je hebt vastgesteld dat er geen export meer draait.
+Na het stoppen van de hosttaak kan de export nog doorlopen tot zijn eigen limiet van 3.500 seconden. Blokkeert `/tmp/puppet-compose-backup` in de databasecontainer een volgende run, verwijder die map dan pas nadat je hebt vastgesteld dat er geen export meer draait.
 
-Herstel eerst in een afzonderlijke testdatabase met dezelfde PostgreSQL-hoofdversie en de benodigde extensies. Gebruik een lege testcluster met een beheerrol die niet in de globals voorkomt, bijvoorbeeld `restore_admin`, en verbind met diens onderhoudsdatabase. Het SQL-bestand maakt de oorspronkelijke applicatiedatabase aan; een reeds bestaande database of rol met dezelfde naam veroorzaakt een fout. Gebruik de bestaande beveiligde authenticatieroute van de testcontainer en een root-shell met beperkte bestandsrechten. Vervang hieronder het bestandspad en de naam van de testcontainer:
+Stop en deactiveer bij het uitschakelen van back-ups ook de timer en service en laat vervallen units opruimen volgens de Compose-verwijderprocedure. Bestaande back-ups blijven staan.
+
+##### Herstel controleren
+
+Herstel eerst in een afzonderlijke, lege testcluster met dezelfde PostgreSQL-hoofdversie en de benodigde extensies. Maak daarin een beheerrol met een eigen onderhoudsdatabase die niet in de export voorkomen, bijvoorbeeld beide met de naam `restore_admin`. Het SQL-bestand maakt de oorspronkelijke rollen en applicatiedatabase zelf aan; bestaande namen kunnen het herstel laten mislukken.
+
+Gebruik de beveiligde authenticatieroute van de testcontainer en een root-shell met beperkte bestandsrechten. Vervang het bestandspad en de containernaam; de voltooiingstijd in de bestandsnaam is in Unix-seconden:
 
 ```sh
 sudo -i
@@ -331,99 +330,63 @@ gzip -dc '/opt/docker/example/backup/postgresql-<voltooiingstijd>-<run-id>.sql.g
 docker exec -i restore-test psql -X -v ON_ERROR_STOP=1 -U restore_admin -d restore_admin < /root/restore.sql
 ```
 
-Controleer na herstel schemas, data, rollen, eigenaarschap en extensies voordat je op de back-up vertrouwt. Dit zijn lokale databaseback-ups: applicatiebestanden, secrets, externe kopieën en PITR vallen erbuiten.
+Controleer na herstel schemas, data, rollen, eigenaarschap en extensies voordat je op de back-up vertrouwt.
 
-#### Nextcloud AIO en S3-opslag
+#### Nextcloud AIO
 
-Met [`docker::nextcloud`](docker/manifests/nextcloud.pp) start je de AIO-mastercontainer achter een reverse proxy op dezelfde host. Declareer eerst `docker` en zorg voor `basic_settings::systemd`. Met `server_name` laat je Puppet de Nginx-proxy maken; declareer dan ook `nginx` en geef een geldig TLS-certificaat en de bijbehorende sleutel op. De mastercontainer benadert die domeinnaam via de Docker-host. Zonder `server_name` verzorg je die HTTPS-proxy zelf. Voer daarna dezelfde applicatiedomeinnaam in de AIO-interface in en rond de domeinvalidatie en installatie af. Puppet slaat de OCC-configuratie tot die tijd over. De eerste Puppet-run waarin de installatiecontrole slaagt, past de afwijkende instellingen toe.
+##### Installatie en bereikbaarheid
 
-De door Puppet gemaakte applicatie- en adminproxy schakelen `deferred`, `reuseport`, TCP-keepalive en Multipath TCP in. De TCP-backlog volgt `basic_settings::kernel::connection_max` wanneer `basic_settings::kernel` is gedeclareerd. Zorg vóór het toepassen voor een Nginx-build en kernel die aan de [Multipath TCP-voorwaarden](nginx/manifests/server.pp) voldoen. Deze socketinstellingen gelden ook voor andere vhosts die hetzelfde luisteradres en dezelfde poort delen; zie de [Nginx-aandachtspunten](#nginx).
+Gebruik het [Nextcloud-scenario](examples/docker.pp#L238) om [`docker::nextcloud`](docker/manifests/nextcloud.pp) achter een HTTPS-proxy op dezelfde host te installeren. Met `server_name` maakt Puppet die proxy; declareer ook `nginx` en lever een geldig certificaat met sleutel. Zonder `server_name` verzorg je de HTTPS-proxy zelf. Voer dezelfde applicatiedomeinnaam in de AIO-interface in en rond de domeinvalidatie en installatie af. De eerste Puppet-run die een voltooide installatie herkent, past de applicatie-instellingen toe.
 
-De Nextcloud-applicatieproxy gebruikt op serverniveau ook `sendfile on`, `aio threads` en `aio_write on`. Gebruik hiervoor een Nginx-build met [`--with-threads`](https://nginx.org/en/docs/http/ngx_http_core_module.html#aio); controleer de buildopties met `nginx -V`.
+AIO vereist vaste container- en volumenamen: er kan maar één installatie per Docker-daemon draaien, ook met andere resourcetitels of poorten. Deze wrapper gebruikt de lokale rootful daemon; gebruik voor meer installaties [afzonderlijke VM's of Docker-daemons](https://github.com/nextcloud/all-in-one/blob/main/multiple-instances.md). Compose-monitoring ziet alleen de mastercontainer. Regel afzonderlijk toezicht op Nextcloud, de database en AIO-back-ups, en bij Talk ook de bereikbaarheid van de Talk-poort.
 
-Na installatie controleert Puppet via Nextclouds eigen setup-check of mimetype-migraties nodig zijn. Alleen bij `severity: warning` start de gedeelde onderhoudsresource `maintenance:repair --include-expensive`, met een timeout van één uur. Dit commando voert alle expensive repair steps van Nextcloud uit en kan een Puppet-run dus aanzienlijk verlengen. Bij `success` verandert niets; bij een fout of ongeldige checkuitvoer mislukt de detector zonder de repair te starten. De [Puppet Strings bij `docker::nextcloud`](docker/manifests/nextcloud.pp) beschrijven de uitvoeringsvoorwaarden en hoe andere controles dezelfde onderhoudsresource kunnen notificeren.
+De [AIO-proxyopzet](https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md#external-using-aio-with-an-external-reverse-proxy-eg-caddy-nginx-cloudflare-proxy) gebruikt lokaal HTTP naar de applicatie. De door Puppet gemaakte proxies vereisen [Multipath TCP-ondersteuning](#nginx); hun socketinstellingen gelden ook voor vhosts op hetzelfde luisteradres en dezelfde poort. Controleer voor de applicatieproxy met `nginx -V` bovendien of de build [`--with-threads`](https://nginx.org/en/docs/http/ngx_http_core_module.html#aio) bevat.
 
-Met `server_name` zorgt Puppet ook dat de draaiende AIO-childcontainers die domeinnaam via hetzelfde Docker-hostadres benaderen als de mastercontainer. De fact `docker_containers` inventariseert vóór het toepassen van de catalogus de actieve containers en hun directory onder de standaard Docker-opslag `/var/lib/docker/containers/`. Puppet leest de mapping uit de mastercontainer en past rechtstreeks het bijbehorende `hosts`-bestand op de Docker-host aan. Hierdoor hebben de childcontainers geen shell nodig en mag hun rootbestandssysteem alleen-lezen zijn. Puppet vervangt een afwijkende mapping, laat een correcte mapping staan en behoudt de overige Docker-inhoud.
+Met `server_name` benaderen de AIO-containers de domeinnaam via het Docker-hostadres. Deze hostmapping vereist de standaard Docker-opslag onder `/var/lib/docker/containers/`. Nieuwe of opnieuw aangemaakte containers krijgen haar bij de volgende Puppet-run; voer die ook na installatie en AIO-updates uit. De [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de voorwaarden en foutafhandeling.
 
-Nieuwe of opnieuw aangemaakte containers krijgen de mapping bij de volgende Puppet-run; houd daar rekening mee na installatie en AIO-updates. Bestaat het eerder gevonden `hosts`-bestand niet meer, dan slaat Puppet die container over. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven de uitvoeringsvoorwaarden en foutafhandeling.
+##### Beheerstoegang en onderhoud
 
-Zet `allow_local_remote_servers => true` alleen als Nextcloud andere servers op lokale adressen moet benaderen, bijvoorbeeld voor federatieve shares of webcal. Daarmee geef je deze functies toegang tot lokale diensten; standaard blijft de optie `false`. Zie de [Nextcloud-documentatie](https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/config_sample_php_parameters.html#allow-local-remote-servers) voor de toepassing en de [Puppet Strings](docker/manifests/nextcloud.pp) voor het parametercontract.
+De admininterface en applicatie-upstream zijn alleen op `127.0.0.1` bereikbaar. Open beheer zonder adminproxy via een SSH-tunnel: standaard `ssh -L 8080:127.0.0.1:8080 admin@cloud.example.org`, gevolgd door `https://127.0.0.1:8080`. De admininterface gebruikt een zelfondertekend certificaat. Bij een aangepaste `admin_port` vervang je de laatste poort in de tunnelmapping.
 
-Voor een eenvoudige SMTP-relay geef je `smtp_server => 'smtp.example.org'` op bij `docker::nextcloud` of `docker::authentik`. Beide gebruiken dezelfde namen voor server, poort, beveiliging en credentials. Je kunt de relay ook centraal instellen via je bestaande `basic_settings`-declaratie, zoals in het [Nextcloud-voorbeeld](examples/docker.pp). Via Hiera is dat `basic_settings::smtp_server: smtp.example.org`; de class moet ook gedeclareerd zijn. Een expliciete applicatieserver gaat voor op de centrale relay.
+Met `admin_server_name` publiceer je beheer via Nginx op HTTPS-poort 443, met redirect vanaf poort 80. Declareer `nginx` en lever een certificaat met sleutel dat alle publieke namen dekt. Beperk toegang met `admin_whitelist_ips`, op basis van de clientadressen die Nginx ziet. Een lege lijst geeft geen IP-beperking; de lijst beschermt uitsluitend de adminproxy. De admininterface heeft via de Docker-socket vergaande hosttoegang, ook met een read-only socketmount. Bescherm daarom ook lokale beheer- en Dockertoegang.
 
-Voor authenticatie geef je zowel `smtp_username` als `smtp_password` op. Geef het wachtwoord als `Sensitive` door vanuit je beveiligde Hiera-data. Zonder credentials werkt de relay zonder authenticatie. Nextcloud zet dan `mail_smtpauth` op `false`, ook als authenticatie eerder aanstond. Bij Nextcloud worden poort, timeout, afzender en credentialwaarden alleen geschreven als je ze opgeeft. Laat je zo'n optionele waarde later weg, dan blijft de opgeslagen waarde in Nextcloud staan; achtergebleven credentials worden met uitgeschakelde authenticatie niet gebruikt. Puppet beheert de instellingen via OCC en schrijft alleen bij een verschil.
+Stop de AIO-containers en daarna de mastercontainer met `systemctl stop docker-compose-<naam>.service`; start ze weer met `systemctl start docker-compose-<naam>.service`. Containers en netwerk blijven bestaan. Deze acties maken geen back-up en vereisen een afgeronde eerste inrichting via AIO.
 
-Kies de transportbeveiliging met `smtp_security`. De standaard is `none`: Authentik gebruikt dan geen TLS en Nextcloud gebruikt automatisch STARTTLS als de relay dat aanbiedt. Authentik ondersteunt ook `tls` voor verplicht STARTTLS. Nextcloud wijst die keuze af, omdat STARTTLS daar niet afdwingbaar is. Voor een verplicht versleutelde verbinding met Nextcloud kies je `ssl` en de poort van je relay, doorgaans 465. Dit verschil volgt uit de [Nextcloud-mailconfiguratie](https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/email_configuration.html).
+Bij een waarschuwing over mimetype-migraties start Puppet na installatie automatisch `maintenance:repair --include-expensive`. Dit voert alle expensive repair steps uit, met een timeout van één uur, en kan de Puppet-run aanzienlijk verlengen. De [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de uitvoeringsvoorwaarden.
 
-De [Authentik Strings](docker/manifests/authentik.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de volledige parametercontracten.
+Met [`docker::nextcloud_occ`](docker/manifests/nextcloud_occ.pp) voer je aanvullende beheeropdrachten uit. Beperk de uitvoering volgens de voorbeelden in de Strings: opdrachten kunnen anders bij iedere Puppet-run terugkomen. OCC-wijzigingen worden overgeslagen zolang de container niet draait of de installatie niet als voltooid kan worden gelezen.
 
-De [officiële reverse-proxyopzet](https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md#external-using-aio-with-an-external-reverse-proxy-eg-caddy-nginx-cloudflare-proxy) gebruikt HTTP tussen Nginx en AIO's Apache-container. De admininterface gebruikt wel HTTPS met een zelfondertekend certificaat. Beide upstreams binden alleen aan `127.0.0.1`; Docker publiceert hiervoor geen externe poort. Met `admin_server_name` publiceer je de admininterface via de normale Nginx-listeners: standaard HTTPS op poort 443, met een redirect vanaf poort 80. Nginx verbindt intern met `https://127.0.0.1:<admin_port>`. Het opgegeven certificaat moet alle geconfigureerde publieke domeinnamen dekken. Met `admin_whitelist_ips` beperk je de toegang via deze adminproxy tot opgegeven IP-adressen of CIDR-netwerken; alle andere adressen worden dan geweigerd. Een lege lijst behoudt de bestaande toegang zonder IP-beperking. Geef de clientadressen op zoals Nginx die ziet; de whitelist geldt niet voor de gewone Nextcloud-hostnaam of rechtstreekse toegang tot de lokale adminpoort. Zonder adminproxy gebruik je een SSH-tunnel voor beheer, bij de standaardinstellingen bijvoorbeeld `ssh -L 8080:127.0.0.1:8080 admin@cloud.example.org`, en open je `https://127.0.0.1:8080`. Gebruik bij een aangepaste `admin_port` die waarde als laatste poort in de tunnelmapping. De admininterface bestuurt via de Docker-socket containers met toegang tot de host; beperk toegang op deploymentniveau. Een read-only socketmount beperkt de Docker-API-bevoegdheden niet.
+Activeer `allow_local_remote_servers` alleen voor benodigde lokale integraties, zoals federatieve shares of webcal: deze functies krijgen daarmee toegang tot lokale diensten. Standaard staat dit uit.
 
-AIO vereist vaste container- en volumenamen. Met deze wrapper kan daarom één AIO-installatie per lokale Docker-daemon draaien, ook als je andere resourcetitels of poorten kiest. Gebruik voor meerdere installaties [aparte VM's of afzonderlijke rootless Docker-daemons](https://github.com/nextcloud/all-in-one/blob/main/multiple-instances.md); deze wrapper beheert de lokale rootful daemon. De resourcetitel bepaalt alleen het Compose-project van de mastercontainer. AIO beheert de overige containers zelf. De Compose-monitoring controleert daardoor alleen de mastercontainer en bewijst niet dat Nextcloud, de database of AIO-backups gezond zijn. Bij gebruik van Talk verzorg je daarnaast de bereikbaarheid van de door AIO gebruikte Talk-poort in je deployment.
+##### AIO-back-ups
 
-Puppet maakt `/opt/docker/<naam>/backup` aan op de Docker-host met eigenaar `root:root` en rechten `0700`. Om daar backups te laten schrijven, vul je dit volledige hostpad eenmalig in bij **Local backup location** in de AIO-interface, zonder afsluitende slash of `/borg`. Bij een deployment met de naam `nextcloud-aio` vul je dus `/opt/docker/nextcloud-aio/backup` in. AIO koppelt deze hostmap zelf aan zijn Borg-backupcontainer; de backuprepository komt op de host in `/opt/docker/nextcloud-aio/backup/borg`. Hiervoor is geen backupvolume op de mastercontainer nodig. De bestemming wordt opgeslagen in AIO's eigen configuratie en wordt niet ingesteld via de `.env` van deze Compose-stack.
+Puppet maakt `/opt/docker/<naam>/backup` aan met eigenaar `root:root` en rechten `0700`. Dit activeert nog geen back-ups. Vul het volledige hostpad eenmalig in bij **Local backup location** in de AIO-interface, zonder afsluitende slash of `/borg`. Voor het voorbeeld is dat `/opt/docker/nextcloud-aio/backup`; AIO plaatst de Borg-repository daaronder in `borg`. Je kunt ook een hostpad buiten de projectmap of een externe Borg-repository kiezen.
 
-Start vervolgens **Create backup**, bewaar de encryptiesleutel en stel na de eerste geslaagde backup de dagelijkse planning in volgens de [AIO-backupinstructies](https://github.com/nextcloud/all-in-one#backup). Het aanmaken van de map door Puppet activeert nog geen backups en selecteert de bestemming niet automatisch in AIO. Je kunt ook een hostpad buiten de Compose-projectmap of een externe Borg-repository kiezen.
+Start **Create backup**, bewaar de encryptiesleutel en stel na de eerste geslaagde back-up de dagelijkse planning in volgens de [AIO-back-upinstructies](https://github.com/nextcloud/all-in-one#backup). AIO beheert de bestemming en planning zelf.
 
-Gebruik `systemctl stop docker-compose-<naam>.service` om de AIO-containers en daarna de mastercontainer te stoppen. De containers en het `nextcloud-aio`-netwerk blijven bestaan. Met `systemctl start docker-compose-<naam>.service` start je de stack weer. Deze acties starten geen backup; rond bij een nieuwe installatie eerst de configuratie via de AIO-interface af. Zie de [Puppet Strings](docker/manifests/nextcloud.pp) voor de lifecycle-hooks.
+Bij `ensure => absent` verdwijnt de hele projectmap, inclusief deze lokale back-ups. Kopieer ze eerst naar een andere locatie en volg daarna de Compose-verwijderprocedure bij de belangrijke aandachtspunten. Stop daarbij de Compose-systemd-service zodat ook de AIO-containers stoppen. AIO's named volumes blijven bestaan.
 
-Bij `ensure => absent` verwijdert Compose de hele projectmap, inclusief de lokale backupmap en inhoud. Stel deze backups daarom eerst elders veilig. Stop vervolgens de Compose-systemd-service volgens het Compose-verwijdercontract. AIO's named volumes blijven bestaan.
+##### S3-opslag kiezen en wijzigen
 
-Met `docker::nextcloud_s3` registreer je één S3-objectstore in een geïnstalleerde Nextcloud AIO-instance. Geef met `compose_name` de titel van de deployment door, zoals bij `docker::authentik_admin`. `docker::nextcloud_occ` controleert centraal of een `docker::compose`-, `docker::compose_proxy`- of `docker::nextcloud`-resource met die titel beschikbaar is en laat de OCC-opdrachten daarvan afhangen. Zonder zo'n resource mislukt de catalogusopbouw met een gerichte foutmelding. Een wrapper moet uiteindelijk de gelijknamige `docker::compose`-resource leveren.
+Gebruik het [voorbeeld met twee stores](examples/docker.pp#L238) om S3-opslag aan een geïnstalleerde AIO-deployment toe te voegen. Registratie alleen activeert geen primaire opslag; het voorbeeld laat ook die keuze zien. De gekozen stores moeten bestaan of via Puppet worden aangemaakt. De [S3 Strings](docker/manifests/nextcloud_s3.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de configuratie en opslagkeuzes. Een ingestelde keuze weglaten behoudt de opgeslagen selectie.
 
-De gedeelde `docker::compose_exec` voert OCC als `www-data` uit in de vaste container `nextcloud-aio-nextcloud`, overeenkomstig de [AIO-documentatie](https://github.com/nextcloud/all-in-one#how-to-run-occ-commands). Deze door AIO gemaakte container heeft geen Compose-servicelabel; de selectie gebruikt daarom zijn exacte containernaam. Bij een ontbrekende of gestopte container, een onvoltooide installatie of een onleesbare installatiestatus slaat Puppet de OCC-wijzigingen zonder fout over. Iedere Puppet-run controleert opnieuw of de configuratie kan worden toegepast. PHP en OCC worden in de container uitgevoerd; PHP op de host is niet nodig.
+Gebruik per store een eigen bucket waar alleen deze Nextcloud-installatie toegang toe heeft. Het wijzigen van primaire opslag migreert geen bestanden en kan bestaande data ontoegankelijk maken. Regel vooraf de migratie en back-ups van zowel de database als de objectdata; volg de [Nextcloud-handleiding voor primaire objectopslag](https://docs.nextcloud.com/server/stable/admin_manual/configuration_files/primary_storage.html).
 
-De resourcenaam bepaalt de naam onder `objectstore`. Iedere resource beheert alleen die eigen configuratie en laat andere stores staan. Puppet schrijft alleen bij een inhoudelijk verschil. Optionele instellingen die je weglaat krijgen hun standaardwaarde van Nextcloud; een eerder opgegeven optie weglaten verwijdert de bijbehorende override.
+Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en proxy-URL's kunnen gevoelig zijn. Puppet schermt OCC-uitvoer af, maar beheerders kunnen geheimen in procesargumenten zien. Beperk Docker- en procestoegang en bescherm de Nextcloud-configuratie, logs en profiler. Dit geldt ook voor andere OCC-opdrachten met geheimen.
 
-Kies bij `docker::nextcloud` met `objectstore_default` de store voor nieuwe gebruikers en met `objectstore_root` de store voor bestanden buiten gebruikersopslag. Gebruik de namen van de geregistreerde stores, zoals in het [voorbeeld met twee stores](examples/docker.pp). Puppet registreert de bijbehorende `docker::nextcloud_s3`-resources vóór het instellen van deze keuzes. Een store die je buiten Puppet beheert moet vooraf bestaan. Laat je een selectie weg, dan blijft de opgeslagen keuze staan; alleen stores registreren kiest geen primaire opslag. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven de defaults en het terugvalgedrag.
-
-Gebruik per store een eigen bucket waar alleen deze Nextcloud-installatie toegang toe heeft. Het omschakelen van een bestaande installatie migreert geen bestanden en kan bestaande data ontoegankelijk maken. Regel vooraf de migratie en back-ups van zowel de database als de objectdata; zie de [Nextcloud-handleiding voor primaire objectopslag](https://docs.nextcloud.com/server/stable/admin_manual/configuration_files/primary_storage.html).
-
-Vervang de voorbeeldhostnaam en credentials door waarden uit je profiel of versleutelde Hiera-data. Geef het secret door als `Sensitive`; ook de access key en een proxy-URL kunnen gevoelig zijn. Puppet schermt commando's en uitvoer af, maar argumenten blijven zichtbaar voor beheerders die processen op de host of in de container mogen inspecteren. Beperk daarom Docker- en procestoegang en bescherm ook de Nextcloud-configuratie, logs en eventuele profiler.
-
-```puppet
-include docker
-
-# Register this store without changing the default or root selection.
-docker::nextcloud_s3 { 'server1':
-  compose_name   => 'nextcloud-aio',
-  bucket         => 'nextcloud-01',
-  hostname       => 's3.example.org',
-  key            => 'replace-with-access-key',
-  secret         => Sensitive('replace-with-secret'),
-  use_path_style => true,
-}
-```
-
-Met `ensure => absent` verwijder je alleen de registratie, zonder credentials te hoeven opgeven. Migreer eerst de data en pas verwijzingen vanuit opslagselecties en gebruikers aan; verwijdering van een store die nog in gebruik is maakt de data ontoegankelijk. Buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan.
-
-Voor andere OCC-opdrachten gebruik je `docker::nextcloud_occ`, eventueel met een alleen-lezen `unless`-commando. Na een geslaagde installatiecontrole draait de opdracht standaard bij iedere Puppet-run, tenzij `unless` aangeeft dat de instelling al goed staat. Met `refreshonly => true` draait de opdracht alleen na een refresh-event; de installatiecontrole en `unless` blijven daarbij gelden. Fouten tijdens het wijzigingscommando laten de resource mislukken. Met `--noop` voert Puppet alleen de controles uit.
-
-Bij JSON-vergelijkingen verzorgt `docker::nextcloud_occ` zelf het uitvoerformaat. Een controle die hetzelfde leescommando gebruikt voor de ongewijzigde en actievereisende toestand, hoeft dat commando eenmaal op te geven. Zie de Puppet Strings bij [`docker::nextcloud_occ`](docker/manifests/nextcloud_occ.pp) voor de parameters en uitvoeringsvoorwaarden en bij [`docker::nextcloud_s3`](docker/manifests/nextcloud_s3.pp) voor S3-opties en datatypes. Het voorbeeld met twee onafhankelijke stores staat in [`examples/docker.pp`](examples/docker.pp).
+Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud_s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
 
 #### GitLab Runner
 
-Met `docker::gitlab_runner` gebruik je een daarvoor bestemde host of VM voor vertrouwde projecten en builds. Richt eerst Docker en `basic_settings::systemd` in en maak de runner in GitLab aan. De manager gebruikt de Docker-daemon van de host om afzonderlijke CI-containers te starten en heeft via de socket vergaande macht over de host. Nieuwe automatische registraties geven jobs geen Docker-socket of runnerconfiguratie en schakelen privileged mode niet in. Controleer bij een bestaande registratie zelf de executorinstellingen in `config.toml`; Puppet beheert die inhoud niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L295) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
-De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel. Beperk daarom welke projecten de runner mogen gebruiken.
+Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
-Automatische registratie staat standaard uit. Voor een nieuwe registratie met `auto_register => true` lever je de runner authentication token aan als `Sensitive[String]` uit je beveiligde secretvoorziening. Het voorbeeld veronderstelt dat de Hiera-lookup dit type teruggeeft.
+Maak de runner eerst in GitLab aan en volg het registratievoorbeeld met een token uit beveiligde configuratie. Een bestaand `config.toml` voorkomt registratie, ook als het beschadigd is. Volg na een onderbroken of mislukte poging eerst de [herstelinstructies bij `auto_register`](docker/manifests/gitlab_runner.pp). Na succesvolle registratie kun je het bootstrap-token en de verplichte lookup uit je profiel weghalen; de actieve registratie blijft behouden.
 
-```puppet
-docker::gitlab_runner { 'gitlab-runner':
-  auto_register => true,
-  runner_token  => lookup('profile::gitlab_runner::runner_token', Sensitive[String]),
-  require       => Class['docker'],
-}
-```
+Een hostmapping voor de manager geldt niet voor job- en helpercontainers. Die moeten GitLab zelf kunnen bereiken voor checkout en artifact-upload. Controleer bij afwijkende DNS de [netwerkvoorwaarden bij `runner_ip`](docker/manifests/gitlab_runner.pp).
 
-Zodra `config.toml` bestaat, slaat Puppet registratie over zonder de inhoud te controleren. Controleer de runner na een mislukte of onderbroken registratie voordat je Puppet opnieuw laat draaien; volg de herstelinstructies bij `auto_register` in de [Puppet Strings](docker/manifests/gitlab_runner.pp).
-
-Geef alleen `runner_ip` op als de hostnaam in `runner_url` via normale DNS niet naar het juiste interne adres verwijst. Die instelling geldt alleen voor de runnercontainer; jobcontainers moeten GitLab zelf kunnen bereiken. De parameterdocumentatie bij `runner_ip` beschrijft de Compose-vereiste en hoe je zo nodig de netwerkconfiguratie van de executor aanpast.
-
-Na succesvolle registratie kun je `runner_token` weglaten; pas dan ook de verplichte lookup in je profiel aan. De actieve registratie blijft behouden.
-
-Pauzeer de runner in GitLab en laat lopende jobs afronden vóór onderhoud of verwijdering: de eindige stoptijd kan langere jobs afbreken. Volg de procedure bij `ensure` in de Puppet Strings voordat je de stack verwijdert. Het volledige voorbeeld voor een aparte Runner-host staat in [`examples/docker.pp`](examples/docker.pp).
+Pauzeer de runner in GitLab en laat jobs afronden vóór onderhoud of verwijdering: de eindige stoptijd kan langere jobs afbreken. Volg bij verwijdering de procedure bij `ensure` in de Strings; de GitLab-registratie en systemd-service moeten afzonderlijk worden opgeruimd.
 
 ### `gitlab`
 
@@ -449,6 +412,8 @@ Het verplaatsen van `/opt/gitlab` en het uitvoeren van `gitlab-ctl reconfigure` 
 
 #### Basisvoorbeeld
 
+Het basisvoorbeeld laat GitLab zelf een Let's Encrypt-certificaat aanvragen; zorg voor passende DNS en bereikbaarheid voor de domeinvalidatie.
+
 ```puppet
 class { 'basic_settings':
   gitlab_enable => true,
@@ -468,7 +433,7 @@ class { 'gitlab::config':
 }
 ```
 
-Een groter voorbeeld waarin GitLab samen met de serverbasis wordt gebruikt staat in [`examples/site.pp`](examples/site.pp).
+Het [GitLab-profiel](examples/site.pp#L146) combineert GitLab met de serverbasis. De Puppet Strings bij [`gitlab`](gitlab/manifests/init.pp) en [`gitlab::config`](gitlab/manifests/config.pp) beschrijven installatie en configuratie.
 
 ### `letsencrypt`
 
@@ -510,7 +475,7 @@ letsencrypt::certificate { 'app.example.org':
 }
 ```
 
-Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`](examples/web.pp).
+Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`](examples/web.pp). Zie de Puppet Strings bij [`letsencrypt`](letsencrypt/manifests/init.pp) en [`letsencrypt::certificate`](letsencrypt/manifests/certificate.pp) voor de instellingen en certificaataanvragen.
 
 ### `mysql`
 
@@ -523,19 +488,19 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 - Beheert MySQL-serverinstellingen boven op een geharde standaardset.
 - Levert defined types voor databases, gebruikers en rechten.
 - Configureert `automysqlbackup` met een systemd-service en timer.
-- Kan back-ups comprimeren en versleutelen.
+- Maakt gecomprimeerde, versleutelde back-ups.
 - Registreert een MySQL-check wanneer monitoring actief is.
 - Kan de pakketversie en pakketbron van `basic_settings::package_mysql` overnemen.
 
 #### Belangrijke aandachtspunten
 
-`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. De root- en applicatiewachtwoorden zijn nog gewone String-parameters en horen daarom uit versleutelde Hiera-data te komen.
+`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Voeg bij een overstap vanaf versie 2.0.0 deze parameter toe aan bestaande `mysql`-declaraties en lever het back-upwachtwoord als `Sensitive(...)` uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder die aanpassing kan Puppet de catalogus niet compileren. De root- en applicatiewachtwoorden zijn nog gewone String-parameters en horen daarom uit versleutelde Hiera-data te komen.
 
 Gebruik je MySQL zonder `basic_settings::package_mysql`, stem dan `package_version` af op de geïnstalleerde versie. Met die pakketbron neemt de module de versie daarvan over; zie de [Puppet Strings bij `mysql`](mysql/manifests/init.pp).
 
 De module gebruikt vaste bufferinstellingen voor MySQL. Controleer of die bij het beschikbare RAM passen.
 
-Test het terugzetten van de automatisch gemaakte back-ups voordat je daarop vertrouwt.
+Met de systemd-inrichting uit het voorbeeld plant Puppet lokale, versleutelde back-ups. Bewaar het back-upwachtwoord buiten de server en test het terugzetten voordat je op de back-ups vertrouwt.
 
 #### Basisvoorbeeld
 
@@ -559,7 +524,7 @@ mysql::database { 'app':
 }
 ```
 
-Databases, gebruikers, grants, back-upinstellingen en RabbitMQ-combinaties staan in [`examples/data-services.pp`](examples/data-services.pp).
+Databases, gebruikers, grants en back-upinstellingen staan in [`examples/data-services.pp`](examples/data-services.pp). Zie de Puppet Strings bij [`mysql`](mysql/manifests/init.pp), [`database`](mysql/manifests/database.pp), [`user`](mysql/manifests/user.pp) en [`grant`](mysql/manifests/grant.pp) voor de bijbehorende interfaces.
 
 ### `naemon`
 
@@ -589,11 +554,10 @@ include naemon
 naemon::host { 'web01':
   address  => '192.0.2.10',
   friendly => 'Webserver 01',
-  require  => Class['naemon'],
 }
 ```
 
-De volledige OpenITCOCKPIT- en monitoringopbouw staat in [`examples/monitoring.pp`](examples/monitoring.pp).
+De [serveropbouw](examples/monitoring.pp#L80) staat in `examples/monitoring.pp`. Zie de Puppet Strings bij [`naemon`](naemon/manifests/init.pp), [`host`](naemon/manifests/host.pp) en [`hostgroup`](naemon/manifests/hostgroup.pp) voor de voorwaarden en configuratie.
 
 ### `netplanio`
 
@@ -611,7 +575,7 @@ De volledige OpenITCOCKPIT- en monitoringopbouw staat in [`examples/monitoring.p
 
 #### Belangrijke aandachtspunten
 
-Een fout netwerkplan kan de beheerverbinding verbreken. Controleer interfacenamen, renderer, routes, gateway en nameservers via consoletoegang voordat Puppet de configuratie toepast.
+Een fout netwerkplan kan de beheerverbinding verbreken. De module verwijdert `/etc/netplan/50-cloud-init.yaml`; neem benodigde instellingen daaruit vooraf over. Controleer interfacenamen, renderer, routes, gateway en nameservers en regel consoletoegang voordat Puppet de configuratie toepast.
 
 WiFi-hashes kunnen wachtwoorden bevatten; lever die data vanuit afgeschermde Hiera aan.
 
@@ -627,11 +591,10 @@ netplanio::ethernet { 'primary':
   interface   => 'ens18',
   nameservers => { 'addresses' => ['192.0.2.53'] },
   routes      => { 'default' => { 'via' => '192.0.2.1' } },
-  require     => Class['netplanio'],
 }
 ```
 
-Een gecombineerde netwerkinrichting past in het basisprofiel van [`examples/site.pp`](examples/site.pp).
+Het [netwerkprofiel](examples/site.pp#L134) staat in `examples/site.pp`. De Puppet Strings bij [`netplanio`](netplanio/manifests/init.pp), [`ethernet`](netplanio/manifests/ethernet.pp) en [`wifi`](netplanio/manifests/wifi.pp) beschrijven de geërfde netwerkinstellingen en interfaceconfiguratie.
 
 ### `nginx`
 
@@ -643,11 +606,10 @@ Een gecombineerde netwerkinrichting past in het basisprofiel van [`examples/site
 
 - Beheert algemene Nginx-, events- en HTTP-instellingen en gebruikt strenge TLS-instellingen.
 - Levert vhosts voor statische sites, PHP-applicaties en reverse proxies.
-- Ondersteunt HTTP/2, optioneel HTTP/3, HTTPS-forcering en certificate chains.
+- Ondersteunt HTTP/2, HTTP/3, HTTPS-forcering en certificate chains.
 - Beheert security headers en de gegevens in `security.txt`.
 - Werkt samen met Certbot, PHP-FPM, monitoring, auditd, logrotate en de gedeelde systemd-targets.
-- Controleert configuratie vóór een service-reload.
-- Controleert bij actieve OpenITCOCKPIT-monitoring HTTPS-vhosts met ingevulde certificaat- en sleutelpaden op lokale TLS-ketens, DNS-namen, sleutels en geldigheid. De controle leest de certificaatpaden uit de Nginx-configuratie; met `monitoring_cert => false` verwijder je de registratie voor een vhost.
+- Controleert bij actieve OpenITCOCKPIT-monitoring de lokale certificaatketen, DNS-namen, sleutel en geldigheid van geconfigureerde HTTPS-vhosts.
 
 #### Belangrijke aandachtspunten
 
@@ -655,19 +617,11 @@ Declareer `nginx` vóór de vhosts. Voeg bij een vhost of een wrapper die Nginx-
 
 De module verwijdert Apache en neemt de Nginx-configuratie over. Controleer bestaande vhosts, document roots, certificaatrechten en gebruikte poorten. In `conf.d` worden bestanden met `.conf` binnen `http {}` ingelezen en bestanden met `.main` op hoofdniveau; geef eigen HTTP-configuratie daarom de extensie `.conf`.
 
-Bij actieve HTTP/3 schakelt de module ook `quic_gso`, `quic_retry` en `quic_bpf` in. Gebruik daarvoor een Nginx-build met HTTP/3- en QUIC BPF-ondersteuning op Linux 5.7 of nieuwer, met UDP-segmentatieondersteuning. De Nginx-master moet BPF-programma's mogen laden; controleer dit ook bij containers en aanvullende servicebeperkingen. De module verruimt bij systemd de limiet voor vergrendeld geheugen om BPF-maps te kunnen aanmaken. Deze opties zijn niet afzonderlijk uitschakelbaar; met `http3_enable => false` schakel je HTTP/3 voor een vhost uit.
-
-De bestaande kernelinstellingen `kernel.unprivileged_bpf_disabled = 1` en `net.core.bpf_jit_harden = 2` kunnen behouden blijven. Ze blokkeren BPF voor processen zonder de vereiste rechten en beveiligen de JIT-compiler. De Nginx-master behoudt met die rechten toegang tot BPF.
-
-Houd de gebruikte HTTPS-poort ook voor UDP bereikbaar. Zet voor BPF-routering `reuseport => true` op minstens één vhost per gedeelde combinatie van luisteradres en poort. Je mag `reuseport`, `fastopen`, `backlog`, `multipath`, `deferred` en `so_keepalive` op meerdere vhosts instellen: Puppet voegt gelijke waarden samen en meldt conflicterende waarden tijdens het compileren. De opties komen één keer per luistersocket in de configuratie; IPv4, IPv6, verschillende poorten en TCP/UDP hebben ieder hun eigen socket. Gebruik voor gedeelde listeners dezelfde schrijfwijze van adres en poort. Zie de [Puppet Strings](nginx/manifests/server.pp) voor de voorwaarden en defaults.
-
-Controleer na de uitrol ook de servicestart: `nginx -t` test het laden van BPF-programma's niet. De [NGINX QUIC-documentatie](https://nginx.org/en/docs/http/ngx_http_v3_module.html) beschrijft de runtimevoorwaarden.
-
-Met `multipath => true` op `nginx::server` schakel je Multipath TCP in voor de TCP-listeners van die vhost en zijn redirects. Gebruik hiervoor Nginx 1.29.7 of nieuwer met Multipath TCP-ondersteuning op Linux 5.6 of nieuwer. Standaard staat deze optie uit. Nginx schakelt bij het toevoegen of verwijderen ervan ook `SO_REUSEPORT` in; zie de [NGINX-documentatie](https://nginx.org/en/docs/http/ngx_http_core_module.html#listen) voor de beveiligingsgevolgen.
+Bij HTTPS met TLS 1.3 activeert de module standaard HTTP/3. Controleer daarvoor de [netwerkondersteuning](#netwerkondersteuning-controleren); zet `http3_enable => false` als de host niet aan die voorwaarden voldoet.
 
 Gebruik voor reverse proxies bij voorkeur HTTPS naar de achterliggende applicatie. Schakel certificaatcontrole alleen uit voor een lokale of self-signed verbinding waarvoor dat echt nodig is. Gebruik HTTP alleen als de achterliggende applicatie geen TLS ondersteunt.
 
-Gebruik voor WebSockets de directives uit het [proxyvoorbeeld](examples/web.pp). `nginx::server` activeert daarbij automatisch de gedeelde `$connection_upgrade`-map. Staat het gebruik van die variabele alleen in een extern include-bestand, realiseer de map dan expliciet vanuit de verantwoordelijke Puppet-code volgens de [Puppet Strings bij `nginx::server`](nginx/manifests/server.pp).
+Gebruik voor WebSockets het [proxyvoorbeeld](examples/web.pp#L156). Puppet levert daarbij automatisch de benodigde `$connection_upgrade`-map. Gebruik vanuit externe include-bestanden vraagt aanvullende inrichting volgens de [Puppet Strings](nginx/manifests/server.pp).
 
 #### Basisvoorbeeld
 
@@ -686,11 +640,19 @@ nginx::server { 'app.example.org':
 
 TLS-, PHP-FPM-, monitoring-, security-header- en reverse-proxyvarianten staan in [`examples/web.pp`](examples/web.pp). De Puppet Strings bij [`nginx::server`](nginx/manifests/server.pp) en [`nginx::monitoring_cert`](nginx/manifests/monitoring_cert.pp) beschrijven de instellingen, drempels en beperkingen.
 
+#### Netwerkondersteuning controleren
+
+HTTP/3 vereist hier een Nginx-build met HTTP/3 en QUIC BPF, Linux 5.7 of nieuwer en UDP-segmentatieondersteuning. Houd de HTTPS-poort ook voor UDP bereikbaar en stel `reuseport => true` in op minstens één vhost per gedeeld luisteradres en poort. De vast ingeschakelde QUIC-opties en overige socketinstellingen staan in de [Puppet Strings](nginx/manifests/server.pp).
+
+De Nginx-master moet BPF-programma's mogen laden, ook binnen containers of aanvullende servicebeperkingen. Daarvoor hoef je de bestaande kernelbeveiliging `kernel.unprivileged_bpf_disabled = 1` en `net.core.bpf_jit_harden = 2` niet uit te schakelen. Controleer de servicestart: `nginx -t` test het laden van BPF niet. Zie ook de [NGINX QUIC-voorwaarden](https://nginx.org/en/docs/http/ngx_http_v3_module.html).
+
+Multipath TCP vereist Nginx 1.29.7 of nieuwer met die ondersteuning en Linux 5.6 of nieuwer. De optie staat standaard uit. Bij toevoegen of verwijderen activeert Nginx ook `SO_REUSEPORT`; beoordeel de [beveiligingsgevolgen](https://nginx.org/en/docs/http/ngx_http_core_module.html#listen). Socketinstellingen gelden voor alle vhosts op hetzelfde luisteradres, poort en transport. Gebruik daarvoor dezelfde schrijfwijze en stem afwijkende waarden af volgens de Strings.
+
 ### `openitcockpit`
 
 #### Doel
 
-De class `openitcockpit` groepeert de classes voor de OpenITCOCKPIT-agent en -server. `openitcockpit::agent` beheert de agentconfiguratie. `openitcockpit::server` richt de lokale server in en koppelt deze aan de andere benodigde modules.
+Met `openitcockpit::agent` installeer en configureer je de OpenITCOCKPIT-agent; `openitcockpit::server` richt de monitoringsserver in. Alleen `include openitcockpit` installeert geen onderdelen.
 
 #### Belangrijkste eigenschappen
 
@@ -703,7 +665,7 @@ De class `openitcockpit` groepeert de classes voor de OpenITCOCKPIT-agent en -se
 
 #### Belangrijke aandachtspunten
 
-Voor push-mode zijn `push_url` en een `Sensitive` API-key nodig.
+Het basisvoorbeeld gebruikt push-mode: de agent maakt zelf verbinding met de opgegeven monitoringsserver. Lever de API-key uit beveiligde configuratie en zorg dat de agent de HTTPS-server kan bereiken.
 
 Maak de pull- of Prometheuspoorten alleen bereikbaar als de firewall en TLS goed zijn ingesteld.
 
@@ -726,7 +688,7 @@ class { 'openitcockpit::agent':
 }
 ```
 
-Pull-, push- en maatwerkcheckvarianten staan in [`examples/monitoring.pp`](examples/monitoring.pp).
+Pull-, push-, server- en maatwerkcheckscenario's staan in [`examples/monitoring.pp`](examples/monitoring.pp). Zie de Puppet Strings bij [`agent`](openitcockpit/manifests/agent.pp) en [`server`](openitcockpit/manifests/server.pp) voor de instellingen.
 
 ### `php8`
 
@@ -747,7 +709,7 @@ Pull-, push- en maatwerkcheckvarianten staan in [`examples/monitoring.pp`](examp
 
 Zorg dat de gekozen PHP-versie in de ingestelde APT-bron beschikbaar is, bijvoorbeeld via Sury in `basic_settings`.
 
-De gebruiker, groep en socketrechten van een FPM-pool moeten passen bij de webserver; anders kan die geen PHP-verzoeken doorgeven.
+PHP-FPM neemt de poolmap over en verwijdert onbeheerde pools, inclusief de distributiepool. Declareer daarom minstens één `php8::fpm_pool`, zoals in het voorbeeld. De gebruiker, groep en socketrechten moeten bij de webserver passen; anders kan die geen PHP-verzoeken doorgeven.
 
 Stem geheugenlimieten en het aantal PHP-processen af op het beschikbare geheugen en de applicatie.
 
@@ -770,9 +732,14 @@ class { 'php8':
 class { 'php8::fpm':
   require => Class['php8'],
 }
+
+# Provide a pool after the package has created the FPM directory layout.
+php8::fpm_pool { 'app':
+  require => Package['php8.3-fpm'],
+}
 ```
 
-Een volledige PHP-FPM-pool met Nginx staat in [`examples/web.pp`](examples/web.pp).
+Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](examples/web.pp) laat de koppeling met Nginx zien. Zie de Puppet Strings bij [`php8`](php8/manifests/init.pp), [`cli`](php8/manifests/cli.pp), [`fpm`](php8/manifests/fpm.pp) en [`fpm_pool`](php8/manifests/fpm_pool.pp) voor de instellingen.
 
 ### `proxmox`
 
@@ -805,7 +772,7 @@ class { 'proxmox':
 }
 ```
 
-De plaats van Proxmox in een serverprofiel wordt getoond in [`examples/site.pp`](examples/site.pp).
+De plaats van Proxmox in een [serverprofiel](examples/site.pp#L166) staat in `examples/site.pp`; ook daar moet je de pakketbron zelf aanleveren. Zie de [Puppet Strings](proxmox/manifests/init.pp) voor de platformvoorwaarden.
 
 ### `rabbitmq`
 
@@ -826,7 +793,7 @@ De plaats van Proxmox in een serverprofiel wordt getoond in [`examples/site.pp`]
 
 Regel de RabbitMQ APT-bron vóór de installatie.
 
-`rabbitmq::tcp` houdt de gewone TCP-poort ingeschakeld zolang niet alle drie de certificaatpaden zijn opgegeven, ook met `tcp_enable => false`. Geef daarom het CA-certificaat, servercertificaat en de privésleutel op en zorg dat die bestanden beschikbaar zijn voordat je onversleuteld verkeer uitschakelt.
+`rabbitmq::tcp` houdt de gewone TCP-poort ingeschakeld zolang niet alle drie de certificaatpaden zijn opgegeven, ook met `tcp_enable => false`. Geef daarom het CA-certificaat, servercertificaat en de privésleutel op en zorg dat die bestanden beschikbaar zijn voordat je onversleuteld verkeer uitschakelt. De TLS-listener vereist ook een geldig clientcertificaat.
 
 De wachtwoorden voor de managementplugin zijn nog String-parameters en horen uit versleutelde Hiera-data te komen.
 
@@ -848,11 +815,10 @@ class { 'rabbitmq::tcp':
   ssl_certificate     => '/etc/rabbitmq/ssl/cert.pem',
   ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
   tcp_enable          => false,
-  require             => Class['rabbitmq'],
 }
 ```
 
-Vhosts, exchanges, queues, bindings en gebruikers staan in [`examples/data-services.pp`](examples/data-services.pp).
+Vhosts, exchanges, queues, bindings en gebruikers staan in het [RabbitMQ-scenario](examples/data-services.pp#L63). Zie de Puppet Strings bij [`rabbitmq`](rabbitmq/manifests/init.pp), [`tcp`](rabbitmq/manifests/tcp.pp) en [`management`](rabbitmq/manifests/management.pp) voor de configuratie.
 
 ### `ssh`
 
@@ -874,15 +840,7 @@ Vhosts, exchanges, queues, bindings en gebruikers staan in [`examples/data-servi
 
 De module vervangt `/etc/ssh/sshd_config` en verwijdert onbekende bestanden in `/etc/ssh/sshd_config.d`. Bestaande instellingen in het hoofdbestand en onbeheerde drop-ins verdwijnen. Neem instellingen die je wilt behouden vooraf over in de door Puppet beheerde configuratie.
 
-Houd een tweede root- of consoleverbinding open en controleer sleutels, `allow_users`, firewall en eventuele socket activation vóór de eerste herstart, zodat je de toegang niet verliest.
-
-Hostkeys staan in `/etc/ssh/host_keys`. Deze map is van `root` en heeft modus `0700`; private sleutels hebben modus `0600`.
-
-Zet bestaande lokale sleutels en hun bijbehorende `.pub` vóór de uitrol over naar deze map om hun fingerprints te behouden, zonder bestaande sleutels op de doelpaden te overschrijven. Ed25519 en RSA behouden hun bestandsnamen. ECDSA gebruikt `ssh_host_ecdsa_nistp256_key`, `ssh_host_ecdsa_nistp384_key` en `ssh_host_ecdsa_nistp521_key`; kies voor een bestaande `ssh_host_ecdsa_key` de naam die bij de curve past. Controleer de curve vanuit de private sleutel met `sudo ssh-keygen -y -f /etc/ssh/ssh_host_ecdsa_key | ssh-keygen -lf -`. Ontbreekt een sleutel op het nieuwe pad, dan genereert Puppet daar een nieuwe identiteit. Niet-geselecteerde sleutels blijven op schijf staan, maar krijgen geen actieve `HostKey`-regel.
-
-Als meerdere servers dezelfde hostkeys hebben, moet je die zelf vervangen; Puppet behoudt bestaande sleutels. Maak serverimages daarom zonder vooraf gegenereerde hostkeys.
-
-Controleer na de uitrol met `sudo sshd -t` of de configuratie geldig is en met `sudo sshd -T | grep -Ei '^(hostkey|hostkeyalgorithms)'` welke sleutels actief zijn. Met `sudo sh -c 'for key in /etc/ssh/host_keys/ssh_host_*_key.pub; do ssh-keygen -lf "$key"; done'` bekijk je de lokale fingerprints; ook het doorlopen van de afgeschermde map vereist rootrechten. Vergelijk die per actief sleuteltype op twee afzonderlijk ingerichte testservers; de fingerprints moeten verschillen.
+Houd een tweede root- of consoleverbinding open en controleer sleutels, `allow_users`, firewall en eventuele socket activation vóór de eerste herstart, zodat je de toegang niet verliest. Neem bestaande hostkeys vooraf over volgens [Hostidentiteit behouden](#hostidentiteit-behouden); ontbrekende sleutels worden nieuw aangemaakt.
 
 #### Basisvoorbeeld
 
@@ -895,6 +853,28 @@ class { 'ssh':
 ```
 
 SSH in een gecombineerd webhostprofiel staat in [`examples/site.pp`](examples/site.pp). De [Puppet Strings bij `ssh`](ssh/manifests/init.pp) beschrijven de beschikbare instellingen.
+
+#### Hostidentiteit behouden
+
+Zet bestaande lokale hostkeys en hun bijbehorende `.pub` vóór de uitrol over naar `/etc/ssh/host_keys`, zonder bestaande doelbestanden te overschrijven. Gebruik eigenaar `root`, modus `0700` voor de map en `0600` voor private sleutels. Zo behouden clients de bekende fingerprints.
+
+Ed25519 en RSA behouden hun bestandsnamen. ECDSA gebruikt `ssh_host_ecdsa_nistp256_key`, `ssh_host_ecdsa_nistp384_key` of `ssh_host_ecdsa_nistp521_key`. Bepaal voor een bestaande `ssh_host_ecdsa_key` de curve met:
+
+```sh
+sudo ssh-keygen -y -f /etc/ssh/ssh_host_ecdsa_key | ssh-keygen -lf -
+```
+
+Selecteer de gewenste sleuteltypen volgens de [Puppet Strings](ssh/manifests/init.pp). Niet-geselecteerde sleutels blijven op schijf, maar zijn niet actief. Ontbrekende sleutels krijgen een nieuwe identiteit; bestaande sleutels worden behouden, ook als andere servers dezelfde gebruiken. Maak serverimages daarom zonder hostkeys en vervang gedeelde sleutels zelf.
+
+Controleer na de uitrol de configuratie, actieve sleuteltypen en lokale fingerprints. De laatste opdracht gebruikt een root-shell om de afgeschermde map te kunnen doorlopen:
+
+```sh
+sudo sshd -t
+sudo sshd -T | grep -Ei '^(hostkey|hostkeyalgorithms)'
+sudo sh -c 'for key in /etc/ssh/host_keys/ssh_host_*_key.pub; do ssh-keygen -lf "$key"; done'
+```
+
+Vergelijk de fingerprints per actief sleuteltype op twee afzonderlijk ingerichte testservers; ze moeten verschillen.
 
 ### `vnstat`
 
@@ -912,9 +892,7 @@ SSH in een gecombineerd webhostprofiel staat in [`examples/site.pp`](examples/si
 
 #### Belangrijke aandachtspunten
 
-Gebruik voor `bandwidth_max` de technische interfacesnelheid in Mbit/s; een databundel of waarschuwingsgrens is daarvoor ongeschikt. De standaardwaarde `0` schakelt de algemene vnStat-limiet uit.
-
-Kies de p95-drempels afzonderlijk voor de monitoring, met de kritieke drempel minimaal gelijk aan de waarschuwing. De Puppet Strings bij [`vnstat`](vnstat/manifests/init.pp) en [`vnstat::ethernet`](vnstat/manifests/ethernet.pp) beschrijven hoe algemene instellingen en waarden per interface samenwerken.
+Standaard ontdekt vnStat interfaces automatisch, zonder algemene bandbreedtelimiet of ingestelde p95-alarmdrempels. Gebruik bij een eigen limiet de technische interfacesnelheid in Mbit/s; een databundel of waarschuwingsgrens is daarvoor ongeschikt. Kies alarmdrempels afzonderlijk volgens de Puppet Strings bij [`vnstat`](vnstat/manifests/init.pp) en [`vnstat::ethernet`](vnstat/manifests/ethernet.pp).
 
 #### Basisvoorbeeld
 
@@ -932,7 +910,7 @@ vnstat::ethernet { 'wan':
 }
 ```
 
-Meerdere interfaces en verschillende capaciteiten staan in [`examples/data-services.pp`](examples/data-services.pp).
+Meerdere interfaces en verschillende capaciteiten staan in het [vnStat-scenario](examples/data-services.pp#L173).
 
 ## Beschikbare checks
 
@@ -973,16 +951,6 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 
 ## Contributie
 
-Pull requests en meldingen zijn welkom. Wil je een wijziging bijdragen, lees dan eerst [`AGENTS.md`](AGENTS.md) voor het werkproces, de inhoudelijke review en de beveiligingsverantwoordelijkheden. De [algemene codeafspraken en reviewcriteria](.tools/lint/docs/CODE_RULES.md#naslag) gelden voor alle eigen modules en uitvoerbare voorbeelden. Raakt je wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, volg dan daarnaast de [documentatieregels](.tools/lint/docs/DOCUMENTATION_RULES.md). Raakt je wijziging beheerde bestanden, rechten, beveiliging, services, shellcode, runtime-dependencies of monitoring, volg dan daarnaast de [operationele regels](.tools/lint/docs/OPERATIONAL_RULES.md). Beide aanvullende regelsbestanden kunnen tegelijk van toepassing zijn. De [leeswijzer](.tools/lint/README.md#leeswijzer) helpt je de relevante onderdelen te vinden.
+Pull requests en meldingen zijn welkom. Begin bij [`AGENTS.md`](AGENTS.md) voor het werkproces en de reviewverantwoordelijkheden. De [leeswijzer](.tools/lint/README.md#leeswijzer) wijst je naar de code-, documentatie- en operationele regels die op je wijziging van toepassing zijn.
 
-Richt vervolgens de [ontwikkelomgeving](.tools/lint/README.md#benodigde-omgeving) in en voer `bundle install` uit vanuit de hoofdmap van deze repository. Volg tijdens het aanpassen de [dagelijkse werkwijze](.tools/lint/README.md#werkwijze-bij-een-wijziging), van de eerste lintscan tot de eindcontrole. Gebruik daarbij de volgende controles vanuit de hoofdmap:
-
-- Controleer de Puppet-code met `bundle exec puppet-lint --no-config --config .puppet-lint.rc .`.
-- Valideer ieder gewijzigd manifest afzonderlijk met `bundle exec puppet parser validate pad/naar/manifest.pp`; vervang het voorbeeldpad door het gewijzigde bestand.
-- Voer vóór oplevering `bundle exec rake validate:puppet` uit om alle eigen manifests te valideren en het bijbehorende rapport te maken.
-- Controleer bij Ruby-wijzigingen ook de eigen Ruby-code met `bundle exec rubocop --config .rubocop.yml`. Volg de [RuboCop-werkwijze](.tools/lint/README.md#ruby-code-controleren) voor het beoordelen van meldingen en veilig corrigeren.
-- Voer na alle correcties `bundle exec rake test` uit voor de tooltests. Pas je het ontwikkelgereedschap aan, gebruik dan ook de [uitleg over het uitbreiden van tooltests](.tools/lint/README.md#tests-uitvoeren-en-uitbreiden).
-
-De tooltests controleren het ontwikkelgereedschap. Valideer gewijzigd modulegedrag en documentatievoorbeelden daarom afzonderlijk volgens de [aanvullende validatie](.tools/lint/README.md#aanvullende-validatie).
-
-De [uitleg over CI en rapporten](.tools/lint/README.md#ci-van-deze-repository) beschrijft waar je de uitslagen en downloadbare rapporten van je bijdrage vindt.
+Richt de [ontwikkelomgeving](.tools/lint/README.md#installatie) in en volg de [werkwijze van beginscan tot oplevering](.tools/lint/README.md#werkwijze-bij-een-wijziging). Daar staan de vereiste lint-, parser-, Ruby- en tooltestcommando's. Modulegedrag en documentatievoorbeelden vragen daarnaast [afzonderlijke validatie](.tools/lint/README.md#aanvullende-validatie). De [CI-uitleg](.tools/lint/README.md#ci-van-deze-repository) beschrijft waar je de rapporten vindt.

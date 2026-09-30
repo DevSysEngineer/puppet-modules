@@ -20,6 +20,9 @@
 #
 # @param automysqlbackup_settings
 #   Hash of settings merged over the module's automysqlbackup defaults.
+#   The template uses only `mysql_dump_compression`, `mysql_dump_single_transaction`, and `mysql_dump_skip_lock_tables`.
+#   Encryption is always enabled with `automysqlbackup_password`; `encrypt` and `encrypt_password` entries have no
+#   effect.
 #
 # @param nice_level
 #   Positive nice value converted to a negative service priority in the MySQL systemd drop-in. The default is 12.

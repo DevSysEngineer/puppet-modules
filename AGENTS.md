@@ -26,9 +26,9 @@ Every durable norm has exactly one authoritative location. Classify a new or cha
 - Keep general workflow out of the rules documents as well: preparation, scope, user changes, Git policy, overall security review, diff review, and reporting incomplete validation remain project-wide responsibilities here.
 - Apply this ownership model when maintaining rules or references in root and local agent instructions, the lint guide, or other documentation.
 
-### Project Constraints
+## Project Scope And Compatibility
 
-#### First-Party Code And Dependencies
+### First-Party Code And Dependencies
 
 - Treat all module directories listed in the README as first-party except the vendored Git submodules `concat`, `debconf`, `reboot`, `stdlib`, and `timezone`.
 - Keep changes within first-party code and repository-owned documentation or tooling unless the task explicitly requires a vendored dependency change.
@@ -36,57 +36,16 @@ Every durable norm has exactly one authoritative location. Classify a new or cha
 
 Integration choices and exceptions follow [runtime module dependencies](#runtime-module-dependencies).
 
-#### Supported Platforms
+### Runtime Module Dependencies
+
+- Prefer existing local modules for integrations. Runtime Puppet-module dependencies are limited to `stdlib`, `concat`, `reboot`, `timezone`, and `debconf`, except when a requirement demonstrably cannot be met adequately by the local implementation. Similar functionality alone does not justify adding an external Docker, MySQL, Nginx, or RabbitMQ module.
+- Review the concrete requirement against existing local interfaces before accepting that exception. For sensitive components, include package policy, monitoring, and audit. For example, reject an external Nginx module added solely for comparable functionality; accept a substantiated exception only for a requirement the local integration cannot adequately meet. This dependency-policy decision requires manual review; the linter does not establish it.
+
+### Supported Platforms
 
 The first-party Puppet modules target Debian and Ubuntu servers. The complete module set primarily targets `amd64`; individual platform paths may support a narrower or broader set of releases or architectures.
 
 - Support claims for operating systems, releases, architectures, Puppet, or OpenVox must match the implementation, relevant `metadata.json`, available validation, and Dutch README in the same change.
-
-## Working With The Existing Codebase
-
-### Preparation
-
-- Run `git status --short` before editing.
-- Inspect the relevant module files and README sections before changing behavior or structure.
-- Inspect the touched module's `metadata.json` when it exists.
-- Apply the lint guide's [module metadata checks and content review](.tools/lint/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
-- Inspect related manifests, templates, static files, examples, and systemd units, including generated units.
-- Check existing integration with `basic_settings`, monitoring, systemd, security audit, `php8::fpm`, `nginx`, and other local modules relevant to the change.
-- Check existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
-
-### Puppet Code Authority
-
-The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md), and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) define the mandatory Puppet conventions, formatting rules, permitted exceptions, and manual review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns tooling procedures and the lint workflow; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
-
-- Before changing Puppet code or Puppet Strings, follow the lint guide's [workflow](.tools/lint/README.md#werkwijze-bij-een-wijziging) and use its [reading guide](.tools/lint/README.md#leeswijzer) to select and read the relevant conventions and review criteria in `.tools/lint/docs/CODE_RULES.md`.
-- For changes affecting Puppet code comments, Puppet Strings, or Puppet interface documentation, also read and apply the relevant rules in `.tools/lint/docs/DOCUMENTATION_RULES.md`.
-- For changes affecting managed files or directories, ownership or permissions, security, systemd or services, shell code or templates, runtime tools or operational dependencies, or monitoring checks or registrations, also read and apply the relevant rules in `.tools/lint/docs/OPERATIONAL_RULES.md`. These operational rules apply in addition to the general rules.
-- Both additional rule documents can apply to the same change; neither replaces `CODE_RULES.md`. A change affecting both operational code and its documentation must satisfy the applicable rules in all three rule documents.
-- Read additional relevant sections when the change affects Puppet Strings, dependencies, monitoring, systemd, security, or lint tooling. Unrelated specialized sections need not be read in advance.
-- Follow the authoritative conventions and review criteria for every affected area, extending the reading scope when new dependencies or integrations are found.
-- Agents must apply the documented review criteria even when the automated lint checks pass.
-- Keep conflicts between the documented norm, configuration, implementation, and test evidence visible. Do not silently change any source to resolve a conflict without evidence or an explicit project decision.
-- Changes to Puppet conventions must include their tests and all affected first-party code in the same change.
-
-### Scope And User Changes
-
-- Preserve unrelated user changes.
-- Treat a user's corrective edit as the current preferred pattern.
-- Never restore an earlier agent approach unless the user explicitly requests it.
-- Keep changes, including supporting refactors, scoped to the requested task and affected area.
-
-Apply the [implementation scope](#implementation-scope) when deciding whether additional behavior or structure is justified.
-
-### Impact Review
-
-- Review effects on repository conventions, Puppet abstractions, and reusable wrappers. When a request uses a concrete example, assess whether the same principle applies to other resource types, consumers, or integrations in the affected area. Apply shared behavior consistently, preserve type-specific semantics, and record the scope and any deliberate limits in the change review.
-- Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
-- Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
-
-### Git Commits
-
-- AI agents must never create, amend, or rewrite Git commits through Git commands, APIs, or other tools.
-- Leave validated changes in the working tree for human review and commit.
 
 ### Versioning And Releases
 
@@ -103,20 +62,74 @@ The public compatibility contract includes supported classes and defined types, 
 | --- | --- | --- |
 | MAJOR | Incompatible changes, such as removing or renaming a public parameter without compatibility support, making an optional parameter mandatory, or changing a default so supported use fails. | `4.0.0` |
 | MINOR | Compatible functionality, such as an optional parameter whose default preserves behavior, a new module or define, or announcing deprecation while retaining support. | `3.3.0` |
-| PATCH | Compatible bug fixes, such as correcting invalid generated configuration without changing the supported interface. | `3.2.5` |
+| PATCH | Compatible bug fixes, such as correcting invalid generated configuration without changing the supported interface, and documentation, example, or workflow corrections that preserve supported use. | `3.2.5` |
 
 - Reset PATCH to zero for a MINOR increase; reset both MINOR and PATCH for a MAJOR increase. Treat components as integers: `3.9.0` can advance to `3.10.0`.
 - Treat removal of deprecated functionality as a MAJOR change when it breaks the public contract.
 - Include consuming projects in tooling compatibility review. Requiring a new version file or explicit configuration is a breaking integration change when the latest published release supported use without it.
 
-#### Release Preparation
+#### Version Updates And Release Preparation
 
-- Choose the final version when preparing a release. Do not increase it automatically per commit or lint run, or infer release impact from changed files.
+- Before completing each change, choose and record the project version for the accumulated changes since the latest published release under [compatibility and change impact](#compatibility-and-change-impact). Update `VERSION` and synchronize metadata in the same change; do not defer this work to a separate release task.
+- The chosen version must be newer than the latest published release and reflect the highest required release level. Retain an already chosen unreleased version only when it still covers all accumulated changes, and record why no further increase is needed. Do not increase it automatically per commit or lint run, or infer release impact from changed files.
 - Set the chosen project version in `VERSION`, then synchronize only the `version` fields in root and first-party module metadata. Preserve other metadata and the versions of imported projects and dependencies. Never derive or update `VERSION` from metadata or Git; any release tags follow the chosen version.
 - Include concrete migration instructions for affected consumers with every breaking change in the relevant usage documentation.
 - Keep published releases immutable. Deliver subsequent changes under a new version.
 
 The [lint guide](.tools/lint/README.md#versiebron-en-rapportage) owns version-file validation, metadata selection, synchronization instructions, and correction behavior. Review release impact manually; a passing consistency check does not establish compatibility. The lint gem has a separate package version and [release procedure](.tools/lint/README.md#een-gem-bouwen-en-versie-uitbrengen).
+
+## Working With The Existing Codebase
+
+### Preparation
+
+- Run `git status --short` before editing.
+- Inspect the relevant module files and README sections before changing behavior or structure.
+- Inspect the touched module's `metadata.json` when it exists.
+- Apply the lint guide's [module metadata checks and content review](.tools/lint/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
+- Inspect related manifests, templates, static files, examples, and systemd units, including generated units.
+- Check existing integration with `basic_settings`, monitoring, systemd, security audit, `php8::fpm`, `nginx`, and other local modules relevant to the change.
+- Check existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
+
+### Scope And User Changes
+
+- Preserve unrelated user changes.
+- Treat a user's corrective edit as the current preferred pattern.
+- Never restore an earlier agent approach unless the user explicitly requests it.
+- Keep changes, including supporting refactors, scoped to the requested task and affected area.
+
+Apply the [implementation scope](#implementation-scope) when deciding whether additional behavior or structure is justified.
+
+### Implementation Scope
+
+- Use the simplest implementation that meets the requested behavior and preserves existing contracts, starting with existing built-in functionality.
+- Treat an explicitly requested execution method as part of the task contract. Follow it directly; do not replace it with a custom runner, helper script, request-file protocol, or another execution layer to satisfy an inferred preference. If the requested method cannot meet a concrete requirement, explain that conflict before choosing a different design.
+- Do not add input formats, normalization, edge-case handling, fallbacks, checks, helpers, configuration files, or abstractions unless the user's request, an existing project or interface contract, or a demonstrated failure within the task's scope requires them. Hypothetical edge cases, possible future use, and general robustness arguments are not sufficient justification. Tests created for an unsolicited extension do not establish a requirement for that extension.
+- Before adding such behavior or structure, identify the concrete requirement or demonstrated failure and explain why the simpler implementation cannot satisfy it. Record that justification in the change review; omit the addition when the need cannot be demonstrated. During final diff review, remove additions that lack this justification. When the user asks to simplify, remove unnecessary behavior and its supporting code.
+
+### Puppet Code Authority
+
+The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md), and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) define the mandatory Puppet conventions, formatting rules, permitted exceptions, and manual review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns tooling procedures and the lint workflow; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
+
+- Before changing Puppet code or Puppet Strings, follow the lint guide's [workflow](.tools/lint/README.md#werkwijze-bij-een-wijziging) and use its [reading guide](.tools/lint/README.md#leeswijzer) to select and read the relevant conventions and review criteria in `.tools/lint/docs/CODE_RULES.md`.
+- For changes affecting Puppet code comments, Puppet Strings, or Puppet interface documentation, also read and apply the relevant rules in `.tools/lint/docs/DOCUMENTATION_RULES.md`.
+- For changes affecting managed files or directories, ownership or permissions, security, systemd or services, shell code or templates, runtime tools or operational dependencies, or monitoring checks or registrations, also read and apply the relevant rules in `.tools/lint/docs/OPERATIONAL_RULES.md`. These operational rules apply in addition to the general rules.
+- Both additional rule documents can apply to the same change; neither replaces `CODE_RULES.md`. A change affecting both operational code and its documentation must satisfy the applicable rules in all three rule documents.
+- Read additional relevant sections when the change affects Puppet Strings, dependencies, monitoring, systemd, security, or lint tooling. Unrelated specialized sections need not be read in advance.
+- Follow the authoritative conventions and review criteria for every affected area, extending the reading scope when new dependencies or integrations are found.
+- Agents must apply the documented review criteria even when the automated lint checks pass.
+- Keep conflicts between the documented norm, configuration, implementation, and test evidence visible. Do not silently change any source to resolve a conflict without evidence or an explicit project decision.
+- Changes to Puppet conventions must include their tests and all affected first-party code in the same change.
+
+### Impact Review
+
+- Review effects on repository conventions, Puppet abstractions, and reusable wrappers. When a request uses a concrete example, assess whether the same principle applies to other resource types, consumers, or integrations in the affected area. Apply shared behavior consistently, preserve type-specific semantics, and record the scope and any deliberate limits in the change review.
+- Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
+- Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
+
+### Git Commits
+
+- AI agents must never create, amend, or rewrite Git commits through Git commands, APIs, or other tools.
+- Leave validated changes in the working tree for human review and commit.
 
 ## Security And Privacy
 
@@ -183,7 +196,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Replace real names, identifiers, addresses, numbers, timestamps, domains, hostnames, and environment-specific values.
 - Preserve only relationships needed to reproduce the issue.
 - Use consistent synthetic placeholders when correlation matters, without reusing production values.
-- Evaluate combinations of remaining fields for re-identification of people, organizations, customers, systems, or environments.
+- Evaluate combinations of remaining fields for re-identification of people, organizations, customers, systems, or environments. Removing a name alone is insufficient when the remaining data can still reasonably identify a person, organization, customer, system, or environment.
 - Never call partially masked or pseudonymized data anonymous when re-identification remains reasonably possible.
 
 #### Outbound Review
@@ -205,18 +218,6 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ## Design And Implementation
 
-### Implementation Scope
-
-- Use the simplest implementation that meets the requested behavior and preserves existing contracts, starting with existing built-in functionality.
-- Treat an explicitly requested execution method as part of the task contract. Follow it directly; do not replace it with a custom runner, helper script, request-file protocol, or another execution layer to satisfy an inferred preference. If the requested method cannot meet a concrete requirement, explain that conflict before choosing a different design.
-- Do not add input formats, normalization, edge-case handling, fallbacks, checks, helpers, configuration files, or abstractions unless the user's request, an existing project or interface contract, or a demonstrated failure within the task's scope requires them. Hypothetical edge cases, possible future use, and general robustness arguments are not sufficient justification. Tests created for an unsolicited extension do not establish a requirement for that extension.
-- Before adding such behavior or structure, identify the concrete requirement or demonstrated failure and explain why the simpler implementation cannot satisfy it. Record that justification in the change review; omit the addition when the need cannot be demonstrated. During final diff review, remove additions that lack this justification. When the user asks to simplify, remove unnecessary behavior and its supporting code.
-
-### Runtime Module Dependencies
-
-- Prefer existing local modules for integrations. Runtime Puppet-module dependencies are limited to `stdlib`, `concat`, `reboot`, `timezone`, and `debconf`, except when a requirement demonstrably cannot be met adequately by the local implementation. Similar functionality alone does not justify adding an external Docker, MySQL, Nginx, or RabbitMQ module.
-- Review the concrete requirement against existing local interfaces before accepting that exception. For sensitive components, include package policy, monitoring, and audit. For example, reject an external Nginx module added solely for comparable functionality; accept a substantiated exception only for a requirement the local integration cannot adequately meet. This dependency-policy decision requires manual review; the linter does not establish it.
-
 ### Reuse And Shared Abstractions
 
 - Inspect existing abstractions before adding a new one.
@@ -233,15 +234,15 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Verify that the documented contract covers availability and absence according to those criteria; validate both cases, including relevant declaration and evaluation order.
 - Apply the [dependency review criteria](.tools/lint/docs/CODE_RULES.md#resources-en-afhankelijkheden) and [external-command package contract](.tools/lint/docs/CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos), including exec resources and managed scripts.
 
+### Resource Placement And Ordering
+
+- Review each added or moved declaration in the complete surrounding implementation against the [resource placement and ordering criteria](.tools/lint/docs/CODE_RULES.md#volgorde-en-meldingen). Record any necessary placement exception and its technical reason in the change review.
+
 ### Runtime Discovery And Facter
 
 - Before adding shell-based runtime discovery to Puppet resources, evaluate whether Puppet needs reusable observed host or application state during catalog compilation. Apply the [runtime inventory criteria](.tools/lint/docs/CODE_RULES.md#runtime-inventarisatie-met-facter-modelleren), including the separation of observation, application policy, and mutation.
 - Review generic facts against all affected consumers, optional runtime availability, and the timing of fact collection. Validate unavailable runtimes and state that appears only during catalog application; record when a subsequent Puppet run is required.
 - Do not choose Facter merely to remove an `exec`; explain whether the information is reusable inventory or whether separating discovery from configuration clarifies the Puppet model.
-
-### Resource Placement And Ordering
-
-- Review each added or moved declaration in the complete surrounding implementation against the [resource placement and ordering criteria](.tools/lint/docs/CODE_RULES.md#volgorde-en-meldingen). Record any necessary placement exception and its technical reason in the change review.
 
 ### Managed Files And Helpers
 
@@ -276,7 +277,25 @@ External disclosure is every transfer outside an organization-controlled or expl
 - For each changed check, validate registrations with at least two targets invoking the same executable with their own settings.
 - For each changed check, validate that retiring one target preserves the shared executable and the other registrations.
 
-## Development Tooling
+## Validation And Testing
+
+### Isolation And Evidence
+
+- Keep synthetic tests and validation isolated from production credentials, production connections, and managed hosts.
+- Never treat vendored submodule tooling as validation of first-party modules.
+- Never treat passing lint as a replacement for functional validation or review.
+- Verify that the central lint solution and its required review evidence cover changed public interfaces.
+- Record applicable review outcomes and functional validation commands and results in the change review.
+- Report unavailable tooling, failed or unexecuted checks, fallback checks, and remaining uncertainty.
+- Never describe incomplete validation as complete.
+
+### Test Scope
+
+- Add or maintain repository-owned automated tests only for repository tools.
+- Classify tests by the behavior their assertions verify, not by filenames, input formats, or implementation technologies.
+- Run repository-wide Puppet syntax validation as a separate task using the native `puppet parser validate` command; keep it outside tool tests and their task dependencies.
+- Never add general module, catalog, template, script, or monitoring behavior tests to the repository, including indirect execution through tool tests, helpers, hooks, or task dependencies.
+- Perform required functional validation with existing validators and isolated temporary checks outside the repository.
 
 ### Development Environment
 
@@ -288,10 +307,16 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Follow the lint guide's [correction workflow](.tools/lint/README.md#werkwijze-bij-een-wijziging), including the initial findings, safe scoped corrections, rescan, and remaining manual corrections.
 - Review corrections manually when safety cannot be demonstrated. Review the complete diff to confirm semantic correctness and scope, preserving functional behavior, resource relationships, dependencies, and intended configuration.
 
-### Linter Changes
+### Required Checks
 
-- For every linter change, follow the lint guide's [check development and validation procedures](.tools/lint/README.md#een-check-toevoegen-of-wijzigen) and review the result against them.
-- Report checks that appear suitable for safe detection or autofix but lack it as possible linter improvements. Implement them only when linter development is within the task's scope.
+- Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change, following the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
+- Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
+- Run all tool tests with `bundle exec rake test` after any corrections and before completing each change.
+- Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake validate:puppet` for the complete first-party manifest selection and its JUnit report before completion.
+- Perform the additional validation relevant to the change, as documented in the [validation guide](.tools/lint/README.md#code-controleren).
+- Complete applicable CI checks before marking the change complete.
+- Inspect the final change scope with `git diff --name-only`.
+- Require `git diff --check` to pass before completion.
 
 ### Tool Test Structure
 
@@ -310,41 +335,15 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Report any intentionally removed tests.
 - Verify that the expected tests are discovered and executed; a successful command with no applicable tests is not sufficient validation.
 
+### Linter Changes
+
+- For every linter change, follow the lint guide's [check development and validation procedures](.tools/lint/README.md#een-check-toevoegen-of-wijzigen) and review the result against them.
+- Report checks that appear suitable for safe detection or autofix but lack it as possible linter improvements. Implement them only when linter development is within the task's scope.
+
 ### CI Jobs And Reports
 
 - Apply and verify the [CI and reporting procedures](.tools/lint/README.md#ci-van-deze-repository) when changing tooling or pipelines.
 - Never restore files to make a CI cleanliness check pass.
-
-## Validation And Testing
-
-### Test Scope
-
-- Add or maintain repository-owned automated tests only for repository tools.
-- Classify tests by the behavior their assertions verify, not by filenames, input formats, or implementation technologies.
-- Run repository-wide Puppet syntax validation as a separate task using the native `puppet parser validate` command; keep it outside tool tests and their task dependencies.
-- Never add general module, catalog, template, script, or monitoring behavior tests to the repository, including indirect execution through tool tests, helpers, hooks, or task dependencies.
-- Perform required functional validation with existing validators and isolated temporary checks outside the repository.
-
-### Isolation And Evidence
-
-- Keep synthetic tests and validation isolated from production credentials, production connections, and managed hosts.
-- Never treat vendored submodule tooling as validation of first-party modules.
-- Never treat passing lint as a replacement for functional validation or review.
-- Verify that the central lint solution and its required review evidence cover changed public interfaces.
-- Record applicable review outcomes and functional validation commands and results in the change review.
-- Report unavailable tooling, failed or unexecuted checks, fallback checks, and remaining uncertainty.
-- Never describe incomplete validation as complete.
-
-### Required Checks
-
-- Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change, following the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
-- Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
-- Run all tool tests with `bundle exec rake test` after any corrections and before completing each change.
-- Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake validate:puppet` for the complete first-party manifest selection and its JUnit report before completion.
-- Perform the additional validation relevant to the change, as documented in the [validation guide](.tools/lint/README.md#code-controleren).
-- Complete applicable CI checks before marking the change complete.
-- Inspect the final change scope with `git diff --name-only`.
-- Require `git diff --check` to pass before completion.
 
 ## Documentation
 
@@ -355,7 +354,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Describe current behavior and instructions in the present tense. Do not explain current usage through historical comparisons or superseded workflows.
 - Keep one authoritative location for each technical fact.
 - Use concise summaries with pointers when a fact must appear in more than one layer.
-- Place information according to the responsibilities below, using [authority and rule placement](#authority-and-rule-placement) for durable norms. Review every affected explanation against its audience and responsibility; avoid a second hand-maintained contract source. User choices belong in the user guide, parameter contracts in Puppet Strings, and local implementation reasons beside the script or template.
+- Place information according to the responsibilities below, using [authority and rule placement](#authority-and-rule-placement) for durable norms. Review every affected explanation against its audience and responsibility; avoid a second hand-maintained contract source.
 - Add an ADR only when requested or already customary. This exception to adding an ADR does not weaken the duty to document the affected interface or behavior.
 
 | Location | Responsibility |
@@ -377,8 +376,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Markdown
 
-- Maintain a linked table of contents near the top of every repository-owned `.md` file except `AGENTS.md`, the sole exception to this requirement. Include every section and subsection heading in document order, at every depth, with nesting that follows the heading hierarchy; exclude the document title and headings inside code examples. Update the contents and verify its links whenever headings change.
-- Limit only the repository root `README.md` table of contents to headings at levels two and three.
+- Maintain a linked table of contents near the top of every repository-owned `.md` file except `AGENTS.md`, the sole exception to this requirement. Include every section and subsection heading in document order, at every depth, with nesting that follows the heading hierarchy; exclude the document title and headings inside code examples. Limit only the repository root `README.md` table of contents to headings at levels two and three. Update the contents and verify its links whenever headings change.
 - Keep the sentences, paragraphs, lists, tables, and examples under each heading on that heading's subject and in a logical reading order. Introduce concepts before relying on them and connect the explanations before and after examples or tables. Rewrite surrounding text when additions or moves break that continuity.
 - Keep each prose paragraph or list item on one physical line without hard wrapping, except where Markdown syntax, a table, or a code block requires line breaks.
 - Separate distinct topics with normal paragraph breaks.
@@ -388,14 +386,23 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 #### Scope And Reading Path
 
-- For every substantive change, determine whether documented interfaces, usage conditions, risks, or properties change. Record the affected documents or the reason no documentation update is needed in the change review. An internal code change alone does not require a root README addition.
-- Before changing documentation content, identify each affected document's intended reader and the task it supports. Assess relevance for that concrete task, distinguishing module use, module development, and tooling maintenance where applicable.
-- For every substantive change and every edit to a repository-owned Markdown file, read the complete affected documentation sections and surrounding reading path before editing and review them again afterward, including the relevant README section. This applies to all `.md` files, including `AGENTS.md` and small additions to existing text.
-- Integrate additions into the existing explanation according to the [Markdown navigation and continuity rules](#markdown), reviewing the preceding and following text under each affected heading.
-- For each passage added, changed, moved, or removed, identify the knowledge, decision, action, or troubleshooting it supports. Check that it fits both the document and heading, contributes useful information, and does not contradict existing guidance. Technical accuracy alone does not establish relevance.
+##### Before Editing
+
+- Before editing, identify each affected document's intended reader and task, distinguishing module use, module development, and tooling maintenance.
+- For every substantive change, determine which information is missing, incorrect, or affected, including documented interfaces, usage conditions, risks, and properties. State which choice, preparation, action, expected outcome, or concrete warning that information supports. Record the affected documents or the reason no update is needed in the change review; an existing documentation gap within the affected subject may also justify an update.
+- For every substantive change and every edit to a repository-owned Markdown file, read the complete affected documentation sections and surrounding reading path before editing. This applies to all `.md` files, including `AGENTS.md` and small additions. For the root README, include the complete affected module section.
+- For root README decisions, apply [README scope](#readme-scope) and [README configuration guidance](#readme-configuration-guidance).
+
+##### During Editing
+
+- During editing, integrate changes into each affected document's existing explanation and connect surrounding text according to the [Markdown navigation and continuity rules](#markdown). Present current use as a coherent whole under the [language and authority rules](#language-and-authority).
+- For each passage added, changed, moved, or removed, check that it serves the identified reader need, fits both the document and heading, contributes useful information, and does not contradict existing guidance. Technical accuracy alone does not establish relevance.
 - When consolidating repeated facts, preserve summaries, prominent warnings, and prerequisites that serve a distinct reader decision or entry point. Repetition alone is not a reason to remove them.
-- Remove passages that serve no task for the intended reader instead of moving them to another heading or below an example.
-- Check whether a new reader can identify prerequisites, the next action, and the expected outcome without reconstructing missing context.
+- Remove passages that serve no task for the intended reader instead of moving them to another heading or below an example. If a subsection only explains parameter usage already covered by a linked contract, remove that explanation and reconsider the heading; retain only a summary or warning justified at that point of use.
+
+##### After Editing
+
+- After editing, reread the complete affected sections and surrounding reading path, including the whole affected root README module section rather than only the diff. Check coherence, topic placement, and whether the user guide has become a second parameter reference or implementation manual. Confirm that a new reader can identify prerequisites, the next action, and the expected outcome without reconstructing missing context.
 
 #### Technical Evidence And Links
 
@@ -425,17 +432,17 @@ External disclosure is every transfer outside an organization-controlled or expl
 #### README Scope
 
 - Adapt README content to the document's purpose and audience rather than imposing the same outline on module overviews and tooling guides.
+- Apply the [editorial decision and review workflow](#scope-and-reading-path) before, during, and after root README changes.
 - Add detail to the root README only when users need it before use or during the described operation, it changes a security or compatibility decision, or the basic example requires it.
-- Keep exhaustive parameter descriptions and developer-only implementation detail in their [designated locations](#language-and-authority), outside the root user guide.
+- Decide what belongs in the root user guide separately from parameter contracts and implementation detail, using [documentation ownership](#language-and-authority) and the [editorial workflow](#scope-and-reading-path). Keep parameter-by-parameter usage instructions, complete parameter contracts, and developer-only implementation detail in their designated locations, outside the root user guide. Select any necessary usage summary through that workflow.
+- A code change or new parameter alone does not justify a README addition. First check whether existing guidance needs correction.
+- Use a focused link to Puppet Strings or an existing example when it satisfies the reader's need, instead of explaining the linked contract again. Justify additional prose by identifying what the reader could not otherwise choose, do, or understand correctly and safely.
+- Updating existing guidance is the default throughout the root README, not only in `Belangrijke aandachtspunten`; add a passage or subsection only for a distinct, relevant user task or necessary explanation. A feature name or group of related parameters does not by itself establish such a task.
 - Reuse existing documentation for expanded variants and parameter details instead of creating a document for each detail or copying complete descriptions across layers.
 
-#### README Navigation And Prerequisites
+#### README Configuration Guidance
 
-- Keep required prerequisites, essential warnings, and security- or compatibility-critical conditions beside the action they affect, including when relocating elaboration.
-- Link to relocated elaboration from the warning and required action that remain at the point of use.
-- Keep placeholder hostnames, replacement values, Hiera guidance, and `Sensitive(...)` handling near the quick start.
-- Use `## Inhoudsopgave` for the [table of contents](#markdown) in Dutch READMEs; never label it `Legenda`.
-- Maintain a bottom-level list of expanded examples.
+- Before prescribing configuration in the root README, verify what the existing setup already supplies through defaults, inheritance, and declared components, using [technical evidence](#technical-evidence-and-links). Describe that effective behavior first. Explain additional configuration only when the identified user task requires a choice or action; do not present optional overrides as required setup.
 
 #### README Style
 
@@ -469,6 +476,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Preserve necessary technical requirements, warnings, exceptions, safeguards, and operational knowledge in their designated documentation layers. For lint documentation, place elaboration exclusively among `README.md`, `CODE_RULES.md`, `DOCUMENTATION_RULES.md`, and `OPERATIONAL_RULES.md` according to their [assigned responsibilities](#tooling-readmes), with links to its authoritative location. Do not create an additional documentation layer to reduce size.
 - Remove duplicate explanations and demonstrably obsolete information only after the [editorial review](#editorial-review).
 
+#### README Navigation And Prerequisites
+
+- Keep required prerequisites, essential warnings, and security- or compatibility-critical conditions beside the action they affect, including when relocating elaboration.
+- Link to relocated elaboration from the warning and required action that remain at the point of use.
+- Keep placeholder hostnames, replacement values, Hiera guidance, and `Sensitive(...)` handling near the quick start.
+- Use `## Inhoudsopgave` for the [table of contents](#markdown) in Dutch READMEs; never label it `Legenda`.
+- Maintain a bottom-level list of expanded examples.
+
 #### README Module Sections
 
 - Preserve the existing module order.
@@ -482,8 +497,6 @@ External disclosure is every transfer outside an organization-controlled or expl
 ##### Important Considerations
 
 - Limit `Belangrijke aandachtspunten` to module-specific conditions, risks, limitations, and non-obvious choices needed for correct use, a relevant choice, or prevention of a concrete error, unsafe situation, or unexpected change.
-- Never expand this section solely because a technical change occurred.
-- Update existing guidance before adding a passage when users must choose, configure, prepare, check, or perform something differently.
 - Exclude complete parameter descriptions, internal execution order, test results, development history, and general administration advice without a concrete need for the described use.
 - Include filenames, permissions, defaults, and other technical details only when they affect a user's choice or action.
 - Assess risk severity as well as frequency when selecting warnings.
@@ -508,7 +521,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Keep tool-specific test instructions in the owning tooling guide. Do not create separate test READMEs.
 - General README brevity, selective-detail, and presentation guidance must not remove information or required fields from the lint guide. Apply the lint guide's documentation contract to its rule reference.
 
-### Lint Documentation Maintenance
+#### Lint Documentation Maintenance
 
 - Apply the lint README's [maintainer documentation contract](.tools/lint/README.md#documentatiecontract-voor-maintainers) when changing rules, checks, diagnostics, profiles, configuration, procedures, or consumer interfaces.
 - Review ownership using [authority and rule placement](#authority-and-rule-placement), preserve meaning using [consolidation and placement](#consolidation-and-placement), and record the previous location, preserved meaning, new location, and reason for each substantive move in the change review. Do not create another repository document for the migration record.
@@ -528,15 +541,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Identify the underlying objective, required behavior or lasting knowledge, scope, and necessary exceptions before proposing a policy change. Determine its owner with [authority and rule placement](#authority-and-rule-placement), including when the task explicitly names this file.
 - Find the existing authoritative rules that wholly or partly cover the required behavior before adding material.
-- Distinguish missing or unclear policy from failure to follow a clear rule before deciding to edit.
-- Leave this file unchanged when existing policy covers the requested behavior completely and unambiguously and no structural improvement is needed, even after repeated violations.
-- When a clear rule was violated, investigate which execution or verification step failed and correct that step without adding or rewording policy that already covers the behavior.
-- Update or clarify the existing authoritative rule before creating a parallel rule. Broaden its scope only when existing authority or an explicit instruction supports that policy change.
+- Distinguish missing policy, problems with discoverability or interpretation, and gaps in verification from failure to follow a clear, findable rule. Repeated violations alone do not justify more rules; investigate which instruction, execution step, or review connection failed.
+- Leave this file unchanged when existing policy covers the behavior completely and unambiguously and its placement and verification need no improvement, even after repeated violations. Correct execution failures through the applicable workflow.
+- When discoverability, interpretation, or verification is inadequate, clarify or consolidate the existing authoritative instruction or connect it more directly to the relevant review. The presence of a similar rule elsewhere is not sufficient reason to reject a targeted improvement. Broaden its scope only when existing authority or an explicit instruction supports that policy change.
 - Add a new rule only when necessary durable behavior is not already covered.
 
 ### Content And Placement
 
-- Store only durable project-wide engineering rules that govern future development.
+- Store only durable project-wide engineering rules and the lasting knowledge needed to apply them in future development.
 - Never record task, ticket, bug, feature, or prompt history, except historical context essential to understanding a technical contract or deliberate exception.
 - Convert task instructions, recurring review findings, production issues, security findings, test failures, tooling changes, and agent mistakes into rules only when the required behavior generalizes beyond one task.
 - Never copy a task instruction verbatim into this file merely because it requests a policy update.
@@ -547,7 +559,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 ### Consolidation And Placement
 
 - Consolidate duplicate or weaker variants under the [single-authority rule](#authority-and-rule-placement) only when their full meaning is preserved, including any distinct conditions, exceptions, explanations, examples, and verification requirements.
-- Place each rule in the narrowest relevant section, extending an existing section when its subject fits.
+- Organize rules by subject and actual scope, not by the task that prompted them. Place each rule in the narrowest relevant section, extending an existing section when its subject fits.
 - Place each exception directly with the rule it modifies.
 - Combine rules only when they share the same objective, scope, required behavior, and decision point without hiding independent obligations. For partial overlap, consolidate the shared part and keep additional conditions or exceptions visible.
 - Apply the checklist and summary boundaries from [authority and rule placement](#authority-and-rule-placement).
@@ -560,6 +572,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Separate independent decisions into bullets or subsections when that clarifies their scope. Do not split a rule merely because it contains several related sentences.
 - Do not impose fixed limits on words, sentences, bullets, headings, or nesting depth. Choose the structure that keeps each rule and its conditions understandable together.
 - Use prose paragraphs for coherent explanation, definitions, purpose, motivation, and necessary context; not every sentence needs to become a normative bullet.
+- Within a subject, use a general-to-specific reading order when it clarifies the relationship between a rule, its applications, exceptions, and supporting explanation, examples, or verification. This is a reading aid, not a fixed section template.
 - Use tables only for genuine matrices or fixed relationships, never to hide long prose rules.
 
 ### Rule Wording
@@ -593,10 +606,11 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Verify [preparation and scope](#working-with-the-existing-codebase).
 - Verify [Puppet code authority](#puppet-code-authority) and [rule placement](#authority-and-rule-placement).
 - Verify applicable [design and implementation review](#design-and-implementation), [shell review and validation](#shell-scripts), and [monitoring review and validation](#monitoring-checks).
-- Verify [documentation responsibilities and review](#documentation).
+- Verify [documentation responsibilities](#language-and-authority) and the [editorial decision and review workflow](#scope-and-reading-path), including the review of complete affected README module sections.
 - Verify [impact review](#impact-review).
+- Verify [version selection and metadata synchronization](#version-updates-and-release-preparation).
 - Verify the applicable [security reviews](#security-and-privacy).
-- Verify [development tooling](#development-tooling) and the [required checks and evidence](#validation-and-testing).
+- Verify [development setup](#development-environment), [linting and autofix](#linting-and-autofix), applicable [linter changes](#linter-changes) and [CI procedures](#ci-jobs-and-reports), and the [required checks and evidence](#validation-and-testing).
 - Verify [policy maintenance and final review](#maintaining-agentsmd) when changing this file.
 
 ### External Sharing

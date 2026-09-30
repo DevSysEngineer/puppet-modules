@@ -32,6 +32,15 @@
 # @param backup_service
 #   Compose service name to back up, not a container name. Defaults to undef; required for a present stack with
 #   backup_database_type set. The service must have exactly one running container. Unused when backups are disabled.
+#   PostgreSQL must listen on container-local TCP port 5432 with password authentication. The container needs sh,
+#   cat, date, mkdir, rmdir, pg_dump, pg_dumpall and timeout. External databases are not supported.
+#   The database comes from POSTGRES_DB, falling back to POSTGRES_USER and then postgres; the user comes from
+#   POSTGRES_USER or postgres. Supply a nonempty password through either POSTGRES_PASSWORD or POSTGRES_PASSWORD_FILE,
+#   not both. POSTGRES_USER_FILE, POSTGRES_DB_FILE and POSTGRES_HOST_AUTH_METHOD=trust are not supported.
+#   The export contains cluster globals followed by the selected database with all schemas and CREATE DATABASE.
+#   Application connection settings are not checked; ensure the selected database is the one the application uses.
+#   Initialization variables do not update existing database contents or roles; apply identity and password changes
+#   to PostgreSQL itself as well.
 #
 # @param compose_checksum
 #   Optional SHA256 checksum for compose_source, unavailable with compose_content. This is most useful for HTTPS sources
@@ -91,6 +100,7 @@
 # @param project_directories
 #   Optional single-segment directories created below the Compose project directory before the systemd service starts.
 #   Values may override owner, group, and mode. Only the directory entry is managed; contents remain unmanaged.
+#   With database backups enabled, backup is reserved with root:root ownership and mode 0700, overriding caller values.
 #
 # @param pull
 #   Image pull policy passed to `docker compose up --pull` for every service in the stack. Defaults to `missing`:

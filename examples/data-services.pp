@@ -14,7 +14,6 @@ node 'database.example.org' {
     automysqlbackup_backupdir => '/var/lib/automysqlbackup',
     automysqlbackup_password  => Sensitive('replace-with-backup-password'),
     automysqlbackup_settings  => {
-      'encrypt'                       => 'yes',
       'mysql_dump_compression'        => 'bzip2',
       'mysql_dump_single_transaction' => 'yes',
     },
@@ -86,7 +85,6 @@ node 'rabbitmq.example.org' {
     ssl_protocols       => ['tlsv1.3', 'tlsv1.2'],
     tcp_enable          => false,
     tcp_port            => 5672,
-    require             => Class['rabbitmq'],
   }
 
   # Prepare the management API and CLI used by the application resources below.

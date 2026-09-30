@@ -543,7 +543,7 @@ Een ontbrekend, onleesbaar, leeg of ongeldig `VERSION`-bestand levert één bron
 
 Een inladend project gebruikt uitsluitend zijn eigen `<projectroot>/VERSION`. Bij `3.1.0` in dat bestand volgen zijn rootmetadata en eigen modules versie `3.1.0`. Heeft `global-modules/VERSION` waarde `2.0.0`, dan blijven de metadata van dat gedeelde project bij `2.0.0`. Houd dependencies buiten de ingestelde eigen modulemap of sluit ze expliciet uit. `PROJECT_LINT_MODULEPATH` selecteert hun metadata niet. Om het gedeelde project zelf te controleren, voer je de lintaanroep vanuit die projectroot uit met zijn eigen modulelocatie.
 
-Werk bij het voorbereiden van een release de versie als volgt bij:
+Synchroniseer de gekozen projectversie volgens het [versiebeleid](../../AGENTS.md#version-updates-and-release-preparation) als volgt:
 
 1. Wijzig uitsluitend het eigen `VERSION`-bestand naar de gekozen projectversie.
 2. Gebruik de hieronder beschreven `--fix`-aanroep om die waarde over te nemen in het veld `version` van `<projectroot>/metadata.json` en iedere geselecteerde eigen module onder `PROJECT_LINT_MODULES_PATH`. Behoud alle andere metadatavelden en de bestanden van ingeladen dependencies. Gebruik ook bij nieuwe metadata altijd de waarde uit `VERSION`.

@@ -33,6 +33,11 @@ node 'web01.example.org' {
     require      => Class['php8'],
   }
 
+  # Provide the default socket used by the application vhost below.
+  php8::fpm_pool { 'app':
+    require => Package['php8.2-fpm'],
+  }
+
   # Serve the application over HTTPS using its deployed certificate.
   nginx::server { 'app.example.org':
     docroot             => '/var/www/app.example.org',
@@ -134,7 +139,6 @@ node 'network01.example.org' {
     interface   => 'ens18',
     nameservers => { 'addresses' => ['192.0.2.53'] },
     routes      => { 'default' => { 'via' => '192.0.2.1' } },
-    require     => Class['netplanio'],
   }
 }
 
