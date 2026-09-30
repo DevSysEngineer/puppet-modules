@@ -23,6 +23,10 @@
 # @param server_name
 #   Public Nginx `server_name` value for the generated vhost.
 #
+# @param backlog
+#   Shared TCP listener backlog passed to `docker::proxy`. Defaults to `-1`, which adds no override. Zero inherits
+#   the managed kernel limit; see `nginx::server::backlog` for prerequisites and shared-socket behavior.
+#
 # @param backup_database_on_calendar
 #   Optional schedule override. Undef inherits the daily 05:00 schedule from docker::compose.
 #
@@ -182,6 +186,7 @@
 define docker::compose_proxy (
   Integer[1, 65535]                            $proxy_port,
   String                                       $server_name,
+  Integer                                      $backlog                        = -1,
   Optional[Pattern[/\A[^\r\n]+\z/]]            $backup_database_on_calendar    = undef,
   Optional[Integer[1]]                         $backup_database_retention_days = undef,
   Optional[Enum['postgresql']]                 $backup_database_type           = undef,
@@ -268,6 +273,7 @@ define docker::compose_proxy (
       docker::proxy { $name:
         proxy_port                    => $proxy_port,
         server_name                   => $server_name,
+        backlog                       => $backlog,
         client_max_body_size          => $client_max_body_size,
         content_security_policy       => $content_security_policy,
         deferred                      => $deferred,

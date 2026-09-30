@@ -16,6 +16,7 @@
 # endpoints through the shared docker::proxy configuration, with docker::compose_proxy owning the application stack.
 # Both public endpoints request deferred, reuseport, so_keepalive on and multipath through nginx::server; its listener
 # option contracts define shared-socket behavior and platform requirements.
+# Both use backlog 0 to inherit basic_settings::kernel::connection_max when that class is declared.
 # The application proxy enables sendfile, aio threads and aio_write at server level; Nginx requires --with-threads.
 # Public endpoints require a certificate and key; the certificate must cover every configured public name.
 # Without an admin vhost, use an SSH tunnel to the local admin_port to access the admin interface over HTTPS.
@@ -297,6 +298,7 @@ define docker::nextcloud (
           if ($server_name != undef) {
             docker::compose_proxy { $name:
               ensure                     => $ensure,
+              backlog                    => 0,
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
               compose_content            => template('docker/nextcloud.yaml'),
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
@@ -552,6 +554,7 @@ define docker::nextcloud (
 
             # Apply access rules at server level so the security.txt proxy inherits the same restrictions.
             docker::proxy { "${name}_admin":
+              backlog                 => 0,
               content_security_policy => false,
               deferred                => true,
               directives              => $admin_whitelist_directives,

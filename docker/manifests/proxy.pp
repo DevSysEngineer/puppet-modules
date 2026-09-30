@@ -25,6 +25,10 @@
 # @param server_name
 #   Public Nginx `server_name` value for the generated vhost.
 #
+# @param backlog
+#   Shared TCP listener backlog passed to `nginx::server`. Defaults to `-1`, which adds no override. Zero inherits
+#   the managed kernel limit; see `nginx::server::backlog` for prerequisites and shared-socket behavior.
+#
 # @param client_max_body_size
 #   Optional `client_max_body_size` value for the generated Nginx vhost.
 #
@@ -117,6 +121,7 @@
 define docker::proxy (
   Integer[1, 65535]        $proxy_port,
   String                   $server_name,
+  Integer                  $backlog                       = -1,
   Optional[String]         $client_max_body_size          = undef,
   Variant[Boolean, String] $content_security_policy       = true,
   Boolean                  $deferred                      = false,
@@ -215,6 +220,7 @@ define docker::proxy (
     # Publish the Compose stack with the prepared proxy settings.
     nginx::server { "docker_compose_${name}":
       access_log                => $proxy_access_log,
+      backlog                   => $backlog,
       client_max_body_size      => $client_max_body_size,
       content_security_policy   => $content_security_policy,
       deferred                  => $deferred,
