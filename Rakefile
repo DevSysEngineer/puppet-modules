@@ -20,12 +20,16 @@ require 'rake/testtask'
 end
 
 namespace :validate do
-  desc 'Validate first-party Puppet manifests and write a JUnit report'
-  task :puppet do
+  desc 'Validate first-party Puppet manifests, optionally writing JUnit to the supplied path'
+  task :puppet, [:junit] do |_task, args|
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
                                             'reboot/**/*', 'stdlib/**/*')
-    sh 'bundle', 'exec', 'validate-junit', '.tools/validate/results/validate-report.xml',
-       *manifests
+    if args[:junit]
+      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests
+    else
+      abort 'No Puppet manifests selected.' if manifests.empty?
+      sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests
+    end
   end
 end
 

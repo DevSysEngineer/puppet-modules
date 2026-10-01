@@ -36,6 +36,14 @@ class ToolingWorkflowTest < Minitest::Test
     assert_equal "#{reports}/TEST-*.xml", summary.dig('with', 'paths')
   end
 
+  def test_validation_job_explicitly_requests_the_published_report
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    steps = workflow.fetch('jobs').fetch('validate').fetch('steps')
+    upload, = reporting_steps(steps)
+    report = upload.dig('with', 'path')
+    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'validate:puppet[#{report}]'"
+  end
+
   def test_dependency_artifact_and_summary_use_the_same_report_on_failure
     steps = dependency_steps
     upload, summary = reporting_steps(steps)

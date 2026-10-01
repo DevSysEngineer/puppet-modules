@@ -224,7 +224,7 @@ Gebruik voor de eindcontroles onderstaande opdrachten, in de [volgorde van het c
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle; Ruby-controle wanneer toepasselijk. **Invoer:** Volledige eigen Puppet-/Ruby-code en tooltests. **Wijzigt bestanden:** Genegeerde JUnit-resultaten en toolcache. **Verwacht resultaat:** Alle controles afzonderlijk geslaagd; diff ter review.
 
 ```sh
-bundle exec rake validate:puppet
+bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
 bundle exec puppet-lint --no-config --config .puppet-lint.rc .
 bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
@@ -492,7 +492,7 @@ Dit is de publieke interface die de projectcode leest of die de ondersteunde pro
 | `GITHUB_ACTION` | Native lintannotaties activeren | Geen annotaties | Aan: aanwezigheid is bepalend | CI levert waarde | Geen pad | Verandert niet de diagnostiektelling |
 | `CODECLIMATE_REPORT_FILE` | Native Code Climate-rapport | Geen rapport | Poging tot schrijven naar leeg pad faalt | Geen | Werkmap | CLI `--codeclimate-report-file` gaat voor |
 | `MINITEST_REPORTERS_REPORTS_DIR` | Optionele Minitest-rapportage inschakelen | Alleen console-uitvoer | Native reporter schrijft in de werkmap; geef voor rapportage een niet-leeg pad op | Geen; CI kiest `.tools/results/tests` expliciet | Bij relatief pad: werkmap | Zie [testinrichting](../README.md#gezamenlijke-tooltests); raakt lint/parser niet |
-| `PROJECT_REPORT_DIR` (voorbeeldafspraak) | Rapportkeuze consumer | Voorbeeld-Ruby gebruikt `.tools/quality/results` | Wordt door `ENV.fetch` behouden; niet ondersteund als voorbeeldinvoer | `.tools/quality/results` | Consumerroot | Shell geeft pad expliciet aan reporters; geen geminterface |
+| `PROJECT_REPORT_DIR` (voorbeeldafspraak) | Rapportkeuze consumer | Geen rapportkeuze ingesteld | Niet ondersteund als voorbeeldinvoer | Geen; voorbeelden stellen een pad in | Consumerroot | Shell geeft pad expliciet aan reporters of het parser-taakargument; geen geminterface |
 | `LINT_GEM`, `LINT_SOURCE`, `LINT_REVISION`, `LINT_PACKAGE`, `CONSUMER_DIR` (tijdelijke voorbeeldvariabelen) | Paden en revisie in procedures benoemen | In ieder procedureblok eerst instellen | Niet toegestaan waar pad of revisie nodig is | In procedure bepaald | Zoals bij procedure vermeld | Geen door de gem gelezen instellingen |
 | `lint_gem` (tijdelijke variabele in bestaande consumer- en CI-voorbeelden) | Bundlerlocatie bewaren | Voor gebruik instellen | Mislukte `bundle info` stopt procedure | `bundle info --path lint-project` | Absoluut gem-pad | Alleen shellargument |
 

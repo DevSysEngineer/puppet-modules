@@ -89,7 +89,7 @@ jobs:
       - name: Set up project tooling
         uses: ./.github/actions/setup-tooling
       - name: Validate first-party Puppet manifests
-        run: bundle exec rake validate:puppet
+        run: bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
       - name: Check for changes
         run: git diff --exit-code HEAD --
       - name: Upload Puppet validation report

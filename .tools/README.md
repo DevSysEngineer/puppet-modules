@@ -159,7 +159,7 @@ De voorbeelden hieronder gebruiken `PROJECT_REPORT_DIR` om die projectkeuze door
 export PROJECT_REPORT_DIR=".tools/quality/results"
 ```
 
-Dit is een afspraak in de voorbeeldconfiguratie van het afnemende project, geen automatisch ingelezen geminstelling. De shellcommando's geven het pad expliciet mee. De voorbeeldtaak voor parserrapportage leest de variabele zelf en gebruikt `.tools/quality/results` wanneer die ontbreekt. Voor testrapportage geeft de aanroeper het gekozen pad expliciet door via `MINITEST_REPORTERS_REPORTS_DIR`. Geef een niet-leeg pad op, relatief aan de eigen projectroot. De voorbeelden plaatsen ook de CI-artifacts binnen die checkout.
+Dit is een afspraak in de voorbeeldconfiguratie van het afnemende project, geen automatisch ingelezen geminstelling. De shellcommando's geven het pad expliciet mee, ook als taakargument bij de [voorbeeldtaak voor parservalidatie](validate/README.md#eigen-manifests-valideren). Alleen het instellen van `PROJECT_REPORT_DIR` schakelt geen rapportage in. Voor testrapportage geeft de aanroeper het gekozen pad expliciet door via `MINITEST_REPORTERS_REPORTS_DIR`. Geef een niet-leeg pad op, relatief aan de eigen projectroot. De voorbeelden plaatsen ook de CI-artifacts binnen die checkout.
 
 Gebruik dezelfde waarde lokaal en in CI. In het [GitHub-voorbeeld](#controle-in-ci) stel je die eenmaal onder `env` in; in het [GitLab-fragment](#rapporten-tonen-in-gitlab) onder `variables`. De uitvoercommando's, uploadpaden en testsamenvatting verwijzen naar die instelling. Pas daarnaast de eigen `.gitignore` aan het concrete pad aan: Git vervangt daar geen omgevingsvariabelen. De [rapportafspraken](#rapporten-en-artifacts-in-je-project) tonen per controle het bestand binnen deze map.
 
@@ -175,7 +175,7 @@ Houd in de workflow, controleoverzichten en CI-voorbeelden de onderstaande volgo
 | --- | --- | --- | --- |
 | `Metadata` | Root- en modulemetadata, versiebron en naamgeving | `Metadata-report` | `.tools/metadata/results/metadata-report.xml` |
 | `Puppet dependencies` | Native module- en rootdependencycontrole | `Project-tools-module-dependencies-report` | `.tools/module-dependencies/results/project-tools-module-dependencies-report.xml` |
-| `Validate` | `bundle exec rake validate:puppet` met JUnit per manifest | `Validate-report` | `.tools/validate/results/validate-report.xml` |
+| `Validate` | `bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'` | `Validate-report` | `.tools/validate/results/validate-report.xml` |
 | `Puppet lint` | De volledige Puppet-lintscan met JUnit-omzetting | `Puppet-lint-report` | `.tools/lint/results/puppet-lint-report.xml` |
 | `Ruby lint` | RuboCop met console- en JUnit-uitvoer | `Ruby-lint-report` | `.tools/ruby-lint/results/rubocop-report.xml` |
 | `Tool tests` | `bundle exec rake test` met expliciet `MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests` | `Test-results` | `.tools/results/tests/TEST-*.xml` |
@@ -827,9 +827,11 @@ Voeg `project-tools-validate` expliciet toe voor parservalidatie; `lint-project`
 
 Gebruik `validate-report.xml` voor het parserrapport en pas artifactpaden en JUnit-registraties samen aan. De suite en testcase-classname heten `validate`; de artifactnaam is `Validate-report`. De CI-job heet `Validate` met sleutel `validate`; pas een verplichte statuscheck met de oude naam `Puppet validate` ook aan. In deze repository staan het rapport onder `.tools/validate/results/` en de tooltests onder `.tools/validate/tests/`; de gerichte testtaak is `test:validate`. De volledige Puppet-selectie blijft beschikbaar via `validate:puppet`.
 
+Werk eigen parser-Rake-taken bij volgens het [voorbeeld met optionele rapportage](validate/README.md#eigen-manifests-valideren). `bundle exec rake validate:puppet` valideert zonder rapport. Vervang de aanroep in CI door `bundle exec rake "validate:puppet[$PROJECT_REPORT_DIR/validate-report.xml]"` met de ingestelde rapportmap. De taak heeft geen standaardrapportpad en leest `PROJECT_REPORT_DIR` niet zelf; bestaande rapporten blijven zonder rapportargument ongewijzigd.
+
 Voeg `project-tools-module-dependencies` en zijn afzonderlijke CI-job toe wanneer je dependencycontrole gebruikt. Werk bestaande Gemfile-verwijzingen, buildcommando’s en CI-aanroepen voor de dependencytool bij naar de volledige naam `project-tools-module-dependencies` en executable `project-tools-module-dependencies`. Gebruik de rapportnamen uit [Rapporten en artifacts](#rapporten-en-artifacts-in-je-project).
 
-Dit is een brekende wijziging van de gedocumenteerde toolingintegratie. De al gekozen projectversie `3.0.0` blijft behouden: de laatste gepubliceerde release is `v2.0.0`, en de verzamelde wijzigingen vereisen al een majorrelease. Root- en first-party-modulemetadata volgen `VERSION`; externe modules en Ruby-gems behouden hun eigen versies. `lint-project` gaat naar `0.2.0`, de overige gems beginnen bij `0.1.0`. De afzonderlijke validator, metadata- en Ruby-tools, gewijzigde commando’s, optionele rapportage bij testtaken en gedeelde instellingen passen binnen deze al gekozen majorrelease; een verdere versieophoging is niet nodig. Er worden geen tags of releases automatisch gemaakt.
+Dit is een brekende wijziging van de gedocumenteerde toolingintegratie. De al gekozen projectversie `3.0.0` blijft behouden: de laatste gepubliceerde release is `v2.0.0`, en de verzamelde wijzigingen vereisen al een majorrelease. Root- en first-party-modulemetadata volgen `VERSION`; externe modules en Ruby-gems behouden hun eigen versies. `lint-project` gaat naar `0.2.0`, de overige gems beginnen bij `0.1.0`. De afzonderlijke validator, metadata- en Ruby-tools, gewijzigde commando’s, optionele rapportage bij test- en parser-Rake-taken en gedeelde instellingen passen binnen deze al gekozen majorrelease; een verdere versieophoging is niet nodig. Er worden geen tags of releases automatisch gemaakt.
 
 De uniforme leesvolgorde van CI-jobs en controleoverzichten behoudt alle jobnamen, commando’s en statuscontracten. Deze indelingscorrectie is compatibel en past eveneens binnen de al gekozen projectversie `3.0.0`.
 

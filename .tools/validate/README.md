@@ -23,9 +23,9 @@ Controleer ieder gewijzigd Puppet-manifest afzonderlijk met de native parser, zo
 bundle exec puppet parser validate examples/site.pp
 ```
 
-Voer vanuit de repositoryroot de volledige selectie met JUnit-rapportage uit:
+Voer vanuit de repositoryroot de volledige selectie zonder rapport uit:
 
-**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Alle eigen manifests via validate:puppet. **Wijzigt bestanden:** Parser-JUnit in .tools/validate/results. **Verwacht resultaat:** Alle geselecteerde manifests gevalideerd met status 0.
+**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Alle eigen manifests via validate:puppet. **Wijzigt bestanden:** Geen bronbestanden of rapporten. **Verwacht resultaat:** Alle geselecteerde manifests gevalideerd met status 0.
 
 ```sh
 bundle exec rake validate:puppet
@@ -33,7 +33,17 @@ bundle exec rake validate:puppet
 
 De taak selecteert alle eigen `.pp`-bestanden recursief, inclusief `examples/` en nieuwe manifests. De vendored submodules `concat`, `debconf`, `reboot` en `stdlib`, geïnstalleerde gems onder `vendor/` en toolfixtures onder `.tools/` vallen buiten deze selectie. De taak staat los van `rake test` en is geen afhankelijkheid van die testtaak.
 
-`validate:puppet` geeft de geselecteerde bestanden aan `validate-junit` uit de actieve bundle. Dit commando voert voor ieder bestand afzonderlijk de native `puppet parser validate` uit, zonder kleurcodes. Een fout stopt de controle van de overige bestanden niet. De parser controleert syntax zonder een catalogus te compileren of resources toe te passen; lintregels, functiegedrag en de werking op een host vallen buiten deze controle.
+Zonder taakargument geeft `validate:puppet` de geselecteerde bestanden rechtstreeks aan `puppet parser validate` uit de actieve bundle, zonder kleurcodes. De taak maakt geen rapporten of rapportmappen en laat bestaande rapporten ongemoeid. Een lege selectie geeft een fout, zodat de parser niet terugvalt op stdin of een standaardmanifest. De parser controleert syntax zonder een catalogus te compileren of resources toe te passen; lintregels, functiegedrag en de werking op een host vallen buiten deze controle.
+
+Geef voor CI en de eindcontrole het rapportpad expliciet mee als `junit`-taakargument. Zet de volledige taakaanroep tussen quotes, zodat de shell de vierkante haken niet als bestandsselectie verwerkt:
+
+**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Dezelfde volledige manifestselectie. **Wijzigt bestanden:** Het opgegeven parser-JUnit. **Verwacht resultaat:** Dezelfde parserstatus met een rapport per manifest.
+
+```sh
+bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
+```
+
+Met dit argument roept de taak `validate-junit` aan. Dit commando voert voor ieder bestand afzonderlijk de native parser uit. Een fout stopt de controle van de overige bestanden niet. Beide uitvoervormen geven een foutstatus bij ongeldige syntax of een lege selectie; een aangevraagd maar onschrijfbaar rapport geeft eveneens een foutstatus.
 
 Het rapport staat in `.tools/validate/results/validate-report.xml`, met suite `validate` en één testcase per uniek manifestpad. Een niet-nul exitcode van de validator geeft een `failure` met de native foutmelding. Ontbrekende bestanden en ongeschikte bestandstypen krijgen een `error`, net als een validator die niet kan starten of door een signaal eindigt. Een lege selectie levert een foutcase op en slaagt dus niet stilzwijgend. De opdracht eindigt met een foutcode zodra een controle of het schrijven van het rapport mislukt.
 
@@ -63,16 +73,20 @@ Voor een recursieve projectselectie voeg je `gem 'rake'` toe aan je eigen Gemfil
 
 ```ruby
 namespace :validate do
-  desc 'Validate own Puppet manifests and write a JUnit report'
-  task :puppet do
+  desc 'Validate own Puppet manifests, optionally writing JUnit to the supplied path'
+  task :puppet, [:junit] do |_task, args|
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'global-modules/**/*', 'vendor/**/*')
-    report_dir = ENV.fetch('PROJECT_REPORT_DIR', '.tools/quality/results')
-    sh 'bundle', 'exec', 'validate-junit', File.join(report_dir, 'validate-report.xml'), *manifests
+    if args[:junit]
+      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests
+    else
+      abort 'No Puppet manifests selected.' if manifests.empty?
+      sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests
+    end
   end
 end
 ```
 
-Pas de uitsluitingen aan de dependencylocaties van je project aan. Deze selectie neemt nieuwe eigen manifests en uitvoerbare voorbeelden mee en sluit toolfixtures uit. De taak roept de gem aan; je kopieert geen validator of rapportimplementatie. Gebruik `bundle exec rake validate:puppet` lokaal en in de validatiejob zodra je deze taak gebruikt. Houd de taak los van `test` en eventuele standaardtaken voor tooltests. Het [CI-voorbeeld](../README.md#controle-in-ci) gebruikt de rechtstreekse aanroep met twee concrete manifests; vervang die door je volledige bestandsselectie of deze Rake-taak.
+Pas de uitsluitingen aan de dependencylocaties van je project aan. Deze selectie neemt nieuwe eigen manifests en uitvoerbare voorbeelden mee en sluit toolfixtures uit. De taak gebruikt de native parser of de rapportagegem; je kopieert geen validator of rapportimplementatie. Gebruik lokaal `bundle exec rake validate:puppet` voor console-uitvoer. Vraag in de validatiejob het rapport expliciet aan met `bundle exec rake "validate:puppet[$PROJECT_REPORT_DIR/validate-report.xml]"`. Alleen het instellen van `PROJECT_REPORT_DIR` schakelt rapportage niet in. Houd de taak los van `test` en eventuele standaardtaken voor tooltests. Het [CI-voorbeeld](../README.md#controle-in-ci) gebruikt de rechtstreekse aanroep met twee concrete manifests; vervang die door je volledige bestandsselectie of de Rake-aanroep met rapportargument.
 
 Voor het onderzoeken van één fout blijft de native opdracht `bundle exec puppet parser validate pad/naar/manifest.pp` beschikbaar. Parservalidatie compileert geen catalogus en vervangt de [eigen gedragsvalidatie](../lint/README.md#aanvullende-tests) niet.
 
