@@ -70,7 +70,9 @@ De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 di
 
 Dit project gebruikt `concat`, `debconf`, `reboot`, `stdlib` en `timezone`. Deze modules worden als Git-submodules meegeleverd en moeten daarom tijdens de installatie ook worden opgehaald.
 
-De rootmetadata beschrijven de ingeladen dependencies, maar hun onderlinge versievoorwaarden zijn niet allemaal verenigbaar. `timezone` 7.0.0 vereist `stm-debconf >= 2.0.0 < 7.0.0`, terwijl de checkout `debconf` 8.0.0 bevat. Los die bestaande dependencybotsing op voordat je de volledige combinatie als compatibel beschouwt. Een geslaagde metadata- of syntaxcontrole is daarvoor geen bewijs; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
+De timezone-submodule komt uit de [DevSysEngineer-fork](https://github.com/DevSysEngineer/puppet-timezone), vastgelegd op een commit uit `patch-1` die `stm-debconf` 8 toestaat. De module heet in zijn metadata nog `saz-timezone`; ook het pakket- en toetsenbordbeheer in `basic_settings` gebruikt de debconf-module.
+
+De meegeleverde moduleversies voldoen aan de gedeclareerde dependencygrenzen. Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
 > [!CAUTION]
 > Verschillende modules nemen bestaande configuratiebestanden of pakketkeuzes over. Pas een nieuwe catalogus eerst toe in een testomgeving, controleer wat Puppet wil wijzigen en test daarna de betreffende services. Je hoeft niet alle modules op iedere host te gebruiken.
@@ -122,8 +124,11 @@ Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
 2. Haal ook de modules op waarvan dit project afhankelijk is:
 
    ```sh
+   git submodule sync --recursive
    git submodule update --init --recursive
    ```
+
+   De eerste opdracht neemt gewijzigde submodule-URL's over in een bestaande checkout.
 
 3. Voeg in de gewenste Puppet environment een `environment.conf` toe. De extra `modulepath` maakt de modules uit `global-modules` zichtbaar naast de environmentmodules en de standaardmodulepaden:
 

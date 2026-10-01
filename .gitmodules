@@ -6,7 +6,7 @@
 	url = https://github.com/puppetlabs/puppetlabs-reboot.git
 [submodule "puppet-timezone"]
 	path = timezone
-	url = https://github.com/saz/puppet-timezone.git
+	url = https://github.com/DevSysEngineer/puppet-timezone.git
 [submodule "debconf"]
 	path = debconf
 	url = https://github.com/smoeding/puppet-debconf.git

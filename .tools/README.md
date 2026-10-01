@@ -79,7 +79,7 @@ bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
 ```
 
-Voer de opdrachten afzonderlijk uit en beoordeel iedere exitstatus. De checkout bevat een bekende botsing: `saz-timezone 7.0.0` verlangt `stm-debconf < 7.0.0`, terwijl `stm-debconf 8.0.0` geselecteerd wordt en de rootmetadata majorversie 8 vereist. De dependencycontrole meldt dit met exitcode 1. Pas ranges of gitlinks alleen aan na inhoudelijk compatibiliteitsonderzoek.
+Voer de opdrachten afzonderlijk uit en beoordeel iedere exitstatus. De [project-README](../README.md#ondersteuning-en-compatibiliteit) beschrijft de gebruikte dependencies en hun compatibiliteitsgrenzen. Pas ranges of gitlinks alleen aan na inhoudelijk compatibiliteitsonderzoek.
 
 ## Installatie en compatibiliteit
 
@@ -124,6 +124,7 @@ Voer dit uit vanuit de repositoryroot met de juiste Ruby actief. Haal ook de Git
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Nieuwste stabiele Ruby, Git en netwerktoegang voor de bestaande dependencies. **Invoer:** Bestaande submodules, Gemfile en lockfile. **Wijzigt bestanden:** Submodulecheckouts en geminstallatie. **Verwacht resultaat:** Bundle met de gelockte dependencies geïnstalleerd.
 
 ```sh
+git submodule sync --recursive
 git submodule update --init --recursive
 gem install bundler
 export BUNDLE_VERSION=system
