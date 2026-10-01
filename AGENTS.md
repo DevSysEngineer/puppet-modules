@@ -30,7 +30,7 @@ Every durable norm has exactly one authoritative location. Classify a new or cha
 
 ### First-Party Code And Dependencies
 
-- Treat all module directories listed in the README as first-party except the vendored Git submodules `concat`, `debconf`, `reboot`, `stdlib`, and `timezone`.
+- Treat all module directories listed in the README as first-party except the vendored Git submodules `concat`, `debconf`, `reboot`, and `stdlib`.
 - Keep changes within first-party code and repository-owned documentation or tooling unless the task explicitly requires a vendored dependency change.
 - Never use vendored submodules as project style examples.
 
@@ -38,7 +38,7 @@ Integration choices and exceptions follow [runtime module dependencies](#runtime
 
 ### Runtime Module Dependencies
 
-- Prefer existing local modules for integrations. Runtime Puppet-module dependencies are limited to `stdlib`, `concat`, `reboot`, `timezone`, and `debconf`, except when a requirement demonstrably cannot be met adequately by the local implementation. Similar functionality alone does not justify adding an external Docker, MySQL, Nginx, or RabbitMQ module.
+- Prefer existing local modules for integrations. Runtime Puppet-module dependencies are limited to `stdlib`, `concat`, `reboot`, and `debconf`, except when a requirement demonstrably cannot be met adequately by the local implementation. Similar functionality alone does not justify adding an external Docker, MySQL, Nginx, or RabbitMQ module.
 - Review the concrete requirement against existing local interfaces before accepting that exception. For sensitive components, include package policy, monitoring, and audit. For example, reject an external Nginx module added solely for comparable functionality; accept a substantiated exception only for a requirement the local integration cannot adequately meet. This dependency-policy decision requires manual review; the linter does not establish it.
 
 ### Supported Platforms

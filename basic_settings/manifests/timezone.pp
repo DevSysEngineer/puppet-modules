@@ -1,8 +1,11 @@
 # @summary Manages timezone and systemd-timesyncd NTP configuration.
 #
-# This class installs and enables systemd-timesyncd when systemd is available, renders `/etc/systemd/timesyncd.conf`,
-# removes competing NTP packages, adds a monitoring check when monitoring is active, and delegates timezone setting to
-# the vendored `timezone` module.
+# Installs tzdata and the validation tools, checks the selected zone on the agent, and manages /etc/localtime as a
+# symlink plus /etc/timezone as a compatibility file. Invalid zone data fails an apply before either file is changed.
+# The read-only guard also runs during noop; noop cannot prove validation after a pending package installation.
+# Timezone management runs independently of NTP and does not manage the hardware clock or debconf answers.
+# When Package[systemd] is declared before this class, it also installs and enables systemd-timesyncd, renders
+# /etc/systemd/timesyncd.conf, removes competing NTP packages, and adds a check when monitoring is active.
 #
 # @example Set the server timezone
 #   class { 'basic_settings::timezone':
@@ -10,21 +13,64 @@
 #   }
 #
 # @param timezone
-#   Timezone name passed to the `timezone` module, such as `UTC` or `Europe/Amsterdam`.
+#   Required timezone name relative to /usr/share/zoneinfo; basic_settings supplies server_timezone, default UTC.
+#   Non-empty segments accept letters, digits, underscores, dots, hyphens and plus signs; standalone dot or double-dot
+#   segments, whitespace and shell metacharacters are rejected. The agent must provide a readable regular file with
+#   a TZif header after tzdata installation. Names such as UTC, Etc/UTC, Etc/GMT+1 and
+#   America/Argentina/Buenos_Aires are preserved literally.
 #
 # @param install_options
-#   Additional APT options; an empty array adds no caller options. Mandatory no-recommends and no-suggests flags are
-#   appended without deduplication so they remain effective.
+#   Additional APT options for systemd-timesyncd; an empty array adds no caller options. Mandatory no-recommends and
+#   no-suggests flags are appended without deduplication so they remain effective.
 #
 # @param ntp_extra_pools
 #   Additional NTP pools prepended to the OS default pool list.
 #
 # @api public
 class basic_settings::timezone (
-  String $timezone,
-  Array  $install_options = [],
-  Array  $ntp_extra_pools = [],
+  Pattern[/\A(?!(?:.*\/)?\.{1,2}(?:\/|\z))[A-Za-z0-9_.+-]+(?:\/[A-Za-z0-9_.+-]+)*\z/] $timezone,
+  Array                                                                               $install_options = [],
+  Array                                                                               $ntp_extra_pools = [],
 ) {
+  # Share runtime packages with callers while retaining the APT installation policy.
+  $timezone_packages = ['coreutils', 'dash', 'tzdata']
+
+  ensure_packages($timezone_packages, {
+    'ensure'          => 'installed',
+    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+  })
+
+  # Escape the agent-side zone path once for the shell command and its read-only guard.
+  $zone_shell = stdlib::shell_escape("/usr/share/zoneinfo/${timezone}")
+
+  # A failed validation blocks both file resources; valid data never runs the failing command.
+  exec { 'timezone_validate_zoneinfo':
+    command  => "/usr/bin/printf 'Invalid timezone data: %s\n' ${zone_shell} >&2; exit 1",
+    provider => shell,
+    unless   => "test -f ${zone_shell} && test -r ${zone_shell} && test \"\$(/usr/bin/head -c 4 ${zone_shell})\" = TZif",
+    require  => Package[$timezone_packages],
+  }
+
+  # Keep timezone identification in the symlink without modifying package-owned zoneinfo files.
+  file { '/etc/localtime':
+    ensure  => link,
+    target  => "/usr/share/zoneinfo/${timezone}",
+    owner   => 'root',
+    group   => 'root',
+    require => Exec['timezone_validate_zoneinfo'],
+  }
+
+  # This compatibility format accepts only a timezone name, so a Managed by puppet header is invalid.
+  # The timezone name is public system configuration and must be readable by unprivileged applications.
+  file { '/etc/timezone':
+    ensure  => file,
+    content => "${timezone}\n",
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0644',
+    require => File['/etc/localtime'],
+  }
+
   # Check if systemd is installed
   if (defined(Package['systemd'])) {
     # Reload systemd deamon
@@ -117,11 +163,5 @@ class basic_settings::timezone (
       ensure  => purged,
       require => Package['systemd-timesyncd'],
     }
-  }
-
-  # Set timezoen
-  class { 'timezone':
-    timezone    => $timezone,
-    require     => File['/etc/systemd/timesyncd.conf']
   }
 }

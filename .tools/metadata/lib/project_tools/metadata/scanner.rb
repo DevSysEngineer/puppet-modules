@@ -10,7 +10,7 @@ module ProjectTools
   module Metadata
     # Project metadata is selected independently of manifests and dependency modulepaths.
     class Scanner
-      REPOSITORY_EXCLUSIONS = %w[examples vendor concat debconf reboot stdlib timezone].freeze
+      REPOSITORY_EXCLUSIONS = %w[examples vendor concat debconf reboot stdlib].freeze
 
       def initialize(root = Dir.pwd, ignore_paths: [])
         @root = File.realpath(root)

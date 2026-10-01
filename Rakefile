@@ -23,7 +23,7 @@ namespace :validate do
   desc 'Validate first-party Puppet manifests and write a JUnit report'
   task :puppet do
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
-                                            'reboot/**/*', 'stdlib/**/*', 'timezone/**/*')
+                                            'reboot/**/*', 'stdlib/**/*')
     sh 'bundle', 'exec', 'validate-junit', '.tools/validate/results/validate-report.xml',
        *manifests
   end

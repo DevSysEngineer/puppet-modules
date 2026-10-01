@@ -67,15 +67,15 @@ Uitvoerfouten hebben voorrang op bevindingen; reeds betrouwbare bevindingen blij
 
 Console en JUnit gebruiken dezelfde deterministisch gesorteerde resultaten. De suite heet `project-tools-module-dependencies`. Een testcase benoemt scope, aanvrager, dependency, requirement en geselecteerde versie. De tekst bevat reden en bronpaden, relatief aan de actieve projectroot; paden buiten de root blijven via `../` herleidbaar. Er worden geen JSON-regelnummers verzonnen. Een schone scan krijgt één geslaagde testcase, met dekking in `system-out`. Tellingen beschrijven testcases, niet modules of dependencydiepte.
 
-Een representatieve failure luidt:
+Een synthetisch voorbeeld van een failure:
 
 ```text
 Puppet module dependencies: FAILED
 
-  module: saz/timezone 7.0.0 -> stm/debconf; requires >= 2.0.0 < 7.0.0; selected 8.0.0
+  module: example/profile 1.0.0 -> example/library; requires >= 1.0.0 < 2.0.0; selected 2.0.0
   version_mismatch: The selected version does not satisfy the declared requirement.
-  Request metadata: timezone/metadata.json
-  Selected metadata: debconf/metadata.json
+  Request metadata: profile/metadata.json
+  Selected metadata: library/metadata.json
 ```
 
 Die relatie wordt een `<testcase>` met `<failure type="version_mismatch">`; een rootbevinding begint met `root:`. XML-escaping gebeurt via Builder. Terminalcontroltekens worden afgevlakt en onbetrouwbare velden worden ingesprongen, zodat ze geen GitHub-workflowcommando vormen.

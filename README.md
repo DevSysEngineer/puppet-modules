@@ -23,6 +23,8 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 - [Gebruik van voorbeelden en parameterdocumentatie](#gebruik-van-voorbeelden-en-parameterdocumentatie)
 - [Modules](#modules)
   - [`basic_settings`](#basic_settings)
+    - [Tijdzone en NTP](#tijdzone-en-ntp)
+    - [Migreren van de externe timezone-module](#migreren-van-de-externe-timezone-module)
   - [`docker`](#docker)
   - [`gitlab`](#gitlab)
   - [`letsencrypt`](#letsencrypt)
@@ -68,9 +70,7 @@ De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` w
 
 De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 die nog in individuele modulemetadata staat: `concat` 10 vereist Puppet 8 en `debconf` 8 vermeldt OpenVox vanaf 8.19 binnen majorversie 8. De rootmetadata volgen deze dependencygrenzen. `basic_settings` kan de pakketbron en pakketten voor OpenVox 8 beheren. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
 
-Dit project gebruikt `concat`, `debconf`, `reboot`, `stdlib` en `timezone`. Deze modules worden als Git-submodules meegeleverd en moeten daarom tijdens de installatie ook worden opgehaald.
-
-De timezone-submodule komt uit de [DevSysEngineer-fork](https://github.com/DevSysEngineer/puppet-timezone), vastgelegd op een commit uit `patch-1` die `stm-debconf` 8 toestaat. De module heet in zijn metadata nog `saz-timezone`; ook het pakket- en toetsenbordbeheer in `basic_settings` gebruikt de debconf-module.
+Dit project gebruikt `concat`, `debconf`, `reboot` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald. Het tijdzonebeheer is onderdeel van `basic_settings`; het pakket- en toetsenbordbeheer gebruikt de debconf-module.
 
 De meegeleverde moduleversies voldoen aan de gedeclareerde dependencygrenzen. Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
@@ -242,6 +242,48 @@ class { 'basic_settings':
 ```
 
 Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp). De Puppet Strings bij [`basic_settings`](basic_settings/manifests/init.pp) en [`basic_settings::login_user`](basic_settings/manifests/login_user.pp) beschrijven de instellingen voor de serverbasis en gebruikers, inclusief bestandsrechten en toegestane bronnen voor home- en sleutelbestanden.
+
+#### Tijdzone en NTP
+
+`basic_settings::timezone` beheert de systeemtijdzone rechtstreeks. Via `basic_settings` geef je de gewenste zone met `server_timezone` door. Je kunt de onderliggende class ook los gebruiken:
+
+```puppet
+class { 'basic_settings::timezone':
+  timezone => 'Europe/Amsterdam',
+}
+```
+
+De class installeert `tzdata`, valideert het gekozen tijdzonebestand op de host en beheert `/etc/localtime` als symlink. `/etc/timezone` bevat dezelfde naam voor bestaande toepassingen en auditregels. Ongeldige invoer stopt de compilatie; ontbrekende of ongeldige tijdzonedata blokkeert bij apply beide bestandsresources. Een onverwachte directory op `/etc/localtime` wordt niet geforceerd verwijderd.
+
+Tijdzonebeheer werkt onafhankelijk van NTP. Wanneer `Package['systemd']` vóór deze class is gedeclareerd, beheert zij ook systemd-timesyncd, verwijdert zij concurrerende NTP-pakketten en registreert zij de bestaande check wanneer monitoring actief is. Declareer de class daarom niet nogmaals als `basic_settings` haar al aanroept. De [Puppet Strings](basic_settings/manifests/timezone.pp) beschrijven de interface en voorwaarden.
+
+Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de gebruikte release, inclusief het behoud van de tijdzone en het uitblijven van configuratievragen. Distributies kunnen `/etc/timezone` opruimen. Een noop installeert geen ontbrekende tijdzonedata en bewijst daarom niet dat de controle na installatie zal slagen.
+
+#### Migreren van de externe timezone-module
+
+De zelfstandige class `timezone` vervalt in majorrelease `3.0.0` tegenover de laatst gepubliceerde release `v2.0.0`. Bestaand gebruik via `basic_settings::server_timezone` blijft gelijk, inclusief default `UTC` en de koppeling met PHP. Er is geen verdere versieverhoging nodig.
+
+Vervang rechtstreekse declaraties van `timezone` door `basic_settings::timezone` met een expliciete `timezone`. Geef `Etc/UTC` mee wanneer je op de oude zelfstandige default vertrouwde. Gebruik bij de volledige serverbasis uitsluitend `basic_settings::server_timezone`; declareer de onderliggende class dan niet apart. Pas verwijzingen naar `Class['timezone']` aan naar `Class['basic_settings::timezone']`. Houd bij los gebruik rekening met het hierboven beschreven NTP-beheer.
+
+Verplaats `timezone::timezone` in Hiera naar `basic_settings::server_timezone` voor de volledige serverbasis, of naar `basic_settings::timezone::timezone` bij los gebruik. Verwijder upstreamparameters zoals `ensure`, `hwutc`, `autoupgrade`, `notify_services`, `package`, `zoneinfo_dir`, `localtime_file`, `timezone_file`, `timezone_file_template`, `timezone_file_supports_comment` en `timezone_update`. Ook upstreaminstellingen zoals `timezone::use_debconf`, klokcommando’s en `lookup_options` voor verwijderde parameters vervallen. Richt benodigd hardwareklokbeheer, afwijkende paden of aanvullende serviceherstarts expliciet in je eigen profiel in.
+
+Verwijder `saz-timezone` uit consumerdependencies en de oude module uit de actieve modulepath. Declareer voor rechtstreeks gebruik van `basic_settings::timezone` de dependency `puppetmodules-basic_settings` met bereik `>= 3.0.0 < 4.0.0`, tenzij die dependency al aanwezig is. De gebruikelijke modulepath met `global-modules` verandert niet.
+
+Werk een bestaande checkout bij terwijl de oude submodule nog geregistreerd is. Controleer eerst de werkboom en bewaar lokale wijzigingen én de gekozen upstreamcommit buiten `global-modules`, bijvoorbeeld met een kopie van de checkout en een Git-bundle. Ga pas verder wanneer de werkboom schoon is en het werk veilig is bewaard. De deinit-opdracht gebruikt bewust geen force.
+
+**Werkmap:** Consumerroot met de oude `global-modules`-checkout. **Vereisten:** Een schone, veilig bewaarde timezone-submodule en een opgehaalde nieuwe projectrevisie. **Wijzigt:** Submodulewerkboom en gekozen global-modules-revisie. **Verwacht resultaat:** Tijdzonebeheer in basic_settings zonder timezone-gitlink of losse module.
+
+```sh
+git -C global-modules/timezone status --short
+git -C global-modules/timezone rev-parse HEAD
+git -C global-modules submodule deinit -- timezone
+git -C global-modules checkout '<gekozen-revisie>'
+git -C global-modules submodule sync --recursive
+git -C global-modules submodule update --init --recursive
+git -C global-modules ls-files --stage -- timezone
+```
+
+De laatste opdracht moet geen bestanden of gitlink meer tonen. Laat de bewaarde Git-objecten onder de bovenliggende `.git/modules` staan totdat de migratie is gecontroleerd. Een verse checkout volgt de gewone [installatie](#installatie). Compileer daarna de consumercatalogus en test de toepassing en herhaalde toepassing op wegwerphosts, inclusief NTP, PHP, audit en pakketonderhoud.
 
 ### `docker`
 

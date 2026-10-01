@@ -20,7 +20,6 @@ AllCops:
     - 'debconf/**/*'
     - 'reboot/**/*'
     - 'stdlib/**/*'
-    - 'timezone/**/*'
     - 'vendor/bundle/**/*'
     # ERB source must be rendered before it becomes valid Ruby.
     - '**/templates/**/*'

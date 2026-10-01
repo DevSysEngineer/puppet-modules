@@ -73,7 +73,7 @@ class MetadataTest < Minitest::Test
 
   def test_technical_vendored_and_explicitly_excluded_directories_are_not_modules
     repository_layout
-    %w[.github .tools .cache examples vendor concat debconf reboot stdlib timezone ignored].each do |path|
+    %w[.github .tools .cache examples vendor concat debconf reboot stdlib ignored].each do |path|
       FileUtils.mkdir_p(File.join(@directory, path))
     end
     metadata('docker/metadata.json', name: 'puppetmodules-docker')

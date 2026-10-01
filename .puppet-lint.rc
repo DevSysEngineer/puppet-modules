@@ -1,3 +1,3 @@
 --load=.tools/lint/lib/project_lint.rb
 --config=.tools/lint/config/puppet-lint.rc
---ignore-paths=./*/templates/*.yaml,*/templates/*.yaml,./*/templates/*.yml,*/templates/*.yml,./concat/*,concat/*,./debconf/*,debconf/*,./reboot/*,reboot/*,./stdlib/*,stdlib/*,./timezone/*,timezone/*,./vendor/bundle/*,vendor/bundle/*
+--ignore-paths=./*/templates/*.yaml,*/templates/*.yaml,./*/templates/*.yml,*/templates/*.yml,./concat/*,concat/*,./debconf/*,debconf/*,./reboot/*,reboot/*,./stdlib/*,stdlib/*,./vendor/bundle/*,vendor/bundle/*

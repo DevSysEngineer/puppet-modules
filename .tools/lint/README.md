@@ -375,7 +375,7 @@ De projectconfiguratie gebruikt alle standaard ingeschakelde checks en schakelt 
 
 ### Aanroepen van modules controleren
 
-`PROJECT_TOOLS_MODULEPATH` volgt de [gedeelde padvalidatie](../README.md#gedeeld-modulepad). Zonder deze variabele zoekt de linter vanaf de huidige werkmap als moduleverzameling en slaat hij de vendored namen `concat`, `debconf`, `reboot`, `stdlib` en `timezone` over. Stel de variabele in externe projecten expliciet in.
+`PROJECT_TOOLS_MODULEPATH` volgt de [gedeelde padvalidatie](../README.md#gedeeld-modulepad). Zonder deze variabele zoekt de linter vanaf de huidige werkmap als moduleverzameling en slaat hij de vendored namen `concat`, `debconf`, `reboot` en `stdlib` over. Stel de variabele in externe projecten expliciet in.
 
 De resolver gebruikt eerst declaraties uit de actuele lintinvoer. Daarna kiest hij de eerste modulemap met de gevraagde modulenaam en zoekt daar `example/manifests/init.pp` voor `example`, of `example/manifests/item.pp` voor `example::item`. Ontbreekt dat manifest, dan zoekt hij niet verder in een latere kopie van de module. Bestanden achter symlinks buiten de ingestelde modulemap worden niet gelezen.
 
