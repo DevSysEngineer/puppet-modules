@@ -22,7 +22,6 @@ module OptionFileSupport
   end
 
   def prepare_personal_configuration
-    prepare_metadata_project(@directory)
     copy_project_config(@directory)
     @original = "$values = [\n      \"synthetic\",\n]\n"
     @fixed = "$values = [\n  'synthetic',\n]\n"

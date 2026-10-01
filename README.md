@@ -5,7 +5,7 @@ Dit project bevat Puppet-modules voor het inrichten en beheren van Debian- en Ub
 De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet steeds dezelfde voorspelbare configuratie oplevert. Je kunt ze los gebruiken of combineren. `basic_settings` richt de serverbasis in en zorgt ervoor dat andere modules daarop kunnen aansluiten.
 
 > [!IMPORTANT]
-> **Keuze voor OpenVox:** Perforce ontwikkelt Puppet verder in besloten repositories als Puppet Core. Gratis gebruik is beperkt tot 25 nodes onder de bijbehorende [licentievoorwaarden](https://www.puppet.com/blog/puppet-module-developer-eula-faq). Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Kies dan [OpenVox van Vox Pupuli](https://voxpupuli.org/openvox/), de open fork die compatibiliteit met Puppet nastreeft. Controleer vóór een overstap de [projectcompatibiliteit](#ondersteuning-en-compatibiliteit) en test je bestaande configuratie.
+> **Perforce zet Puppet-open-sourcecode achter een betaalmuur:** In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je betalen. Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). OpenVox van Vox Pupuli is een drop-invervanger voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door het OpenVox-pakket zonder je bestaande Puppet-configuratie aan te passen.
 
 > [!CAUTION]
 > **Compatibiliteit:** Dit project is ontworpen voor 64-bits besturingssystemen. De volledige combinatie van modules is gericht op `amd64`.
@@ -113,10 +113,10 @@ Laat bij het uitschakelen van de hele monitoring `basic_settings::monitoring` aa
 
 Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
 
-1. Voeg dit project toe als Git-submodule:
+1. Voeg dit project toe als Git-submodule. Vervang `<repository-url>` door de Git-URL van de repository die je gebruikt:
 
    ```sh
-   git submodule add https://github.com/DevSysEngineer/puppet-modules.git global-modules
+   git submodule add '<repository-url>' global-modules
    ```
 
 2. Haal ook de modules op waarvan dit project afhankelijk is:
@@ -154,7 +154,7 @@ Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
    puppet module list --environment development
    ```
 
-Gebruik de [toolinghandleiding voor je eigen project](.tools/lint/README.md#de-linter-gebruiken-in-een-ander-puppet-project) om de gedeelde controles voor je eigen Puppet- en Ruby-code in te richten.
+Gebruik de [toolinghandleiding voor je eigen project](.tools/README.md#importeren-en-distribueren) om de gedeelde controles voor je eigen Puppet- en Ruby-code in te richten.
 
 Het [versiebeleid](AGENTS.md#versioning-and-releases) beschrijft hoe het project compatibiliteit bij updates beoordeelt.
 
@@ -953,4 +953,4 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 
 Pull requests en meldingen zijn welkom. Begin bij [`AGENTS.md`](AGENTS.md) voor het werkproces en de reviewverantwoordelijkheden. De [leeswijzer](.tools/lint/README.md#leeswijzer) wijst je naar de code-, documentatie- en operationele regels die op je wijziging van toepassing zijn.
 
-Richt de [ontwikkelomgeving](.tools/lint/README.md#installatie) in en volg de [werkwijze van beginscan tot oplevering](.tools/lint/README.md#werkwijze-bij-een-wijziging). Daar staan de vereiste lint-, parser-, Ruby- en tooltestcommando's. Modulegedrag en documentatievoorbeelden vragen daarnaast [afzonderlijke validatie](.tools/lint/README.md#aanvullende-validatie). De [CI-uitleg](.tools/lint/README.md#ci-van-deze-repository) beschrijft waar je de rapporten vindt.
+Richt de [ontwikkelomgeving](.tools/README.md#installatie) in en volg de [werkwijze van beginscan tot oplevering](.tools/lint/README.md#werkwijze-bij-een-wijziging). De [gezamenlijke toolinghandleiding](.tools/README.md) beschrijft de afzonderlijke gems voor Puppet- en Ruby-lint, [metadata](.tools/metadata/README.md), [parservalidatie](.tools/validate/README.md) en [dependencycontrole](.tools/module-dependencies/README.md), plus hun installatie en consumermigratie. Modulegedrag en documentatievoorbeelden vragen daarnaast [afzonderlijke validatie](.tools/lint/README.md#aanvullende-validatie). De [CI-uitleg](.tools/README.md#ci-van-deze-repository) beschrijft waar je de rapporten vindt.

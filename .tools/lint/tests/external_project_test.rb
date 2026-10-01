@@ -83,10 +83,10 @@ class ExternalProjectTest < Minitest::Test
 
   def test_invalid_modulepaths_fail_even_without_calls
     ['', 'modules', File.join(@project, 'missing')].each do |value|
-      @env['PROJECT_LINT_MODULEPATH'] = value
+      @env['PROJECT_TOOLS_MODULEPATH'] = value
       lint('manifests')
       refute @status.success?
-      assert_includes @output + @errors, 'PROJECT_LINT_MODULEPATH'
+      assert_includes @output + @errors, 'PROJECT_TOOLS_MODULEPATH'
     end
   end
 

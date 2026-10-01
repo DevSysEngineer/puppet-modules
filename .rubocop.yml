@@ -1,5 +1,5 @@
 inherit_gem:
-  lint-project: config/rubocop.yml
+  project-tools-ruby-lint: config/rubocop.yml
 
 inherit_mode:
   merge:
@@ -8,8 +8,10 @@ inherit_mode:
 
 AllCops:
   Include:
+    - '.tools/metadata/bin/project-tools-metadata'
     - '.tools/lint/bin/puppet-lint-junit'
-    - '.tools/lint/bin/puppet-validate-junit'
+    - '.tools/validate/bin/validate-junit'
+    - '.tools/module-dependencies/bin/project-tools-module-dependencies'
     - '.tools/**/*.rb'
     - '.tools/**/*.rake'
     - '.tools/**/*.gemspec'

@@ -70,14 +70,14 @@ class ClassConsumersTest < Minitest::Test
   end
 
   def test_qualified_consumers_in_other_classes_count_as_reuse
-    previous = ENV.fetch('PROJECT_LINT_MODULEPATH', nil)
+    previous = ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil)
     producer = "class example { $enabled = #{CHECK}; notice($enabled) }"
     Dir.mktmpdir('class-check-consumers-') do |directory|
-      ENV['PROJECT_LINT_MODULEPATH'] = directory
+      ENV['PROJECT_TOOLS_MODULEPATH'] = directory
       assert_consumer_files(producer, directory)
     end
   ensure
-    ENV['PROJECT_LINT_MODULEPATH'] = previous
+    ENV['PROJECT_TOOLS_MODULEPATH'] = previous
   end
 
   def test_erb_reads_count_but_plain_template_text_and_ruby_comments_do_not

@@ -1,13 +1,51 @@
 PATH
   remote: .tools/lint
   specs:
-    lint-project (0.1.13)
-      builder (~> 3.3)
+    lint-project (0.2.0)
+      json (< 3)
       openvox (~> 8.29)
+      project-tools-shared (>= 0.1.0, < 0.2.0)
       puppet-lint (~> 5.1)
       puppet-lint-param-types (~> 3.0)
       puppet-lint-trailing_comma-check (~> 3.0)
+      syslog (~> 0.4)
+
+PATH
+  remote: .tools/metadata
+  specs:
+    project-tools-metadata (0.1.0)
+      json (>= 2.21, < 4)
+      project-tools-shared (>= 0.1.0, < 0.2.0)
+
+PATH
+  remote: .tools/module-dependencies
+  specs:
+    project-tools-module-dependencies (0.1.0)
+      json (< 3)
+      openvox (~> 8.29)
+      project-tools-shared (>= 0.1.0, < 0.2.0)
+      semantic_puppet (~> 1.1)
+      syslog (~> 0.4)
+
+PATH
+  remote: .tools/ruby-lint
+  specs:
+    project-tools-ruby-lint (0.1.0)
       rubocop (~> 1.91)
+
+PATH
+  remote: .tools/shared
+  specs:
+    project-tools-shared (0.1.0)
+      builder (~> 3.3)
+
+PATH
+  remote: .tools/validate
+  specs:
+    project-tools-validate (0.1.0)
+      json (< 3)
+      openvox (~> 8.29)
+      project-tools-shared (>= 0.1.0, < 0.2.0)
       syslog (~> 0.4)
 
 GEM
@@ -31,7 +69,7 @@ GEM
     forwardable (1.4.0)
     getoptlong (0.2.1)
     hocon (1.4.0)
-    json (3.0.2)
+    json (2.21.2)
     json-schema (6.2.0)
       addressable (~> 2.8)
       bigdecimal (>= 3.1, < 5)
@@ -135,6 +173,11 @@ DEPENDENCIES
   metadata-json-lint
   minitest
   minitest-reporters
+  project-tools-metadata!
+  project-tools-module-dependencies!
+  project-tools-ruby-lint!
+  project-tools-shared!
+  project-tools-validate!
   rake
   rexml
 

@@ -67,15 +67,15 @@ class ParentClassChecksTest < Minitest::Test
   end
 
   def test_parent_resolution_uses_the_modulepath_and_prefers_the_current_buffer
-    previous = ENV.fetch('PROJECT_LINT_MODULEPATH', nil)
+    previous = ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil)
     Dir.mktmpdir('parent-class-checks-') do |directory|
-      ENV['PROJECT_LINT_MODULEPATH'] = directory
+      ENV['PROJECT_TOOLS_MODULEPATH'] = directory
       path = File.join(directory, 'owner/manifests/init.pp')
       FileUtils.mkdir_p(File.dirname(path))
       assert_parent_resolution(path)
     end
   ensure
-    ENV['PROJECT_LINT_MODULEPATH'] = previous
+    ENV['PROJECT_TOOLS_MODULEPATH'] = previous
   end
 
   def assert_parent_resolution(path)

@@ -1,0 +1,181 @@
+name: Project checks
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  BUNDLE_IGNORE_CONFIG: '1'
+  BUNDLE_VERSION: system
+  BUNDLE_FROZEN: 'true'
+  BUNDLE_PATH: vendor/bundle
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  metadata:
+    name: Metadata
+    runs-on: ubuntu-24.04
+    env:
+      PROJECT_METADATA_MODULES_PATH: '.'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Check project and module metadata
+        run: bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload metadata report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Metadata-report
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .tools/metadata/results/metadata-report.xml
+
+  puppet_dependencies:
+    name: Puppet dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Check Puppet module dependencies
+        run: |
+          export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE"
+          bundle exec project-tools-module-dependencies --junit .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload Puppet dependency report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Project-tools-module-dependencies-report
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+      - name: Publish dependency summary
+        if: ${{ !cancelled() && hashFiles('.tools/module-dependencies/results/project-tools-module-dependencies-report.xml') != '' }}
+        uses: test-summary/action@v2
+        with:
+          paths: .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+          show: fail
+          folded: false
+
+  validate:
+    name: Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Validate first-party Puppet manifests
+        run: bundle exec rake validate:puppet
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload Puppet validation report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Validate-report
+          include-hidden-files: true
+          path: .tools/validate/results/validate-report.xml
+
+  puppet_lint:
+    name: Puppet lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Check the complete first-party scope
+        run: |
+          mkdir -p .tools/lint/results
+          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit .tools/lint/results/puppet-lint-report.xml
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload Puppet lint report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Puppet-lint-report
+          include-hidden-files: true
+          path: .tools/lint/results/puppet-lint-report.xml
+
+  ruby_lint:
+    name: Ruby lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Check first-party Ruby code
+        run: |
+          mkdir -p .tools/ruby-lint/results
+          bundle exec rubocop --config .rubocop.yml --format progress --format junit --out .tools/ruby-lint/results/rubocop-report.xml
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload Ruby lint report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Ruby-lint-report
+          include-hidden-files: true
+          path: .tools/ruby-lint/results/rubocop-report.xml
+
+  tool_tests:
+    name: Tool tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Run tool tests
+        env:
+          MINITEST_REPORTERS_REPORTS_DIR: .tools/results/tests
+        run: bundle exec rake test
+      - name: Check for changes
+        run: git diff --exit-code HEAD --
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Test-results
+          include-hidden-files: true
+          path: .tools/results/tests/TEST-*.xml
+      - name: Publish test summary
+        if: ${{ !cancelled() }}
+        uses: test-summary/action@v2
+        with:
+          paths: .tools/results/tests/TEST-*.xml

@@ -10,7 +10,7 @@ class CliScopeTest < Minitest::Test
     write_source(fixture('cli_scope/in_the_configured_modulepath_sample'), path: 'example/manifests/init.pp')
     write_file('example/templates/state.erb', '<%= @enabled %>')
     options = ['--only-checks', 'project_class_check_reuse', @file]
-    environment = { 'PROJECT_LINT_MODULEPATH' => @directory }
+    environment = { 'PROJECT_TOOLS_MODULEPATH' => @directory }
     assert_cli_success(*options, env: environment)
     write_file('example/templates/state.erb', '@enabled<%# @enabled is only mentioned in a comment. %>')
     assert_cli_failure(*options, env: environment)
@@ -20,7 +20,6 @@ class CliScopeTest < Minitest::Test
   end
 
   def test_cli_discovers_new_first_party_files_and_fails_on_a_project_check
-    prepare_metadata_project(@directory)
     copy_project_config(@directory)
     write_source("$values = concat([1], [2])\n", path: 'new.pp')
     assert_cli_success('.', directory: @directory)

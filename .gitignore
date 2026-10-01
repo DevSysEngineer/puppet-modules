@@ -8,5 +8,10 @@ Thumbs.db
 /.bundle/
 /vendor/bundle/
 
-# Generated lint and test reports.
+# Generated tool reports.
 /.tools/lint/results/
+/.tools/module-dependencies/results/
+/.tools/validate/results/
+/.tools/metadata/results/
+/.tools/ruby-lint/results/
+/.tools/results/

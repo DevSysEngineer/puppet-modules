@@ -2,7 +2,12 @@
 
 source 'https://rubygems.org'
 
-gemspec path: '.tools/lint'
+gem 'lint-project', path: '.tools/lint', require: false
+gem 'project-tools-metadata', path: '.tools/metadata', require: false
+gem 'project-tools-module-dependencies', path: '.tools/module-dependencies', require: false
+gem 'project-tools-ruby-lint', path: '.tools/ruby-lint', require: false
+gem 'project-tools-shared', path: '.tools/shared', require: false
+gem 'project-tools-validate', path: '.tools/validate', require: false
 
 gem 'metadata-json-lint', require: false
 gem 'minitest'

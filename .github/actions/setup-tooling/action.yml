@@ -1,0 +1,16 @@
+name: Set up project tooling
+description: Install the Ruby tooling bundle using the repository lockfile
+runs:
+  using: composite
+  steps:
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ruby
+        bundler: none
+    - name: Install the latest stable Bundler
+      shell: bash
+      run: gem install bundler
+    - name: Install the locked development bundle
+      shell: bash
+      run: bundle install

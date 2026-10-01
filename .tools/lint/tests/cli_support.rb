@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
-require_relative 'metadata_support'
-
 # Temporary files and subprocess assertions for native CLI integration tests.
 module LintCliSupport
   include LintTestSupport
-  include MetadataSupport
 
   def setup
     @directory = Dir.mktmpdir('lint_cli_')
@@ -82,7 +79,6 @@ module LintCliSupport
 
   def cli(*arguments, directory: LintTestSupport::ROOT, env: {}, project_config: true)
     options = project_config ? ['--no-config', '--config', '.puppet-lint.rc'] : []
-    env = { 'PROJECT_LINT_MODULES_PATH' => '.' }.merge(env)
     Open3.capture3(env, Gem.bin_path('puppet-lint', 'puppet-lint'), *options, *arguments, chdir: directory)
   end
 

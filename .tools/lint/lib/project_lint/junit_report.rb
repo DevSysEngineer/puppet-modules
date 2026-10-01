@@ -1,17 +1,8 @@
 # frozen_string_literal: true
 
-require 'builder'
+require 'project_tools/shared/junit_report'
 
 module ProjectLint
-  # Shared XML envelope; each producer defines its own cases and exit status.
-  module JunitReport
-    def self.write(output, name:, **counts)
-      xml = Builder::XmlMarkup.new(indent: 2)
-      xml.instruct!
-      xml.testsuites do
-        xml.testsuite(name: name, **counts) { yield xml }
-      end
-      output.write(xml.target!)
-    end
-  end
+  # Preserve the public require path and writer signature.
+  JunitReport = ProjectTools::Shared::JunitReport
 end

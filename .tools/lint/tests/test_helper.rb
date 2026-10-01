@@ -1,11 +1,6 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
-require 'minitest/reporters'
-require 'open3'
-require 'tmpdir'
-require 'fileutils'
-require 'json'
+require_relative '../../shared/test_support/bootstrap'
 require 'project_lint'
 
 # Use native configuration and diagnostics for both isolated checks and interacting fixes.
@@ -117,8 +112,3 @@ module LintTestSupport
 end
 
 require_relative 'cli_support'
-
-Minitest::Reporters.use!([
-                           Minitest::Reporters::DefaultReporter.new,
-                           Minitest::Reporters::JUnitReporter.new(File.expand_path('../results', __dir__))
-                         ])

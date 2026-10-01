@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require_relative 'guide_links_support'
+require_relative '../../shared/test_support/guide_links'
 
 # Keep tooling, general rules, documentation rules and operational rules in their assigned files.
 class GuideStructureTest < Minitest::Test
-  include ProjectLint::GuideLinks
+  include ProjectToolsTestSupport::GuideLinks
 
   ROOT = File.join(LintTestSupport::ROOT, '.tools/lint')
   DOCUMENTS = %w[README.md docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md].freeze
@@ -104,13 +104,6 @@ class GuideStructureTest < Minitest::Test
       RULE_GROUPS.each_key do |name|
         refute_includes heading_anchors(File.read(File.join(ROOT, name))), anchor
       end
-    end
-  end
-
-  def expected_contents(text)
-    headings = prose(text).scan(/^(\#{1,6}) (.+)$/)
-    headings.zip(heading_anchors(text)).drop(1).map do |(level, title), anchor|
-      "#{'  ' * (level.length - 2)}- [#{title}](##{anchor})"
     end
   end
 end

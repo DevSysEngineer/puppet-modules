@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'pathname'
+require 'project_tools/shared/modulepath'
 require 'project_lint/ast'
 
 module ProjectLint
@@ -9,15 +9,8 @@ module ProjectLint
     attr_reader :roots
 
     def initialize
-      @explicit = ENV.key?('PROJECT_LINT_MODULEPATH')
-      @roots = ENV.fetch('PROJECT_LINT_MODULEPATH', Dir.pwd).split(File::PATH_SEPARATOR, -1).map do |path|
-        unless Pathname.new(path).absolute? && File.directory?(path)
-          raise ArgumentError, 'PROJECT_LINT_MODULEPATH must contain existing absolute module directories'
-        end
-
-        File.realpath(path)
-      end.freeze
-      raise ArgumentError, 'PROJECT_LINT_MODULEPATH must not be empty' if roots.empty?
+      @explicit = ENV.key?('PROJECT_TOOLS_MODULEPATH')
+      @roots = ProjectTools::Shared::Modulepath.parse(ENV.fetch('PROJECT_TOOLS_MODULEPATH', Dir.pwd))
 
       @sources = {}
     end

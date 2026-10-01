@@ -15,16 +15,16 @@ Every durable norm has exactly one authoritative location. Classify a new or cha
 2. Does it govern how general Puppet code is written or structured? Use [CODE_RULES.md](.tools/lint/docs/CODE_RULES.md).
 3. Does it govern Puppet Strings, Puppet code comments, or Puppet interface documentation? Use [DOCUMENTATION_RULES.md](.tools/lint/docs/DOCUMENTATION_RULES.md).
 4. Does it govern operational implementation, including managed files, permissions, systemd, shell, runtime tools, or monitoring? Use [OPERATIONAL_RULES.md](.tools/lint/docs/OPERATIONAL_RULES.md).
-5. Does it govern installation, configuration, execution, CI, reporting, check registration, autofix, tooltests, or maintenance of the lint tooling? Use the [lint README](.tools/lint/README.md).
+5. Does it govern shared installation, package selection, modulepath configuration, distribution, CLI design, CI or joint tooltest execution? Use the [tooling README](.tools/README.md). Keep lint procedures, check registration and autofix in the [lint README](.tools/lint/README.md), library contracts in the [shared README](.tools/shared/README.md), parser CLI behavior in the [validator README](.tools/validate/README.md), dependency CLI behavior in the [dependency README](.tools/module-dependencies/README.md), metadata checks and fixes in the [metadata README](.tools/metadata/README.md), and native Ruby-lint usage in the [Ruby-lint README](.tools/ruby-lint/README.md).
 6. Does it govern general repository documentation, README structure, Markdown, editorial review, or documentation ownership? Keep it in `AGENTS.md`.
 
 - Never duplicate a complete norm across these layers. Link to the authoritative source when a workflow obligation depends on a code or implementation norm.
 - Use a short summary only when it is necessary to explain a workflow decision and does not create a second norm. The authoritative source owns conditions, exceptions, and concrete implementation requirements. Checklists refer to that source without redefining it.
-- Maintain code style, layout, naming, and implementation conventions in the rules document that owns the code, not in `AGENTS.md`. This file requires their application and review without defining them again. Linter architecture and Ruby tooling conventions belong in the lint README.
+- Maintain code style, layout, naming, and implementation conventions in the rules document that owns the code, not in `AGENTS.md`. This file requires their application and review without defining them again. Linter architecture belongs in the lint README; shared package architecture and installation belong in the tooling README.
 - Rule ownership does not depend on automation. The rules documents are the central code and implementation standard, including fully automated, partly automated, detection-only, and exclusively manual rules. Missing checks or unsafe autofix never move a norm into `AGENTS.md` or make it optional.
 - When a task asks for a new general agreement, determine its owner before editing. Do not automatically add it here merely because the request calls it an "agent rule" or names `AGENTS.md`. Classify workflow, Puppet code, Puppet documentation, operational implementation, tooling, and general repository documentation first; add only a focused reference here when agents need to find the norm.
 - Keep general workflow out of the rules documents as well: preparation, scope, user changes, Git policy, overall security review, diff review, and reporting incomplete validation remain project-wide responsibilities here.
-- Apply this ownership model when maintaining rules or references in root and local agent instructions, the lint guide, or other documentation.
+- Apply this ownership model when maintaining rules or references in root and local agent instructions, the tooling guides, or other documentation.
 
 ## Project Scope And Compatibility
 
@@ -76,7 +76,7 @@ The public compatibility contract includes supported classes and defined types, 
 - Include concrete migration instructions for affected consumers with every breaking change in the relevant usage documentation.
 - Keep published releases immutable. Deliver subsequent changes under a new version.
 
-The [lint guide](.tools/lint/README.md#versiebron-en-rapportage) owns version-file validation, metadata selection, synchronization instructions, and correction behavior. Review release impact manually; a passing consistency check does not establish compatibility. The lint gem has a separate package version and [release procedure](.tools/lint/README.md#een-gem-bouwen-en-versie-uitbrengen).
+The [metadata guide](.tools/metadata/README.md#versiebron-en-rapportage) owns version-file validation, metadata selection, synchronization instructions, and correction behavior. Review release impact manually; a passing consistency check does not establish compatibility. The lint gem has a separate package version and [release procedure](.tools/lint/README.md#een-gem-bouwen-en-versie-uitbrengen).
 
 ## Working With The Existing Codebase
 
@@ -85,7 +85,7 @@ The [lint guide](.tools/lint/README.md#versiebron-en-rapportage) owns version-fi
 - Run `git status --short` before editing.
 - Inspect the relevant module files and README sections before changing behavior or structure.
 - Inspect the touched module's `metadata.json` when it exists.
-- Apply the lint guide's [module metadata checks and content review](.tools/lint/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
+- Apply the metadata guide's [module metadata checks and content review](.tools/metadata/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
 - Inspect related manifests, templates, static files, examples, and systemd units, including generated units.
 - Check existing integration with `basic_settings`, monitoring, systemd, security audit, `php8::fpm`, `nginx`, and other local modules relevant to the change.
 - Check existing ownership, mode, `require`, `notify`, and `subscribe` patterns before adding resources.
@@ -122,6 +122,7 @@ The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentatio
 
 ### Impact Review
 
+- Review tool changes against the [tool responsibility boundaries](.tools/README.md#verantwoordelijkheden-gescheiden-houden) and [CLI and reporting contract](.tools/README.md#cli-en-rapportage), including independent installation and consuming projects.
 - Review effects on repository conventions, Puppet abstractions, and reusable wrappers. When a request uses a concrete example, assess whether the same principle applies to other resource types, consumers, or integrations in the affected area. Apply shared behavior consistently, preserve type-specific semantics, and record the scope and any deliberate limits in the change review.
 - Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
 - Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
@@ -299,7 +300,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Development Environment
 
-- Set up development and CI through the [documented bundle setup](.tools/lint/README.md#installatie).
+- Set up development and CI through the [documented bundle setup](.tools/README.md#installatie).
 
 ### Linting And Autofix
 
@@ -309,10 +310,12 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Required Checks
 
+- Run the standalone metadata scan from the repository root with `PROJECT_METADATA_MODULES_PATH=. bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml` for every completed change, following the [metadata guide](.tools/metadata/README.md).
 - Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change, following the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
-- Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
-- Run all tool tests with `bundle exec rake test` after any corrections and before completing each change.
-- Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake validate:puppet` for the complete first-party manifest selection and its JUnit report before completion.
+- Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/ruby-lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
+- Run all tool tests with `bundle exec rake test` after any corrections and before completing each change. The joint task covers all suites listed in the [shared test guide](.tools/README.md#gezamenlijke-tooltests); parser validation and the real dependency scan remain separate checks.
+- Run `bundle exec project-tools-module-dependencies --junit .tools/module-dependencies/results/project-tools-module-dependencies-report.xml` with the explicit project modulepath for tooling, module metadata or dependency changes. Report actual dependency conflicts separately from failed tool tests; do not suppress conflicts to obtain a successful status.
+- Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake validate:puppet` for the complete first-party manifest selection and its JUnit report before completion, following the [validator guide](.tools/validate/README.md#puppet-manifests-valideren).
 - Perform the additional validation relevant to the change, as documented in the [validation guide](.tools/lint/README.md#code-controleren).
 - Complete applicable CI checks before marking the change complete.
 - Inspect the final change scope with `git diff --name-only`.
@@ -320,7 +323,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Tool Test Structure
 
-- Apply the lint guide's [test location and task contracts](.tools/lint/README.md#tests-uitvoeren-en-uitbreiden) when adding or moving repository tool tests.
+- Apply the tooling guide's [test location and task contracts](.tools/README.md#gezamenlijke-tooltests) when adding or moving repository tool tests.
 - Never create first-party test directories or test files outside those documented locations. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
 - Correct misplaced tests by moving them to the owning tool. Do not broaden test discovery or document an exception merely to accommodate their existing placement.
 - Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
@@ -342,7 +345,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### CI Jobs And Reports
 
-- Apply and verify the [CI and reporting procedures](.tools/lint/README.md#ci-van-deze-repository) when changing tooling or pipelines.
+- Apply and verify the [CI and reporting procedures](.tools/README.md#ci-van-deze-repository) when changing tooling or pipelines.
 - Never restore files to make a CI cleanliness check pass.
 
 ## Documentation
@@ -350,7 +353,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 ### Language And Authority
 
 - Write technical documentation in English, including changelog entries and this file, except for the Dutch documents specified below.
-- Keep the root README and the four central lint documents, `.tools/lint/README.md`, `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md`, in Dutch unless the user explicitly requests another language.
+- Keep the root README, `.tools/README.md`, `.tools/shared/README.md`, `.tools/module-dependencies/README.md`, `.tools/validate/README.md`, `.tools/metadata/README.md`, `.tools/ruby-lint/README.md`, `.tools/repository-checks/README.md`, and the four central lint documents, `.tools/lint/README.md`, `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md`, in Dutch unless the user explicitly requests another language.
 - Describe current behavior and instructions in the present tense. Do not explain current usage through historical comparisons or superseded workflows.
 - Keep one authoritative location for each technical fact.
 - Use concise summaries with pointers when a fact must appear in more than one layer.
@@ -361,7 +364,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 | --- | --- |
 | `AGENTS.md` | Durable project-wide workflow, general review policy, engineering responsibilities, and repository documentation governance, including Markdown, README style, editorial review, information placement, and technical evidence. |
 | Root `README.md` | Central user guide for module use and operational decisions. |
-| `.tools/lint/README.md` | Central tooling guide with task-based navigation, daily workflow, installation, configuration, check registry, CLI, validation, CI, linter maintenance, tool testing, and downstream integration. |
+| `.tools/README.md` | Shared installation, package choice, modulepath configuration, command overview, CI, reports, consumer migration, distribution and joint tooltest execution. |
+| `.tools/shared/README.md` | Shared library interfaces, dependency direction, maintenance and repository test support. |
+| `.tools/module-dependencies/README.md` | Dependency CLI, native selection, root comparisons, coverage, errors, presentation and tool-specific tests. |
+| `.tools/validate/README.md` | Parser CLI, manifest selection, native validation, report and exit contracts, and validator-specific tests. |
+| `.tools/metadata/README.md` | Project metadata selection, schema review, VERSION validation, safe synchronization, CLI, reports and metadata tests. |
+| `.tools/ruby-lint/README.md` | Native RuboCop usage, shared Ruby profile, correction workflow and Ruby-tool tests. |
+| `.tools/repository-checks/README.md` | Development-only checks for repository documentation, CI, distribution integration and test structure. |
+| `.tools/lint/README.md` | Lint usage, daily lint workflow, check registry, configuration, autofix, linter maintenance and lint-specific tests. |
 | `.tools/lint/docs/CODE_RULES.md` | Authoritative general Puppet code rules and review criteria applicable to every Puppet change, including exceptions, detection and autofix limits, and examples. |
 | `.tools/lint/docs/DOCUMENTATION_RULES.md` | Puppet code comments, Puppet Strings, and Puppet interface documentation, including their exceptions, detection and autofix limits, and examples. General repository documentation policy remains in `AGENTS.md`. |
 | `.tools/lint/docs/OPERATIONAL_RULES.md` | Additional operational Puppet rules and review criteria for managed files, permissions, security, systemd, shell, runtime dependencies, and monitoring, with their exceptions, detection and autofix limits, and examples. |
@@ -376,6 +386,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Markdown
 
+- Use paths relative to the current Markdown file for links to repository-owned files and directories, with `#anchor` for sections in the same document. Do not hardcode a hosting domain, repository owner, repository name, branch, or absolute filesystem path in these links. This applies to packaged documentation as well; references outside a gem require the corresponding repository checkout. Use a clearly identified `<repository-url>` placeholder in clone and Git-source examples. External documentation links retain their actual URLs.
 - Maintain a linked table of contents near the top of every repository-owned `.md` file except `AGENTS.md`, the sole exception to this requirement. Include every section and subsection heading in document order, at every depth, with nesting that follows the heading hierarchy; exclude the document title and headings inside code examples. Limit only the repository root `README.md` table of contents to headings at levels two and three. Update the contents and verify its links whenever headings change.
 - Keep the sentences, paragraphs, lists, tables, and examples under each heading on that heading's subject and in a logical reading order. Introduce concepts before relying on them and connect the explanations before and after examples or tables. Rewrite surrounding text when additions or moves break that continuity.
 - Keep each prose paragraph or list item on one physical line without hard wrapping, except where Markdown syntax, a table, or a code block requires line breaks.
@@ -411,7 +422,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Report unresolved differences between documentation and implementation.
 - Retain necessary warnings until those differences can be resolved.
 - Check that commands, paths, options, and references match the accompanying examples and current implementation.
-- Verify changed links.
+- Verify changed links and the [relative-link convention](#markdown) with the [repository documentation tests](.tools/repository-checks/README.md); review external destinations separately.
 - Confirm that relocated information is present at its destination.
 
 #### Prose Review
@@ -511,13 +522,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Tooling READMEs
 
-- Keep lint documentation in exactly four central Dutch documents: `.tools/lint/README.md` for tooling and workflow, `.tools/lint/docs/CODE_RULES.md` for general Puppet rules, `.tools/lint/docs/DOCUMENTATION_RULES.md` for Puppet code comments, Puppet Strings, and interface documentation, and `.tools/lint/docs/OPERATIONAL_RULES.md` for additional operational rules, following [language and authority](#language-and-authority).
+- Keep lint norms and lint-specific procedures in exactly four central Dutch documents: `.tools/lint/README.md` for tooling and workflow, `.tools/lint/docs/CODE_RULES.md` for general Puppet rules, `.tools/lint/docs/DOCUMENTATION_RULES.md` for Puppet code comments, Puppet Strings, and interface documentation, and `.tools/lint/docs/OPERATIONAL_RULES.md` for additional operational rules, following [language and authority](#language-and-authority).
+- The shared tooling, shared library, metadata, Ruby-lint, repository-checks, validator and dependency-tool READMEs own their separate interfaces and procedures; they must not duplicate lint norms.
 - Do not create separate documents per check, rule, small rule group, autofix, consumer, CI platform, or test topic. Any additional central lint document requires a separate, explicit architecture change; file size alone never authorizes an automatic fifth document.
 - Keep the general rules under `CODE_RULES.md`; do not introduce `STYLE_RULES.md`, since these rules also cover interfaces, parameters, dependencies, and resources. Do not use `REFERENCE.md` for lint rules; module `REFERENCE.md` files retain their Puppet Strings/API-reference purpose.
 - Keep each of the four central lint documents strictly below 300 KiB (307200 bytes), guarded by a lint documentation contract test. On an overshoot, first review placement within the four assigned responsibilities. Never delete or shorten necessary content, combine independent rules to save space, or split automatically to meet the limit; any necessary fifth document requires a separate, explicitly reviewed architecture change.
 - Preserve requirements, exceptions, warnings, detection limits, autofix conditions, supported usage routes, and manual review criteria during reorganization. Consolidating duplicate explanations must preserve every distinct condition and obligation.
 - Keep the lint README's contents task-oriented around lint usage and tooling. Link clearly from the lint README to all three rule documents and between relevant sections in all four documents, following the [Markdown navigation requirements](#markdown). Make the cumulative applicability of the three rule documents explicit in the reading guide.
-- Keep both the repository quick start and the consumer quick start before the detailed tooling reference in `README.md`. Keep the sole central check registry and maintainer explanations there, and link directly to the authoritative rule in `CODE_RULES.md`, `DOCUMENTATION_RULES.md`, or `OPERATIONAL_RULES.md` without duplicating full rules or the registry.
+- Keep both the repository quick start and the consumer quick start before the detailed lint reference in `.tools/lint/README.md`, linking shared setup to `.tools/README.md`. Keep the sole central check registry and maintainer explanations there, and link directly to the authoritative rule in `CODE_RULES.md`, `DOCUMENTATION_RULES.md`, or `OPERATIONAL_RULES.md` without duplicating full rules or the registry.
 - Keep tool-specific test instructions in the owning tooling guide. Do not create separate test READMEs.
 - General README brevity, selective-detail, and presentation guidance must not remove information or required fields from the lint guide. Apply the lint guide's documentation contract to its rule reference.
 

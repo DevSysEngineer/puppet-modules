@@ -4,7 +4,6 @@
 require 'puppet-lint'
 require 'project_lint/native_fixes'
 
-require 'project_lint/checks/metadata'
 require 'project_lint/checks/parameter_order'
 require 'project_lint/checks/documentation_layout'
 require 'project_lint/checks/documentation'
