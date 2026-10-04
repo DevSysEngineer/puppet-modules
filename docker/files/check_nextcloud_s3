@@ -1,0 +1,471 @@
+#!/bin/sh
+# Managed by puppet
+
+# Dependency and usage errors cannot contain unfiltered runtime data.
+die() {
+    printf 'S3 check cannot run: %s\n' "$1"
+    exit 3
+}
+
+# Host commands are supplied by docker's monitoring packages; GNU date and timeout are required.
+AWK=$(command -v awk 2>/dev/null) || die 'awk not available'
+CURL=$(command -v curl 2>/dev/null) || die 'curl not available'
+DATE=$(command -v date 2>/dev/null) || die 'date not available'
+DOCKER=$(command -v docker 2>/dev/null) || die 'docker not available'
+ENV=$(command -v env 2>/dev/null) || die 'env not available'
+JQ=$(command -v jq 2>/dev/null) || die 'jq not available'
+MKTEMP=$(command -v mktemp 2>/dev/null) || die 'mktemp not available'
+OPENSSL=$(command -v openssl 2>/dev/null) || die 'openssl not available'
+RM=$(command -v rm 2>/dev/null) || die 'rm not available'
+TIMEOUT_BIN=$(command -v timeout 2>/dev/null) || die 'timeout not available'
+
+# Explicit CLI options override nonempty environment settings; the executable alone owns runtime defaults.
+S3_STORE="${S3_STORE:-}"
+S3_OBJECT="${S3_OBJECT:-}"
+VALIDITY_WARNING="${VALIDITY_WARNING:-30}"
+VALIDITY_CRITICAL="${VALIDITY_CRITICAL:-14}"
+RESPONSE_WARNING="${RESPONSE_WARNING:-2}"
+RESPONSE_CRITICAL="${RESPONSE_CRITICAL:-5}"
+TIMEOUT="${TIMEOUT:-30}"
+DETAIL_LIMIT="${DETAIL_LIMIT:-6000}"
+LC_ALL=C
+export LC_ALL
+START_TIME=$($DATE +%s.%N) || die 'cannot read the host clock'
+
+# Secrets remain in private files or unexported variables, never in argv, inherited environment or diagnostics.
+unset CURL_CONFIG SSE_KEY SSE_MD5
+WORK_DIR=''
+CRITICAL_REASONS=''
+UNKNOWN_REASONS=''
+WARNING_REASONS=''
+REQUEST_DETAIL='No S3 request was performed.'
+CERT_DETAIL='Server certificate validity was not assessed.'
+RESPONSE=''
+CERT_VALIDITY=''
+REQUEST_SCHEME=''
+OPERATION=HeadBucket
+[ -z "$S3_OBJECT" ] || OPERATION=HeadObject
+USAGE_TEXT="Usage: check_nextcloud_s3 -s store [-o object] [-w days] [-c days] [-W seconds] [-C seconds] [-t seconds] [-l characters]
+Environment: S3_STORE (-s, required); S3_OBJECT (-o, empty selects HeadBucket);
+VALIDITY_WARNING (-w, default 30 days); VALIDITY_CRITICAL (-c, default 14 days);
+RESPONSE_WARNING (-W, default 2 seconds); RESPONSE_CRITICAL (-C, default 5 seconds);
+TIMEOUT (-t, default 30 seconds, integer >= 5); DETAIL_LIMIT (-l, default 6000 characters).
+CLI overrides nonempty environment values, then script defaults. Repeated options use the last value.
+-o '' resets an environment object selection. Active numeric options cannot be empty.
+Integer settings accept at most nine decimal digits. Validity days are nonnegative integers with critical < warning; response seconds are positive decimals with warning < critical.
+-h and invalid input use this error interface (exit 3). Exit codes: 0 healthy, 1 warning, 2 critical, 3 incomplete assessment.
+Requires native curl SigV4, GNU coreutils and GNU timeout inside Nextcloud AIO.
+HTTPS additionally requires curl >= 7.88 with OpenSSL certificate output and uses the host CA store.
+Only one signed HEAD is sent from the host network, using the stored use_ssl setting. No writes, redirects or retries.
+Explicit use_ssl=false selects unencrypted HTTP and skips TLS/certificate checks, validity thresholds and certificate perfdata.
+The selected existing Nextcloud configuration supplies credentials and endpoint settings; no credential options exist.
+Supports the Nextcloud 32-34 stored S3 contract: ordinary AWS-compatible bucket names, DNS/IPv4 endpoints, HTTP(S)/SOCKS5 proxies.
+Legacy auth, provider-chain/session credentials, perBucket overrides, special AWS endpoints and IPv6 literal endpoints report incomplete assessment.
+Keys with dot-only path segments are unsupported because curl SigV4 rewrites them. Other object keys are URI encoded per segment.
+Positive stored connect_timeout and timeout further limit the remaining budget; zero never removes the monitoring deadline.
+The timeout setting is used conservatively as a HEAD limit although Nextcloud currently uses it only in its bucket-initialization test.
+The in-container GNU timeout kills its OCC process group; a stopped Docker daemon can prevent observation of that cleanup."
+OPTERR=0
+while getopts ':s:o:w:c:W:C:t:l:h' opt; do
+    case "$opt" in
+        s) S3_STORE="$OPTARG" ;;
+        o) S3_OBJECT="$OPTARG" ;;
+        w) VALIDITY_WARNING="$OPTARG" ;;
+        c) VALIDITY_CRITICAL="$OPTARG" ;;
+        W) RESPONSE_WARNING="$OPTARG" ;;
+        C) RESPONSE_CRITICAL="$OPTARG" ;;
+        t) TIMEOUT="$OPTARG" ;;
+        l) DETAIL_LIMIT="$OPTARG" ;;
+        *) die "$USAGE_TEXT" ;;
+    esac
+done
+shift $((OPTIND - 1))
+[ "$#" -eq 0 ] || die "$USAGE_TEXT"
+
+# Temporary files hold untrusted JSON/certificate output and binary SSE-C material that cannot safely use shell variables.
+cleanup() {
+    [ -z "$WORK_DIR" ] || $RM -rf -- "$WORK_DIR"
+    WORK_DIR=''
+}
+
+# Each external phase receives only the unused work budget; three seconds remain for termination and reporting.
+remaining_time() {
+    remaining_now=$($DATE +%s.%N) || return 1
+    $AWK -v start="$START_TIME" -v now="$remaining_now" -v budget="$TIMEOUT" \
+        'BEGIN { remaining = start + budget - 3 - now; if (remaining <= 0) exit 1; printf "%.6f", remaining }'
+}
+
+# GNU timeout owns its process group, so timed-out local pipelines cannot leave a curl or Docker client behind.
+run_bounded() {
+    run_remaining=$(remaining_time) || return 125
+    (ulimit -f 2048; exec $TIMEOUT_BIN --signal=TERM --kill-after=1 "$run_remaining" \
+        $ENV -i PATH="$PATH" LC_ALL=C "$@") 2>/dev/null
+}
+
+# Preserve all findings while selecting severity semantically: critical, incomplete, warning, healthy.
+finding() {
+    case "$1" in
+        2) finding_previous="$CRITICAL_REASONS" ;;
+        3) finding_previous="$UNKNOWN_REASONS" ;;
+        1) finding_previous="$WARNING_REASONS" ;;
+    esac
+    finding_text="$2"
+    if [ -n "$finding_previous" ]; then
+        finding_text=$(printf '%s\n%s' "$finding_previous" "$2")
+    fi
+    case "$1" in
+        2) CRITICAL_REASONS="$finding_text" ;;
+        3) UNKNOWN_REASONS="$finding_text" ;;
+        1) WARNING_REASONS="$finding_text" ;;
+    esac
+}
+
+# Only the validated store name and locally formatted numbers/dates enter diagnostics; endpoints and secrets never do.
+finish() {
+    final_status=0
+    final_summary='signed metadata access and TLS are healthy.'
+    if [ "$REQUEST_SCHEME" = http ]; then
+        final_summary='signed metadata access is healthy over HTTP; TLS checks are skipped.'
+    fi
+    for final_kind in 1 3 2; do
+        case "$final_kind" in
+            1) final_reason="$WARNING_REASONS" ;;
+            3) final_reason="$UNKNOWN_REASONS" ;;
+            2) final_reason="$CRITICAL_REASONS" ;;
+        esac
+        if [ -n "$final_reason" ]; then
+            final_status="$final_kind"
+            final_summary=${final_reason%%'
+'*}
+        fi
+    done
+    final_detail=$(printf '%s\n%s\n%s\n\nMetadata access:\n%s\n\nCertificate:\n%s' \
+        "$CRITICAL_REASONS" "$UNKNOWN_REASONS" "$WARNING_REASONS" "$REQUEST_DETAIL" "$CERT_DETAIL" |
+        $AWK 'NF { if (gap && seen) print ""; print; seen=1; gap=0; next } { gap=1 }')
+    final_detail=$(printf '%s' "$final_detail" | $AWK -v limit="$DETAIL_LIMIT" '
+        { text = text separator $0; separator = "\n" }
+        END { if (length(text) > limit) printf "%s\n[Diagnostic text truncated.]\n", substr(text, 1, limit); else print text }')
+    cleanup
+    final_now=$($DATE +%s.%N)
+    final_total=$($AWK -v start="$START_TIME" -v now="$final_now" 'BEGIN { printf "%.3f", now-start }')
+    printf 'S3 store %s: %s | total=%ss' "$S3_STORE" "$final_summary" "$final_total"
+    [ -z "$RESPONSE" ] || printf ' response=%ss;%s;%s;0' "$RESPONSE" "$RESPONSE_WARNING" "$RESPONSE_CRITICAL"
+    [ -z "$CERT_VALIDITY" ] || printf ' cert_validity=%ss;%s:;%s:' "$CERT_VALIDITY" "$VALIDITY_WARNING_SECONDS" "$VALIDITY_CRITICAL_SECONDS"
+    printf '\n\n%s\n\nInterpretation:\n' "$final_detail"
+    printf '%s\n' 'This check assesses read-only S3 metadata access from the monitoring host.' \
+        'It does not test uploads, object contents, decryption, deletion, capacity or the complete Nextcloud file workflow.'
+    if [ "$REQUEST_SCHEME" = http ]; then
+        printf '%s\n' 'The store explicitly uses unencrypted HTTP. TLS and certificate checks do not apply.'
+    elif [ "$REQUEST_SCHEME" = https ]; then
+        printf '%s\n' 'HTTPS uses the host CA store, not the Nextcloud container or PHP trust store.' \
+            'Expiry thresholds concern the server certificate, not a full chain forecast or OCSP.'
+    fi
+    [ "$final_status" -eq 0 ] || printf '%s\n' "$final_summary"
+    exit "$final_status"
+}
+
+# Integer bounds protect shell arithmetic; numeric input is validated after all overrides, including partial pairs.
+for INTEGER_VALUE in "$TIMEOUT" "$DETAIL_LIMIT"; do
+    case "$INTEGER_VALUE" in
+        ''|*[!0-9]*) die 'timeout and detail limit must be decimal integers' ;;
+    esac
+    [ "${#INTEGER_VALUE}" -le 9 ] || die 'integer settings must have at most nine digits'
+done
+[ "$TIMEOUT" -ge 5 ] && [ "$DETAIL_LIMIT" -gt 0 ] || die 'require timeout >= 5 and a positive detail limit'
+for RESPONSE_VALUE in "$RESPONSE_WARNING" "$RESPONSE_CRITICAL"; do
+    printf '%s' "$RESPONSE_VALUE" | $JQ -eRs 'test("^[0-9]+(\\.[0-9]+)?$") and (tonumber | isfinite and . > 0)' \
+        >/dev/null 2>&1 || die 'response thresholds must be finite positive decimal seconds'
+done
+$AWK -v warning="$RESPONSE_WARNING" -v critical="$RESPONSE_CRITICAL" \
+    'BEGIN { exit !(warning < critical) }' || die 'response warning must be below critical'
+case "$S3_STORE" in
+    ''|[!a-zA-Z0-9]*|*[!a-zA-Z0-9_.-]*|default|root|class|arguments) die 'select a valid named S3 store with -s or S3_STORE' ;;
+esac
+OPERATION=HeadBucket
+[ -z "$S3_OBJECT" ] || OPERATION=HeadObject
+
+# Private state also supplies an empty Docker config directory, avoiding ambient contexts and credential helpers.
+umask 077
+WORK_DIR=$($MKTEMP -d /tmp/check-nextcloud-s3.XXXXXXXXXX) || die 'cannot create private temporary storage'
+trap cleanup EXIT
+trap 'finding 3 "check interrupted; inspect the monitoring executor."; finish' HUP INT TERM
+
+# AIO has no Compose service labels: inspect only its exact fixed name on the local rootful daemon.
+CONTAINER_STATE=$(run_bounded $DOCKER --host unix:///var/run/docker.sock --config "$WORK_DIR" \
+    container ls --all --filter 'name=^/nextcloud-aio-nextcloud$' --format '{{.State}}')
+CONTAINER_STATUS=$?
+[ "$CONTAINER_STATUS" -eq 0 ] || {
+    finding 3 'local Docker inspection failed or timed out; check daemon access and agent permissions.'; finish
+}
+case "$CONTAINER_STATE" in
+    running) : ;;
+    '') finding 2 'required AIO container is absent; restore the Nextcloud deployment.'; finish ;;
+    created|exited|dead|paused|restarting|removing)
+        finding 2 'required AIO container is not running normally; inspect Nextcloud AIO.'; finish ;;
+    *) finding 3 'AIO container state could not be interpreted; inspect the local Docker runtime.'; finish ;;
+esac
+
+# A native in-container timeout kills the OCC process group even when the host client loses its connection.
+CONTAINER_TIMEOUT=$(run_bounded $DOCKER --host unix:///var/run/docker.sock --config "$WORK_DIR" \
+    exec --user www-data nextcloud-aio-nextcloud timeout --version) || {
+    finding 3 'in-container timeout is unavailable; check the AIO runtime.'; finish
+}
+case "$CONTAINER_TIMEOUT" in
+    'timeout (GNU coreutils)'*) : ;;
+    *) finding 3 'GNU timeout is required inside AIO; check the supported container image.'; finish ;;
+esac
+OCC_BUDGET=$(remaining_time) || { finding 3 'configuration deadline reached; inspect the host load.'; finish; }
+OCC_BUDGET=$($AWK -v remaining="$OCC_BUDGET" 'BEGIN { if (remaining <= 1) exit 1; printf "%.6f", remaining-1 }') || {
+    finding 3 'no configuration inspection budget remains; increase the check and agent timeout.'; finish
+}
+run_bounded $DOCKER --host unix:///var/run/docker.sock --config "$WORK_DIR" \
+    exec --user www-data nextcloud-aio-nextcloud timeout --signal=KILL "$OCC_BUDGET" \
+    php occ --no-interaction --no-ansi config:system:get --output=json --default-value=null objectstore "$S3_STORE" \
+    > "$WORK_DIR/store.json"
+OCC_STATUS=$?
+[ "$OCC_STATUS" -eq 0 ] || {
+    finding 3 'OCC configuration inspection failed or timed out; inspect Nextcloud and its execution budget.'; finish
+}
+run_bounded $JQ -e -s 'length == 1' "$WORK_DIR/store.json" >/dev/null || {
+    finding 3 'OCC returned invalid JSON; inspect the selected store configuration.'; finish
+}
+if run_bounded $JQ -e '. == "null" or . == null' "$WORK_DIR/store.json" >/dev/null; then
+    finding 2 'required named store is missing from Nextcloud; restore its configuration.'; finish
+fi
+
+# Map the limited Nextcloud 32-34 S3ConnectionTrait contract once, without ever initializing an objectstore.
+# PHP empty() selects eu-west-1 and s3.<region>.amazonaws.com; explicit false and zero retain their documented meanings.
+# AWS SDK v3 endpoint rules use a path for HTTPS buckets containing dots and for IP endpoints.
+run_bounded $JQ -e --arg operation "$OPERATION" '
+    def nonempty: type == "string" and length > 0 and . != "0";
+    def safe: type == "string" and (test("[\\x00-\\x1f\\x7f]") | not);
+    def empty_php: . == null or . == "" or . == "0";
+    def optional_string: . == null or type == "string";
+    def optional_bool: . == null or type == "boolean";
+    if type != "object" or .class != "\\OC\\Files\\ObjectStore\\S3" or (.arguments | type) != "object" then
+        "" | halt_error(10)
+    else .arguments end |
+    if ([.region, .hostname] | all(optional_string)) and
+       ($operation != "HeadObject" or (.sse_c_key | optional_string)) and
+       ([.use_ssl, .use_path_style, .legacy_auth] | all(optional_bool)) and
+       (.port == null or .port == "" or (.port | type == "number" and floor == . and . >= 1 and . <= 65535)) and
+       ([.connect_timeout, .timeout] | all(. == null or (type == "number" and isfinite and . >= 0))) and
+       (.timeout == null or (.timeout | floor == .)) and
+       (.proxy == null or .proxy == false or (.proxy | safe)) then . else "" | halt_error(11) end |
+    if (.key | nonempty) and (.secret | nonempty) then . else "" | halt_error(12) end |
+    if ([.key, .secret] | all(safe and (. != "***REMOVED SENSITIVE VALUE***") and (test("^\\*+$") | not))) and
+       (.key | contains(":") | not) then . else "" | halt_error(13) end |
+    if .legacy_auth == true then "" | halt_error(14) else . end |
+    if .perBucket != null or .session_token != null or .use_presigned_url == true then
+        "" | halt_error(16) else . end |
+    .region = (if (.region | empty_php) then "eu-west-1" else .region end) |
+    .hostname = (if (.hostname | empty_php) then "s3." + .region + ".amazonaws.com" else .hostname end) |
+    .scheme = (if .use_ssl == false then "http" else "https" end) |
+    .port = (if .port == null or .port == "" then (if .use_ssl == false then 80 else 443 end) else .port end) |
+    .connect_timeout = (if .connect_timeout == null then 5 else .connect_timeout end) |
+    .timeout = (if .timeout == null then 15 else .timeout end) |
+    .proxy = (if .proxy == null or .proxy == false or .proxy == "0" then "" else .proxy end) |
+    if (.bucket | type == "string" and test("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$") and
+        (test("\\.\\.|^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$|--x-s3$|--xa-s3$|--op-s3$|-s3alias$") | not)) and
+       (.region | test("^[a-z0-9][a-z0-9-]*$") and . != "aws-global") and
+       (.hostname | test("^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$") and
+        (test("s3-accelerate|s3-accesspoint|s3-object-lambda|s3express|s3-outposts") | not)) and
+       (.proxy == "" or (.proxy | test("^(https?|socks5h?)://[^ /]+(:[0-9]+)?/?$")))
+    then . else "" | halt_error(16) end |
+    .path_style = (.use_path_style == true or (.scheme == "https" and (.bucket | contains("."))) or
+        (.hostname | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$"))) |
+    .url = (.scheme + "://" + (if .path_style then .hostname else .bucket + "." + .hostname end) +
+        ":" + (.port | tostring) + "/" + (if .path_style then .bucket else "" end))
+' "$WORK_DIR/store.json" > "$WORK_DIR/client.json"
+CONFIG_STATUS=$?
+if [ "$CONFIG_STATUS" -ne 0 ]; then
+    # Fixed parser exit codes distinguish absence, bad types and unsupported forms without reproducing sensitive values.
+    case "$CONFIG_STATUS" in
+        10) finding 3 'selected store has an invalid class or structure; inspect its Nextcloud configuration.' ;;
+        11) finding 3 'stored S3 options have invalid types; inspect the selected Nextcloud store.' ;;
+        12) finding 3 'stored credentials are missing or invalid; inspect the selected Nextcloud store.' ;;
+        13) finding 3 'stored credentials are masked or contain unsupported characters; inspect OCC configuration access.' ;;
+        14) finding 3 'legacy S3 authentication is unsupported; review the store authentication mode.' ;;
+        16) finding 3 'store endpoint or client settings are unsupported; review the check runtime contract.' ;;
+        *) finding 3 'store configuration could not be assessed; inspect its types and the execution budget.' ;;
+    esac
+    finish
+fi
+
+# Only HTTPS consumes certificate settings and curl's certificate output capabilities.
+REQUEST_SCHEME=$(run_bounded $JQ -r '.scheme' "$WORK_DIR/client.json") || {
+    finding 3 'request protocol could not be read; inspect the store and execution budget.'; finish
+}
+if [ "$REQUEST_SCHEME" = https ]; then
+    for INTEGER_VALUE in "$VALIDITY_WARNING" "$VALIDITY_CRITICAL"; do
+        case "$INTEGER_VALUE" in
+            ''|*[!0-9]*) die 'validity days must be decimal integers' ;;
+        esac
+        [ "${#INTEGER_VALUE}" -le 9 ] || die 'integer settings must have at most nine digits'
+    done
+    [ "$VALIDITY_CRITICAL" -lt "$VALIDITY_WARNING" ] || die 'require validity critical < warning'
+    VALIDITY_WARNING_SECONDS=$($AWK -v days="$VALIDITY_WARNING" 'BEGIN { printf "%.0f", days*86400 }')
+    VALIDITY_CRITICAL_SECONDS=$($AWK -v days="$VALIDITY_CRITICAL" 'BEGIN { printf "%.0f", days*86400 }')
+    CURL_VERSION=$(run_bounded $CURL -q --version) || {
+        finding 3 'curl capabilities could not be inspected; check the host runtime.'; finish
+    }
+    printf '%s\n' "$CURL_VERSION" | $AWK '
+        NR == 1 { split($2, v, "."); supported = (v[1] > 7 || (v[1] == 7 && v[2] >= 88)) && /OpenSSL\// }
+        END { exit !supported }' || {
+        finding 3 'HTTPS requires curl >= 7.88 with the OpenSSL backend; update the host runtime.'; finish
+    }
+    CURL_WRITE_OUT='%{http_code}\n%{time_total}\n%{ssl_verify_result}\n%{certs}'
+else
+    CERT_DETAIL='TLS and certificate checks are skipped because use_ssl is false (unencrypted HTTP).'
+    CURL_WRITE_OUT='%{http_code}\n%{time_total}'
+fi
+
+# Native SigV4 rejects --path-as-is; curl also rewrites encoded dot segments, so do not probe a different object.
+if ! printf '%s' "$S3_OBJECT" | run_bounded $JQ -eRs 'split("/") | all(. != "." and . != "..")' >/dev/null; then
+    finding 3 'object keys with dot-only path segments cannot be assessed by native curl SigV4; select another existing key.'
+    finish
+fi
+
+# Encode every key segment without altering slash boundaries.
+OBJECT_PATH=$(printf '%s' "$S3_OBJECT" | run_bounded $JQ -Rrs 'split("/") | map(@uri) | join("/")') || {
+    finding 3 'object key could not be encoded; inspect monitoring input.'; finish
+}
+REQUEST_BUDGET=$(remaining_time) || { finding 3 'request budget exhausted before S3; inspect host load.'; finish; }
+
+# Curl config has its own escaping rules; JSON escaping is not a substitute for curl escaping.
+CURL_CONFIG=$(run_bounded $JQ -r --arg object "$OBJECT_PATH" --argjson budget "$REQUEST_BUDGET" '
+    def quote: "\"" + (gsub("\\\\"; "\\\\") | gsub("\""; "\\\"")) + "\"";
+    def cap: if . == 0 or . > $budget then $budget else . end;
+    "url = " + ((.url + (if $object == "" then "" elif .path_style then "/" + $object else $object end)) | quote),
+    "user = " + ((.key + ":" + .secret) | quote),
+    "aws-sigv4 = " + (("aws:amz:" + .region + ":s3") | quote),
+    "proxy = " + (.proxy | quote),
+    "connect-timeout = " + (.connect_timeout | cap | tostring),
+    "max-time = " + (.timeout | cap | tostring)
+' "$WORK_DIR/client.json") || {
+    finding 3 'request configuration could not be prepared; inspect the store.'; finish
+}
+
+# HeadBucket never transmits SSE-C; HeadObject uses the configured key and MD5 over its decoded 32 bytes.
+if [ "$OPERATION" = HeadObject ]; then
+    SSE_KEY=$(run_bounded $JQ -r '.sse_c_key // ""' "$WORK_DIR/client.json") || {
+        finding 3 'SSE-C configuration could not be read; inspect the store.'; finish
+    }
+    if [ -n "$SSE_KEY" ] && [ "$SSE_KEY" != 0 ]; then
+        printf '%s' "$SSE_KEY" | run_bounded $JQ -eRs 'test("^[A-Za-z0-9+/]{43}=$")' >/dev/null || {
+            finding 3 'SSE-C requires a base64 encoded 32-byte key; inspect the store.'; finish
+        }
+        printf '%s' "$SSE_KEY" | run_bounded $OPENSSL base64 -d -A > "$WORK_DIR/sse-key" || {
+            finding 3 'SSE-C decoding failed; inspect the crypto runtime.'; finish
+        }
+        run_bounded $OPENSSL dgst -md5 -binary "$WORK_DIR/sse-key" > "$WORK_DIR/sse-md5" || {
+            finding 3 'SSE-C key digest failed; inspect the crypto runtime.'; finish
+        }
+        SSE_MD5=$(run_bounded $OPENSSL base64 -A -in "$WORK_DIR/sse-md5") || {
+            finding 3 'SSE-C key digest encoding failed; inspect the crypto runtime.'; finish
+        }
+        CURL_CONFIG=$(printf '%s\nheader = "x-amz-server-side-encryption-customer-algorithm: AES256"\nheader = "x-amz-server-side-encryption-customer-key: %s"\nheader = "x-amz-server-side-encryption-customer-key-MD5: %s"' \
+            "$CURL_CONFIG" "$SSE_KEY" "$SSE_MD5")
+    fi
+fi
+
+# -q is first, the environment is empty, proxy bypass is disabled, and HTTPS retains host CA verification.
+# The native HEAD switch prevents content downloads; no redirect, retry or generic method parameter exists.
+# curl 7.88 signs but does not add S3's required payload header; this is the fixed SHA256 of the empty HEAD body.
+printf '%s\n' "$CURL_CONFIG" | run_bounded $CURL -q --config - --head --silent --globoff \
+    --header 'x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' \
+    --proto "=${REQUEST_SCHEME}" --noproxy '' --output /dev/null --write-out "$CURL_WRITE_OUT" \
+    > "$WORK_DIR/response"
+CURL_STATUS=$?
+unset CURL_CONFIG SSE_KEY SSE_MD5
+MEASUREMENT_TIME=$($DATE +%s)
+HTTP_CODE=''
+TLS_RESULT=''
+{
+    IFS= read -r HTTP_CODE
+    IFS= read -r RESPONSE
+    [ "$REQUEST_SCHEME" != https ] || IFS= read -r TLS_RESULT
+} < "$WORK_DIR/response"
+if ! printf '%s\n' "$RESPONSE" | $AWK '/^[0-9]+([.][0-9]+)?$/ { valid=1 } END { exit !valid }'; then
+    RESPONSE=''
+    finding 3 'request duration could not be measured; inspect the curl runtime.'
+fi
+REQUEST_DETAIL="The signed ${OPERATION} request was attempted from the monitoring host."
+case "$CURL_STATUS" in
+    0)
+        case "$HTTP_CODE" in
+            200)
+                REQUEST_DETAIL="The signed ${OPERATION} request succeeded from the monitoring host."
+                if [ -n "$RESPONSE" ] && $AWK -v value="$RESPONSE" -v threshold="$RESPONSE_CRITICAL" 'BEGIN { exit !(value > threshold) }'; then
+                    finding 2 'metadata response is too slow; inspect storage latency and the network.'
+                elif [ -n "$RESPONSE" ] && $AWK -v value="$RESPONSE" -v threshold="$RESPONSE_WARNING" 'BEGIN { exit !(value > threshold) }'; then
+                    finding 1 'metadata response is slow; inspect storage latency and the network.'
+                fi
+                ;;
+            403) finding 3 'metadata access was denied (HTTP 403); verify the permitted S3 operation and credentials.' ;;
+            404) finding 2 'metadata target is unavailable (HTTP 404); verify the configured bucket or object.' ;;
+            3[0-9][0-9]) finding 2 'S3 returned a redirect; verify the configured endpoint and region.' ;;
+            5[0-9][0-9]) finding 2 'S3 returned a server error; contact the storage provider.' ;;
+            000|'') finding 3 'S3 returned no interpretable HTTP result; inspect the curl runtime.' ;;
+            *) finding 2 'S3 returned an unexpected HTTP response; verify endpoint configuration and access.' ;;
+        esac
+        ;;
+    5|6) finding 2 'S3 or proxy DNS resolution failed; inspect host DNS and the configured route.' ;;
+    7) finding 2 'connection to S3 or its proxy failed; inspect endpoint reachability.' ;;
+    28|124|137) finding 2 'the S3 network operation timed out; inspect the route and request budget.' ;;
+    35|51|60) finding 2 'TLS negotiation or certificate verification failed; inspect host trust, hostname and validity.' ;;
+    52|55|56) finding 2 'the S3 transport failed; inspect the endpoint and proxy.' ;;
+    *) finding 3 'curl could not complete the assessment; inspect the host runtime and proxy configuration.' ;;
+esac
+
+# HTTP stores have no server TLS certificate to inspect or expose as performance data.
+[ "$REQUEST_SCHEME" != http ] || finish
+
+# Parse only the leaf PEM from this very connection; an HTTP failure does not discard available certificate evidence.
+run_bounded $AWK '
+    /^-----BEGIN CERTIFICATE-----$/ { capture=1 }
+    capture { print }
+    capture && /^-----END CERTIFICATE-----$/ { exit }
+' "$WORK_DIR/response" > "$WORK_DIR/leaf.pem"
+CERT_DATES=$(run_bounded $OPENSSL x509 -in "$WORK_DIR/leaf.pem" -noout -startdate -enddate)
+CERT_STATUS=$?
+if [ "$CERT_STATUS" -eq 0 ]; then
+    CERT_START="${CERT_DATES#notBefore=}"
+    CERT_START=${CERT_START%%'
+'*}
+    CERT_END="${CERT_DATES##*notAfter=}"
+    CERT_START_EPOCH=$(run_bounded $DATE -u -d "$CERT_START" +%s)
+    CERT_START_STATUS=$?
+    CERT_END_EPOCH=$(run_bounded $DATE -u -d "$CERT_END" +%s)
+    CERT_END_STATUS=$?
+    if [ "$CERT_START_STATUS" -eq 0 ] && [ "$CERT_END_STATUS" -eq 0 ]; then
+        CERT_VALIDITY=$((CERT_END_EPOCH - MEASUREMENT_TIME))
+        CERT_END_UTC=$($DATE -u -d "@$CERT_END_EPOCH" +%Y-%m-%dT%H:%M:%SZ) || {
+            finding 3 'certificate expiry could not be formatted; inspect the host date runtime.'; finish
+        }
+        CERT_DAYS=$($AWK -v seconds="$CERT_VALIDITY" 'BEGIN { printf "%.6f", seconds/86400 }')
+        CERT_DETAIL="The server certificate expires on ${CERT_END_UTC}; remaining validity is ${CERT_DAYS} days (${CERT_VALIDITY} seconds)."
+        if [ "$CERT_START_EPOCH" -gt "$MEASUREMENT_TIME" ] || [ "$CERT_VALIDITY" -le 0 ]; then
+            finding 2 'server certificate is outside its validity period; contact the storage provider.'
+        elif [ "$CERT_VALIDITY" -lt "$VALIDITY_CRITICAL_SECONDS" ]; then
+            finding 2 'server certificate expires very soon; arrange renewal with the storage provider.'
+        elif [ "$CERT_VALIDITY" -lt "$VALIDITY_WARNING_SECONDS" ]; then
+            finding 1 'server certificate expires soon; arrange renewal with the storage provider.'
+        fi
+    else
+        finding 3 'server certificate dates could not be parsed; inspect the host date runtime.'
+    fi
+else
+    finding 3 'server certificate data is unavailable; inspect curl certificate support and the TLS failure.'
+fi
+if [ "$CURL_STATUS" -eq 0 ] && [ "$TLS_RESULT" = 0 ]; then
+    CERT_DETAIL=$(printf '%s\nHostname and certificate-chain verification succeeded on the HEAD connection.' "$CERT_DETAIL")
+else
+    CERT_DETAIL=$(printf '%s\nSuccessful hostname and certificate-chain verification was not established.' "$CERT_DETAIL")
+    if [ "$TLS_RESULT" -gt 0 ] 2>/dev/null; then
+        finding 2 'curl reported certificate verification failure; inspect host trust, hostname and validity.'
+    else
+        finding 3 'complete TLS verification was not established; inspect the connection failure.'
+    fi
+fi
+finish

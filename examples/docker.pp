@@ -237,9 +237,10 @@ node 'twenty.example.org' {
 # AIO requires one installation per Docker daemon; the Compose title does not isolate its fixed container names.
 node 'nextcloud.example.org' {
   class { 'basic_settings':
-    docker_enable => true,
-    nginx_enable  => true,
-    smtp_server   => 'smtp.example.org',
+    docker_enable       => true,
+    nginx_enable        => true,
+    openitcockpit_enable => true,
+    smtp_server         => 'smtp.example.org',
   }
 
   # Prepare the runtime and systemd integration used by the AIO mastercontainer.
@@ -269,6 +270,7 @@ node 'nextcloud.example.org' {
   }
 
   # Register a path-style endpoint, preserving an explicit false option and fractional connection timeout.
+  # Opt in to read-only HeadBucket monitoring; provision its permission and a host curl with certificate output.
   docker::nextcloud_s3 { 'server1':
     compose_name         => 'nextcloud-aio',
     bucket               => 'nextcloud-01',
@@ -276,6 +278,7 @@ node 'nextcloud.example.org' {
     key                  => 'replace-with-first-access-key',
     secret               => Sensitive('replace-with-first-secret'),
     connect_timeout      => 4.2,
+    monitoring_enable    => true,
     port                 => 8443,
     use_path_style       => true,
     verify_bucket_exists => false,
@@ -283,11 +286,14 @@ node 'nextcloud.example.org' {
 
   # Register an Amazon store independently; Nextcloud supplies defaults for all unspecified options.
   docker::nextcloud_s3 { 'server2':
-    compose_name => 'nextcloud-aio',
-    bucket       => 'nextcloud-02',
-    region       => 'eu-central-1',
-    key          => Sensitive('replace-with-second-access-key'),
-    secret       => Sensitive('replace-with-second-secret'),
+    compose_name                => 'nextcloud-aio',
+    bucket                      => 'nextcloud-02',
+    region                      => 'eu-central-1',
+    key                         => Sensitive('replace-with-second-access-key'),
+    secret                      => Sensitive('replace-with-second-secret'),
+    monitoring_enable           => true,
+    monitoring_interval         => 600,
+    monitoring_response_warning => 1.5,
   }
 }
 

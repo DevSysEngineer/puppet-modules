@@ -421,11 +421,15 @@ Gebruik per store een eigen bucket waar alleen deze Nextcloud-installatie toegan
 
 Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en proxy-URL's kunnen gevoelig zijn. Puppet schermt OCC-uitvoer af, maar beheerders kunnen geheimen in procesargumenten zien. Beperk Docker- en procestoegang en bescherm de Nextcloud-configuratie, logs en profiler. Dit geldt ook voor andere OCC-opdrachten met geheimen.
 
+Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L238). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
+
+Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/files/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
+
 Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud_s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L295) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L301) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
@@ -972,6 +976,7 @@ De checks worden automatisch door relevante modules geregistreerd wanneer OpenIT
 - [`check_mirth_connect`](openitcockpit/templates/agent/check_mirth_connect)
 - [`check_mysql`](mysql/templates/check_mysql)
 - [`check_network`](basic_settings/templates/monitoring/check_network)
+- [`check_nextcloud_s3`](docker/files/check_nextcloud_s3)
 - [`check_nginx_cert`](nginx/templates/check_nginx_cert)
 - [`check_nftables`](basic_settings/templates/monitoring/check_nftables)
 - [`check_npm_audit`](basic_settings/files/monitoring/check_npm_audit)

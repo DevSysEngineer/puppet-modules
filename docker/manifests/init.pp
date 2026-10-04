@@ -1,6 +1,7 @@
 # @summary Installs Docker and the shared Compose runtime and monitoring tools.
 #
-# This class installs Docker CE, Compose, shared exec and backup scripts, and the Compose monitoring executable.
+# This class installs Docker CE, Compose, shared exec and backup scripts, and shared Compose and S3 monitoring checks.
+# S3 monitoring requires native curl SigV4 and GNU coreutils; HTTPS also needs curl >= 7.88 with the OpenSSL backend.
 # All docker::compose* definitions require this parent class, including when retiring a project.
 # Repository setup is expected to be handled separately, commonly through `basic_settings` with `docker_enable => true`.
 #
@@ -91,7 +92,7 @@ class docker (
     # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
       # Install the check's shell, text tools, JSON parser and Docker CLI.
-      $monitoring_packages = ['docker-ce-cli', 'jq', 'sed']
+      $monitoring_packages = ['ca-certificates', 'curl', 'docker-ce-cli', 'jq', 'openssl', 'sed']
 
       ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
@@ -107,6 +108,13 @@ class docker (
       # The parent owns one shared check; project definitions only register their arguments.
       basic_settings::monitoring_custom { 'docker_compose':
         source   => 'puppet:///modules/docker/check_compose',
+        register => false,
+        require  => Package[$monitoring_required_packages],
+      }
+
+      # Store registrations share the executable and never own its lifetime or credential files.
+      basic_settings::monitoring_custom { 'nextcloud_s3':
+        source   => 'puppet:///modules/docker/check_nextcloud_s3',
         register => false,
         require  => Package[$monitoring_required_packages],
       }
