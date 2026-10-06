@@ -56,6 +56,10 @@
 # @param securitytxt_preferred_languages
 #   Optional global Preferred-Languages list inherited by vhosts.
 #
+# @param server_names_hash_bucket_size
+#   Bucket size in bytes for the server-name hash tables in the `http` context. Defaults to 64.
+#   Configure this directive only through this parameter to avoid duplicate directives in `http_directives` or includes.
+#
 # @param ssl_prefer_server_ciphers
 #   Value rendered into global SSL configuration.
 #
@@ -92,6 +96,7 @@ class nginx (
   Integer                     $securitytxt_expires_days        = 365,
   Optional[String]            $securitytxt_policy              = undef,
   Optional[Array]             $securitytxt_preferred_languages = ['nl', 'en'],
+  Integer                     $server_names_hash_bucket_size   = 64,
   Boolean                     $ssl_prefer_server_ciphers       = true,
   String                      $ssl_protocols                   = 'TLSv1.2 TLSv1.3',
   String                      $target                          = 'services',

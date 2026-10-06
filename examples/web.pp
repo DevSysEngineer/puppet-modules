@@ -35,6 +35,7 @@ node 'web-example.example.org' {
     securitytxt_expires_days        => 365,
     securitytxt_policy              => 'https://example.org/responsible-disclosure',
     securitytxt_preferred_languages => ['nl', 'en'],
+    server_names_hash_bucket_size   => 64,
     ssl_prefer_server_ciphers       => true,
     ssl_protocols                   => 'TLSv1.2 TLSv1.3',
     target                          => 'services',
