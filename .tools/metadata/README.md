@@ -44,6 +44,8 @@ Zonder `--junit` verschijnt de uitslag alleen in de console en worden geen rappo
 
 Exitcode 0 betekent dat geen metadataproblemen overblijven, ook na correcties. Exitcode 1 betekent onvolledige of ongeldige metadata, een ongeldige versiebron of moduleconfiguratie. Deze uitslag is gelijk met en zonder rapport. Exitcode 2 betekent ongeldige CLI-argumenten of een uitvoerings- of schrijffout; daarbij is mogelijk geen rapport beschikbaar. Een gevraagd maar onschrijfbaar rapport blijft dus een fout. CI gebruikt `--junit` zonder `--fix` in een eigen job en publiceert het rapport volgens de [rapportafspraken](../README.md#rapporten-en-artifacts-in-je-project).
 
+De console volgt het [centrale logcontract](../README.md#joblogs). `Sources` telt geselecteerde metadata plus afzonderlijke configuratie- of versiebronnen; `Findings` telt meldingen en uitgevoerde correcties. Een lege modulemap houdt de verplichte rootcontrole. De interne severity `error` blijft een inhoudelijke afkeuring (`FAILED`), geen runtimeclassificatie. Een onbruikbare configuratie of versiebron maakt de dekking onvolledig. Schrijffouten geven `ERROR` met behoud van de scanbevindingen en zonder claim dat het rapport is gemaakt.
+
 Voer vanuit de repositoryroot `bundle exec rake test:metadata` uit voor de eigen synthetische CLI-, herstel-, rapportage- en pakkettests. `bundle exec rake test` controleert alle tools. De tests bewaken ook dat een geïnstalleerde metadatagem geen Puppet-lint, OpenVox of RuboCop nodig heeft.
 
 ## Modulemetadata controleren
@@ -158,7 +160,7 @@ Resterende metadataproblemen hebben severity `error` en geven exitcode 1. Uitgev
 site-modules/profile/metadata.json:1:1: project_metadata: error: version: expected 3.1.0 from VERSION; found "2.0.0"
 ```
 
-De melding toont alleen de aangetroffen waarde van `version`, geen overige metadata of parserfragmenten. Een ontbrekende waarde wordt als `nil` weergegeven. Configuratiefouten bij `configuration` noemen de betreffende omgevingsvariabele. De meldingen gebruiken regel en kolom 1 omdat dit bestandscontroles zijn. Bij een ongeldige versiebron blijven aanwezigheid, JSON, naamgeving en de overige veldcontroles actief.
+De melding toont alleen de aangetroffen waarde van `version`, geen overige metadata of parserfragmenten. Een ontbrekende waarde wordt als `nil` weergegeven. Configuratiefouten bij `configuration` noemen de betreffende omgevingsvariabele. Metadatabestanden behouden regel en kolom 1 als bestandscontrole; globale bronnen `configuration` en `VERSION` krijgen geen verzonnen bronpositie. Bij een ongeldige versiebron blijven aanwezigheid, JSON, naamgeving en de overige veldcontroles actief.
 
 De console en het eigen JUnit-rapport verwerken dezelfde bevindingen. Het rapport bevat één testcase per geselecteerd metadatabestand of bronfout, ook voor schone bestanden. Openstaande fouten zijn failures; correcties staan in `system-out`. Een geslaagd metadatarapport bewijst geen geldige manifests of compatibele dependencies.
 

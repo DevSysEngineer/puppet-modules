@@ -16,7 +16,7 @@ class MetadataTest < Minitest::Test
     metadata('new_module/metadata.json', name: 'puppetmodules-new_module')
     scan
     assert_equal 0, @status.exitstatus, @output + @errors
-    assert_empty @output
+    assert_empty diagnostics(@output, 'project_metadata')
   end
 
   def test_consumer_uses_its_own_version_and_prefix_without_scanning_shared_modules
@@ -79,6 +79,6 @@ class MetadataTest < Minitest::Test
     metadata('docker/metadata.json', name: 'puppetmodules-docker')
     scan('--ignore-paths=ignored/*')
     assert_equal 0, @status.exitstatus, @output + @errors
-    assert_empty @output
+    assert_empty diagnostics(@output, 'project_metadata')
   end
 end

@@ -25,7 +25,7 @@ module MetadataCliSupport
   end
 
   def diagnostics(output, _check)
-    output.lines
+    output.lines.grep(/^  .*: project_metadata:/)
   end
 
   def capture_cli(*arguments, directory: @directory, env: {})
@@ -64,7 +64,8 @@ module MetadataCliSupport
 
   def assert_metadata_error(path, message)
     assert_equal 1, @status.exitstatus, @output + @errors
-    assert_includes @output, "#{path}:1:1: project_metadata: error: #{message}"
+    source = path.end_with?('metadata.json') ? "#{path}:1:1" : path
+    assert_includes @output, "#{source}: project_metadata: error: #{message}"
     assert_empty @errors
   end
 end

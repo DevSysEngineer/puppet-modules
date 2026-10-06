@@ -71,6 +71,33 @@ class DependencyReportTest < Minitest::Test
     assert_includes File.read(@report), 'incomplete_scan'
   end
 
+  def test_final_report_failure_keeps_native_conflicts_and_the_incomplete_report
+    write_module('consumer', dependencies: [dependency('example-missing')])
+    output, errors, status = Open3.capture3(@env, RbConfig.ruby, '-e', failing_final_write,
+                                            '--', '--junit', @report, chdir: @project)
+    assert_equal 2, status.exitstatus, output + errors
+    assert_includes output, 'example/missing'
+    assert_includes output, '[ERROR] Puppet module dependencies'
+    assert_includes errors, 'Cannot write Puppet dependency JUnit report'
+    assert_includes File.read(@report), 'incomplete_scan'
+    refute_includes output, 'JUnit written:'
+  end
+
+  def failing_final_write
+    <<~RUBY
+      require 'project_tools/module_dependencies/cli'
+      class ProjectTools::ModuleDependencies::Cli
+        alias original_write write
+        def write(result)
+          @writes = (@writes || 0) + 1
+          raise IOError, 'synthetic write failure' if @writes == 2
+          original_write(result)
+        end
+      end
+      exit ProjectTools::ModuleDependencies::Cli.run(ARGV)
+    RUBY
+  end
+
   def interrupted_scan
     <<~RUBY
       require 'project_tools/module_dependencies/cli'

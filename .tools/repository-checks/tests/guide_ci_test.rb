@@ -50,17 +50,17 @@ class GuideCiTest < Minitest::Test
 
   def test_ci_examples_request_test_reports_explicitly
     github = configuration_with('jobs').fetch('jobs').fetch('tool_tests')
-    step = github.fetch('steps').find { |item| item['run'] == 'bundle exec rake test' }
+    step = github.fetch('steps').find { |item| item.fetch('run', '').include?('bundle exec rake test') }
     assert_equal '${{ env.PROJECT_REPORT_DIR }}', step.dig('env', 'MINITEST_REPORTERS_REPORTS_DIR')
     gitlab = configuration_with('.check_setup').fetch('tool_tests')
-    assert_includes gitlab.fetch('script'),
+    assert_includes gitlab.fetch('script').join("\n"),
                     'MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test'
   end
 
   def assert_github_job(job)
     refute job.key?('needs')
     steps = job.fetch('steps')
-    assert(steps.any? { |step| step['run'] == 'git diff --exit-code HEAD --' })
+    assert(steps.any? { |step| step.fetch('run', '').include?('if git diff --exit-code HEAD --; then') })
     refute(steps.any? { |step| step.fetch('run', '').include?('--fix') })
     uploads = steps.select { |step| step.fetch('uses', '').start_with?('actions/upload-artifact@') }
     assert_github_uploads(uploads)
@@ -78,9 +78,27 @@ class GuideCiTest < Minitest::Test
   def assert_gitlab_job(job)
     refute job.key?('needs')
     assert_equal '.check_setup', job.fetch('extends')
-    assert_equal 'git diff --exit-code HEAD --', job.fetch('script').last
+    assert_includes job.fetch('script').last, 'if git diff --exit-code HEAD --; then'
     refute(job.fetch('script').any? { |command| command.include?('--fix') })
     assert_equal 'always', job.dig('artifacts', 'when')
     assert_equal [job.dig('artifacts', 'reports', 'junit')], job.dig('artifacts', 'paths')
+  end
+
+  def test_documented_ci_shell_blocks_are_valid_bash
+    ci_scripts.each do |script|
+      output, errors, status = Open3.capture3('bash', '-n', stdin_data: script)
+      assert status.success?, output + errors
+    end
+  end
+
+  def ci_scripts
+    gitlab = configuration_with('.check_setup')
+    github_scripts + gitlab.dig('.check_setup', 'before_script') +
+      command_contracts.keys.flat_map { |job| gitlab.fetch(job).fetch('script') }
+  end
+
+  def github_scripts
+    steps = configuration_with('jobs').fetch('jobs').values.flat_map { |job| job.fetch('steps') }
+    steps.filter_map { |step| step['run'] }
   end
 end

@@ -7,9 +7,10 @@ module ProjectTools
   module ModuleDependencies
     # Use one native environment; inventory candidates only to detect silently dropped modules.
     class OpenvoxAdapter
-      def initialize(paths, result)
+      def initialize(paths, result, progress: nil)
         @paths = paths
         @result = result
+        @progress = progress
       end
 
       def scan
@@ -27,7 +28,10 @@ module ProjectTools
         modules = environment.modules
         verify_inventory(candidates, modules)
         inspector = ModuleDependencies.new(@result)
-        modules.each { |mod| inspector.check(mod) }
+        modules.each do |mod|
+          inspector.check(mod)
+          @progress&.advance(unit: 'modules', total: modules.size)
+        end
       rescue TypeError, NoMethodError, SystemCallError => e
         @result.error(:metadata_error, "Cannot load selected module metadata (#{e.class}).")
       end

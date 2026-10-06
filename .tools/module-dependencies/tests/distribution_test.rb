@@ -41,12 +41,16 @@ class DependencyDistributionTest < Minitest::Test
     assert_consumer_scan
   end
 
+  def stable_console(output)
+    output.lines.reject { |line| line.start_with?('Duration:', 'JUnit written:') }
+  end
+
   def assert_consumer_scan
     run_success('bundle', 'exec', 'project-tools-module-dependencies')
     refute_path_exists File.join(@project, 'reports')
     console = @output
     run_success('bundle', 'exec', 'project-tools-module-dependencies', '--junit', 'reports/dependencies.xml')
-    assert_equal console, @output
+    assert_equal stable_console(console), stable_console(@output)
     assert_includes @output, 'Module metadata assessed: 1.'
     write('metadata.json', JSON.generate({ dependencies: [{ name: 'example-library', version_requirement: '< 2' }] }))
     command('bundle', 'exec', 'project-tools-module-dependencies', '--junit', 'reports/dependencies.xml')

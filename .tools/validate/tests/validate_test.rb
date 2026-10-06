@@ -54,16 +54,58 @@ class ValidateTest < Minitest::Test
     assert_includes suite.elements['testcase'].attributes['file'], 'manifest with spaces & é.pp'
   end
 
-  def test_usage_and_output_errors_fail_without_modifying_manifests
+  def test_usage_errors_fail_without_modifying_manifests
     path = write_file('site.pp', '$value = 1')
     [[], [path]].each do |arguments|
       errors = StringIO.new
-      assert_equal 1, ProjectTools::Validate.run(arguments, errors: errors)
+      assert_equal 1, ProjectTools::Validate.run(arguments, console: StringIO.new, errors: errors)
       assert_equal "Usage: validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]\n", errors.string
     end
     assert_equal '$value = 1', File.read(path)
+  end
+
+  def test_output_errors_fail_without_modifying_manifests
+    path = write_file('site.pp', '$value = 1')
     errors = StringIO.new
-    assert_equal 1, ProjectTools::Validate.run([File.join(path, 'report.xml'), path], errors: errors)
+    assert_equal 1, ProjectTools::Validate.run([File.join(path, 'report.xml'), path],
+                                               console: StringIO.new, errors: errors)
     assert_includes errors.string, 'Cannot write'
+    assert_equal '$value = 1', File.read(path)
+  end
+
+  def test_results_are_visible_before_the_next_manifest_and_survive_report_failure
+    console = StringIO.new
+    errors = StringIO.new
+    validator = failing_writer(console)
+    assert_equal 1, validator.run(File.join(@project, 'report.xml'), errors)
+    assert_includes console.string, '[ERROR] Puppet validation'
+    assert_includes console.string, 'Results: 2 failures'
+    assert_includes console.string, 'second diagnostic'
+    assert_includes errors.string, 'synthetic report failure'
+    refute_includes console.string, 'JUnit written:'
+  end
+
+  def failing_writer(console)
+    validator = ProjectTools::Validate.new(%w[first.pp second.pp], console)
+    validator.define_singleton_method(:validate) do |path|
+      raise 'first result was buffered' if path == 'second.pp' && !console.string.include?('first diagnostic')
+
+      { path: path, kind: :failure, message: path == 'first.pp' ? 'first diagnostic' : 'second diagnostic' }
+    end
+    validator.define_singleton_method(:write_case) { |_xml, _result| raise IOError, 'synthetic report failure' }
+    validator
+  end
+
+  def test_native_warning_keeps_success_and_report_details
+    console = StringIO.new
+    validator = ProjectTools::Validate.new(['warning.pp'], console)
+    validator.define_singleton_method(:validate) do |path|
+      { path: path, kind: nil, message: 'Warning: synthetic native warning' }
+    end
+    report = File.join(@project, 'warning.xml')
+    assert_equal 0, validator.run(report, StringIO.new)
+    assert_includes console.string, '[PASSED] Puppet validation'
+    assert_includes console.string, 'Warning: synthetic native warning'
+    assert_includes File.read(report), '<system-out>Warning: synthetic native warning</system-out>'
   end
 end

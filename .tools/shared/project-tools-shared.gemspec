@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = 'project-tools-shared'
-  spec.version = '0.1.0'
+  spec.version = '0.1.1'
   spec.summary = 'Shared modulepath validation and JUnit XML for project Puppet tools'
   spec.authors = ['Puppet modules maintainers']
   spec.license = 'Apache-2.0'

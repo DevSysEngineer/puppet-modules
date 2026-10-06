@@ -106,4 +106,14 @@ class CliDiagnosticsTest < Minitest::Test
     assert_equal [[]], JSON.parse(@output)
     assert_includes @errors, 'EISDIR'
   end
+
+  def test_native_annotations_stay_single_and_json_stdout_remains_machine_only
+    write_source("$values = [1] + [2]\n")
+    environment = { 'GITHUB_ACTION' => 'synthetic_test' }
+    assert_cli_failure('--only-checks', 'project_arrays', @file, env: environment)
+    assert_equal 1, @output.lines.grep(/^::warning /).size
+    assert_cli_failure('--only-checks', 'project_arrays', '--json', @file, env: environment)
+    assert_equal 1, JSON.parse(@output).flatten.size
+    refute_match(/^::(?:warning|error) /, @output + @errors)
+  end
 end

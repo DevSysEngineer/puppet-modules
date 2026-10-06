@@ -34,7 +34,19 @@ jobs:
       - name: Check project and module metadata
         run: bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload metadata report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -60,7 +72,19 @@ jobs:
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE"
           bundle exec project-tools-module-dependencies --junit .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet dependency report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -91,7 +115,19 @@ jobs:
       - name: Validate first-party Puppet manifests
         run: bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet validation report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -113,10 +149,35 @@ jobs:
         uses: ./.github/actions/setup-tooling
       - name: Check the complete first-party scope
         run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Puppet lint'
           mkdir -p .tools/lint/results
+          set +e
           bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit .tools/lint/results/puppet-lint-report.xml
+          LINT_STATUS=("${PIPESTATUS[@]}")
+          set -e
+          printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
+          if [ "${LINT_STATUS[1]}" -ne 0 ]; then
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete
+          elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
+              ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+          else
+              ci_end 0 PASSED complete
+          fi
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet lint report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -138,10 +199,37 @@ jobs:
         uses: ./.github/actions/setup-tooling
       - name: Check first-party Ruby code
         run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Ruby lint' native
           mkdir -p .tools/ruby-lint/results
-          bundle exec rubocop --config .rubocop.yml --format progress --format junit --out .tools/ruby-lint/results/rubocop-report.xml
+          rm -f -- .tools/ruby-lint/results/rubocop-report.xml
+          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out .tools/ruby-lint/results/rubocop-report.xml; then
+              RUBY_STATUS=0
+          else
+              RUBY_STATUS=$?
+          fi
+          if [ "$RUBY_STATUS" -le 1 ] && [ -f .tools/ruby-lint/results/rubocop-report.xml ]; then
+              printf 'JUnit written: %s\n' .tools/ruby-lint/results/rubocop-report.xml
+          fi
+          case "$RUBY_STATUS" in
+              0) ci_end 0 PASSED complete ;;
+              1) ci_end 1 FAILED complete ;;
+              *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+          esac
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Ruby lint report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -166,7 +254,19 @@ jobs:
           MINITEST_REPORTERS_REPORTS_DIR: .tools/results/tests
         run: bundle exec rake test
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

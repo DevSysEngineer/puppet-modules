@@ -4,7 +4,7 @@ PATH
     lint-project (0.2.0)
       json (< 3)
       openvox (~> 8.29)
-      project-tools-shared (>= 0.1.0, < 0.2.0)
+      project-tools-shared (>= 0.1.1, < 0.2.0)
       puppet-lint (~> 5.1)
       puppet-lint-param-types (~> 3.0)
       puppet-lint-trailing_comma-check (~> 3.0)
@@ -15,7 +15,7 @@ PATH
   specs:
     project-tools-metadata (0.1.0)
       json (>= 2.21, < 4)
-      project-tools-shared (>= 0.1.0, < 0.2.0)
+      project-tools-shared (>= 0.1.1, < 0.2.0)
 
 PATH
   remote: .tools/module-dependencies
@@ -23,7 +23,7 @@ PATH
     project-tools-module-dependencies (0.1.0)
       json (< 3)
       openvox (~> 8.29)
-      project-tools-shared (>= 0.1.0, < 0.2.0)
+      project-tools-shared (>= 0.1.1, < 0.2.0)
       semantic_puppet (~> 1.1)
       syslog (~> 0.4)
 
@@ -36,7 +36,7 @@ PATH
 PATH
   remote: .tools/shared
   specs:
-    project-tools-shared (0.1.0)
+    project-tools-shared (0.1.1)
       builder (~> 3.3)
 
 PATH
@@ -45,7 +45,7 @@ PATH
     project-tools-validate (0.1.0)
       json (< 3)
       openvox (~> 8.29)
-      project-tools-shared (>= 0.1.0, < 0.2.0)
+      project-tools-shared (>= 0.1.1, < 0.2.0)
       syslog (~> 0.4)
 
 GEM

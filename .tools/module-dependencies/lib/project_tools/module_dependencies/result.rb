@@ -6,14 +6,16 @@ module ProjectTools
     class Result
       attr_reader :problems, :assessed, :unassessed
 
-      def initialize
+      def initialize(&on_problem)
         @problems = []
         @assessed = []
         @unassessed = []
+        @on_problem = on_problem
       end
 
       def error(reason, message, **context)
         @problems << { kind: :error, scope: 'scan', reason: reason, message: message, **context }
+        @on_problem&.call(@problems.last)
       end
 
       def conflict(reason, **context)
@@ -23,6 +25,7 @@ module ProjectTools
           non_semantic_version: 'The requirement or selected version cannot be interpreted semantically.'
         }
         @problems << { kind: :failure, reason: reason, message: messages.fetch(reason), **context }
+        @on_problem&.call(@problems.last)
       end
 
       def sorted_problems

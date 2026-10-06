@@ -2,6 +2,7 @@
 
 require 'pathname'
 require 'project_tools/shared/junit_report'
+require 'project_tools/shared/console'
 
 module ProjectTools
   module ModuleDependencies
@@ -13,7 +14,7 @@ module ProjectTools
       end
 
       def safe(value)
-        value.to_s.encode('UTF-8', invalid: :replace, undef: :replace).gsub(/[[:cntrl:]]/, ' ')
+        ProjectTools::Shared::Console.safe(value)
       end
 
       def path(value)
@@ -61,20 +62,26 @@ module ProjectTools
         end
       end
 
-      def console(output, errors)
-        output.puts "Puppet module dependencies: #{@result.status.zero? ? 'PASSED' : 'FAILED'}"
-        output.puts 'Declared dependencies satisfy the selected module versions.' if @result.status.zero?
-        console_problems(output, errors)
-        output.puts coverage
-        output.puts format('Result: %<failures>d dependency conflicts, %<errors>d execution errors.', @result.counts)
+      def console(presentation, errors, report: nil, error: nil)
+        incomplete = error || @result.status == 2
+        outcome = @result.status.zero? ? 'PASSED' : 'FAILED'
+        presentation.finish(status: incomplete ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
+                            facts: console_facts, report: report) do
+          console_problems(presentation, errors)
+          presentation.diagnostic(error, output: errors) if error
+          presentation.diagnostic('Final report: not produced') if error
+        end
       end
 
-      def console_problems(output, errors)
+      def console_facts
+        coverage.lines.map(&:chomp) +
+          [format('Scan: %<failures>d dependency conflicts, %<errors>d execution errors.', @result.counts)]
+      end
+
+      def console_problems(presentation, errors)
         @result.sorted_problems.each do |problem|
-          target = problem[:kind] == :error ? errors : output
-          # Indentation and flattened fields prevent metadata becoming workflow commands.
-          target.puts "\n  #{title(problem)}"
-          details(problem).each_line { |line| target.puts "  #{line.chomp}" }
+          options = problem[:kind] == :error ? { output: errors } : {}
+          presentation.diagnostic("#{title(problem)}\n#{details(problem)}", **options)
         end
       end
     end

@@ -10,7 +10,21 @@ runs:
         bundler: none
     - name: Install the latest stable Bundler
       shell: bash
-      run: gem install bundler
+      run: |
+        source "$GITHUB_ACTION_PATH/log.sh"
+        ci_begin 'Install Bundler' details
+        if gem install bundler; then
+            ci_end 0 PASSED complete
+        else
+            ci_end "$?" ERROR incomplete
+        fi
     - name: Install the locked development bundle
       shell: bash
-      run: bundle install
+      run: |
+        source "$GITHUB_ACTION_PATH/log.sh"
+        ci_begin 'Install locked bundle' details
+        if bundle install; then
+            ci_end 0 PASSED complete
+        else
+            ci_end "$?" ERROR incomplete
+        fi

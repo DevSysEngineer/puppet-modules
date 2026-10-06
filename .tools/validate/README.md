@@ -43,7 +43,7 @@ Geef voor CI en de eindcontrole het rapportpad expliciet mee als `junit`-taakarg
 bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
 ```
 
-Met dit argument roept de taak `validate-junit` aan. Dit commando voert voor ieder bestand afzonderlijk de native parser uit. Een fout stopt de controle van de overige bestanden niet. Beide uitvoervormen geven een foutstatus bij ongeldige syntax of een lege selectie; een aangevraagd maar onschrijfbaar rapport geeft eveneens een foutstatus.
+Met dit argument roept de taak `validate-junit` aan. Dit commando voert voor ieder bestand afzonderlijk de native parser uit. Een fout stopt de controle van de overige bestanden niet. De reporter volgt het [centrale logcontract](../README.md#joblogs): start met de unieke manifestselectie, direct zichtbare native bevindingen en een eindresultaat met afzonderlijke failures en uitvoeringsproblemen. Lange native subprocessen krijgen een activiteitsmelding zonder verzonnen tussenresultaten. Ontbrekende of niet-beoordeelde manifests tellen niet als gecontroleerd. De native route zonder rapport geeft geen gestructureerde resultaten per bestand; bij een niet-nul status verwijst de taak naar de oorspronkelijke diagnose en vermeldt zij de status als ongeclassificeerd. Beide uitvoervormen geven een foutstatus bij ongeldige syntax of een lege selectie; een aangevraagd maar onschrijfbaar rapport geeft eveneens een foutstatus.
 
 Het rapport staat in `.tools/validate/results/validate-report.xml`, met suite `validate` en één testcase per uniek manifestpad. Een niet-nul exitcode van de validator geeft een `failure` met de native foutmelding. Ontbrekende bestanden en ongeschikte bestandstypen krijgen een `error`, net als een validator die niet kan starten of door een signaal eindigt. Een lege selectie levert een foutcase op en slaagt dus niet stilzwijgend. De opdracht eindigt met een foutcode zodra een controle of het schrijven van het rapport mislukt.
 
@@ -77,10 +77,24 @@ namespace :validate do
   task :puppet, [:junit] do |_task, args|
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'global-modules/**/*', 'vendor/**/*')
     if args[:junit]
-      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests
+      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests, verbose: false do |ok, status|
+        raise SignalException, status.termsig if status.signaled?
+
+        exit status.exitstatus unless ok
+      end
     else
-      abort 'No Puppet manifests selected.' if manifests.empty?
-      sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests
+      require 'project_tools/shared/console'
+      console = ProjectTools::Shared::Console.new('Puppet validation', scope: "#{manifests.size} files selected")
+      console.during do
+        abort 'No Puppet manifests selected.' if manifests.empty?
+        sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests, verbose: false do |ok, status|
+          console.finish(status: ok ? 'PASSED' : 'Result not classified', execution: ok ? 'complete' : 'unknown',
+                         facts: ["Original exit status: #{status}", 'Native parser diagnostics are shown above.'])
+          raise SignalException, status.termsig if status.signaled?
+
+          exit status.exitstatus unless ok
+        end
+      end
     end
   end
 end
@@ -94,14 +108,14 @@ Voor het onderzoeken van één fout blijft de native opdracht `bundle exec puppe
 
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |
 | --- | --- | --- | --- | --- |
-| Alle manifests syntactisch geldig | 0 | `passed` per pad en resultaattelling | Leeg | Eén geslaagde testcase per uniek pad |
+| Alle manifests syntactisch geldig | 0 | Compact `PASSED` met manifest- en resultaattellingen | Leeg | Eén geslaagde testcase per uniek pad |
 | Native waarschuwing zonder niet-nul parserstatus | 0 | Native uitvoer bij resultaat | Leeg | Geslaagde testcase met system-out; geen eigen warningseverity |
 | Parser eindigt niet-nul | 1 | `failure`, native diagnostic, telling | Native stderr is samengevoegd in resultaat | Failure; resterende bestanden worden ook gecontroleerd |
 | Ontbrekend bestand, directory of verkeerde extensie | 1 | `error` en `Expected an existing .pp file: {pad}` | Leeg | Error per ongeldig pad |
 | Geen manifests na geldig rapportargument | 1 | `No Puppet manifests selected.` in resultaat | Leeg | Error voor Manifest selection |
-| Rapportargument ontbreekt of eindigt niet op `.xml` | 1 | Leeg | Usage | Geen nieuw rapport |
+| Rapportargument ontbreekt of eindigt niet op `.xml` | 1 | `ERROR`, niet uitgevoerd | Usage | Geen nieuw rapport |
 | Validator kan niet starten of eindigt door signaal | 1 | Error met start-/procesdiagnose | In resultaatafhandeling | XML-error als rapport schrijven mogelijk is |
-| Rapportmap of bestand niet schrijfbaar | 1 | Geen complete resultaatreeks | `Cannot write Puppet validation JUnit report: {fout}` | Geen bruikbaar nieuw rapport |
+| Rapportmap of bestand niet schrijfbaar | 1 | `ERROR`, reeds bekende bevindingen en onvolledige dekking | `Cannot write Puppet validation JUnit report: {fout}` | Geen bruikbaar nieuw rapport |
 
 Deze reporter heeft geen lintconfiguratie; het modulepad en `.puppet-lint.rc` zijn daarom niet van toepassing op zijn selectie. De native parser controleert syntax, geen catalogus. Een ontbrekende gem of executable kan al vóór de reporter met een Ruby-/Bundlerfout stoppen; dan is er geen rapport.
 
@@ -109,7 +123,7 @@ Deze reporter heeft geen lintconfiguratie; het modulepad en `.puppet-lint.rc` zi
 
 `require 'project_tools/validate'` levert `ProjectTools::Validate.run(arguments, console:, errors:)`. De [implementatie](lib/project_tools/validate.rb) start voor ieder uniek manifest de native parser uit de actieve bundle met `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`. Bestandspaden gaan als afzonderlijke procesargumenten mee; er is geen shellinterpretatie of eigen syntaxparser. De API en CLI gebruiken dezelfde resultaatverzameling en exitstatus.
 
-De gem declareert shared `>= 0.1.0, < 0.2.0`, OpenVox `~> 8.29`, JSON `< 3` en syslog `~> 0.4`. Het [pakketoverzicht](../README.md#pakketten-en-commandos) beschrijft de dependencies per tool; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast. De gem bevat uitsluitend eigen runtimecode, executable, README en licentie. Testhulp en ontwikkelgems blijven buiten het pakket. Voor een validatie zijn geen rootmetadata, `VERSION`, lintprofielen of `PROJECT_LINT_*`-instellingen vereist.
+De gem declareert shared `>= 0.1.1, < 0.2.0`, OpenVox `~> 8.29`, JSON `< 3` en syslog `~> 0.4`. Het [pakketoverzicht](../README.md#pakketten-en-commandos) beschrijft de dependencies per tool; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast. De gem bevat uitsluitend eigen runtimecode, executable, README en licentie. Testhulp en ontwikkelgems blijven buiten het pakket. Voor een validatie zijn geen rootmetadata, `VERSION`, lintprofielen of `PROJECT_LINT_*`-instellingen vereist.
 
 `validate-junit` heeft precies één eigenaar: deze gem. `lint-project` gebruikt OpenVox voor zijn eigen AST-analyse, maar installeert de validatorgem niet. De [migratie-instructies](../README.md#migreren-naar-de-vier-packages) beschrijven hoe bestaande afnemers hun bundle aanvullen. De repositorytaak en CI-rapportlocaties staan in de [gezamenlijke CI-uitleg](../README.md#ci-van-deze-repository).
 

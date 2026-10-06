@@ -60,7 +60,7 @@ class RootMetadataTest < Minitest::Test
     write_file('global-modules/metadata.json', 'invalid shared metadata')
     scan(prefix: nil)
     assert_equal 0, @status.exitstatus, @output + @errors
-    assert_empty @output
+    assert_empty diagnostics(@output, 'project_metadata')
   end
 
   def test_module_validation_requires_only_the_module_schema_fields
@@ -69,6 +69,6 @@ class RootMetadataTest < Minitest::Test
     write_file('modules/profile/metadata.json', JSON.generate(data))
     scan
     assert_equal 0, @status.exitstatus, @output + @errors
-    assert_empty @output
+    assert_empty diagnostics(@output, 'project_metadata')
   end
 end

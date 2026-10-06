@@ -31,7 +31,7 @@ class MetadataAutofixTest < Minitest::Test
     expected = original.sub('"version": "0.1.0"', '"version": "7.4.0"')
     assert_equal expected, contents(path)
     scan
-    assert_empty @output
+    assert_empty diagnostics(@output, 'project_metadata')
     assert_metadata_stable([path])
   end
 

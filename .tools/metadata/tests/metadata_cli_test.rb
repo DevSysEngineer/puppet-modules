@@ -20,11 +20,12 @@ class MetadataCliTest < Minitest::Test
   def assert_optional_report(expected)
     scan
     assert_equal expected, @status.exitstatus, @output + @errors
-    console = [@output, @errors]
+    console = [diagnostics(@output, 'project_metadata'), @errors]
     refute_path_exists File.join(@directory, '.reports')
     scan('--junit', '.reports/metadata.xml')
     assert_equal expected, @status.exitstatus, @output + @errors
-    assert_equal console, [@output, @errors]
+    assert_equal console, [diagnostics(@output, 'project_metadata'), @errors]
+    assert_includes @output, 'JUnit written: .reports/metadata.xml'
     assert_path_exists File.join(@directory, '.reports/metadata.xml')
   end
 
@@ -50,5 +51,18 @@ class MetadataCliTest < Minitest::Test
       refute_path_exists File.join(@directory, '.reports')
       refute_path_exists File.join(@directory, 'old-report.xml')
     end
+  end
+
+  def test_report_failure_preserves_multiple_findings_and_has_no_successful_report_claim
+    metadata('modules/profile/metadata.json', name: 'wrong-module', version: '0.1.0')
+    write_file('blocker', 'synthetic file')
+    scan('--junit', 'blocker/report.xml')
+    assert_equal 2, @status.exitstatus
+    assert_includes @output, '[ERROR] Metadata'
+    assert_includes @output, 'Findings: 2 blocking'
+    assert_equal 2, diagnostics(@output, 'project_metadata').size
+    refute_includes @output, 'JUnit written:'
+    refute_includes @output, '[PASSED]'
+    assert_includes @errors, 'metadata:'
   end
 end

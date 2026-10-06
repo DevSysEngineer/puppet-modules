@@ -8,6 +8,7 @@ Gebruik één ontwikkelbundle met afzonderlijke tools voor Puppet-lint, Ruby-lin
 - [Pakketten en commando’s](#pakketten-en-commandos)
 - [Verantwoordelijkheden gescheiden houden](#verantwoordelijkheden-gescheiden-houden)
   - [CLI en rapportage](#cli-en-rapportage)
+  - [Joblogs](#joblogs)
 - [Snelstart in deze repository](#snelstart-in-deze-repository)
 - [Installatie en compatibiliteit](#installatie-en-compatibiliteit)
   - [Benodigde omgeving](#benodigde-omgeving)
@@ -44,7 +45,7 @@ Gebruik één ontwikkelbundle met afzonderlijke tools voor Puppet-lint, Ruby-lin
 | `project-tools-validate 0.1.0` | [Parservalidatie](validate/README.md) | Native `puppet parser validate MANIFEST.pp`; met rapport `validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]` |
 | `lint-project 0.2.0` | [Lint](lint/README.md) | `puppet-lint`, `puppet-lint-junit` |
 | `project-tools-ruby-lint 0.1.0` | [Ruby-lint](ruby-lint/README.md) | Native `rubocop` met eigen JUnit-formatter |
-| `project-tools-shared 0.1.0` | [Gedeelde library](shared/README.md) | Geen eigen executable |
+| `project-tools-shared 0.1.1` | [Gedeelde library](shared/README.md) | Geen eigen executable |
 
 De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository-checks/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
 
@@ -52,7 +53,7 @@ De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebru
 
 Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependencies, configuratie, correcties, rapport en gedragstests. Puppet-lint corrigeert Puppet-invoer; metadatawijzigingen vereisen het metadatacommando. Ruby-lint gebruikt de native RuboCop-CLI en formatter. Een gezamenlijke bundle of CI-setup maakt deze tools niet afhankelijk van elkaar.
 
-Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML en modulepadvalidatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. Houd gedeelde instellingen, taken en rapportlocaties neutraal benoemd; leg toolspecifieke instellingen bij hun eigenaar vast. Pas bij een verplaatsing ook consumerinstallatie, CI, rapporten en documentatie samen aan.
+Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. Houd gedeelde instellingen, taken en rapportlocaties neutraal benoemd; leg toolspecifieke instellingen bij hun eigenaar vast. Pas bij een verplaatsing ook consumerinstallatie, CI, rapporten en documentatie samen aan.
 
 ### CLI en rapportage
 
@@ -63,6 +64,32 @@ Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapp
 Gebruik bestaande native commando’s en hun uitvoeropties wanneer die de controle al aanbieden. Puppet-lint en RuboCop hebben hun eigen CLI en correctieopties; `puppet parser validate` biedt syntaxvalidatie zonder rapport. Voeg daarvoor geen gelijknamige projectwrapper of uniforme set opties toe. Een aparte converter of rapportagevariant mag een uitvoerformaat in zijn naam en een verplicht rapportpad hebben: `puppet-lint-junit` zet bestaande JSON-uitvoer om, terwijl `validate-junit` native parserresultaten per manifest verzamelt. Documenteer bij zo’n variant ook het gewone commando zonder rapport.
 
 Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. Leg dit vast in gedragstests bij de tool: geslaagde en afgekeurde controles met en zonder rapport, herstel zonder rapport indien ondersteund, geen rapportwijzigingen zonder verzoek en behoud van de foutstatus bij rapportageproblemen. Controleer daarnaast de geïnstalleerde CLI en werk voorbeelden, CI en consumermigratie samen bij wanneer het commando verandert.
+
+### Joblogs
+
+Nieuwe en gewijzigde CI-aanroepen volgen één leesvolgorde: start en bereik, beperkte voortgang, bevindingen en een zelfstandig leesbaar eindresultaat. Dit geldt ook voor installatie, rapportpublicatie en de checkoutcontrole. Houd de bestaande jobs, selecties, waarschuwingdrempels en exitcodes aan. Laat dezelfde controle maar eenmaal uitvoeren en wijs één laag aan die haar primaire eindresultaat schrijft.
+
+Eigen Ruby-reporters gebruiken de [gedeelde console](shared/README.md#runtimecontracten). Zij tonen gewone, direct geflushte regels. Bij langer werk verschijnt ongeveer iedere vijftien seconden een voortgangsregel. Alleen afgeronde onderdelen verhogen de teller; zonder nieuwe resultaten verschijnt `Still running` met de verstreken tijd. Die melding toont activiteit en bewijst geen inhoudelijke voortgang. Korte controles hebben aan start en eindresultaat voldoende. Succesregels per bestand vervallen; waarschuwingen, correcties, beperkingen en native diagnostiek blijven zichtbaar.
+
+| Afsluiting | Betekenis |
+| --- | --- |
+| `PASSED` | Voldoet volgens het bestaande toolbeleid; waarschuwingen kunnen aanwezig zijn. |
+| `FAILED` | Inhoudelijke afkeuring volgens dat beleid. |
+| `ERROR` | Uitvoering of noodzakelijke afronding is niet betrouwbaar voltooid. |
+| `SKIPPED` | Bewust overgeslagen volgens bestaande configuratie of beleid. |
+| `Result not classified` | De aanroeplaag kent alleen de oorspronkelijke processtatus; de diagnose blijft zichtbaar. |
+
+Volledigheid staat afzonderlijk bij `Execution`: `complete`, `incomplete`, `not executed` of `unknown`. Een bevinding blijft ook bij een latere uitvoerfout zichtbaar. Niet-afgeronde onderdelen tellen niet als geslaagd of bewust overgeslagen. Een lege selectie volgt het bestaande toolbeleid. Tellingen benoemen hun eenheid: bronnen, manifests, modules, testgevallen en bevindingen zijn verschillende aantallen. Een onbekende telling wordt weggelaten of als onbekend aangeduid, nooit als nul. De [toolhandleidingen](#pakketten-en-commandos) leggen hun concrete tellingen vast.
+
+Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, voorspelbaar gesorteerd op bron en positie waar die beschikbaar zijn. Native omvangrijke diagnoses mogen boven het compacte einde blijven staan, mits het einde daar expliciet naar verwijst. Kort geen bevindingen stilzwijgend af. Een rapportverwijzing verschijnt pas na een geslaagde schrijfhandeling voor deze uitvoering; een bestaand oud bestand is geen bewijs. Zonder rapportverzoek blijven bestaande rapporten ongemoeid. Een latere verplichte upload of checkoutcontrole kan de job alsnog laten falen.
+
+JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en behoudt de bestaande prioriteit van `pipefail`: de laatste niet-nul status. Een conversiefout en scanstatus blijven dus beide zichtbaar.
+
+Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. De EXIT-afhandeling laat een onverwachte fout ongeclassificeerd en bewaart haar code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
+
+`details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
+
+De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Alleen een Ruby-lintinstallatie heeft nog steeds geen shared-gem of Puppet-runtime nodig.
 
 ## Snelstart in deze repository
 
@@ -137,7 +164,7 @@ De [Gemfile](../Gemfile) bevat geen vaste gemversies. [`Gemfile.lock`](../Gemfil
 
 Krijg je een Bundler-fout met `/System/Library/Frameworks/Ruby.framework` of `/usr/bin/bundle` in de melding, dan gebruikt je terminal nog de macOS-installatie. Controleer eerst `ruby --version`, `command -v ruby` en `command -v bundle` en herstel de PATH-instelling hierboven. Bundler installeren met de oude systeem-Ruby of `sudo gem install` lost die versieverschillen niet op.
 
-De root-Gemfile wijst iedere toolgem expliciet aan via zijn eigen map. Lint, metadata, validator en dependencycontrole gebruiken shared (`>= 0.1.0, < 0.2.0`); Ruby-lint gebruikt uitsluitend RuboCop. Ontwikkeldependencies blijven in de rootbundle.
+De root-Gemfile wijst iedere toolgem expliciet aan via zijn eigen map. Lint, metadata, validator en dependencycontrole gebruiken shared (`>= 0.1.1, < 0.2.0`); Ruby-lint gebruikt uitsluitend RuboCop. Ontwikkeldependencies blijven in de rootbundle.
 
 ## Gedeeld modulepad
 
@@ -186,7 +213,7 @@ Open de workflowrun onder **Actions** om de zes uitslagen en de artifacts te bek
 
 Puppet-lint schrijft onder `.tools/lint/results/`, Ruby-lint onder `.tools/ruby-lint/results/` en tooltests onder `.tools/results/tests/`. De metadata-, parser- en dependencyreporters maken hun eigen bovenliggende rapportmap aan. De uploads gebruiken `include-hidden-files: true`, omdat `.tools` een verborgen map is. Iedere artifactselectie wijst uitsluitend naar het eigen lint- of validatierapport of naar `TEST-*.xml`; de testsamenvatting leest dezelfde testselectie.
 
-Iedere job voert na zijn geslaagde controle rechtstreeks `git diff --exit-code HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de lokale whitespacecontrole met `git diff --check` niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
+De Bash-presentatie sluit iedere controle af; iedere job voert daarna op het geslaagde pad rechtstreeks `git diff --exit-code HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de lokale whitespacecontrole met `git diff --check` niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
 
 De workflow gebruikt de nieuwste stabiele Ruby en installeert Bundler zonder versiepin. `BUNDLE_FROZEN=true` bewaakt de lockfile; `BUNDLE_IGNORE_CONFIG=1` voorkomt afhankelijkheid van persoonlijke Bundler-instellingen. Gems worden binnen de checkout geïnstalleerd via `BUNDLE_PATH=vendor/bundle`. De metadatajob stelt `PROJECT_METADATA_MODULES_PATH=.` in; de overige jobs hebben die instelling niet nodig. De jobs gebruiken Bash met `pipefail`, zodat ook de Puppet-lintaanroep met JUnit-omzetting zijn foutstatus behoudt. Beide linters controleren alleen; de workflow maakt geen commits en publiceert geen gem.
 
@@ -244,7 +271,7 @@ Voor Ruby gebruik je afzonderlijk de volgende aanroep. De [eigen `.rubocop.yml`]
 
 ```sh
 mkdir -p "$PROJECT_REPORT_DIR"
-bundle exec rubocop --config .rubocop.yml --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"
+bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"
 ```
 
 De testtaak uit [JUnit-rapportage instellen](#junit-rapportage-instellen) maakt zijn eigen rapporten bij `MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test`. Iedere controle draait eenmaal. Alle artifacts bevatten JUnit XML; houd parservalidatie, lintresultaten en tooltests als afzonderlijke suites en artifacts herkenbaar.
@@ -307,13 +334,39 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Check project and module metadata
         run: bundle exec project-tools-metadata --junit "$PROJECT_REPORT_DIR/metadata-report.xml"
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload metadata report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -337,15 +390,41 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Check Puppet module dependencies
         run: |
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE/global-modules:$GITHUB_WORKSPACE/modules"
           bundle exec project-tools-module-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-module-dependencies-report.xml"
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet dependency report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -377,13 +456,39 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Validate own Puppet manifests
         run: bundle exec validate-junit "$PROJECT_REPORT_DIR/validate-report.xml" environments/production/manifests/site.pp modules/profile/manifests/init.pp
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet validation report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -407,18 +512,57 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Check own Puppet manifests
         run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Puppet lint'
           mkdir -p "$PROJECT_REPORT_DIR"
           test -f .puppet-lint.rc
           lint_gem="$(bundle info --path lint-project)"
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE/global-modules:$GITHUB_WORKSPACE/modules"
+          set +e
           bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+          LINT_STATUS=("${PIPESTATUS[@]}")
+          set -e
+          printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
+          if [ "${LINT_STATUS[1]}" -ne 0 ]; then
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete
+          elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
+              ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+          else
+              ci_end 0 PASSED complete
+          fi
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Puppet lint report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -442,15 +586,56 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Check own Ruby code
         run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Ruby lint' native
           mkdir -p "$PROJECT_REPORT_DIR"
-          bundle exec rubocop --config .rubocop.yml --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"
+          rm -f -- "$PROJECT_REPORT_DIR/rubocop-report.xml"
+          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"; then
+              RUBY_STATUS=0
+          else
+              RUBY_STATUS=$?
+          fi
+          if [ "$RUBY_STATUS" -le 1 ] && [ -f "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+              printf 'JUnit written: %s\n' "$PROJECT_REPORT_DIR/rubocop-report.xml"
+          fi
+          case "$RUBY_STATUS" in
+              0) ci_end 0 PASSED complete ;;
+              1) ci_end 1 FAILED complete ;;
+              *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+          esac
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload Ruby lint report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -475,15 +660,44 @@ jobs:
           ruby-version: ruby
           bundler: none
       - name: Install the latest stable Bundler
-        run: gem install bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Install the project bundle
-        run: bundle install
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
       - name: Run own tool tests
         env:
           MINITEST_REPORTERS_REPORTS_DIR: ${{ env.PROJECT_REPORT_DIR }}
-        run: bundle exec rake test
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Tool tests' native
+          bundle exec rake test
       - name: Check for changes
-        run: git diff --exit-code HEAD --
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --exit-code HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              fi
+          fi
       - name: Upload test results
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
@@ -529,8 +743,21 @@ variables:
   image: ruby:latest
   before_script:
     - set -eo pipefail
-    - gem install bundler
-    - bundle install
+    - source global-modules/.github/actions/setup-tooling/log.sh
+    - |
+      ci_begin 'Install Bundler' details
+      if gem install bundler; then
+          ci_end 0 PASSED complete
+      else
+          ci_end "$?" ERROR incomplete
+      fi
+    - |
+      ci_begin 'Install locked bundle' details
+      if bundle install; then
+          ci_end 0 PASSED complete
+      else
+          ci_end "$?" ERROR incomplete
+      fi
 
 metadata:
   extends: .check_setup
@@ -539,7 +766,18 @@ metadata:
     PROJECT_METADATA_PREFIX: example
   script:
     - bundle exec project-tools-metadata --junit "$PROJECT_REPORT_DIR/metadata-report.xml"
-    - git diff --exit-code HEAD --
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Metadata-report
     when: always
@@ -553,7 +791,18 @@ puppet_dependencies:
   script:
     - export PROJECT_TOOLS_MODULEPATH="$CI_PROJECT_DIR/global-modules:$CI_PROJECT_DIR/modules"
     - bundle exec project-tools-module-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-module-dependencies-report.xml"
-    - git diff --exit-code HEAD --
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Project-tools-module-dependencies-report
     when: always
@@ -566,7 +815,18 @@ validate:
   extends: .check_setup
   script:
     - bundle exec validate-junit "$PROJECT_REPORT_DIR/validate-report.xml" environments/production/manifests/site.pp modules/profile/manifests/init.pp
-    - git diff --exit-code HEAD --
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Validate-report
     when: always
@@ -578,12 +838,37 @@ validate:
 puppet_lint:
   extends: .check_setup
   script:
-    - mkdir -p "$PROJECT_REPORT_DIR"
+    - |
+      ci_begin 'Puppet lint'
+      mkdir -p "$PROJECT_REPORT_DIR"
     - test -f .puppet-lint.rc
     - lint_gem="$(bundle info --path lint-project)"
     - export PROJECT_TOOLS_MODULEPATH="$CI_PROJECT_DIR/global-modules:$CI_PROJECT_DIR/modules"
-    - bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
-    - git diff --exit-code HEAD --
+    - |
+      set +e
+      bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+      LINT_STATUS=("${PIPESTATUS[@]}")
+      set -e
+      printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
+      if [ "${LINT_STATUS[1]}" -ne 0 ]; then
+          ci_end "${LINT_STATUS[1]}" ERROR incomplete
+      elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
+          ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+      else
+          ci_end 0 PASSED complete
+      fi
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Puppet-lint-report
     when: always
@@ -595,9 +880,36 @@ puppet_lint:
 ruby_lint:
   extends: .check_setup
   script:
-    - mkdir -p "$PROJECT_REPORT_DIR"
-    - bundle exec rubocop --config .rubocop.yml --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"
-    - git diff --exit-code HEAD --
+    - |
+      ci_begin 'Ruby lint' native
+      mkdir -p "$PROJECT_REPORT_DIR"
+      rm -f -- "$PROJECT_REPORT_DIR/rubocop-report.xml"
+    - |
+      if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out "$PROJECT_REPORT_DIR/rubocop-report.xml"; then
+          RUBY_STATUS=0
+      else
+          RUBY_STATUS=$?
+      fi
+      if [ "$RUBY_STATUS" -le 1 ] && [ -f "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+          printf 'JUnit written: %s\n' "$PROJECT_REPORT_DIR/rubocop-report.xml"
+      fi
+      case "$RUBY_STATUS" in
+          0) ci_end 0 PASSED complete ;;
+          1) ci_end 1 FAILED complete ;;
+          *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+      esac
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Ruby-lint-report
     when: always
@@ -609,8 +921,22 @@ ruby_lint:
 tool_tests:
   extends: .check_setup
   script:
-    - MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test
-    - git diff --exit-code HEAD --
+    - |
+      ci_begin 'Tool tests' native
+      MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test
+      ci_end 0 PASSED complete
+    - |
+      ci_begin 'Checkout changes'
+      if git diff --exit-code HEAD --; then
+          ci_end 0 PASSED complete
+      else
+          CHECKOUT_STATUS=$?
+          if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+              ci_end "$CHECKOUT_STATUS" FAILED complete
+          else
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+          fi
+      fi
   artifacts:
     name: Test-results
     when: always
@@ -797,7 +1123,7 @@ De eigen Gemfile selecteert de geïnstalleerde pakketten:
 ```ruby
 source 'https://rubygems.org'
 
-gem 'project-tools-shared', '= 0.1.0', require: false
+gem 'project-tools-shared', '= 0.1.1', require: false
 gem 'lint-project', '= 0.2.0', require: false
 gem 'project-tools-module-dependencies', '= 0.1.0', require: false
 gem 'project-tools-validate', '= 0.1.0', require: false
@@ -831,9 +1157,9 @@ Werk eigen parser-Rake-taken bij volgens het [voorbeeld met optionele rapportage
 
 Voeg `project-tools-module-dependencies` en zijn afzonderlijke CI-job toe wanneer je dependencycontrole gebruikt. Werk bestaande Gemfile-verwijzingen, buildcommando’s en CI-aanroepen voor de dependencytool bij naar de volledige naam `project-tools-module-dependencies` en executable `project-tools-module-dependencies`. Gebruik de rapportnamen uit [Rapporten en artifacts](#rapporten-en-artifacts-in-je-project).
 
-Dit is een brekende wijziging van de gedocumenteerde toolingintegratie. De al gekozen projectversie `3.0.0` blijft behouden: de laatste gepubliceerde release is `v2.0.0`, en de verzamelde wijzigingen vereisen al een majorrelease. Root- en first-party-modulemetadata volgen `VERSION`; externe modules en Ruby-gems behouden hun eigen versies. `lint-project` gaat naar `0.2.0`, de overige gems beginnen bij `0.1.0`. De afzonderlijke validator, metadata- en Ruby-tools, gewijzigde commando’s, optionele rapportage bij test- en parser-Rake-taken en gedeelde instellingen passen binnen deze al gekozen majorrelease; een verdere versieophoging is niet nodig. Er worden geen tags of releases automatisch gemaakt.
+De hieronder beschreven pakketmigratie is een brekende wijziging van de gedocumenteerde toolingintegratie. De al gekozen projectversie `3.0.0` blijft behouden: de laatste gepubliceerde release is `v2.0.0`, en de verzamelde wijzigingen vereisen al een majorrelease. Root- en first-party-modulemetadata volgen `VERSION`; externe modules en Ruby-gems behouden hun eigen versies. `lint-project` gaat naar `0.2.0`, de overige gems beginnen bij `0.1.0`. De afzonderlijke validator, metadata- en Ruby-tools, gewijzigde commando’s, optionele rapportage bij test- en parser-Rake-taken en gedeelde instellingen passen binnen deze al gekozen majorrelease; een verdere versieophoging is niet nodig. Er worden geen tags of releases automatisch gemaakt.
 
-De uniforme leesvolgorde van CI-jobs en controleoverzichten behoudt alle jobnamen, commando’s en statuscontracten. Deze indelingscorrectie is compatibel en past eveneens binnen de al gekozen projectversie `3.0.0`.
+De uniforme [joblogs](#joblogs) behouden jobnamen, controlecommando’s, machineformaten, rapportidentiteiten en processtatussen. Deze compatibele presentatiecorrectie past binnen de al gekozen projectversie `3.0.0`; een verdere verhoging is niet nodig. De gedeelde console is beschikbaar vanaf `project-tools-shared 0.1.1`. De vier Ruby-tools die deze interface gebruiken vereisen shared `>= 0.1.1, < 0.2.0`; werk die gem en de eigen lockfile samen bij. Andere runtime-dependencies wijzigen niet. Mensgerichte tekst is geen parser-API; blijf voor automatische verwerking de bestaande JSON- en XML-formaten gebruiken.
 
 Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en aanpassing van de parseraanroep. `puppet-lint-junit` blijft een converter: geldige conversie kan status 0 geven terwijl de XML failures bevat; de lintpipe blijft `pipefail` vereisen. `validate-junit` blijft ieder geselecteerd manifest native valideren. De nieuwe dependencytool gebruikt zijn eigen [exitcodes en rapportlevenscyclus](module-dependencies/README.md#exitcodes-en-rapporten).
 
@@ -854,7 +1180,7 @@ bundle exec rake test:ruby_lint
 bundle exec rake test:repository_checks
 ```
 
-De root-Rake-taak ontdekt `.tools/*/tests/**/*_test.rb` recursief. `bundle exec rake` voert dezelfde selectie uit als `bundle exec rake test`; de gerichte taken kiezen één eigenaar. Zonder `MINITEST_REPORTERS_REPORTS_DIR` geven al deze routes en rechtstreeks uitgevoerde testbestanden uitsluitend console-uitvoer. Bestaande rapportbestanden blijven ongewijzigd en er wordt geen rapportmap aangemaakt. De eenmalige bootstrap registreert autorun en reporters slechts één keer.
+De root-Rake-taak ontdekt `.tools/*/tests/**/*_test.rb` recursief. `bundle exec rake` voert dezelfde selectie uit als `bundle exec rake test`; de gerichte taken kiezen één eigenaar. Zonder `MINITEST_REPORTERS_REPORTS_DIR` geven al deze routes en rechtstreeks uitgevoerde testbestanden uitsluitend console-uitvoer. Bestaande rapportbestanden blijven ongewijzigd en er wordt geen rapportmap aangemaakt. De eenmalige bootstrap registreert autorun en de [testreporter](shared/README.md#testondersteuning) slechts één keer. Die toont afgeronde testgevallen, fouten en skips volgens het centrale logcontract; `TESTOPTS='--verbose'` behoudt de native detailuitvoer.
 
 Vraag JUnit aan met een niet-leeg rapportpad, relatief aan de werkmap of absoluut. De CI-testjob gebruikt onderstaande instelling; je kunt die ook lokaal bij iedere testtaak meegeven:
 
@@ -951,6 +1277,7 @@ Configureer de reporters in de eigen `.tools/<tool-name>/tests/test_helper.rb`. 
 require 'minitest/autorun'
 require 'minitest/reporters'
 
+$stdout.sync = true
 reporters = [Minitest::Reporters::DefaultReporter.new]
 if ENV['MINITEST_REPORTERS_REPORTS_DIR']
   reporters << Minitest::Reporters::JUnitReporter.new(ENV.fetch('MINITEST_REPORTERS_REPORTS_DIR'))

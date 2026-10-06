@@ -12,6 +12,8 @@ module ProjectTools
     class Scanner
       REPOSITORY_EXCLUSIONS = %w[examples vendor concat debconf reboot stdlib].freeze
 
+      attr_reader :results
+
       def initialize(root = Dir.pwd, ignore_paths: [])
         @root = File.realpath(root)
         @ignore_paths = ignore_paths
@@ -64,16 +66,17 @@ module ProjectTools
         end
       end
 
-      def findings(fix: false)
-        @findings = { 'metadata.json' => [] }
+      def findings(fix: false, &on_problem)
+        @on_problem = on_problem
+        @results = { 'metadata.json' => [] }
         @fix = fix
         selected = paths
-        selected.each { |path| @findings[path] = [] }
+        selected.each { |path| @results[path] = [] }
         version = project_version
         check_root(version)
         prefix = name_prefix unless selected.empty?
         selected.each { |path| check(path, version, prefix) }
-        @findings
+        @results
       end
 
       def check_root(version)
@@ -123,9 +126,10 @@ module ProjectTools
       end
 
       def add(path, message, kind: :error)
-        (@findings[path] ||= []) << { check: :project_metadata, kind: kind, line: 1, column: 1,
-                                      message: message, path: path, filename: File.basename(path),
-                                      fullpath: File.join(@root, path) }
+        (@results[path] ||= []) << { check: :project_metadata, kind: kind, line: 1, column: 1,
+                                     message: message, path: path, filename: File.basename(path),
+                                     fullpath: File.join(@root, path) }
+        @on_problem&.call(@results[path].last)
         nil
       end
     end

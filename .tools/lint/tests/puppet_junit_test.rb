@@ -29,13 +29,18 @@ class PuppetJunitTest < Minitest::Test
   def test_repeated_findings_share_one_case_and_keep_all_locations
     data = [[problem, problem(line: 2), problem(path: 'manifests/other.pp')]]
     assert_equal 0, convert(JSON.generate(data))
+    assert_grouped_report
+    assert_equal 3, @console.string.lines.grep(/: project_arrays: warning:/).size
+    assert_includes @console.string, 'Findings: 0 error | 3 warning'
+  end
+
+  def assert_grouped_report
     xml = @xml.string
     assert_includes xml, 'tests="2" failures="2" errors="0"'
     assert_equal 1, xml.scan('name="manifests/site.pp:project_arrays"').length
     [1, 2].each do |line|
       assert_includes xml, "manifests/site.pp:#{line}:10: project_arrays: warning: Use concat"
     end
-    assert_equal 3, @console.string.count("\n")
   end
 
   def test_xml_escapes_paths_messages_and_preserves_unicode

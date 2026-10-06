@@ -4,20 +4,37 @@ require 'optparse'
 require 'fileutils'
 require 'project_tools/metadata/scanner'
 require 'project_tools/shared/junit_report'
+require 'project_tools/shared/console'
 
 module ProjectTools
   # Explicit metadata checks and corrections, independent of manifest linting.
   module Metadata
     def self.run(arguments, output: $stdout, errors: $stderr)
+      console = Shared::Console.new('Metadata', output: output, scope: 'root metadata and selected own modules')
+      console.during do
+        execute(arguments, console, errors)
+      end
+    end
+
+    def self.execute(arguments, console, errors)
       options = parse(arguments)
-      findings = Scanner.new(ignore_paths: options[:ignore_paths]).findings(fix: options[:fix])
-      report = Report.new(findings)
-      report.print(output)
+      scanner = Scanner.new(ignore_paths: options[:ignore_paths])
+      report = scan(scanner, options, console)
       report.write(options[:junit]) if options[:junit]
+      report.finish(console, report: options[:junit])
       report.status
     rescue OptionParser::ParseError, ArgumentError, SystemCallError, IOError => e
-      errors.puts "metadata: #{e.message}"
+      console.diagnostic("metadata: #{e.message}", output: errors)
+      Report.new(scanner&.results || {}).finish(console, error: e.message)
       2
+    end
+
+    def self.scan(scanner, options, console)
+      findings = scanner.findings(fix: options[:fix]) do |problem|
+        console.finding(Report.diagnostic(problem))
+        console.advance(unit: 'findings')
+      end
+      Report.new(findings)
     end
 
     def self.parse(arguments)
@@ -43,9 +60,41 @@ module ProjectTools
       def print(output)
         @findings.each_value do |problems|
           problems.each do |problem|
-            output.puts "#{problem[:path]}:1:1: project_metadata: #{problem[:kind]}: #{problem[:message]}"
+            output.puts self.class.diagnostic(problem)
           end
         end
+      end
+
+      def self.diagnostic(problem)
+        source = problem[:path].end_with?('metadata.json') ? "#{problem[:path]}:1:1" : problem[:path]
+        "#{source}: project_metadata: #{problem[:kind]}: #{problem[:message]}"
+      end
+
+      def finish(console, report: nil, error: nil)
+        outcome = status.zero? ? 'PASSED' : 'FAILED'
+        incomplete = error || @findings.key?('configuration') || @findings.key?('VERSION')
+        console.finish(status: error ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
+                       facts: facts, details: problems.map { |problem| self.class.diagnostic(problem) } + Array(error),
+                       report: report)
+      end
+
+      def problems
+        @findings.sort.flat_map { |_path, entries| entries.sort_by { |entry| entry[:message] } }
+      end
+
+      def facts
+        return ['Sources: selection not evaluated'] if @findings.empty?
+
+        counts = problems.group_by { |problem| problem[:kind] }
+        [selection, "Sources: #{@findings.size} selected | #{failures} with blocking findings",
+         "Findings: #{counts.fetch(:error, []).size} blocking | #{counts.fetch(:fixed, []).size} fixed"]
+      end
+
+      def selection
+        return 'Own module metadata selection: incomplete' if @findings.key?('configuration')
+
+        modules = @findings.keys.count { |path| path != 'metadata.json' && path.end_with?('/metadata.json') }
+        "Own module metadata: #{modules} selected"
       end
 
       def write(path)

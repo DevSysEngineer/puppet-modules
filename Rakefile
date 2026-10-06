@@ -25,10 +25,24 @@ namespace :validate do
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
                                             'reboot/**/*', 'stdlib/**/*')
     if args[:junit]
-      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests
+      sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests, verbose: false do |ok, status|
+        raise SignalException, status.termsig if status.signaled?
+
+        exit status.exitstatus unless ok
+      end
     else
-      abort 'No Puppet manifests selected.' if manifests.empty?
-      sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests
+      require 'project_tools/shared/console'
+      console = ProjectTools::Shared::Console.new('Puppet validation', scope: "#{manifests.size} files selected")
+      console.during do
+        abort 'No Puppet manifests selected.' if manifests.empty?
+        sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests, verbose: false do |ok, status|
+          console.finish(status: ok ? 'PASSED' : 'Result not classified', execution: ok ? 'complete' : 'unknown',
+                         facts: ["Original exit status: #{status}", 'Native parser diagnostics are shown above.'])
+          raise SignalException, status.termsig if status.signaled?
+
+          exit status.exitstatus unless ok
+        end
+      end
     end
   end
 end

@@ -72,6 +72,7 @@ class ParserRakeReportingTest < Minitest::Test
       run_parser(report)
       assert_equal 1, @status.exitstatus, @output + @errors
       assert_includes @output + @errors, 'Syntax error'
+      refute_includes @errors, 'rake aborted!'
     end
     assert_equal '2', suite.attributes['failures']
     assert_equal "class profile {\n", read('modules/profile/manifests/init.pp')

@@ -65,12 +65,13 @@ Het rootbestand van een ingeladen `global-modules` wordt geen tweede rootcontrac
 
 Uitvoerfouten hebben voorrang op bevindingen; reeds betrouwbare bevindingen blijven zichtbaar. `missing`, `version_mismatch` en `non_semantic_version` worden JUnit-`failure`-cases. De laatste reden kan zowel de voorwaarde als de geselecteerde versie betreffen. Uitvoerfouten krijgen `error`. Normale bevindingen gaan naar stdout, uitvoerdiagnoses naar stderr, zonder stacktrace of metadata-dump.
 
-Console en JUnit gebruiken dezelfde deterministisch gesorteerde resultaten. De suite heet `project-tools-module-dependencies`. Een testcase benoemt scope, aanvrager, dependency, requirement en geselecteerde versie. De tekst bevat reden en bronpaden, relatief aan de actieve projectroot; paden buiten de root blijven via `../` herleidbaar. Er worden geen JSON-regelnummers verzonnen. Een schone scan krijgt één geslaagde testcase, met dekking in `system-out`. Tellingen beschrijven testcases, niet modules of dependencydiepte.
+De console volgt het [centrale logcontract](../README.md#joblogs) en toont nieuwe conflicten en uitvoerfouten direct. Een onvolledige scan eindigt met `ERROR`; de oorspronkelijke codes 0, 1 en 2 blijven gelijk. Voortgang telt verwerkte native modules; de dekking onderscheidt beoordeelde metadata van directories zonder metadata. Console en JUnit gebruiken dezelfde deterministisch gesorteerde resultaten. De suite heet `project-tools-module-dependencies`. Een testcase benoemt scope, aanvrager, dependency, requirement en geselecteerde versie. De tekst bevat reden en bronpaden, relatief aan de actieve projectroot; paden buiten de root blijven via `../` herleidbaar. Er worden geen JSON-regelnummers verzonnen. Een schone scan krijgt één geslaagde testcase, met dekking in `system-out`. Tellingen beschrijven testcases, niet modules of dependencydiepte.
 
 Een synthetisch voorbeeld van een failure:
 
 ```text
-Puppet module dependencies: FAILED
+[FAILED] Puppet module dependencies
+Execution: complete
 
   module: example/profile 1.0.0 -> example/library; requires >= 1.0.0 < 2.0.0; selected 2.0.0
   version_mismatch: The selected version does not satisfy the declared requirement.

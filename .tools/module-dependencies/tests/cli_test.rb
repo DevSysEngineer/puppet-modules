@@ -26,7 +26,10 @@ class DependencyCliTest < Minitest::Test
     assert_equal expected, status.exitstatus, output + errors
     refute_path_exists File.dirname(@report)
     scan(expected)
-    assert_equal [output, errors], [@output, @errors]
+    assert_equal(output.lines.reject { |line| line.start_with?('Duration:', 'JUnit written:') },
+                 @output.lines.reject { |line| line.start_with?('Duration:', 'JUnit written:') })
+    assert_equal errors, @errors
+    assert_includes @output, 'JUnit written:'
   end
 
   def test_console_only_scan_preserves_existing_reports

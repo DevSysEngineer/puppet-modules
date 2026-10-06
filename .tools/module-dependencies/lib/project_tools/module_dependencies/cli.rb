@@ -3,6 +3,7 @@
 require 'fileutils'
 require 'optparse'
 require 'project_tools/shared/modulepath'
+require 'project_tools/shared/console'
 require 'project_tools/module_dependencies/result'
 require 'project_tools/module_dependencies/reporter'
 
@@ -21,15 +22,30 @@ module ProjectTools
       end
 
       def run(arguments)
+        @presentation = Shared::Console.new('Puppet module dependencies', output: @console,
+                                                                          scope: 'explicit modulepath and root')
+        @presentation.during { execute(arguments) }
+      end
+
+      def execute(arguments)
         result = parse(arguments)
         prepare_report if @report
         result ||= scan
         write(result) if @report
-        Reporter.new(result, @root).console(@console, @errors)
+        Reporter.new(result, @root).console(@presentation, @errors, report: @report)
         result.status
       rescue SystemCallError, IOError => e
-        @errors.puts "Cannot write Puppet dependency JUnit report (#{e.class})."
+        message = "Cannot write Puppet dependency JUnit report (#{e.class})."
+        Reporter.new(result || Result.new, @root).console(@presentation, @errors, error: message)
         2
+      end
+
+      def new_result
+        Result.new do |problem|
+          reporter = Reporter.new(nil, @root)
+          target = problem[:kind] == :error ? @errors : @console
+          @presentation.finding("#{reporter.title(problem)}\n#{reporter.details(problem)}", output: target)
+        end
       end
 
       def prepare_report
@@ -45,7 +61,7 @@ module ProjectTools
 
         nil
       rescue OptionParser::ParseError => e
-        result = Result.new
+        result = new_result
         result.error(:configuration_error, e.message)
         result
       end
@@ -66,7 +82,7 @@ module ProjectTools
       end
 
       def scan
-        result = Result.new
+        result = new_result
         perform_scan(result)
         result
       rescue ArgumentError => e
@@ -83,7 +99,7 @@ module ProjectTools
         require 'project_tools/module_dependencies/root_dependencies'
         root = RootDependencies.new(@root, result)
         root.read
-        OpenvoxAdapter.new(paths, result).scan { |environment| root.check(environment) }
+        OpenvoxAdapter.new(paths, result, progress: @presentation).scan { |environment| root.check(environment) }
         result.error(:empty_scan, 'No usable module metadata was assessed.') if result.assessed.empty?
       end
     end
