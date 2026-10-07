@@ -4,20 +4,26 @@
 # Fail helper
 die() {
     printf 'ESET check cannot run: %s\n' "$*"
+    if [ -n "${CRIT_MSG:-}" ]; then
+        printf 'Verified failures: %s\n' "$CRIT_MSG"
+        exit 2
+    fi
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+<% end -%>
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
-fi
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 WC=$(command -v wc 2>/dev/null) || die "wc not available"
@@ -34,7 +40,7 @@ WARN_NO_SCAN_DAYS=${WARN_NO_SCAN_DAYS:-7} # WARNING if no on-demand scan in >7 d
 WARN_UPDATE_MIN=${WARN_UPDATE_MIN:-720} # WARNING if no engine update for >12h
 
 # Latest scan metrics are parsed from ESET lslog output and exported as perfdata.
-ENGINE_VER=0
+ENGINE_VER=U
 LAST_CLEAN=0
 LAST_DET=0
 LAST_FILES=0
@@ -196,25 +202,41 @@ parse_scan_csv() {
     '
 }
 
+# Application log tools are required for scan and update history; their absence is not a protection failure.
+[ -x "$LSLOG" ] && [ -x "$UPD" ] || die "ESET history tools unavailable"
+
 # Verify the ESET service before checking daemon internals.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-$SYSTEMDCTL is-active --quiet "efs.service" || crit "service is not active"
-else
-$PS -C efs >/dev/null 2>&1 || crit "service is not active"
+<% if @systemd_enable != false -%>
+check_systemd_service "efs.service"
+if ! use_systemd; then
+<% end -%>
+    PROCESS_NAMES=$($PS -e -o comm= 2>/dev/null) || die "process inspection unavailable"
+    printf '%s\n' "$PROCESS_NAMES" | $AWK '$1 == "efs" { found=1 } END { exit !found }' || crit "service is not active"
+<% if @systemd_enable != false -%>
 fi
+<% end -%>
 
 # Core daemon checks catch partial ESET failures that systemd may not expose.
 DAEMONS="oaeventd scand updated logd confd licensed utild sysinfod"
 [ ! -f "$WAP_FLAG" ] && DAEMONS="$DAEMONS wapd"
+PROCESS_NAMES=$($PS -e -o comm= 2>/dev/null) || die "process inspection unavailable"
 for d in $DAEMONS; do
-  $PS -e -o comm= | $GREP -qx "$d" || add_crit "$d down"
+    printf '%s\n' "$PROCESS_NAMES" | $GREP -qx "$d" || add_crit "$d down"
 done
 
-# Kernel modules confirm real-time protection is active at the kernel boundary.
-$GREP -qw eset_rtp /proc/modules || add_crit "eset_rtp missing"
-if [ ! -f "$WAP_FLAG" ]; then
-  $GREP -qw eset_wap /proc/modules || add_crit "eset_wap missing"
-fi
+# sysfs covers resident modules without requiring lsmod or a readable /proc/modules.
+# Presence alone does not prove that every protection path is working; daemon and history checks remain necessary.
+MODULES="eset_rtp"
+[ -f "$WAP_FLAG" ] || MODULES="$MODULES eset_wap"
+for module in $MODULES; do
+    if [ -d /sys/module ] && [ -r /sys/module ] && [ -x /sys/module ]; then
+        [ -d "/sys/module/$module" ] || add_crit "$module missing"
+    elif [ -r /proc/modules ]; then
+        $GREP -qw "$module" /proc/modules || add_crit "$module missing"
+    else
+        die "kernel module inventory unavailable"
+    fi
+done
 
 # Detection engine version is included for operators even when update age is healthy.
 LINE=$($UPD -l 2>/dev/null | $GREP -m1 "Detection engine")
@@ -227,10 +249,10 @@ case "$ENGINE_VER_METRIC" in
 esac
 
 # ESET log output is reused for update age and recent update errors.
-LOG_CSV=$($LSLOG -c 2>/dev/null)
+LOG_CSV=$($LSLOG -c 2>/dev/null) || die "ESET update history unavailable"
 
 # On-demand scan history drives stale-scan status and bounded long output.
-SCAN_CSV=$($LSLOG -s -c 2>/dev/null)
+SCAN_CSV=$($LSLOG -s -c 2>/dev/null) || die "ESET scan history unavailable"
 SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
 SCANS_TOTAL=0
 SCAN_HISTORY=""
@@ -250,7 +272,7 @@ while IFS='|' read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
             # Convert the last scan start time to both age and human timestamp later.
             LAST_SCAN_EPOCH=$($DATE -d "$STARTED" +%s 2>/dev/null)
             case "$LAST_SCAN_EPOCH" in
-                ''|*[!0-9]*) LAST_SCAN_EPOCH=0 ;;
+                ''|*[!0-9]*) die "scan timestamp could not be parsed" ;;
                 *) LAST_SCAN_AGE=$(( (NOW_EPOCH - LAST_SCAN_EPOCH) / 86400 )) ;;
             esac
 
@@ -311,7 +333,10 @@ LONG_OUTPUT=$(
 [ "$LAST_CLEAN" -gt 0 ] && [ "$LAST_DET" -eq 0 ] && add_warn "scan cleaned files $LAST_CLEAN"
 
 # Cumulative detections are trend perfdata; the latest scan detections drive status.
-DETECTIONS_TOTAL=$($LSLOG -d -c 2>/dev/null | $TAIL -n +2 | $WC -l | $AWK '{print $1}')
+DETECTIONS_TOTAL=U
+if DETECTION_CSV=$($LSLOG -d -c 2>/dev/null); then
+    DETECTIONS_TOTAL=$(printf '%s\n' "$DETECTION_CSV" | $TAIL -n +2 | $WC -l | $AWK '{print $1}')
+fi
 
 # Update age is computed from the latest successful detection-engine update log line.
 LAST_OK=$(printf '%s\n' "$LOG_CSV" | $GREP -F "Detection Engine was successfully updated" | $TAIL -n 1)
@@ -319,8 +344,7 @@ if [ -n "$LAST_OK" ]; then
     LAST_OK_TS=$($DATE -d "${LAST_OK%%,*}" +%s 2>/dev/null || printf '')
     case "$LAST_OK_TS" in
         ''|*[!0-9]*)
-            UPDATE_AGE_MIN=U
-            add_crit "engine update timestamp could not be parsed"
+            die "engine update timestamp could not be parsed"
             ;;
         *)
             UPDATE_AGE_MIN=$(( (NOW_EPOCH - LAST_OK_TS) / 60 ))

@@ -1,0 +1,79 @@
+# Render this shared inspection into each check so deployed scripts need no separate helper file.
+# Rendered only when systemd is enabled or unspecified; explicit false uses each check's own inspection.
+# True requires systemd, and an unset value enables runtime discovery.
+# The selection never proves that the manager is actually running.
+SYSTEMD_ENABLE='<%= @systemd_enable %>'
+
+# /run/systemd/system is the runtime indicator used by sd_booted(3), independent of package declarations.
+use_systemd() {
+    [ -d /run/systemd/system ]
+}
+
+# Inspect the manager prerequisite separately so optional unit lists cannot hide an unmet expectation.
+# Return 0 when unit inspection can proceed, 2 for an unmet expectation, 3 for unavailable tooling, 4 when inapplicable.
+systemd_status() {
+    SERVICE_CONTEXT=""
+    if ! use_systemd; then
+        if [ "$SYSTEMD_ENABLE" = true ]; then
+            SERVICE_CONTEXT="systemd is expected (systemd_enable=true) but is not running"
+            return 2
+        fi
+        SERVICE_CONTEXT="Systemd is not running; availability is checked through the native subsystem."
+        return 4
+    fi
+    service_systemctl=$(command -v systemctl 2>/dev/null) || {
+        SERVICE_CONTEXT="systemd is running but systemctl is unavailable"
+        return 3
+    }
+    return 0
+}
+
+# Observe without exiting: 0 active, 2 stopped/unloadable/missing, 3 unknown, 4 not applicable.
+# Units are required by default; only an explicit 'optional' allows a missing unit.
+systemd_service_status() {
+    SERVICE_LOAD_STATE=""
+    SERVICE_ACTIVE_STATE=""
+    systemd_status
+    service_rc=$?
+    [ "$service_rc" -eq 0 ] || return "$service_rc"
+
+    service_properties=$($service_systemctl show "$1" -p LoadState -p ActiveState 2>/dev/null)
+    service_rc=$?
+    SERVICE_LOAD_STATE=$(printf '%s\n' "$service_properties" | $AWK -F= '$1 == "LoadState" { print $2; exit }')
+    if [ "$SERVICE_LOAD_STATE" = not-found ]; then
+        if [ "${2:-required}" = optional ]; then
+            SERVICE_CONTEXT="Optional systemd unit $1 is not installed."
+            return 4
+        fi
+        SERVICE_CONTEXT="service $1 does not exist"
+        return 2
+    fi
+    if [ "$service_rc" -ne 0 ]; then
+        SERVICE_CONTEXT="service $1 status could not be read"
+        return 3
+    fi
+    case "$SERVICE_LOAD_STATE" in
+        loaded|masked) : ;;
+        error|bad-setting) SERVICE_CONTEXT="service $1 cannot be loaded ($SERVICE_LOAD_STATE)"; return 2 ;;
+        *) SERVICE_CONTEXT="service $1 LoadState unavailable or invalid"; return 3 ;;
+    esac
+
+    SERVICE_ACTIVE_STATE=$(printf '%s\n' "$service_properties" | $AWK -F= '$1 == "ActiveState" { print $2; exit }')
+    case "$SERVICE_ACTIVE_STATE" in
+        active) SERVICE_CONTEXT="Service $1 is active."; return 0 ;;
+        inactive|failed|activating|deactivating) SERVICE_CONTEXT="service $1 is not active ($SERVICE_ACTIVE_STATE)"; return 2 ;;
+        *) SERVICE_CONTEXT="service $1 ActiveState unavailable or invalid"; return 3 ;;
+    esac
+}
+
+# Require the service by default; pass 'optional' only when absence is explicitly permitted.
+# Without a systemd expectation, no manager leaves native inspection to the caller. Never emit internal status 4.
+check_systemd_service() {
+    systemd_service_status "$1" "${2:-required}"
+    service_result=$?
+    case "$service_result" in
+        0|4) return 0 ;;
+        2) crit "$SERVICE_CONTEXT" ;;
+        *) die "$SERVICE_CONTEXT" ;;
+    esac
+}

@@ -7,6 +7,9 @@ die() {
     exit 3
 }
 
+# Systemd concepts do not apply when another init system is running (Nagios UNKNOWN).
+[ -d /run/systemd/system ] || die "not applicable: systemd is not running"
+
 # Binary checks required by this monitoring check.
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 FIND=$(command -v find 2>/dev/null) || die "find not available"

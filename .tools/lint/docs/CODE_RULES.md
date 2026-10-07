@@ -3311,6 +3311,8 @@ Een class of defined type berekent zelf de afgeleide implementatiewaarden die ui
 
 De bestaande class of define mag die berekeningen rechtstreeks uitvoeren; een extra component is daarvoor niet vereist.
 
+Hergebruik een toepasselijke keuze die de aanroepende of parentclass al beheert, zoals de selectie van een service manager. Geef die keuze via de bestaande interface door; voeg geen tweede parameter, default of onafhankelijke detectie toe die dezelfde keuze kan tegenspreken. Behoud het onderscheid tussen expliciet ingeschakeld, expliciet uitgeschakeld en niet opgegeven wanneer de interface deze toestanden ondersteunt. Een runtimecontrole toetst vervolgens of de verwachte toestand werkelijk bestaat; zij bepaalt de beheerde keuze niet opnieuw. Volg voor parentwaarden de [classcontroles](#classcontroles-hergebruiken) en voor de uitvoering de [runtimebronkeuze](OPERATIONAL_RULES.md#actuele-hosttoestand-uit-kernelgegevens-bepalen).
+
 Maak onderscheid tussen de unieke titel van een Puppet-registratie en de interne identiteit van het gedeelde object. Geef templates de voorbereide waarden; herhaal daar geen protocolselectie, identiteitsberekening of eigendomsbeslissing. Waarden die de caller zelf beheert, zoals zijn configuratiebestand of de positie van een fragment daarin, blijven broninvoer voor de ontvangende component.
 
 Beoordeel deze indeling bij de review van het hele omliggende blok. De [sectiechecks](DOCUMENTATION_RULES.md#toelichtingen-bij-code) controleren opmaak en toelichtingen; een geslaagde lintscan bewijst niet dat aanroepen inhoudelijk op de juiste plek staan. Verplaats ze niet automatisch op basis van hun naam, type of afstand tot een variabele: hun functie, voorwaarden en evaluatievolgorde bepalen welke plek klopt.
@@ -3357,11 +3359,15 @@ Handmatig reviewscenario: Een daemonconfiguratiebestand verhuist naar de monitor
 
 Handmatig reviewscenario: Een profiel berekent transport, socket-identiteit, include-pad en primaire eigenaar en geeft die via extra parameters aan de vhostcomponent. Keur dit af: het profiel bereidt interne listen-configuratie voor die de vhostcomponent zelf uit de broninvoer kan afleiden.
 
+Handmatig reviewscenario: De parentclass schakelt een integratie uit, maar een onderliggende registratie kiest die opnieuw op basis van een geïnstalleerd commando. Keur dit af: de registratie negeert de bestaande keuze.
+
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Laat daemonconfiguratie bij de daemon; groepeer uitsluitend monitoringinstellingen bij de registratie. Dit voldoet aan de norm onder de genoemde voorwaarden.
 
 Handmatig reviewscenario: Een profiel geeft adressen, poorten, protocolkeuzes en socketopties aan `nginx::server`. Dit defined type berekent zelf transport, socket-identiteit, include-pad, eigenaarschap en effectieve opties. Het beheert de gedeelde socketconfiguratie en geeft voorbereide listen- of includeregels aan zijn templates. Meerdere vhosts delen één configuratie-eigenaar per socket; hiervoor is geen aparte listen-define nodig.
+
+Handmatig reviewscenario: Een registratie gebruikt de bestaande selectie van haar parentclass. De template neemt alleen de bijbehorende implementatie op; de runtimecontrole meldt een afwijking als een expliciet vereiste voorziening ontbreekt.
 
 **Grensgevallen**
 
@@ -3372,6 +3378,8 @@ Een pad van een bestand dat de caller beheert kan geldige broninvoer zijn. Een i
 **Handmatige review**
 
 Stel per instelling vast welk onderdeel zij configureert; beoordeel functie, voorwaarden en evaluatievolgorde in het complete blok. Volg de broninvoer via de component tot de gerenderde configuratie en verwijder overbodige afgeleide parameters. Controleer bij gedeelde objecten unieke registratietitels, één eigenaar per interne identiteit, behoud van opties en conflictdetectie, en alle geraakte callers en relaties.
+
+Controleer bij doorgegeven keuzes dat de bestaande eigenaar leidend blijft en dat expliciete uitschakeling niet dezelfde betekenis krijgt als een ontbrekende waarde. Vergelijk selectie, gegenereerde code en toetsing van de werkelijke toestand afzonderlijk.
 
 **Verificatie**
 

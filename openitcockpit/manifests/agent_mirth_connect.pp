@@ -20,14 +20,14 @@ class openitcockpit::agent_mirth_connect (
 ) {
   # Require the agent parent before registering the Mirth Connect check.
   if (defined(Class['openitcockpit::agent'])) {
-    # Detect systemd before registering the Mirth Connect agent integration.
-    $systemd_enable = defined(Package['systemd'])
+    # Preserve the parent's expected init environment in the monitoring template.
+    $systemd_enable = $openitcockpit::agent::systemd_enable
 
     # Install runtime packages only while this registration deploys the check.
     $monitoring_package = pick($package, $openitcockpit::agent::monitoring_package)
     $monitoring_active = $ensure == present and $openitcockpit::agent::monitoring_enable and $monitoring_package != 'none'
     if ($monitoring_active) {
-      # Select the tools used alongside the externally supplied mccommand executable.
+      # Select the tools used alongside mccommand and the systemd or process inspection interface.
       $monitoring_packages = concat(['coreutils', 'dash', 'mawk', 'sed'], $systemd_enable ? {
         true    => ['systemd'],
         default => ['procps'],

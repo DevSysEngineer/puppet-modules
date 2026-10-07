@@ -7,11 +7,17 @@ die() {
     exit 3
 }
 
+# These checks inspect systemd concepts; other init systems are not applicable (Nagios UNKNOWN).
+[ -d /run/systemd/system ] || die "not applicable: systemd is not running"
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
+
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
-GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
@@ -22,7 +28,7 @@ LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000} # max characters before Interpretation
 
-# The service name follows the timer name; this matches systemd's common .timer/.service pairing.
+# The timer target is read from the running manager after argument validation.
 USAGE_TEXT="Usage: $0 [-l chars] [-n lines] [-t seconds] [-m chars_per_line] <timer>
 Environment: DETAIL_LIMIT (-l); LOG_LINES (-n); WINDOW (-t); MAXLOG (-m).
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
@@ -39,7 +45,6 @@ done
 shift $((OPTIND - 1))
 [ "$#" -eq 1 ] || die "$USAGE_TEXT"
 TIMER_UNIT=$1
-SERVICE_UNIT=${TIMER_UNIT%.timer}.service
 
 # Validate diagnostic output limits before journal text is rendered.
 case "$LOG_LINES" in
@@ -109,18 +114,28 @@ limit_text_details() {
     '
 }
 
-# Confirm the timer exists and is active before inspecting the paired service.
-$SYSTEMCTL show "$TIMER_UNIT" >/dev/null 2>&1 || {
+# Inspect manager properties: a bus failure does not prove a missing or inactive unit.
+TIMER_LOAD=$($SYSTEMCTL show "$TIMER_UNIT" -p LoadState --value 2>/dev/null)
+TIMER_RC=$?
+if [ "$TIMER_LOAD" = not-found ]; then
     emit_check "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
     exit 2
-}
-$SYSTEMCTL is-active --quiet "$TIMER_UNIT" || {
-    emit_check "${TIMER_UNIT} is not active" "last_run_age=U exit_code=U"
-    exit 2
-}
+fi
+[ "$TIMER_RC" -eq 0 ] && [ -n "$TIMER_LOAD" ] || die "timer LoadState unavailable"
+TIMER_ACTIVE=$($SYSTEMCTL show "$TIMER_UNIT" -p ActiveState --value 2>/dev/null) || die "timer ActiveState unavailable"
+case "$TIMER_ACTIVE" in
+    active) : ;;
+    inactive|failed|activating|deactivating)
+        emit_check "${TIMER_UNIT} is not active (${TIMER_ACTIVE})" "last_run_age=U exit_code=U"
+        exit 2
+        ;;
+    *) die "timer ActiveState unavailable or invalid" ;;
+esac
+SERVICE_UNIT=$($SYSTEMCTL show "$TIMER_UNIT" -p Unit --value 2>/dev/null) || die "timer target unavailable"
+[ -n "$SERVICE_UNIT" ] || die "timer target unavailable"
 
 # The last trigger timestamp anchors both age perfdata and the journal window.
-LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value)
+LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value 2>/dev/null) || die "timer trigger timestamp unavailable"
 if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
     emit_check "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
     exit 1
@@ -138,33 +153,22 @@ LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
 UNTIL_TS=$((LAST_RUN_TS + WINDOW))
 
 # Pull only the paired service journal lines created shortly after the timer fired.
-JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
+JOURNAL_RAW=""
+if [ -n "$JOURNALCTL" ]; then
+    JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
+fi
 
-# Prefer explicit status markers from this run window, then fall back to current unit properties.
-LAST_STATUS=$(printf "%s\n" "$JOURNAL_RAW" | $SED -n 's/.*status=\([0-9][0-9]*\).*/\1/p' | $TAIL -n1)
-RESULT_LINE=$(printf "%s\n" "$JOURNAL_RAW" | $GREP -E 'Failed with result|finished with (result|exit code)' | $TAIL -n1)
-
+# Current properties of the timer's actual target are authoritative; logs only add context.
 EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || printf 'U')
 RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || printf 'unknown')
 MAIN_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value 2>/dev/null || printf 'U')
 STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value 2>/dev/null || printf '')
 
-# Normalize the status source into one exit code/result pair for the final decision.
-EXIT_CODE=U
-RESULT="unknown"
-
-if [ -n "${LAST_STATUS:-}" ]; then
-    EXIT_CODE=$LAST_STATUS
-    if [ "${EXIT_CODE}" = "0" ]; then
-        RESULT="success"
-    else
-        RESULT="exit-code"
-    fi
-else
-    # No explicit status within window; fall back to unit properties
-    EXIT_CODE=$EXIT_CODE_PROP
-    RESULT=$RESULT_PROP
-fi
+EXIT_CODE=$EXIT_CODE_PROP
+RESULT=$RESULT_PROP
+case "$EXIT_CODE" in
+    ''|*[!0-9]*) EXIT_CODE=U ;;
+esac
 
 # Render journal for long output with a predictable line cap.
 JOURNAL_LINE_COUNT=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d' | $SED -n '$=')
@@ -195,7 +199,7 @@ if [ -n "$JOURNAL_JOINED" ]; then
             printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
             printf '%s\n' ''
             printf '%s\n' 'Interpretation:'
-            printf '%s\n' 'The paired service result from the timer window and current unit properties decide the exit code; journal lines are bounded context from the last trigger window.'
+            printf '%s\n' 'Current properties of the timer target decide the exit code; journal lines are bounded context from the last trigger window.'
             printf '%s\n' 'Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome.'
         }
     )
@@ -204,7 +208,14 @@ fi
 # Perfdata exposes timer age and the last observed service exit status.
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
 
-# A successful status marker from the timer window is the clean success path.
+# Zero ExecMainCode is the default before an execution completes, not evidence of success.
+if [ "$RESULT" = success ] && [ "$EXIT_CODE" = 0 ]; then
+    case "$MAIN_CODE_PROP" in
+        ''|0|*[!0-9]*) die "timer target has no completed execution result" ;;
+    esac
+fi
+
+# A completed target result and numeric zero exit status establish success.
 if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
     emit_check \
         "$SERVICE_UNIT successful (${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
@@ -212,22 +223,20 @@ if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
     exit 0
 fi
 
-# If the window contained any failure markers, force CRITICAL even if current unit props say success
-if printf "%s\n" "$RESULT_LINE" | $GREP -qi 'Failed with result\|status=[1-9]'; then
-    emit_check \
-        "$SERVICE_UNIT failed with result exit-code, exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
-        "$PERFDATA"
-    exit 2
-fi
-
-# With no explicit failure marker, report the normalized unit-property outcome.
+# Preserve the observed result, including signal/timeout failures with zero ExecMainStatus.
 emit_check \
     "$SERVICE_UNIT $RESULT with exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
     "$PERFDATA"
 
-# Unknown exit status means the timer outcome is inconclusive, not a service failure.
-case "${EXIT_CODE}" in
-    0) exit 0 ;;
-    U) exit 3 ;;
+# Missing evidence is UNKNOWN; a concrete unsuccessful result is CRITICAL even with exit status zero.
+case "$RESULT" in
+    ''|unknown|n/a) exit 3 ;;
+    success)
+        case "$EXIT_CODE" in
+            0) exit 0 ;;
+            U) exit 3 ;;
+            *) exit 2 ;;
+        esac
+        ;;
     *) exit 2 ;;
 esac

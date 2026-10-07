@@ -969,6 +969,14 @@ Meerdere interfaces en verschillende capaciteiten staan in het [vnStat-scenario]
 
 De checks worden automatisch door relevante modules geregistreerd wanneer OpenITCOCKPIT-monitoring actief is. Je kunt ze ook los vanuit een Nagios-compatibele executor gebruiken. De script- en templatecomments zijn de technische bron voor argumenten, commandodependencies, drempels, exitcodes, perfdata en diagnose-uitvoer.
 
+Algemene Linux-metingen gebruiken waar mogelijk de actieve kernelstatus. Specifieke checks behouden hun toepassingsgebied: APT beoordeelt APT-updates, audit gebruikt de actieve auditregels en de beschikbare historie, en de Nginx-certificaatcheck beoordeelt lokale bestanden. Systemd-checks vereisen een aantoonbaar actieve systemd-manager. Zonder geschikte meetbron of bij een niet-toepasbare controle volgt UNKNOWN (exitcode 3) met de reden; ontbrekende aanvullende diagnosegegevens bewijzen geen storing. Dit verbreedt de platformondersteuning van de Puppet-modules zelf niet.
+
+Wanneer de aanroepende class `systemd_enable = true` doorgeeft, verwachten de monitoringtemplates ook een draaiende systemd-manager: ontbreken geeft CRITICAL, een onleesbare status UNKNOWN. Bij `false` renderen daemonchecks direct hun eigen `ps`-controle; de systemd-helper en systemd-diagnostiek worden niet opgenomen. Alleen zonder deze variabele kiezen zij automatisch op basis van de runtime, met dezelfde procescontrole als fallback. Nftables controleert de geladen kernelregels omdat er geen permanent daemonproces is. De monitoringregistratie borgt de packages voor het gekozen pad.
+
+Servicecontroles verwachten standaard dat de bewaakte service bestaat en actief is. Een ontbrekende vereiste systemd-unit geeft CRITICAL. Een expliciet optionele aanvullende meting kan een ontbrekende unit toestaan; onleesbare status blijft onbekend en een aanwezige unit wordt nog steeds beoordeeld.
+
+Monitoringtemplates delen de systemd-inspectie via een tijdens compilatie ingevoegd [helperfragment](basic_settings/templates/monitoring/_systemd_service_status). Hiervoor moet `basic_settings` op het modulepath staan; je hoeft de class `basic_settings` niet te declareren of een helperbestand op de host te installeren. De registratie blijft verantwoordelijk voor de runtimevereisten van het gegenereerde script. De algemene ontwerpafspraken staan bij [gedeelde helpers](.tools/lint/docs/OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen), [runtimebronkeuze](.tools/lint/docs/OPERATIONAL_RULES.md#actuele-hosttoestand-uit-kernelgegevens-bepalen) en [inspectiestatus](.tools/lint/docs/OPERATIONAL_RULES.md#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden).
+
 - [`check_apt`](basic_settings/templates/monitoring/check_apt)
 - [`check_audit`](basic_settings/templates/monitoring/check_audit)
 - [`check_compose`](docker/files/check_compose)

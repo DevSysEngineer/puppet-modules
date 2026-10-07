@@ -225,6 +225,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Review component interfaces and their callers against the [configuration ownership criteria](.tools/lint/docs/CODE_RULES.md#instellingen-bij-hun-eigenaar-houden), including the boundary between source configuration, internal derived values, and template input.
 - Review parent-class interfaces before computing local settings in dependent defines, following the [class-check reuse criteria](.tools/lint/docs/CODE_RULES.md#classcontroles-hergebruiken).
 - When work reveals duplicated behavior in the affected area, extract a shared abstraction and migrate the affected callers in the same change.
+- Apply the [shell-helper boundaries](.tools/lint/docs/OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen) when sharing script functions or template fragments; review all applicable callers and distinguish compilation prerequisites from runtime dependencies.
 - Review repeated Puppet resource orchestration against the [defined-type reuse rule](.tools/lint/docs/CODE_RULES.md#herhaalde-resourceorkestratie-in-defined-types-delen).
 - Preserve caller-specific security and lifecycle requirements during migration.
 - Validate each migrated caller's behavior and dependencies.
@@ -262,6 +263,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Review the source and rendered output against the linked operational shell rules, and run syntax validation with the intended interpreter. Puppet-lint does not validate shell syntax or the complete shell style.
 - Validate changed scripts with isolated synthetic cases for every supported input source: defaults, environment-only values, combined environment and CLI values, empty and invalid inputs, and partial overrides. Include related value ordering, repeated options, boolean resets and timeout behavior where applicable.
+- Validate each supported generated branch and shared helper contract against the [template rules](.tools/lint/docs/OPERATIONAL_RULES.md#puppet-waarden-rechtstreeks-in-shelltemplates-invoegen) and [helper rules](.tools/lint/docs/OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen), including repeated calls and use without unrelated class declarations.
 - When replacing external tools, verify equivalent behavior, validation, error handling, monitoring statuses, exit codes and externally consumed output unless a behavior change is explicitly requested. Include relevant whitespace, escaping, locale and boundary cases in the comparison, and apply the [prerequisite review](#prerequisite-review) to removed or relocated dependencies.
 - Keep functional validation outside the repository according to the [test scope](#test-scope), including checks of failure paths and temporary-file cleanup when affected.
 
@@ -275,6 +277,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Verify each check's package guarantees through the general [external-command package contract and its documented exceptions](.tools/lint/docs/CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos).
 - Apply [shell validation](#shell-validation) to changed check implementations.
+- Validate source selection and status outcomes against the scenarios in the [runtime-source rules](.tools/lint/docs/OPERATIONAL_RULES.md#actuele-hosttoestand-uit-kernelgegevens-bepalen) and [inspection-status rules](.tools/lint/docs/OPERATIONAL_RULES.md#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden). Include supported explicit choices, automatic detection and required or optional components across the affected callers.
 - For each changed check, validate registrations with at least two targets invoking the same executable with their own settings.
 - For each changed check, validate that retiring one target preserves the shared executable and the other registrations.
 

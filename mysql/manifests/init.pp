@@ -246,10 +246,10 @@ class mysql (
 
     # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-      # Install the check tools, including systemd only for the selected inspection path.
+      # Install the check tools and the selected systemd or process inspection interface.
       $monitoring_packages = concat(['mysql-client'], $systemd_enable ? {
         true    => ['systemd'],
-        default => [],
+        default => ['procps'],
       })
       ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',

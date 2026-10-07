@@ -2593,13 +2593,19 @@ Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzi
 
 Voeg een helper toe wanneer die een afzonderlijke taak benoemt, validatie of opmaak deelt of aanzienlijke duplicatie wegneemt. Verpak zonder zo’n reden geen enkele toekenning, append of `printf` in een helper.
 
+Geef gedeelde helperfuncties de voorkeur voor dezelfde detectie, inspectie of statusverwerking in meerdere scripts. Hergebruik een bestaande passende helper en pas gedeeld gedrag bij alle relevante aanroepers toe. Houd de verantwoordelijkheid beperkt: een helper voor een service manager inspecteert die manager; applicatiespecifieke procesherkenning en de bijbehorende fallback blijven bij de check. Voeg geen algemeen framework of extra wrapper toe zonder een concrete gedeelde taak.
+
+Maak argumenten, retourstatussen, uitvoer en eventuele gewijzigde variabelen expliciet. Een inspectiefunctie geeft een resultaat en context terug, zodat de aanroeper de bestaande statusprioriteit, uitvoer en aanvullende metingen kan behouden. Laat haar niet voortijdig het hele script beëindigen. Een afzonderlijke checkfunctie mag het resultaat naar de uiteindelijke monitoringstatus vertalen wanneer dat haar afgesproken taak is. Initialiseer resultaatvariabelen per aanroep en behoud de argumenten en instellingen van de aanroeper; een eerdere inspectie mag een latere niet beïnvloeden.
+
+Deel shellcode uit templates waar passend als een tijdens compilatie ingevoegd templatefragment. Zo'n fragment vereist dat de leverende module op het modulepath staat; het gebruik alleen vereist geen declaratie van de hoofdclass en geen afzonderlijk helperbestand op de host. Laat een fragment niet impliciet afhangen van variabelen of resources van een ongerelateerde class. Is wel een runtimebestand nodig, beheer dan installatie en ordering volgens de [beheerhelperregels](#beheerhelpers-op-de-gedeelde-locatie-installeren) en het [prerequisitecontract](CODE_RULES.md#prerequisites-van-ordering-onderscheiden). Houd compilatiebeschikbaarheid en runtimevereisten afzonderlijk herkenbaar.
+
 **Herkomst**
 
 Projectregel
 
 **Toepassingsgebied**
 
-Nieuwe en gewijzigde helperfuncties in shellcode.
+Nieuwe en gewijzigde helperfuncties, gedeelde shelltemplatefragmenten en hun aanroepers.
 
 **Automatische controle**
 
@@ -2633,9 +2639,13 @@ Niet van toepassing op automatische detectie; een lintmarkering heft deze handma
 
 Handmatig reviewscenario: Een helper verbergt uitsluitend één toekenning zonder gedeelde taak of validatie. Keur dit af.
 
+Handmatig reviewscenario: Meerdere checks kopiëren dezelfde managerinspectie, terwijl een bestaande helper slechts door één check wordt gebruikt. Of die helper bevat procesnamen van afzonderlijke applicaties en beëindigt bij de eerste fout de gehele check. Keur dit af: gedeelde inspectie en lokale beoordeling lopen uiteen of raken vermengd.
+
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Een helper benoemt een afzonderlijke verwerking of deelt bestaande validatie tussen echte aanroepers.
+
+Handmatig reviewscenario: Een gedeeld fragment levert managerinspectie aan alle toepasselijke templates. Iedere check gebruikt het resultaat voor haar eigen beoordeling en houdt de procescontrole voor haar daemon lokaal. Het fragment kan renderen met de module beschikbaar zonder de hoofdclass te declareren.
 
 **Grensgevallen**
 
@@ -2643,7 +2653,7 @@ Een korte helper is toegestaan wanneer hij een afzonderlijke taak benoemt of val
 
 **Handmatige review**
 
-Beoordeel de taak, bestaande aanroepers en weggenomen duplicatie; houd eenmalige verwerking begrijpelijk.
+Beoordeel de taak, alle relevante aanroepers en weggenomen duplicatie; houd eenmalige verwerking begrijpelijk. Controleer argumenten, statusbetekenis, neveneffecten en behoud van de lokale beoordeling. Toets opeenvolgende aanroepen op achtergebleven resultaten en templategebruik op werkelijke compileer- en runtimevereisten.
 
 **Verificatie**
 
@@ -2847,7 +2857,9 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Voor waarden die Puppet in een shelltemplate invoegt, gebruik je ERB met directe shelltoekenningen. Beperk ERB tot het invoegen van waarden; de voorbereiding in Puppet bestaat uit defaults voor beheerde configuratie, serialisatie en shellveilige argumenten. Volg daarbij de afspraken voor [templates](#templates-en-bestandsbronnen) en [shellcommando's in Puppet](#shellcommandos-in-puppet). Voeg alleen een afzonderlijk configuratiebestand of een parser toe wanneer dat is gevraagd of al gebruikelijk is.
+Voor waarden die Puppet in een shelltemplate invoegt, gebruik je ERB met directe shelltoekenningen. De voorbereiding in Puppet bestaat uit defaults voor beheerde configuratie, serialisatie en shellveilige argumenten. ERB mag daarnaast op basis van een reeds voorbereide keuze codeblokken en [gedeelde helperfragmenten](#shellhelpers-op-een-herkenbare-taak-afbakenen) selecteren. Bereken die keuze niet opnieuw in de template; houd haar bij de [bestaande eigenaar](CODE_RULES.md#instellingen-bij-hun-eigenaar-houden). Neem bij expliciete uitschakeling geen helper, commandopad of diagnose voor die route op wanneer de alternatieve route al vaststaat. Runtimewaarnemingen vinden tijdens uitvoering van het script plaats.
+
+Volg daarbij de afspraken voor [templates](#templates-en-bestandsbronnen) en [shellcommando's in Puppet](#shellcommandos-in-puppet). Voeg alleen een afzonderlijk configuratiebestand of een parser toe wanneer dat is gevraagd of al gebruikelijk is.
 
 **Herkomst**
 
@@ -2891,7 +2903,7 @@ Handmatig reviewscenario: Een nieuwe parser en configuratielaag worden toegevoeg
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik ERB met directe shelltoekenningen en beperk Puppet-voorbereiding tot de beschreven defaults, serialisatie en escaping. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik ERB met directe shelltoekenningen en selecteer een gedeeld fragment uitsluitend met de door Puppet aangeleverde keuze. Bij expliciete uitschakeling bevat de uitvoer alleen de toepasselijke alternatieve implementatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
 
 **Grensgevallen**
 
@@ -2899,7 +2911,7 @@ Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer d
 
 **Handmatige review**
 
-Controleer iedere ingevoegde waarde en de parserlaag die haar leest; vergelijk benodigde uitvoer met de template.
+Controleer iedere ingevoegde waarde en de parserlaag die haar leest; vergelijk benodigde uitvoer met de template. Beoordeel de gerenderde takken bij ingeschakelde, uitgeschakelde en, indien ondersteund, ontbrekende keuzes. Controleer dat selectie geen tweede beleidsbeslissing of runtimewaarneming tijdens compilatie introduceert.
 
 **Verificatie**
 
@@ -3159,11 +3171,33 @@ Vergelijk de scenario’s en controleer de check met synthetische taakresultaten
 
 **Norm**
 
-Gebruik bij nieuwe of gewijzigde monitoringchecks voor actuele hosttoestand zoveel mogelijk Linux-kernelinterfaces, zoals `/proc` en `/sys`, of bestaande basistools die die gegevens uitlezen. Kies deze route wanneer zij de gevraagde toestand voldoende kan vaststellen; voeg daarvoor geen afhankelijkheid toe van optionele packages, auditregels, sudo-configuratie of vooraf ingeschakelde logging.
+Linux-checks gebruiken waar mogelijk de actuele kernel- en runtime-status als primaire bron: `/proc`, `/proc/sys`, `/proc/self`, `/sys` en de actuele mount-, netwerk-, kernel- en procesinformatie. Controleer de effectief toegepaste toestand. Een geïnstalleerde package, configuratiebestand of rule-bestand bewijst niet dat een functionaliteit actief is of een regel geladen is. Gebruik package managers alleen voor een controle die daadwerkelijk over geïnstalleerde packages gaat.
 
-Neem niet aan dat zulke voorzieningen buiten de eigen check aanwezig of ingericht zijn. Gebruik ze alleen als optionele aanvulling of wanneer de gevraagde informatie aantoonbaar niet uit de kernel beschikbaar is en de benodigde voorziening tot het expliciete checkcontract behoort. Historische gebeurtenissen en applicatiespecifieke gezondheid kunnen andere bronnen vereisen. Behoud daarvoor de [bestaande configuratiebron](#daemonconfiguratie-als-invoerbron-behouden) en borg werkelijk vereiste tools volgens het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos).
+Kies de eerste geschikte, beschikbare bron in deze volgorde: actuele kernel/runtime-status, actieve subsystem-interface, standaard Linux-interface, reeds aanwezige systeemtool, configuratiebestand en pas daarna een package- of distributiespecifieke methode. Ga alleen verder wanneer de eerdere bron de vraag niet betrouwbaar kan beantwoorden of niet beschikbaar is. Een vastgestelde afwijking mag niet via een minder betrouwbare fallback alsnog gezond worden verklaard. Houd iedere controle gericht op de gevraagde toestand; maak een kernelmeting niet afhankelijk van package, configuratiebestand en loader-service.
 
-Benoem de grenzen van een momentopname en de benodigde leesrechten. Leid geen volledige geschiedenis af uit actuele processen en behandel ontbrekende informatie volgens [onvolledige inspecties](#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden).
+Gebruik systemd alleen nadat een betrouwbare runtime-indicator heeft vastgesteld dat het huidige systeem systemd gebruikt, zoals PID 1 of de door `sd_booted` gebruikte runtime-directory. De aanwezigheid van een executable of een Puppet-package vormt daarvoor geen bewijs. Bij aangetoond systemd mogen `systemctl`, `systemd-analyze`, `journalctl` en andere systemd-interfaces de primaire bron zijn wanneer de vraag een systemd-concept betreft, zoals een actieve, enabled of masked unit, een timer of een sandboxproperty. Een andere initomgeving vereist geen systemd-tool; beoordeel de toestand via een geschikte andere runtime-interface of meld dat de controle niet toepasbaar is.
+
+Gebruik voor een instelbare inspectieroute de keuze van de [bestaande eigenaar](CODE_RULES.md#instellingen-bij-hun-eigenaar-houden). Een beheerde verwachting en een runtimewaarneming hebben verschillende functies: de eerste bepaalt wat vereist is, de tweede of daaraan is voldaan. Voor een bestaande keuze zoals `systemd_enable` geldt:
+
+| Keuze | Uitvoering van een daemoncheck |
+| --- | --- |
+| Expliciet ingeschakeld | Toets of de verwachte manager actief is en gebruik diens interface. Aantoonbaar ontbreken geeft CRITICAL; ontbrekende tools, rechten of leesbare status geven UNKNOWN. Verberg de verwachting niet met een procesfallback. |
+| Expliciet uitgeschakeld | Render direct de lokale procescontrole met `ps`, zonder de systemd-helper in te laden of systemd-commando's en diagnostiek op te nemen. |
+| Niet opgegeven, wanneer ondersteund | Detecteer de manager tijdens uitvoering. Gebruik zonder systemd de lokale procescontrole; een mislukte inspectie van een aanwezige manager is geen reden om stilzwijgend over te schakelen. |
+
+Houd procesherkenning en de bijbehorende fallback bij de check, volgens de [helperafbakening](#shellhelpers-op-een-herkenbare-taak-afbakenen). Identificeer het werkelijk vereiste daemonproces: een overeenkomende package- of servicenaam, een algemene interpreter, een client of een wrapper bewijst niet dat de daemon draait. Beoordeel ook de processtatus; een zombie voldoet niet. Een mislukte procesinspectie levert UNKNOWN op, geen bewijs dat het proces ontbreekt.
+
+Beoordeel procesaanwezigheid alleen wanneer de bewaakte functie een permanent daemonproces heeft. Een eenmalige loader kan eindigen terwijl de kernel zijn regels blijft toepassen; controleer dan de effectieve subsystemstatus. Een timer, een enabled-instelling of een andere managergebonden eigenschap kan niet met `ps` worden bewezen. Houd de meetbetekenis bij iedere route gelijk en benoem wanneer geen geschikte alternatieve bron bestaat.
+
+Servicebeschikbaarheid en applicatie- of subsystemgezondheid zijn afzonderlijke meetvragen. Behoud een bestaande vereiste servicecontrole bij wijzigingen van de applicatiemeting; een geslaagde clientaanroep bewijst niet dat de verwachte lokale service correct draait. Pas voor vereiste en optionele onderdelen de [statusregels](#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden) toe.
+
+Vermijd onnodige dependencies op packages, package managers, distributiespecifieke tools, configuratiemappen, regelbestanden, sudo of vooraf ingeschakelde logging. Introduceer een nieuwe dependency alleen bij aantoonbare technische noodzaak. Een subsystemtool blijft geschikt wanneer procfs en sysfs de gevraagde actieve regels of toestand niet betrouwbaar leveren. Gebruik distributiespecifieke logica alleen wanneer zij technisch noodzakelijk is en de betreffende omgeving vooraf betrouwbaar is vastgesteld.
+
+Borg werkelijk vereiste tools en de ordering voor de geselecteerde route via het bestaande [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Runtime-detectie of `command -v` vervangt deze installatiegarantie niet. Verwijder een package alleen nadat alle betrokken aanroepers en uitvoerpaden zijn beoordeeld; behoud dependencies voor andere nog gebruikte functies. Een tool is alleen optioneel wanneer de check de bedoelde meting zonder die tool via een geldige route kan uitvoeren of het betreffende onderdeel expliciet optioneel is.
+
+Historische gebeurtenissen, applicatiestatus en controles die expliciet de configuratie zelf beoordelen kunnen andere bronnen vereisen. Leg hun noodzaak en toepassingsgebied bij de check vast, behoud de [bestaande configuratiebron](#daemonconfiguratie-als-invoerbron-behouden) en borg werkelijk vereiste tools volgens het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Een ontbrekende optionele bron verandert een geslaagde primaire meting niet in een fout; toon niet-gemeten aanvullende waarden als onbekend.
+
+Benoem de grenzen van de momentopname en leesrechten en vertaal de waarneming volgens de [statusregels](#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden). Het ontbreken van een mogelijke bron bewijst op zichzelf geen afwijking in de bewaakte toestand.
 
 **Herkomst**
 
@@ -3205,9 +3239,13 @@ Een lintmarkering heft deze handmatige norm niet op.
 
 Handmatig reviewscenario: Een check zoekt huidige rootprocessen uitsluitend via sudo-logs of auditregels en meldt zonder die voorzieningen dat er geen rootactiviteit is. Keur dit af: actuele procesgegevens zijn beschikbaar en ontbrekende historie bewijst geen afwezigheid.
 
+Handmatig reviewscenario: Een check verwacht expliciet een service manager, maar meldt OK na een geslaagde applicatieprobe terwijl de manager aantoonbaar ontbreekt. Keur dit af: de fallback verbergt een vastgestelde afwijking.
+
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Een check leest effectieve proces-UIDs en ouderrelaties via procps, koppelt waar mogelijk een login en vermeldt dat deze momentopname geen volledige wisselgeschiedenis bewijst. Auditd en sudo zijn geen runtimevereisten.
+
+Handmatig reviewscenario: Een daemoncheck rendert bij uitgeschakelde managerintegratie uitsluitend de lokale procescontrole. Bij ingeschakelde integratie controleert zij de verwachte manager en diens service; de registratie borgt de tools van de geselecteerde route.
 
 **Grensgevallen**
 
@@ -3215,17 +3253,19 @@ Een aanwezige `/proc` garandeert niet dat alle hostprocessen zichtbaar zijn: lee
 
 **Handmatige review**
 
-Vergelijk de gevraagde meetbetekenis met de gekozen kernelgegevens en benoem waarvoor een andere bron nodig blijft. Controleer het bereik, leesrechten, vereiste tools en het gedrag zonder optionele packages, regels en logs.
+Vergelijk de gevraagde meetbetekenis met de gekozen kernelgegevens en benoem waarvoor een andere bron nodig blijft. Controleer per check externe commands en hun packagegaranties, verwachte bestanden en mappen, kernelalternatieven, runtime-detectie van systemd, distroaannames, fallbackvolgorde, leesrechten en het gedrag zonder optionele packages, regels, logs en service manager. Vergelijk alle ondersteunde selectievarianten met het gerenderde script en de packagegaranties. Controleer dat een procesfallback de juiste daemon en levenscyclus beoordeelt en dat een bronwijziging geen vereiste servicecontrole verwijdert.
 
 **Verificatie**
 
-Beoordeel beide scenario's en valideer de check buiten de repository zonder de optionele voorzieningen, met ontbrekende of ontoegankelijke gegevens en met zowel aanwezige als afwezige afwijkingen. De [documentatiestructuurtest](../tests/guide_structure_test.rb) bewaakt de eigenaar en verwijzingen van deze regel; hij bewijst geen hostgedrag.
+Beoordeel de scenario's en valideer de check buiten de repository zonder de optionele voorzieningen, met ontbrekende of ontoegankelijke gegevens en met zowel aanwezige als afwezige afwijkingen. Combineer iedere ondersteunde selectie met aanwezige en afwezige managers, tools, units en processen. Controleer ook een aanwezige maar onleesbare interface en een afwijking naast een geslaagde aanvullende meting. De [documentatiestructuurtest](../tests/guide_structure_test.rb) bewaakt de eigenaar en verwijzingen van deze regel; hij bewijst geen hostgedrag.
 
 ### Vastgestelde afwijkingen en onvolledige inspecties onderscheiden
 
 **Norm**
 
-Meld een geverifieerd ontbrekend vereist onderdeel, een policyafwijking of een inactieve vereiste service als CRITICAL. Meld ontbrekende rechten of tools en onleesbare uitvoer die beoordeling verhinderen als UNKNOWN.
+Onderscheid voldoen (PASS/OK), een bewezen afwijking (FAIL/CRITICAL, of de bestaande WARNING-drempel) en een onuitvoerbare of niet-toepasbare controle (UNKNOWN). Nagios-checks gebruiken exitcode 3 met een concrete reden voor UNKNOWN of niet toepasbaar, nooit exitcode 0 als schijnbaar geslaagde meting. Meld een geverifieerd ontbrekend vereist onderdeel, een policyafwijking of een inactieve vereiste service als CRITICAL. Meld ontbrekende rechten of tools en onleesbare uitvoer die beoordeling verhinderen als UNKNOWN.
+
+Een gemonitorde service is standaard verplicht, ook in het argumentcontract van een gedeelde servicehelper. Alleen een expliciete optionele aanroep mag een ontbrekende service toestaan. Die uitzondering betreft uitsluitend afwezigheid: een aanwezige service blijft beoordeeld volgens haar verwachte toestand en bestaande severity, en onleesbare status blijft onbekend. Ontbrekende inspectietools bewijzen geen afwezige service. Toon een niet-gemeten aanvullende waarde als onbekend; gebruik haar niet als geslaagde servicemeting.
 
 Zet een mislukte inspectie nooit om naar een lege verzameling of een gezond resultaat. Behoud vastgestelde afwijkingen naast onvolledige waarnemingen en documenteer hun statusprioriteit bij het uitvoercontract van de check. Houd diagnostiek deterministisch en begrensd; benoem het geraakte object en de verwachte en waargenomen toestand. Aanvullende tellers mogen geen gezondheid vaststellen.
 
@@ -3269,9 +3309,13 @@ Niet van toepassing op automatische detectie; een lintmarkering heft deze handma
 
 Handmatig reviewscenario: Een mislukte inspectie wordt een lege lijst en daardoor een gezond resultaat. Keur dit af.
 
+Handmatig reviewscenario: Een servicehelper behandelt een ontbrekend argument standaard als optioneel, zodat alle gewone aanroepers een ontbrekende service goedkeuren. Keur dit af: de uitzondering is niet expliciet gekozen.
+
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Behoud een vastgestelde afwijking én het onvolledige deel en kies de exitstatus volgens de gedocumenteerde prioriteit.
+
+Handmatig reviewscenario: Een gewone serviceaanroep meldt CRITICAL voor een geverifieerd ontbrekende unit. Een expliciet optionele aanvullende meting staat alleen dat ontbreken toe; dezelfde aanroep blijft fouten of onleesbare status van een aanwezige unit beoordelen.
 
 **Grensgevallen**
 
@@ -3279,11 +3323,11 @@ Een onbeschikbare inspectietool levert UNKNOWN; een geverifieerd ontbrekend vere
 
 **Handmatige review**
 
-Onderscheid werkelijk vastgesteld ontbreken van een inspectie die ontbreken niet kan beoordelen; toets gemengde resultaten, objectidentiteit en verwachte versus waargenomen toestand.
+Onderscheid werkelijk vastgesteld ontbreken van een inspectie die ontbreken niet kan beoordelen; toets gemengde resultaten, objectidentiteit en verwachte versus waargenomen toestand. Controleer de standaardargumenten van helpers en alle expliciete uitzonderingen, inclusief aanwezige maar ongezonde of onleesbare optionele onderdelen.
 
 **Verificatie**
 
-Controleer met synthetische invoer ontbrekende componenten, beleidsafwijkingen, inactieve services, ontbrekende rechten/tools, onleesbare uitvoer en gecombineerde afwijkingen met onvolledige inspectie. Vergelijk beide reviewscenario’s; tooltests bewijzen geen monitoringgedrag.
+Controleer met synthetische invoer ontbrekende componenten, beleidsafwijkingen, inactieve services, ontbrekende rechten/tools, onleesbare uitvoer en gecombineerde afwijkingen met onvolledige inspectie. Herhaal de relevante servicegevallen met het standaardargument en een expliciete optionele override. Vergelijk de reviewscenario’s; tooltests bewijzen geen monitoringgedrag.
 
 ### Invoer en configuratie
 

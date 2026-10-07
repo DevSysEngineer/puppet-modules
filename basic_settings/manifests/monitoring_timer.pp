@@ -99,7 +99,7 @@ define basic_settings::monitoring_timer (
   # Check if script path is not defined
   if (!$script_exists) {
     # Install the tools used by the shared systemd check.
-    $monitoring_packages = ['coreutils', 'dash', 'grep', 'mawk', 'sed', 'systemd']
+    $monitoring_packages = ['coreutils', 'dash', 'mawk', 'sed', 'systemd']
 
     ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',

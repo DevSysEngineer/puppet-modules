@@ -7,10 +7,16 @@ die() {
     exit 3
 }
 
+# These checks inspect systemd concepts; other init systems are not applicable (Nagios UNKNOWN).
+[ -d /run/systemd/system ] || die "not applicable: systemd is not running"
+
+# Parse systemd human-readable output in a stable locale.
+LC_ALL=C
+export LC_ALL
+
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
-GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not available"
 
@@ -21,6 +27,7 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT_SEP="__CHECK_SYSTEMD_TIMESYNCD_NL__"
 WARN_MSG=""
 STATE_CODE=0
+INCOMPLETE=0
 
 # Offset, jitter, and root-distance thresholds are seconds; perfdata uses the same values with `s` UOM.
 JITTER_CRIT=${JITTER_CRIT:-0.2} # 200ms
@@ -93,7 +100,7 @@ add_warn() {
 
 # Compare two numeric values using awk for floating-point support.
 ge() {
-    $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a>=b)?0:1}'
+    $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a != "U" && a>=b)?0:1}'
 }
 
 # Keep server/status text safe before the real perfdata delimiter.
@@ -159,63 +166,76 @@ emit_check() {
     fi
 }
 
-# Extract a numeric value and its unit from timedatectl output.
-get_num_unit() {
-    printf '%s' "$TIMESYNC" | $SED -n "s/.*$1:[[:space:]]*\\(-*[0-9.]*\\)\\([mun]s\\).*/\\1\\n\\2/p"
+# Convert the subsystem's displayed units to seconds without inventing zero for missing fields.
+get_seconds() {
+    printf '%s\n' "$TIMESYNC" | $AWK -v key="$1:" '
+        {
+            sub(/^[[:space:]]+/, "")
+            if (index($0, key) != 1) next
+            value=substr($0, length(key)+1)
+            sub(/^[[:space:]]+/, "", value)
+            if (!match(value, /^[+-]?[0-9]+([.][0-9]+)?/)) exit
+            number=substr(value, RSTART, RLENGTH)+0
+            unit=substr(value, RLENGTH+1)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", unit)
+            if (unit=="s") scale=1
+            else if (unit=="ms") scale=1000
+            else if (unit=="us" || unit=="µs" || unit=="μs") scale=1000000
+            else if (unit=="ns") scale=1000000000
+            else exit
+            printf "%.9f", number/scale
+            found=1
+            exit
+        }
+        END { if (!found) printf "U" }
+    '
 }
 
-# Verify the unit before asking timedatectl for synchronization state.
-$SYSTEMCTL is-active --quiet systemd-timesyncd.service || crit "service is not active"
+metric_seconds() {
+    case "$1" in
+        U) printf U ;;
+        *) printf '%ss' "$1" ;;
+    esac
+}
+
+# An unreadable manager is UNKNOWN; only an observed inactive unit establishes failure.
+SERVICE_STATE=$($SYSTEMCTL show systemd-timesyncd.service -p ActiveState --value 2>/dev/null) || die "service state unavailable"
+case "$SERVICE_STATE" in
+    active) : ;;
+    inactive|failed|activating|deactivating) crit "service is not active (${SERVICE_STATE})" ;;
+    *) die "service state unavailable or invalid" ;;
+esac
 
 # `NTPSynchronized` is the primary binary health signal for the clock.
 NTPSYNC=$($TIMEDATECTL show -p NTPSynchronized --value 2>/dev/null) || die "NTPSynchronized status not available"
 case "$NTPSYNC" in
     yes|1) : ;;
-    no|0|"") add_crit "clock not synchronised" ;;
+    no|0) add_crit "clock not synchronised" ;;
     *) die "NTPSynchronized returned unexpected value: $NTPSYNC" ;;
 esac
 
 # Read the human timesync status once and parse all numeric metrics from that snapshot.
-TIMESYNC="$($TIMEDATECTL timesync-status 2>/dev/null)" || die "timesync-status not available"
+TIMESYNC="$($TIMEDATECTL timesync-status 2>/dev/null)" || {
+    [ -z "$CRIT_MSG" ] || crit "$CRIT_MSG; timesync-status unavailable"
+    die "timesync-status not available"
+}
 
 # The selected peer is useful in the short output when drift thresholds fire.
 SERVER=$(printf '%s' "$TIMESYNC" | $AWK '/^[[:space:]]*Server:/ {sub(/^[[:space:]]*Server:[[:space:]]*/,""); print; exit}')
 
-# Convert timedatectl units to seconds so all threshold comparisons share one scale.
-set_to_sec() {
-    IFS= read -r val || return 1
-    IFS= read -r u || u="s"
-    $AWK -v v="$val" -v u="$u" 'BEGIN{
-        if(u=="ms") printf "%.6f", v/1000;
-        else if(u=="us") printf "%.6f", v/1000000;
-        else printf "%.6f", v;
-    }'
-}
-
-# Offset
-OFF_LU=$(get_num_unit "Offset")
-OFFSET_SEC=$(printf '%s\n' "$OFF_LU" | set_to_sec 2>/dev/null)
-[ -z "$OFFSET_SEC" ] && OFFSET_SEC=0
-ABS_OFFSET=$($AWK -v o="$OFFSET_SEC" 'BEGIN{if(o<0) printf "%.6f",-o; else printf "%.6f",o}')
-
-# Jitter
-JIT_LU=$(get_num_unit "Jitter")
-JITTER_SEC=$(printf '%s\n' "$JIT_LU" | set_to_sec 2>/dev/null)
-[ -z "$JITTER_SEC" ] && JITTER_SEC=0
-
-# Root distance
-RD_LU=$(get_num_unit "Root distance")
-ROTDIST_SEC=$(printf '%s\n' "$RD_LU" | set_to_sec 2>/dev/null)
-[ -z "$ROTDIST_SEC" ] && ROTDIST_SEC=0
-
-# Delay (extra perfdata)
-DLY_LU=$(get_num_unit "Delay")
-DELAY_SEC=$(printf '%s\n' "$DLY_LU" | set_to_sec 2>/dev/null)
-[ -z "$DELAY_SEC" ] && DELAY_SEC=0
-
-# Stratum
+OFFSET_SEC=$(get_seconds Offset)
+ABS_OFFSET=U
+if [ "$OFFSET_SEC" != U ]; then
+    ABS_OFFSET=$($AWK -v o="$OFFSET_SEC" 'BEGIN{if(o<0) printf "%.9f",-o; else printf "%.9f",o}')
+fi
+JITTER_SEC=$(get_seconds Jitter)
+ROTDIST_SEC=$(get_seconds "Root distance")
+DELAY_SEC=$(get_seconds Delay)
 STRAT=$(printf '%s' "$TIMESYNC" | $SED -n 's/.*Stratum:[[:space:]]*\([0-9][0-9]*\).*/\1/p')
-[ -z "$STRAT" ] && STRAT=0
+[ -n "$STRAT" ] || STRAT=U
+for timing_value in "$ABS_OFFSET" "$JITTER_SEC" "$ROTDIST_SEC" "$STRAT"; do
+    [ "$timing_value" = U ] && INCOMPLETE=1
+done
 
 # Compare absolute offset, jitter, root distance, and stratum independently.
 ge "$ABS_OFFSET" "$OFFSET_CRIT" && add_crit "offset ${ABS_OFFSET}s"
@@ -227,9 +247,9 @@ ge "$JITTER_SEC" "$JITTER_CRIT" && add_crit "jitter ${JITTER_SEC}s"
 ge "$ROTDIST_SEC" "$ROOT_CRIT" && add_crit "root distance ${ROTDIST_SEC}s"
 [ -z "$CRIT_MSG" ] && ge "$ROTDIST_SEC" "$ROOT_WARN" && add_warn "root distance ${ROTDIST_SEC}s"
 
-if [ "$STRAT" -gt "$STRAT_CRIT" ]; then
+if [ "$STRAT" != U ] && [ "$STRAT" -gt "$STRAT_CRIT" ]; then
     add_crit "stratum $STRAT"
-elif [ "$STRAT" -ge "$STRAT_WARN" ]; then
+elif [ "$STRAT" != U ] && [ "$STRAT" -ge "$STRAT_WARN" ]; then
     add_warn "stratum $STRAT"
 fi
 
@@ -245,11 +265,16 @@ else
     MSG="systemd-timesyncd synchronised with ${SERVER:-unknown}; offset ${ABS_OFFSET}s"
 fi
 
+if [ "$INCOMPLETE" -eq 1 ]; then
+    [ "$STATE_CODE" -eq 2 ] || STATE_CODE=3
+    MSG="$MSG; timing inspection incomplete"
+fi
+
 # Perfdata labels are unit-free; second-based values carry `s` as UOM.
-PERF="offset=${ABS_OFFSET}s;${OFFSET_WARN};${OFFSET_CRIT};0"
-PERF="$PERF jitter=${JITTER_SEC}s;${JITTER_WARN};${JITTER_CRIT};0"
-PERF="$PERF root_dist=${ROTDIST_SEC}s;${ROOT_WARN};${ROOT_CRIT};0;5"
-PERF="$PERF delay=${DELAY_SEC}s;;;0"
+PERF="offset=$(metric_seconds "$ABS_OFFSET");${OFFSET_WARN};${OFFSET_CRIT};0"
+PERF="$PERF jitter=$(metric_seconds "$JITTER_SEC");${JITTER_WARN};${JITTER_CRIT};0"
+PERF="$PERF root_dist=$(metric_seconds "$ROTDIST_SEC");${ROOT_WARN};${ROOT_CRIT};0;5"
+PERF="$PERF delay=$(metric_seconds "$DELAY_SEC");;;0"
 PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
 # Detail output explains the measured time source quality without repeating threshold inventories.

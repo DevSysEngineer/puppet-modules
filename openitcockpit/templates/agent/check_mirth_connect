@@ -7,9 +7,6 @@ die() {
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
-
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
@@ -19,12 +16,6 @@ SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 RM=$(command -v rm 2>/dev/null) || die "rm not available"
 MV=$(command -v mv 2>/dev/null) || die "mv not available"
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null)  || die "systemctl not available"
-else
-    PS=$(command -v ps 2>/dev/null) || die "ps not available"
-fi
-
 # Connection and CLI paths are local to the Mirth installation.
 CONFIG=${CONFIG:-"/opt/mirthconnect/conf/mirth-cli-config.properties"}
 MCCOMMAND="/usr/local/bin/mccommand"
@@ -43,6 +34,7 @@ QUEUE_ISSUES=0
 QUEUE_SHOWN=0
 MAX_Q=0
 STATUS_ISSUES=0
+STATUS_UNKNOWN=0
 STATUS_SHOWN=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
@@ -172,6 +164,29 @@ crit() {
     exit 2
 }
 
+# Inspect the conventional service when systemd manages it, alongside native channel health.
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+check_systemd_service mcservice.service
+if ! use_systemd; then
+<% end -%>
+    PS=$(command -v ps 2>/dev/null) || die "ps not available"
+    PROCESS_DATA=$($PS -ww -e -o stat= -o comm= -o args= 2>/dev/null) || die "process inspection unavailable"
+    # Recognize the server launcher, never an arbitrary JVM or the mccommand client.
+    printf '%s\n' "$PROCESS_DATA" | $AWK '
+        $1 ~ /^Z/ { next }
+        $2 == "mcservice" || $2 == "mcserver" { found=1 }
+        $2 == "java" {
+            if ($0 ~ /[[:space:]]com\.mirth\.connect\.server\.launcher\.MirthLauncher([[:space:]]|$)/ ||
+                $0 ~ /[[:space:]]-jar[[:space:]]+([^[:space:]]*\/)?mirth-launcher\.jar([[:space:]]|$)/) found=1
+        }
+        END { exit !found }
+    ' || crit "service is not active"
+    SERVICE_CONTEXT="Mirth Connect server process is active."
+<% if @systemd_enable != false -%>
+fi
+<% end -%>
+
 # Keep the persistent queue state inside the agent tree so root does not read or write a predictable file in /tmp.
 OLD_UMASK=$(umask)
 umask 077
@@ -180,13 +195,6 @@ $MKDIR -p "$STATE_DIR" 2>/dev/null || {
     die "state directory ${STATE_DIR} could not be created"
 }
 umask "$OLD_UMASK"
-
-# Verify the service before invoking mccommand so daemon failures report directly.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-$SYSTEMDCTL is-active --quiet "mcservice.service" || crit "service is not active"
-else
-$PS -C mcservice >/dev/null 2>&1 || crit "service is not active"
-fi
 
 # mccommand requires script files, so keep command input, parse artifacts, and persistent state updates private until cleanup.
 WORK_UMASK=$(umask)
@@ -200,27 +208,27 @@ trap '$RM -rf "$WORK_DIR"' EXIT HUP INT QUIT TERM
 # Request channel statistics through mccommand because it is the supported local interface.
 printf 'channel stats *\n' >"$WORK_DIR/cli_stats.cmd"
 OUTPUT_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_stats.cmd" 2>&1) || die "mccommand stats failed"
-[ -n "$OUTPUT_RAW" ] || crit "returned empty stats output"
+[ -n "$OUTPUT_RAW" ] || die "returned empty stats output"
 
 # Normalize terminal control characters before AWK parses channel sections.
 OUTPUT_CLEAN=$(printf '%s\n' "$OUTPUT_RAW" | strip_terminal_control)
 printf '%s\n' "$OUTPUT_CLEAN" | $AWK '
-  function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); return s }
+  function after_colon(s){ sub(/^[^:]+:[[:space:]]*/,"",s); sub(/[[:space:]]+$/, "", s); return s }
   function emit(){
     if (chan!="") {
-      if (q=="") q=0; if (recv=="") recv=0; if (sent=="") sent=0;
+      if (q !~ /^[0-9]+$/ || recv !~ /^[0-9]+$/ || sent !~ /^[0-9]+$/) { invalid=1; return }
       printf "C|%s|%d|%d|%d\n", chan, q+0, recv+0, sent+0;
       t_recv+=recv+0; t_sent+=sent+0;
     }
-    chan=""; q=recv=sent=0;
+    chan=""; q=recv=sent="";
   }
-  BEGIN { chan=""; q=recv=sent=0; t_recv=0; t_sent=0 }
+  BEGIN { chan=""; q=recv=sent=""; t_recv=0; t_sent=0 }
   /^Channel Stats for[[:space:]]+/ { emit(); sub(/^Channel Stats for[[:space:]]+/,"",$0); chan=$0; next }
-  /^Queued:/   { v=after_colon($0); gsub(",","",v); q=v+0; next }
-  /^Received:/ { v=after_colon($0); gsub(",","",v); recv=v+0; next }
-  /^Sent:/     { v=after_colon($0); gsub(",","",v); sent=v+0; next }
-  END { emit(); printf "T|%d|%d\n", t_recv+0, t_sent+0; }
-' >"$WORK_DIR/parsed_all.txt"
+  /^Queued:/   { v=after_colon($0); gsub(",","",v); q=v; next }
+  /^Received:/ { v=after_colon($0); gsub(",","",v); recv=v; next }
+  /^Sent:/     { v=after_colon($0); gsub(",","",v); sent=v; next }
+  END { emit(); if (invalid) exit 1; printf "T|%d|%d\n", t_recv+0, t_sent+0; }
+' >"$WORK_DIR/parsed_all.txt" || die "channel statistics incomplete or invalid"
 
 $AWK -F'|' '/^C\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_channels.txt"
 $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals.txt"
@@ -228,7 +236,7 @@ $AWK -F'|' '/^T\|/ {print}' "$WORK_DIR/parsed_all.txt" >"$WORK_DIR/parsed_totals
 # Fetch channel status separately because stats output does not reliably expose started/stopped state.
 printf 'status\n' >"$WORK_DIR/cli_status.cmd"
 STATUS_RAW=$($MCCOMMAND -c "$CONFIG" -s "$WORK_DIR/cli_status.cmd" 2>&1) || die "mccommand status failed"
-[ -n "$STATUS_RAW" ] || crit "returned empty status output"
+[ -n "$STATUS_RAW" ] || die "returned empty status output"
 
 # Build a name|status map from the CLI output.
 STATUS_CLEAN=$(printf '%s\n' "$STATUS_RAW" | strip_terminal_control)
@@ -242,6 +250,7 @@ printf '%s\n' "$STATUS_CLEAN" | $AWK '
 
 # Determine total channel count and load previous queue-threshold timestamps.
 TOTAL_CHANS=$($AWK -F'|' '/^C\|/ {c++} END{print c+0}' "$WORK_DIR/parsed_channels.txt")
+[ "$TOTAL_CHANS" -gt 0 ] || die "no channel statistics available; inspection not applicable or incomplete"
 STATE_IN="$STATE_FILE"; [ -f "$STATE_IN" ] || STATE_IN=/dev/null
 
 # Evaluate channel state and queue age; queue depth becomes CRITICAL only after the grace window.
@@ -253,6 +262,7 @@ while IFS='|' read -r _c chan q recv sent; do
     STATUS=$($AWK -F'|' -v c="$chan" '$1==c{print $2; exit}' "$WORK_DIR/status_map.txt")
     case "$STATUS" in
         [Ss][Tt][Aa][Rr][Tt][Ee][Dd]*) : ;;
+        ''|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]) STATUS_UNKNOWN=$((STATUS_UNKNOWN+1)) ;;
         *)
             STATUS_ISSUES=$((STATUS_ISSUES+1))
             if [ "$STATUS_SHOWN" -lt "$SUMMARY_ITEM_LIMIT" ]; then
@@ -308,8 +318,10 @@ if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
 fi
 
 # Long output keeps channel names bounded while preserving the direct cause in the short output.
+append_long "$SERVICE_CONTEXT"
 append_long "Channels checked: ${TOTAL_CHANS}"
 [ "$STATUS_ISSUES" -gt 0 ] && append_long "Channels not running: ${SUMMARY_STATUS}"
+[ "$STATUS_UNKNOWN" -eq 0 ] || append_long "Channel state unavailable for ${STATUS_UNKNOWN} channel(s)."
 [ "$QUEUE_ISSUES" -gt 0 ] && append_long "Channels with queued messages: ${SUMMARY_QUEUE}"
 limit_long_output_details
 append_long ""
@@ -324,6 +336,9 @@ if [ "$STATUS_ISSUES" -gt 0 ]; then
 elif [ "$QUEUE_CRIT" -eq 1 ]; then
     QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
     crit "${QUEUE_ISSUES} channel(s) queue stayed high${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
+elif [ "$STATUS_UNKNOWN" -gt 0 ]; then
+    emit_check "Mirth Connect channel status inspection incomplete" "$PERF_DATA"
+    exit 3
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
     QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
     emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"

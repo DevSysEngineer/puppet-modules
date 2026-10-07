@@ -4,29 +4,44 @@
 # Fail helper
 die() {
     printf 'Network check cannot run: %s\n' "$*"
+    if [ -n "${CRIT_MSG:-}" ]; then
+        printf 'Verified failures: %s\n' "$CRIT_MSG"
+        exit 2
+    fi
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+<% end -%>
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CAT=$(command -v cat 2>/dev/null) || die "cat not available"
-DIG=$(command -v dig 2>/dev/null) || die "dig not available"
+DIG=$(command -v dig 2>/dev/null || true)
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-IP=$(command -v ip 2>/dev/null) || die "ip not available"
+IP=$(command -v ip 2>/dev/null || true)
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
-    NETWORKCTL=$(command -v networkctl 2>/dev/null)  || die "networkctl not available"
+<% if @systemd_enable != false -%>
+if use_systemd; then
+    NETWORKCTL=$(command -v networkctl 2>/dev/null || true)
 else
-    PS=$(command -v ps 2>/dev/null) || die "ps not available"
+<% end -%>
+    PS=$(command -v ps 2>/dev/null || true)
+<% if @systemd_enable != false -%>
 fi
+<% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Summary state and DNS options are shared by interface and service checks.
 CRIT_MSG=""
+UNKNOWN_MSG=""
+UNKNOWN_LINKS=0
+ADDRESS_DATA_AVAILABLE=1
 DIG_OPTS="+short +time=1 +tries=1"
 DOWN_COUNT=0
 DOWN_LIST=""
@@ -197,13 +212,20 @@ iface_matches() {
     return 1
 }
 
-# Select the configured service backend and preserve its success or failure status for each service.
+# A failed inspection is distinct from an observed inactive service.
 service_active() {
-    if [ "$SYSTEMD_ENABLE" = true ]; then
-        $SYSTEMDCTL is-active --quiet "$1"
-    else
-        $PS -C "$1" >/dev/null 2>&1
-    fi
+<% if @systemd_enable != false -%>
+    systemd_service_status "$1"
+    case "$?" in
+        0) return 0 ;;
+        2) return 1 ;;
+        4) : ;;
+        *) return 3 ;;
+    esac
+<% end -%>
+    [ -n "$PS" ] || return 3
+    process_names=$($PS -e -o comm= 2>/dev/null) || return 3
+    printf '%s\n' "$process_names" | $GREP -Fxq "$1"
 }
 
 # Extract Wi-Fi SSID/BSSID from networkctl output when systemd-networkd is available.
@@ -212,7 +234,8 @@ wifi_info() {
     _SSID=""
     _BSSID=""
 
-if [ "$SYSTEMD_ENABLE" = true ]; then
+<% if @systemd_enable != false -%>
+if use_systemd && [ -n "$NETWORKCTL" ]; then
     # Pull the AP line from networkctl
     _OUT=$(SYSTEMD_PAGER=cat SYSTEMD_COLORS=0 $NETWORKCTL status "$_IF" --no-pager 2>/dev/null)
     _LINE=$(printf '%s\n' "$_OUT" | $AWK '
@@ -233,6 +256,7 @@ if [ "$SYSTEMD_ENABLE" = true ]; then
         [ "$_BSSID" = "00:00:00:00:00:00" ] && _BSSID=""
     fi
 fi
+<% end -%>
 
     # Escape any quotes in SSID to keep long output readable.
     [ -n "$_SSID" ] && _SSID=$(printf '%s' "$_SSID" | $SED 's/"/\\"/g')
@@ -255,24 +279,44 @@ if [ -n "$IF_FILTERS" ]; then
     IF_LIST=$(printf '%s' "$IF_FILTERS" | $TR ',' ' ' | $SED 's/[[:space:]]\+/ /g; s/^ //; s/ $//')
 fi
 
-# Optional service checks are folded into the same network summary.
-if [ -n "$SERVICES_LIST" ]; then
+# The selected init environment remains required even without an explicit service list.
+NETWORK_SYSTEMD_STATE=0
+<% if @systemd_enable != false -%>
+if [ "$SYSTEMD_ENABLE" = true ]; then
+    systemd_status
+    NETWORK_SYSTEMD_STATE=$?
+    case "$NETWORK_SYSTEMD_STATE" in
+        2) add_crit "$SERVICE_CONTEXT" ;;
+        3) UNKNOWN_MSG="$SERVICE_CONTEXT" ;;
+    esac
+fi
+<% end -%>
+
+# Inspect the units only when their manager can be queried; an unavailable manager does not prove they are stopped.
+if [ "$NETWORK_SYSTEMD_STATE" -eq 0 ] && [ -n "$SERVICES_LIST" ]; then
     for SVC in $SERVICES_LIST; do
         SVC_TOTAL=$((SVC_TOTAL + 1))
         if service_active "$SVC"; then
             SVC_ACTIVE=$((SVC_ACTIVE + 1))
         else
-            SVC_INACTIVE=$((SVC_INACTIVE + 1))
-            SVC_DOWN_LIST="${SVC_DOWN_LIST:+$SVC_DOWN_LIST,}$SVC"
+            SERVICE_RC=$?
+            if [ "$SERVICE_RC" -eq 1 ]; then
+                SVC_INACTIVE=$((SVC_INACTIVE + 1))
+                SVC_DOWN_LIST="${SVC_DOWN_LIST:+$SVC_DOWN_LIST,}$SVC"
+            else
+                UNKNOWN_MSG="${UNKNOWN_MSG:+$UNKNOWN_MSG; }service inspection unavailable: $SVC"
+            fi
         fi
     done
     [ -n "$SVC_DOWN_LIST" ] && add_crit "services down: $SVC_DOWN_LIST"
 fi
 
-# Enumerate interfaces from the kernel and exclude loopback from operational checks.
+# Link health and counters come directly from sysfs; ip and DNS tools only enrich the inventory.
+[ -d /sys/class/net ] && [ -r /sys/class/net ] && [ -x /sys/class/net ] || die "kernel network interfaces unavailable"
 MATCHED_IF_COUNT=0
-for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
-    IFACE=${IFACE_RAW%%@*}
+for IFACE_PATH in /sys/class/net/*; do
+    [ -d "$IFACE_PATH" ] || continue
+    IFACE=${IFACE_PATH##*/}
     [ "$IFACE" = "lo" ] && continue
 
     # Apply filters; if none supplied, accept all
@@ -285,9 +329,23 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
     IS_WIFI=0
     [ -d "/sys/class/net/$IFACE/wireless" ] && IS_WIFI=1
 
-    # Determine UP/DOWN
-    if $IP link show dev "$IFACE" 2>/dev/null | $GREP -q "state UP"; then
-        IS_UP=1
+    # Virtual interfaces may report unknown operstate with an asserted carrier.
+    OPERSTATE=""
+    CARRIER=""
+    IFS= read -r OPERSTATE 2>/dev/null < "$IFACE_PATH/operstate" || OPERSTATE=""
+    if [ "$OPERSTATE" = unknown ]; then
+        IFS= read -r CARRIER 2>/dev/null < "$IFACE_PATH/carrier" || CARRIER=""
+    fi
+    IS_UP=U
+    case "$OPERSTATE:$CARRIER" in
+        up:*|unknown:1) IS_UP=1 ;;
+        down:*|lowerlayerdown:*|notpresent:*|dormant:*|testing:*|unknown:0) IS_UP=0 ;;
+        *)
+            UNKNOWN_LINKS=$((UNKNOWN_LINKS + 1))
+            UNKNOWN_MSG="${UNKNOWN_MSG:+$UNKNOWN_MSG; }link state unavailable: $IFACE"
+            ;;
+    esac
+    if [ "$IS_UP" = 1 ]; then
         UP_COUNT=$((UP_COUNT + 1))
         if [ $IS_WIFI -eq 1 ]; then
             WIFI_UP_COUNT=$((WIFI_UP_COUNT + 1))
@@ -296,8 +354,7 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
             WIRED_UP_COUNT=$((WIRED_UP_COUNT + 1))
             WIRED_UP_LIST="${WIRED_UP_LIST:+$WIRED_UP_LIST,}$IFACE"
         fi
-    else
-        IS_UP=0
+    elif [ "$IS_UP" = 0 ]; then
         DOWN_COUNT=$((DOWN_COUNT + 1))
         [ -z "$DOWN_LIST" ] && DOWN_LIST="$IFACE" || DOWN_LIST="$DOWN_LIST,$IFACE"
 
@@ -310,18 +367,28 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
 
     # Current MAC and IP addresses are diagnostic context; unavailable MAC addresses are omitted.
     MAC=$($CAT "/sys/class/net/$IFACE/address" 2>/dev/null)
-    V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
-    V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
+    V4_RAW=""
+    V6_RAW=""
+    IF_ADDRESS_DATA_AVAILABLE=0
+    if [ -n "$IP" ] && V4_RAW=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null) && V6_RAW=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null); then
+        IF_ADDRESS_DATA_AVAILABLE=1
+    else
+        ADDRESS_DATA_AVAILABLE=0
+    fi
+    V4_LIST=$(printf '%s\n' "$V4_RAW" | $AWK 'NF {print $4}')
+    V6_LIST=$(printf '%s\n' "$V6_RAW" | $AWK 'NF {print $4}')
 
     # Compose one bounded interface detail line for long output.
-    STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
+    STATE_STR=UNKNOWN
+    [ "$IS_UP" = 1 ] && STATE_STR=UP
+    [ "$IS_UP" = 0 ] && STATE_STR=DOWN
     DETAIL_SUFFIX=""
     [ -n "$MAC" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; MAC $MAC"
     [ -n "$V4_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv4 $(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv6 $(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
     # If Wi-Fi is up, include AP identity in long output without putting it in the short status line.
-    if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" -eq 1 ]; then
+    if [ $IS_WIFI -eq 1 ] && [ "$IS_UP" = 1 ]; then
         APINFO=$(wifi_info "$IFACE")
         if [ -n "$APINFO" ]; then
             SSID_VAL=${APINFO%%__CHECK_NETWORK_AP_SEP__*}
@@ -347,9 +414,9 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
 
     # IPv4 classification distinguishes public, private, CGNAT, and link-local addresses.
     V4_T=0 V4_PUB=0 V4_PRIV=0 V4_CGNAT=0 V4_LINK=0
-    V4_KV=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '
+    V4_KV=$(printf '%s\n' "$V4_RAW" | $AWK '
         BEGIN{t=0;pub=0;priv=0;cgn=0;ll=0}
-        {
+        NF {
             split($4,a,"/"); ip=a[1]
             if (ip ~ /^169\.254\./) ll++
             else if (ip ~ /^10\./ || ip ~ /^192\.168\./ || ip ~ /^172\.(1[6-9]|2[0-9]|3[0-1])\./) priv++
@@ -384,9 +451,9 @@ EOF
 
     # IPv6 classification distinguishes global scope, GUA, ULA, link-local, and host addresses.
     V6_GLOB=0 V6_GUA_I=0 V6_HST=0 V6_LNK=0 V6_T=0 V6_ULA_I=0
-    V6_KV=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '
+    V6_KV=$(printf '%s\n' "$V6_RAW" | $AWK '
         BEGIN{IGNORECASE=1; t=0; glob=0; lnk=0; hst=0; gua=0; ula=0}
-        {
+        NF {
             split($4,a,"/"); ip=a[1]; sc=""
             for (i=1;i<=NF;i++) if ($i=="scope" && i<NF) { sc=$(i+1); break }
             if (sc=="link") lnk++
@@ -435,6 +502,12 @@ EOF
         PERF="$PERF if_${IF_LBL}_speed=${SPEED}Mbps;;;0"
     fi
 
+    if [ "$IF_ADDRESS_DATA_AVAILABLE" -eq 0 ]; then
+        V4_T=U V4_PUB=U V4_PRIV=U V4_CGNAT=U V4_LINK=U
+        V6_T=U V6_GLOB=U V6_LNK=U V6_HST=U V6_GUA_I=U V6_ULA_I=U
+        append_interface_detail "Interface ${IFACE}: address inventory unavailable; link health comes from sysfs"
+    fi
+
     # Per-interface IPv4/IPv6 address class counts
     PERF="$PERF if_${IF_LBL}_v4_total=${V4_T};;;0"
     PERF="$PERF if_${IF_LBL}_v4_public=${V4_PUB};;;0"
@@ -455,14 +528,17 @@ if [ -n "$IF_LIST" ] && [ "$MATCHED_IF_COUNT" -eq 0 ]; then
 fi
 
 # Count IPv4 loopback addresses explicitly
+IPV4_LOOP=U
+if [ -n "$IP" ]; then
 IPV4_LOOP=$($IP -o -4 addr show dev lo 2>/dev/null | $AWK '
     BEGIN{c=0}
     { split($4,a,"/"); ip=a[1]; if (ip ~ /^127\./) c++ }
     END{print c}
 ')
+fi
 
 # Public IPv4 lookup runs only when local IPv4 addressing exists.
-if [ "$HAS_V4" -eq 1 ]; then
+if [ "$HAS_V4" -eq 1 ] && [ -n "$DIG" ]; then
     PUBIP_V4=$($DIG -4 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
     if [ -z "$PUBIP_V4" ] || [ "$PUBIP_V4" = "0.0.0.0" ]; then
         PUBIP_V4=$($DIG -4 TXT ch whoami.cloudflare @1.1.1.1 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^([0-9]{1,3}\.){3}[0-9]{1,3}$/{print; exit}')
@@ -470,7 +546,7 @@ if [ "$HAS_V4" -eq 1 ]; then
 fi
 
 # Public IPv6 lookup runs only when a global IPv6 scope address exists.
-if [ "$HAS_V6" -eq 1 ]; then
+if [ "$HAS_V6" -eq 1 ] && [ -n "$DIG" ]; then
     PUBIP_V6=$($DIG -6 @ns1.google.com TXT o-o.myaddr.l.google.com $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}')
     if [ -z "$PUBIP_V6" ] || [ "$PUBIP_V6" = "::" ]; then
         PUBIP_V6=$($DIG -6 TXT ch whoami.cloudflare @2606:4700:4700::1111 $DIG_OPTS 2>/dev/null | $SED -n 's/^"\(.*\)"$/\1/p' | $AWK '/^[0-9A-Fa-f:]+$/{print; exit}')
@@ -492,7 +568,11 @@ else
 fi
 
 # No usable interface is a direct network failure regardless of failover policy.
-[ "$UP_COUNT" -eq 0 ] && add_crit "no interfaces up"
+if [ "$MATCHED_IF_COUNT" -eq 0 ] && [ -z "$IF_LIST" ]; then
+    UNKNOWN_MSG="${UNKNOWN_MSG:+$UNKNOWN_MSG; }no applicable non-loopback interfaces"
+elif [ "$UP_COUNT" -eq 0 ] && [ "$UNKNOWN_LINKS" -eq 0 ]; then
+    add_crit "no interfaces up"
+fi
 
 # Explain which parts of the network inventory can change the monitoring state.
 limit_long_output_details
@@ -512,8 +592,19 @@ if [ -n "$CRIT_MSG" ]; then
     STATE_CODE=2
 fi
 
+if [ -n "$UNKNOWN_MSG" ]; then
+    MSG="$MSG; $UNKNOWN_MSG"
+    [ "$STATE_CODE" -eq 2 ] || STATE_CODE=3
+fi
+
+# Missing optional address tools do not claim an empty address inventory.
+if [ "$ADDRESS_DATA_AVAILABLE" -eq 0 ]; then
+    IPV4_TOTAL=U IPV4_PUBLIC=U IPV4_PRIVATE=U IPV4_CGNAT=U IPV4_LINK=U IPV4_LOOP=U
+    IPV6_TOTAL=U IPV6_SCOPE_GLOBAL=U IPV6_GUA=U IPV6_ULA=U IPV6_LINK=U IPV6_HOST=U
+fi
+
 # Global perfdata
-INTERFACES_TOTAL=$((UP_COUNT + DOWN_COUNT))
+INTERFACES_TOTAL=$MATCHED_IF_COUNT
 PERF_GLOBAL="interfaces_total=${INTERFACES_TOTAL};;;0"
 PERF_GLOBAL="$PERF_GLOBAL interfaces_up=${UP_COUNT};;;0"
 PERF_GLOBAL="$PERF_GLOBAL interfaces_down=${DOWN_COUNT};;;0"

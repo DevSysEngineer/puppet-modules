@@ -7,18 +7,11 @@ die() {
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
-
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 RABBITMQCTL=$(command -v rabbitmqctl 2>/dev/null) || die "rabbitmqctl not available"
 RABBITMQADMIN=$(command -v rabbitmqadmin 2>/dev/null || true)
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
-fi
-PS=$(command -v ps 2>/dev/null) || die "ps not available"
 
 # Queue depth thresholds apply only to queues with consumers.
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
@@ -58,12 +51,26 @@ crit() {
     exit 2
 }
 
-# Verify the service before querying the broker so daemon failures report a direct cause.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-$SYSTEMDCTL is-active --quiet "rabbitmq-server" || crit "service is not active"
-else
-$PS -C rabbitmq-server >/dev/null 2>&1 || crit "service is not active"
+# Inspect the conventional service when systemd manages it, alongside native broker health.
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+check_systemd_service rabbitmq-server.service
+if ! use_systemd; then
+<% end -%>
+    PS=$(command -v ps 2>/dev/null) || die "ps not available"
+    PROCESS_DATA=$($PS -ww -e -o stat= -o comm= -o args= 2>/dev/null) || die "process inspection unavailable"
+    # The broker runs inside Erlang; an unrelated beam process or rabbitmqctl is not the server.
+    printf '%s\n' "$PROCESS_DATA" | $AWK '
+        $1 !~ /^Z/ && ($2 == "beam.smp" || $2 == "beam") {
+            if ($0 ~ /[[:space:]]-s[[:space:]]+rabbit[[:space:]]+boot([[:space:]]|$)/ ||
+                $0 ~ /[[:space:]]-boot[[:space:]]+([^[:space:]]*\/)?rabbit([[:space:]]|$)/) found=1
+        }
+        END { exit !found }
+    ' || crit "service is not active"
+    SERVICE_CONTEXT="RabbitMQ broker process is active."
+<% if @systemd_enable != false -%>
 fi
+<% end -%>
 
 # Queue depth data comes from rabbitmqctl because it is available on the local node without HTTP setup.
 QUEUE_DATA=$($RABBITMQCTL list_queues -q name messages_ready messages_unacknowledged consumers 2>/dev/null) || die "Failed to fetch queue data"
@@ -89,6 +96,7 @@ ORPHAN_LIST=""
 QUEUE_COUNT=0
 RATE_NOTICE=""
 STATE_CODE=0
+QUEUE_INSPECTION_INCOMPLETE=0
 TOTAL_CONSUMERS=0
 TOTAL_MSG=0
 TOTAL_READY=0
@@ -191,13 +199,13 @@ while IFS='	' read -r QUEUE_NAME READY UNACK CONSUMERS; do
     [ -z "$QUEUE_NAME" ] && continue
     [ "$QUEUE_NAME" = "name" ] && continue
 
-    # Default missing numeric fields to 0 so partial broker output does not break arithmetic.
-    READY=${READY:-0}
-    UNACK=${UNACK:-0}
-    CONSUMERS=${CONSUMERS:-0}
-
-    # Skip malformed rows rather than turning one odd queue line into UNKNOWN.
-    case "$READY$UNACK$CONSUMERS" in *[!0-9]* ) continue ;; esac
+    # An incomplete row cannot establish an empty or healthy queue.
+    case "$READY:$UNACK:$CONSUMERS" in
+        *[!0-9:]*|:*|*::*|*:)
+            QUEUE_INSPECTION_INCOMPLETE=1
+            continue
+            ;;
+    esac
 
     QUEUE_COUNT=$((QUEUE_COUNT + 1))
     MESSAGES=$((READY + UNACK))
@@ -270,16 +278,17 @@ if [ -n "$RABBITMQADMIN" ] && [ -r "$RABBITMQADMCONF" ]; then
         DELIVER_RATE=${2:-0}
     else
         RATE_NOTICE="rate metrics unavailable through rabbitmqadmin"
-        [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
     fi
 elif [ -z "$RABBITMQADMIN" ]; then
     RATE_NOTICE="rate metrics unavailable because rabbitmqadmin is not installed"
-    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
 else
     RATE_NOTICE="rate metrics unavailable because rabbitmqadmin config is not readable"
-    [ "$STATE_CODE" -eq 0 ] && STATE_CODE=3
 fi
 
+if [ "$QUEUE_INSPECTION_INCOMPLETE" -eq 1 ]; then
+    [ "$STATE_CODE" -eq 2 ] || STATE_CODE=3
+    MSG="$MSG; queue inspection incomplete"
+fi
 [ -n "$RATE_NOTICE" ] && MSG="$MSG, $RATE_NOTICE"
 
 # Preserve all queue diagnostics until the single character limit is applied below.
@@ -292,12 +301,13 @@ fi
 if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
     append_long "Queues with messages but no consumers: ${ORPHAN_LIST}"
 fi
+append_long "$SERVICE_CONTEXT"
 append_long "Queue totals: ${QUEUE_COUNT} queue(s), ${TOTAL_MSG} message(s), ${TOTAL_CONSUMERS} consumer(s)"
 [ -n "$RATE_NOTICE" ] && append_long "Rate metric context: ${RATE_NOTICE}"
 limit_long_output_details
 append_long ""
 append_long "Interpretation:"
-append_long "Queue depth for queues with consumers decides queue severity; rate-metric availability affects the exit code only when queue depth is otherwise healthy."
+append_long "Queue depth for queues with consumers decides queue severity. Incomplete queue rows are UNKNOWN unless a critical backlog is verified; optional rate metrics are context only."
 append_long "Queues with messages but no consumers are diagnostic context and do not raise severity by themselves."
 append_long "Inspect the listed high or elevated backlog queues first. When only rate metrics are unavailable, verify rabbitmqadmin and the managed HTTP config while queue health continues to be checked through rabbitmqctl."
 

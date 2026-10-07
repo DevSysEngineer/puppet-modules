@@ -4,28 +4,36 @@
 # Fail helper
 die() {
     printf 'Auditd check cannot run: %s\n' "$*"
+    if [ -n "${CRITICAL_REASONS:-}" ]; then
+        printf 'Verified failures: %s\n' "$CRITICAL_REASONS"
+        exit 2
+    fi
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+<% end -%>
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
 
 # Binary checks
 AUDITCTL=$(command -v auditctl 2>/dev/null) || die "auditctl not available"
-AUGENRULES=$(command -v augenrules 2>/dev/null) || die "augenrules not available"
-AUSEARCH=$(command -v ausearch 2>/dev/null) || die "ausearch not available"
-AUREPORT=$(command -v aureport 2>/dev/null) || die "aureport not available"
+AUSEARCH=$(command -v ausearch 2>/dev/null || true)
+AUREPORT=$(command -v aureport 2>/dev/null || true)
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 CUT=$(command -v cut 2>/dev/null) || die "cut not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
-    JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+<% if @systemd_enable != false -%>
+if use_systemd; then
+    JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 fi
+<% end -%>
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
-PS=$(command -v ps 2>/dev/null) || die "ps not available"
 UNAME=$(command -v uname 2>/dev/null) || die "uname not available"
 
 # Hardware paths are optional context for physical inventory in alert output.
@@ -46,6 +54,7 @@ USAGE_TEXT="Usage: $0 [-q <int>] [-d <int>] [-l chars]
 Environment: QUEUE_WARN (-q); DROPPED_CRIT (-d); DETAIL_LIMIT (-l).
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 WARNING_REASONS=""
+UNKNOWN_REASONS=""
 
 # CLI options tune queue and lost-event thresholds without changing the managed rule set.
 OPTERR=0
@@ -178,86 +187,29 @@ crit() {
     exit 2
 }
 
-# Service health is checked before audit tools so a stopped daemon reports the direct cause.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-$SYSTEMDCTL is-active --quiet "auditd" || crit "Auditd service is not active"
-else
-$PS -C auditd >/dev/null 2>&1 || crit "Auditd service is not active"
-fi
-
-# The daily audit summary is the authoritative source for account/config/anomaly counters.
-SUM=$($AUREPORT --summary --start today 00:00:00 --end now 2>/dev/null) || die "audit summary could not be read"
-
-# Extract one numeric counter from the audit summary output.
-get() {
-    printf '%s' "$SUM" | $AWK -v p="$1" 'index($0,p)==1{print $NF}' | $TR -dc '0-9'
+# auditctl reads the kernel audit netlink interface, which has no equivalent procfs status/rule listing.
+# The registered daemon PID and enabled flag establish runtime health independently of init and rule files.
+AV_STAT=$(LC_ALL=C $AUDITCTL -s 2>/dev/null) || die "kernel audit status could not be read"
+audit_value() {
+    printf '%s\n' "$AV_STAT" | $AWK -v key="$1" '$1 == key && $2 ~ /^[0-9]+$/ { print $2; exit }'
 }
-
-ACCT=$(get "Number of changes to accounts, groups, or roles:"); : "${ACCT:=0}"
-ANOM=$(get "Number of anomaly events:"); : "${ANOM:=0}"
-CFG=$(get "Number of changes in configuration:"); : "${CFG:=0}"
-FAIL=$(get "Number of failed syscalls:"); : "${FAIL:=0}"
-FAILED_AUTH=$(get "Number of failed authentications:"); : "${FAILED_AUTH:=0}"
-KEYS=$(get "Number of keys:"); : "${KEYS:=0}"
-
-# Account, configuration, anomaly, syscall, and key events are security-sensitive.
-if [ "$ACCT" -gt 0 ] || [ "$ANOM" -gt 0 ] || [ "$CFG" -gt 0 ] || [ "$FAIL" -gt 0 ] || [ "$KEYS" -gt 0 ]; then
-    SECURITY_REASONS=""
-    [ "$ACCT" -gt 0 ] && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "account changes $ACCT")
-    [ "$ANOM" -gt 0 ] && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "anomaly events $ANOM")
-    [ "$CFG" -gt 0 ] && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "config changes $CFG")
-    [ "$FAIL" -gt 0 ] && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "failed syscalls $FAIL")
-    [ "$KEYS" -gt 0 ] && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "keyed events $KEYS")
-    add_critical "security events: ${SECURITY_REASONS}"
-fi
-append_long "Audit event counters: account changes ${ACCT}, anomaly events ${ANOM}, config changes ${CFG}, failed syscalls ${FAIL}, failed authentications ${FAILED_AUTH}, keyed events ${KEYS}"
-
-if [ "$SYSTEMD_ENABLE" = true ]; then
-# Auditd and augenrules journal errors since boot indicate broken rule loading or runtime failures.
-JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o cat 2>/dev/null)
-ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
-    {
-        line=$0
-        l=tolower(line)
-        if (l ~ /(error|unknown)/) {
-            c++
-            errors[c]=line
-        }
-    }
-    END{
-        if (c==0) { print "0|"; exit }
-        printf "%d|", c
-        for (i=c; i>=1; i--) printf "%s%s", (i<c ? "; " : ""), errors[i]
-    }')
-ERROR_COUNT=${ERR_COMBINED%%|*}
-ERROR_SNIPPET=${ERR_COMBINED#*|}
-
-# Journal errors override earlier OK text because they show audit runtime failure.
-if [ "${ERROR_COUNT:-0}" -gt 0 ]; then
-    add_critical "journal errors since boot ${ERROR_COUNT}"
-    append_long "Audit journal errors, newest first: ${ERROR_SNIPPET:-unknown}"
-fi
-else
-ERROR_COUNT=0
-fi
-append_long "Journal errors since boot: ${ERROR_COUNT}"
-
-# Loaded rule count verifies that auditd is enforcing something, not only running.
-RULES_RAW=$($AUDITCTL -l 2>/dev/null) || die "audit rules could not be listed"
-RULES_COUNT=$(printf '%s\n' "$RULES_RAW" | $GREP '^-' | $AWK 'END{print NR+0}')
-if [ "$RULES_COUNT" -eq 0 ]; then
-    add_critical "no audit rules loaded"
-fi
-append_long "Audit rules loaded: ${RULES_COUNT}"
-
-# Backlog and lost-event counters detect audit pressure and dropped security events.
-AV_STAT=$($AUDITCTL -s 2>/dev/null) || die "audit status could not be read"
-BACKLOG=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog=\([0-9]\+\).*/\1/p'); : "${BACKLOG:=0}"
-LOST=$(printf "%s" "$AV_STAT" | $SED -n 's/.*lost=\([0-9]\+\).*/\1/p'); : "${LOST:=0}"
-BLIMIT=$(printf "%s" "$AV_STAT" | $SED -n 's/.*backlog_limit=\([0-9]\+\).*/\1/p'); : "${BLIMIT:=0}"
-case "$BACKLOG" in (*[!0-9]*) BACKLOG=0 ;; esac
-case "$LOST" in (*[!0-9]*) LOST=0 ;; esac
-case "$BLIMIT" in (*[!0-9]*) BLIMIT=0 ;; esac
+ENABLED=$(audit_value enabled)
+AUDIT_PID=$(audit_value pid)
+BACKLOG=$(audit_value backlog)
+LOST=$(audit_value lost)
+BLIMIT=$(audit_value backlog_limit)
+for audit_counter in "$ENABLED" "$AUDIT_PID" "$BACKLOG" "$LOST" "$BLIMIT"; do
+    case "$audit_counter" in
+        ''|*[!0-9]*) die "kernel audit status is incomplete or invalid" ;;
+    esac
+done
+case "$ENABLED" in
+    0) add_critical "kernel auditing is disabled" ;;
+    1|2) : ;;
+    *) die "kernel audit enabled flag is invalid" ;;
+esac
+[ "$AUDIT_PID" -eq 0 ] && add_critical "no audit daemon registered with the kernel"
+append_long "Kernel audit status: enabled ${ENABLED}, daemon PID ${AUDIT_PID}"
 
 # Use the kernel backlog limit as default warning threshold when Puppet did not pass one.
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
@@ -273,14 +225,90 @@ fi
 append_long "Audit backlog: ${BACKLOG}/${BLIMIT}"
 append_long "Lost audit events: ${LOST}"
 
-# augenrules --check reports when generated rule files differ from the loaded ruleset.
-if $AUGENRULES --check >/dev/null 2>&1; then
-    AUGENRULES_TEXT="in sync"
-else
-    AUGENRULES_TEXT="generated rules differ from loaded ruleset"
-    add_warning "augenrules generated rules differ from loaded ruleset"
+# The daily audit summary is the authoritative source for account/config/anomaly counters.
+SUM=""
+if [ -z "$AUREPORT" ] || ! SUM=$(LC_ALL=C $AUREPORT --summary --start today 00:00:00 --end now 2>/dev/null); then
+    UNKNOWN_REASONS="daily audit history unavailable"
 fi
-append_long "augenrules check: ${AUGENRULES_TEXT}"
+
+# Extract one numeric counter from the audit summary output.
+get() {
+    printf '%s\n' "$SUM" | $AWK -v p="$1" '
+        index($0,p)==1 && $NF ~ /^[0-9]+$/ { value=$NF; found=1; exit }
+        END { print found ? value : "U" }
+    '
+}
+
+ACCT=$(get "Number of changes to accounts, groups, or roles:")
+ANOM=$(get "Number of anomaly events:")
+CFG=$(get "Number of changes in configuration:")
+FAIL=$(get "Number of failed syscalls:")
+FAILED_AUTH=$(get "Number of failed authentications:")
+KEYS=$(get "Number of keys:")
+
+# Preserve missing history as unknown, not zero, while retaining verified runtime failures.
+for audit_counter in "$ACCT" "$ANOM" "$CFG" "$FAIL" "$FAILED_AUTH" "$KEYS"; do
+    [ "$audit_counter" = U ] && UNKNOWN_REASONS="daily audit history unavailable or incomplete"
+done
+
+# Account, configuration, anomaly, syscall, and key events are security-sensitive.
+if { [ "$ACCT" != U ] && [ "$ACCT" -gt 0 ]; } || { [ "$ANOM" != U ] && [ "$ANOM" -gt 0 ]; } || { [ "$CFG" != U ] && [ "$CFG" -gt 0 ]; } || { [ "$FAIL" != U ] && [ "$FAIL" -gt 0 ]; } || { [ "$KEYS" != U ] && [ "$KEYS" -gt 0 ]; }; then
+    SECURITY_REASONS=""
+    { [ "$ACCT" != U ] && [ "$ACCT" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "account changes $ACCT")
+    { [ "$ANOM" != U ] && [ "$ANOM" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "anomaly events $ANOM")
+    { [ "$CFG" != U ] && [ "$CFG" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "config changes $CFG")
+    { [ "$FAIL" != U ] && [ "$FAIL" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "failed syscalls $FAIL")
+    { [ "$KEYS" != U ] && [ "$KEYS" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "keyed events $KEYS")
+    add_critical "security events: ${SECURITY_REASONS}"
+fi
+append_long "Audit event counters: account changes ${ACCT}, anomaly events ${ANOM}, config changes ${CFG}, failed syscalls ${FAIL}, failed authentications ${FAILED_AUTH}, keyed events ${KEYS}"
+
+<% if @systemd_enable != false -%>
+if use_systemd && [ -n "$JOURNALCTL" ]; then
+# Auditd and augenrules journal errors since boot indicate broken rule loading or runtime failures.
+JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o cat 2>/dev/null)
+JLOG_RC=$?
+ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
+    {
+        line=$0
+        l=tolower(line)
+        if (l ~ /(error|unknown)/) {
+            c++
+            errors[c]=line
+        }
+    }
+    END{
+        if (c==0) { print "0|"; exit }
+        printf "%d|", c
+        for (i=c; i>=1; i--) printf "%s%s", (i<c ? "; " : ""), errors[i]
+    }')
+ERROR_COUNT=${ERR_COMBINED%%|*}
+[ "$JLOG_RC" -eq 0 ] || ERROR_COUNT=U
+ERROR_SNIPPET=${ERR_COMBINED#*|}
+
+# Journal errors override earlier OK text because they show audit runtime failure.
+if [ "$ERROR_COUNT" != U ] && [ "$ERROR_COUNT" -gt 0 ]; then
+    add_critical "journal errors since boot ${ERROR_COUNT}"
+    append_long "Audit journal errors, newest first: ${ERROR_SNIPPET:-unknown}"
+fi
+else
+<% end -%>
+ERROR_COUNT=U
+<% if @systemd_enable != false -%>
+fi
+<% end -%>
+append_long "Journal errors since boot: ${ERROR_COUNT}"
+
+# Loaded rule count verifies that auditd is enforcing something, not only running.
+RULES_RAW=$($AUDITCTL -l 2>/dev/null) || die "audit rules could not be listed"
+RULES_COUNT=$(printf '%s\n' "$RULES_RAW" | $GREP '^-' | $AWK 'END{print NR+0}')
+if [ "$RULES_COUNT" -eq 0 ]; then
+    add_critical "no audit rules loaded"
+fi
+append_long "Audit rules loaded: ${RULES_COUNT}"
+
+# Rule files and augenrules only describe generated configuration, not the kernel's loaded rules.
+append_long "Rule inspection uses the loaded kernel rules; generated rule files are not required."
 
 # A fresh reboot changes audit context, so report it for operators reviewing recent events.
 NOW=$($DATE +%s)
@@ -301,7 +329,8 @@ elif [ -r /proc/uptime ]; then
     fi
 fi
 
-if [ "$SYSTEMD_ENABLE" = true ]; then
+<% if @systemd_enable != false -%>
+if use_systemd && [ -n "$JOURNALCTL" ]; then
 # Kernel change detection (previous boot)
 UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
 if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
@@ -319,15 +348,15 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
             append_long "Kernel context: previous=${KERNEL_BOOT}, current=${KERNEL_CURRENT}"
         fi
     else
-        # No previous kernel detected in the journal. We cannot confirm the prior version, but a change may have occurred. Emit a warning without details.
-        add_warning "recent reboot but previous kernel could not be read"
+        # Missing previous-boot history cannot establish a kernel change.
         append_long "Kernel context: previous kernel not retrieved from the previous boot journal"
     fi
 fi
 fi
+<% end -%>
 
 # Preserve distinct audit keys in recency order until the single diagnostic character limit applies.
-if [ "$KEYS" -gt 0 ]; then
+if [ -n "$AUSEARCH" ] && { [ "$KEYS" != U ] && [ "$KEYS" -gt 0 ]; }; then
     LAST_KEYS=$($AUSEARCH --start 'today 00:00:00' --end now 2>/dev/null | $GREP -o 'key="[^"]\+"' | $SED 's/^key="//; s/"$//' | $AWK 'NF && $0!="(null)"{k[n++]=$0}
         END{
             for(i=n-1;i>=0; i--) if(!seen[k[i]]++) list[c++]=k[i];
@@ -372,18 +401,49 @@ if [ -n "$HW_SEG" ]; then
     append_long "Hardware context: ${HW_SEG}"
 fi
 
+# Keep the kernel findings while inspecting the required auditd service or registered process.
+<% if @systemd_enable != false -%>
+systemd_service_status auditd.service
+AUDIT_SERVICE_STATE=$?
+case "$AUDIT_SERVICE_STATE" in
+    2) add_critical "$SERVICE_CONTEXT" ;;
+    3) UNKNOWN_REASONS=$(append_reason "$UNKNOWN_REASONS" "$SERVICE_CONTEXT") ;;
+esac
+append_long "$SERVICE_CONTEXT"
+if [ "$AUDIT_SERVICE_STATE" -eq 4 ]; then
+<% end -%>
+    # Match the daemon registered with the kernel, preserving any proven audit failures.
+    if [ "$AUDIT_PID" -gt 0 ]; then
+        if PS=$(command -v ps 2>/dev/null) && PROCESS_DATA=$($PS -e -o pid= -o stat= 2>/dev/null); then
+            printf '%s\n' "$PROCESS_DATA" | $AWK -v pid="$AUDIT_PID" '
+                $1 == pid && $2 !~ /^Z/ { found=1 }
+                END { exit !found }
+            ' || add_critical "registered audit daemon process is not active"
+        else
+            UNKNOWN_REASONS=$(append_reason "$UNKNOWN_REASONS" "process inspection unavailable")
+        fi
+    fi
+<% if @systemd_enable != false -%>
+fi
+<% end -%>
+
 # Explain which audit findings are alert scope and which lines are supporting context.
 limit_long_output_details
 append_long ""
 append_long "Interpretation:"
-append_long "Audit event counters, journal errors, loaded rule count, backlog/lost counters, augenrules state, recent reboot context, and kernel-change context can affect the exit code."
+append_long "Audit event counters, journal errors, loaded rule count, backlog/lost counters, the required auditd service or process, recent reboot context, and kernel-change context can affect the exit code."
 append_long "Latest keys and hardware context help identify the affected host or event source but do not by themselves add severity beyond the counters above."
-append_long "Inspect auditd, augenrules, and the named audit keys first when the summary reports security events, rule drift, backlog pressure, lost events, or journal errors."
+append_long "Inspect auditd, augenrules, and the named audit keys first when the summary reports security events, missing loaded rules, backlog pressure, lost events, or journal errors."
 
 # The five-minute event rate is a compact pressure signal for sudden audit volume changes.
-EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
-EVENT_REPORT=$($AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null | $AWK 'NR>2{c+=$2}END{print c+0}')
-EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT:-0})/300}")
+EVENT_RESULT=U
+if [ -n "$AUREPORT" ]; then
+    EVENT_START=$($DATE -d '5 minute ago' '+%Y-%m-%d %H:%M:%S')
+    if EVENT_RAW=$(LC_ALL=C $AUREPORT --start "$EVENT_START" --end now --event 2>/dev/null); then
+        EVENT_REPORT=$(printf '%s\n' "$EVENT_RAW" | $AWK 'NR>2{c+=$2}END{print c+0}')
+        EVENT_RESULT=$($AWK "BEGIN{printf \"%.2f\", (${EVENT_REPORT})/300}")
+    fi
+fi
 EVENT_RATE_METRIC=$(metric_with_unit "$EVENT_RESULT" eps)
 
 # Perfdata mirrors every status-relevant counter with stable, unit-free labels.
@@ -391,7 +451,8 @@ PERF="acct_changes=${ACCT};;1"
 PERF="$PERF anomaly_events=${ANOM};;1"
 PERF="$PERF cfg_changes=${CFG};;1"
 PERF="$PERF dropped=${LOST}c;;${DROPPED_CRIT}"
-PERF="$PERF errors=${ERROR_COUNT}c;;1"
+ERROR_METRIC=$(metric_with_unit "$ERROR_COUNT" c)
+PERF="$PERF errors=${ERROR_METRIC};;1"
 PERF="$PERF event_rate=${EVENT_RATE_METRIC}"
 PERF="$PERF failed_auth=${FAILED_AUTH}"
 PERF="$PERF failed_syscalls=${FAIL};;1"
@@ -403,10 +464,18 @@ PERF="$PERF queue=${BACKLOG};${QUEUE_WARN}"
 if [ -n "$CRITICAL_REASONS" ]; then
     MSG="Auditd ${CRITICAL_REASONS}"
     [ -n "$WARNING_REASONS" ] && MSG="${MSG}; ${WARNING_REASONS}"
+elif [ -n "$UNKNOWN_REASONS" ]; then
+    MSG="Auditd ${UNKNOWN_REASONS}"
 elif [ -n "$WARNING_REASONS" ]; then
     MSG="Auditd ${WARNING_REASONS}"
 else
     MSG="Auditd is running with audit rules loaded and no security events today"
+fi
+
+# Confirmed failures take precedence over unavailable required history, then warnings.
+if [ -n "$UNKNOWN_REASONS" ]; then
+    [ "$STATE_CODE" -eq 2 ] || STATE_CODE=3
+    append_long "Incomplete inspection: ${UNKNOWN_REASONS}"
 fi
 
 # Emit one monitoring line; dynamic audit and hardware text is sanitized before perfdata.

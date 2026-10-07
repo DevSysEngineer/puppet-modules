@@ -12,18 +12,24 @@ die() {
     exit 3
 }
 
-# Puppet selects whether systemd dependencies and unit inspection apply to this check.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
+<% if @systemd_enable != false -%>
+<%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
+<% end -%>
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
 
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 PS=$(command -v ps 2>/dev/null) || die "ps not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
-if [ "$SYSTEMD_ENABLE" = true ]; then
-    SYSTEMDCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
-    JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+<% if @systemd_enable != false -%>
+if use_systemd; then
+    JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 fi
+<% end -%>
 WHO=$(command -v who 2>/dev/null) || die "who not available"
 
 # Session thresholds are intentionally simple because this check is a local SSH exposure signal.
@@ -209,11 +215,15 @@ inspect_session_processes() {
 }
 
 # Check the service first so daemon failures are reported before session parsing.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-$SYSTEMDCTL is-active --quiet "$SERVICE" || crit "service is not active"
-else
-$PS -C sshd >/dev/null 2>&1 || crit "service is not active"
+<% if @systemd_enable != false -%>
+check_systemd_service "$SERVICE"
+if ! use_systemd; then
+<% end -%>
+    PROCESS_NAMES=$($PS -e -o comm= 2>/dev/null) || die "process inspection unavailable"
+    printf '%s\n' "$PROCESS_NAMES" | $AWK '$1 == "sshd" { found=1 } END { exit !found }' || crit "service is not active"
+<% if @systemd_enable != false -%>
 fi
+<% end -%>
 
 # Preserve the terminal-based session count while inspecting numeric UIDs and process ancestry independently of login tooling.
 ACTIVE_SESSIONS=0
@@ -288,8 +298,17 @@ $WHO_OUTPUT
 EOF
 
 # Auth failure detection is PID-aware so retries followed by a successful login are not over-counted.
-if [ "$SYSTEMD_ENABLE" = true ]; then
-OUT=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today | $AWK -v allow_users="$ALLOWED_USERS" '
+AUTH_HISTORY_AVAILABLE=false
+AUTH_LOG=""
+<% if @systemd_enable != false -%>
+if use_systemd && [ -n "$JOURNALCTL" ]; then
+    if AUTH_LOG=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today 2>/dev/null); then
+        AUTH_HISTORY_AVAILABLE=true
+    fi
+fi
+<% end -%>
+if [ "$AUTH_HISTORY_AVAILABLE" = true ]; then
+OUT=$(printf '%s\n' "$AUTH_LOG" | $AWK -v allow_users="$ALLOWED_USERS" '
 BEGIN {
     # Parse allowlist into a map for O(1) lookups.
     split(allow_users, a, ","); has_allow=0
@@ -398,13 +417,13 @@ FAIL_OTH_TOTAL=${REM%%:*}; REM=${REM#*:}
 FAIL_OTH_UNMATCHED=${REM%%:*}; REM=${REM#*:}
 ABORT_WL=${REM%%:*}; ABORT_OTH=${REM#*:}
 else
-FAIL_TOTAL=0
-FAIL_WL_UNMATCHED=0
+FAIL_TOTAL=U
+FAIL_WL_UNMATCHED=U
 BAD_WL_USERS=""
-FAIL_OTH_TOTAL=0
-FAIL_OTH_UNMATCHED=0
-ABORT_WL=0
-ABORT_OTH=0
+FAIL_OTH_TOTAL=U
+FAIL_OTH_UNMATCHED=U
+ABORT_WL=U
+ABORT_OTH=U
 fi
 
 # Active/root/old sessions determine the primary state before softer journal signals.
@@ -420,7 +439,7 @@ fi
 
 # Allowlist authentication failures and zombies are WARNING-only unless a session rule already fired.
 if [ "$STATE_CODE" -lt 1 ]; then
-    if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD_WL_USERS" ] || [ "$FAIL_WL_UNMATCHED" -gt 0 ] ; then
+    if [ "$ZOMBIE_COUNT" -gt 0 ] || [ -n "$BAD_WL_USERS" ] || { [ "$FAIL_WL_UNMATCHED" != U ] && [ "$FAIL_WL_UNMATCHED" -gt 0 ]; } ; then
         STATE_CODE=1
     fi
 fi
@@ -432,7 +451,7 @@ USERS_LIST_TEXT=$(cap_csv_list "$USERS_LIST")
 [ "$ROOT_ACTIVITY" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "root activity detected")
 [ "$PROCESS_INSPECTION_FAILED" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "process inspection unavailable")
 [ "$AGE_CRIT" = true ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "session age ${MAX_SESSION_AGE_MIN}m")
-if [ "$FAIL_WL_UNMATCHED" -gt 0 ]; then
+if { [ "$FAIL_WL_UNMATCHED" != U ] && [ "$FAIL_WL_UNMATCHED" -gt 0 ]; }; then
     ALLOWLIST_FAILURE_SUMMARY="${FAIL_WL_UNMATCHED} unmatched allowlist failure(s)"
     SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "$ALLOWLIST_FAILURE_SUMMARY")
 fi
@@ -445,6 +464,7 @@ fi
 append_long "Session totals: ${ACTIVE_SESSIONS} active, maximum age ${MAX_SESSION_AGE_MIN}m, root activity ${ROOT_ACTIVITY}"
 [ -n "$USERS_LIST_TEXT" ] && append_long "Active users: ${USERS_LIST_TEXT}"
 [ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
+[ "$AUTH_HISTORY_AVAILABLE" = true ] || append_long "Authentication history unavailable or not applicable; current sessions are still inspected. U counters do not mean zero failures."
 append_long "Authentication counters: ${FAIL_TOTAL} total failures, ${FAIL_WL_UNMATCHED} allowlist unmatched, ${FAIL_OTH_TOTAL} other raw, ${FAIL_OTH_UNMATCHED} other unmatched, ${ABORT_WL} allowlist aborts, ${ABORT_OTH} other aborts"
 [ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
 limit_long_output_details

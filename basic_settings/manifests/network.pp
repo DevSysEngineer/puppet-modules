@@ -397,7 +397,7 @@ class basic_settings::network (
       if ($basic_settings::monitoring::package != 'none') {
         # Use a service check for firewalld and the configuration-aware check for nftables.
         if ($firewall_package == 'nftables') {
-          # Install the check tools, including systemd only for the selected inspection path.
+          # Install tools for loaded rules and the selected systemd loader inspection.
           $firewall_monitoring_packages = concat(['coreutils', 'dash', 'mawk'], $systemd_enable ? {
             true    => ['systemd'],
             default => [],
@@ -681,12 +681,6 @@ class basic_settings::network (
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
 
-    # Include the network tools already managed by this class.
-    $network_monitoring_required_packages = concat(
-      $network_monitoring_packages,
-      ['dnsutils', 'iproute2'],
-    )
-
     # Escape the selected service list as one argument for the network check.
     $service_str = join($services, ' ')
 
@@ -696,7 +690,7 @@ class basic_settings::network (
     basic_settings::monitoring_custom { 'network':
       content  => template('basic_settings/monitoring/check_network'),
       interval => 600, # 10 minutes
-      require  => Package[$network_monitoring_required_packages],
+      require  => Package[$network_monitoring_packages],
     }
   }
 

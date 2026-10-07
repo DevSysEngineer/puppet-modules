@@ -42,7 +42,6 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 AGENT_TIMEOUT=${AGENT_TIMEOUT:-30}
 VALIDITY_CRITICAL=${VALIDITY_CRITICAL:-14}
 VALIDITY_WARNING=${VALIDITY_WARNING:-30}
-SYSTEM_TRUST=/etc/ssl/certs/ca-certificates.crt
 STATE=0
 SUMMARY='local certificates are valid and match their names and keys'
 DETAILS=''
@@ -506,6 +505,8 @@ case "$OPENSSL_VERSION" in
     'OpenSSL 1.1.1'*|'OpenSSL '[3-9].*) ;;
     *) die 'OpenSSL 1.1.1 or newer is required' ;;
 esac
+# OpenSSL's compiled default locates the installed CA bundle without assuming a distribution path.
+SYSTEM_TRUST=$($OPENSSL version -d 2>/dev/null | $AWK -F '"' '/^OPENSSLDIR: "/ { print $2 "/cert.pem" }')
 
 # A failed preflight can be caused by another vhost. Never approve a target from an incomplete dump.
 # Inspect only explicit paths in the current target file to prove local defects in that case; includes/inheritance remain UNKNOWN.

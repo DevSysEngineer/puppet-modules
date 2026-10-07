@@ -7,11 +7,18 @@ die() {
     exit 3
 }
 
+# These checks inspect systemd concepts; other init systems are not applicable (Nagios UNKNOWN).
+[ -d /run/systemd/system ] || die "not applicable: systemd is not running"
+
+# Parse command output independently of the host locale.
+LC_ALL=C
+export LC_ALL
+
 # Binary checks
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-JOURNALCTL=$(command -v journalctl 2>/dev/null) || die "journalctl not available"
+JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
@@ -362,10 +369,15 @@ SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p ExecMainStatus -p ExecMainCode -p StatusText \
     -p ActiveEnterTimestamp -p InactiveEnterTimestamp -p StateChangeTimestamp \
     2>/dev/null)
+SHOW_RC=$?
 LOAD_STATE=$(get_prop LoadState)
+if [ "$SHOW_RC" -ne 0 ] && [ "$LOAD_STATE" != not-found ]; then
+    die "unit properties unavailable"
+fi
+[ -n "$LOAD_STATE" ] || die "unit LoadState unavailable"
 
 # Check existence and load state
-if [ -z "$LOAD_STATE" ] || [ "$LOAD_STATE" = "not-found" ]; then
+if [ "$LOAD_STATE" = "not-found" ]; then
     emit_check "${SERVICE_UNIT} does not exist" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
@@ -381,6 +393,7 @@ fi
 
 # Cache individual properties for status decisions and summary text.
 ACTIVE_STATE=$(get_prop ActiveState)
+[ -n "$ACTIVE_STATE" ] || die "unit ActiveState unavailable"
 SUB_STATE=$(get_prop SubState)
 RESULT_PROP=$(get_prop Result)
 MAIN_PID=$(get_prop MainPID)
@@ -413,6 +426,7 @@ fi
 
 # Journal scanning is anchored to the most recent relevant service state change.
 JOURNAL_RAW=""
+JOURNAL_UNAVAILABLE=0
 FAIL_LINE=""
 WARN_LINE=""
 SINCE_TS=$((NOW_TS - WINDOW))
@@ -427,7 +441,11 @@ fi
 
 # Pull only recent journal entries when runtime policy allows log scanning.
 if [ "$SCAN_LOGS" = "1" ] && { [ "$IN_SCHEDULE" = "1" ] || [ "$SCAN_LOGS_OUTSIDE" = "1" ]; }; then
-    JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null || true)
+    if [ -n "$JOURNALCTL" ]; then
+        JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${REF_TS}" -o short-iso --no-pager 2>/dev/null) || JOURNAL_UNAVAILABLE=1
+    else
+        JOURNAL_UNAVAILABLE=1
+    fi
     if [ -n "$JOURNAL_RAW" ]; then
         FAIL_LINE=$(printf '%s\n' "$JOURNAL_RAW" | $GREP -Ei "$FAIL_RE" | $TAIL -n1)
         if [ -n "$WARN_RE" ]; then
@@ -540,6 +558,20 @@ if [ -n "$FAIL_LINE" ]; then
     exit 2
 fi
 
+# A failed oneshot result remains conclusive when optional journal access fails.
+if [ "$REQUIRE_ACTIVE" = 0 ] && [ "$ACTIVE_STATE" != active ]; then
+    case "$RESULT_PROP" in
+        success|''|n/a) : ;;
+        *)
+            emit_check "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
+            exit 2
+            ;;
+    esac
+fi
+
+# Requested log inspection is required evidence, but never masks a proven service failure.
+[ "$JOURNAL_UNAVAILABLE" -eq 0 ] || die "requested journal inspection unavailable; unit state ${ACTIVE_STATE}"
+
 # Warning markers are opt-in through WARN_RE and only affect otherwise healthy services.
 if [ -n "$WARN_LINE" ]; then
     emit_check \
@@ -550,12 +582,19 @@ fi
 
 # For oneshot-style services, a clean last result is healthy even when the unit is inactive.
 if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
-    if [ "${EXEC_STATUS:-U}" = "0" ] && { [ "$RESULT_PROP" = "success" ] || [ "$RESULT_PROP" = "" ] || [ "$RESULT_PROP" = "n/a" ]; }; then
+    if [ "${EXEC_STATUS:-U}" = "0" ] && [ "$RESULT_PROP" = "success" ]; then
         emit_check \
             "$SERVICE_UNIT is not active as expected for oneshot-style service and the last result was successful; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
             "$PERFDATA"
         exit 0
     fi
+    case "$RESULT_PROP:${EXEC_STATUS:-U}" in
+        :*|n/a:*|*:U) die "oneshot result unavailable" ;;
+        *)
+            emit_check "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
+            exit 2
+            ;;
+    esac
 fi
 
 # Normal success path for active services with no relevant journal markers.

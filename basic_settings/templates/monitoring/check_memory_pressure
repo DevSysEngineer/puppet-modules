@@ -575,21 +575,24 @@ SWAP_IO_CRITICAL_SAMPLE_COUNT=0
 SWAP_IO_SAMPLE_COUNT=0
 SWAP_IO_SAMPLE_OUTPUT=""
 
-# Convert cumulative pswpin/pswpout page counters to KiB/s. getconf is optional because a 4096 byte fallback is safe enough when page size cannot be queried.
+# Query the standard runtime interface for the base page size; smaps describes individual mappings, possibly huge pages.
+# Without getconf, keep optional swap rates unknown instead of assuming 4 KiB on every architecture.
+PAGE_SIZE_BYTES=U
 if [ -n "$GETCONF" ]; then
-    PAGE_SIZE_BYTES=$($GETCONF PAGESIZE 2>/dev/null || printf '%s\n' 4096)
-else
-    PAGE_SIZE_BYTES=4096
+    PAGE_SIZE_BYTES=$($GETCONF PAGESIZE 2>/dev/null) || PAGE_SIZE_BYTES=U
 fi
 case "$PAGE_SIZE_BYTES" in
-    ''|*[!0-9]*) PAGE_SIZE_BYTES=4096 ;;
+    ''|*[!0-9]*) PAGE_SIZE_BYTES=U ;;
+    *) [ "$PAGE_SIZE_BYTES" -gt 0 ] || PAGE_SIZE_BYTES=U ;;
 esac
-[ "$PAGE_SIZE_BYTES" -gt 0 ] || PAGE_SIZE_BYTES=4096
 
 # Take multiple deltas to distinguish sustained swap pressure from one short spike. If vmstat cannot be read, continue with absolute memory and swap-free thresholds.
 if [ "$SWAP_TOTAL_KIB" -eq 0 ]; then
     VMSTAT_CURRENT=""
     SWAP_IO_NOTE="active swap I/O not sampled because no swap is configured"
+elif [ "$PAGE_SIZE_BYTES" = U ]; then
+    VMSTAT_CURRENT=""
+    SWAP_IO_NOTE="active swap I/O unavailable because the kernel page size could not be determined"
 else
     VMSTAT_CURRENT=$(read_vmstat_counters "$VMSTAT_PATH" 2>/dev/null || true)
 fi
@@ -669,7 +672,7 @@ if [ "$SWAP_TOTAL_KIB" -gt 0 ] && [ -n "$VMSTAT_CURRENT" ]; then
     elif [ -z "$SWAP_IO_NOTE" ]; then
         SWAP_IO_NOTE="active swap I/O could not be checked because no usable samples were collected from ${VMSTAT_PATH}"
     fi
-elif [ "$SWAP_TOTAL_KIB" -gt 0 ]; then
+elif [ "$SWAP_TOTAL_KIB" -gt 0 ] && [ -z "$SWAP_IO_NOTE" ]; then
     SWAP_IO_NOTE="active swap I/O could not be checked because ${VMSTAT_PATH} is unavailable or missing pswpin/pswpout"
 fi
 
@@ -738,14 +741,22 @@ else
     fi
 fi
 
+# Do not graph an unmeasured swap rate as zero on systems without the optional sampler inputs.
+SWAP_IN_METRIC="${SWAP_IN_KIB_PER_SEC}KBps"
+SWAP_OUT_METRIC="${SWAP_OUT_KIB_PER_SEC}KBps"
+if [ "$SWAP_TOTAL_KIB" -gt 0 ] && [ "$SWAP_IO_AVAILABLE" -eq 0 ]; then
+    SWAP_IN_METRIC=U
+    SWAP_OUT_METRIC=U
+fi
+
 # Build perfdata with stable lowercase snake_case labels and UOMs; low-water thresholds use Nagios range syntax so lower values alert correctly.
 PERFDATA="memory_available=${MEM_AVAILABLE_KIB}KB;${MEM_AVAILABLE_WARNING_KIB}:;${MEM_AVAILABLE_CRITICAL_KIB}:;0;${MEM_TOTAL_KIB}"
 PERFDATA="${PERFDATA} memory_headroom=${MEM_AVAILABLE_PERCENT}%;;;0;100"
 PERFDATA="${PERFDATA} swap_used=${SWAP_USED_KIB}KB"
 PERFDATA="${PERFDATA} swap_utilization=${SWAP_USED_PERCENT}%;${SWAP_WARNING_PERCENT};${SWAP_CRITICAL_PERCENT};0;100"
 PERFDATA="${PERFDATA} swap_free=${SWAP_FREE_KIB}KB;${SWAP_FREE_WARNING_KIB}:;${SWAP_FREE_CRITICAL_KIB}:;0;${SWAP_TOTAL_KIB}"
-PERFDATA="${PERFDATA} swap_in=${SWAP_IN_KIB_PER_SEC}KBps;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
-PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_KIB_PER_SEC}KBps;${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
+PERFDATA="${PERFDATA} swap_in=${SWAP_IN_METRIC};${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
+PERFDATA="${PERFDATA} swap_out=${SWAP_OUT_METRIC};${SWAP_IO_WARNING_KIB};${SWAP_IO_CRITICAL_KIB}"
 PERFDATA="${PERFDATA} swap_cached=${SWAP_CACHED_KIB}KB"
 PERFDATA="${PERFDATA} buffers=${BUFFERS_KIB}KB"
 PERFDATA="${PERFDATA} cached=${CACHED_KIB}KB"

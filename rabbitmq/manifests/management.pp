@@ -213,10 +213,10 @@ class rabbitmq::management (
       # Preserve the configured path as data at the rendered shell assignment boundary.
       $admin_config_path_shell = stdlib::shell_escape($admin_config_path)
 
-      # Install the check tools, including systemd only for the selected inspection path.
-      $monitoring_packages = concat(['mawk', 'procps'], $systemd_enable ? {
+      # Install the broker inspection tools and the selected service-manager interface.
+      $monitoring_packages = concat(['mawk'], $systemd_enable ? {
         true    => ['systemd'],
-        default => [],
+        default => ['procps'],
       })
       ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',

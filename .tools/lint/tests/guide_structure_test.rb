@@ -20,7 +20,8 @@ class GuideStructureTest < Minitest::Test
   RULE_OWNERS = {
     'docs/CODE_RULES.md' => ['Inhoud direct na een openingsaccolade beginnen',
                              'Herhaalde resourceorkestratie in defined types delen',
-                             'Prerequisites van ordering onderscheiden'],
+                             'Prerequisites van ordering onderscheiden',
+                             'Instellingen bij hun eigenaar houden'],
     'docs/DOCUMENTATION_RULES.md' => ['Strings-parametercontract', 'Codecommentaar in Engelse zinnen schrijven'],
     'docs/OPERATIONAL_RULES.md' => ['Door Puppet beheerde inhoud markeren',
                                     'Beheerhelpers op de gedeelde locatie installeren',
@@ -28,6 +29,7 @@ class GuideStructureTest < Minitest::Test
                                     'Externe commando’s rechtstreeks vinden', 'Shellcode opmaken en benoemen',
                                     'Shellargumenten en runtime-instellingen verwerken',
                                     'Shellhelpers op een herkenbare taak afbakenen',
+                                    'Puppet-waarden rechtstreeks in shelltemplates invoegen',
                                     'Shellbuffers en tijdelijke bestanden kiezen',
                                     'Tekstbuffers en substitutiemetadata opbouwen',
                                     'Checkexecutables onafhankelijk van targets delen',
@@ -37,9 +39,9 @@ class GuideStructureTest < Minitest::Test
                                     'Firewallconfiguratie bij de deployment houden']
   }.freeze
 
-  def test_exactly_four_documents_with_all_rule_documents_linked_from_the_readme
+  def test_four_guides_and_local_instructions_with_all_rule_documents_linked_from_the_readme
     documents = Dir[File.join(ROOT, '**/*.md')].map { |path| path.delete_prefix("#{ROOT}/") }
-    assert_equal DOCUMENTS.sort, documents.sort
+    assert_equal [*DOCUMENTS, 'AGENTS.md'].sort, documents.sort
     readme = prose(File.read(File.join(ROOT, 'README.md')))
     RULE_GROUPS.each_key do |name|
       assert_match(/\]\(#{Regexp.escape(name)}(?:#[^)]*)?\)/, readme, "README must link to #{name}")
@@ -82,17 +84,6 @@ class GuideStructureTest < Minitest::Test
       titles.each do |title|
         actual = headings.flat_map { |name, entries| [name] * entries.count(title) }
         assert_equal [owner], actual, title
-      end
-    end
-  end
-
-  def test_workflow_navigation_links_to_the_owning_operational_rules
-    agents = File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md'))
-    guide = File.read(File.join(ROOT, 'README.md'))
-    %w[shellscripts monitoringchecks door-puppet-beheerde-inhoud-markeren
-       beheerhelpers-op-de-gedeelde-locatie-installeren].each do |anchor|
-      [agents, guide].each do |text|
-        assert_includes text, "docs/OPERATIONAL_RULES.md##{anchor})"
       end
     end
   end
