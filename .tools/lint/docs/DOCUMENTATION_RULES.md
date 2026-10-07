@@ -267,7 +267,7 @@ Vergelijk met de huidige code en goed gedocumenteerde voorbeelden en controleer 
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Vergelijk met de huidige code en goed gedocumenteerde voorbeelden en controleer herkenbare groepering van lange instellingenreeksen. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Niet-zichtbare implementatiekeuzes toelichten
 
@@ -329,7 +329,7 @@ Controleer iedere genoemde soort keuze en koppel de uitleg aan het lokale risico
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Controleer iedere genoemde soort keuze en koppel de uitleg aan het lokale risico van parsing, classificatie of samenvoegen. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Codecommentaar in Engelse zinnen schrijven
 
@@ -391,7 +391,7 @@ Lees de volledige zin en werk willekeurige afbrekingen in geraakte comments weg.
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Lees de volledige zin en werk willekeurige afbrekingen in geraakte comments weg. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden toelichten
 
@@ -1229,7 +1229,7 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 Met `--fix` kan de documentatiecheck gewone tekst afbreken en herkenbare tag-inspringing en sectiescheiding herstellen. Woorden, backtick-inhoud en alinea's blijven behouden. Summaries, voorbeeldtitels, voorbeeldcode en gestructureerde Markdown, zoals lijsten, tabellen en codeblokken, vragen waar nodig handmatige correctie. Een lange summary of voorbeeldtitel kort je zelf in. Bij onveilige of onduidelijke correcties blijft een melding met `[review]` staan.
 
-> **Open normconflict (oplevering: Strings-breedte):** de behouden norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met warning, waardoor het profiel faalt. `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` bevestigen dit verschil. Deze wijziging maakt de voorkeur niet verplicht en verandert de check niet; besluitvorming over de bedoelde grens blijft open.
+> **Verschil tussen norm en lintgedrag:** de norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met een warning, waardoor het profiel faalt. Breek zulke tekst af tot maximaal 120 tekens om deze melding te verhelpen. De grensgevallen staan in `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` van [documentation_width_test.rb](../tests/documentation_width_test.rb). Of de voorkeur een verplichte grens moet zijn, vereist een expliciet besluit volgens de [conflictprocedure](../../../AGENTS.md#conflict-resolution); het lintgedrag stelt die norm niet vast.
 
 ### Strings-taginspringing
 
@@ -1558,7 +1558,7 @@ Vergelijk defaults, relaties en gegenereerde configuratie afzonderlijk met het m
 
 **Verificatie**
 
-Handmatige vergelijking van het onjuiste en correcte scenario met de norm: Vergelijk defaults, relaties en gegenereerde configuratie afzonderlijk met het manifest. Het onjuiste scenario schendt de genoemde verplichting; de juiste variant behoudt de uitzonderingsvoorwaarden. Dit is reviewbewijs, geen uitgevoerde host- of modulegedragstest.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Documentatie op haar aangewezen plaats onderhouden
 
@@ -1620,7 +1620,7 @@ Controleer de verantwoordelijkheden van iedere geraakte uitleg en voorkom een tw
 
 **Verificatie**
 
-Handmatige vergelijking van het onjuiste en correcte scenario met de norm: Controleer de verantwoordelijkheden van iedere geraakte uitleg en voorkom een tweede handmatige contractbron. Het onjuiste scenario schendt de genoemde verplichting; de juiste variant behoudt de uitzonderingsvoorwaarden. Dit is reviewbewijs, geen uitgevoerde host- of modulegedragstest.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Uitvoerbare voorbeeldscenario’s onderhouden
 
@@ -1682,4 +1682,4 @@ Controleer alle genoemde prerequisites, argumenten en synthetische waarden; vali
 
 **Verificatie**
 
-Handmatige vergelijking van het onjuiste en correcte scenario met de norm: Controleer alle genoemde prerequisites, argumenten en synthetische waarden; valideer het uitgewerkte voorbeeld volgens Aanvullende validatie. Het onjuiste scenario schendt de genoemde verplichting; de juiste variant behoudt de uitzonderingsvoorwaarden. Dit is reviewbewijs, geen uitgevoerde host- of modulegedragstest.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.

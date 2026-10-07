@@ -55,7 +55,7 @@ Use [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (`MAJOR.MINOR.PAT
 
 The public compatibility contract includes supported classes and defined types, parameters, Hiera settings, documented management behavior, and documented integration of the shared tooling.
 
-- Assess and record compatibility impact for every change against the latest published release. Unreleased intermediate implementations are not separate release baselines. Judge the effect on supported use, not the size of the diff.
+- Assess compatibility impact for every change against the latest published release and record the assessment in the change review. Unreleased intermediate implementations are not separate release baselines. Judge the effect on supported use, not the size of the diff.
 - Apply the following release levels; the highest required level across the release determines its version.
 
 | Level | Required for | Example from `3.2.4` |
@@ -70,7 +70,7 @@ The public compatibility contract includes supported classes and defined types, 
 
 #### Version Updates And Release Preparation
 
-- Before completing each change, choose and record the project version for the accumulated changes since the latest published release under [compatibility and change impact](#compatibility-and-change-impact). Update `VERSION` and synchronize metadata in the same change; do not defer this work to a separate release task.
+- Before completing each change, choose the project version for the accumulated changes since the latest published release under [compatibility and change impact](#compatibility-and-change-impact), and record the choice and justification in the change review. Update `VERSION` and synchronize metadata in the same change; do not defer this work to a separate release task.
 - The chosen version must be newer than the latest published release and reflect the highest required release level. Retain an already chosen unreleased version only when it still covers all accumulated changes, and record why no further increase is needed. Do not increase it automatically per commit or lint run, or infer release impact from changed files.
 - Set the chosen project version in `VERSION`, then synchronize only the `version` fields in root and first-party module metadata. Preserve other metadata and the versions of imported projects and dependencies. Never derive or update `VERSION` from metadata or Git; any release tags follow the chosen version.
 - Include concrete migration instructions for affected consumers with every breaking change in the relevant usage documentation.
@@ -354,9 +354,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Write technical documentation in English, including changelog entries and this file, except for the Dutch documents specified below.
 - Keep the root README, `.tools/README.md`, `.tools/shared/README.md`, `.tools/module-dependencies/README.md`, `.tools/validate/README.md`, `.tools/metadata/README.md`, `.tools/ruby-lint/README.md`, `.tools/repository-checks/README.md`, and the four central lint documents, `.tools/lint/README.md`, `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md`, in Dutch unless the user explicitly requests another language.
-- Describe current behavior and instructions in the present tense. Do not explain current usage through historical comparisons or superseded workflows.
-- Keep one authoritative location for each technical fact.
-- Use concise summaries with pointers when a fact must appear in more than one layer.
+- Apply [durable documentation](#durable-documentation) to existing and future Markdown content, according to each document's purpose.
 - Place information according to the responsibilities below, using [authority and rule placement](#authority-and-rule-placement) for durable norms. Review every affected explanation against its audience and responsibility; avoid a second hand-maintained contract source.
 - Add an ADR only when requested or already customary. This exception to adding an ADR does not weaken the duty to document the affected interface or behavior.
 
@@ -383,6 +381,16 @@ External disclosure is every transfer outside an organization-controlled or expl
 | Feature or implementation documentation | Feature-specific interfaces, implementation steps, temporary migrations, and acceptance scenarios outside project-wide policy. |
 | Configuration reference | Complete configuration variables, operational defaults, and exact startup or deployment commands outside Puppet Strings. |
 | ADRs | Architectural decisions, alternatives, trade-offs, and their rationale. |
+| Change reviews and execution reports | Change-specific decisions, compatibility assessments, progress, validation commands and results, coverage, and unresolved findings. |
+
+### Durable Documentation
+
+- Describe supported behavior, responsibilities, conditions, and reusable procedures directly in the present tense. Explain a lasting choice when its reason helps the reader understand a constraint or act correctly. Update the existing explanation when behavior changes instead of appending a task history.
+- Keep progress, completion claims, individual validation outcomes, and change-specific judgments in the change review or an appropriate execution report. An instruction to record, justify, or document a review outcome uses that destination unless it names another one. Lasting interface requirements and necessary local implementation reasons belong with their authoritative documentation or code. Do not create a permanent Markdown document for each finding.
+- Keep one authoritative location for each technical fact. Refer to the maintained configuration, implementation, register, or reference for changing values; explain an existing retrieval command when needed. Retain a short summary only for a distinct reader need, with conditions and full detail at their owner. A link must supply the required information rather than conceal missing explanation.
+- Avoid unnecessary copies of versions, counts, names, environments, status, and example output. Use recognizable placeholders for reader-supplied values and explain their source. Preserve literal values needed for valid commands, defaults, units, limits, compatibility, migration boundaries, warnings, and exact technical contracts. Label illustrative output; do not replace dependency pins or change runtime behavior to avoid documenting values.
+- Review all project-managed Markdown according to its purpose, including hidden directories, nested components, examples, and central or local instructions. Historical reports retain the event, date or identifier, and facts needed to understand them. A status register must make its purpose and validity clear. Preserve legal text and fixtures with exact content contracts. Review generated output and correct its managed source before regenerating. Identify external ownership and the upstream maintenance route; do not edit dependencies as project-owned prose.
+- Keep necessary workarounds and limitations beside the affected action, stating the condition, consequence, and required action. Link to the designated source for changing progress. Verify alleged obsolescence before removing a warning, exception, or technical restriction; report unresolved differences under [technical evidence](#technical-evidence-and-links).
 
 ### Markdown
 
@@ -403,17 +411,20 @@ External disclosure is every transfer outside an organization-controlled or expl
 - For every substantive change, determine which information is missing, incorrect, or affected, including documented interfaces, usage conditions, risks, and properties. State which choice, preparation, action, expected outcome, or concrete warning that information supports. Record the affected documents or the reason no update is needed in the change review; an existing documentation gap within the affected subject may also justify an update.
 - For every substantive change and every edit to a repository-owned Markdown file, read the complete affected documentation sections and surrounding reading path before editing. This applies to all `.md` files, including `AGENTS.md` and small additions. For the root README, include the complete affected module section.
 - For root README decisions, apply [README scope](#readme-scope) and [README configuration guidance](#readme-configuration-guidance).
+- For a project-wide Markdown review, inventory the version-control list and supplement it with a filesystem scan that includes hidden, ignored, new, and case-variant Markdown files, excluding version-control storage. Read every inventoried file in full. Record each path, purpose, ownership, generation source where applicable, assessment, action, and reason for special treatment in the change review or execution report. Search patterns and automated checks do not establish full content coverage.
 
 ##### During Editing
 
 - During editing, integrate changes into each affected document's existing explanation and connect surrounding text according to the [Markdown navigation and continuity rules](#markdown). Present current use as a coherent whole under the [language and authority rules](#language-and-authority).
 - For each passage added, changed, moved, or removed, check that it serves the identified reader need, fits both the document and heading, contributes useful information, and does not contradict existing guidance. Technical accuracy alone does not establish relevance.
 - When consolidating repeated facts, preserve summaries, prominent warnings, and prerequisites that serve a distinct reader decision or entry point. Repetition alone is not a reason to remove them.
+- Check whether a passage would become wrong through an incidental value or status change. Apply [durable documentation](#durable-documentation) to its meaning and purpose, rather than merely removing a number, date, or word.
 - Remove passages that serve no task for the intended reader instead of moving them to another heading or below an example. If a subsection only explains parameter usage already covered by a linked contract, remove that explanation and reconsider the heading; retain only a summary or warning justified at that point of use.
 
 ##### After Editing
 
 - After editing, reread the complete affected sections and surrounding reading path, including the whole affected root README module section rather than only the diff. Check coherence, topic placement, and whether the user guide has become a second parameter reference or implementation manual. Confirm that a new reader can identify prerequisites, the next action, and the expected outcome without reconstructing missing context.
+- For a project-wide review, reread complete changed documents and reconcile the final inventory with the initial list, accounting for additions, moves, and removals. Give every file a completed assessment or an explicit open point. Verify that central and local instructions agree and link to the authoritative norm without duplicating it. Retain this execution evidence with the change, outside permanent project instructions.
 
 #### Technical Evidence And Links
 
@@ -618,7 +629,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Verify [preparation and scope](#working-with-the-existing-codebase).
 - Verify [Puppet code authority](#puppet-code-authority) and [rule placement](#authority-and-rule-placement).
 - Verify applicable [design and implementation review](#design-and-implementation), [shell review and validation](#shell-scripts), and [monitoring review and validation](#monitoring-checks).
-- Verify [documentation responsibilities](#language-and-authority) and the [editorial decision and review workflow](#scope-and-reading-path), including the review of complete affected README module sections.
+- Verify [documentation responsibilities](#language-and-authority), [durable documentation](#durable-documentation), and the [editorial decision and review workflow](#scope-and-reading-path), including complete affected README module sections and per-file coverage for project-wide reviews.
 - Verify [impact review](#impact-review).
 - Verify [version selection and metadata synchronization](#version-updates-and-release-preparation).
 - Verify the applicable [security reviews](#security-and-privacy).

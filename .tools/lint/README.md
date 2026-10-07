@@ -9,7 +9,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 **Puppet-lint** is een extern controleprogramma dat Puppet-broncode leest en afwijkingen van codeafspraken meldt. Zo'n programma heet een linter; iedere afzonderlijke controle heet een check. Je start het met het commando `puppet-lint`. Het programma heeft standaardchecks en kan extra checks uit uitbreidingen laden.
 
-Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie verzameld in **`lint-project`**, ons eigen Ruby-pakket, ook wel een gem genoemd. Dit pakket gebruikt Puppet-lint als controleprogramma en voegt de `project_*`-checks toe voor onder meer parameters, documentatie, bestandsrechten en shellcommando's. Daarnaast installeert het twee externe lintplugins. Je blijft de controles starten met `puppet-lint`; de projectconfiguratie laadt onze uitbreiding en bepaalt samen met het gedeelde regelprofiel welke checks en opties actief zijn.
+Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie verzameld in **`lint-project`**, ons eigen Ruby-pakket, ook wel een gem genoemd. Dit pakket gebruikt Puppet-lint als controleprogramma en voegt de `project_*`-checks toe voor onder meer parameters, documentatie, bestandsrechten en shellcommando's. Daarnaast installeert het de externe lintplugins uit zijn gemspec. Je blijft de controles starten met `puppet-lint`; de projectconfiguratie laadt onze uitbreiding en bepaalt samen met het gedeelde regelprofiel welke checks en opties actief zijn.
 
 `project-tools-ruby-lint` levert [Ruby-lint](../ruby-lint/README.md), `project-tools-metadata` levert [metadatacontrole](../metadata/README.md) en `project-tools-validate` levert [parservalidatie](../validate/README.md). Kies deze tools afzonderlijk in de [ontwikkelbundle](../README.md). De [tooltests](#tests-uitvoeren-en-uitbreiden) controleren lintchecks, correcties en installatie.
 
@@ -32,7 +32,7 @@ Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of co
 
 ## Leeswijzer
 
-Gebruik je de tooling voor het eerst, begin dan bij de snelstart voor [deze repository](#snelstart-in-deze-repository) of [je eigen Puppet-project](#snelstart-in-een-ander-puppet-project). Voor een wijziging volg je de [dagelijkse werkwijze](#werkwijze-bij-een-wijziging). De onderwerpentabel verwijst naar de secties die je wijziging raakt; de vijf taakroutes eronder verbinden die naslag met de benodigde stappen. Je hoeft de overige gespecialiseerde naslag niet vooraf door te nemen. Komt tijdens je werk een nieuwe afhankelijkheid of integratie in beeld, neem dan de bijbehorende sectie erbij.
+Gebruik je de tooling voor het eerst, begin dan bij de snelstart voor [deze repository](#snelstart-in-deze-repository) of [je eigen Puppet-project](#snelstart-in-een-ander-puppet-project). Voor een wijziging volg je de [dagelijkse werkwijze](#werkwijze-bij-een-wijziging). De onderwerpentabel verwijst naar de secties die je wijziging raakt; de taakroutes eronder verbinden die naslag met de benodigde stappen. Je hoeft de overige gespecialiseerde naslag niet vooraf door te nemen. Komt tijdens je werk een nieuwe afhankelijkheid of integratie in beeld, neem dan de bijbehorende sectie erbij.
 
 Volg bij iedere Puppet-wijziging de toepasselijke algemene regels uit [CODE_RULES.md](docs/CODE_RULES.md). Raakt de wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, lees en volg dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md).
 
@@ -114,7 +114,7 @@ Volg [Linter ontwikkelen en testen](#linter-ontwikkelen-en-testen) voor wijzigin
     - [Metadata in de projectroot](#metadata-in-de-projectroot)
     - [Versiebron en rapportage](#versiebron-en-rapportage)
     - [Metadata automatisch herstellen](#metadata-automatisch-herstellen)
-  - [Gecontroleerde configuratie- en selectiescenario’s](#gecontroleerde-configuratie--en-selectiescenarios)
+  - [Configuratie- en selectiegedrag](#configuratie--en-selectiegedrag)
 - [Commando's en opties](#commandos-en-opties)
   - [Native opties](#native-opties)
   - [Reporterargumenten](#reporterargumenten)
@@ -217,7 +217,7 @@ bundle exec puppet-lint --no-config --config .puppet-lint.rc examples/site.pp
 6. Valideer ieder gewijzigd manifest afzonderlijk met de [Puppet-parser](#puppet-manifests-valideren). Controleer gewijzigd gedrag, templates, voorbeelden en metadata met de passende validators en tijdelijke synthetische invoer.
 7. Voer bij linterontwikkeling de betrokken [tooltests](#tests-uitvoeren-en-uitbreiden) uit. Daarmee controleer je de toolwijziging; modulegedrag valideer je afzonderlijk.
 8. Voer na alle correcties de volledige eindcontroles hieronder uit en voltooi de toepasselijke CI-controles. Ook na een geslaagde gerichte scan blijven de volledige lintscan en alle tooltests vereist.
-9. Bekijk de uiteindelijke bestandsselectie en diff, inclusief de automatische correcties. Leg de validatie, reviewuitkomsten en eventuele beperkingen vast en laat de wijzigingen klaarstaan voor menselijke review en commit.
+9. Bekijk de uiteindelijke bestandsselectie en diff, inclusief de automatische correcties. Leg de validatie, reviewuitkomsten en eventuele beperkingen vast in de wijzigingsreview en laat de wijzigingen klaarstaan voor menselijke review en commit.
 
 Gebruik voor de eindcontroles onderstaande opdrachten, in de [volgorde van het controleoverzicht](../README.md#ci-van-deze-repository). De [gezamenlijke snelstart](../README.md#snelstart-in-deze-repository) bevat daarnaast de afzonderlijke metadata- en dependencycontrole.
 
@@ -239,7 +239,7 @@ Gebruik bij wijzigingen aan Ruby-code de [RuboCop-werkwijze](#ruby-code-controle
 
 ## Snelstart in een ander Puppet-project
 
-`lint-project 0.2.0` vereist een expliciete bron voor `project-tools-shared`. Volg bij een update de [consumermigratie](../README.md#migreren-naar-de-zes-pakketten); voeg voor parserrapportage ook de zelfstandige validatorgem toe.
+`lint-project 0.2.0` vereist een expliciete bron voor `project-tools-shared`. Volg bij een update de [consumermigratie](../README.md#migreren-naar-afzonderlijke-toolpakketten); voeg voor parserrapportage ook de zelfstandige validatorgem toe.
 
 Deze snelstart gebruikt een eigen project; alleen de afzonderlijke [metadatacontrole](../metadata/README.md) vereist VERSION en rootmetadata. Voeg `global-modules` toe aan die projectroot. De gedeelde modules en gem staan in die checkout; je Gemfile, lockfile, configuratie en eigen manifests staan in de consumerroot. Gebruik voor een bestaand project dezelfde indeling met de daar vastgelegde submodulerevisie, zoals uitgewerkt bij [path-import](#installatie-in-je-project).
 
@@ -317,13 +317,13 @@ Zie de [gezamenlijke toolinghandleiding](../README.md#installatie-en-compatibili
 
 ### Werking van de controles
 
-`--no-config` slaat de automatisch geladen optiebestanden over. Daarna leest `--config .puppet-lint.rc` expliciet de [projectconfiguratie](../../.puppet-lint.rc). Die laadt het [library-entrypoint](lib/project_lint.rb) met `--load` en leest het [gedeelde profiel](config/puppet-lint.rc) met de native `--config`-optie. Het gedeelde profiel kiest de uitvoeropmaak en laat ook waarschuwingen een foutcode opleveren. De rootconfiguratie voegt de bestandsuitsluitingen van deze repository toe. De twee externe lintplugins worden via de bundle geladen.
+`--no-config` slaat de automatisch geladen optiebestanden over. Daarna leest `--config .puppet-lint.rc` expliciet de [projectconfiguratie](../../.puppet-lint.rc). Die laadt het [library-entrypoint](lib/project_lint.rb) met `--load` en leest het [gedeelde profiel](config/puppet-lint.rc) met de native `--config`-optie. Het gedeelde profiel kiest de uitvoeropmaak en laat ook waarschuwingen een foutcode opleveren. De rootconfiguratie voegt de bestandsuitsluitingen van deze repository toe. De externe lintplugins uit de gemspec van `lint-project` worden via de bundle geladen.
 
 De combinatie van beide opties voorkomt invloed van persoonlijke Puppet-lint-instellingen. Een gewone `bundle exec puppet-lint .` leest eerst `/etc/puppet-lint.rc`, daarna `~/.puppet-lint.rc` en ten slotte `.puppet-lint.rc` in de werkmap. Die instellingen worden samengevoegd. Daardoor kan een persoonlijke `--fix` of een eerder uitgeschakelde standaardcheck actief blijven. Alleen `--config` toevoegen voorkomt dat niet; alleen `--no-config` gebruiken laadt juist de projectinstellingen niet.
 
 [Bundler-instellingen](#gems-installeren) bepalen welke gems worden gebruikt en waar die staan. Ze regelen niet welke optiebestanden Puppet-lint leest. Een ander project gebruikt [zijn eigen bundle](#installatie-in-je-project) en geeft de geïnstalleerde gem en configuratie expliciet aan de CLI door.
 
-De afsluitende `.` selecteert de hele repository. Nieuwe manifests en bestanden in `examples/` worden automatisch gevonden; de CLI leest ook YAML. De vijf vendored Git-submodules en gems onder `vendor/bundle` zijn uitgesloten. ERB-templates met een YAML-extensie worden pas geldige YAML na renderen en vallen daarom buiten deze scan. Puppet-code in Strings of Markdown vraagt eveneens [afzonderlijke validatie](#aanvullende-validatie).
+De afsluitende `.` selecteert de hele repository. Nieuwe manifests en bestanden in `examples/` worden automatisch gevonden; de CLI leest ook YAML. De [projectconfiguratie](../../.puppet-lint.rc) sluit vendored Git-submodules en gems onder `vendor/bundle` uit. ERB-templates met een YAML-extensie worden pas geldige YAML na renderen en vallen daarom buiten deze scan. Puppet-code in Strings of Markdown vraagt eveneens [afzonderlijke validatie](#aanvullende-validatie).
 
 Voor een gerichte scan vervang je `.` door het manifestpad. Extra opties komen ná `--config .puppet-lint.rc`, zodat ze op de geladen projectchecks werken:
 
@@ -408,14 +408,18 @@ Volg de [metadatagids](../metadata/README.md#versiebron-en-rapportage) voor deze
 
 Volg de [metadatagids](../metadata/README.md#metadata-automatisch-herstellen) voor deze zelfstandige controle.
 
-### Gecontroleerde configuratie- en selectiescenario’s
+### Configuratie- en selectiegedrag
 
-| Scenario | Feitelijke uitkomst | Uitvoeringsbewijs |
+<a id="gecontroleerde-configuratie--en-selectiescenarios"></a>
+
+De tabel beschrijft het CLI-contract en de bijbehorende bron of regressietest. Uitkomsten van een afzonderlijke uitvoering horen in de wijzigingsreview.
+
+| Scenario | Gedrag | Bron en regressiedekking |
 | --- | --- | --- |
 | Systeem- en gebruikersopties bevatten fix of uitgeschakelde checks | Automatisch geladen opties kunnen blijven gelden; `--no-config` plus het expliciete profiel sluit die bron uit | `CliConfigurationTest#test_project_configuration_isolates_system_and_personal_options_before_scanning_or_fixing` |
 | Load gevolgd door gedeeld en lokaal configbestand | Entrypoint registreert checks; gedeeld profiel stelt opties in; lokale opties worden daarna per optietype verwerkt | `ExternalProjectTest#test_installation_loads_all_checks_without_a_repository_checkout` en de native configuratietests |
 | Herhaalde booleans, lijsten en uitvoerformaat | Fix/relative blijven aan; ignore_paths, top_scope_variables en log_format worden vervangen | `CliConfigurationTest#test_repeated_configurations_replace_lists_and_formats_but_accumulate_boolean_flags` |
-| Rapportpad uit environment en CLI | Het laatste CLI-rapportpad gaat vóór CODECLIMATE_REPORT_FILE; relatieve paden gebruiken de werkmap | Native OptParser en de geïsoleerde uitvoerproef in de wijzigingsreview |
+| Rapportpad uit environment en CLI | Het laatste CLI-rapportpad gaat vóór CODECLIMATE_REPORT_FILE; relatieve paden gebruiken de werkmap | Native `PuppetLint::OptParser`; vind de geïnstalleerde bron met `bundle info --path puppet-lint` en controleer `lib/puppet-lint/optparser.rb` |
 | Expliciete configuratie ontbreekt | Stilzwijgend overgeslagen; schoon resultaat kan 0 zijn zonder projectchecks | `CliConfigurationTest#test_native_config_option_silently_skips_a_missing_file_without_loading_project_checks` |
 | Entrypoint ontbreekt | LoadError, exitcode 1, geen native JSON-rapport | `CliConfigurationTest#test_relative_load_paths_use_the_working_directory_not_the_configuration_directory` |
 | Eén of meerdere concrete bestanden | Alle bestaande concrete invoerbestanden worden geselecteerd | `CliScopeTest#test_file_arguments_and_first_directory_selection_have_distinct_semantics` |
@@ -433,7 +437,7 @@ De [native CLI-route](#werking-van-de-controles) en [consumerroute](#eigen-code-
 
 ### Native opties
 
-Deze tabel beschrijft de geïnstalleerde Puppet-lint 5.1.1. De defaults gelden voor beide expliciete projectroutes, tenzij de rij een verschil noemt. Een voorbeeld in de laatste kolom is een **Fragment** met aanvullende CLI-argumenten; voeg het toe aan de [volledige aanroep](#werking-van-de-controles), vóór de invoerpaden. De beschikbaarheid van een optie verandert het eindcontrole- en suppressiebeleid niet.
+Deze tabel beschrijft Puppet-lint uit de [ontwikkelbundle](../../Gemfile.lock). Vraag de geïnstalleerde versie op met `bundle exec puppet-lint --version`. De defaults gelden voor beide expliciete projectroutes, tenzij de rij een verschil noemt. Een voorbeeld in de laatste kolom is een **Fragment** met aanvullende CLI-argumenten; voeg het toe aan de [volledige aanroep](#werking-van-de-controles), vóór de invoerpaden. De beschikbaarheid van een optie verandert het eindcontrole- en suppressiebeleid niet.
 
 | Syntax | Doel | Default in het gebruikte profiel | Toegestane waarden | Herhalen/combineren | Wijzigt bestanden | Gebruik bij eindcontrole | Voorbeeld |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -496,7 +500,7 @@ Dit is de publieke interface die de projectcode leest of die de ondersteunde pro
 | `LINT_GEM`, `LINT_SOURCE`, `LINT_REVISION`, `LINT_PACKAGE`, `CONSUMER_DIR` (tijdelijke voorbeeldvariabelen) | Paden en revisie in procedures benoemen | In ieder procedureblok eerst instellen | Niet toegestaan waar pad of revisie nodig is | In procedure bepaald | Zoals bij procedure vermeld | Geen door de gem gelezen instellingen |
 | `lint_gem` (tijdelijke variabele in bestaande consumer- en CI-voorbeelden) | Bundlerlocatie bewaren | Voor gebruik instellen | Mislukte `bundle info` stopt procedure | `bundle info --path lint-project` | Absoluut gem-pad | Alleen shellargument |
 
-Bundler 4.0.20 kiest gewone settings in de volgorde tijdelijke CLI-instelling, lokale configuratie, environment, globale configuratie en default. `BUNDLE_IGNORE_CONFIG` slaat lokale en globale configuratie over, ook als de environmentwaarde leeg is. `BUNDLE_GEMFILE` heeft de hierboven beschreven eigen zoekroute. Deze feiten zijn afzonderlijk van Puppet-lint-optieprioriteit; het gebruik van Bundler verandert geen lintprofiel.
+Bundler kiest gewone settings in de volgorde tijdelijke CLI-instelling, lokale configuratie, environment, globale configuratie en default. `BUNDLE_IGNORE_CONFIG` slaat lokale en globale configuratie over, ook als de environmentwaarde leeg is. `BUNDLE_GEMFILE` heeft de hierboven beschreven eigen zoekroute. Controleer bij een Bundlerupdate de settings met `bundle config list`. Deze prioriteit staat los van Puppet-lint-opties; het gebruik van Bundler verandert geen lintprofiel.
 
 De offline integratietests isoleren bovendien `RUBYOPT`, `RUBYLIB`, `BUNDLE_USER_HOME`, `GEM_HOME` en `GEM_PATH`. Alleen reeds geïnstalleerde Ruby-dependencies worden als lokale cache hergebruikt. Bij een nieuwe offline lockfile gebruiken deze synthetische tests `BUNDLE_LOCKFILE_CHECKSUMS=false`, omdat de lokale cache geen registrychecksums levert; dit is geen instelling in de consumerinstallatie of CI-voorbeelden.
 
@@ -607,59 +611,59 @@ De tabel beschrijft de automatische dekking en verwijst naar de volledige regel.
 | `project_suppressions` | Ja | Ja | [Alleen toegestane suppressions gebruiken](docs/CODE_RULES.md#alleen-toegestane-suppressions-gebruiken) | Geen: Verwijderen kan andere fixes vrijgeven voordat hun gevolgen zijn beoordeeld | [Alleen toegestane suppressions gebruiken](docs/CODE_RULES.md#alleen-toegestane-suppressions-gebruiken) |
 <!-- END PROJECT CHECK REGISTRY -->
 
-De registratie is vastgesteld via `require 'project_lint'`; activatie is afzonderlijk gecontroleerd met beide configuratieprofielen. `--list-checks` bewijst alleen beschikbaarheid. De inventaris gebruikt `lint-project 0.1.13`, `puppet-lint 5.1.1`, `puppet-lint-param-types 3.0.0` en `puppet-lint-trailing_comma-check 3.0.1` uit de rootlockfile. Nieuwe bundleversies vragen een nieuwe inventaris.
+`require 'project_lint'` registreert de checks; de configuratieprofielen bepalen afzonderlijk hun activatie. `--list-checks` toont alleen beschikbaarheid. Controleer bij wijzigingen aan de bundle of registratie dit overzicht tegen het entrypoint, beide profielen en de [configuratietests](tests/cli_configuration_test.rb). De [rootlockfile](../../Gemfile.lock) beheert de gebruikte gemversies. Leg uitvoeringsresultaten vast in de wijzigingsreview.
 
 ### Native checks in deze bundle
 
 | Check | Bron | Actief in repositoryprofiel | Actief in gedeeld profiel | Autofix en handmatige gevallen |
 | --- | --- | --- | --- | --- |
-| `arrow_on_right_operand_line` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `autoloader_layout` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Bestandsverplaatsing raakt imports en module-indeling |
-| `class_inherits_from_params_class` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Een ander defaultmodel vereist interfacekeuzes |
-| `code_on_top_scope` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; verplaatsen verandert de scope |
-| `inherits_across_namespaces` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Overerving bepaalt defaults en gedrag |
-| `names_containing_dash` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen raakt publieke afnemers |
-| `names_containing_uppercase` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `nested_classes_or_defines` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Verplaatsen verandert scope en vindbaarheid |
-| `parameter_order` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Via project_parameter_order voor onafhankelijke parameters; overige defaults vragen evaluatiereview |
-| `right_to_left_relationship` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Toegevoegd aan native check: twee letterlijke references op één regel; ketens, declaraties en dynamische titels blijven handmatig |
-| `variable_scope` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De bedoelde lokale of topscopevariabele is onbekend |
-| `slash_comments` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `star_comments` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `case_without_default` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De juiste fallback is onbekend |
-| `selector_inside_resource` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Variabelenaam en veilige evaluatieplaats vereisen review |
-| `documentation` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De ontbrekende omschrijving is inhoudelijk |
-| `unquoted_node_name` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `duplicate_params` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Welke waarde bedoeld is, is onbekend |
-| `ensure_first_param` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: alleen herkenbare attribuutgrenzen; anders handmatig |
-| `ensure_not_symlink_target` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `file_mode` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: alleen drie octale cijfers; overige modes vragen een rechtenkeuze |
-| `unquoted_file_mode` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `unquoted_resource_title` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `double_quoted_strings` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `only_variable_string` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `puppet_url_without_modules` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Project weigert de upstream-fix: een mount mag niet worden geraden |
-| `quoted_booleans` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; conversie kan het waardetype veranderen |
-| `single_quote_string_with_variables` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Letterlijke tekst of interpolatie is een inhoudelijke keuze |
-| `variables_not_enclosed` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `variable_contains_dash` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen vereist alle afnemers |
-| `variable_is_lowercase` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen vereist alle afnemers |
-| `140chars` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Vrije code opdelen vereist syntax- en commentcontext |
-| `2sp_soft_tabs` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Via project_layout voor bewezen arrayinspringing; overige blokniveaus niet afleidbaar uit pariteit |
-| `80chars` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; projectbreedte is 140 |
-| `arrow_alignment` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: weigert negatieve witruimte |
-| `hard_tabs` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `space_before_arrow` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native, aangevuld voor ontbrekende witruimte vóór de pijl; comments worden niet verplaatst |
-| `trailing_whitespace` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
-| `legacy_facts` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Voorwaardelijk: native mapping in manifests; niet-omzetbare facts behouden hun hashkey en melding. YAML mist schrijfbare brontokens en blijft detectie |
-| `top_scope_facts` | [puppet-lint 5.1.1](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `arrow_on_right_operand_line` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `autoloader_layout` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Bestandsverplaatsing raakt imports en module-indeling |
+| `class_inherits_from_params_class` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Een ander defaultmodel vereist interfacekeuzes |
+| `code_on_top_scope` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; verplaatsen verandert de scope |
+| `inherits_across_namespaces` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Overerving bepaalt defaults en gedrag |
+| `names_containing_dash` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen raakt publieke afnemers |
+| `names_containing_uppercase` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `nested_classes_or_defines` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Verplaatsen verandert scope en vindbaarheid |
+| `parameter_order` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Via project_parameter_order voor onafhankelijke parameters; overige defaults vragen evaluatiereview |
+| `right_to_left_relationship` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Toegevoegd aan native check: twee letterlijke references op één regel; ketens, declaraties en dynamische titels blijven handmatig |
+| `variable_scope` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De bedoelde lokale of topscopevariabele is onbekend |
+| `slash_comments` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `star_comments` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `case_without_default` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De juiste fallback is onbekend |
+| `selector_inside_resource` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Variabelenaam en veilige evaluatieplaats vereisen review |
+| `documentation` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: De ontbrekende omschrijving is inhoudelijk |
+| `unquoted_node_name` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `duplicate_params` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Welke waarde bedoeld is, is onbekend |
+| `ensure_first_param` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: alleen herkenbare attribuutgrenzen; anders handmatig |
+| `ensure_not_symlink_target` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `file_mode` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: alleen drie octale cijfers; overige modes vragen een rechtenkeuze |
+| `unquoted_file_mode` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `unquoted_resource_title` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `double_quoted_strings` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `only_variable_string` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `puppet_url_without_modules` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Project weigert de upstream-fix: een mount mag niet worden geraden |
+| `quoted_booleans` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; conversie kan het waardetype veranderen |
+| `single_quote_string_with_variables` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Letterlijke tekst of interpolatie is een inhoudelijke keuze |
+| `variables_not_enclosed` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `variable_contains_dash` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen vereist alle afnemers |
+| `variable_is_lowercase` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Hernoemen vereist alle afnemers |
+| `140chars` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Geen: Vrije code opdelen vereist syntax- en commentcontext |
+| `2sp_soft_tabs` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Via project_layout voor bewezen arrayinspringing; overige blokniveaus niet afleidbaar uit pariteit |
+| `80chars` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Nee | Nee | Geen: Uitgeschakeld; projectbreedte is 140 |
+| `arrow_alignment` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native: weigert negatieve witruimte |
+| `hard_tabs` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `space_before_arrow` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native, aangevuld voor ontbrekende witruimte vóór de pijl; comments worden niet verplaatst |
+| `trailing_whitespace` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `legacy_facts` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Voorwaardelijk: native mapping in manifests; niet-omzetbare facts behouden hun hashkey en melding. YAML mist schrijfbare brontokens en blijft detectie |
+| `top_scope_facts` | [puppet-lint](https://github.com/puppetlabs/puppet-lint) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
 
 ### Pluginchecks in deze bundle
 
 | Check | Bron | Actief in repositoryprofiel | Actief in gedeeld profiel | Autofix en handmatige gevallen |
 | --- | --- | --- | --- | --- |
-| `parameter_types` | [puppet-lint-param-types 3.0.0](https://github.com/voxpupuli/puppet-lint-param-types) | Ja | Ja | Geen: Het bedoelde typecontract is niet afleidbaar |
-| `trailing_comma` | [puppet-lint-trailing_comma-check 3.0.1](https://github.com/voxpupuli/puppet-lint-trailing_comma-check) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
+| `parameter_types` | [puppet-lint-param-types](https://github.com/voxpupuli/puppet-lint-param-types) | Ja | Ja | Geen: Het bedoelde typecontract is niet afleidbaar |
+| `trailing_comma` | [puppet-lint-trailing_comma-check](https://github.com/voxpupuli/puppet-lint-trailing_comma-check) | Ja | Ja | Native beschikbaar; bron- en tokenvoorwaarden van de gebundelde check blijven gelden |
 
 De checks voor opmaak bewijzen niet dat commentaar inhoudelijk klopt. Voor systemd-hardening, transportbeveiliging, shellgedrag, monitoringdefaults, uitvoertijd en gedeelde checkexecutables bestaat hier geen volledige automatische lintcontrole. De inhoudelijke criteria staan in de gekoppelde regels; de [projectbrede validatieverplichtingen](../../AGENTS.md#validation-and-testing) blijven daarnaast gelden.
 
@@ -875,11 +879,9 @@ gem build lint-project.gemspec --output /tmp/lint-project.gem
 
 Het pakket bevat alleen `lib/`, `bin/`, `config/`, `README.md`, `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md`, `docs/OPERATIONAL_RULES.md` en de licentie, inclusief `puppet-lint-junit` en een expliciete dependency op `project-tools-shared`. De [pakketprocedure](../README.md#gebouwd-gempakket-installeren) bouwt en levert shared afzonderlijk mee. Tests, ontwikkelgems en Puppet-modules zijn geen onderdeel van de distributie. Publicatie naar RubyGems is niet nodig; je kunt het bestand via je eigen goedgekeurde distributieroute beschikbaar maken. Een ontvangend project installeert zijn eigen dependencies en bewaart zijn eigen lockfile.
 
-Volg bij een update de [consumermigratie](../README.md#migreren-naar-de-zes-pakketten) voor de afzonderlijke metadata- en Ruby-tools en gewijzigde gedeelde instellingen.
+Volg bij een update de [consumermigratie](../README.md#migreren-naar-afzonderlijke-toolpakketten) voor de afzonderlijke metadata- en Ruby-tools en gewijzigde gedeelde instellingen.
 
-De gem levert de standaard actieve check `project_shared_conditions` voor [resources met een gedeelde voorwaarde](docs/CODE_RULES.md#gedeelde-voorwaarden-om-resources-groeperen). De melding wijst naar een bestaand blok waarmee een andere resourcegroep haar buitenste voorwaarde deelt. Samenvoegen vraagt review van aanvullende voorwaarden, `else`-afhandeling en evaluatievolgorde; deze check heeft daarom geen autofix.
-
-De gem levert ook de standaard actieve check `project_exec_packages` voor [packageafhankelijkheden bij externe commando’s](docs/CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos), zonder autofix. De gem bevat ook de standaard actieve checks `project_resource_list_reuse` voor [hergebruik van resourcelijsten](docs/CODE_RULES.md#resourcelijsten-hergebruiken) en `project_resource_dependencies` voor [de opbouw van dependencies](docs/CODE_RULES.md#resource-dependencies-opbouwen). De fixes behandelen exacte herhaling, duidelijke uitbreidingen en aantoonbaar overbodige wrappers in dependency-concats. Afnemende projecten kunnen daardoor nieuwe lintmeldingen krijgen. De beschikbare `project_guarded_packages`-fix voor [package-declaraties](docs/OPERATIONAL_RULES.md#pakketten-en-mappen) gebruikt `ensure_packages()` en laat conflicterende package-attributen als catalogusfout zichtbaar worden. Die gegenereerde Puppet-code vereist stdlib; de linter levert de module niet mee.
+Het [checkoverzicht](#beschikbare-projectchecks) vermeldt de actieve controles en verwijst naar hun detectie- en autofixvoorwaarden. Let bij de [packageguard-fix](docs/OPERATIONAL_RULES.md#gelijk-ingestelde-packageguards-samenvoegen) op de runtimevoorwaarde: de gegenereerde Puppet-code gebruikt `ensure_packages()` uit stdlib; de linter levert die module niet mee. Conflicterende package-attributen blijven als catalogusfout zichtbaar.
 
 Behandel checknamen, meldingsniveaus, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, de gedeelde configuratiepaden en de rapportcommando's als publieke interfaces. Beoordeel wijzigingen aan deze interfaces volgens het [versie- en releasebeleid](../../AGENTS.md#versioning-and-releases) en valideer het gebouwde pakket vanuit een onafhankelijk project. Houd consumerinstallatie en CI-voorbeelden afgestemd op de [aanbevolen projectstructuur](#aanbevolen-projectstructuur); documenteer ondersteunde afwijkingen zonder implementatie of gedeelde profielen te dupliceren. Verhoog de gemversie bij een uitgave en beschrijf wijzigingen die afnemers raken. Wijzigingen aan actieve regels en profielen kunnen bestaande projecten laten falen; laat afnemers zo’n update bewust uitvoeren met Bundler en hun eigen CI. Werk een Git-afnemer bij naar een gecontroleerde revisie en een pakketafnemer naar een gecontroleerde gemversie.
 
@@ -1094,6 +1096,8 @@ Formuleer toepasselijkheid en vereiste actie rechtstreeks. Behoud of bestaand be
 `Herkomst` is `Projectregel`, `Upstreamregel`, `Projectspecificatie van upstream` of `Nog niet vastgesteld`; bij upstream hoort een bronverwijzing. De laatste waarde verwijst naar een open verificatiepunt in de oplevering. `Automatische controle` noemt de exacte checknamen of letterlijk `Geen automatische controle`. Beschrijf bij iedere meldingsvariant de trigger, werkelijke severity en variabele tekstdelen. `[review]` is een tekstlabel, geen severity.
 
 `Autofix` is per variant `Geen`, `Voorwaardelijk` of `Alle gedocumenteerde gevallen`, onderbouwd door uitvoering. Beschrijf alle correcties en weigeringsvoorwaarden. Een gemiste detectie is geen toegestane uitzondering. Suppressions noemen naam, syntax, plaats en begrenzing of verbieden suppressie expliciet. Gebruik `Geen` of `Niet van toepassing` uitsluitend met een concrete reden; ontbrekend bewijs krijgt `Nog niet vastgesteld` en een open punt.
+
+Beschrijf bij `Verificatie` hoe de lezer het contract controleert en welke tests dat gedrag bewaken. Bewaar concrete uitvoeringsresultaten, tijdelijke bevindingen en open beslispunten bij de betreffende wijzigingsreview of het uitvoeringsrapport, volgens de [centrale documentatieafspraken](../../AGENTS.md#durable-documentation). Houd een noodzakelijke beperking of workaround daarnaast vindbaar bij de betrokken gebruiksinstructie.
 
 Label voorbeelden als `Fragment`, `Volledig uitvoerbaar voorbeeld` of `Handmatig reviewscenario`. Een fragment kan uitsluitend voor benoemde checks groen zijn. Controleer juiste en onjuiste varianten, elke uitzonderings- en begrenzingscategorie, exacte fixes, hercontrole en een ongewijzigde tweede fixrun. Volledige voorbeelden slagen onder het volledige benoemde profiel. Handmatige normen benoemen de concrete reviewstappen en beoordelingscriteria.
 

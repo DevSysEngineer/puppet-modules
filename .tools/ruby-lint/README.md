@@ -27,7 +27,7 @@ De configuratie gebruikt de standaardregels en schakelt nieuwe checks in. Er is 
 
 Begin met een gewone scan voordat je automatisch corrigeert. Kies daarna de bestanden die bij je wijziging horen. Bijvoorbeeld:
 
-**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle en voorafgaande RuboCop-scan. **Invoer:** De benoemde Ruby-bron voor fix; daarna volledige checks. **Wijzigt bestanden:** Ja, de geselecteerde Ruby-bron en testrapporten. **Verwacht resultaat:** Veilige correctie gevolgd door hercontrole en diffreview.
+**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle en voorafgaande RuboCop-scan. **Invoer:** De benoemde Ruby-bron voor fix; daarna volledige checks. **Wijzigt bestanden:** Ja, de geselecteerde Ruby-bron; testrapporten alleen bij een expliciete rapportinstelling. **Verwacht resultaat:** Veilige correctie gevolgd door hercontrole en diffreview.
 
 ```sh
 bundle exec rubocop --config .rubocop.yml --force-exclusion --autocorrect .tools/lint/lib/project_lint/ast.rb

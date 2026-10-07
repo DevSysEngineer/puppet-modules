@@ -5,7 +5,7 @@ Dit project bevat Puppet-modules voor het inrichten en beheren van Debian- en Ub
 De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet steeds dezelfde voorspelbare configuratie oplevert. Je kunt ze los gebruiken of combineren. `basic_settings` richt de serverbasis in en zorgt ervoor dat andere modules daarop kunnen aansluiten.
 
 > [!IMPORTANT]
-> **Perforce zet Puppet-open-sourcecode achter een betaalmuur:** In 2025 heeft Perforce, het bedrijf achter Puppet, besloten om de open-sourcecode van Puppet achter een gesloten omgeving te plaatsen. Deze omgeving blijft gratis tot 25 nodes. Heb je er meer, dan moet je betalen. Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Stap dan over naar [Vox Pupuli](https://voxpupuli.org/). OpenVox van Vox Pupuli is een drop-invervanger voor Puppet. Dat betekent dat je het Puppet-pakket kunt vervangen door het OpenVox-pakket zonder je bestaande Puppet-configuratie aan te passen.
+> **Vrij toegankelijke opensourcesoftware:** Vind jij, net als ik, dat opensourcesoftware vrij toegankelijk moet blijven? Gebruik dan [OpenVox van Vox Pupuli](https://voxpupuli.org/openvox/), de door de gemeenschap onderhouden voortzetting van Puppet. Raadpleeg bij een overstap de [installatie- en migratiehandleiding](https://voxpupuli.org/openvox/install/) voor de pakketvervanging en voorwaarden bij je bestaande installatie, en test de overstap eerst buiten productie.
 
 > [!CAUTION]
 > **Compatibiliteit:** Dit project is ontworpen voor 64-bits besturingssystemen. De volledige combinatie van modules is gericht op `amd64`.
@@ -64,7 +64,7 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 
 ## Ondersteuning en compatibiliteit
 
-De platformselectie van `basic_settings` bevat Debian 12, Debian 13, Ubuntu 22.04 LTS, Ubuntu 23.04, Ubuntu 24.04 LTS en Ubuntu 26.04 LTS. De [rootmetadata](metadata.json) beschrijven die projectbrede selectie. Sommige individuele modulemetadata noemen ook Debian 11, maar `basic_settings` heeft daarvoor geen platformmapping: het kiest `unknown` als releasenaam en schakelt aanvullende pakketbronnen uit. Gebruik Debian 11 daarom niet als ondersteunde basis voor de volledige combinatie. Gebruik voor nieuwe servers bij voorkeur een release die nog reguliere beveiligingsupdates ontvangt. Sommige platformonderdelen hebben een beperktere ondersteuning; controleer daarom altijd de aandachtspunten bij de betreffende module.
+De [rootmetadata](metadata.json) beschrijven de projectbrede platformselectie; de [platformmapping van `basic_settings`](basic_settings/manifests/init.pp) bepaalt de bijbehorende pakketbronnen en mogelijkheden. Sommige individuele modulemetadata noemen ook Debian 11, maar `basic_settings` heeft daarvoor geen platformmapping: het kiest `unknown` als releasenaam en schakelt aanvullende pakketbronnen uit. Gebruik Debian 11 daarom niet als ondersteunde basis voor de volledige combinatie. Gebruik voor nieuwe servers bij voorkeur een release die nog reguliere beveiligingsupdates ontvangt. Sommige platformonderdelen hebben een beperktere ondersteuning; controleer daarom altijd de aandachtspunten bij de betreffende module.
 
 De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` werkt ook op andere 64-bits architecturen, maar pakketbronnen voor bijvoorbeeld MySQL en RabbitMQ worden daar niet altijd ingeschakeld. Test daarom iedere gewenste combinatie zelf wanneer je geen `amd64` gebruikt.
 
@@ -72,7 +72,7 @@ De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 di
 
 Dit project gebruikt `concat`, `debconf`, `reboot` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald. Het tijdzonebeheer is onderdeel van `basic_settings`; het pakket- en toetsenbordbeheer gebruikt de debconf-module.
 
-De meegeleverde moduleversies voldoen aan de gedeclareerde dependencygrenzen. Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
+Controleer de geïnstalleerde moduleversies met de [dependencycontrole](.tools/module-dependencies/README.md). Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
 > [!CAUTION]
 > Verschillende modules nemen bestaande configuratiebestanden of pakketkeuzes over. Pas een nieuwe catalogus eerst toe in een testomgeving, controleer wat Puppet wil wijzigen en test daarna de betreffende services. Je hoeft niet alle modules op iedere host te gebruiken.
@@ -261,7 +261,7 @@ Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de 
 
 #### Migreren van de externe timezone-module
 
-De zelfstandige class `timezone` vervalt in majorrelease `3.0.0` tegenover de laatst gepubliceerde release `v2.0.0`. Bestaand gebruik via `basic_settings::server_timezone` blijft gelijk, inclusief default `UTC` en de koppeling met PHP. Er is geen verdere versieverhoging nodig.
+Vanaf projectversie `3.0.0` is de zelfstandige class `timezone` verwijderd. Volg bij migratie vanuit versie 2.x de onderstaande stappen wanneer je die class rechtstreeks gebruikt. Gebruik via `basic_settings::server_timezone` behoudt de default `UTC` en de koppeling met PHP.
 
 Vervang rechtstreekse declaraties van `timezone` door `basic_settings::timezone` met een expliciete `timezone`. Geef `Etc/UTC` mee wanneer je op de oude zelfstandige default vertrouwde. Gebruik bij de volledige serverbasis uitsluitend `basic_settings::server_timezone`; declareer de onderliggende class dan niet apart. Pas verwijzingen naar `Class['timezone']` aan naar `Class['basic_settings::timezone']`. Houd bij los gebruik rekening met het hierboven beschreven NTP-beheer.
 
@@ -810,7 +810,7 @@ Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](e
 
 Deze class wijzigt de kernel- en bootconfiguratie en kan daardoor een server onbruikbaar maken als er iets misgaat. Zorg voor consoletoegang, een recente back-up en een onderhoudsvenster voordat je haar toepast. Gebruik de class uitsluitend op Debian 12 (`bookworm`) met `basic_settings`.
 
-`proxmox_enable => true` schakelt de Proxmox-pakketbron op dit moment niet in. `basic_settings` verwijdert bovendien de bron- en sleutelbestanden die zijn eigen Proxmox-helper zou gebruiken. Beheer de pakketbron daarom voorlopig in een apart profiel met andere bestandspaden.
+De [platformmapping](basic_settings/manifests/init.pp) schakelt de Proxmox-pakketbron niet in, ook niet met `proxmox_enable => true`. `basic_settings` verwijdert bovendien de bron- en sleutelbestanden die zijn eigen Proxmox-helper zou gebruiken. Beheer bij gebruik van Proxmox de pakketbron in een apart profiel met andere bestandspaden.
 
 #### Basisvoorbeeld
 

@@ -1240,7 +1240,7 @@ Voor dit fragment wordt uitsluitend `project_parameter_order, project_parameter_
 
 Een default kan de normale volgorde doorbreken wanneer hij de waarde van een andere parameter gebruikt. Declareer die andere parameter dan eerder. Schuift hij daarmee vóór zijn normale alfabetische positie, leg de reden uit in commentaar achter die parameter en noem daarin de afhankelijke parameter met `$naam`.
 
-`project_parameter_order` controleert de groepen, volgorde, defaultafhankelijkheden en die toelichting. De check sorteert niet automatisch. `project_parameter_alignment` kan de uitlijning herstellen wanneer de parameters op afzonderlijke regels staan en de tussenruimte geen commentaar bevat. Ook geneste typen en defaults over meerdere regels worden meegenomen. Meerdere parameters op één regel, onduidelijke tussenruimte en genegeerde delen vragen handmatige beoordeling.
+`project_parameter_order` controleert de groepen, volgorde, defaultafhankelijkheden en die toelichting. De check sorteert onafhankelijke parameters onder de hierboven beschreven autofixvoorwaarden; defaultafhankelijkheden en hun toelichting vragen handmatige correctie. `project_parameter_alignment` kan de uitlijning herstellen wanneer de parameters op afzonderlijke regels staan en de tussenruimte geen commentaar bevat. Ook geneste typen en defaults over meerdere regels worden meegenomen. Meerdere parameters op één regel, onduidelijke tussenruimte en genegeerde delen vragen handmatige beoordeling.
 
 ### Parameterblokken volledig uitlijnen
 
@@ -1380,7 +1380,7 @@ Controleer true als veilige standaard, false als weglaten en scalar als eigen wa
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Controleer true als veilige standaard, false als weglaten en scalar als eigen waarde in iedere gerenderde variant. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Parameternamen op onderwerp kiezen
 
@@ -1402,7 +1402,7 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een beginletter is niet als extra norm ingevoerd: de bestaande uitzondering voor een getest begincijfer blijft bestaan.
+De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
 **Meldingen en severity**
 
@@ -1418,7 +1418,7 @@ Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaak
 
 **Toegestane uitzonderingen**
 
-Een beginletter is niet als extra norm ingevoerd: de bestaande uitzondering voor een getest begincijfer blijft bestaan.
+Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
 **Suppressions**
 
@@ -1434,7 +1434,7 @@ Handmatig reviewscenario: Gebruik een snake_case-naam die met het onderwerp begi
 
 **Grensgevallen**
 
-Een beginletter is niet als extra norm ingevoerd: de bestaande uitzondering voor een getest begincijfer blijft bestaan.
+Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
 **Handmatige review**
 
@@ -1442,7 +1442,7 @@ Controleer naamvolgorde en test een cijfer aan het begin op iedere ondersteunde 
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Controleer naamvolgorde en test een cijfer aan het begin op iedere ondersteunde runtime. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden en validatie
 
@@ -1667,7 +1667,7 @@ Vergelijk de aanwezigheid van de regel en haar inhoud afzonderlijk voor explicie
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Vergelijk de aanwezigheid van de regel en haar inhoud afzonderlijk voor expliciete en geërfde invoer. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Optionele waarden alleen bij gebruik valideren
 
@@ -1729,7 +1729,7 @@ Volg beide gebruikspaden en controleer dat de foutmelding in de laatste else sta
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Volg beide gebruikspaden en controleer dat de foutmelding in de laatste else staat. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Classcontroles hergebruiken
 
@@ -1873,7 +1873,7 @@ Valideer de aanwezigheid en afwezigheid en de daadwerkelijke evaluatievolgorde v
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Valideer de aanwezigheid en afwezigheid en de daadwerkelijke evaluatievolgorde van parent en afnemer. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Resources en afhankelijkheden
 
@@ -2085,7 +2085,7 @@ Vergelijk de contractafspraak tussen beide onderdelen en gebruik na een afgeweze
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Vergelijk de contractafspraak tussen beide onderdelen en gebruik na een afgewezen uitbreiding uitsluitend de geaccepteerde route of stabiele externe runtimemetadata. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Dependencies pas na een geslaagde controle koppelen
 
@@ -2147,7 +2147,7 @@ Traceer zichtbaarheid op het evaluatiemoment en onderscheid die van de uiteindel
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Traceer zichtbaarheid op het evaluatiemoment en onderscheid die van de uiteindelijke catalogus. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Prerequisites van ordering onderscheiden
 
@@ -2211,7 +2211,7 @@ Controleer aanwezigheid, afwezigheid, declaratievolgorde en evaluatievolgorde vo
 
 **Verificatie**
 
-Handmatige beoordeling van beide scenario’s: Controleer aanwezigheid, afwezigheid, declaratievolgorde en evaluatievolgorde volgens de gekoppelde prerequisitereview. De onjuiste variant wordt afgekeurd; de juiste variant voldoet onder de beschreven voorwaarden. Module- en hostgedrag worden hiermee niet als getest gepresenteerd.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Runtime-inventarisatie met Facter modelleren
 
@@ -2522,7 +2522,7 @@ Volg alle afhankelijke verwerking en behoud iedere aanvullende lokale voorwaarde
 
 **Verificatie**
 
-[shared_conditions_test.rb](../tests/shared_conditions_test.rb) controleert detectie, bronposities, beide bronvolgorden, aanvullende voorwaarden, verschillende resourcetypen, scopes, analysegrenzen, native suppressions en ongewijzigde bron bij `--fix`. [guide_examples_test.rb](../tests/guide_examples_test.rb) voert de gemarkeerde voorbeeldparen uit. [external_shared_conditions_test.rb](../tests/external_shared_conditions_test.rb) controleert de nieuwe check, exitcodes en ongewijzigde bron vanuit een onafhankelijk geïnstalleerd gempakket. Dit bewijst het toolcontract; module- en hostgedrag worden afzonderlijk gevalideerd.
+[shared_conditions_test.rb](../tests/shared_conditions_test.rb) controleert detectie, bronposities, beide bronvolgorden, aanvullende voorwaarden, verschillende resourcetypen, scopes, analysegrenzen, native suppressions en ongewijzigde bron bij `--fix`. [guide_examples_test.rb](../tests/guide_examples_test.rb) voert de gemarkeerde voorbeeldparen uit. [external_shared_conditions_test.rb](../tests/external_shared_conditions_test.rb) controleert de check, exitcodes en ongewijzigde bron vanuit een onafhankelijk geïnstalleerd gempakket. Dit bewijst het toolcontract; module- en hostgedrag worden afzonderlijk gevalideerd.
 
 ### Aanroepen en publieke interfaces
 
@@ -2696,7 +2696,7 @@ De filteranalyse herkent `.filter` met twee ongetypeerde lambdaparameters zonder
 
 De check herkent een hash bij `* =>` en een eerdere, eenduidige hashtoekenning binnen dezelfde scope. Hij zoekt de bron in die scope en het ontvangende defined type in de huidige bron of via het [modulepad](../README.md#aanroepen-van-modules-controleren). Onbekende bronwaarden, ontvangers of defaults krijgen geen filtermelding. Verplichte parameters zonder default, dynamische berekeningen, gekwalificeerde bronvariabelen en niet-eenduidige toekenningen blijven buiten de analyse; Puppet-functies en Hiera worden niet uitgevoerd. Ontvangende classes blijven buiten de filteranalyse vanwege automatische parameterlookup. Zichtbare resourcedefaults, resource-overrides en overerving vereisen ook handmatige review. Gewone configuratiehashes vallen buiten deze regel.
 
-Er is geen autofix. Controleer de effectieve waarden en evaluatievolgorde met catalogusvalidatie voordat je een gemelde key rechtstreeks doorgeeft. Beoordeel ook andere afnemers van dezelfde hash voordat je die key eruit verwijdert. Houd rekening met configuratie buiten het geanalyseerde bestand en met Puppet-vergelijkingen: een tekstvergelijking kan ook andere hoofdletters accepteren, terwijl die schrijfwijze voor de ontvanger verschil maakt.
+Alleen een rechtstreeks ingevoegde, ongefilterde identiteits-hash kan onder de hierboven beschreven autofixvoorwaarden worden omgezet. Filters en gedeelde hashes vragen handmatige correctie. Controleer de effectieve waarden en evaluatievolgorde met catalogusvalidatie voordat je een gemelde key rechtstreeks doorgeeft. Beoordeel ook andere afnemers van dezelfde hash voordat je die key eruit verwijdert. Houd rekening met configuratie buiten het geanalyseerde bestand en met Puppet-vergelijkingen: een tekstvergelijking kan ook andere hoofdletters accepteren, terwijl die schrijfwijze voor de ontvanger verschil maakt.
 
 ### Resource references
 
@@ -3065,7 +3065,7 @@ Een duidelijke uitbreiding mag eveneens worden gecorrigeerd: de installatie gebr
 
 Bestaande lijstvariabelen met opnieuw uitgeschreven literals, gedeeltelijke overlap, meerdere verschillende uitbreidingen, conditionele waarden, gebruikte functieresultaten, overerving en complexe expressies krijgen geen hergebruik-autofix. Dat geldt ook voor commentaar in de te vervangen lijsten, lintmarkeringen binnen het wijzigingsbereik, een installatielijst over meerdere regels of een nieuwe declaratie langer dan 140 tekens. Commentaar buiten de lijsten blijft behouden; ontbreekt een toelichting boven de installatie, dan voegt de fix een feitelijke toelichting bij de gedeelde variabele toe. Bij twijfel blijft de hele groep staan met `[review]`.
 
-Controleer bij handmatig hergebruik dat de variabele vóór alle afnemers beschikbaar is en dat voorwaarden, resourceattributen en relaties behouden blijven. Een melding bewijst geen beschikbaarheid van resources; volg daarvoor de [dependencyreview](#resources-en-afhankelijkheden) de [packagegaranties voor externe commando’s](#packageafhankelijkheden-bij-externe-commandos).
+Controleer bij handmatig hergebruik dat de variabele vóór alle afnemers beschikbaar is en dat voorwaarden, resourceattributen en relaties behouden blijven. Een melding bewijst geen beschikbaarheid van resources; volg daarvoor de [dependencyreview](#resources-en-afhankelijkheden) en de [packagegaranties voor externe commando’s](#packageafhankelijkheden-bij-externe-commandos).
 
 ### Resource-dependencies opbouwen
 
@@ -3235,7 +3235,7 @@ Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende imple
 
 **Verificatie**
 
-Handmatige vergelijking van het onjuiste en correcte scenario met de norm: Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende implementatie en controleer de concrete evaluatieafhankelijkheid. Het onjuiste scenario schendt de genoemde verplichting; de juiste variant behoudt de uitzonderingsvoorwaarden. Dit is reviewbewijs, geen uitgevoerde host- of modulegedragstest.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Relaties en meldingen behouden
 
@@ -3299,7 +3299,7 @@ Volg de cyclus door require, notify, subscribe en containment; controleer welke 
 
 **Verificatie**
 
-Handmatige vergelijking van het onjuiste en correcte scenario met de norm: Volg de cyclus door require, notify, subscribe en containment; controleer welke wijzigingen daadwerkelijk een herstart melden. Het onjuiste scenario schendt de genoemde verplichting; de juiste variant behoudt de uitzonderingsvoorwaarden. Dit is reviewbewijs, geen uitgevoerde host- of modulegedragstest.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Instellingen bij hun eigenaar houden
 

@@ -27,7 +27,7 @@ De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een
 
 ## Afhankelijkheden en onderhoud
 
-Shared declareert Builder als runtime-dependency. De vier tools declareren hun geteste shared-range `>= 0.1.1, < 0.2.0`. Shared gebruikt geen tool en krijgt geen OpenVox-specifieke JSON-grens. De gem bevat uitsluitend eigen `lib/`, deze README en de licentie, zonder executable, tests, fixtures of rapporten.
+De [shared-gemspec](project-tools-shared.gemspec) declareert Builder als runtime-dependency. Iedere afnemende tool beheert zijn vereiste shared-versie in de eigen gemspec; zie het [pakketoverzicht](../README.md#pakketten-en-commandos). Shared gebruikt geen tool en krijgt geen OpenVox-specifieke JSON-grens. De gem bevat uitsluitend eigen `lib/`, deze README en de licentie, zonder executable, tests, fixtures of rapporten.
 
 Voeg alleen code toe als concrete afnemers hetzelfde technische gedrag nodig hebben. Metadata-autofix, selectiebeleid, Puppet-lintchecks, parserorkestratie en dependencybevindingen blijven bij hun tool. Een wijziging aan een gedeeld contract vereist controle van alle betrokken CLI’s en distributieroutes volgens de [gezamenlijke validatie](../README.md#gezamenlijke-tooltests).
 
