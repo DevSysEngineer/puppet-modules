@@ -67,6 +67,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 - [Monitoringchecks](#monitoringchecks)
   - [Checkexecutables onafhankelijk van targets delen](#checkexecutables-onafhankelijk-van-targets-delen)
   - [Monitoring onafhankelijk van de waargenomen taak houden](#monitoring-onafhankelijk-van-de-waargenomen-taak-houden)
+  - [Actuele hosttoestand uit kernelgegevens bepalen](#actuele-hosttoestand-uit-kernelgegevens-bepalen)
   - [Vastgestelde afwijkingen en onvolledige inspecties onderscheiden](#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden)
   - [Invoer en configuratie](#invoer-en-configuratie)
   - [Optionele monitoringdefaults in het executable houden](#optionele-monitoringdefaults-in-het-executable-houden)
@@ -3153,6 +3154,72 @@ Volg commandopaden en afhankelijkheden van de check; controleer dat inspectie de
 **Verificatie**
 
 Vergelijk de scenario’s en controleer de check met synthetische taakresultaten zonder beschikbare taakrunner; beoordeel dat de inspectie geen taak uitvoert.
+
+### Actuele hosttoestand uit kernelgegevens bepalen
+
+**Norm**
+
+Gebruik bij nieuwe of gewijzigde monitoringchecks voor actuele hosttoestand zoveel mogelijk Linux-kernelinterfaces, zoals `/proc` en `/sys`, of bestaande basistools die die gegevens uitlezen. Kies deze route wanneer zij de gevraagde toestand voldoende kan vaststellen; voeg daarvoor geen afhankelijkheid toe van optionele packages, auditregels, sudo-configuratie of vooraf ingeschakelde logging.
+
+Neem niet aan dat zulke voorzieningen buiten de eigen check aanwezig of ingericht zijn. Gebruik ze alleen als optionele aanvulling of wanneer de gevraagde informatie aantoonbaar niet uit de kernel beschikbaar is en de benodigde voorziening tot het expliciete checkcontract behoort. Historische gebeurtenissen en applicatiespecifieke gezondheid kunnen andere bronnen vereisen. Behoud daarvoor de [bestaande configuratiebron](#daemonconfiguratie-als-invoerbron-behouden) en borg werkelijk vereiste tools volgens het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos).
+
+Benoem de grenzen van een momentopname en de benodigde leesrechten. Leid geen volledige geschiedenis af uit actuele processen en behandel ontbrekende informatie volgens [onvolledige inspecties](#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden).
+
+**Herkomst**
+
+Projectregel
+
+**Toepassingsgebied**
+
+Bronkeuze en runtimeafhankelijkheden bij nieuwe of gewijzigde checks van actuele hosttoestand.
+
+**Automatische controle**
+
+Geen automatische controle
+
+**Detectiegrenzen**
+
+Puppet-lint beoordeelt niet of kernelgegevens de gevraagde toestand dekken, welke gegevens een host beschikbaar stelt of welke leesrechten de uitvoerder heeft.
+
+**Meldingen en severity**
+
+Geen lintmelding of severity: deze norm vereist handmatige review.
+
+**Autofix**
+
+Geen
+
+**Autofixvoorwaarden**
+
+Niet van toepassing: bronkeuze en behoud van meetbetekenis vragen inhoudelijke beoordeling.
+
+**Toegestane uitzonderingen**
+
+Een andere bron is toegestaan voor informatie die kernelinterfaces onvoldoende leveren, zoals historische gebeurtenissen, effectieve daemonconfiguratie of applicatiestatus. Leg die noodzaak en de runtimevoorwaarden bij de check vast.
+
+**Suppressions**
+
+Een lintmarkering heft deze handmatige norm niet op.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: Een check zoekt huidige rootprocessen uitsluitend via sudo-logs of auditregels en meldt zonder die voorzieningen dat er geen rootactiviteit is. Keur dit af: actuele procesgegevens zijn beschikbaar en ontbrekende historie bewijst geen afwezigheid.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: Een check leest effectieve proces-UIDs en ouderrelaties via procps, koppelt waar mogelijk een login en vermeldt dat deze momentopname geen volledige wisselgeschiedenis bewijst. Auditd en sudo zijn geen runtimevereisten.
+
+**Grensgevallen**
+
+Een aanwezige `/proc` garandeert niet dat alle hostprocessen zichtbaar zijn: leesrechten en namespaces kunnen het bereik beperken. Een optioneel kernelveld kan ontbreken of niet zijn ingevuld. Het gebruik van een basistool blijft onder het packagecontract vallen; deze voorkeur is geen opdracht om betrouwbare parsers of applicatie-interfaces te vervangen.
+
+**Handmatige review**
+
+Vergelijk de gevraagde meetbetekenis met de gekozen kernelgegevens en benoem waarvoor een andere bron nodig blijft. Controleer het bereik, leesrechten, vereiste tools en het gedrag zonder optionele packages, regels en logs.
+
+**Verificatie**
+
+Beoordeel beide scenario's en valideer de check buiten de repository zonder de optionele voorzieningen, met ontbrekende of ontoegankelijke gegevens en met zowel aanwezige als afwezige afwijkingen. De [documentatiestructuurtest](../tests/guide_structure_test.rb) bewaakt de eigenaar en verwijzingen van deze regel; hij bewijst geen hostgedrag.
 
 ### Vastgestelde afwijkingen en onvolledige inspecties onderscheiden
 

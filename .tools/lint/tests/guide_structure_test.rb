@@ -32,6 +32,7 @@ class GuideStructureTest < Minitest::Test
                                     'Tekstbuffers en substitutiemetadata opbouwen',
                                     'Checkexecutables onafhankelijk van targets delen',
                                     'Monitoring onafhankelijk van de waargenomen taak houden',
+                                    'Actuele hosttoestand uit kernelgegevens bepalen',
                                     'Vastgestelde afwijkingen en onvolledige inspecties onderscheiden',
                                     'Firewallconfiguratie bij de deployment houden']
   }.freeze

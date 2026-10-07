@@ -893,6 +893,8 @@ De module vervangt `/etc/ssh/sshd_config` en verwijdert onbekende bestanden in `
 
 Houd een tweede root- of consoleverbinding open en controleer sleutels, `allow_users`, firewall en eventuele socket activation vóór de eerste herstart, zodat je de toegang niet verliest. Neem bestaande hostkeys vooraf over volgens [Hostidentiteit behouden](#hostidentiteit-behouden); ontbrekende sleutels worden nieuw aangemaakt.
 
+De SSH-check koppelt actuele rootprocessen aan geregistreerde loginterminals zonder sudo of auditd nodig te hebben. Voer hem uit met zicht op alle hostprocessen. De melding toont een procesverband, geen volledige geschiedenis van gebruikerswisselingen; ook consoles en extra pseudo-terminals kunnen in de sessietelling staan. De [checkuitleg](ssh/templates/check_ssh) beschrijft de reikwijdte en uitvoer.
+
 #### Basisvoorbeeld
 
 ```puppet

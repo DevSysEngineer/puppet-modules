@@ -308,13 +308,15 @@ for IFACE_RAW in $($IP -o link show | $AWK -F': ' '{print $2}'); do
         fi
     fi
 
-    # Address lists are rendered in long output; perfdata carries the aggregate counters.
+    # Current MAC and IP addresses are diagnostic context; unavailable MAC addresses are omitted.
+    MAC=$($CAT "/sys/class/net/$IFACE/address" 2>/dev/null)
     V4_LIST=$($IP -o -4 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
     V6_LIST=$($IP -o -6 addr show dev "$IFACE" 2>/dev/null | $AWK '{print $4}')
 
     # Compose one bounded interface detail line for long output.
     STATE_STR=$([ "$IS_UP" -eq 1 ] && printf UP || printf DOWN)
     DETAIL_SUFFIX=""
+    [ -n "$MAC" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; MAC $MAC"
     [ -n "$V4_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv4 $(printf '%s' "$V4_LIST" | $TR '\n' ',' | $SED 's/,$//')"
     [ -n "$V6_LIST" ] && DETAIL_SUFFIX="$DETAIL_SUFFIX; IPv6 $(printf '%s' "$V6_LIST" | $TR '\n' ',' | $SED 's/,$//')"
 
@@ -496,7 +498,7 @@ fi
 limit_long_output_details
 append_long ""
 append_long "Interpretation:"
-append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface address lists, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
+append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface MAC and IP addresses, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
 append_long "Inspect named down services or wired interfaces first. Public-IP values of n/a are contextual unless the summary also reports a direct interface or service failure."
 
 # Compose a cause-oriented short output; counters stay in perfdata and interface inventory stays in long output.
