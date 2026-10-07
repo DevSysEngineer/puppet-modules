@@ -2,7 +2,7 @@
 
 `project-tools-ruby-lint` levert RuboCop en het gedeelde profiel `config/rubocop.yml`. Gebruik de native `rubocop`-CLI en zijn JUnit-formatter. Het pakket installeert geen Puppet, lintplugins of shared-library en heeft geen eigen wrapper. Kies je gembron volgens de [installatiehandleiding](../README.md#importeren-en-distribueren).
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
 
 ## Inhoudsopgave
 

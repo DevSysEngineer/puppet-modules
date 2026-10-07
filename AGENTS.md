@@ -4,18 +4,21 @@
 
 This file governs project-wide development workflow, engineering responsibilities, security, and documentation governance. Its content and structure follow [Maintaining AGENTS.md](#maintaining-agentsmd).
 
-- Agents must read this file and the root `README.md` before making changes.
-- Local agent instructions may refine workflow within this baseline, but must not weaken or duplicate project-wide policy.
+- Before editing, read this complete file, the root [README](README.md), and the applicable instructions from repository root to the affected component. Explicitly open local `AGENTS.md` files before changing a subproject, including when the session starts at root; do not assume links or automatic discovery have loaded their contents. Do not reread unchanged instructions already read in this task.
+- For tooling maintenance, start at [`.tools/AGENTS.md`](.tools/AGENTS.md), then read the affected component instructions from its index and the relevant README contracts. Apply this route by responsibility as well as path: tooling integration in the root Gemfile, Rakefile, `.github/`, or consumer examples also requires it. Shared-interface changes require the instructions and contracts of the actual affected consumers.
+- For Puppet changes outside tooling, follow [Puppet code authority](#puppet-code-authority). The location of the norms under `.tools/lint/docs/` does not limit their applicability or by itself require reading linter development instructions.
+- Local instructions supplement their parents and must not weaken, contradict or duplicate repository policy. An exception is valid only within an exception explicitly allowed by the rule owner. Report unresolved conflicts in the change review under [conflict resolution](#conflict-resolution), rather than silently giving local wording precedence.
+- Check the active agent environment for instruction overrides and truncated instruction text; read missing applicable content directly and report any unperformed verification. Keep essential routing at the start of instruction files. Do not automatically change personal agent settings. [Codex discovery documentation](https://developers.openai.com/codex/guides/agents-md) describes startup discovery along the path to the working directory and a configurable combined-text limit; a link alone is not evidence of loading.
 
 ### Authority And Rule Placement
 
 Every durable norm has exactly one authoritative location. Classify a new or changed norm by the decision it governs, not by the file where the issue was found. Separate mixed passages before assigning ownership; apply the following questions in order, using the specific tooling route for tool procedures:
 
-1. Does it govern how a developer or agent investigates, scopes, reviews, validates, or delivers a change? Keep that project-wide workflow obligation in `AGENTS.md`.
+1. Does it govern how a developer or agent investigates, scopes, reviews, validates, or delivers a change? Keep repository-wide obligations in this `AGENTS.md`, maintenance shared by tools in [`.tools/AGENTS.md`](.tools/AGENTS.md), and component-specific maintenance in the local `AGENTS.md` reached through its index. Choose the smallest applicable owner; split mixed scopes first.
 2. Does it govern how general Puppet code is written or structured? Use [CODE_RULES.md](.tools/lint/docs/CODE_RULES.md).
 3. Does it govern Puppet Strings, Puppet code comments, or Puppet interface documentation? Use [DOCUMENTATION_RULES.md](.tools/lint/docs/DOCUMENTATION_RULES.md).
 4. Does it govern operational implementation, including managed files, permissions, systemd, shell, runtime tools, or monitoring? Use [OPERATIONAL_RULES.md](.tools/lint/docs/OPERATIONAL_RULES.md).
-5. Does it govern shared installation, package selection, modulepath configuration, distribution, CLI design, CI or joint tooltest execution? Use the [tooling README](.tools/README.md). Keep lint procedures, check registration and autofix in the [lint README](.tools/lint/README.md), library contracts in the [shared README](.tools/shared/README.md), parser CLI behavior in the [validator README](.tools/validate/README.md), dependency CLI behavior in the [dependency README](.tools/module-dependencies/README.md), metadata checks and fixes in the [metadata README](.tools/metadata/README.md), and native Ruby-lint usage in the [Ruby-lint README](.tools/ruby-lint/README.md).
+5. Does it describe supported installation, package selection, modulepath configuration, distribution, CLI and reporting behavior, CI use or joint tooltest execution? Use the [tooling README](.tools/README.md) and the owning tool's README. Keep lint usage, the daily correction workflow, architecture and the sole check registry in the [lint README](.tools/lint/README.md). Maintenance obligations belong to the applicable instruction layer, linked to these public contracts.
 6. Does it govern general repository documentation, README structure, Markdown, editorial review, or documentation ownership? Keep it in `AGENTS.md`.
 
 - Never duplicate a complete norm across these layers. Link to the authoritative source when a workflow obligation depends on a code or implementation norm.
@@ -108,7 +111,7 @@ Apply the [implementation scope](#implementation-scope) when deciding whether ad
 
 ### Puppet Code Authority
 
-The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md), and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) define the mandatory Puppet conventions, formatting rules, permitted exceptions, and manual review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns tooling procedures and the lint workflow; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
+The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md), and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) define the mandatory Puppet conventions, formatting rules, permitted exceptions, and manual review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns lint usage and the daily correction workflow; the [local lint instructions](.tools/lint/AGENTS.md) own linter development; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
 
 - Before changing Puppet code or Puppet Strings, follow the lint guide's [workflow](.tools/lint/README.md#werkwijze-bij-een-wijziging) and use its [reading guide](.tools/lint/README.md#leeswijzer) to select and read the relevant conventions and review criteria in `.tools/lint/docs/CODE_RULES.md`.
 - For changes affecting Puppet code comments, Puppet Strings, or Puppet interface documentation, also read and apply the relevant rules in `.tools/lint/docs/DOCUMENTATION_RULES.md`.
@@ -122,7 +125,7 @@ The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentatio
 
 ### Impact Review
 
-- Review tool changes against the [tool responsibility boundaries](.tools/README.md#verantwoordelijkheden-gescheiden-houden) and [CLI and reporting contract](.tools/README.md#cli-en-rapportage), including independent installation and consuming projects.
+- For tool changes and integration, follow the [tooling review instructions](.tools/AGENTS.md#responsibility-and-integration-review).
 - Review effects on repository conventions, Puppet abstractions, and reusable wrappers. When a request uses a concrete example, assess whether the same principle applies to other resource types, consumers, or integrations in the affected area. Apply shared behavior consistently, preserve type-specific semantics, and record the scope and any deliberate limits in the change review.
 - Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
 - Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
@@ -300,6 +303,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Run repository-wide Puppet syntax validation as a separate task using the native `puppet parser validate` command; keep it outside tool tests and their task dependencies.
 - Never add general module, catalog, template, script, or monitoring behavior tests to the repository, including indirect execution through tool tests, helpers, hooks, or task dependencies.
 - Perform required functional validation with existing validators and isolated temporary checks outside the repository.
+- Never create first-party test directories or test files outside the [documented tool locations](.tools/README.md#gezamenlijke-tooltests). This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites. Follow the [tooling test maintenance instructions](.tools/AGENTS.md#tool-test-structure) when adding or moving tool tests.
 
 ### Development Environment
 
@@ -324,38 +328,21 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Inspect the final change scope with `git diff --name-only`.
 - Require `git diff --check` to pass before completion.
 
-### Tool Test Structure
-
-- Apply the tooling guide's [test location and task contracts](.tools/README.md#gezamenlijke-tooltests) when adding or moving repository tool tests.
-- Never create first-party test directories or test files outside those documented locations. This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites.
-- Correct misplaced tests by moving them to the owning tool. Do not broaden test discovery or document an exception merely to accommodate their existing placement.
-- Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
-- Keep tool-specific helpers and fixtures with that tool's tests.
-- Introduce shared test helpers only when multiple tools actually need them.
-
-#### Test Structure Maintenance
-
-- Update test discovery, path resolution, task definitions, CI, and affected documentation together when changing the test structure.
-- Remove superseded test directories, duplicate files, unused support data, obsolete tasks, and stale references after migration.
-- Preserve relevant regression coverage.
-- Report any intentionally removed tests.
-- Verify that the expected tests are discovered and executed; a successful command with no applicable tests is not sufficient validation.
-
 ### Linter Changes
 
-- For every linter change, follow the lint guide's [check development and validation procedures](.tools/lint/README.md#een-check-toevoegen-of-wijzigen) and review the result against them.
+- Before changing linter implementation, profiles or documentation, read the [shared tooling instructions](.tools/AGENTS.md) and [local lint instructions](.tools/lint/AGENTS.md).
 - Report checks that appear suitable for safe detection or autofix but lack it as possible linter improvements. Implement them only when linter development is within the task's scope.
 
 ### CI Jobs And Reports
 
-- Apply and verify the [CI and reporting procedures](.tools/README.md#ci-van-deze-repository) when changing tooling or pipelines.
+- For tooling or pipeline changes, follow the [tooling CI review](.tools/AGENTS.md#ci-jobs-and-reports) and affected component instructions.
 - Never restore files to make a CI cleanliness check pass.
 
 ## Documentation
 
 ### Language And Authority
 
-- Write technical documentation in English, including changelog entries and this file, except for the Dutch documents specified below.
+- Write technical documentation in English, including changelog entries and every root or local `AGENTS.md`, except for the Dutch documents specified below.
 - Keep the root README, `.tools/README.md`, `.tools/shared/README.md`, `.tools/module-dependencies/README.md`, `.tools/validate/README.md`, `.tools/metadata/README.md`, `.tools/ruby-lint/README.md`, `.tools/repository-checks/README.md`, and the four central lint documents, `.tools/lint/README.md`, `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md`, in Dutch unless the user explicitly requests another language.
 - Apply [durable documentation](#durable-documentation) to existing and future Markdown content, according to each document's purpose.
 - Place information according to the responsibilities below, using [authority and rule placement](#authority-and-rule-placement) for durable norms. Review every affected explanation against its audience and responsibility; avoid a second hand-maintained contract source.
@@ -366,13 +353,10 @@ External disclosure is every transfer outside an organization-controlled or expl
 | `AGENTS.md` | Durable project-wide workflow, general review policy, engineering responsibilities, and repository documentation governance, including Markdown, README style, editorial review, information placement, and technical evidence. |
 | Root `README.md` | Central user guide for module use and operational decisions. |
 | `.tools/README.md` | Shared installation, package choice, modulepath configuration, command overview, CI, reports, consumer migration, distribution and joint tooltest execution. |
-| `.tools/shared/README.md` | Shared library interfaces, dependency direction, maintenance and repository test support. |
-| `.tools/module-dependencies/README.md` | Dependency CLI, native selection, root comparisons, coverage, errors, presentation and tool-specific tests. |
-| `.tools/validate/README.md` | Parser CLI, manifest selection, native validation, report and exit contracts, and validator-specific tests. |
-| `.tools/metadata/README.md` | Project metadata selection, schema review, VERSION validation, safe synchronization, CLI, reports and metadata tests. |
-| `.tools/ruby-lint/README.md` | Native RuboCop usage, shared Ruby profile, correction workflow and Ruby-tool tests. |
-| `.tools/repository-checks/README.md` | Development-only checks for repository documentation, CI, distribution integration and test structure. |
-| `.tools/lint/README.md` | Lint usage, daily lint workflow, check registry, configuration, autofix, linter maintenance and lint-specific tests. |
+| `.tools/AGENTS.md` | Shared tooling maintenance, component instruction index, package and integration review, and joint test maintenance. |
+| `.tools/<component>/AGENTS.md` | Component-specific development procedures and verification obligations; parent rules remain applicable. |
+| Tool READMEs | Each tool's public interfaces, architecture, supported usage and tool-specific test commands; find the owner through the [tooling guide](.tools/README.md#pakketten-en-commandos). |
+| `.tools/lint/README.md` | Lint usage, daily correction workflow, the sole check registry, configuration, autofix behavior, architecture and lint-specific test commands. |
 | `.tools/lint/docs/CODE_RULES.md` | Authoritative general Puppet code rules and review criteria applicable to every Puppet change, including exceptions, detection and autofix limits, and examples. |
 | `.tools/lint/docs/DOCUMENTATION_RULES.md` | Puppet code comments, Puppet Strings, and Puppet interface documentation, including their exceptions, detection and autofix limits, and examples. General repository documentation policy remains in `AGENTS.md`. |
 | `.tools/lint/docs/OPERATIONAL_RULES.md` | Additional operational Puppet rules and review criteria for managed files, permissions, security, systemd, shell, runtime dependencies, and monitoring, with their exceptions, detection and autofix limits, and examples. |
@@ -398,7 +382,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 ### Markdown
 
 - Use paths relative to the current Markdown file for links to repository-owned files and directories, with `#anchor` for sections in the same document. Do not hardcode a hosting domain, repository owner, repository name, branch, or absolute filesystem path in these links. This applies to packaged documentation as well; references outside a gem require the corresponding repository checkout. Use a clearly identified `<repository-url>` placeholder in clone and Git-source examples. External documentation links retain their actual URLs.
-- Maintain a linked table of contents near the top of every repository-owned `.md` file except `AGENTS.md`, the sole exception to this requirement. Include every section and subsection heading in document order, at every depth, with nesting that follows the heading hierarchy; exclude the document title and headings inside code examples. Limit only the repository root `README.md` table of contents to headings at levels two and three. Update the contents and verify its links whenever headings change.
+- Maintain a linked table of contents near the top of every repository-owned `.md` file except files named `AGENTS.md` at any level, the sole filename exception to this requirement. Include every section and subsection heading in document order, at every depth, with nesting that follows the heading hierarchy; exclude the document title and headings inside code examples. Limit only the repository root `README.md` table of contents to headings at levels two and three. Update the contents and verify its links whenever headings change.
 - Keep the sentences, paragraphs, lists, tables, and examples under each heading on that heading's subject and in a logical reading order. Introduce concepts before relying on them and connect the explanations before and after examples or tables. Rewrite surrounding text when additions or moves break that continuity.
 - Keep each prose paragraph or list item on one physical line without hard wrapping, except where Markdown syntax, a table, or a code block requires line breaks.
 - Separate distinct topics with normal paragraph breaks.
@@ -498,7 +482,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Start README prose list items with a capital letter.
 - Preserve the case of identifiers, module names, class names, paths, and literals.
 - Preserve intentional author viewpoints and relevant project context when reorganizing content.
-- Preserve necessary technical requirements, warnings, exceptions, safeguards, and operational knowledge in their designated documentation layers. For lint documentation, place elaboration exclusively among `README.md`, `CODE_RULES.md`, `DOCUMENTATION_RULES.md`, and `OPERATIONAL_RULES.md` according to their [assigned responsibilities](#tooling-readmes), with links to its authoritative location. Do not create an additional documentation layer to reduce size.
+- Preserve necessary technical requirements, warnings, exceptions, safeguards, and operational knowledge in their designated documentation layers. For lint documentation, follow the [assigned responsibilities and boundaries](.tools/lint/AGENTS.md#lint-documentation-boundaries), with links to the authoritative location. Do not create an additional documentation layer to reduce size.
 - Remove duplicate explanations and demonstrably obsolete information only after the [editorial review](#editorial-review).
 
 #### README Navigation And Prerequisites
@@ -534,32 +518,18 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Never use bullets, numbered lists, or tables within that section, or replace a list with one long comma- or semicolon-separated sentence.
 - Omit its heading when no relevant considerations remain.
 
-### Tooling READMEs
+### Tooling Documentation
 
-- Keep lint norms and lint-specific procedures in exactly four central Dutch documents: `.tools/lint/README.md` for tooling and workflow, `.tools/lint/docs/CODE_RULES.md` for general Puppet rules, `.tools/lint/docs/DOCUMENTATION_RULES.md` for Puppet code comments, Puppet Strings, and interface documentation, and `.tools/lint/docs/OPERATIONAL_RULES.md` for additional operational rules, following [language and authority](#language-and-authority).
-- The shared tooling, shared library, metadata, Ruby-lint, repository-checks, validator and dependency-tool READMEs own their separate interfaces and procedures; they must not duplicate lint norms.
-- Do not create separate documents per check, rule, small rule group, autofix, consumer, CI platform, or test topic. Any additional central lint document requires a separate, explicit architecture change; file size alone never authorizes an automatic fifth document.
-- Keep the general rules under `CODE_RULES.md`; do not introduce `STYLE_RULES.md`, since these rules also cover interfaces, parameters, dependencies, and resources. Do not use `REFERENCE.md` for lint rules; module `REFERENCE.md` files retain their Puppet Strings/API-reference purpose.
-- Keep each of the four central lint documents strictly below 300 KiB (307200 bytes), guarded by a lint documentation contract test. On an overshoot, first review placement within the four assigned responsibilities. Never delete or shorten necessary content, combine independent rules to save space, or split automatically to meet the limit; any necessary fifth document requires a separate, explicitly reviewed architecture change.
-- Preserve requirements, exceptions, warnings, detection limits, autofix conditions, supported usage routes, and manual review criteria during reorganization. Consolidating duplicate explanations must preserve every distinct condition and obligation.
-- Keep the lint README's contents task-oriented around lint usage and tooling. Link clearly from the lint README to all three rule documents and between relevant sections in all four documents, following the [Markdown navigation requirements](#markdown). Make the cumulative applicability of the three rule documents explicit in the reading guide.
-- Keep both the repository quick start and the consumer quick start before the detailed lint reference in `.tools/lint/README.md`, linking shared setup to `.tools/README.md`. Keep the sole central check registry and maintainer explanations there, and link directly to the authoritative rule in `CODE_RULES.md`, `DOCUMENTATION_RULES.md`, or `OPERATIONAL_RULES.md` without duplicating full rules or the registry.
-- Keep tool-specific test instructions in the owning tooling guide. Do not create separate test READMEs.
-- General README brevity, selective-detail, and presentation guidance must not remove information or required fields from the lint guide. Apply the lint guide's documentation contract to its rule reference.
-
-#### Lint Documentation Maintenance
-
-- Apply the lint README's [maintainer documentation contract](.tools/lint/README.md#documentatiecontract-voor-maintainers) when changing rules, checks, diagnostics, profiles, configuration, procedures, or consumer interfaces.
-- Review ownership using [authority and rule placement](#authority-and-rule-placement), preserve meaning using [consolidation and placement](#consolidation-and-placement), and record the previous location, preserved meaning, new location, and reason for each substantive move in the change review. Do not create another repository document for the migration record.
-- Verify incoming links, anchors, inventories, and execution contracts with the documentation tests; review explanatory accuracy and preservation of meaning manually. Verify that each rule and its subordinate headings have one authoritative destination.
-- Keep unresolved policy conflicts and unexecuted required checks visible according to [isolation and evidence](#isolation-and-evidence). Do not describe the task as complete while required evidence is missing.
+For tooling README maintenance, follow [shared tooling documentation instructions](.tools/AGENTS.md#tooling-documentation) and the affected component instructions. Lint-specific document boundaries and maintenance belong to [the local lint instructions](.tools/lint/AGENTS.md#lint-documentation-maintenance); the general documentation policy above remains applicable.
 
 ## Maintaining AGENTS.md
 
+These maintenance rules apply to root and local files named `AGENTS.md`. Choose the smallest owner under [authority and rule placement](#authority-and-rule-placement); a component-only change needs no root edit when the routing and repository-wide policy remain correct.
+
 ### Change Scope
 
-- Read the complete file before a substantive change so existing rules, exceptions, and cross-references inform the edit.
-- Update this file when a repository-wide convention, architecture constraint, validation command, security requirement, non-Puppet engineering standard, or operational workflow changes.
+- Read the complete instruction file being changed before a substantive change so existing rules, exceptions, and cross-references inform the edit.
+- Update the owning instruction file when a convention, architecture constraint, validation command, security requirement, non-Puppet engineering standard, or operational workflow in its scope changes. Update root when repository-wide policy or routing changes.
 - Limit routine maintenance to the affected rules and directly impacted references.
 - Restructure the whole file only when explicitly requested or when documented contradictions across sections require it.
 
@@ -568,19 +538,19 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Identify the underlying objective, required behavior or lasting knowledge, scope, and necessary exceptions before proposing a policy change. Determine its owner with [authority and rule placement](#authority-and-rule-placement), including when the task explicitly names this file.
 - Find the existing authoritative rules that wholly or partly cover the required behavior before adding material.
 - Distinguish missing policy, problems with discoverability or interpretation, and gaps in verification from failure to follow a clear, findable rule. Repeated violations alone do not justify more rules; investigate which instruction, execution step, or review connection failed.
-- Leave this file unchanged when existing policy covers the behavior completely and unambiguously and its placement and verification need no improvement, even after repeated violations. Correct execution failures through the applicable workflow.
+- Leave the instruction files unchanged when existing policy covers the behavior completely and unambiguously and its placement and verification need no improvement, even after repeated violations. Correct execution failures through the applicable workflow.
 - When discoverability, interpretation, or verification is inadequate, clarify or consolidate the existing authoritative instruction or connect it more directly to the relevant review. The presence of a similar rule elsewhere is not sufficient reason to reject a targeted improvement. Broaden its scope only when existing authority or an explicit instruction supports that policy change.
 - Add a new rule only when necessary durable behavior is not already covered.
 
 ### Content And Placement
 
-- Store only durable project-wide engineering rules and the lasting knowledge needed to apply them in future development.
+- Store only durable engineering rules within the owning file's scope and the lasting knowledge needed to apply them in future development.
 - Never record task, ticket, bug, feature, or prompt history, except historical context essential to understanding a technical contract or deliberate exception.
 - Convert task instructions, recurring review findings, production issues, security findings, test failures, tooling changes, and agent mistakes into rules only when the required behavior generalizes beyond one task.
-- Never copy a task instruction verbatim into this file merely because it requests a policy update.
-- When adding new material, place feature-specific implementation detail, configuration guides, troubleshooting, implementation plans, examples, and concrete test scenarios in their [designated locations](#language-and-authority), according to [authority and rule placement](#authority-and-rule-placement), including durable code conventions. When reorganizing this file, apply the [preservation requirements](#consolidation-and-placement) to its existing content.
+- Never copy a task instruction verbatim into an instruction file merely because it requests a policy update.
+- When adding new material, place feature-specific implementation detail, configuration guides, troubleshooting, implementation plans, examples, and concrete test scenarios in their [designated locations](#language-and-authority), according to [authority and rule placement](#authority-and-rule-placement), including durable code conventions. When reorganizing an instruction file, apply the [preservation requirements](#consolidation-and-placement) to its existing content.
 - Preserve exact technical names, values, and versions when required by a contract, constraint, exception, compatibility requirement, or security requirement.
-- Preserve relevant technical detail, explanations, examples, and verification instructions within this file when reorganizing it. Reorganization alone must not move unique content to another file. A change of ownership under [authority and rule placement](#authority-and-rule-placement) is a substantive change to review under [conflict resolution](#conflict-resolution); preserve the information at its authoritative location and leave a targeted reference. Changing ownership never authorizes information loss.
+- Preserve relevant technical detail, explanations, examples, and verification instructions at the appropriate instruction owner when reorganizing it. A structural edit alone does not authorize reassignment of unique content. A change of ownership under [authority and rule placement](#authority-and-rule-placement) is a substantive change to review under [conflict resolution](#conflict-resolution); preserve the information at its authoritative location and leave a targeted reference. Changing ownership never authorizes information loss.
 
 ### Consolidation And Placement
 
@@ -618,18 +588,18 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Final Review
 
-- Review the complete diff against the pre-change version. Verify that every original obligation, prohibition, preference, condition, exception, technical contract, compatibility requirement, security safeguard, explanation, example, and verification instruction remains in this file after reorganization or has an explicitly justified correction. For a substantive change of ownership, verify preservation and a working reference under [content and placement](#content-and-placement).
+- Review the complete diff against the pre-change version. Verify that every original obligation, prohibition, preference, condition, exception, technical contract, compatibility requirement, security safeguard, explanation, example, and verification instruction remains at its authoritative owner after reorganization or has an explicitly justified correction. For a substantive change of ownership, verify preservation and a working reference under [content and placement](#content-and-placement).
 - Verify that generalization and restructuring neither make required behavior optional nor make optional behavior mandatory.
-- Manually verify that every changed rule is necessary, reusable, scannable, non-duplicative, unambiguous, and consistent with this document, its terminology, and its references.
+- Manually verify that every changed rule is necessary, reusable, scannable, non-duplicative, unambiguous, and consistent with the instruction chain, its terminology, and its references.
 - Run automated checks for literal duplicate rules and local link targets, using repository tooling when available or isolated temporary checks otherwise. Review meaning, structure, and readability manually rather than enforcing numerical prose limits.
-- Record the existing policy, reason for change, and preserved obligations and exceptions for each substantive rule change in the change review outside this file.
+- Record the existing policy, reason for change, and preserved obligations and exceptions for each substantive rule change in the change review outside permanent instruction files.
 - Check the reverse direction as well: every new obligation, exception, or technical claim must be supported by the previous policy, an established project agreement, or an explicit instruction. Make unresolved conflicts visible before completion.
 
 ## Completion Checklist
 
 ### Workflow And Validation
 
-- Verify [preparation and scope](#working-with-the-existing-codebase).
+- Verify the [applicable instruction chain](#scope-and-authority), [preparation and scope](#working-with-the-existing-codebase).
 - Verify [Puppet code authority](#puppet-code-authority) and [rule placement](#authority-and-rule-placement).
 - Verify applicable [design and implementation review](#design-and-implementation), [shell review and validation](#shell-scripts), and [monitoring review and validation](#monitoring-checks).
 - Verify [documentation responsibilities](#language-and-authority), [durable documentation](#durable-documentation), and the [editorial decision and review workflow](#scope-and-reading-path), including complete affected README module sections and per-file coverage for project-wide reviews.
@@ -637,7 +607,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Verify [version selection and metadata synchronization](#version-updates-and-release-preparation).
 - Verify the applicable [security reviews](#security-and-privacy).
 - Verify [development setup](#development-environment), [linting and autofix](#linting-and-autofix), applicable [linter changes](#linter-changes) and [CI procedures](#ci-jobs-and-reports), and the [required checks and evidence](#validation-and-testing).
-- Verify [policy maintenance and final review](#maintaining-agentsmd) when changing this file.
+- Verify [policy maintenance and final review](#maintaining-agentsmd) when changing root or local instructions.
 
 ### External Sharing
 

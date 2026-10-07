@@ -2,19 +2,14 @@
 
 require_relative '../../shared/test_support/bootstrap'
 require_relative '../../shared/test_support/guide_links'
+require_relative 'guide_inventory'
 
 # Guard local documentation navigation and reproduce malformed fragments.
 class GuideLinksTest < Minitest::Test
   include ProjectToolsTestSupport::GuideLinks
+  include RepositoryGuideInventory
 
   ROOT = File.expand_path('../../..', __dir__)
-
-  def repository_markdown
-    output, errors, status = Open3.capture3('git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard',
-                                            '--', '*.md', chdir: ROOT)
-    assert status.success?, errors
-    output.split("\0").map { |path| File.join(ROOT, path) }.select { |path| File.file?(path) }
-  end
 
   def with_guide(text)
     Dir.mktmpdir('guide-links') do |root|
@@ -76,7 +71,7 @@ class GuideLinksTest < Minitest::Test
   end
 
   def test_guide_and_incoming_repository_links_resolve
-    paths = repository_markdown
+    paths = repository_markdown(ROOT)
     refute_empty paths
     errors = paths.flat_map do |source|
       link_errors(File.read(source), source: source, root: ROOT)
@@ -86,7 +81,7 @@ class GuideLinksTest < Minitest::Test
 
   def test_repository_markdown_has_no_hardcoded_repository_urls
     repository_url = %r{(?:https?://|//)(?:github\.com|raw\.githubusercontent\.com)/DevSysEngineer/puppet-modules\b}i
-    paths = repository_markdown
+    paths = repository_markdown(ROOT)
     refute_empty paths
     paths.each do |source|
       refute File.read(source).match?(repository_url), "#{source}: Use relative repository links (AGENTS.md#markdown)"

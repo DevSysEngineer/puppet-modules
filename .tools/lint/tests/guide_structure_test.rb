@@ -9,6 +9,8 @@ class GuideStructureTest < Minitest::Test
 
   ROOT = File.join(LintTestSupport::ROOT, '.tools/lint')
   DOCUMENTS = %w[README.md docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md].freeze
+  INSTRUCTIONS = ['../../AGENTS.md', '../AGENTS.md',
+                  *Dir.glob('*/AGENTS.md', base: File.join(ROOT, '..')).map { |path| "../#{path}" }].freeze
   SIZE_LIMIT = 300 * 1024
   RULE_GROUPS = {
     'docs/CODE_RULES.md' => ['Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
@@ -39,9 +41,7 @@ class GuideStructureTest < Minitest::Test
                                     'Firewallconfiguratie bij de deployment houden']
   }.freeze
 
-  def test_four_guides_and_local_instructions_with_all_rule_documents_linked_from_the_readme
-    documents = Dir[File.join(ROOT, '**/*.md')].map { |path| path.delete_prefix("#{ROOT}/") }
-    assert_equal [*DOCUMENTS, 'AGENTS.md'].sort, documents.sort
+  def test_all_rule_documents_are_linked_from_the_readme
     readme = prose(File.read(File.join(ROOT, 'README.md')))
     RULE_GROUPS.each_key do |name|
       assert_match(/\]\(#{Regexp.escape(name)}(?:#[^)]*)?\)/, readme, "README must link to #{name}")
@@ -77,7 +77,7 @@ class GuideStructureTest < Minitest::Test
   end
 
   def test_implementation_topics_have_one_owner_across_all_documentation_layers
-    headings = [*DOCUMENTS, '../../AGENTS.md'].to_h do |name|
+    headings = [*DOCUMENTS, *INSTRUCTIONS].to_h do |name|
       [name, prose(File.read(File.join(ROOT, name))).scan(/^\#{2,6} (.+)$/).flatten]
     end
     RULE_OWNERS.each do |owner, titles|
@@ -88,12 +88,20 @@ class GuideStructureTest < Minitest::Test
     end
   end
 
+  def test_instruction_layers_do_not_introduce_another_check_registry
+    INSTRUCTIONS.each do |name|
+      text = prose(File.read(File.join(ROOT, name)))
+      refute_includes text, '<!-- BEGIN PROJECT CHECK REGISTRY -->', name
+      refute_match(/^\| Check \| Actief in repositoryprofiel \|/, text, name)
+    end
+  end
+
   def test_general_workflow_and_documentation_policy_remain_in_agents
     agents = heading_anchors(File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md')))
     assert_includes agents, 'authority-and-rule-placement'
     %w[markdown readme-guidance editorial-review shell-validation monitoring-validation].each do |anchor|
       assert_includes agents, anchor
-      RULE_GROUPS.each_key do |name|
+      [*RULE_GROUPS.keys, *INSTRUCTIONS.reject { |name| name == '../../AGENTS.md' }].each do |name|
         refute_includes heading_anchors(File.read(File.join(ROOT, name))), anchor
       end
     end

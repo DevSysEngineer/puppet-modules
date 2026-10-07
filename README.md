@@ -1013,6 +1013,6 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 
 ## Contributie
 
-Pull requests en meldingen zijn welkom. Begin bij [`AGENTS.md`](AGENTS.md) voor het werkproces en de reviewverantwoordelijkheden. De [leeswijzer](.tools/lint/README.md#leeswijzer) wijst je naar de code-, documentatie- en operationele regels die op je wijziging van toepassing zijn.
+Pull requests en meldingen zijn welkom. Begin bij [`AGENTS.md`](AGENTS.md) voor het werkproces en de reviewverantwoordelijkheden. Voor toolingonderhoud, ook in rootconfiguratie of CI, volg je daarna [`.tools/AGENTS.md`](.tools/AGENTS.md) en de betrokken componentinstructies. De [leeswijzer](.tools/lint/README.md#leeswijzer) wijst je naar de code-, documentatie- en operationele regels die op je wijziging van toepassing zijn.
 
 Richt de [ontwikkelomgeving](.tools/README.md#installatie) in en volg de [werkwijze van beginscan tot oplevering](.tools/lint/README.md#werkwijze-bij-een-wijziging). De [gezamenlijke toolinghandleiding](.tools/README.md) beschrijft de afzonderlijke gems voor Puppet- en Ruby-lint, [metadata](.tools/metadata/README.md), [parservalidatie](.tools/validate/README.md) en [dependencycontrole](.tools/module-dependencies/README.md), plus hun installatie en consumermigratie. Modulegedrag en documentatievoorbeelden vragen daarnaast [afzonderlijke validatie](.tools/lint/README.md#aanvullende-validatie). De [CI-uitleg](.tools/README.md#ci-van-deze-repository) beschrijft waar je de rapporten vindt.

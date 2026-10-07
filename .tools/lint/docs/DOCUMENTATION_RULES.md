@@ -4,7 +4,7 @@ Dit bestand bevat de regels voor commentaar in Puppet-code, Puppet Strings en do
 
 Raakt de wijziging ook beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan daarnaast de relevante regels uit [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn en vervangen de algemene coderegels nooit.
 
-De [linthandleiding](../README.md) beschrijft het gebruik en onderhoud van de tooling. De algemene afspraken voor repositorydocumentatie, Markdown, README-stijl en redactionele review staan in [AGENTS.md](../../../AGENTS.md#documentation). Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beschrijft het gebruik en de werking van de tooling. Onderhoud aan de linter zelf volgt de [lokale ontwikkelinstructies](../AGENTS.md); het toepassen van deze normen vereist die onderhoudsroute niet. De algemene afspraken voor repositorydocumentatie, Markdown, README-stijl en redactionele review staan in [AGENTS.md](../../../AGENTS.md#documentation). Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
 
 ## Inhoudsopgave
 

@@ -2,7 +2,7 @@
 
 `project-tools-module-dependencies` vergelijkt gedeclareerde module- en rootdependencies met één native OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
 
 ## Inhoudsopgave
 

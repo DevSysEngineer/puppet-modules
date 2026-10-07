@@ -3,7 +3,7 @@
 <a id="puppet-lint-en-rubocop"></a>
 <a id="doel-en-reikwijdte"></a>
 
-Deze handleiding beschrijft hoe je Puppet-code voor de repository `puppet-modules` controleert. Je vindt hier de dagelijkse werkwijze, de lintcommando's en verwijzingen naar de [algemene Puppet-coderegels](docs/CODE_RULES.md), [regels voor Puppet-documentatie](docs/DOCUMENTATION_RULES.md) en [operationele regels](docs/OPERATIONAL_RULES.md). Ook lees je hoe je die controles in een ander Puppet-project gebruikt en hoe je ze onderhoudt.
+Deze handleiding beschrijft hoe je Puppet-code voor de repository `puppet-modules` controleert. Je vindt hier de dagelijkse werkwijze, de lintcommando's en verwijzingen naar de [algemene Puppet-coderegels](docs/CODE_RULES.md), [regels voor Puppet-documentatie](docs/DOCUMENTATION_RULES.md) en [operationele regels](docs/OPERATIONAL_RULES.md). Ook lees je hoe je die controles in een ander Puppet-project gebruikt en hoe de linter is opgebouwd. Voor onderhoud in de ontwikkelcheckout volg je de [lokale ontwikkelinstructies](AGENTS.md).
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
 
@@ -13,7 +13,7 @@ Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie ve
 
 `project-tools-ruby-lint` levert [Ruby-lint](../ruby-lint/README.md), `project-tools-metadata` levert [metadatacontrole](../metadata/README.md) en `project-tools-validate` levert [parservalidatie](../validate/README.md). Kies deze tools afzonderlijk in de [ontwikkelbundle](../README.md). De [tooltests](#tests-uitvoeren-en-uitbreiden) controleren lintchecks, correcties en installatie.
 
-De lintdocumentatie bestaat uit vier centrale documenten: deze toolinghandleiding en de drie regelsbestanden [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). Iedere bron heeft een eigen verantwoordelijkheid:
+De lintnormen en gebruiksdocumentatie staan in vier centrale documenten: deze toolinghandleiding en de drie regelsbestanden [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). Iedere bron heeft een eigen verantwoordelijkheid:
 
 | Bron | Verantwoordelijkheid |
 | --- | --- |
@@ -62,8 +62,8 @@ Gebruik deze beslisstructuur om de toepasselijke documenten te kiezen. De onderw
 | Autofix uitvoeren | [Automatisch corrigeren](#automatisch-corrigeren-autofix) en de voorwaarden bij de betrokken check. |
 | Ruby-code controleren of veilig corrigeren | [RuboCop gebruiken](#ruby-code-controleren). |
 | Rapporten maken of een CI-uitslag onderzoeken | [Puppet-manifests valideren](#puppet-manifests-valideren), [lintrapporten maken](#lintrapporten-maken), [tooltests uitvoeren](#tests-uitvoeren-en-uitbreiden) en [CI van deze repository](#ci-van-deze-repository). |
-| Een bestaande lintcheck aanpassen | [Een check toevoegen of wijzigen](#een-check-toevoegen-of-wijzigen) en de bijbehorende [technische werking](#technische-werking-van-de-checks). |
-| Een nieuwe lintcheck of autofix ontwikkelen | [Linter ontwikkelen en onderhouden](#linter-ontwikkelen-en-onderhouden), inclusief [veilige autofixes](#veilige-autofixes-ontwikkelen). |
+| Een bestaande lintcheck aanpassen | [Checkontwikkeling](AGENTS.md#check-development) en de bijbehorende [technische werking](#technische-werking-van-de-checks). |
+| Een nieuwe lintcheck of autofix ontwikkelen | [Linter ontwikkelen en onderhouden](#linter-ontwikkelen-en-onderhouden), inclusief [veilige autofixontwikkeling](AGENTS.md#safe-autofix-development). |
 | De centrale linter in een ander Puppet-project gebruiken | [Gedeelde tooling hergebruiken](#gedeelde-tooling-hergebruiken), [aanbevolen projectstructuur](#aanbevolen-projectstructuur) en [installatie](#installatie-in-je-project). |
 | Validatie, linting, tests en artifacts in een project met `global-modules` inrichten | [Een eigen rapportmap kiezen](#rapportmap-kiezen), [eigen code controleren](#eigen-code-controleren), [eigen manifests valideren](#eigen-manifests-valideren), [eigen tooltests](#eigen-tooltests), [rapporten en artifacts](#rapporten-en-artifacts-in-je-project) en het [CI-voorbeeld](#controle-in-ci). |
 
@@ -85,7 +85,7 @@ Richt eerst een eigen bundle en configuratie in met [Snelstart in een ander Pupp
 
 ### De linter onderhouden
 
-Volg [Linter ontwikkelen en testen](#linter-ontwikkelen-en-testen) voor wijzigingen aan de projectchecks of tooling. Werk de bijbehorende uitleg bij volgens het [Documentatiecontract voor maintainers](#documentatiecontract-voor-maintainers) en voer de [Eindcontrole](#eindcontrole) uit.
+Begin in de ontwikkelcheckout bij de [lokale lintinstructies](AGENTS.md), na de bovenliggende instructies. De [technische uitleg en testaanroepen](#linter-ontwikkelen-en-testen) hieronder beschrijven de architectuur en beschikbare verificatie. Voor gewone Puppet-wijzigingen gebruik je de dagelijkse werkwijze en relevante normen.
 
 ## Inhoudsopgave
 
@@ -157,7 +157,6 @@ Volg [Linter ontwikkelen en testen](#linter-ontwikkelen-en-testen) voor wijzigin
   - [Git-dependency uit de monorepo](#git-dependency-uit-de-monorepo)
   - [Gebouwd gempakket installeren](#gebouwd-gempakket-installeren)
 - [Linter ontwikkelen en testen](#linter-ontwikkelen-en-testen)
-  - [Een check toevoegen of wijzigen](#een-check-toevoegen-of-wijzigen)
   - [Technische werking van de checks](#technische-werking-van-de-checks)
     - [Omvang en validatiestructuur](#omvang-en-validatiestructuur)
     - [Classcontroles en vindbare afnemers](#classcontroles-en-vindbare-afnemers)
@@ -165,7 +164,7 @@ Volg [Linter ontwikkelen en testen](#linter-ontwikkelen-en-testen) voor wijzigin
     - [Voorbereiding van voorwaarden](#voorbereiding-van-voorwaarden)
     - [Hints voor variabelegroepen](#hints-voor-variabelegroepen)
     - [Backendselectie en wrappers](#backendselectie-en-wrappers)
-  - [Veilige autofixes ontwikkelen](#veilige-autofixes-ontwikkelen)
+  - [Autofixinteracties](#autofixinteracties)
   - [Tests uitvoeren en uitbreiden](#tests-uitvoeren-en-uitbreiden)
   - [Versies bijwerken](#versies-bijwerken)
   - [Eigen tooltests](#eigen-tooltests)
@@ -883,7 +882,7 @@ Volg bij een update de [consumermigratie](../README.md#migreren-naar-afzonderlij
 
 Het [checkoverzicht](#beschikbare-projectchecks) vermeldt de actieve controles en verwijst naar hun detectie- en autofixvoorwaarden. Let bij de [packageguard-fix](docs/OPERATIONAL_RULES.md#gelijk-ingestelde-packageguards-samenvoegen) op de runtimevoorwaarde: de gegenereerde Puppet-code gebruikt `ensure_packages()` uit stdlib; de linter levert die module niet mee. Conflicterende package-attributen blijven als catalogusfout zichtbaar.
 
-Behandel checknamen, meldingsniveaus, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, de gedeelde configuratiepaden en de rapportcommando's als publieke interfaces. Beoordeel wijzigingen aan deze interfaces volgens het [versie- en releasebeleid](../../AGENTS.md#versioning-and-releases) en valideer het gebouwde pakket vanuit een onafhankelijk project. Houd consumerinstallatie en CI-voorbeelden afgestemd op de [aanbevolen projectstructuur](#aanbevolen-projectstructuur); documenteer ondersteunde afwijkingen zonder implementatie of gedeelde profielen te dupliceren. Verhoog de gemversie bij een uitgave en beschrijf wijzigingen die afnemers raken. Wijzigingen aan actieve regels en profielen kunnen bestaande projecten laten falen; laat afnemers zo’n update bewust uitvoeren met Bundler en hun eigen CI. Werk een Git-afnemer bij naar een gecontroleerde revisie en een pakketafnemer naar een gecontroleerde gemversie.
+Checknamen, meldingsniveaus, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, gedeelde configuratiepaden en rapportcommando's zijn publieke interfaces; de [ontwikkelinstructies](AGENTS.md#architecture-review) beschrijven de review ervan. Verhoog de gemversie bij een uitgave en beschrijf wijzigingen die afnemers raken. Wijzigingen aan actieve regels en profielen kunnen bestaande projecten laten falen; laat afnemers zo’n update bewust uitvoeren met Bundler en hun eigen CI. Werk een Git-afnemer bij naar een gecontroleerde revisie en een pakketafnemer naar een gecontroleerde gemversie.
 
 ### Git-dependency uit de monorepo
 
@@ -897,29 +896,11 @@ Zie de [gezamenlijke toolinghandleiding](../README.md#gebouwd-gempakket-installe
 
 <a id="linter-ontwikkelen-en-onderhouden"></a>
 
-Dit gedeelte is bedoeld voor wijzigingen aan de linter en zijn configuratieroute. Gezamenlijke installatie, distributie en CI staan in de [toolinghandleiding](../README.md). Voor een gewone Puppet-wijziging volstaan de [werkwijze](#werkwijze-bij-een-wijziging) en de relevante codeafspraken.
-
-### Een check toevoegen of wijzigen
-
-Zoek eerst de bestaande codeafspraak en bepaal welk onderdeel automatisch vast te stellen is en welk onderdeel review blijft. Controleer of een standaardcheck, geïnstalleerde plugin of bestaande projectcheck het probleem al afhandelt. Breid die waar mogelijk uit; voeg geen tweede detectie- of correctiepad toe voor hetzelfde contract.
-
-Beoordeel bij iedere nieuwe of gewijzigde lintregel expliciet, per meldingsvariant, of de gevonden afwijking automatisch en betrouwbaar kan worden gecorrigeerd. Dit geldt ook voor bestaande checks zonder autofix. Implementeer een autofix wanneer de beschikbare informatie de juiste correctie eenduidig bepaalt en behoud van gedrag en gegevens kan worden aangetoond. Is slechts een deel veilig herstelbaar, implementeer dan dat deel en laat alleen het niet-eenduidige gedeelte voor handmatige correctie staan.
-
-Voeg geen autofix toe wanneer daarvoor onbewezen aannames of inhoudelijke ontwerpkeuzes nodig zijn die gedrag kunnen veranderen of gegevens kunnen beschadigen. Leg de beoordeling per meldingsvariant vast bij `Autofix` en `Autofixvoorwaarden` van de betrokken regel, volgens het [documentatiecontract](#documentatiecontract-voor-maintainers). Beschrijf bij ontbrekende of gedeeltelijke autofix concreet welke informatie ontbreekt, welke keuze handmatige beoordeling vereist of welke technische beperking betrouwbaar herstel verhindert.
-
-Iedere manifestregel staat in één bestand onder [`lib/project_lint/checks/`](lib/project_lint/checks/). Dat bestand bevat de `PuppetLint.new_check(:project_...)`-registratie, de `check`-methode en een eventuele `fix(problem)`. De bestandsnaam volgt de checknaam zonder het voorvoegsel `project_`; de Ruby-module staat onder `ProjectLint::Checks`. Voeg het bestand met een gewone `require` toe aan [`lib/project_lint.rb`](lib/project_lint.rb).
-
-Meldingen moeten de oorzaak en een bruikbare bronpositie geven; neem geen willekeurige bronwaarden in diagnostiek of JSON op. Gebruik `[review]` als de analyse geen voldoende bewijs voor de gewenste eigenschap of correctie kan leveren.
-
-Werk bij een gewijzigde codeafspraak de relevante regel en het [checkoverzicht](#beschikbare-projectchecks) samen bij. Geef aan wat detectie en autofix daadwerkelijk dekken en wat handmatig blijft. Verander je een algemene conventie, neem dan de regressietests en alle geraakte first-party code in dezelfde wijziging mee. De [documentatie-indeling](../../AGENTS.md#lint-documentation-maintenance) bepaalt waar nieuwe kennis thuishoort.
-
-Voeg tooltests toe die geldig en ongeldig gebruik, grensgevallen en de grenzen van de analyse controleren. Volg voor hun plaatsing en uitvoering de [testhandleiding](#tests-uitvoeren-en-uitbreiden). De tests gebruiken het echte library-entrypoint en de native configuratie. Wijzig je packaging, configuratie of de CLI-aanroep, test dan ook installatie, exitcodes, geladen regels en isolatie van persoonlijke opties vanuit een apart project.
-
-Voer tijdens het werk `bundle exec rake test:lint` uit en sluit af met de [volledige eindcontroles](#werkwijze-bij-een-wijziging). Tests van linteroutput mogen de parser gebruiken om geldige correcties te bewijzen; algemene module-, script- en monitoringtests blijven buiten deze testsuite. Voor autofix gelden de aanvullende criteria onder [Veilige autofixes ontwikkelen](#veilige-autofixes-ontwikkelen).
+Dit gedeelte beschrijft de lintarchitectuur, fixinteracties en testaanroepen. De [lokale instructies](AGENTS.md) regelen checkontwikkeling, veilige autofix en onderhoud van de configuratieroute. Gezamenlijke installatie, distributie en CI staan in de [toolinghandleiding](../README.md). Voor een gewone Puppet-wijziging volstaan de [werkwijze](#werkwijze-bij-een-wijziging) en de relevante codeafspraken.
 
 ### Technische werking van de checks
 
-De interne gem maakt de runtime-afhankelijkheden, laadpaden en gedeelde profielen beschikbaar aan andere projecten zonder dat zij onze ontwikkelbundle hoeven te gebruiken. De gem volgt de [RubyGems-libraryconventies](https://guides.rubygems.org/make-your-own-gem/): een entrypoint, eigen code onder `ProjectLint` en runtime-afhankelijkheden in de [gemspec](lint-project.gemspec). Het root-Gemfile en Rakefile blijven verantwoordelijk voor de ontwikkeling van alle repositorytools. Houd ontwikkelafhankelijkheden en orkestratie daar; een tweede ontwikkelbundle binnen de gem is niet nodig. Gebruik lokaal en in CI dezelfde Bundler-, Rake- en native CLI-routes. De [Bundler-documentatie](https://bundler.io/guides/git.html) beschrijft hoe dezelfde gem vanuit een checkout of Git-bron kan worden gebruikt.
+De interne gem maakt de runtime-afhankelijkheden, laadpaden en gedeelde profielen beschikbaar aan andere projecten zonder dat zij onze ontwikkelbundle hoeven te gebruiken. De gem volgt de [RubyGems-libraryconventies](https://guides.rubygems.org/make-your-own-gem/): een entrypoint, eigen code onder `ProjectLint` en runtime-afhankelijkheden in de [gemspec](lint-project.gemspec). Het root-Gemfile en Rakefile blijven verantwoordelijk voor de ontwikkeling van alle repositorytools. De [gedeelde ontwikkelinstructies](../AGENTS.md#responsibility-and-integration-review) regelen het onderhoud van deze packagegrenzen. De [Bundler-documentatie](https://bundler.io/guides/git.html) beschrijft hoe dezelfde gem vanuit een checkout of Git-bron kan worden gebruikt.
 
 ```text
 .tools/lint/
@@ -933,24 +914,21 @@ De interne gem maakt de runtime-afhankelijkheden, laadpaden en gedeelde profiele
 │       └── ...              # Gedeelde domeinlogica en complexe bronanalyse.
 ├── config/                  # Gedeeld Puppet-lint-profiel.
 ├── tests/                    # Gedragstests van deze gem.
-├── README.md                # Gebruik en onderhoud van de tooling.
+├── AGENTS.md                # Ontwikkelinstructies in de checkout.
+├── README.md                # Gebruik, architectuur en checkregister.
 └── docs/
     ├── CODE_RULES.md          # Algemene Puppet-coderegels en reviewcriteria.
     ├── DOCUMENTATION_RULES.md # Puppet-codecommentaar, Strings en interface-documentatie.
     └── OPERATIONAL_RULES.md   # Aanvullende operationele Puppet-regels.
 ```
 
-Puppet-lint blijft de lintengine. De checks gebruiken zijn tokens, `notify`, suppressions, `PuppetLint::NoFix`, `add_token` en `remove_token`. Geef deze native API’s voor registratie, configuratie, diagnostiek, suppressions en autofix voorrang op eigen infrastructuur. De native CLI bepaalt opties, manifestdetectie, rapportage, foutstatus en correcties. Eenvoudige tokenchecks, zoals de controle van Puppet-URLs, hebben geen AST nodig.
+Puppet-lint blijft de lintengine. De checks gebruiken zijn tokens, `notify`, suppressions, `PuppetLint::NoFix`, `add_token` en `remove_token`. De native CLI bepaalt opties, manifestdetectie, rapportage, foutstatus en correcties. Eenvoudige tokenchecks, zoals de controle van Puppet-URLs, hebben geen AST nodig.
 
 [`PuppetJunit`](lib/project_lint/puppet_junit.rb) verwerkt uitsluitend de native JSON-uitvoer voor de [JUnit-rapportage](#lintrapporten-maken). Het uitvoerbare commando `puppet-lint-junit` komt uit dezelfde gem. De omzetter gebruikt `builder` voor XML-escaping, neemt alleen diagnostische velden op en wijzigt geen lintconfiguratie. De [reportertests](tests/puppet_junit_test.rb) controleren geldige en ongeldige invoer, unieke testcases en foutdetails; de [pakkettest](tests/external_junit_test.rb) controleert de volledige pipe vanuit een onafhankelijk geïnstalleerde gem.
 
 [`JunitReport`](lib/project_lint/junit_report.rb) verwijst naar de gedeelde XML-schrijver in `project-tools-shared`. De zelfstandige [validatorgem](../validate/README.md) beheert parserorkestratie en de bijbehorende tests.
 
 [`Ast`](lib/project_lint/ast.rb) voegt alleen de structurele informatie van de OpenVox-parser toe: declaraties, expressies, resources en hun omliggende scopes. De tokenindexen van Puppet-lint leveren die volledige structuur niet. Alle structurele checks delen één AST voor de huidige lintinvoer; een nieuwe scan vervangt die analyse, ook bij gelijke tekst in een ander bestand. De analyse voert geen Puppet-functies of catalogi uit. Alleen echte `Puppet::ParseError`-meldingen worden omgezet naar een syntaxfout; programmeerfouten blijven fouten. Een onbekende constructie krijgt waar nodig een reviewmelding.
-
-Houd Ruby-helpers binnen `ProjectLint` met conventionele namespace-gebaseerde require-paden. Introduceer geen helperconstants op topniveau of veranderlijke configuratie die tijdens laden wordt vastgelegd.
-
-Gedeelde helpers beschrijven concrete begrippen, zoals resource-attributen, commentaargrenzen, variabeleafhankelijkheden en modulepaden. Checks met een complexe zelfstandige analyse, zoals backendherkomst of shellescaping, houden die analyse apart. Methoden die alleen een check ondersteunen staan bij die check. Een grotere analyse kan binnen hetzelfde bestand worden onderverdeeld, bijvoorbeeld in commentaaropmaak, regelbreedte en suppressions. Houd die onderdelen inhoudelijk samenhangend en blijf de bestaande RuboCop-regels volgen. Extraheer alleen bestaande gedeelde complexiteit of een substantiële zelfstandige analyse; houd eenvoudige checkspecifieke methoden bij hun check en voeg geen speculatieve abstracties toe.
 
 Het entrypoint laadt eerst `puppet-lint` en daarna de eigen checks. Gebruik daarom `--load` zoals in de voorbeelden, of `require 'project_lint'` vanuit Ruby. Automatische registratie van manifestchecks via `lib/puppet-lint/plugins/` wordt bewust niet gebruikt: Puppet-lint laadt gemplugins met `load`, in gemvolgorde. De externe trailing-comma-plugin bewaart oorspronkelijke tokenankers die referencefixes kunnen verwijderen. Door het projectentrypoint na de engine te laden, zijn de upstream-fixes al geregistreerd en blijven beide transformaties bruikbaar. De integratietests bewaken deze laadroute en herhaald laden veroorzaakt geen dubbele registraties. De [native API](https://puppet-lint.com/developer/api/) en de onderhouden [parameterplugin](https://github.com/voxpupuli/puppet-lint-param-types) zijn het uitgangspunt voor nieuwe checks; afhankelijkheden en hun werkelijk geïnstalleerde implementatie bepalen de grenzen van autofix.
 
@@ -989,29 +967,17 @@ Ontbreekt de toelichting bij de eerste variabele na `{`, dan kan de melding ook 
 
 `project_monitoring_backend` volgt de centrale packagewaarde door toekenningen en voorwaarden. Parameters die aantoonbaar als `package` worden doorgegeven aan een monitoringaanroep tellen ook mee. De check herkent lokale wrappers en statisch benoemde wrappers in het ingestelde modulepad, inclusief classes via `include`, `contain` en `require`. Hij meldt de oorspronkelijke backendselectie één keer, ook als meerdere aanroepen ervan afhangen. Gewone pakketkeuzes zonder die relatie vallen buiten de check; `monitoring_custom` zelf blijft verantwoordelijk voor de concrete backendimplementatie.
 
-### Veilige autofixes ontwikkelen
-
-Begin bij de gebruikte bundle: controleer `bundle exec puppet-lint --no-config --config .puppet-lint.rc --version` en bekijk de implementatie met `bundle show puppet-lint`. Gebruik bestaande checks en veilige correcties van Puppet-lint, geïnstalleerde plugins en projectchecks. Dupliceer ondersteunde detectie of correctie niet handmatig of in een apart hulpmiddel.
-
-Gebruik voor Puppet-code uitsluitend het native `puppet-lint`-fixmechanisme; bouw geen aparte formatter of autofixengine. Iedere custom fix moet idempotent zijn en voldoet aan de [correctieveiligheid in de dagelijkse werkwijze](#werkwijze-bij-een-wijziging): veilig, deterministisch en binnen scope, met behoud van functioneel gedrag, Puppet-relaties, dependencies en configuratie.
-
-Werk de [autofixbeoordeling bij checkontwikkeling](#een-check-toevoegen-of-wijzigen) uit voor de hele constructie die je wijzigt; alleen de gemelde regel bekijken is niet voldoende. Behoud bij de bronbewerking ook commentaar. Controleer dat het resultaat geldige Puppet-code is en dat dezelfde regel na de correctie geen melding meer geeft.
+### Autofixinteracties
 
 `project_guarded_packages` gebruikt de gedeelde AST voor guards, scopes en attribuutvergelijking. De tokenanalyse bepaalt alleen de te vervangen gebieden en de concrete opmaak. De fix draait na die van de bestaande checks en leest de actuele attribuuttokens, zodat eerdere quote- en kommafixes behouden blijven. De [voorwaarden voor packagegroepen](docs/OPERATIONAL_RULES.md#pakketten-en-mappen) beschrijven wanneer het vervangingsplan wordt geweigerd. De diagnose noemt de packagenamen en geeft controltekens met escapes weer; attribuutwaarden en AST-objecten worden niet aan de melding toegevoegd.
 
-Implementeer `fix(problem)` naast `check` in de betreffende `ProjectLint::Checks`-module. Registreer die module in hetzelfde bestand met `PuppetLint.new_check(:project_...) { include CheckModule }`, zoals de bestaande checks doen. Bewaar tijdens `check` de betrokken tokenobjecten en de voorwaarden voor correctie. Geef de melding een index naar die context, zoals de bestaande projectchecks doen, zodat JSON-diagnostiek geen bronwaarden bevat. Controleer alle voorwaarden voordat je tokens wijzigt. Gebruik `PuppetLint::NoFix` wanneer die voorwaarden niet gelden; Puppet-lint behoudt dan de oorspronkelijke melding.
+Puppet-lint voert eerst alle checks uit en daarna de fixes. Tokens kunnen daardoor al gewijzigd of verwijderd zijn wanneer een latere fix begint. De parameteruitlijning vernieuwt vlak vóór haar fixes de meldingen op de bewaarde tokens via de native `run`-methode: een eerdere komma- of tabcorrectie kan de breedte van een type veranderen. De documentatiecheck leest na parameterordening en commentopmaak opnieuw de actuele commenttokens, zodat beschrijvingen en ingevoegde scheidingsregels correct meeverhuizen. De native afhandeling van `lint:ignore` en `fix(problem)` blijft daarbij actief.
 
-Gebruik `add_token`, `remove_token` en de eigenschappen van bestaande tokens voor de correctie. Hergebruik tokens die andere checks ook kunnen aanpassen en bepaal benodigde afstanden uit de actuele tokeninhoud. Regel- en kolomnummers blijven tijdens de fixfase bij de oorspronkelijke bron horen. De gedeelde helpers in [`TokenHelpers`](lib/project_lint/token_helpers.rb) ondersteunen tokengebieden en witruimte; zij parsen of herschrijven geen volledig bestand.
-
-Puppet-lint voert eerst alle checks uit en daarna de fixes. Houd daarom rekening met eerder gewijzigde of verwijderde tokens. De parameteruitlijning vernieuwt vlak vóór haar fixes de meldingen op de bewaarde tokens via de native `run`-methode: een eerdere komma- of tabcorrectie kan de breedte van een type veranderen. De documentatiecheck leest na parameterordening en commentopmaak opnieuw de actuele commenttokens, zodat beschrijvingen en ingevoegde scheidingsregels correct meeverhuizen. De native afhandeling van `lint:ignore` en `fix(problem)` blijft daarbij actief. Een correctie over meerdere regels moet ook controleren of zij een genegeerd deel zou veranderen.
-
-Voeg volgens de [testhandleiding](#tests-uitvoeren-en-uitbreiden) regressietests toe voor detectie zonder wijziging, exacte uitvoer, een schone hercontrole en een ongewijzigde tweede fixrun. Test ook ongeschikte invoer, genegeerde meldingen, comments, strings, meerdere problemen, geneste constructies en samenwerking met de actieve upstream-checks. Test de native CLI op tijdelijke bestanden om de schrijfhandeling en exitcodes te controleren, inclusief selectie via configuratie, gedeeltelijke correcties en onveilige gevallen. Beschouw autofix pas als ondersteund wanneer die normale `--fix`-aanroep aantoonbaar de bedoelde wijzigingen schrijft en de hercontrole de opgeloste melding niet meer geeft. Parservalidatie van de geproduceerde uitvoer hoort bij het fixcontract; een algemene syntaxsuite voor modules hoort niet bij deze tooltests.
-
-De normale CLI-aanroep en CI blijven alleen controleren. Schakel `fix` uitsluitend in bij een expliciete correctiestap en voeg geen tweede formatter of automatische commitstap toe.
+De [ontwikkelinstructies](AGENTS.md#safe-autofix-development) leggen vast hoe je deze interacties bij een wijziging beoordeelt en verifieert.
 
 ### Tests uitvoeren en uitbreiden
 
-Alle lintertests staan onder [`.tools/lint/tests/`](tests), inclusief tests voor CLI, rapportage en gebruik vanuit andere projecten. Bewaar ook hun helpers en fixtures daar. De [projectbrede testscope](../../AGENTS.md#test-scope) bepaalt welk gedrag in repositorytests thuishoort.
+Alle lintertests staan onder [`.tools/lint/tests/`](tests), inclusief tests voor CLI, rapportage en gebruik vanuit andere projecten. De [projectbrede testscope](../../AGENTS.md#test-scope) bepaalt welk gedrag in repositorytests thuishoort.
 
 Voer tests uit vanuit de repositoryroot, na [installatie van de ontwikkelbundle](#gems-installeren):
 
@@ -1024,7 +990,7 @@ bundle exec rake test:lint
 
 De [gezamenlijke testtaken](../README.md#gezamenlijke-tooltests) beheren discovery, rapportbestemming en reporterlevenscyclus voor alle tools en repositorycontroles. De lint-testhelper laadt de [gedeelde bootstrap](../shared/README.md#testondersteuning) en voegt de native lintconfiguratie toe. De [teststructuurcontrole](../repository-checks/tests/test_structure_test.rb) bewaakt dat `test:lint` alleen lintertests selecteert.
 
-Een gewone checktest erft rechtstreeks van `Minitest::Test` en gebruikt [`test_helper.rb`](tests/test_helper.rb) voor de native lintaanroep. Zet korte Puppet-invoer en verwachte meldingen in de test zelf. De gedeelde `findings`-helper selecteert één regel via de publieke configuratie en herstelt die configuratie na de aanroep. Er zijn geen gespecialiseerde testbasisklassen of fixtures die op de naam van de testmethode worden opgezocht.
+Een gewone checktest erft rechtstreeks van `Minitest::Test` en gebruikt [`test_helper.rb`](tests/test_helper.rb) voor de native lintaanroep. De gedeelde `findings`-helper selecteert één regel via de publieke configuratie en herstelt die configuratie na de aanroep. Er zijn geen gespecialiseerde testbasisklassen of fixtures die op de naam van de testmethode worden opgezocht.
 
 ```ruby
 require_relative 'test_helper'
@@ -1041,13 +1007,11 @@ class ArraysTest < Minitest::Test
 end
 ```
 
-Gebruik `assert_fix(before, after, :project_check_name)` voor detectie, exacte correctie, parservalidatie van de gecorrigeerde uitvoer, een schone hercontrole en een ongewijzigde tweede fixrun. Controleer onveilige constructies ook met `fix: true`: hun invoer moet behouden blijven. De tests voor [referencefixes](tests/reference_merging_test.rb) en [documentatie](tests/documentation_structure_test.rb) laten beide kanten zien. De [interactietests](tests/cross_check_autofix_test.rb) controleren gedeelde tokengebieden met meerdere checks.
+`assert_fix(before, after, :project_check_name)` controleert detectie, exacte correctie, parservalidatie, een schone hercontrole en een ongewijzigde tweede fixrun. De [referencefixes](tests/reference_merging_test.rb), [documentatietests](tests/documentation_structure_test.rb) en [interactietests](tests/cross_check_autofix_test.rb) laten het gebruik zien; de [lokale testinstructies](AGENTS.md#test-maintenance) bepalen de verplichte dekking bij wijzigingen.
 
 De `cli_*_test.rb`-bestanden controleren native bestandsuitvoer, exitcodes, configuratie en suppressions. [`external_project_test.rb`](tests/external_project_test.rb) bouwt en installeert de echte `.gem` in een tijdelijk project met een eigen bundle. [`external_isolation_test.rb`](tests/external_isolation_test.rb) controleert dat lint zonder metadata werkt, metadata niet wijzigt en geen andere zelfstandige tools installeert. De tests gebruiken reeds geïnstalleerde dependencies en `bundle install --local`; ze hebben geen netwerk, productiegegevens of beheerde hosts nodig. Grotere of hergebruikte Puppet-fragmenten staan als afzonderlijke `.pp`-fixtures bij de tests. De expliciete `fixture`-aanroep wijst naar dat bestand; `fixture_set` leest een benoemde verzameling en faalt als die leeg is. Korte invoer staat direct in Ruby. De CLI-tests hebben daarnaast synthetische Ruby-invoer voor het laden van plugins en persoonlijke configuratie.
 
-Onderzoek een fout eerst bij de vermelde input en assertion. Voer de betreffende test tijdens het ontwikkelen apart uit, bijvoorbeeld `bundle exec ruby .tools/lint/tests/reference_merging_test.rb`, en sluit af met alle tooltests. Voor de GitHub-uitvoervorm kun je `GITHUB_ACTION=synthetic_test bundle exec rake test` gebruiken; diagnostiektellingen moeten in beide uitvoervormen gelijk blijven.
-
-Test uitsluitend de toolcontracten. Puppet-fragmenten om een lintmelding of autofix te controleren horen hier wel thuis; algemene module-, catalogus-, template-, script- en monitoringtests niet. Gebruik daarvoor bestaande validators en tijdelijke controles buiten de repository, volgens [de testscope](../../AGENTS.md#test-scope). Bewaar een fixture alleen als een groter of hergebruikt scenario daarmee duidelijker wordt.
+Voor één testbestand kun je bijvoorbeeld `bundle exec ruby .tools/lint/tests/reference_merging_test.rb` gebruiken. `GITHUB_ACTION=synthetic_test bundle exec rake test` toont de GitHub-uitvoervorm. De [testscope](../../AGENTS.md#test-scope) bepaalt welk gedrag in repositorytests thuishoort.
 
 ### Versies bijwerken
 
@@ -1069,7 +1033,7 @@ Zie de [gezamenlijke toolinghandleiding](../README.md#junit-rapportage-instellen
 
 Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [`AGENTS.md`](../../AGENTS.md#markdown). Het onderstaande schema bepaalt welke informatie iedere Puppet-regel daarnaast moet bevatten.
 
-Iedere onafhankelijke Puppet-regel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Gebruik de onderstaande velden exact in deze volgorde; laat geen veld leeg. Laat verplichte velden niet weg en hernoem of combineer ze niet, tenzij de eigenaar expliciet om een schemawijziging vraagt. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
+Iedere onafhankelijke Puppet-regel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Het schema bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](AGENTS.md#documentation-changes-and-verification) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
 
 ```markdown
 **Norm**
@@ -1099,19 +1063,13 @@ Formuleer toepasselijkheid en vereiste actie rechtstreeks. Behoud of bestaand be
 
 Beschrijf bij `Verificatie` hoe de lezer het contract controleert en welke tests dat gedrag bewaken. Bewaar concrete uitvoeringsresultaten, tijdelijke bevindingen en open beslispunten bij de betreffende wijzigingsreview of het uitvoeringsrapport, volgens de [centrale documentatieafspraken](../../AGENTS.md#durable-documentation). Houd een noodzakelijke beperking of workaround daarnaast vindbaar bij de betrokken gebruiksinstructie.
 
-Label voorbeelden als `Fragment`, `Volledig uitvoerbaar voorbeeld` of `Handmatig reviewscenario`. Een fragment kan uitsluitend voor benoemde checks groen zijn. Controleer juiste en onjuiste varianten, elke uitzonderings- en begrenzingscategorie, exacte fixes, hercontrole en een ongewijzigde tweede fixrun. Volledige voorbeelden slagen onder het volledige benoemde profiel. Handmatige normen benoemen de concrete reviewstappen en beoordelingscriteria.
+Label voorbeelden als `Fragment`, `Volledig uitvoerbaar voorbeeld` of `Handmatig reviewscenario`. Een fragment kan uitsluitend voor benoemde checks groen zijn. Volledige voorbeelden slagen onder het volledige benoemde profiel. Handmatige normen benoemen de concrete reviewstappen en beoordelingscriteria.
 
-Het centrale projectcheckregister staat uitsluitend in deze README, tussen `<!-- BEGIN PROJECT CHECK REGISTRY -->` en `<!-- END PROJECT CHECK REGISTRY -->`. Gebruik exact de kolommen `Check`, `Actief in repositoryprofiel`, `Actief in gedeeld profiel`, `Meldingsvarianten`, `Autofix` en `Regeluitleg`. Iedere geregistreerde projectcheck heeft één rij; controleer ontbrekende, onbekende en dubbele namen afzonderlijk. Verifieer runtimeregistratie, profielactivatie, diagnostische dekking en regelverwijzingen als afzonderlijke eigenschappen. Classificeer de fixdekking per variant, niet op grond van alleen een aanwezige fixmethode. Gemengde fixdekking heet `Per meldingsvariant` en verwijst naar de uitwerking in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md`. Regelverwijzingen uit het register wijzen rechtstreeks naar de betreffende autoritatieve headings. Maak geen tweede register in een regelsbestand.
+Het centrale projectcheckregister staat uitsluitend in deze README, tussen `<!-- BEGIN PROJECT CHECK REGISTRY -->` en `<!-- END PROJECT CHECK REGISTRY -->`. Gebruik exact de kolommen `Check`, `Actief in repositoryprofiel`, `Actief in gedeeld profiel`, `Meldingsvarianten`, `Autofix` en `Regeluitleg`. Iedere geregistreerde projectcheck heeft één rij. Fixdekking beschrijft de afzonderlijke meldingsvarianten. Gemengde fixdekking heet `Per meldingsvariant` en verwijst naar de uitwerking in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md`. Regelverwijzingen uit het register wijzen rechtstreeks naar de betreffende autoritatieve headings. Maak geen tweede register in een regelsbestand.
 
-Werk bij gewijzigde checks, diagnostics, severity, defaults, autofixes, suppressions, configuratie, dependencies, reporters of consumerinterfaces de betrokken regelvelden in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` en `docs/OPERATIONAL_RULES.md`, registerrijen en procedures in deze README, implementatie en tooltests samen bij. Onderbouw een conclusie zonder documentatie-impact met de daadwerkelijk beoordeelde interfaces. Controleer versieclaims tegen de gedeclareerde constraints en opgeloste dependencies. Houd gedeclareerde compatibiliteit, geïnstalleerde versies, werkelijk geteste combinaties en ontwikkelbeleid afzonderlijk.
+Vóór ieder procedureblok staan `Werkmap`, `Shell`, `Vereisten`, `Invoer`, `Wijzigt bestanden` en `Verwacht resultaat`. Variabelen en vervangbare paden zijn vooraf gedefinieerd; een gewijzigde context heeft een nieuw contextblok.
 
-Verifieer gewijzigde configuratie-instructies tegen de geïnstalleerde CLI, loader en tooltests. Bepaal prioriteit per optietype; ga er niet van uit dat iedere latere waarde de eerdere vervangt. Test gewijzigde downstreamprocedures in een onafhankelijk consumerproject met eigen Gemfile, lockfile, lokale configuratie en manifestselectie. Valideer iedere beschreven installatieroute afzonderlijk, inclusief het gebouwde pakket wanneer dat wordt gedistribueerd; een geslaagde path-installatie bewijst geen Git- of pakketinstallatie. Controleer succesvolle en mislukte commando’s, numerieke exitstatus en rapportproductie. Een geslaagde rapportconversie mag een mislukte lint- of validatierun niet verbergen.
-
-Vermeld vóór ieder procedureblok `Werkmap`, `Shell`, `Vereisten`, `Invoer`, `Wijzigt bestanden` en `Verwacht resultaat`. Definieer alle variabelen en vervangbare paden vooraf. Bij gewijzigde context begint een nieuw contextblok. Behoud headingankers zonder dubbele id's en werk inkomende links bij wanneer de doelheading tussen de vier bestanden verhuist. Leg verplaatste, samengevoegde en gecorrigeerde verplichtingen, uitzonderingen, waarschuwingen en gebruiksroutes met hun vorige en nieuwe locatie en bewijs vast in de oplevering, niet in een nieuw repositorydocument. Automatische tests bewaken inventarissen, links en uitvoercontracten; inhoudsbehoud en begrijpelijkheid blijven handmatige review volgens de [documentatiereview](../../AGENTS.md#lint-documentation-maintenance). Verander lintgedrag of een norm niet om een documentatieverschil weg te werken; beschrijf de norm en het waargenomen gedrag afzonderlijk wanneer de bedoelde oplossing nog niet vaststaat.
-
-De lintnormen en lintspecifieke procedures staan in exact deze README, `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` en `docs/OPERATIONAL_RULES.md`. Houd lintspecifieke procedures en het centrale checkregister hier, algemene Puppet-regels in `docs/CODE_RULES.md`, regels voor Puppet-codecommentaar, Puppet Strings en interface-documentatie in `docs/DOCUMENTATION_RULES.md` en aanvullende operationele regels in `docs/OPERATIONAL_RULES.md`. De [structuurtest](tests/guide_structure_test.rb) controleert deze indeling en bewaakt dat ieder bestand afzonderlijk strikt kleiner blijft dan 300 KiB (307200 bytes). De foutmelding noemt het bestand, de actuele grootte en de projectlimiet. De [documentatiecontracttest](tests/guide_contract_test.rb) bewaakt daarnaast de registratie, regelverwijzingen en verplichte velden in de drie regelsbestanden. Beide tests beoordelen het contract; ze wijzigen geen documentatie.
-
-Controleer bij een overschrijding eerst of informatie volgens het autoriteitsmodel in een van de andere drie documenten thuishoort. Verwijder of verkort geen noodzakelijke verdieping, voorbeelden of voorwaarden en combineer geen onafhankelijke regels uitsluitend om ruimte te besparen. Maak niet automatisch een vijfde lintdocument. De [gezamenlijke toolinghandleiding](../README.md) en de packagehandleidingen voor shared en dependencycontrole beheren uitsluitend hun eigen interfaces, geen lintnormen. Is de verdeling correct en verdere opsplitsing nodig, behandel dat dan als een afzonderlijke, expliciet te beoordelen architectuurwijziging.
+De [inventaristest](tests/guide_inventory_test.rb) bewaakt de vier centrale documenten en de afzonderlijke lokale ontwikkelinstructie. De [structuurtest](tests/guide_structure_test.rb) controleert unieke normeigenaars, navigatie en de documentlimieten uit de [lokale onderhoudsafspraken](AGENTS.md#lint-documentation-boundaries). De [documentatiecontracttest](tests/guide_contract_test.rb) controleert daarnaast registratie, regelverwijzingen en verplichte velden. Deze tests beoordelen het contract zonder documentatie te wijzigen. De [onderhoudsinstructies](AGENTS.md#documentation-changes-and-verification) verbinden wijzigingen aan documentatie, implementatie, profielen en regressietests.
 
 ## Problemen oplossen
 

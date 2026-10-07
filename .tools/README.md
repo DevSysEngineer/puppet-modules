@@ -2,6 +2,8 @@
 
 Gebruik één ontwikkelbundle met afzonderlijke tools voor Puppet-lint, Ruby-lint, metadata, parservalidatie en moduledependencies. Iedere tool heeft een eigen commando en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
 
+Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelinstructies](AGENTS.md), met de index naar ieder component. Installatie en gebruik staan in deze handleiding.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
@@ -55,7 +57,7 @@ De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebru
 
 Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependencies, configuratie, correcties, rapport en gedragstests. Puppet-lint corrigeert Puppet-invoer; metadatawijzigingen vereisen het metadatacommando. Ruby-lint gebruikt de native RuboCop-CLI en formatter. Een gezamenlijke bundle of CI-setup maakt deze tools niet afhankelijk van elkaar.
 
-Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. Houd gedeelde instellingen, taken en rapportlocaties neutraal benoemd; leg toolspecifieke instellingen bij hun eigenaar vast. Pas bij een verplaatsing ook consumerinstallatie, CI, rapporten en documentatie samen aan.
+Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. De [ontwikkelinstructies](AGENTS.md#responsibility-and-integration-review) regelen review en onderhoud over deze grenzen heen.
 
 ### CLI en rapportage
 
@@ -65,7 +67,7 @@ Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapp
 
 Gebruik bestaande native commando’s en hun uitvoeropties wanneer die de controle al aanbieden. Puppet-lint en RuboCop hebben hun eigen CLI en correctieopties; `puppet parser validate` biedt syntaxvalidatie zonder rapport. Voeg daarvoor geen gelijknamige projectwrapper of uniforme set opties toe. Een aparte converter of rapportagevariant mag een uitvoerformaat in zijn naam en een verplicht rapportpad hebben: `puppet-lint-junit` zet bestaande JSON-uitvoer om, terwijl `validate-junit` native parserresultaten per manifest verzamelt. Documenteer bij zo’n variant ook het gewone commando zonder rapport.
 
-Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. Leg dit vast in gedragstests bij de tool: geslaagde en afgekeurde controles met en zonder rapport, herstel zonder rapport indien ondersteund, geen rapportwijzigingen zonder verzoek en behoud van de foutstatus bij rapportageproblemen. Controleer daarnaast de geïnstalleerde CLI en werk voorbeelden, CI en consumermigratie samen bij wanneer het commando verandert.
+Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. De [ontwikkelinstructies](AGENTS.md#responsibility-and-integration-review) bepalen welke gedragstests en integratiecontroles dit contract bij wijzigingen bewaken.
 
 ### Joblogs
 
@@ -1195,7 +1197,7 @@ MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests bundle exec rake test
 
 De reporter maakt de opgegeven map aan en vervangt alleen `TEST-*.xml`; andere rapporten blijven staan. Testklassen hebben unieke namen, zodat bestanden niet worden overschreven. Een mislukte test houdt zijn foutstatus, met of zonder rapport. Een fout bij het schrijven van een gevraagd rapport geeft eveneens een foutstatus.
 
-De shared-tests controleren paden, XML, laadbijwerkingen en de gedeelde testbootstrap. Repositorycontroles bewaken documentatienavigatie, CI, package-integratie en testindeling. Metadata- en Ruby-tests bewaken hun eigen CLI, correcties, rapporten en onafhankelijke installatie. De linkcontrole verifieert lokale doelen en ankers en meldt vaste repository-URL’s in Markdown volgens de [documentatieafspraken](../AGENTS.md#markdown). Dependencytests controleren synthetische selectie, rootvoorwaarden, runtime-isolatie, presentatie, package-inhoud en afzonderlijke installatie. Validatortests controleren native parseruitvoering, selectie, foutstatus, bronbehoud en afzonderlijke installatie. Linttests bewaren de bestaande lint-CLI-, autofix- en packagecontracten. Controleer aantallen en gerichte taken: een geslaagde run met nul tests is onvoldoende. [Lintontwikkeling](lint/README.md#tests-uitvoeren-en-uitbreiden) houdt zijn eigen instructies.
+De shared-tests controleren paden, XML, laadbijwerkingen en de gedeelde testbootstrap. Repositorycontroles bewaken documentatienavigatie, CI, package-integratie en testindeling. Metadata- en Ruby-tests bewaken hun eigen CLI, correcties, rapporten en onafhankelijke installatie. De linkcontrole verifieert lokale doelen en ankers en meldt vaste repository-URL’s in Markdown volgens de [documentatieafspraken](../AGENTS.md#markdown). Dependencytests controleren synthetische selectie, rootvoorwaarden, runtime-isolatie, presentatie, package-inhoud en afzonderlijke installatie. Validatortests controleren native parseruitvoering, selectie, foutstatus, bronbehoud en afzonderlijke installatie. Linttests bewaren de bestaande lint-CLI-, autofix- en packagecontracten. Het [testonderhoud](AGENTS.md#tool-test-structure) bewaakt plaatsing, discovery en dekking; de [lintgids](lint/README.md#tests-uitvoeren-en-uitbreiden) beschrijft zijn eigen testaanroepen.
 
 ### Versies bijwerken
 

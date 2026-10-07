@@ -20,7 +20,7 @@ bundle exec rake test:repository_checks
 
 ## Onderhoud
 
-Werk bij wijzigingen aan workflow, package-indeling, instructies of documentatielinks de bijbehorende tests hier bij. De linkcontrole volgt de [Markdownafspraken](../../AGENTS.md#markdown): repositorylinks zijn relatief, ook in voorbeelden en meegedistribueerde Markdown. Vaste repository- of branch-URL’s maken een checkout afhankelijk van een andere bron en horen daar niet thuis.
+De [lokale ontwikkelinstructies](AGENTS.md) regelen onderhoud van workflow-, package-, instructie- en documentatiecontroles. De link- en navigatiecontroles nemen ook nieuwe, niet-gecommitte Markdown mee en bewaken de instructieketen van root via tooling naar de componenten, met terugverwijzingen en eigen README’s. Zij volgen de [Markdownafspraken](../../AGENTS.md#markdown): repositorylinks zijn relatief, ook in voorbeelden en meegedistribueerde Markdown. Vaste repository- of branch-URL’s maken een checkout afhankelijk van een andere bron en horen daar niet thuis.
 
 De distributietests gebruiken onafhankelijke consumerbundles en controleren de pathbron en Git-gemspecselectie. De Git-test gebruikt de huidige werkbestanden via een lokale Bundler-override, zonder commits te maken. Zij bewijst geen externe bereikbaarheid of installatie van een nog niet gepubliceerde revisie. De YAML-tests controleren configuratiecontracten; zij voeren GitHub of GitLab niet uit. De parser-Rake-tests controleren de repositorytaak en het consumervoorbeeld met synthetische manifests: bestandsselectie, dezelfde succes- en foutstatus met en zonder rapport, behoud van bestaande rapporten, lege selecties en rapportagefouten.
 

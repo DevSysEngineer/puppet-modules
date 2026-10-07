@@ -8,7 +8,7 @@ class GuideNavigationTest < Minitest::Test
 
   def test_local_instructions_link_the_workflow_and_rule_owners
     instructions = File.read(File.join(ROOT, 'AGENTS.md'))
-    assert_includes instructions, '(../../AGENTS.md)'
+    %w[../../AGENTS.md ../AGENTS.md README.md].each { |path| assert_includes instructions, "(#{path})" }
     %w[instellingen-bij-hun-eigenaar-houden packageafhankelijkheden-bij-externe-commandos].each do |anchor|
       assert_includes instructions, "(docs/CODE_RULES.md##{anchor})"
     end
@@ -17,6 +17,17 @@ class GuideNavigationTest < Minitest::Test
        vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden].each do |anchor|
       assert_includes instructions, "(docs/OPERATIONAL_RULES.md##{anchor})"
     end
+  end
+
+  def test_lint_maintenance_is_owned_locally_and_linked_from_the_usage_guide
+    instructions = File.read(File.join(ROOT, 'AGENTS.md'))
+    guide = File.read(File.join(ROOT, 'README.md'))
+    %w[check-development safe-autofix-development lint-documentation-boundaries
+       documentation-changes-and-verification].each do |anchor|
+      assert_includes guide, "(AGENTS.md##{anchor})"
+    end
+    assert_includes instructions, '(README.md#documentatiecontract-voor-maintainers)'
+    assert_includes instructions, '(README.md#beschikbare-projectchecks)'
   end
 
   def test_workflow_navigation_links_to_the_owning_operational_rules
