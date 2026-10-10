@@ -1,135 +1,157 @@
-# @summary Creates, updates, or removes a MySQL user account.
+# @summary Creates, updates, or removes a MySQL user account using private credential input.
 #
-# This defined type manages a MySQL account through SQL commands using the defaults file prepared by the `mysql` class.
-# It handles MySQL version-specific password syntax and performs credential checks through root-only temporary files for
-# MySQL 8 style authentication.
+# Declare mysql before this defined type. The helper uses the parent's administrative defaults file and service.
+# Desired credentials and SQL stay in root-only files under /usr/local/lib/puppet/mysql-users, without Puppet file
+# backups or diffs. Removing an account deletes its secret inputs and confirmation record, but keeps the shared helper.
+# Root rotation selects working desired credentials before inspecting accounts, then falls back to existing management
+# credentials. Other accounts wait for the managed root configuration. Missing management access stops all mutations.
+# Local password checks exclude login-path overrides and require a password authentication plugin. Remote accounts
+# cannot be authenticated from the local socket: their first application sets the password and records the input digest
+# and server authentication state. Subsequent runs compare both; an external password change invalidates that record.
 #
-# @example Create a MySQL application user
+# @example Create a MySQL application user after declaring mysql
 #   mysql::user { 'app':
 #     ensure   => present,
+#     password => Sensitive('replace-with-app-password'),
 #     username => 'app',
-#     password => lookup('mysql::app_password'),
 #   }
 #
 # @param ensure
-#   Creates or updates the user when `present`; drops it when `absent`.
+#   Creates or updates the user when `present`; drops it and removes private credential inputs when `absent`.
 #
 # @param password
-#   Password assigned to the MySQL user. This parameter is currently a plain string and should be supplied carefully
-#   from trusted profile data.
+#   Required Sensitive string, including when ensure is absent. Empty passwords retain their existing meaning.
+#   NUL is rejected before applying a catalog because the MySQL client cannot pass it intact. Other characters are
+#   encoded separately for SQL and MySQL option files. Plain strings are rejected; convert Hiera lookups at their keys.
 #
 # @param username
-#   MySQL username to manage.
+#   MySQL username to manage. The username and hostname together identify the account and its private input files.
 #
 # @param hostname
-#   MySQL host part for the account. The default is `localhost`.
+#   MySQL host part for the account. The default is `localhost`; this is an account selector, not a connection endpoint.
 #
 # @param password_latency
 #   Selects the MySQL 8 password storage path. Use `authentication_string` for legacy `mysql_native_password`; the
-#   default uses MySQL's default method.
+#   default uses MySQL's default method. MySQL 5.7 uses mysql_native_password; older versions retain SET PASSWORD.
+#   The requested plugin must already be available; MySQL 8.4 does not enable mysql_native_password automatically.
 #
 # @api public
 define mysql::user (
   Enum['present', 'absent'] $ensure,
-  String                    $password,
+  Sensitive[String]         $password,
   String                    $username,
   String                    $hostname         = 'localhost',
   String                    $password_latency = 'password',
 ) {
-  # Require the MySQL parent before managing database accounts through its service.
+  # The parent supplies the service, client packages and shared helper before account management.
   if (defined(Class['mysql'])) {
-    # Set requirements
-    Exec {
-      require => [Service['mysql'], File[$mysql::script_path]],
+    # Hash the serialized identity so neither path separators nor ambiguous account joins can alias input files.
+    $account_id = sha256(to_json([$username, $hostname]))
+    $input_base = "${mysql::user_input_dir}/${account_id}"
+    $input_files = ["${input_base}.cnf", "${input_base}.create.sql", "${input_base}.alter.sql"]
+
+    # The class-owned root account must run before the new management configuration is published.
+    $root_account = $username == 'root' and $hostname == 'localhost' and $mysql::root_password != undef
+    if ($mysql::root_password != undef and !$root_account) {
+      # Ordinary accounts use the completed root rotation, including recovery from an interrupted run.
+      $config_require = [File['mysql_debian_cnf']]
+    } else {
+      # Root itself and unmanaged-root installations retain their existing administrative input.
+      $config_require = []
     }
 
-    # Escape MySQL command arguments before using them in exec commands and guards.
-    $defaults_file_shell = stdlib::shell_escape($mysql::defaults_file)
-    $username_shell = stdlib::shell_escape($username)
-    $hostname_shell = stdlib::shell_escape($hostname)
-    $user_host_pattern_shell = stdlib::shell_escape("${username}\\s${hostname}")
-    $list_users_query_shell = stdlib::shell_escape('SELECT user,host from mysql.user;')
-
-    # Check if mysql version is 5.7, 8.0, 8.4
+    # Select SQL syntax and plugin requirements once for the helper and SQL rendering.
     case $mysql::version {
       5.7: {
-        # Use the MySQL 5.7 authentication column and update syntax.
-        $password_field = 'authentication_string'
-        $password_command = "UPDATE mysql.user SET plugin='mysql_native_password', authentication_string = PASSWORD('${password}'), password_expired = 'N' WHERE User = '${username}' AND Host = '${hostname}';" # lint:ignore:140chars
-
-        # Escape the password check query and guard script before passing them to bash -c.
-        $password_check_query_shell = stdlib::shell_escape("select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');") # lint:ignore:140chars
-        $password_check_script_shell = stdlib::shell_escape("[ \$(/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${password_check_query_shell}) != \"0\" ]") # lint:ignore:140chars
-        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
+        # MySQL 5.7 retains native authentication while using log-redactable account statements.
+        $authentication = 'mysql_native_password'
       }
       8.0, 8.4: {
-        # Select the requested authentication compatibility mode for MySQL 8 accounts.
-        if ($password_latency == 'authentication_string') {
-          # Use mysql_native_password instead off caching_sha2_password due to old packages non supported
-          $password_field = 'authentication_string'
-          $password_command = "ALTER USER '${username}'@'${hostname}' IDENTIFIED WITH mysql_native_password BY '${password}';"
-        } else {
-          # Use default caching_sha2_password method for saving password
-          $password_field = 'password'
-          $password_command = "ALTER USER '${username}'@'${hostname}' IDENTIFIED BY '${password}';"
+        # Only the explicit compatibility selection requests the native authentication plugin.
+        $authentication = $password_latency ? {
+          'authentication_string' => 'mysql_native_password',
+          default                 => 'default',
         }
-
-        # Verify credentials through a root-only temp dir so the password check leaves no shared /tmp files behind.
-        # Escape credential-check values before building the root-only temp config script.
-        $password_config_shell = stdlib::shell_escape("[client]\npassword=${password}")
-        $current_user_query_shell = stdlib::shell_escape('SELECT CURRENT_USER()')
-        $current_user_expected_shell = stdlib::shell_escape("${username}@${hostname}")
-        $password_check_script = "umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; /usr/bin/printf %s ${password_config_shell} > \"\$tmpdir/mysql.cnf\"; current_user=\$(/usr/bin/mysql --defaults-file=\"\$tmpdir/mysql.cnf\" -u ${username_shell} -NBe ${current_user_query_shell} 2>/dev/null); [ \"\$current_user\" = ${current_user_expected_shell} ]" # lint:ignore:140chars
-
-        # Escape the complete credential-check script before passing it to bash -c.
-        $password_check_script_shell = stdlib::shell_escape($password_check_script)
-        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
       }
       default: {
-        # Use the legacy password column and SET PASSWORD syntax on the remaining version path.
-        $password_field = 'password'
-        $password_command = "SET PASSWORD FOR '${username}'@'${hostname}' = PASSWORD('${password}');"
-
-        # Escape the password check query and guard script before passing them to bash -c.
-        $password_check_query_shell = stdlib::shell_escape("select COUNT(*) from mysql.user where user='${username}' and ${password_field}=PASSWORD('${password}');") # lint:ignore:140chars
-        $password_check_script_shell = stdlib::shell_escape("[ \$(/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${password_check_query_shell}) != \"0\" ]") # lint:ignore:140chars
-        $unless_field = "/usr/bin/bash -c ${password_check_script_shell}"
+        # Preserve the password column and SET PASSWORD statement for older servers.
+        $authentication = 'legacy'
       }
     }
 
-    # Run query
-    case $ensure {
-      'present': {
-        # Escape user-management queries before passing them to mysql -e.
-        $create_user_query_shell = stdlib::shell_escape("CREATE USER '${username}'@'${hostname}';")
-        $password_command_shell = stdlib::shell_escape("${password_command} FLUSH PRIVILEGES;")
+    # Encode all non-secret helper arguments at the shell boundary.
+    $script_shell = stdlib::shell_escape($mysql::user_script_path)
+    $defaults_shell = stdlib::shell_escape($mysql::defaults_file)
+    $input_shell = stdlib::shell_escape($input_base)
+    $authentication_shell = stdlib::shell_escape($authentication)
+    $root_shell = stdlib::shell_escape(String($root_account))
+    $hostname_shell = stdlib::shell_escape($hostname)
+    $account_shell = stdlib::shell_escape("${username}@${hostname}")
+    $helper_arguments = "${defaults_shell} ${input_shell} ${authentication_shell} ${root_shell} ${hostname_shell} ${account_shell}" # lint:ignore:140chars
 
-        # Use the shell provider so escaped SQL semicolons, guard pipelines, and bash -c checks stay intact.
-        exec { "mysql_create_user_${username}@${hostname}":
-          provider => shell,
-          unless   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}", # lint:ignore:140chars
-          command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${create_user_query_shell}",
-        }
-        -> exec { "mysql_set_password_${username}@${hostname}":
-          provider => shell,
-          unless   => Sensitive.new($unless_field),
-          command  => Sensitive.new("/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${password_command_shell}"),
-        }
+    # Inspections and removal statements contain account identifiers only, including during retirement.
+    ['inspect', 'drop'].each |$statement| {
+      file { "${input_base}.${statement}.sql":
+        ensure    => file,
+        content   => Sensitive.new(template('mysql/user.sql')),
+        backup    => false,
+        show_diff => false,
+        owner     => 'root',
+        group     => 'root',
+        mode      => '0600',
+        require   => File[$mysql::user_input_dir],
       }
-      'absent': {
-        # Escape the DROP USER query before passing it to mysql -e.
-        $drop_user_query_shell = stdlib::shell_escape("DROP USER '${username}'@'${hostname}'; FLUSH PRIVILEGES;")
+    }
 
-        # Use the shell provider so escaped SQL semicolons and guard pipelines stay intact.
-        exec { "mysql_drop_user_${username}@${hostname}":
-          provider => shell,
-          onlyif   => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -NBe ${list_users_query_shell} | /usr/bin/grep -qx ${user_host_pattern_shell}", # lint:ignore:140chars
-          command  => "/usr/bin/mysql --defaults-file=${defaults_file_shell} -e ${drop_user_query_shell}",
+    # Secret input is only rendered for present accounts; Puppet owns its persistent lifecycle.
+    if ($ensure == 'present') {
+      # Share the client option-file encoder with the class-owned management configuration.
+      $client_username = $username
+      $client_password = $password
+
+      file { "${input_base}.cnf":
+        ensure    => file,
+        content   => Sensitive.new(template('mysql/client.cnf')),
+        backup    => false,
+        show_diff => false,
+        owner     => 'root',
+        group     => 'root',
+        mode      => '0600',
+        require   => File[$mysql::user_input_dir],
+      }
+
+      # Separate create and alter statements prevent passwordless intermediate accounts.
+      ['create', 'alter'].each |$statement| {
+        file { "${input_base}.${statement}.sql":
+          ensure    => file,
+          content   => Sensitive.new(template('mysql/user.sql')),
+          backup    => false,
+          show_diff => false,
+          owner     => 'root',
+          group     => 'root',
+          mode      => '0600',
+          require   => File[$mysql::user_input_dir],
         }
       }
-      default: {
-        fail('Unknown ensure: $ensure, must be present or absent')
+    } else {
+      # Remove only this account's secret inputs and helper-owned confirmation record.
+      $retired_files = concat($input_files, ["${input_base}.applied"])
+      file { $retired_files:
+        ensure    => absent,
+        backup    => false,
+        show_diff => false,
       }
+    }
+
+    # Repeat preflight in the mutation path because Puppet treats any failed unless as permission to run command.
+    $required_files = concat($input_files, ["${input_base}.inspect.sql", "${input_base}.drop.sql", $mysql::user_script_path])
+    $ensure_shell = stdlib::shell_escape($ensure)
+    exec { "mysql_user_${username}@${hostname}":
+      provider  => shell,
+      unless    => Sensitive.new("${script_shell} check-${ensure_shell} ${helper_arguments}"),
+      command   => Sensitive.new("${script_shell} ${ensure_shell} ${helper_arguments}"),
+      logoutput => false,
+      require   => concat([Service[$mysql::package_name], File[$required_files]], $config_require),
     }
   } else {
     fail('Class mysql is not defined, but is required for mysql::user')

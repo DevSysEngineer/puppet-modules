@@ -1,5 +1,6 @@
 # Data service examples for MySQL, RabbitMQ, and vnStat.
 # Replace passwords, certificate paths, database names, and interface names with environment data.
+# Configure convert_to: Sensitive for these MySQL lookup keys in Hiera data, as shown in the README migration guide.
 
 node 'database.example.org' {
   class { 'basic_settings':
@@ -20,7 +21,7 @@ node 'database.example.org' {
     nice_level                => 12,
     package_name              => 'mysql',
     package_version           => 8.0,
-    root_password             => lookup('mysql::root_password'),
+    root_password             => lookup('mysql::root_password', Sensitive[String]),
     settings                  => {
       'innodb_buffer_pool_size' => '1G',
       'max_connections'         => 500,
@@ -41,7 +42,7 @@ node 'database.example.org' {
   mysql::user { 'app':
     ensure           => present,
     hostname         => 'localhost',
-    password         => lookup('mysql::app_password'),
+    password         => lookup('mysql::app_password', Sensitive[String]),
     password_latency => 'password',
     username         => 'app',
     require          => Class['mysql'],

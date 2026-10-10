@@ -95,6 +95,7 @@ node 'console01.example.org' {
   }
 }
 
+# Configure the MySQL lookup keys with convert_to: Sensitive in Hiera data; see the README migration guide.
 node 'database01.example.org' {
   class { 'basic_settings':
     mysql_enable => true,
@@ -103,7 +104,7 @@ node 'database01.example.org' {
   # Configure database administration and backup credentials after preparing packages.
   class { 'mysql':
     automysqlbackup_password => Sensitive('replace-with-backup-password'),
-    root_password            => lookup('mysql::root_password'),
+    root_password            => lookup('mysql::root_password', Sensitive[String]),
     require                  => Class['basic_settings'],
   }
 
@@ -116,7 +117,7 @@ node 'database01.example.org' {
   # Provision the application identity from protected Hiera data.
   mysql::user { 'app':
     ensure   => present,
-    password => lookup('mysql::app_password'),
+    password => lookup('mysql::app_password', Sensitive[String]),
     username => 'app',
     require  => Class['mysql'],
   }

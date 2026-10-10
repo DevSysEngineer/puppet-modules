@@ -7,13 +7,14 @@
 #
 # @example Install MySQL with backups and a root password
 #   class { 'mysql':
-#     automysqlbackup_password => Sensitive('backup-password'),
-#     root_password            => 'root-password',
+#     automysqlbackup_password => Sensitive('replace-with-backup-password'),
+#     root_password            => Sensitive('replace-with-root-password'),
 #   }
 #
 # @param automysqlbackup_password
 #   Password used by the generated automysqlbackup configuration. This value is sensitive because it can decrypt or
-#   protect backup material.
+#   protect backup material. Supply a Sensitive string without NUL, CR or LF, at most 1023 UTF-8 bytes, because
+#   OpenSSL reads a single bounded passphrase line. An empty value preserves the existing unencrypted-backup behavior.
 #
 # @param automysqlbackup_backupdir
 #   Directory where automysqlbackup stores backup output. The default is `/var/lib/automysqlbackup`.
@@ -21,7 +22,7 @@
 # @param automysqlbackup_settings
 #   Hash of settings merged over the module's automysqlbackup defaults.
 #   The template uses only `mysql_dump_compression`, `mysql_dump_single_transaction`, and `mysql_dump_skip_lock_tables`.
-#   Encryption is always enabled with `automysqlbackup_password`; `encrypt` and `encrypt_password` entries have no
+#   Encryption uses `automysqlbackup_password` when it is non-empty; `encrypt` and `encrypt_password` entries have no
 #   effect.
 #
 # @param nice_level
@@ -34,21 +35,25 @@
 #   MySQL version used when no `basic_settings::package_mysql` class is present.
 #
 # @param root_password
-#   Optional root password managed through `mysql::user`. `undef` leaves root credentials unmanaged.
+#   Optional Sensitive root password managed through `mysql::user`. An effectively resolved `undef` leaves root
+#   credentials unmanaged; automatic parameter lookup can still supply a value when an explicit argument is `undef`.
+#   The existing defaults file must provide working administrative access for initial setup or rotation. Desired
+#   credentials are tried first to recover interrupted rotations. No password reset or implicit bootstrap is attempted.
+#   The combined server/client configuration remains readable by mysql and OS root, with Puppet backups disabled.
 #
 # @param settings
 #   Hash of MySQL server settings merged over the module defaults and rendered into the MySQL configuration template.
 #
 # @api public
 class mysql (
-  Sensitive[String] $automysqlbackup_password,
-  String            $automysqlbackup_backupdir = '/var/lib/automysqlbackup',
-  Hash              $automysqlbackup_settings  = {},
-  Integer           $nice_level                = 12,
-  String            $package_name              = 'mysql',
-  Float             $package_version           = 8.0,
-  Optional[String]  $root_password             = undef,
-  Hash              $settings                  = {},
+  Sensitive[String]           $automysqlbackup_password,
+  String                      $automysqlbackup_backupdir = '/var/lib/automysqlbackup',
+  Hash                        $automysqlbackup_settings  = {},
+  Integer                     $nice_level                = 12,
+  String                      $package_name              = 'mysql',
+  Float                       $package_version           = 8.0,
+  Optional[Sensitive[String]] $root_password             = undef,
+  Hash                        $settings                  = {},
 ) {
   # Reuse the existing baseline selection for systemd settings and the monitoring template.
   $basic_settings_enable = defined(Class['basic_settings'])
@@ -106,6 +111,8 @@ class mysql (
 
   # Basic variable
   $script_path = '/usr/local/lib/puppet/mysql-grant.sh'
+  $user_script_path = '/usr/local/lib/puppet/mysql-user.sh'
+  $user_input_dir = '/usr/local/lib/puppet/mysql-users'
 
   # Get version
   if (defined(Class['basic_settings::package_mysql'])) {
@@ -116,9 +123,9 @@ class mysql (
     $version = $package_version
   }
 
-  # The shared grant helper and SQL guards use these tools without requiring monitoring.
-  $grant_packages = ['bash', 'coreutils', 'dash', 'grep', 'mawk', 'sed']
-  ensure_packages($grant_packages, {
+  # Account management, grants and backup encryption need these tools independently of monitoring.
+  $management_packages = ['bash', 'coreutils', 'dash', 'grep', 'mawk', 'mysql-client', 'openssl', 'sed']
+  ensure_packages($management_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -331,25 +338,47 @@ class mysql (
     owner   => 'root',
     group   => 'root',
     mode    => '0700',
-    require => [File['/usr/local/lib/puppet'], Package[$grant_packages]],
+    require => [File['/usr/local/lib/puppet'], Package[$management_packages]],
+  }
+
+  # Keep account inputs private without restricting the shared helper directory.
+  file { $user_input_dir:
+    ensure  => directory,
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0700',
+    require => File['/usr/local/lib/puppet'],
+  }
+
+  # The helper reads native MySQL files; its arguments never contain credentials.
+  file { $user_script_path:
+    ensure  => file,
+    source  => 'puppet:///modules/mysql/mysql-user.sh',
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0700',
+    require => [File[$user_input_dir], Package[$management_packages]],
   }
 
   # Set config file
   file { '/etc/default/automysqlbackup.conf':
-    ensure  => file,
-    content => Sensitive.new(template('mysql/automysqlbackup.config')),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600', # Only root
+    ensure    => file,
+    content   => Sensitive.new(template('mysql/automysqlbackup.config')),
+    backup    => false,
+    show_diff => false,
+    owner     => 'root',
+    group     => 'root',
+    mode      => '0600', # Only root
   }
 
   # Create automysqlbackup script
   file { '/usr/local/sbin/automysqlbackup':
-    ensure => file,
-    source => 'puppet:///modules/mysql/automysqlbackup',
-    owner  => 'root',
-    group  => 'root',
-    mode   => '0700', # Only root
+    ensure  => file,
+    source  => 'puppet:///modules/mysql/automysqlbackup',
+    owner   => 'root',
+    group   => 'root',
+    mode    => '0700', # Only root
+    require => Package[$management_packages],
   }
 
   # Use the same systemd selection for database backups, service settings, and monitoring.
@@ -385,6 +414,7 @@ class mysql (
       },
       daemon_reload => 'mysql_systemd_daemon_reload',
       enable        => false,
+      require       => File['/etc/default/automysqlbackup.conf', '/usr/local/sbin/automysqlbackup'],
     }
 
     # Create systemd timer
@@ -431,6 +461,10 @@ class mysql (
 
   # Actual root user
   if ($root_password != undef) {
+    # Share the option-file encoder with account credential checks without unwrapping in Puppet scope.
+    $client_username = 'root'
+    $client_password = $root_password
+
     # Create mysql user
     mysql::user { 'root':
       ensure   => present,
@@ -441,12 +475,14 @@ class mysql (
 
     # Create config cnf
     file { 'mysql_debian_cnf':
-      path    => $defaults_file,
-      content => Sensitive.new(template('mysql/debian.cnf')),
-      owner   => 'mysql',
-      group   => 'mysql',
-      mode    => '0600', # Only readably for user mysql
-      require => Mysql::User['root'],
+      path      => $defaults_file,
+      content   => Sensitive.new(template('mysql/debian.cnf', 'mysql/client.cnf')),
+      backup    => false,
+      show_diff => false,
+      owner     => 'mysql',
+      group     => 'mysql',
+      mode      => '0600', # Only readably for user mysql
+      require   => Mysql::User['root'],
     }
 
     # Create debian cnf

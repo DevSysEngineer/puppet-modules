@@ -45,9 +45,18 @@ define mysql::grant (
 ) {
   # Require the MySQL parent before managing grants through its service and helper.
   if (defined(Class['mysql'])) {
-    # Set requirements
+    # Wait for managed root rotation before reading the administrative defaults file.
+    if ($mysql::root_password != undef) {
+      # The stable file resource avoids depending on the root user from its own grant.
+      $config_require = [File['mysql_debian_cnf']]
+    } else {
+      # External root authentication retains its existing configuration lifecycle.
+      $config_require = []
+    }
+
+    # Keep database operations ordered after their helper, service and managed credentials.
     Exec {
-      require => [Service[$mysql::package_name], File[$mysql::script_path]],
+      require => concat([Service[$mysql::package_name], File[$mysql::script_path]], $config_require),
     }
 
     # Normalize the requested privileges before the grant helper compares them.
