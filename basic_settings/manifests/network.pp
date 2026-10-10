@@ -398,7 +398,7 @@ class basic_settings::network (
         # Use a service check for firewalld and the configuration-aware check for nftables.
         if ($firewall_package == 'nftables') {
           # Install tools for loaded rules and the selected systemd loader inspection.
-          $firewall_monitoring_packages = concat(['coreutils', 'dash', 'mawk'], $systemd_enable ? {
+          $firewall_monitoring_packages = concat(['coreutils', 'dash', 'jq', 'mawk'], $systemd_enable ? {
             true    => ['systemd'],
             default => [],
           })
