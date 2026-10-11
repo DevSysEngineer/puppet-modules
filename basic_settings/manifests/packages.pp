@@ -376,10 +376,15 @@ class basic_settings::packages (
 
     # Register the check after its runtime packages.
     basic_settings::monitoring_custom { 'apt':
-      content  => template('basic_settings/monitoring/check_apt'),
-      friendly => 'APT',
-      interval => 3600, # 1 hour
-      require  => Package[$monitoring_required_packages],
+      state         => true,
+      template      => 'basic_settings/monitoring/check_apt',
+      template_data => {
+        'apt_settings_file' => $apt_settings_file,
+        'systemd_enable'    => $systemd_enable,
+      },
+      friendly      => 'APT',
+      interval      => 3600, # 1 hour
+      require       => Package[$monitoring_required_packages],
     }
   }
 

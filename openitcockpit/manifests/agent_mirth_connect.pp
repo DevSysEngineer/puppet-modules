@@ -44,12 +44,14 @@ class openitcockpit::agent_mirth_connect (
 
     # Register the check after its runtime packages.
     basic_settings::monitoring_custom { 'mirth_connect':
-      ensure   => $ensure,
-      package  => $package,
-      friendly => 'Mirth Connect',
-      content  => template('openitcockpit/agent/check_mirth_connect'),
-      timeout  => 60,
-      require  => $monitoring_require,
+      ensure        => $ensure,
+      package       => $package,
+      state         => true,
+      template      => 'openitcockpit/agent/check_mirth_connect',
+      template_data => { 'systemd_enable' => $systemd_enable },
+      friendly      => 'Mirth Connect',
+      timeout       => 60,
+      require       => $monitoring_require,
     }
   } else {
     fail('The openitcockpit::agent class must be included before using the openitcockpit::agent_mirth_connect defined type.')

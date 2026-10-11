@@ -2,7 +2,7 @@
 # Rendered only when systemd is enabled or unspecified; explicit false uses each check's own inspection.
 # True requires systemd, and an unset value enables runtime discovery.
 # The selection never proves that the manager is actually running.
-SYSTEMD_ENABLE='<%= @systemd_enable %>'
+SYSTEMD_ENABLE='<%= @template_data ? @template_data['systemd_enable'] : @systemd_enable %>'
 
 # /run/systemd/system is the runtime indicator used by sd_booted(3), independent of package declarations.
 use_systemd() {

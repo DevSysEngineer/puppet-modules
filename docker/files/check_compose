@@ -14,7 +14,6 @@ AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 DOCKER=$(command -v docker 2>/dev/null) || die "docker not available"
 JQ=$(command -v jq 2>/dev/null) || die "jq not available"
-MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
 MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
 MV=$(command -v mv 2>/dev/null) || die "mv not available"
 RM=$(command -v rm 2>/dev/null) || die "rm not available"
@@ -512,15 +511,12 @@ case "$BACKUP_DATABASE_TYPE" in
     *) die 'backup database type must be empty or postgresql' ;;
 esac
 
-# Prepare the private state file used to detect restart-count increases.
+# Prepare the private state file inside the directory managed by monitoring_custom.
 PROJECT_KEY=$(sanitize_label "$CHECK_NAME")
 STATE_FILE="${STATE_DIR}/docker_compose_${PROJECT_KEY}.state"
 OLD_UMASK=$(umask)
 umask 077
-$MKDIR -p "$STATE_DIR" 2>/dev/null || {
-    umask "$OLD_UMASK"
-    die "state directory ${STATE_DIR} could not be created"
-}
+[ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ] || die "managed state directory ${STATE_DIR} is missing or not writable"
 STATE_TMP=$($MKTEMP "${STATE_DIR}/docker_compose_${PROJECT_KEY}.XXXXXX") || {
     umask "$OLD_UMASK"
     die "state file could not be created"

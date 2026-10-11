@@ -11,7 +11,6 @@ die() {
 AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 MKTEMP=$(command -v mktemp 2>/dev/null) || die "mktemp not available"
-MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 RM=$(command -v rm 2>/dev/null) || die "rm not available"
@@ -42,15 +41,14 @@ LONG_OUTPUT=""
 LONG_OUTPUT_SEP="__CHECK_MIRTH_CONNECT_NL__"
 
 # Persistent queue state tracks how long channels have been above the warning threshold.
-STATE_DIR="/etc/openitcockpit-agent/state"
-STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
+STATE_DIR=${STATE_DIR:-<%= @state_dir %>}
 
 # CLI options select connection config, queue thresholds, grace and output limits.
-USAGE_TEXT="Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>] [-C queue_critical] [-l chars] [-s items]
-Environment: CONFIG (-c); GRACE (-t); WARN_Q (-w); CRIT_Q (-C); DETAIL_LIMIT (-l); SUMMARY_ITEM_LIMIT (-s).
+USAGE_TEXT="Usage: $0 [-c <config_file>] [-t <seconds>] [-w <queue>] [-C queue_critical] [-l chars] [-s items] [-S state_directory]
+Environment: CONFIG (-c); GRACE (-t); WARN_Q (-w); CRIT_Q (-C); DETAIL_LIMIT (-l); SUMMARY_ITEM_LIMIT (-s); STATE_DIR (-S, managed by monitoring_custom).
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 OPTERR=0
-while getopts ':c:t:w:C:l:s:h' opt; do
+while getopts ':c:t:w:C:l:s:S:h' opt; do
     case "$opt" in
         c) CONFIG="$OPTARG" ;;
         t) GRACE="$OPTARG" ;;
@@ -58,11 +56,17 @@ while getopts ':c:t:w:C:l:s:h' opt; do
         C) CRIT_Q=$OPTARG ;;
         l) DETAIL_LIMIT=$OPTARG ;;
         s) SUMMARY_ITEM_LIMIT=$OPTARG ;;
+        S) STATE_DIR=$OPTARG ;;
         *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
+case "$STATE_DIR" in
+    /*) : ;;
+    *) die "state directory must be an absolute path" ;;
+esac
+STATE_FILE="${STATE_DIR}/mirth_queue_state.txt"
 
 case "$GRACE" in
     ''|*[!0-9]*) die "queue grace must be numeric" ;;
@@ -165,7 +169,7 @@ crit() {
 }
 
 # Inspect the conventional service when systemd manages it, alongside native channel health.
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 <%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
 check_systemd_service mcservice.service
 if ! use_systemd; then
@@ -183,18 +187,12 @@ if ! use_systemd; then
         END { exit !found }
     ' || crit "service is not active"
     SERVICE_CONTEXT="Mirth Connect server process is active."
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 fi
 <% end -%>
 
-# Keep the persistent queue state inside the agent tree so root does not read or write a predictable file in /tmp.
-OLD_UMASK=$(umask)
-umask 077
-$MKDIR -p "$STATE_DIR" 2>/dev/null || {
-    umask "$OLD_UMASK"
-    die "state directory ${STATE_DIR} could not be created"
-}
-umask "$OLD_UMASK"
+# Puppet owns the state directory; runtime code owns only this check's files.
+[ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ] || die "managed state directory ${STATE_DIR} is missing or not writable"
 
 # mccommand requires script files, so keep command input, parse artifacts, and persistent state updates private until cleanup.
 WORK_UMASK=$(umask)

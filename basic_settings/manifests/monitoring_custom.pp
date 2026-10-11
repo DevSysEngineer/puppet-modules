@@ -2,7 +2,8 @@
 #
 # This defined type writes or removes a root-owned plugin script and registers it in OpenITCOCKPIT `customchecks.ini`
 # when that backend is active. It centralizes plugin file permissions, scheduling metadata, and optional sudoers support
-# for checks that need elevated privileges.
+# for checks that need elevated privileges. Optional private state is managed before registration and passed as
+# STATE_DIR at runtime. ERB templates are rendered here so they can use the same derived state_dir.
 #
 # @example Register a custom OpenITCOCKPIT check
 #   basic_settings::monitoring_custom { 'example':
@@ -15,7 +16,7 @@
 #   Optional arguments appended after the managed script path in the generated command.
 #
 # @param content
-#   Optional inline script content. Mutually exclusive in practice with `source`.
+#   Optional inline script content. Mutually exclusive with `source` and `template`.
 #
 # @param ensure
 #   Controls whether the plugin script and registration are present or absent. `absent` also removes an old script with
@@ -41,11 +42,25 @@
 # @param script
 #   Title of another monitoring_custom resource that owns the shared script; only letters, digits, underscores, dots and
 #   hyphens are accepted. `undef` manages this check own script. With a title, this resource only registers arguments
-#   and never creates or removes the shared file; source and content must remain undef. The owner supplies its backend
-#   path and file dependency through this type.
+#   and never creates or removes the shared file; source, content and template must remain undef. The owner supplies
+#   its backend path and file dependency through this type.
 #
 # @param source
 #   Optional file source for the plugin script. Must start with `puppet:///`, `file:///`, or `https://`.
+#
+# @param state
+#   Manages a root-owned 0700 directory per registration under the agent state directory when true. The resource title
+#   must contain only letters, digits, dots, underscores or hyphens, excluding `.` and `..`. The derived state_dir is
+#   available in templates and supplied as STATE_DIR to the command. False manages no state. Retirement retains state.
+#
+# @param template
+#   Optional module-relative ERB template name, rendered in this type's scope. Mutually exclusive with source/content
+#   and unavailable for shared-script references. Use @state_dir for the managed directory and @template_data for
+#   caller-owned inputs. Rendering occurs only while deploying an active backend's executable.
+#
+# @param template_data
+#   Explicit caller-owned inputs for template as a hash. It is available as @template_data and defaults to an empty
+#   hash. It does not replace derived values such as state_dir or become executable shell code.
 #
 # @param timeout
 #   Check timeout in seconds. The default is 30.
@@ -62,13 +77,19 @@ define basic_settings::monitoring_custom (
   Boolean                   $root_required = true,
   Optional[String[1]]       $script        = undef,
   Optional[String]          $source        = undef,
+  Boolean                   $state         = false,
+  Optional[String[1]]       $template      = undef,
+  Hash[String, Any]         $template_data = {},
   Integer                   $timeout       = 30,
 ) {
   # Keep valid input on the main path so validation failures stay exceptional.
-  if (($source == undef or $content == undef) and ($script == undef or ($source == undef and $content == undef))) {
+  if (($source == undef or $content == undef)
+    and ($template == undef or ($source == undef and $content == undef))
+    and ($script == undef or ($source == undef and $content == undef and $template == undef))) {
     # Validate the executable source and shared-script identifier before registering the check.
     if (($source == undef or $source =~ /(?i:\A(?:puppet:\/\/\/|file:\/\/\/|https:\/\/))/)
-      and ($script == undef or $script =~ /\A[A-Za-z0-9_.-]+\z/)) {
+      and ($script == undef or $script =~ /\A[A-Za-z0-9_.-]+\z/)
+      and (!$state or ($name =~ /\A[A-Za-z0-9_.-]+\z/ and $name !~ /\A\.{1,2}\z/))) {
       # Get friendly name
       if ($friendly == undef) {
         # Derive a readable monitoring label from the resource title.
@@ -117,13 +138,45 @@ define basic_settings::monitoring_custom (
           $uid = 'root'
           $gid = 'root'
 
+          # Derive private storage from the backend and registration identity, independently of the shared executable.
+          $state_dir = $state ? {
+            true    => "${basic_settings::monitoring::state_dir}/${name}",
+            default => undef,
+          }
+
+          # Provision state only while this backend installs the check, retaining history during retirement.
+          if ($ensure == present and $state) {
+            # Keep the registration's own state private and order it after the shared parent.
+            file { $state_dir:
+              ensure  => directory,
+              owner   => $uid,
+              group   => $gid,
+              mode    => '0700',
+              require => File['monitoring_location_state'],
+            }
+            $registration_require = [File[$script_path, $state_dir], Package['coreutils']]
+          } else {
+            # Disabled state or retirement must not remove previously collected history.
+            $registration_require = File[$script_path]
+          }
+
           # Append caller arguments only when this registration supplies them.
           if ($cmd == undef or $cmd == '') {
             # Invoke the check directly when no extra arguments are supplied.
-            $command = $script_path
+            $command_args = $script_path
           } else {
             # Append the supplied arguments to the check executable.
-            $command = "${script_path} ${cmd}"
+            $command_args = "${script_path} ${cmd}"
+          }
+
+          # Supply the same directory to static scripts and template-based checks without a wrapper executable.
+          if ($state) {
+            # env also works with executors that launch commands without a shell.
+            $state_dir_shell = stdlib::shell_escape($state_dir)
+            $command = "/usr/bin/env STATE_DIR=${state_dir_shell} ${command_args}"
+          } else {
+            # Preserve commands for checks that do not request storage.
+            $command = $command_args
           }
 
           # Create fragment for plugin
@@ -132,7 +185,7 @@ define basic_settings::monitoring_custom (
               target  => '/etc/openitcockpit-agent/customchecks.ini',
               content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${command}\ninterval = ${interval}\ntimeout = ${timeout}\nenabled = true\n", # lint:ignore:140chars
               order   => '10',
-              require => File[$script_path],
+              require => $registration_require,
             }
           }
         }
@@ -144,16 +197,29 @@ define basic_settings::monitoring_custom (
           }
           $uid = 'root'
           $gid = 'root'
+          $state_dir = undef
         }
       }
 
       # Check if script path is not defined
       if ($script_path != undef and $script == undef) {
+        # Render with this resource's derived state_dir and explicit caller data only for an active installation.
+        if ($source != undef) {
+          # A file source never also supplies inline content.
+          $script_content = undef
+        } elsif ($ensure == present and $template != undef) {
+          # Render only after the backend-derived template variables are known.
+          $script_content = template($template)
+        } else {
+          # Preserve the existing content interface and avoid template reads during retirement.
+          $script_content = $content
+        }
+
         # Create script
         file { $script_path:
           ensure  => $file_ensure,
           source  => $source,
-          content => $content,
+          content => $script_content,
           owner   => $uid,
           group   => $gid,
           mode    => '0700',
@@ -180,9 +246,9 @@ define basic_settings::monitoring_custom (
         }
       }
     } else {
-      fail('basic_settings::monitoring_custom requires an approved source URL and a shared script title containing only letters, digits, dots, underscores or hyphens.') # lint:ignore:140chars
+      fail('basic_settings::monitoring_custom requires an approved source URL and safe shared-script/state titles containing only letters, digits, dots, underscores or hyphens.') # lint:ignore:140chars
     }
   } else {
-    fail('basic_settings::monitoring_custom accepts source or content, not both; shared scripts accept neither.')
+    fail('basic_settings::monitoring_custom accepts only one of source, content or template; shared scripts accept none.')
   }
 }

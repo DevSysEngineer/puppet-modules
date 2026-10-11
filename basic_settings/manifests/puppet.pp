@@ -4,6 +4,11 @@
 # for distro or remote packages, installs cleanup services and timers for filebucket and server reports, adds monitoring
 # where available, and audits Puppet SSL and code directories. Server mode changes service ordering and creates
 # Puppet-owned directories.
+# The additional server check requires a local CA and the store report processor, and runs as the monitoring agent's
+# root identity. monitoring_custom manages private state under /etc/openitcockpit-agent/state/puppet_server without
+# changing report cleanup.
+# External CAs and the legacy puppet-master package report UNKNOWN. The check reads server-section Puppet settings
+# using this class's confdir and server vardir; keep JRuby path overrides consistent with these managed paths.
 #
 # @example Manage only the Puppet agent integration
 #   include basic_settings::puppet
@@ -16,6 +21,27 @@
 #
 # @param jvm_memory
 #   JVM heap size rendered for Puppet Server/OpenVox Server. Valid values are `512mb`, `1gb`, and `2gb`.
+#
+# @param monitoring_server_cert_critical_days
+#   Optional certificate renewal critical threshold in days, for CA, server and active agents.
+#   `undef` omits the override and uses the check's default; must not exceed its effective warning threshold.
+#
+# @param monitoring_server_cert_warning_days
+#   Optional certificate renewal warning threshold in days, for CA, server and active agents.
+#   `undef` omits the override and uses the check's default.
+#
+# @param monitoring_server_crl_warning_seconds
+#   Optional warning window before CRL nextUpdate, in seconds; zero disables advance warning, not expiry detection.
+#   `undef` uses the check's independent CRL default, not the certificate thresholds.
+#
+# @param monitoring_server_output_limit
+#   Optional total output budget in bytes, at least 2000, including perfdata and the final interpretation.
+#   `undef` leaves the executable default. Omitted details are counted explicitly.
+#
+# @param monitoring_server_stale_seconds
+#   Optional report age threshold in seconds. Only strictly older reports cause WARNING, never CRITICAL for age alone.
+#   `undef` leaves the check default. New certificates use a separate fixed 24-hour first-report grace based on
+#   notBefore.
 #
 # @param repo
 #   Package layout to use. `distro` uses distribution paths and `remote` uses Puppet Labs/OpenVox-style
@@ -33,15 +59,20 @@
 #
 # @api public
 class basic_settings::puppet (
-  Enum['512mb', '1gb', '2gb'] $jvm_memory     = '2gb',
-  Enum['distro', 'remote']    $repo           = 'distro',
-  String                      $server_dirname = 'puppetserver',
-  Boolean                     $server_enable  = false,
+  Enum['512mb', '1gb', '2gb'] $jvm_memory                            = '2gb',
+  Optional[Integer[0]]        $monitoring_server_cert_critical_days  = undef,
+  Optional[Integer[0]]        $monitoring_server_cert_warning_days   = undef,
+  Optional[Integer[0]]        $monitoring_server_crl_warning_seconds = undef,
+  Optional[Integer[2000]]     $monitoring_server_output_limit        = undef,
+  Optional[Integer[1]]        $monitoring_server_stale_seconds       = undef,
+  Enum['distro', 'remote']    $repo                                  = 'distro',
+  String                      $server_dirname                        = 'puppetserver',
+  Boolean                     $server_enable                         = false,
   Enum[
     'openvox-server',
     'puppet-master',
     'puppetserver'
-  ]                           $server_package = 'puppetserver',
+  ]                           $server_package                        = 'puppetserver',
 ) {
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])
@@ -462,6 +493,49 @@ class basic_settings::puppet (
           'After'   => "${server_service}.service",
           'BindsTo' => "${server_service}.service",
         },
+      }
+    }
+
+    # Register the local CA/report inspection after server setup; the existing agent and service checks remain active.
+    if ($monitoring_enable and $monitoring_package != 'none') {
+      # Add only the tools not already guaranteed by the agent check and server installation.
+      $server_monitoring_extra_packages = ['findutils', 'openssl', 'util-linux']
+      $server_monitoring_packages = concat($monitoring_packages, $server_monitoring_extra_packages, [$server_package])
+      ensure_packages($server_monitoring_extra_packages, {
+        'ensure'          => 'installed',
+        'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+      })
+
+      # Pass server-owned paths and only explicit monitoring overrides as individual shell arguments.
+      $server_monitoring_options = {
+        '-p' => "${agent_bin_dir}/puppet",
+        '-d' => $agent_etc_dir,
+        '-v' => $server_var_dir,
+        '-s' => "${server_service}.service",
+        '-k' => $server_package,
+        '-a' => $monitoring_server_stale_seconds,
+        '-w' => $monitoring_server_cert_warning_days,
+        '-c' => $monitoring_server_cert_critical_days,
+        '-r' => $monitoring_server_crl_warning_seconds,
+        '-l' => $monitoring_server_output_limit,
+      }
+      $server_monitoring_arguments = $server_monitoring_options.filter |$option, $value| {
+        $value != undef
+      }.map |$option, $value| {
+        # Escape each value once for the agent's command shell.
+        $value_shell = stdlib::shell_escape(String($value))
+        "${option} ${value_shell}"
+      }.join(' ')
+
+      # Render the existing systemd inspector into one standalone executable; no runtime helper or API is required.
+      basic_settings::monitoring_custom { 'puppet_server':
+        state    => true,
+        template => 'basic_settings/monitoring/puppet/check_server',
+        cmd      => $server_monitoring_arguments,
+        friendly => 'Puppet Server, CA and reports',
+        interval => 600,
+        timeout  => 90,
+        require  => Package[$server_monitoring_packages],
       }
     }
 

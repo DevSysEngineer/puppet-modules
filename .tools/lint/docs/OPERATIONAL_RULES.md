@@ -1681,13 +1681,23 @@ De analyse voert geen Puppet-functies uit. Dynamische wrappernamen en verborgen 
 
 Monitoring sluit aan op het centrale OpenITCOCKPIT-agentmodel. Plugins staan onder `/etc/openitcockpit-agent/plugins`; `concat` en `concat::fragment` bouwen `customchecks.ini` op. Gebruik de gedeelde monitoringtypes voor de registratie van services, timers en eigen checks, zodat featuremodules die registratie niet dupliceren.
 
+Persistente checkstatus en door checks beheerde caches worden aangevraagd met `state => true` op `basic_settings::monitoring_custom`. De centrale monitoringclass bepaalt `state_dir` binnen haar `case $package`: voor `openitcockpit` is dat `/etc/openitcockpit-agent/state`, in de defaulttak `/var/cache`. De locatie wordt niet vooraf aan één backend gekoppeld. Bij actieve OpenITCOCKPIT-registraties beheert `monitoring_custom` een root-owned map met modus `0700` per registratietitel onder die basis; de centrale monitoringclass beheert de bovenliggende agentmap. De registratie is afhankelijk van de eigen map. Featuremodules dupliceren deze padkeuze en dit mapbeheer niet. Bij `package => 'none'` worden geen checkmappen aangemaakt; de defaultwaarde geeft geen eigendom of gewijzigde rechten op de systeembrede `/var/cache`.
+
+Gebruik de parameter `template` als een ERB-template de afgeleide opslaglocatie nodig heeft: `monitoring_custom` rendert deze met `@state_dir` en expliciete aanroepergegevens in `@template_data`. De geregistreerde opdracht ontvangt dezelfde locatie als omgevingsvariabele `STATE_DIR`, ook bij een statisch script via `source` en bij meerdere registraties van één gedeeld executable. Elke registratie krijgt haar eigen map; gedeelde scripts laten de runtimewaarde voorgaan op een ingebakken default.
+
+Scripts maken de beheerde statemap niet zelf aan en wijzigen haar rechten niet. Ze bewaren alleen hun eigen bestanden met afgeschermde rechten en melden ontbrekende of onbruikbare opslag volgens het inspectiestatuscontract. Beperk schrijven en opruimen tot de eigen bestanden volgens het [map-eigendomscontract](#recursieve-bewerkingen-tot-module-eigendom-beperken). Behoud benodigde locks, atomische updates en strengere bestaande rechtencontroles wanneer opslag verhuist. Het verwijderen van een registratie verwijdert geen historie of opslag van andere targets.
+
+Een expliciet instelbare opslaglocatie mag als runtime-override blijven bestaan. De operator zorgt dan vooraf voor een geschikte map; die override verplaatst de verantwoordelijkheid voor mapbeheer niet naar het script. Bij los gebruik geldt hetzelfde.
+
+Deze opslagafspraak betreft gegevens die de check zelf bewaart. Bestaande statusbestanden van de bewaakte toepassing blijven op hun eigen locatie; voor tijdelijke werkbestanden geldt het [shellbuffercontract](#shellbuffers-en-tijdelijke-bestanden-kiezen).
+
 **Herkomst**
 
 Projectregel
 
 **Toepassingsgebied**
 
-OpenITCOCKPIT-agentplugins, customchecks.ini en registraties van services, timers en checks.
+OpenITCOCKPIT-agentplugins, customchecks.ini, registraties van services, timers en checks, en hun eigen persistente status en caches.
 
 **Automatische controle**
 
@@ -1721,17 +1731,25 @@ Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene
 
 Handmatig reviewscenario: Een featuremodule bouwt een tweede eigen registratiemechanisme. Keur dit af tegen de norm.
 
+Handmatig reviewscenario: Een nieuwe check kiest zelf `/var/cache/check_application` terwijl OpenITCOCKPIT actief is, of de centrale monitoringclass kiest de agentmap vóór de packagekeuze. Keur beide af: de centrale basislocatie moet uit de betreffende packagetak komen.
+
+Handmatig reviewscenario: Een featuremodule declareert zelf de agentstatemap of een check maakt deze tijdens uitvoering met `mkdir` aan. Keur dit af: de registratie moet opslag aanvragen bij `monitoring_custom`.
+
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik de gedeelde monitoringtypes, de bestaande pluginlocatie en concat-opbouw van customchecks.ini. Beoordeel de genoemde voorwaarden afzonderlijk.
 
+Handmatig reviewscenario: Bij actieve OpenITCOCKPIT-monitoring vraagt een registratie `application` `state => true` aan. Puppet beheert `/etc/openitcockpit-agent/state/application` voordat de registratie beschikbaar komt; de template ontvangt `@state_dir` en de opdracht krijgt `STATE_DIR`. Een tweede registratie van hetzelfde executable krijgt een eigen map. Herhaald gebruik en het verwijderen van een target laten de historie, het gedeelde executable en andere checks intact; benodigde locks en atomische vervanging blijven werken.
+
 **Grensgevallen**
 
-Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel.
+Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel. Een expliciete state-override behoudt zijn contract. Het lezen van bijvoorbeeld Puppet-eigen status of APT-pakketlijsten verplaatst die bronbestanden niet naar de agentmap. Een tijdelijke `mktemp`-werkmap is geen persistente checkopslag.
+
+Handmatig reviewscenario: Bij de standaardwaarde `package => 'none'` is `state_dir` gelijk aan `/var/cache`, terwijl checkregistraties en hun mappen achterwege blijven. De systeembrede cachemap wordt niet door monitoring overgenomen.
 
 **Handmatige review**
 
-Volg de registratie en levenscyclus door de gedeelde bouwstenen; voorkom dubbele registratie in de featuremodule.
+Volg de registratie en levenscyclus door de gedeelde bouwstenen; voorkom dubbele registratie of mapbeheer in de featuremodule. Controleer template- en runtimewaarden, maprechten, ordering, gebruik met twee targets, uitschakelen van de backend en behoud van historie bij het verwijderen van een target. Controleer dat een ontbrekende map niet alsnog door het script wordt aangemaakt. Beoordeel bij een verhuizing welke historie behouden moet blijven en welke cache opnieuw kan worden opgebouwd.
 
 **Verificatie**
 
@@ -2984,6 +3002,8 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 **Norm**
 
 Borg de runtimepackages volgens [packageafhankelijkheden bij externe commando’s](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Checks volgen de algemene [shellconventies](#shellscripts) en gebruiken POSIX `#!/bin/sh` met Nagios-exitcodes. Volg voor gedeelde executables en instellingen per target de [registratielevenscyclus](#checkexecutables-onafhankelijk-van-targets-delen). Beoordeel status, ernst, parsing, buffering en perfdata ook tegen de hieronder beschreven uitvoercontracten. Lange uitvoer staat standaard aan; een schakelaar daarvoor wordt alleen op verzoek toegevoegd.
+
+Voor eigen persistente status en caches geldt de opslagafspraak van het [centrale agentmodel](#monitoring-via-het-centrale-agentmodel-registreren).
 
 **Herkomst**
 

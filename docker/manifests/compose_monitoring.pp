@@ -150,6 +150,7 @@ define docker::compose_monitoring (
     basic_settings::monitoring_custom { "docker_compose_${name}":
       ensure   => $ensure,
       script   => 'docker_compose',
+      state    => true,
       cmd      => $cmd,
       friendly => "Docker Compose ${name}",
       interval => $interval,

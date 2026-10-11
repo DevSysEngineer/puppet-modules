@@ -7,7 +7,7 @@ die() {
     exit 3
 }
 
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 <%= scope.function_template(['basic_settings/monitoring/_systemd_service_status']) %>
 <% end -%>
 
@@ -18,17 +18,15 @@ AWK=$(command -v awk 2>/dev/null) || die "awk not available"
 DATE=$(command -v date 2>/dev/null) || die "date not available"
 FIND=$(command -v find 2>/dev/null) || die "find not available"
 GREP=$(command -v grep 2>/dev/null) || die "grep not available"
-MKDIR=$(command -v mkdir 2>/dev/null) || die "mkdir not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 STAT=$(command -v stat 2>/dev/null) || die "stat not available"
 SORT=$(command -v sort 2>/dev/null) || die "sort not available"
 TIMEOUT=$(command -v timeout 2>/dev/null || true)
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
-CHMOD=$(command -v chmod 2>/dev/null || true)
 
 # Managed input files and cache locations used by the APT check.
-BLACKLIST_FILE="<%= @apt_settings_file %>"
-CHANGELOG_CACHE_DIR=/var/cache/check_apt/changelogs
+BLACKLIST_FILE="<%= @template_data['apt_settings_file'] %>"
+STATE_DIR=${STATE_DIR:-<%= @state_dir %>}
 CHANGELOG_FETCH_TIMEOUT=${CHANGELOG_FETCH_TIMEOUT:-6}
 CHANGELOG_GROUP_LIMIT=${CHANGELOG_GROUP_LIMIT:-10}
 CHANGELOG_TOTAL_BUDGET=${CHANGELOG_TOTAL_BUDGET:-20}
@@ -60,11 +58,11 @@ GRACE=${GRACE:-172800} # 48h
 CHECK_START=$($DATE +%s)
 
 # CLI options tune metadata age, changelog collection and output limits for this invocation.
-USAGE_TEXT="Usage: $0 [-c <seconds>] [-t seconds] [-g groups] [-b seconds] [-l chars] [-s packages]
-Environment: GRACE (-c); CHANGELOG_FETCH_TIMEOUT (-t); CHANGELOG_GROUP_LIMIT (-g); CHANGELOG_TOTAL_BUDGET (-b); DETAIL_LIMIT (-l); SECURITY_PACKAGE_SUMMARY_LIMIT (-s).
+USAGE_TEXT="Usage: $0 [-c <seconds>] [-t seconds] [-g groups] [-b seconds] [-l chars] [-s packages] [-S state_directory]
+Environment: GRACE (-c); CHANGELOG_FETCH_TIMEOUT (-t); CHANGELOG_GROUP_LIMIT (-g); CHANGELOG_TOTAL_BUDGET (-b); DETAIL_LIMIT (-l); SECURITY_PACKAGE_SUMMARY_LIMIT (-s); STATE_DIR (-S, managed by monitoring_custom).
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 OPTERR=0
-while getopts ":c:t:g:b:l:s:h" opt; do
+while getopts ":c:t:g:b:l:s:S:h" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
         t) CHANGELOG_FETCH_TIMEOUT=$OPTARG ;;
@@ -72,11 +70,16 @@ while getopts ":c:t:g:b:l:s:h" opt; do
         b) CHANGELOG_TOTAL_BUDGET=$OPTARG ;;
         l) DETAIL_LIMIT=$OPTARG ;;
         s) SECURITY_PACKAGE_SUMMARY_LIMIT=$OPTARG ;;
+        S) STATE_DIR=$OPTARG ;;
         *) die "$USAGE_TEXT" ;;
     esac
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
+case "$STATE_DIR" in
+    /*) : ;;
+    *) die "state directory must be an absolute path" ;;
+esac
 case "$GRACE" in
     ''|*[!0-9]*) die "metadata-age grace period must be numeric" ;;
 esac
@@ -213,15 +216,6 @@ emit_check() {
 # Sanitize arbitrary text into a safe cache-key fragment.
 sanitize_key() {
     printf '%s' "$1" | $TR -c 'A-Za-z0-9._-' '_'
-}
-
-# The changelog cache stores package metadata fetched as root, so keep it private.
-ensure_cache_dir() {
-    [ -d "$CHANGELOG_CACHE_DIR" ] || $MKDIR -p "$CHANGELOG_CACHE_DIR" 2>/dev/null || return 1
-    if [ -n "$CHMOD" ]; then
-        $CHMOD 0700 "$CHANGELOG_CACHE_DIR" 2>/dev/null || true
-    fi
-    return 0
 }
 
 # Resolve the source package name for a binary package/version pair.
@@ -395,7 +389,7 @@ fi
 
 # Inspect APT automation only when the running manager exposes the optional units.
 # Missing distro-specific units do not establish that package updates are disabled.
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 apt_unit_active() {
     systemd_service_status "$1" optional
     unit_result=$?
@@ -414,7 +408,7 @@ APT_AUTOMATION_CHECKED=0
 TIMER_DAILY_ACTIVE=U
 TIMER_UPGRADE_ACTIVE=U
 UNATTENDED_ACTIVE=U
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 systemd_status
 APT_SYSTEMD_STATE=$?
 APT_SYSTEMD_CONTEXT=$SERVICE_CONTEXT
@@ -432,7 +426,7 @@ append_long "Optional APT automation: daily timer ${TIMER_DAILY_ACTIVE}, upgrade
 MSG="APT"
 
 # An expected manager is required even though individual distro-specific automation units remain optional.
-<% if @systemd_enable != false -%>
+<% if @template_data['systemd_enable'] != false -%>
 if [ "$SYSTEMD_ENABLE" = true ]; then
     case "$APT_SYSTEMD_STATE" in
         2) MSG="$MSG $APT_SYSTEMD_CONTEXT."; STATE_CODE=2 ;;
@@ -548,7 +542,7 @@ EOF
                 ')
 
                 if [ -n "$SECURITY_GROUPS" ]; then
-                    if ensure_cache_dir; then
+                    if [ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ]; then
                         append_long "Security changelogs:"
                         CHANGELOG_GROUPS_RENDERED=0
                         while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
@@ -570,7 +564,7 @@ EOF
                             CHANGELOG_GROUPS_RENDERED=$(( CHANGELOG_GROUPS_RENDERED + 1 ))
 
                             CACHE_KEY=$(sanitize_key "${source_pkg}_${newver}")
-                            CACHE_FILE="${CHANGELOG_CACHE_DIR}/${CACHE_KEY}.txt"
+                            CACHE_FILE="${STATE_DIR}/${CACHE_KEY}.txt"
                             FETCH_ERR=""
                             FETCH_RC=0
 
@@ -626,7 +620,7 @@ EOF
 $SECURITY_GROUPS
 EOF
                     else
-                        append_long "Security changelogs: cache directory could not be created."
+                        append_long "Security changelogs: managed state directory is missing or not writable."
                     fi
                 fi
             fi

@@ -3,6 +3,7 @@
 # This class installs mail tooling for systemd failure notifications, writes the shared monitoring notification helper,
 # and, when requested, prepares the OpenITCOCKPIT agent custom-check directory and `customchecks.ini`. Other modules use
 # this class as the central source for monitoring package selection, notification mail, and sudoers-directory policy.
+# The selected package determines state_dir: the OpenITCOCKPIT agent state directory or /var/cache by default.
 #
 # @example Enable OpenITCOCKPIT custom checks without installing the agent package
 #   class { 'basic_settings::monitoring':
@@ -114,6 +115,9 @@ class basic_settings::monitoring (
   # Monitoring package 
   case $package {
     'openitcockpit': {
+      # Keep this backend's persistent check data inside its agent directory.
+      $state_dir = '/etc/openitcockpit-agent/state'
+
       # Check if we can install package
       if ($package_install) {
         # Install OpenITCockpit agent
@@ -191,6 +195,16 @@ class basic_settings::monitoring (
         require => File['monitoring_location'],
       }
 
+      # Own the common state parent; monitoring_custom owns each requested check directory.
+      file { 'monitoring_location_state':
+        ensure  => directory,
+        path    => $state_dir,
+        mode    => '0700',
+        owner   => 'root',
+        group   => 'root',
+        require => File['monitoring_location'],
+      }
+
       # Create config config
       concat { '/etc/openitcockpit-agent/customchecks.ini':
         owner   => 'root',
@@ -210,6 +224,9 @@ class basic_settings::monitoring (
       }
     }
     default: {
+      # Other package selections use the system cache location as their state base.
+      $state_dir = '/var/cache'
+
       # Retire only this repository-owned registry, without creating directories or purging other plugins.
       # An independently declared agent may subsequently rebuild an empty registry through concat.
       exec { 'monitoring_retire_customchecks':

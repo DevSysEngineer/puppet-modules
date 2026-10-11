@@ -23,6 +23,7 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 - [Gebruik van voorbeelden en parameterdocumentatie](#gebruik-van-voorbeelden-en-parameterdocumentatie)
 - [Modules](#modules)
   - [`basic_settings`](#basic_settings)
+    - [Puppet Server controleren](#puppet-server-controleren)
     - [Tijdzone en NTP](#tijdzone-en-ntp)
     - [Migreren van de externe timezone-module](#migreren-van-de-externe-timezone-module)
   - [`docker`](#docker)
@@ -242,6 +243,64 @@ class { 'basic_settings':
 ```
 
 Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp). De Puppet Strings bij [`basic_settings`](basic_settings/manifests/init.pp) en [`basic_settings::login_user`](basic_settings/manifests/login_user.pp) beschrijven de instellingen voor de serverbasis en gebruikers, inclusief bestandsrechten en toegestane bronnen voor home- en sleutelbestanden.
+
+#### Puppet Server controleren
+
+Met `server_enable => true` in `basic_settings::puppet` en ingeschakelde monitoring wordt `check_puppet_server` aanvullend geregistreerd. De bestaande agent- en servicechecks blijven actief. De nieuwe check inspecteert lokaal de daemon, CA-keten, volledige CRL, server- en agentcertificaten en opgeslagen reports. Zij draait iedere 600 seconden met een executortimeout van 90 seconden. De check zelf reserveert standaard maximaal 80 seconden voor inspectie.
+
+Deze controle vereist een lokale Puppet Server- of OpenVox Server-CA, `reports = store` (eventueel naast andere processors) op de server en ingeschakelde reporting op de agents. De check verandert die instellingen niet. Controleer vóór ingebruikname de effectieve serverconfiguratie en laat agents reports insturen. De legacyvariant `puppet-master`, ontbrekende lokale CA-bestanden en niet-ondersteunde ketens geven UNKNOWN. Een externe CA zonder betrouwbare lokale inventaris is hiermee niet te controleren.
+
+De paden komen uit `puppet config print cacert cacrl signeddir hostcert certname reportdir reports report --section server`, met de configuratie- en serverdatamap van de module expliciet als `--confdir` en `--vardir`. Bij `repo => 'distro'` gebruikt de registratie `/usr/bin/puppet`, `/etc/puppet` en `/var/lib/<server_dirname>`; bij `remote` zijn dat `/opt/puppetlabs/bin/puppet`, `/etc/puppetlabs/puppet` en `/opt/puppetlabs/server/data/<server_dirname>`. De reportdirectory volgt de effectieve `reportdir`, inclusief de bestaande symlink. Houd afwijkende JRuby `server-conf-dir`/`server-var-dir` (voorheen `master-*`) consistent met deze inrichting; de agent-CLI leest geen HOCON-overrides. De [Puppet-uitleg over serverinstellingen](https://help.puppet.com/core/current/Content/PuppetCore/server/puppet_conf_setting_diffs.htm) beschrijft die scheiding.
+
+De gebruikelijke OpenITCOCKPIT-agent draait als root. Dat is hier nodig voor de afgeschermde CA- en reportmappen en de eigen state. Controleer op de doelhost de effectieve servicegebruiker en voer de geregistreerde opdracht ook onder die identiteit uit. Een aangepaste, onprivileged agent voldoet niet aan dit contract; de check verruimt geen rechten en voegt geen sudo-regel toe. Er worden geen netwerkverzoeken gedaan, privésleutels gelezen of Puppet-taken gestart. De check gebruikt systemd alleen als de manager werkelijk actief is en anders `ps`; een gestopte systemd-service blijft een fout.
+
+Een check-in betekent een door de `store`-processor opgeslagen report, niet iedere verbinding of catalogusaanvraag. De nieuwste `mtime` van een regulier, niet-leeg report met de door `store` gebruikte naam `YYYYMMDDHHMM.yaml` benadert het ontvangsttijdstip. De check deserialiseert geen YAML en beoordeelt geen reportinhoud; kopiëren of herstellen kan de gemeten tijd beïnvloeden. Alleen agents met een uitgegeven, niet-ingetrokken certificaat tellen mee. Het eigen servercertificaat en CA-certificaten vallen erbuiten; pending aanvragen zijn nog geen agents. Een verlopen agent blijft meetellen, een ingetrokken of uit de CA opgeschoond certificaat verdwijnt uit de actieve scope.
+
+De snapshot `/etc/openitcockpit-agent/state/puppet_server/last_seen` bewaart uitsluitend eerder waargenomen reporttijden. `basic_settings::monitoring_custom` beheert de statemap met modus `0700` voordat de check wordt geregistreerd. De snapshot heeft modus `0600`; beide zijn van root. Een lock voorkomt overlappende updates en vervanging gebeurt atomisch. Bestaande dagelijkse report-cleanup verwijdert deze administratie niet. Alleen na een volledige CA- en reportinspectie verdwijnen records van niet meer actieve agents. Bij eerste ingebruikname is gewiste historie niet terug te halen: zonder waargenomen report verschijnt `never reported`. Dit bewijst niet dat de agent vóór installatie nooit heeft gerapporteerd. Oude agents krijgen geen nieuwe inregelperiode; uitsluitend certificaten met een `notBefore` binnen de laatste 24 uur krijgen respijt. Die geldigheidsstart is een benadering van uitgifte, geen gegarandeerd uitgiftetijdstip.
+
+Bij het verplaatsen van een bestaande snapshot moeten alle aanroepen voor die state gestopt zijn. Maak de nieuwe statemap aan als root met modus `0700` en neem de bestaande `last_seen` met zijn eigenaar en rechten mee voordat de check daar draait; anders begint hij zonder eerder waargenomen historie. Dit geldt ook bij een overstap vanaf de eerdere ontwikkellocatie `/var/cache/check_puppetserver` of bij een expliciete `STATE_DIR`/`-S`-wijziging.
+
+Eén agent met een report ouder dan het stale-venster geeft WARNING; precies op de grens nog niet. Langere inactiviteit geeft op zichzelf geen CRITICAL. De standaardcertificaatdrempels zijn 30 dagen voor WARNING en 14 dagen voor CRITICAL, voor CA, server en actieve agents. Ongeldige of ingetrokken servercertificaten, verlopen actieve certificaten, ongeldige CA/CRL en een gestopte daemon geven CRITICAL. De CRL heeft een eigen waarschuwingsvenster van één dag vóór `nextUpdate`; stem dit bij een andere CA-vernieuwingscyclus expliciet af. De check beoordeelt één root, eventuele intermediates en precies één volledige CRL per CA, inclusief intrekking van intermediates. Een infrastructure-only CRL is geen vervanging voor `cacrl`; delta-CRLs en indirecte of beperkte CRLs geven UNKNOWN.
+
+De ondersteunde agentidentiteit is een subject `CN=<certname>`, gelijk aan de naam in de signed-directory en reportdirectory. Certnames bevatten uitsluitend letters, cijfers, punten, underscores en koppeltekens; paden daarnaast slashes. Afwijkende identiteiten of paden geven UNKNOWN. Dit voorkomt dat onduidelijke identiteitskoppelingen als betrouwbare agenttotalen worden gepubliceerd.
+
+Pas zo nodig de optionele `monitoring_server_*`-parameters aan op de bestaande classdeclaratie of via Hiera. De [Puppet Strings](basic_settings/manifests/puppet.pp) beschrijven de overrides; `undef` laat de scriptdefault intact. Bij los gebruik toont `check_puppet_server -h` alle CLI-opties, omgevingsvariabelen en defaults. CLI-invoer gaat vóór environment, de laatste herhaalde optie wint. Iedere registratie die hetzelfde executable zelfstandig aanroept moet bij een andere server ook diens eigen paden en statedirectory gebruiken.
+
+De uitvoer blijft standaard binnen 3500 bytes, met de hoofdoorzaak vooraan en `Interpretation:` als laatste sectie. Afwijkende agents staan op oudste check-in gesorteerd; bij ruimtegebrek verschijnt het aantal weggelaten agents/certificaten. CRITICAL gaat vóór UNKNOWN, UNKNOWN vóór WARNING. Ontbrekende rechten, reporting, onleesbare bestanden, een onvolledige snapshot of een uitgeput tijdbudget blijven herkenbaar; niet betrouwbaar gemeten perfdata worden weggelaten.
+
+| Perfdata | Betekenis |
+| --- | --- |
+| `nodes_total` | Actieve, uitgegeven en niet-ingetrokken agentcertificaten, inclusief verlopen certificaten. |
+| `nodes_today` | Unieke actieve agents met een report sinds lokale middernacht tot het meetmoment, met de tijdzone van de server. |
+| `nodes_stale` | Actieve agents met te oude reports of zonder waargenomen report na de eerste inregelperiode. |
+| `certs_expiring` | Actieve agentcertificaten binnen de waarschuwingstermijn die nog niet verlopen zijn. |
+| `ca_days_left` | Resterende hele dagen van het eerst aflopende certificaat in de CA-keten. |
+
+Deze waarden zijn gauges zonder `c`-eenheid. Een echte nul blijft nul; ontbrekende metingen verschijnen niet als nul. Onderstaand verkort, fictief voorbeeld heeft exitcode 1; de feitelijke uitvoer bevat ook de certificaatidentiteiten, fingerprints en geldigheidsdatums:
+
+```text
+Puppet Server: agent.example.org is missing a recent stored report; check agent scheduling and connectivity | nodes_total=1 nodes_today=0 nodes_stale=1 certs_expiring=0 ca_days_left=400
+Cause / Next action:
+- agent.example.org is missing a recent stored report; check agent scheduling and connectivity
+
+Puppet Server:
+- Service: puppetserver.service; source: systemd; state: active
+
+CA and CRL:
+- Certificate chain and full CRL signatures verified.
+
+Certificates:
+- Active agents: 1; expired: 0; expiring: 0; revoked and excluded: 0
+
+Agents missing reports:
+- agent.example.org: last report 2026-10-09 10:00:00 CEST (+0200); age 25h 0m; stale; check the agent run
+
+Agent overview:
+- Total: 1; today: 0; stale: 1; never seen: 0
+
+Interpretation:
+- Check-in means a stored report (mtime), not every connection. Pre-installation history cannot be recovered.
+```
 
 #### Tijdzone en NTP
 
@@ -969,9 +1028,36 @@ Meerdere interfaces en verschillende capaciteiten staan in het [vnStat-scenario]
 
 De checks worden automatisch door relevante modules geregistreerd wanneer OpenITCOCKPIT-monitoring actief is. Je kunt ze ook los vanuit een Nagios-compatibele executor gebruiken. De script- en templatecomments zijn de technische bron voor argumenten, commandodependencies, drempels, exitcodes, perfdata en diagnose-uitvoer.
 
+Eigen status en caches worden beheerd via [`basic_settings::monitoring_custom`](basic_settings/manifests/monitoring_custom.pp), volgens de [opslagafspraak van het centrale agentmodel](.tools/lint/docs/OPERATIONAL_RULES.md#monitoring-via-het-centrale-agentmodel-registreren). Vraag met `state => true` een privémap per registratie aan. Puppet maakt deze root-owned aan met modus `0700` en geeft de locatie als `STATE_DIR` mee aan de opdracht. Dit werkt ook bij statische scripts via `source` en bij meerdere registraties van hetzelfde script via `script`.
+
+De centrale monitoringclass kiest de basislocatie bij de ingestelde `package`: `/etc/openitcockpit-agent/state` voor `openitcockpit` en `/var/cache` in de defaulttak. Met `package => 'none'` blijven registratie en aanmaak van checkmappen uitgeschakeld; `/var/cache` wordt dan niet door monitoring beheerd.
+
+Met `template` laat je het type zelf een ERB-template laden. Daarin is de afgeleide map beschikbaar als `@state_dir`; overige invoer geef je expliciet mee via `template_data`, beschikbaar als `@template_data`. Gebruik precies één van `source`, `content` of `template` voor het executable. Een registratie die via `script` een bestaand executable hergebruikt geeft geen van deze drie mee.
+
+```puppet
+basic_settings::monitoring_custom { 'application_health':
+  state         => true,
+  template      => 'profile/check_application_health',
+  template_data => { 'service' => 'application.service' },
+}
+```
+
+De eigen template `profile/templates/check_application_health` kan de locatie bijvoorbeeld lezen met `STATE_DIR=${STATE_DIR:-<%= @state_dir %>}`. De runtimewaarde blijft zo bruikbaar wanneer een andere registratie hetzelfde executable gebruikt. De scripts verwachten een bestaande schrijfbare map. Bij los gebruik of een expliciete `STATE_DIR`/`-S`-override moet de operator die vooraf aanmaken en afschermen. Het uitschakelen van een registratie bewaart de state.
+
+Bij `package => 'openitcockpit'` zijn de locaties onder `/etc/openitcockpit-agent/state`:
+
+| Check | Eigen status of cache |
+| --- | --- |
+| APT | `apt/<source>_<version>.txt` |
+| Mirth Connect | `mirth_connect/mirth_queue_state.txt` |
+| Docker Compose | `docker_compose_<registratienaam>/docker_compose_<registratienaam>.state` |
+| Puppet Server | `puppet_server/last_seen` |
+
+Onderbreek bij de overstap alle betrokken checkaanroepen en pas Puppet toe om de nieuwe mappen te laten aanmaken. Verplaats daarna bestaande `mirth_queue_state.txt` en `docker_compose_<registratienaam>.state` uit de gedeelde statemap naar de bijbehorende submappen, met root als eigenaar en modus `0600`, voordat de checks worden hervat. Zo blijven de wachtrijduur en eerdere restarttellers behouden. De Puppet-snapshot blijft op dezelfde locatie; voor een oudere ontwikkellocatie staat de migratie bij [Puppet Server-monitoring](#puppet-server-controleren). De APT-cache onder `/var/cache/check_apt/changelogs` of de eerdere ontwikkellocatie `state/apt/changelogs` wordt niet meer gebruikt. Ontbrekende changelogs worden bij een volgende controle van security-updates opnieuw opgehaald; deze aanvullende diagnose verandert de statusberekening niet.
+
 Algemene Linux-metingen gebruiken waar mogelijk de actieve kernelstatus. Specifieke checks behouden hun toepassingsgebied: APT beoordeelt APT-updates, audit gebruikt de actieve auditregels en de beschikbare historie, en de Nginx-certificaatcheck beoordeelt lokale bestanden. Systemd-checks vereisen een aantoonbaar actieve systemd-manager. Zonder geschikte meetbron of bij een niet-toepasbare controle volgt UNKNOWN (exitcode 3) met de reden; ontbrekende aanvullende diagnosegegevens bewijzen geen storing. Dit verbreedt de platformondersteuning van de Puppet-modules zelf niet.
 
-Wanneer de aanroepende class `systemd_enable = true` doorgeeft, verwachten de monitoringtemplates ook een draaiende systemd-manager: ontbreken geeft CRITICAL, een onleesbare status UNKNOWN. Bij `false` renderen daemonchecks direct hun eigen `ps`-controle; de systemd-helper en systemd-diagnostiek worden niet opgenomen. Alleen zonder deze variabele kiezen zij automatisch op basis van de runtime, met dezelfde procescontrole als fallback. Nftables controleert de geladen kernelregels omdat er geen permanent daemonproces is. De monitoringregistratie borgt de packages voor het gekozen pad.
+Wanneer de aanroepende class `systemd_enable = true` doorgeeft, verwachten de monitoringtemplates ook een draaiende systemd-manager: ontbreken geeft CRITICAL, een onleesbare status UNKNOWN. Bij `false` renderen daemonchecks direct hun eigen `ps`-controle; de systemd-helper en systemd-diagnostiek worden niet opgenomen. Alleen zonder deze variabele kiezen zij automatisch op basis van de runtime, met dezelfde procescontrole als fallback. Nftables controleert de geladen kernelregels omdat er geen permanent daemonproces is. De monitoringregistratie borgt de packages voor het gekozen pad. De aanvullende Puppet Server-check kiest zijn meetmethode steeds op basis van het actieve init-systeem en behoudt daarbij de bestaande afzonderlijke servicecheck.
 
 Servicecontroles verwachten standaard dat de bewaakte service bestaat en actief is. Een ontbrekende vereiste systemd-unit geeft CRITICAL. Een expliciet optionele aanvullende meting kan een ontbrekende unit toestaan; onleesbare status blijft onbekend en een aanwezige unit wordt nog steeds beoordeeld.
 
@@ -991,6 +1077,7 @@ Monitoringtemplates delen de systemd-inspectie via een tijdens compilatie ingevo
 - [`check_nftables`](basic_settings/templates/monitoring/check_nftables)
 - [`check_npm_audit`](basic_settings/files/monitoring/check_npm_audit)
 - [`check_puppet_agent`](basic_settings/templates/monitoring/puppet/check_agent)
+- [`check_puppet_server`](basic_settings/templates/monitoring/puppet/check_server)
 - [`check_rabbitmq`](rabbitmq/templates/check_rabbitmq)
 - [`check_ssh`](ssh/templates/check_ssh)
 - [`check_systemd_config`](basic_settings/files/monitoring/check_systemd_config)
