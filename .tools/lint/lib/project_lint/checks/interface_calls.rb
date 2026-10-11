@@ -27,7 +27,7 @@ module ProjectLint
 
       def check_call(resource, body)
         declaration = called_declaration(resource, body)
-        return unless declaration
+        return unless declaration.is_a?(Ast::M::ResourceTypeDefinition)
         # Splatted attributes require catalog validation; Optional without a default remains required.
         return unless body.operations.all?(Ast::M::AttributeOperation)
 

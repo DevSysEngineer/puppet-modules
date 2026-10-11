@@ -59,7 +59,7 @@ class ExternalProjectTest < Minitest::Test
 
   def test_modulepath_order_shadows_entire_modules_and_keeps_dependencies_outside_style_scope
     write('dependencies/profile/manifests/item.pp', 'define profile::item (String $value) {}')
-    write('manifests/site.pp', "class { 'shared': }\nprofile::item { 'synthetic': }\n")
+    write('manifests/site.pp', "shared { 'synthetic': }\nprofile::item { 'synthetic': }\n")
     lint('manifests')
     assert_equal 1, @output.scan('project_interface_calls: warning:').length, @output + @errors
     reverse_modulepath
@@ -69,16 +69,16 @@ class ExternalProjectTest < Minitest::Test
   end
 
   def test_explicit_modulepath_resolves_vendored_names_and_refuses_escaping_symlinks
-    write_module('stdlib', 'class stdlib (String $value) {}')
-    write('manifests/site.pp', "class { 'stdlib': }\n")
-    lint('manifests')
-    refute @status.success?
-    assert_includes @output, 'project_interface_calls'
-    write('outside/manifests/init.pp', 'class escaping (String $value) {}')
-    File.symlink(File.join(@project, 'outside'), File.join(@project, 'modules/escaping'))
-    write('manifests/site.pp', "class { 'escaping': }\n")
+    write_module('stdlib', 'define stdlib (String $value) {}')
+    write('manifests/site.pp', "stdlib { 'synthetic': }\n")
+    assert_interface_warning
+    write_escaping_module
+    write('manifests/site.pp', "escaping { 'synthetic': }\n")
     lint('manifests')
     assert @status.success?, @output + @errors
+    File.unlink(File.join(@project, 'modules/escaping'))
+    write_module('escaping', read('outside/manifests/init.pp'))
+    assert_interface_warning
   end
 
   def test_invalid_modulepaths_fail_even_without_calls

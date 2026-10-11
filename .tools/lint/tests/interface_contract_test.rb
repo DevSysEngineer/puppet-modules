@@ -2,7 +2,7 @@
 
 require_relative 'test_helper'
 
-# Verify the interface contract contract with native lint diagnostics.
+# Verify interface contracts with native lint diagnostics.
 class InterfaceContractTest < Minitest::Test
   include LintTestSupport
 
@@ -23,10 +23,63 @@ class InterfaceContractTest < Minitest::Test
 
   def test_interface_calls_require_optional_parameters_without_defaults
     definition = 'define example (Optional[String] $value) {}'
-    refute_empty findings("#{definition} example { 'synthetic': }", 'project_interface_calls')
+    problems = findings("#{definition} example { 'synthetic': }", :project_interface_calls)
+    assert_equal([:warning], problems.map { |problem| problem[:kind] })
+    assert_equal 'Public interface call omits required parameters: value', problems.first[:message]
     assert_empty findings("#{definition} example { 'synthetic': value => undef }", 'project_interface_calls')
     assert_empty findings("define example (String $value = 'default') {} example { 'synthetic': }",
                           'project_interface_calls')
+  end
+
+  def test_interface_calls_allow_missing_class_arguments_in_the_current_source
+    ['String', 'Sensitive[String]', 'Optional[String]'].each do |type|
+      code = "class example::service (#{type} $value) {}\nclass { 'example::service': }\n"
+      assert_empty findings(code, :project_interface_calls), type
+    end
+  end
+
+  def test_interface_calls_allow_missing_class_arguments_from_the_modulepath
+    previous = ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil)
+    Dir.mktmpdir('interface-classes-') do |directory|
+      ENV['PROJECT_TOOLS_MODULEPATH'] = directory
+      path = File.join(directory, 'example/manifests/service.pp')
+      FileUtils.mkdir_p(File.dirname(path))
+      assert_class_arguments_from_modulepath(path)
+    end
+  ensure
+    ENV['PROJECT_TOOLS_MODULEPATH'] = previous
+  end
+
+  def assert_class_arguments_from_modulepath(path)
+    ['String', 'Sensitive[String]', 'Optional[String]'].each do |type|
+      File.write(path, "class example::service (#{type} $value) {}")
+      assert_empty findings("class { 'example::service': }", :project_interface_calls), type
+    end
+  end
+
+  def test_interface_calls_report_missing_define_arguments_without_fixing
+    code = "define example::item (String $value) {}\nexample::item { 'synthetic': }\n"
+    [false, true].each do |fix|
+      problems, unchanged = lint_checks(code, [:project_interface_calls], fix: fix)
+      assert_equal code, unchanged
+      assert_equal([:warning], problems.map { |problem| problem[:kind] })
+      assert_equal 'Public interface call omits required parameters: value', problems.first[:message]
+      assert_equal [2, 17], problems.first.values_at(:line, :column)
+    end
+  end
+
+  def test_interface_calls_accept_explicit_define_values_without_evaluating_them
+    definition = 'define example::item (String $value) {}'
+    ["'synthetic'", "lookup('synthetic::value')"].each do |value|
+      code = "#{definition}\nexample::item { 'synthetic': value => #{value} }\n"
+      assert_empty findings(code, :project_interface_calls)
+    end
+  end
+
+  def test_interface_calls_skip_dynamic_splats_and_unresolved_declarations
+    code = "define example::item (String $value) {}\nexample::item { 'synthetic': * => $settings }\n"
+    assert_empty findings(code, :project_interface_calls)
+    assert_empty findings("synthetic::unresolved { 'synthetic': }", :project_interface_calls)
   end
 
   def test_default_dependencies_and_explanatory_comment

@@ -27,7 +27,7 @@ module InstalledGemSupport
   def prepare_bundle
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
-      gem 'lint-project', '= 0.2.0', require: false
+      gem 'lint-project', '= 0.2.1', require: false
     RUBY
     run_success('bundle', 'install', '--local')
     run_success('bundle', 'info', '--path', 'lint-project')
@@ -39,13 +39,24 @@ module InstalledGemSupport
     write('.puppet-lint.rc', "--ignore-paths=dependencies/*,vendor/*,spec/*\n")
     write('manifests/site.pp', "$values = concat([1], [2])\n")
     write_module('profile', 'class profile (String $value) {}')
-    write('dependencies/shared/manifests/init.pp', 'class shared (String $value) {}')
+    write('dependencies/shared/manifests/init.pp', 'define shared (String $value) {}')
     write('spec/invalid.pp', "$values = [1] + [2]\n")
     @env['PROJECT_TOOLS_MODULEPATH'] = [File.join(@project, 'modules'), File.join(@project, 'dependencies')].join(':')
   end
 
   def write_module(name, code)
     write("modules/#{name}/manifests/init.pp", code)
+  end
+
+  def write_escaping_module
+    write('outside/manifests/init.pp', 'define escaping (String $value) {}')
+    File.symlink(File.join(@project, 'outside'), File.join(@project, 'modules/escaping'))
+  end
+
+  def assert_interface_warning
+    lint('manifests')
+    refute @status.success?, @output + @errors
+    assert_includes @output, 'project_interface_calls: warning: Public interface call omits required parameters: value'
   end
 
   def lint(*arguments)

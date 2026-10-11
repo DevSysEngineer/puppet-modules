@@ -2532,27 +2532,29 @@ Volg alle afhankelijke verwerking en behoud iedere aanvullende lokale voorwaarde
 
 **Norm**
 
-Geef bij een class- of defined-type-aanroep alle verplichte parameters mee. Ook een `Optional[...]` zonder default blijft een verplicht argument: het type staat `undef` toe, maar vult geen ontbrekende waarde in.
+Verplichte classparameters mogen expliciet of via automatische classparameterlookup worden geleverd. Controleer hun beschikbaarheid en type tijdens cataloguscompilatie in de toepasselijke environment- en nodecontext. Defined types hebben geen automatische classparameterlookup. Bij gewone defined-type-aanroepen worden parameters zonder default als argument aangeleverd. `Optional[...]` staat `undef` als waarde toe, maar maakt een defineparameter zonder default niet optioneel bij de aanroep.
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectspecificatie van upstream: [automatische classparameterlookup](https://www.puppet.com/docs/puppet/7/hiera_automatic.html) en de [taalspecificatie over parameters en undef](https://github.com/puppetlabs/puppet-specifications/blob/master/language/catalog_expressions.md). Expliciete argumenten bij gewone defineaanroepen zijn een projectafspraak; de hieronder beschreven resource defaults blijven een detectiegrens.
 
 **Toepassingsgebied**
 
-Class- en defined-type-resourceaanroepen met statisch gevonden declaraties en zonder splat.
+De interfaceafspraak geldt voor classes en defined types. De automatische ontbrekende-argumentcontrole geldt uitsluitend voor defined-type-resourceaanroepen met statisch gevonden declaraties en zonder splat.
 
 **Automatische controle**
 
-`project_interface_calls`
+`project_interface_calls` meldt ontbrekende attributen voor defineparameters zonder default. Ontbrekende classargumenten leveren geen melding op, ook niet bij resource-style classdeclaraties.
 
 **Detectiegrenzen**
 
-Onvindbare declaraties, dynamische namen, include/contain, splats, Hiera, types, onbekende parameters, overerving en containment worden niet volledig gecontroleerd. Het modulepad bepaalt de vindbare versie.
+Onvindbare declaraties, dynamische namen, `include`/`contain`, splats, argumenttypen, onbekende parameters, overerving en containment worden niet volledig gecontroleerd. Het modulepad bepaalt de vindbare versie. De linter voert geen Hiera-lookups uit en leest geen private configuratiedata. Het uitblijven van een classmelding bewijst niet dat de vereiste Hiera-waarde beschikbaar is of het juiste type heeft.
+
+Puppet kan waarden ook via [resource defaults](https://help.puppet.com/core/current/Content/PuppetCore/lang_defaults.htm) leveren, inclusief bij defined types. De check analyseert deze defaults niet en kan daardoor een ontbrekend defineargument melden terwijl cataloguscompilatie wel slaagt. Argumenten bij gewone defineaanroepen expliciet meegeven is dus een projectafspraak, geen universele Puppet-eis.
 
 **Meldingen en severity**
 
-`Public interface call omits required parameters: {namen}`: `warning`; de variabele lijst noemt ontbrekende verplichte parameters.
+`Public interface call omits required parameters: {namen}`: `warning` bij de resourcetitel; de variabele lijst noemt ontbrekende verplichte defineparameters.
 
 **Autofix**
 
@@ -2560,11 +2562,11 @@ Geen
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: deze check heeft geen autofix; inhoudelijke correctie vereist de hieronder beschreven review.
+Niet van toepassing: de linter kan de inhoudelijk juiste ontbrekende definewaarde niet bepalen. Die keuze vereist de hieronder beschreven review.
 
 **Toegestane uitzonderingen**
 
-Een parameter met een echte default hoeft niet expliciet mee; Optional zonder default blijft verplicht.
+Een parameter met een default hoeft niet expliciet mee. Classes mogen automatische parameterlookup gebruiken. Bij defines blijft `Optional[...]` zonder default verplicht; expliciet `undef` is daarvoor een toegestane waarde.
 
 **Suppressions**
 
@@ -2590,23 +2592,32 @@ define example::item (String $value) {}
 example::item { 'demo': value => 'synthetic' }
 ```
 
+Fragment; alleen de controle `project_interface_calls` is voor dit classvoorbeeld bedoeld. Verwacht geen melding. Deze lintuitkomst bewijst geen beschikbare Hiera-data: de catalogus moet in de toepasselijke context nog steeds een geldige String voor `example::service::value` krijgen.
+
+<!-- lint-example: project_interface_calls clean -->
+```puppet
+class example::service (String $value) {}
+
+class { 'example::service': }
+```
+
 **Grensgevallen**
 
-Een vindbare Optional zonder default blijft vereist; een niet-vindbare declaratie kan geen melding over haar vereiste parameters geven. Een splat voorkomt volledige statische argumentcontrole.
+Een vindbare defineparameter met `Optional[...]` zonder default blijft vereist. Een expliciet attribuut met `undef`, een concrete waarde of `lookup(...)` telt als aangeleverd; de check evalueert de waarde niet. Een niet-vindbare declaratie kan geen melding over haar vereiste parameters geven. Een splat voorkomt de ontbrekende-argumentcontrole. Resource defaults worden niet verrekend.
 
 **Handmatige review**
 
-Controleer de gekozen moduleversie, alle vereiste argumenten en de eigen catalogusvalidatie, ook zonder lintmelding.
+Controleer de gekozen moduleversie en de argumenten van defined types, ook bij splats of resource defaults. Compileer classes in de toepasselijke environment- en nodecontext en controleer beschikbaarheid en type van verplichte waarden. Verifieer ontbrekende data, onjuiste typen en expliciete overschrijving met synthetische waarden, ook zonder lintmelding.
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [parameter_passthrough_test.rb](../tests/parameter_passthrough_test.rb), [parameter_filter_defaults_test.rb](../tests/parameter_filter_defaults_test.rb), [parameter_filter_predicate_test.rb](../tests/parameter_filter_predicate_test.rb), [parameter_filter_source_test.rb](../tests/parameter_filter_source_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+[guide_examples_test.rb](../tests/guide_examples_test.rb) controleert de gemarkeerde fragmenten via de native engine. [interface_contract_test.rb](../tests/interface_contract_test.rb) controleert classes met `String`, `Sensitive[String]` en `Optional[String]`, lokaal en via het modulepad, plus vereiste defineargumenten, expliciet `undef`, defaults, splats, onvindbare declaraties en het ontbreken van autofix. [external_interface_calls_test.rb](../tests/external_interface_calls_test.rb) controleert class- en defineaanroepen met de geïnstalleerde gem; [external_project_test.rb](../tests/external_project_test.rb) bewaakt modulepadvolgorde, moduleoverschaduwing, vendored namen en symlinkgrenzen. De linttests gebruiken geen Hiera-bestanden en voeren `lookup(...)` niet uit. Controleer het catalogusgedrag afzonderlijk in een geïsoleerde tijdelijke omgeving; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Alle verplichte argumenten doorgeven
 
-`project_interface_calls` meldt ontbrekende argumenten bij declaraties die de check statisch kan vinden. Binnen deze repository is de eigen moduleverzameling het standaardzoekpad. De [modulepadregels](../README.md#aanroepen-van-modules-controleren) beschrijven hoe de declaratie wordt gekozen en welke aanroepen buiten de analyse vallen.
+`project_interface_calls` meldt ontbrekende argumenten bij defined types die de check statisch kan vinden. Binnen deze repository is de eigen moduleverzameling het standaardzoekpad. De [modulepadregels](../README.md#aanroepen-van-modules-controleren) beschrijven hoe de declaratie wordt gekozen en welke aanroepen buiten de analyse vallen.
 
-Een geslaagde scan bewijst geen geldige catalogus. Argumenttypen, onbekende parameters, Hiera, overerving, defaults, containment en splats vragen afzonderlijke catalogusvalidatie. Dat geldt ook wanneer de linter een declaratie niet vindt. De check heeft geen autofix; de juiste argumentwaarde volgt uit de interface en het bedoelde gebruik.
+Bij classparameters gebruikt Puppet eerst een expliciete waarde, daarna automatische lookup met een sleutel zoals `example::service::value`, en daarna een eventuele parameterdefault. Een expliciet `undef` kan lookup of defaultgedrag activeren. Ontbreekt daarna nog een verplichte waarde, dan faalt de compilatie. De linter stelt die beschikbaarheid en het parametertype niet vast; dat vraagt een nieuwe catalogus in de juiste context. Ook argumenttypen van defines, onbekende parameters, overerving, resource defaults, containment en splats blijven onderdeel van catalogusvalidatie.
 
 ### Overbodige parameterdoorgifte rechtstreeks schrijven
 
