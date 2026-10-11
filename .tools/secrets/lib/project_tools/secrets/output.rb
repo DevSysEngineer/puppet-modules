@@ -25,8 +25,7 @@ module ProjectTools
         @documents.each_with_index.map do |document, index|
           { id: index + 1, file: safe_path(document.path), complete: document.complete?,
             findings: document.findings.sort_by { |item| [item[:line], item[:rule]] },
-            errors: document.errors, copy: document.copy, coverage: document.coverage,
-            reviewed_findings: document.reviewed_findings, reviewed_errors: document.reviewed_errors }
+            errors: document.errors, copy: document.copy, coverage: document.coverage }
         end
       end
 
@@ -99,8 +98,6 @@ module ProjectTools
             xml.error(detail, type: 'incomplete_scan')
           elsif !record[:findings].empty?
             xml.failure(detail, type: 'possible_sensitive_data')
-          elsif record[:coverage].start_with?('reviewed_')
-            xml.tag!('system-out', detail)
           end
         end
       end

@@ -6,15 +6,15 @@ module ProjectTools
   module Secrets
     # Source bytes remain local; only fixed finding metadata leaves this object.
     class Document
-      attr_reader :path, :text, :findings, :errors, :values, :members, :reviewed_findings,
-                  :reviewed_errors
-      attr_accessor :copy, :coverage, :fingerprint
+      attr_reader :path, :text, :findings, :errors, :values, :members
+      attr_accessor :copy, :coverage
 
       def initialize(path, text = '')
         @path = path
         @text = text
         initialize_findings
-        initialize_coverage
+        @members = []
+        @coverage = 'text'
         @line_ends = []
         text.each_char.with_index { |char, index| @line_ends << index if char == "\n" }
         error('invalid_ruby') if ruby_source? && Ripper.sexp(text).nil?
@@ -26,13 +26,6 @@ module ProjectTools
         @spans = []
         @values = []
         @finding_keys = {}
-      end
-
-      def initialize_coverage
-        @members = []
-        @coverage = 'text'
-        @reviewed_findings = []
-        @reviewed_errors = []
       end
 
       def finding(rule, offset, kind = 'indicator')
@@ -65,7 +58,6 @@ module ProjectTools
 
       def sanitized
         raise ArgumentError unless complete?
-        return '[REVIEWED CONTENT WITHHELD]' if coverage.start_with?('reviewed_')
         return sanitized_members unless members.empty?
 
         result = text.dup
@@ -75,14 +67,6 @@ module ProjectTools
 
       def sanitized_members
         members.each_with_index.map { |member, index| "[member-#{index + 1}]\n#{member.sanitized}\n" }.join
-      end
-
-      def accept_review(control)
-        @coverage = "reviewed_#{control}"
-        @reviewed_findings = @findings.dup
-        @reviewed_errors = @errors.dup
-        @findings = @findings.reject { |finding| finding[:kind] == 'value' }
-        @errors = []
       end
 
       def aggregate

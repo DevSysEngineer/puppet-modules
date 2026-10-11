@@ -66,4 +66,10 @@ class SecretsTest < Minitest::Test
     assert_equal 0, @status.exitstatus, @out + @err
     assert_empty @report['files'].first['findings']
   end
+
+  def assert_unreviewed
+    record = @report['files'].first
+    assert_empty record.fetch('reviewed_findings', [])
+    assert_empty record.fetch('reviewed_errors', [])
+  end
 end

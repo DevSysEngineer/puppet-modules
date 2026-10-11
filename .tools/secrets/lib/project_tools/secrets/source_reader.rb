@@ -2,7 +2,6 @@
 
 require_relative 'document'
 require_relative 'archive'
-require 'digest'
 
 module ProjectTools
   module Secrets
@@ -23,13 +22,11 @@ module ProjectTools
       end
 
       def inspect_bytes(path, text, depth: 0)
-        document = if Archive.supported?(path)
-                     archive_document(path, text, depth)
-                   else
-                     text_document(path, text.force_encoding(Encoding::UTF_8))
-                   end
-        document.fingerprint = Digest::SHA256.hexdigest(text.b)
-        document
+        if Archive.supported?(path)
+          archive_document(path, text, depth)
+        else
+          text_document(path, text.force_encoding(Encoding::UTF_8))
+        end
       end
 
       def archive_document(path, text, depth)

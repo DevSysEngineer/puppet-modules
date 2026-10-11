@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'puppet_syntax'
+require_relative 'puppet_counters'
 require_relative 'text_scan'
 
 module ProjectTools
@@ -11,6 +12,7 @@ module ProjectTools
 
       def initialize(document)
         @document = document
+        @counter_literals = []
       end
 
       def sensitive_arguments(node)
@@ -83,6 +85,7 @@ module ProjectTools
       end
 
       def redact_literal(node)
+        return if @counter_literals.any? { |literal| literal.equal?(node) }
         return if ['', '[REDACTED]', '!', '!!', '*'].include?(node.value.to_s)
         return @document.error('unbounded_puppet_value') unless node.length.positive?
 
@@ -110,6 +113,7 @@ module ProjectTools
       end
 
       def inspect_arguments(node)
+        @counter_literals.concat(PuppetCounters.new.literals(node))
         node.arguments.each { |argument| inspect_value(argument) }
         inspect_value(node.lambda) if node.lambda
       end

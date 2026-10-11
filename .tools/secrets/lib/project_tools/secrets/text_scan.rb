@@ -45,7 +45,7 @@ module ProjectTools
           first = skip_space(match.end(0))
           next unless @text[first] == '('
 
-          last = ValueBounds.new(@text).finish(first, balanced: true)
+          last = ValueBounds.new(@text, puppet: puppet_source?).finish(first, balanced: true)
           last ? redact(first + 1, last - 1, 'puppet_sensitive') : @document.error('unbounded_sensitive_value')
         end
       end
@@ -64,20 +64,42 @@ module ProjectTools
       end
 
       def value_bounds(first, word)
-        last = ValueBounds.new(@text).finish(first, outer_quote: enclosing_quote(first), word: word)
-        return unless last && last > first && !ambiguous_continuation?(last)
+        bounds = ValueBounds.new(@text, puppet: puppet_source?)
+        last = bounds.finish(first, outer_quote: enclosing_quote(first), word: word)
+        return unless last && last > first && !ambiguous_continuation?(first, last, bounds.lambda?)
 
         [first, last]
       end
 
-      def ambiguous_continuation?(last)
+      def ambiguous_continuation?(first, last, lambda_expression)
         return false if ruby_source?
         return false unless @text[last..].match?(/\A\r?\n/)
 
         following = @text[(last + 1)..].lines.find { |line| !line.strip.empty? }
         return false unless following&.match?(/\A[ \t]+\S/)
+        return false if puppet_statement?(first, last, lambda_expression)
 
         !following.match?(/\A[ \t]*(?:[#}\]);]|["'$]?[\w:.-]+["']?\s*(?:=>|=|:))/)
+      end
+
+      def puppet_source?
+        File.extname(@document.path) == '.pp'
+      end
+
+      def puppet_statement?(first, last, lambda_expression)
+        return false unless puppet_source? && puppet_expression?(first, last, lambda_expression)
+
+        start = skip_space(last)
+        return false unless @text[start..].match?(/\A(?:if|unless)\s+[^\r\n{]+\{/)
+
+        opening = @text.index('{', start)
+        !!ValueBounds.new(@text, puppet: true).finish(opening, balanced: true)
+      end
+
+      def puppet_expression?(first, last, lambda_expression)
+        expression = @text[first...last].strip
+        (lambda_expression && expression.end_with?('}')) ||
+          expression.match?(/\A\$[\w:]+(?:\[[^\r\n]+\]|\.[a-z_]\w*)*\z/)
       end
 
       def ruby_source?

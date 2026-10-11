@@ -41,19 +41,9 @@ module ProjectTools
       end
 
       def start_scan(paths)
-        review = read_review
-        return finish unless @errors.empty?
-
-        @scanner = Scanner.new(puppet: @options[:puppet], review: review)
+        @scanner = Scanner.new(puppet: @options[:puppet])
         @writer = Output.new(@scanner.documents, paths)
         execute(paths)
-      end
-
-      def read_review
-        Review.new(@options[:review]) if @options[:review]
-      rescue StandardError
-        @errors << 'invalid_review_policy'
-        nil
       end
 
       def help

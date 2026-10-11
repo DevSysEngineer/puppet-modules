@@ -47,7 +47,7 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelin
 | [`project-tools-validate`](validate/project-tools-validate.gemspec) | [Parservalidatie](validate/README.md) | Native `puppet parser validate MANIFEST.pp`; met rapport `validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]` |
 | [`lint-project`](lint/lint-project.gemspec) | [Lint](lint/README.md) | `puppet-lint`, `puppet-lint-junit` |
 | [`project-tools-ruby-lint`](ruby-lint/project-tools-ruby-lint.gemspec) | [Ruby-lint](ruby-lint/README.md) | Native `rubocop` met eigen JUnit-formatter |
-| [`project-tools-secrets`](secrets/project-tools-secrets.gemspec) | [Lokale secretcontrole](secrets/README.md) | `project-tools-secrets [--redact NEW_DIR] [--review POLICY.json] [--json] [--junit NEW_FILE] PATH ...` |
+| [`project-tools-secrets`](secrets/project-tools-secrets.gemspec) | [Lokale secretcontrole](secrets/README.md) | `project-tools-secrets [--redact NEW_DIR] [--json] [--junit NEW_FILE] PATH ...` |
 | [`project-tools-shared`](shared/project-tools-shared.gemspec) | [Gedeelde library](shared/README.md) | Geen eigen executable |
 
 Controleer bestanden vóór AI-analyse of externe inzage met de [lokale secretcontrole](secrets/README.md). De handleiding beschrijft de volgorde van scannen, rapport beoordelen en afzonderlijke kopieën maskeren, inclusief de beperkingen bij zoekuitvoer en diffs. Deze voorcontrole draait lokaal vóór openbaarmaking; een CI-scan achteraf vervangt haar niet.

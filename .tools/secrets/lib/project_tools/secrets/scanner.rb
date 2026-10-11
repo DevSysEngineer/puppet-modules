@@ -5,7 +5,6 @@ require_relative 'text_scan'
 require_relative 'yaml_scan'
 require_relative 'puppet_scan'
 require_relative 'source_reader'
-require_relative 'review'
 
 module ProjectTools
   module Secrets
@@ -14,12 +13,11 @@ module ProjectTools
       MAX_BYTES = SourceReader::MAX_BYTES
       attr_reader :documents
 
-      def initialize(puppet: false, review: nil)
+      def initialize(puppet: false)
         @documents = []
         @seen = {}
         @puppet = puppet
         @reader = SourceReader.new
-        @review = review
       end
 
       def scan(paths)
@@ -27,7 +25,6 @@ module ProjectTools
         scan_yaml
         leaves.each { |document| scan_text(document) }
         documents.each(&:aggregate)
-        @review&.apply(documents)
         documents
       rescue StandardError, SystemStackError, SignalException
         documents.each { |document| document.error('inspection_failed') }
