@@ -206,10 +206,10 @@ class openitcockpit::server (
         require => File['/opt/openitc'],
     }
 
-    # Create admin password file
+    # Start with an empty password marker so the configured password is applied after installation.
     file { "${install_dir_correct}/etc/grafana/admin_password":
       ensure  => file,
-      content => Sensitive.new('admin'),
+      content => '',
       replace => false,
       owner   => 'root',
       group   => 'root',

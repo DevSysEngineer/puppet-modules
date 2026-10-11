@@ -31,6 +31,7 @@ class TestStructureTest < Minitest::Test
 
   def test_rake_tasks_discover_nested_tests_and_keep_tool_selection_separate
     write_file('Rakefile', File.read(File.join(ProjectToolsPackageSupport::ROOT, 'Rakefile')))
+    write_file('sample.pp', "notify { 'synthetic': }\n")
     selections = tool_selections
     all = [*selections.values.flatten, '.tools/inventory/tests/inventory_test.rb'].sort
     all.each { |path| write_file(path, "puts #{path.dump}\n") }
@@ -44,6 +45,7 @@ class TestStructureTest < Minitest::Test
       'test:metadata' => ['.tools/metadata/tests/metadata_test.rb'],
       'test:ruby_lint' => ['.tools/ruby-lint/tests/cli_test.rb'],
       'test:repository_checks' => ['.tools/repository-checks/tests/workflow_test.rb'],
+      'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
       'test:shared' => ['.tools/shared/tests/library_test.rb'],
       'test:module_dependencies' => ['.tools/module-dependencies/tests/cli_test.rb'],
       'test:validate' => ['.tools/validate/tests/cli_test.rb'] }

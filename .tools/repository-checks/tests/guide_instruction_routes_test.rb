@@ -10,7 +10,7 @@ class GuideInstructionRoutesTest < Minitest::Test
   include RepositoryGuideInventory
 
   ROOT = File.expand_path('../../..', __dir__)
-  COMPONENTS = %w[lint metadata module-dependencies repository-checks ruby-lint shared validate].freeze
+  COMPONENTS = %w[lint metadata module-dependencies repository-checks ruby-lint secrets shared validate].freeze
   INSTRUCTION_ROUTES = {
     'AGENTS.md' => ['.tools/AGENTS.md'],
     '.tools/AGENTS.md' => ['../AGENTS.md', 'README.md', *COMPONENTS.map { |name| "#{name}/AGENTS.md" }],

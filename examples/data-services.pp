@@ -13,7 +13,7 @@ node 'database.example.org' {
   # Configure the database service and encrypted backups after preparing its package source.
   class { 'mysql':
     automysqlbackup_backupdir => '/var/lib/automysqlbackup',
-    automysqlbackup_password  => Sensitive('replace-with-backup-password'),
+    automysqlbackup_password  => lookup('examples::data_services::automysqlbackup_password', Sensitive[String]),
     automysqlbackup_settings  => {
       'mysql_dump_compression'        => 'bzip2',
       'mysql_dump_single_transaction' => 'yes',

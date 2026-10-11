@@ -1,6 +1,6 @@
 # Gedeelde toolingbibliotheek
 
-`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-metadata`, `project-tools-validate` en `project-tools-module-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
+`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-validate` en `project-tools-module-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
 
@@ -13,7 +13,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 ## Runtimecontracten
 
-`require 'project_tools/shared/junit_report'` levert `ProjectTools::Shared::JunitReport.write(output, name:, **counts) { |xml| ... }`. De schrijver maakt de XML-declaratie, `testsuites` en `testsuite`; de producer levert tellingen, testcases, failures, errors en eventuele rapporttekst. Builder verzorgt escaping. Lint, metadata, parser en dependencyreporter gebruiken dezelfde implementatie, maar behouden ieder hun eigen succescriterium en exitstatus.
+`require 'project_tools/shared/junit_report'` levert `ProjectTools::Shared::JunitReport.write(output, name:, **counts) { |xml| ... }`. De schrijver maakt de XML-declaratie, `testsuites` en `testsuite`; de producer levert tellingen, testcases, failures, errors en eventuele rapporttekst. Builder verzorgt escaping. Lint, secretcontrole, metadata, parser en dependencyreporter gebruiken dezelfde implementatie, maar behouden ieder hun eigen succescriterium en exitstatus.
 
 `require 'project_tools/shared/modulepath'` levert `ProjectTools::Shared::Modulepath.parse(value)`. Deze functie splitst met `File::PATH_SEPARATOR`, weigert lege of ongeldige onderdelen en vereist absolute bestaande directories. Het resultaat bevat bevroren, gecanonicaliseerde paden in oorspronkelijke volgorde, inclusief duplicaten. Ongeldige invoer geeft `ArgumentError`; bestandsysteemfouten behouden hun Ruby-fouttype. De linter en dependencytool gebruiken deze validatie.
 

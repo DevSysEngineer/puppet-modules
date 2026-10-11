@@ -11,6 +11,7 @@ Read the [repository instructions](../AGENTS.md) and this file before maintainin
 | `module-dependencies` | Native module selection and declared dependency analysis | [Module dependencies](module-dependencies/AGENTS.md) |
 | `repository-checks` | Repository documentation, CI configuration, distribution integration and test layout | [Repository checks](repository-checks/AGENTS.md) |
 | `ruby-lint` | Native RuboCop integration and shared Ruby profile | [Ruby lint](ruby-lint/AGENTS.md) |
+| `secrets` | Local sensitive-data detection, redacted copies and safe disclosure reports | [Sensitive data](secrets/AGENTS.md) |
 | `shared` | Actually shared runtime behavior and repository test support | [Shared library](shared/AGENTS.md) |
 | `validate` | Native parser validation and report integration | [Validator](validate/AGENTS.md) |
 
@@ -44,7 +45,7 @@ The [tooling README](README.md) owns installation, package selection, modulepath
 
 ## CI Jobs And Reports
 
-- Apply and verify the [CI and reporting procedures](README.md#ci-van-deze-repository) when changing tooling or pipelines. Preserve independent jobs, selections, thresholds, exit codes and report publication contracts.
+- Apply and verify the [CI and reporting procedures](README.md#ci-van-deze-repository) when changing tooling or pipelines. Preserve the documented secrets gate before independent diagnostic jobs, and preserve selections, thresholds, exit codes and report publication contracts.
 - Review changed CI calls against the [job log contract](README.md#joblogs). Keep execution and presentation responsibilities separate and validate the affected tool and repository integration tests.
 
 ## Tooling Documentation

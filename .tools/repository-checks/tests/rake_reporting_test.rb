@@ -11,6 +11,7 @@ class RakeReportingTest < Minitest::Test
   def setup
     @project = Dir.mktmpdir('rake-reporting-')
     write('Rakefile', File.read(File.join(ROOT, 'Rakefile')))
+    write('sample.pp', "notify { 'synthetic': }\n")
     write_probe(true)
   end
 

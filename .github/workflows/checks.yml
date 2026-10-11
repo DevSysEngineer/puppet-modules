@@ -3,6 +3,7 @@ name: Project checks
 on:
   pull_request:
   push:
+  merge_group:
 
 permissions:
   contents: read
@@ -18,8 +19,25 @@ defaults:
     shell: bash
 
 jobs:
+  puppet_secrets:
+    name: Puppet secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Reject hardcoded Puppet secrets
+        run: bundle exec rake secrets:puppet
+      - name: Check for changes without source output
+        run: git diff --quiet HEAD --
+
   metadata:
     name: Metadata
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     env:
       PROJECT_METADATA_MODULES_PATH: '.'
@@ -37,7 +55,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -58,6 +76,7 @@ jobs:
 
   puppet_dependencies:
     name: Puppet dependencies
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -75,7 +94,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -103,6 +122,7 @@ jobs:
 
   validate:
     name: Validate
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -118,7 +138,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -138,6 +158,7 @@ jobs:
 
   puppet_lint:
     name: Puppet lint
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -168,7 +189,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -188,6 +209,7 @@ jobs:
 
   ruby_lint:
     name: Ruby lint
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -220,7 +242,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -240,6 +262,7 @@ jobs:
 
   tool_tests:
     name: Tool tests
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -257,7 +280,7 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?

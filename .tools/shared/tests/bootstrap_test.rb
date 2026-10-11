@@ -12,12 +12,14 @@ class SharedBootstrapTest < Minitest::Test
     @project = Dir.mktmpdir('joint-tooltests-')
     @reports = File.join(@project, 'reports')
     write('Rakefile', File.read(File.join(ROOT, 'Rakefile')))
+    write('sample.pp', "notify { 'synthetic': }\n")
     write('reports/TEST-old.xml', '<stale/>')
     write('reports/project-tools-module-dependencies-report.xml', '<preserved/>')
   end
 
   def test_joint_run_initializes_once_and_runs_each_owner
-    %w[lint shared module-dependencies validate metadata ruby-lint repository-checks].each_with_index do |tool, index|
+    %w[lint shared module-dependencies validate metadata ruby-lint secrets
+       repository-checks].each_with_index do |tool, index|
       write_probe(tool, index)
     end
     environment = { 'MINITEST_REPORTERS_REPORTS_DIR' => @reports, 'TEST' => nil, 'TESTOPTS' => nil }
@@ -44,7 +46,7 @@ class SharedBootstrapTest < Minitest::Test
     assert_equal '<preserved/>', read('reports/project-tools-module-dependencies-report.xml')
     refute_path_exists File.join(@reports, 'TEST-old.xml')
     reports = Dir[File.join(@reports, 'TEST-*.xml')]
-    assert_equal 7, reports.length
+    assert_equal 8, reports.length
     reports.each do |path|
       document = REXML::Document.new(File.read(path))
       assert_equal 1, REXML::XPath.match(document, '//testcase').length

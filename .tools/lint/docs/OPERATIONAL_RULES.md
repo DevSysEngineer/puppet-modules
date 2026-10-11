@@ -25,6 +25,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
   - [Recursieve bewerkingen tot module-eigendom beperken](#recursieve-bewerkingen-tot-module-eigendom-beperken)
   - [Eigenaars en rechten](#eigenaars-en-rechten)
     - [Verdieping bij Eigenaars en rechten](#verdieping-bij-eigenaars-en-rechten)
+  - [Geheimen buiten Puppet-manifesten beheren](#geheimen-buiten-puppet-manifesten-beheren)
   - [Toegang via diensten en rapporten beoordelen](#toegang-via-diensten-en-rapporten-beoordelen)
   - [Privétoegang en uitvoerrechten onderbouwen](#privétoegang-en-uitvoerrechten-onderbouwen)
   - [Shellcommando's in Puppet](#shellcommandos-in-puppet)
@@ -800,6 +801,68 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples
 Bij Linux-symlinks stel je het eigenaarschap expliciet in en beveilig je het doel. Een afzonderlijke chmod-modus op de symlink biedt daar geen bruikbare bescherming.
 
 `project_files` controleert de expliciete attributen, recursieve uitvoerrechten en uitsluiting van `source` en `content`, met inbegrip van zichtbare lokale defaults. Overerving en overrides kunnen extra cataloguscontrole vragen. De check heeft geen autofix: hij kan niet bepalen welke gebruiker toegang nodig heeft. Beoordeel zelf de effectieve rechten, de inhoud van recursieve bomen en de bereikbaarheid van bovenliggende paden.
+
+### Geheimen buiten Puppet-manifesten beheren
+
+**Norm**
+
+Plaats geen hardcoded wachtwoorden, API-keys, authenticatietokens, privésleutels of andere cryptografische geheimen in Puppet-manifesten. Beheer waarden in een goedgekeurde externe secretbron en gebruik lookups of parameters. Ook een letterlijke waarde binnen `Sensitive` blijft hardcoded. De algemene [geheimenbescherming](../../../AGENTS.md#secrets-and-authentication-material) geldt daarnaast voor alle overige bronbestanden en uitvoer.
+
+**Herkomst**
+
+Projectregel: verplichte lokale en CI-controle op hardcoded geheimen.
+
+**Toepassingsgebied**
+
+Eigen `.pp`-bestanden, waaronder uitvoerbare voorbeelden, parameters, variabelen, resources en gevoelige hashvelden.
+
+**Automatische controle**
+
+Geen automatische Puppet-lintcontrole. De bestaande [secrets-tool](../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) voert deze afzonderlijke controle uit; voeg geen tweede scanner toe aan de linter.
+
+**Detectiegrenzen**
+
+De centrale scannerhandleiding beschrijft ondersteunde syntaxis, herkenningsregels en grenzen. Een geslaagde scan bewijst niet dat onbekende, samengestelde of extern opgehaalde waarden veilig zijn.
+
+**Meldingen en severity**
+
+De scanner rapporteert uitsluitend bestand, regelnummer, herkenningsregel en volledigheid. Een waarde geeft exitcode 1; een mislukte of onvolledige scan exitcode 2. Beide blokkeren de standaardtests.
+
+**Autofix**
+
+Geen
+
+**Autofixvoorwaarden**
+
+Geen automatische bronwijziging. Gemaskeerde analysekopieën vervangen geen configuratiemigratie naar een secretbron.
+
+**Toegestane uitzonderingen**
+
+Uitsluitend fictieve invoer in geïsoleerde scannerfixtures onder de gedocumenteerde tooltestlocaties. Een gevoelige veldnaam, typeaanduiding of verwijzing bevat op zichzelf geen geheim.
+
+**Suppressions**
+
+Geen inline suppressie of consumerspecifieke detectie-uitzondering. Herstel onterechte meldingen in de centrale tool met regressiedekking.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: Een resource krijgt een fictief letterlijk wachtwoord, al dan niet omhuld met Sensitive. Keur het hardcoded patroon af.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: Het wachtwoord wordt via `lookup('example::password', Sensitive[String])` opgehaald en de secretbron wordt afzonderlijk beveiligd en gecontroleerd.
+
+**Grensgevallen**
+
+Een lookup met een hardcoded geheime default blijft fout. Een variabele of veilige lookup mag niet alleen vanwege zijn naam worden afgekeurd. Review ook de herkomst van zulke waarden en gevoelige gegevens buiten `.pp`.
+
+**Handmatige review**
+
+Controleer secretbeheer, standaardwaarden, logging en alle uitvoerkanalen. Volg bij een vermoed lek de [incidentprocedure](../../../AGENTS.md#disclosure-incidents); herhaal nooit de waarde in de melding.
+
+**Verificatie**
+
+Voer de [standaardcontrole](../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit. Synthetische detectie en veilige verwijzingen staan in [puppet_test.rb](../../secrets/tests/puppet_test.rb); de testkoppeling staat in [secrets_gate_test.rb](../../repository-checks/tests/secrets_gate_test.rb).
 
 ### Toegang via diensten en rapporten beoordelen
 

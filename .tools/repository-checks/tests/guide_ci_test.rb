@@ -48,6 +48,21 @@ class GuideCiTest < Minitest::Test
       'puppet_dependencies' => /bundle exec project-tools-module-dependencies --junit / }
   end
 
+  def test_consumer_secret_jobs_use_the_shared_cli_before_diagnostics
+    github = configuration_with('jobs').fetch('jobs').fetch('puppet_secrets')
+    gitlab = configuration_with('.check_setup').fetch('puppet_secrets')
+    command = 'bundle exec project-tools-secrets --puppet environments/ modules/'
+    assert_includes github.fetch('steps').filter_map { |step| step['run'] }, command
+    refute github.key?('needs')
+    assert_equal 'secrets', gitlab.fetch('stage')
+    assert_includes gitlab.fetch('script'), command
+    assert_secret_stages
+  end
+
+  def assert_secret_stages
+    assert_equal %w[secrets checks], configuration_with('.check_setup').fetch('stages')
+  end
+
   def test_ci_examples_request_test_reports_explicitly
     github = configuration_with('jobs').fetch('jobs').fetch('tool_tests')
     step = github.fetch('steps').find { |item| item.fetch('run', '').include?('bundle exec rake test') }
@@ -58,9 +73,9 @@ class GuideCiTest < Minitest::Test
   end
 
   def assert_github_job(job)
-    refute job.key?('needs')
+    assert_equal 'puppet_secrets', job.fetch('needs')
     steps = job.fetch('steps')
-    assert(steps.any? { |step| step.fetch('run', '').include?('if git diff --exit-code HEAD --; then') })
+    assert(steps.any? { |step| step.fetch('run', '').include?('if git diff --quiet HEAD --; then') })
     refute(steps.any? { |step| step.fetch('run', '').include?('--fix') })
     uploads = steps.select { |step| step.fetch('uses', '').start_with?('actions/upload-artifact@') }
     assert_github_uploads(uploads)
@@ -78,7 +93,7 @@ class GuideCiTest < Minitest::Test
   def assert_gitlab_job(job)
     refute job.key?('needs')
     assert_equal '.check_setup', job.fetch('extends')
-    assert_includes job.fetch('script').last, 'if git diff --exit-code HEAD --; then'
+    assert_includes job.fetch('script').last, 'if git diff --quiet HEAD --; then'
     refute(job.fetch('script').any? { |command| command.include?('--fix') })
     assert_equal 'always', job.dig('artifacts', 'when')
     assert_equal [job.dig('artifacts', 'reports', 'junit')], job.dig('artifacts', 'paths')

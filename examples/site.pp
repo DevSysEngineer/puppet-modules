@@ -60,7 +60,7 @@ node 'web01.example.org' {
   basic_settings::login_user { 'admin':
     gid             => 1001,
     home            => '/home/admin',
-    password        => Sensitive('replace-with-password-hash'),
+    password        => lookup('examples::site::password', Sensitive[String]),
     uid             => 1001,
     authorized_keys => ['ssh-ed25519 AAAA... admin@example.org'],
     require         => Class['basic_settings'],
@@ -82,7 +82,7 @@ node 'container01.example.org' {
   # Deploy the stack and require healthy web and database services.
   docker::compose { 'example':
     compose_source             => 'puppet:///modules/profile/example/docker-compose.yml',
-    env_content                => Sensitive("COMPOSE_PROJECT_NAME=example\n"),
+    env_content                => lookup('examples::site::env_content', Sensitive[String]),
     monitoring_health_required => ['web', 'db'],
     require                    => Class['docker'],
   }
@@ -103,7 +103,7 @@ node 'database01.example.org' {
 
   # Configure database administration and backup credentials after preparing packages.
   class { 'mysql':
-    automysqlbackup_password => Sensitive('replace-with-backup-password'),
+    automysqlbackup_password => lookup('examples::site::automysqlbackup_password', Sensitive[String]),
     root_password            => lookup('mysql::root_password', Sensitive[String]),
     require                  => Class['basic_settings'],
   }

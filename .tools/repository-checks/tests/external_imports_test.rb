@@ -11,7 +11,8 @@ class ExternalImportsTest < Minitest::Test
 
   PACKAGES = { 'shared' => 'project-tools-shared', 'lint' => 'lint-project',
                'module-dependencies' => 'project-tools-module-dependencies', 'validate' => 'project-tools-validate',
-               'metadata' => 'project-tools-metadata', 'ruby-lint' => 'project-tools-ruby-lint' }.freeze
+               'metadata' => 'project-tools-metadata', 'ruby-lint' => 'project-tools-ruby-lint',
+               'secrets' => 'project-tools-secrets' }.freeze
 
   def setup
     @project = Dir.mktmpdir('tooling-imports-')
@@ -56,6 +57,7 @@ class ExternalImportsTest < Minitest::Test
     run_success('bundle', 'exec', 'validate-junit', '.reports/parser.xml', 'manifests/site.pp')
     run_success('bundle', 'exec', 'project-tools-module-dependencies', '--junit', '.reports/dependencies.xml')
     run_success('bundle', 'exec', 'project-tools-metadata', '--junit', '.reports/metadata.xml')
+    run_success('bundle', 'exec', 'project-tools-secrets', 'manifests/site.pp')
     assert_ruby_tool
   end
 

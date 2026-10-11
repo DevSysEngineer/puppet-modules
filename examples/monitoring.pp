@@ -30,7 +30,7 @@ node 'monitored-host.example.org' {
     processstats_enable       => true,
     prometheus_enable         => false,
     proxy                     => undef,
-    push_apikey               => Sensitive('replace-with-openitcockpit-api-key'),
+    push_apikey               => lookup('examples::monitoring::push_apikey', Sensitive[String]),
     push_enable               => true,
     push_url                  => 'https://monitoring.example.org',
     sensorstats_enable        => undef,
@@ -106,7 +106,7 @@ node 'monitoring.example.org' {
   include openitcockpit
 
   class { 'openitcockpit::server':
-    grafana_password => Sensitive('replace-with-grafana-admin-password'),
+    grafana_password => lookup('examples::monitoring::grafana_password', Sensitive[String]),
     server_fdqn      => 'monitoring.example.org',
     require          => [Class['basic_settings'], Package['nginx', 'php8.3-fpm']],
   }

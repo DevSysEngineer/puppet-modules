@@ -4,6 +4,7 @@
 
 This file governs project-wide development workflow, engineering responsibilities, security, and documentation governance. Its content and structure follow [Maintaining AGENTS.md](#maintaining-agentsmd).
 
+- Before exposing file content, apply [local inspection before disclosure](#local-inspection-before-disclosure), including when reading these instructions.
 - Before editing, read this complete file, the root [README](README.md), and the applicable instructions from repository root to the affected component. Explicitly open local `AGENTS.md` files before changing a subproject, including when the session starts at root; do not assume links or automatic discovery have loaded their contents. Do not reread unchanged instructions already read in this task.
 - For tooling maintenance, start at [`.tools/AGENTS.md`](.tools/AGENTS.md), then read the affected component instructions from its index and the relevant README contracts. Apply this route by responsibility as well as path: tooling integration in the root Gemfile, Rakefile, `.github/`, or consumer examples also requires it. Shared-interface changes require the instructions and contracts of the actual affected consumers.
 - For Puppet changes outside tooling, follow [Puppet code authority](#puppet-code-authority). The location of the norms under `.tools/lint/docs/` does not limit their applicability or by itself require reading linter development instructions.
@@ -172,6 +173,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Approval to use an external service must not be treated as authorization for every data type.
 - Apply data classification, least disclosure, and minimum-necessary rules to every approved external service.
 
+#### Local Inspection Before Disclosure
+
+- Before file content enters AI context or any external analysis, run the local shared scanner from [`.tools/secrets/`](.tools/secrets/README.md): `bundle exec project-tools-secrets PATH ...`. Apply this gate before opening files, displaying search matches, terminal output or diffs; the assistant must not inspect raw content to decide whether scanning is needed.
+- Review only the scanner's metadata first. For findings, use `bundle exec project-tools-secrets --redact NEW_DIR PATH ...` and inspect only the successfully produced copies, following the [usage and selection procedure](.tools/secrets/README.md#controleren-voor-het-lezen). Preserve originals and rescan changed input.
+- With errors, incomplete coverage or uncertain masking, withhold the affected content until the issue is resolved or a person reviews it locally outside the AI context. If the scanner is unavailable, arrange local installation before reading. No matches establishes only the result of the supported checks; it does not replace the disclosure review below or establish safety.
+- Handle missed sensitive data and defects in inspection or redaction through the [incident reporting requirements](#disclosure-incidents) and the scanner's [recovery procedure](.tools/secrets/README.md#gemiste-gegevens-of-een-fout-melden).
+- Apply this workflow to consuming projects through their own instruction entry point, referencing the same implementation and [consumer setup](.tools/secrets/README.md#gebruik-in-een-ander-project).
+
 #### Secrets And Authentication Material
 
 - Never disclose a password, passphrase, API key, access token, refresh token, session identifier, cookie, backup code, or credential-bearing connection string externally, including in search input.
@@ -214,11 +223,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 #### Disclosure Incidents
 
-- Stop further sharing immediately when a secret or confidential value is disclosed accidentally.
+- Immediately notify the user of confirmed or suspected disclosure and of any discovered inspection or redaction defect that could let sensitive data through, even when caught locally before disclosure. Do not conceal the problem behind a successful scan or silently fix it without reporting.
+- Stop sharing affected content immediately when disclosure is suspected or confirmed, or an inspection or redaction defect could expose that content.
+- Include a safe description of the affected scope and disclosure channel, whether exposure is confirmed, suspected, absent or unknown, and concrete advice for containment, repair and verification in the same notification. Distinguish observed facts from possible causes, and completed fixes from recommendations; state when the cause or extent is unknown.
 - Never repeat the exposed value in follow-up communication.
 - Treat exposed credentials and key material as compromised.
 - Revoke or rotate compromised credentials and key material where applicable.
 - Follow the applicable security-incident procedure.
+- Keep unresolved findings and required follow-up explicit in the completion report. Report the verification evidence for a repair; do not resume sharing affected content before the [local inspection requirements](#local-inspection-before-disclosure) are satisfied.
 
 ## Design And Implementation
 
@@ -320,6 +332,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Run the standalone metadata scan from the repository root with `PROJECT_METADATA_MODULES_PATH=. bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml` for every completed change, following the [metadata guide](.tools/metadata/README.md).
 - Run the full lint scan from the repository root with `bundle exec puppet-lint --no-config --config .puppet-lint.rc .` for every completed change, following the [CLI instructions](.tools/lint/README.md#werking-van-de-controles).
 - Run `bundle exec rubocop --config .rubocop.yml` for changes to first-party Ruby code or Ruby tooling, following the [Ruby validation workflow](.tools/ruby-lint/README.md#ruby-code-controleren). Resolve findings within the task's scope and report remaining findings without suppressing them to make the scan pass.
+- Apply the [Puppet credential rule](.tools/lint/docs/OPERATIONAL_RULES.md#geheimen-buiten-puppet-manifesten-beheren) and use the existing [secrets tool](.tools/secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) for detection. The mandatory Puppet scan in the standard test task must succeed before other checks can disclose manifest diagnostics.
 - Run all tool tests with `bundle exec rake test` after any corrections and before completing each change. The joint task covers all suites listed in the [shared test guide](.tools/README.md#gezamenlijke-tooltests); parser validation and the real dependency scan remain separate checks.
 - Run `bundle exec project-tools-module-dependencies --junit .tools/module-dependencies/results/project-tools-module-dependencies-report.xml` with the explicit project modulepath for tooling, module metadata or dependency changes. Report actual dependency conflicts separately from failed tool tests; do not suppress conflicts to obtain a successful status.
 - Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'` for the complete first-party manifest selection and its explicitly requested JUnit report before completion, following the [validator guide](.tools/validate/README.md#puppet-manifests-valideren).
@@ -343,7 +356,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 ### Language And Authority
 
 - Write technical documentation in English, including changelog entries and every root or local `AGENTS.md`, except for the Dutch documents specified below.
-- Keep the root README, `.tools/README.md`, `.tools/shared/README.md`, `.tools/module-dependencies/README.md`, `.tools/validate/README.md`, `.tools/metadata/README.md`, `.tools/ruby-lint/README.md`, `.tools/repository-checks/README.md`, and the four central lint documents, `.tools/lint/README.md`, `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md`, in Dutch unless the user explicitly requests another language.
+- Keep the root README, all repository-owned README files under `.tools/` at every depth (including newly added tools), and the lint rules documents `.tools/lint/docs/CODE_RULES.md`, `.tools/lint/docs/DOCUMENTATION_RULES.md`, and `.tools/lint/docs/OPERATIONAL_RULES.md` in Dutch unless the user explicitly requests another language.
 - Apply [durable documentation](#durable-documentation) to existing and future Markdown content, according to each document's purpose.
 - Place information according to the responsibilities below, using [authority and rule placement](#authority-and-rule-placement) for durable norms. Review every affected explanation against its audience and responsibility; avoid a second hand-maintained contract source.
 - Add an ADR only when requested or already customary. This exception to adding an ADR does not weaken the duty to document the affected interface or behavior.

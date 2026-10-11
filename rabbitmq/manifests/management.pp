@@ -17,7 +17,7 @@
 #   Creates the `guest` admin user, permissions, config file, and CLI when `true`; removes the CLI when `false`.
 #
 # @param admin_password
-#   Password assigned to the generated `guest` admin account.
+#   Password assigned to the generated `guest` admin account; looked up from Hiera when admin_enable is true.
 #
 # @param default_queue_type
 #   Default queue type configured for the `/` vhost.
@@ -47,7 +47,10 @@
 class rabbitmq::management (
   String           $admin_config_path   = '/etc/rabbitmq/rabbitmqadmin.conf',
   Boolean          $admin_enable        = true,
-  String           $admin_password      = 'guest',
+  String           $admin_password      = $admin_enable ? {
+    true    => lookup('rabbitmq::management::admin_password'),
+    default => '',
+  },
   String           $default_queue_type  = 'classic',
   Integer          $port                = 15672,
   Optional[String] $ssl_ca_certificate  = undef,

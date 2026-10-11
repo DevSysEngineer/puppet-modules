@@ -8,6 +8,7 @@ inherit_mode:
 
 AllCops:
   Include:
+    - '.tools/secrets/bin/project-tools-secrets'
     - '.tools/metadata/bin/project-tools-metadata'
     - '.tools/lint/bin/puppet-lint-junit'
     - '.tools/validate/bin/validate-junit'

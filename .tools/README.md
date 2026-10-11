@@ -1,6 +1,6 @@
 # Gedeelde projecttooling
 
-Gebruik één ontwikkelbundle met afzonderlijke tools voor Puppet-lint, Ruby-lint, metadata, parservalidatie en moduledependencies. Iedere tool heeft een eigen commando en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
+Gebruik één ontwikkelbundle met afzonderlijke tools voor lokale secretcontrole, Puppet-lint, Ruby-lint, metadata, parservalidatie en moduledependencies. Iedere tool heeft een eigen commando en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
 
 Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelinstructies](AGENTS.md), met de index naar ieder component. Installatie en gebruik staan in deze handleiding.
 
@@ -47,11 +47,14 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelin
 | [`project-tools-validate`](validate/project-tools-validate.gemspec) | [Parservalidatie](validate/README.md) | Native `puppet parser validate MANIFEST.pp`; met rapport `validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]` |
 | [`lint-project`](lint/lint-project.gemspec) | [Lint](lint/README.md) | `puppet-lint`, `puppet-lint-junit` |
 | [`project-tools-ruby-lint`](ruby-lint/project-tools-ruby-lint.gemspec) | [Ruby-lint](ruby-lint/README.md) | Native `rubocop` met eigen JUnit-formatter |
+| [`project-tools-secrets`](secrets/project-tools-secrets.gemspec) | [Lokale secretcontrole](secrets/README.md) | `project-tools-secrets [--redact NEW_DIR] [--json] [--junit NEW_FILE] PATH ...` |
 | [`project-tools-shared`](shared/project-tools-shared.gemspec) | [Gedeelde library](shared/README.md) | Geen eigen executable |
+
+Controleer bestanden vóór AI-analyse of externe inzage met de [lokale secretcontrole](secrets/README.md). De handleiding beschrijft de volgorde van scannen, rapport beoordelen en afzonderlijke kopieën maskeren, inclusief de beperkingen bij zoekuitvoer en diffs. Deze voorcontrole draait lokaal vóór openbaarmaking; een CI-scan achteraf vervangt haar niet.
 
 De pakketlinks verwijzen naar de gemspecs die de pakketversies en dependencygrenzen beheren. De [lockfile](../Gemfile.lock) legt de gekozen versies van de ontwikkelbundle vast; afnemende projecten beheren hun eigen lockfile.
 
-De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository-checks/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
+De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. Secretcontrole gebruikt shared, JSON en Psych en heeft evenmin een Puppet-runtime nodig. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository-checks/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
 
 ## Verantwoordelijkheden gescheiden houden
 
@@ -196,14 +199,15 @@ Gebruik dezelfde waarde lokaal en in CI. In het [GitHub-voorbeeld](#controle-in-
 
 ### CI van deze repository
 
-Onderhoud metadata, dependencycontrole, parservalidatie, Puppet-linting, Ruby-linting en tooltests als onafhankelijke CI-jobs. Genereer alle gepubliceerde validatie-, lint- en testrapporten tijdens de betreffende uitvoering als JUnit XML. Publiceer iedere soort als afzonderlijk artifact na succes of een gewone controlefout en behoud de oorspronkelijke exitstatus. Bewaar gegenereerde rapporten in een genegeerde results-map onder `.tools/` en documenteer commando’s en locaties hier. Sluit het geslaagde validatiepad van iedere job af met `git diff --exit-code HEAD --`; de [projectworkflow](../AGENTS.md#ci-jobs-and-reports) verbiedt herstel om die controle te laten slagen.
+Voer eerst de bestaande secrets-tool uit als job **Puppet secrets**. Onderhoud metadata, dependencycontrole, parservalidatie, Puppet-linting, Ruby-linting en tooltests daarna als afzonderlijke CI-jobs. Alleen de secrets-job is een prerequisite: bij afkeuring mogen downstreamdiagnoses geen brongegevens tonen. Genereer alle gepubliceerde validatie-, lint- en testrapporten tijdens de betreffende uitvoering als JUnit XML. Publiceer iedere soort als afzonderlijk artifact na succes of een gewone controlefout en behoud de oorspronkelijke exitstatus. Bewaar gegenereerde rapporten in een genegeerde results-map onder `.tools/` en documenteer commando’s en locaties hier. Sluit het geslaagde validatiepad van iedere job af met `git diff --quiet HEAD --`; de [projectworkflow](../AGENTS.md#ci-jobs-and-reports) verbiedt herstel om die controle te laten slagen.
 
-[GitHub Actions](../.github/workflows/checks.yml) voert de hieronder beschreven onafhankelijke jobs uit. Iedere job haalt de repository met submodules op en roept daarna [setup-tooling](../.github/actions/setup-tooling/action.yml) aan voor dezelfde Ruby-, Bundler- en frozen-bundle-installatie. Daarna volgt de eigen controle. De Ruby-job controleert de Ruby-code van alle tools. De testjob voert alle suites uit, inclusief repositorycontroles. Een fout in één controle houdt de andere jobs niet tegen.
+[GitHub Actions](../.github/workflows/checks.yml) voert eerst de secrets-gate en daarna de hieronder beschreven afzonderlijke jobs uit. Iedere job haalt de repository met submodules op en roept daarna [setup-tooling](../.github/actions/setup-tooling/action.yml) aan voor dezelfde Ruby-, Bundler- en frozen-bundle-installatie. Daarna volgt de eigen controle. De Ruby-job controleert de Ruby-code van alle tools. De testjob voert alle suites uit, inclusief repositorycontroles. Een fout na de secrets-gate houdt de andere gestarte jobs niet tegen; een afgekeurde of onvolledige secrets-scan blokkeert ze allemaal.
 
-Houd in de workflow, controleoverzichten en CI-voorbeelden de onderstaande volgorde aan: eerst projectmetadata en de gedeclareerde dependencies, daarna Puppet-syntax en de twee linters, en ten slotte het gedrag van de tools via hun tests. Dit is de leesvolgorde. De jobs kunnen parallel starten; hun start- en eindvolgorde liggen niet vast. Voeg geen `needs`-relaties of afzonderlijke stages toe om deze indeling als uitvoervolgorde af te dwingen.
+Houd na de secrets-gate in de workflow, controleoverzichten en CI-voorbeelden de onderstaande volgorde aan: eerst projectmetadata en de gedeclareerde dependencies, daarna Puppet-syntax en de twee linters, en ten slotte het gedrag van de tools via hun tests. Dit is de leesvolgorde. Na de secrets-gate kunnen de overige jobs parallel starten. Hun onderlinge leesvolgorde is geen uitvoervolgorde; voeg daarvoor geen extra afhankelijkheden toe.
 
 | Job | Controle | Downloadbaar artifact | Inhoud |
 | --- | --- | --- | --- |
+| `Puppet secrets` | `bundle exec rake secrets:puppet` | Geen | Alleen veilige metadata in het joblog; verplicht instelbare status. |
 | `Metadata` | Root- en modulemetadata, versiebron en naamgeving | `Metadata-report` | `.tools/metadata/results/metadata-report.xml` |
 | `Puppet dependencies` | Native module- en rootdependencycontrole | `Project-tools-module-dependencies-report` | `.tools/module-dependencies/results/project-tools-module-dependencies-report.xml` |
 | `Validate` | `bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'` | `Validate-report` | `.tools/validate/results/validate-report.xml` |
@@ -211,13 +215,13 @@ Houd in de workflow, controleoverzichten en CI-voorbeelden de onderstaande volgo
 | `Ruby lint` | RuboCop met console- en JUnit-uitvoer | `Ruby-lint-report` | `.tools/ruby-lint/results/rubocop-report.xml` |
 | `Tool tests` | `bundle exec rake test` met expliciet `MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests` | `Test-results` | `.tools/results/tests/TEST-*.xml` |
 
-De validatiejob gebruikt de [parsertaak](validate/README.md#puppet-manifests-valideren), de lintjobs gebruiken de [rapportaanroepen](#rapporten-en-artifacts-in-je-project) en de testjob gebruikt de gewone [roottaak](#gezamenlijke-tooltests). Iedere controle draait eenmaal en behoudt zijn eigen foutstatus. De tests omvatten pluginloading, autofixinteracties en het bouwen en installeren van de gem in een tijdelijk afnemend project. Dat controleert het ontwikkelgereedschap; het bewijst geen correct modulegedrag of ondersteuning van alle platforms.
+De validatiejob gebruikt de [parsertaak](validate/README.md#puppet-manifests-valideren), de lintjobs gebruiken de [rapportaanroepen](#rapporten-en-artifacts-in-je-project) en de testjob gebruikt de gewone [roottaak](#gezamenlijke-tooltests). Iedere controle behoudt zijn eigen foutstatus. De testtaak behoudt ook in CI haar lokale secrets-prerequisite en voert die beperkte controle daarom opnieuw uit in de eigen checkout. De tests omvatten pluginloading, autofixinteracties en het bouwen en installeren van de gem in een tijdelijk afnemend project. Dat controleert het ontwikkelgereedschap; het bewijst geen correct modulegedrag of ondersteuning van alle platforms.
 
 Open de workflowrun onder **Actions** om de afzonderlijke uitslagen en de artifacts te bekijken. De testjob publiceert zijn JUnit-resultaten in het overzicht. De dependencyjob publiceert hetzelfde dependency-JUnit-bestand als artifact en als summary met `show: fail` en `folded: false`. Een ontbrekend rapport laat de upload expliciet falen; de summary vereist een bestaand bestand. Controleer na menselijke publicatie zowel een failure als een error in de daadwerkelijke GitHub-weergave. XML-tests alleen bewijzen die presentatie niet. De upload- en samenvattingsstappen gebruiken `!cancelled()`, zodat al gemaakte rapporten na een gewone validatie-, lint- of testfout beschikbaar blijven. Wanneer de installatie of het laden van de tests al mislukt, is er mogelijk nog geen bruikbaar rapport. Een geannuleerde run hoeft evenmin rapporten op te leveren.
 
 Puppet-lint schrijft onder `.tools/lint/results/`, Ruby-lint onder `.tools/ruby-lint/results/` en tooltests onder `.tools/results/tests/`. De metadata-, parser- en dependencyreporters maken hun eigen bovenliggende rapportmap aan. De uploads gebruiken `include-hidden-files: true`, omdat `.tools` een verborgen map is. Iedere artifactselectie wijst uitsluitend naar het eigen lint- of validatierapport of naar `TEST-*.xml`; de testsamenvatting leest dezelfde testselectie.
 
-De Bash-presentatie sluit iedere controle af; iedere job voert daarna op het geslaagde pad rechtstreeks `git diff --exit-code HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de lokale whitespacecontrole met `git diff --check` niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
+De scanner sluit de secrets-controle af met veilige metadata; de overige controles gebruiken de Bash-presentatie; iedere job voert daarna op het geslaagde pad rechtstreeks `git diff --quiet HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de lokale whitespacecontrole met `git diff --check` niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
 
 De workflow gebruikt de nieuwste stabiele Ruby en installeert Bundler zonder versiepin. `BUNDLE_FROZEN=true` bewaakt de lockfile; `BUNDLE_IGNORE_CONFIG=1` voorkomt afhankelijkheid van persoonlijke Bundler-instellingen. Gems worden binnen de checkout geïnstalleerd via `BUNDLE_PATH=vendor/bundle`. De metadatajob stelt `PROJECT_METADATA_MODULES_PATH=.` in; de overige jobs hebben die instelling niet nodig. De jobs gebruiken Bash met `pipefail`, zodat ook de Puppet-lintaanroep met JUnit-omzetting zijn foutstatus behoudt. Beide linters controleren alleen; de workflow maakt geen commits en publiceert geen gem.
 
@@ -296,7 +300,7 @@ Gebruik de eigen `VERSION` en rootmetadata en leg de modulelocatie en naamprefix
 
 Gebruik dezelfde Gemfile, lockfile, configuratie en CLI-aanroepen als lokaal. Het onderstaande GitHub Actions-voorbeeld hoort bij een project met `global-modules`, eigen Ruby-code en een Minitest-suite met de [reporterconfiguratie voor eigen tooltests](#junit-rapportage-instellen). Bewaar het als `.github/workflows/checks.yml` in je eigen project en stel `env.PROJECT_REPORT_DIR` in op de eigen rapportmap. De commando's, uploads en testsamenvatting gebruiken die waarde. Gebruik de jobs die bij je project horen: voor alleen dependencycontrole volstaat `puppet_dependencies`; zonder eigen testsuite laat je `tool_tests` weg. Heeft het project geen eigen Ruby-code, Gemfile, Rakefile of Ruby-tooling om te controleren, laat dan ook `ruby_lint` weg; kopieer geen tests of Ruby-code uit de gedeelde gem om een lege job te vullen.
 
-Iedere job haalt `global-modules` met zijn submodules op en installeert de eigen ontwikkelbundle. De voorbeelden volgen de [vaste leesvolgorde](#ci-van-deze-repository). De jobs draaien onafhankelijk, zonder `needs` tussen controles, en bewaren ieder hun [eigen artifact](#rapporten-en-artifacts-in-je-project). Gebruik je een andere gembron of aanvullende Puppet-modules, voeg dan in iedere betrokken job de benodigde installatiestappen toe vóór de controle. De bronselectie en het modulepad volgen de inrichting van je eigen Puppet environment.
+Iedere job haalt `global-modules` met zijn submodules op en installeert de eigen ontwikkelbundle. De voorbeelden volgen de [vaste leesvolgorde](#ci-van-deze-repository). De jobs wachten op **Puppet secrets** en draaien daarna onafhankelijk. Iedere rapporterende controle bewaart haar [eigen artifact](#rapporten-en-artifacts-in-je-project). De secrets-job toont uitsluitend veilige metadata; selectie, herstel en de vereiste branchstatus staan in de [scannerhandleiding](secrets/README.md#puppet-manifesten-in-standaardtests-en-ci). Gebruik je een andere gembron of aanvullende Puppet-modules, voeg dan in iedere betrokken job de benodigde installatiestappen toe vóór de controle. De bronselectie en het modulepad volgen de inrichting van je eigen Puppet environment.
 
 ```yaml
 name: Puppet checks
@@ -304,6 +308,7 @@ name: Puppet checks
 on:
   pull_request:
   push:
+  merge_group:
 
 permissions:
   contents: read
@@ -320,8 +325,46 @@ defaults:
     shell: bash
 
 jobs:
+  puppet_secrets:
+    name: Puppet secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ruby
+          bundler: none
+      - name: Install the latest stable Bundler
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install Bundler' details
+          if gem install bundler; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
+      - name: Install the project bundle
+        run: |
+          source global-modules/.github/actions/setup-tooling/log.sh
+          ci_begin 'Install locked bundle' details
+          if bundle install; then
+              ci_end 0 PASSED complete
+          else
+              ci_end "$?" ERROR incomplete
+          fi
+      - name: Reject hardcoded Puppet secrets
+        run: bundle exec project-tools-secrets --puppet environments/ modules/
+      - name: Check for changes without source output
+        run: git diff --quiet HEAD --
+
   metadata:
     name: Metadata
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     env:
       PROJECT_METADATA_MODULES_PATH: modules
@@ -361,7 +404,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -381,6 +424,7 @@ jobs:
 
   puppet_dependencies:
     name: Puppet dependencies
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -419,7 +463,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -447,6 +491,7 @@ jobs:
 
   validate:
     name: Validate
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -483,7 +528,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -503,6 +548,7 @@ jobs:
 
   puppet_lint:
     name: Puppet lint
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -557,7 +603,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -577,6 +623,7 @@ jobs:
 
   ruby_lint:
     name: Ruby lint
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -630,7 +677,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -651,6 +698,7 @@ jobs:
   # Include this job when the project has its own tool tests and JUnit reporter.
   tool_tests:
     name: Tool tests
+    needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -692,7 +740,7 @@ jobs:
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
           ci_begin 'Checkout changes'
-          if git diff --exit-code HEAD --; then
+          if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
           else
               CHECKOUT_STATUS=$?
@@ -718,7 +766,7 @@ jobs:
 
 De publicatiestappen gebruiken `!cancelled()`: ook na een gewone validatie-, lint- of testfout bewaren ze de gemaakte rapporten, terwijl de producerende job zijn foutstatus behoudt. Na een installatie- of opstartfout is er mogelijk nog geen rapport. Een geannuleerde uitvoering hoeft geen artifacts op te leveren. Laat fouten zichtbaar; gebruik geen autofix of foutonderdrukking in CI.
 
-Iedere job controleert na zijn geslaagde opdracht met `git diff --exit-code HEAD --` of installatie of uitvoering gevolgde bestanden verandert. Hiervoor is een schone checkout nodig. Nieuwe, niet-gevolgde bestanden vallen buiten deze controle; herstel bestanden niet om de stap te laten slagen. `git diff --check` blijft de afzonderlijke lokale whitespacecontrole.
+Iedere job controleert na zijn geslaagde opdracht met `git diff --quiet HEAD --` of installatie of uitvoering gevolgde bestanden verandert. Hiervoor is een schone checkout nodig. Nieuwe, niet-gevolgde bestanden vallen buiten deze controle; herstel bestanden niet om de stap te laten slagen. `git diff --check` blijft de afzonderlijke lokale whitespacecontrole.
 
 Open in GitHub **Actions** en kies de workflowrun. Daar download je `Metadata-report`, `Project-tools-module-dependencies-report`, `Validate-report`, `Puppet-lint-report`, `Ruby-lint-report` en, wanneer de testjob aanwezig is, `Test-results`. Het workflowoverzicht toont daarnaast de JUnit-samenvattingen van de tooltests en dependencycontrole. De configuratie gebruikt alleen `contents: read`; de samenvatting schrijft geen pull-requestcomments en vraagt geen extra repositoryschrijfrechten. Een beheerder kan de nieuwe job bij branchbeveiliging als verplichte statuscheck instellen; de tooling wijzigt die instelling niet.
 
@@ -728,10 +776,11 @@ De Ruby-job gebruikt de [.rubocop.yml van je project](ruby-lint/README.md#ruby-c
 
 De [GitLab-testweergave](https://docs.gitlab.com/ci/testing/unit_test_reports/) leest JUnit XML via `artifacts:reports:junit`. Een bestand onder alleen `artifacts:paths` is downloadbaar, maar verschijnt daarmee niet in het testoverzicht. Gebruik in je bestaande GitLab-jobs dezelfde installatie, configuratie en rapportcommando's als hierboven; de Puppet-pipe vereist Bash met `set -eo pipefail`.
 
-Voeg de onderstaande rapportmap en artifactinstellingen toe aan de bijbehorende configuratie in `.gitlab-ci.yml`. Voeg `PROJECT_REPORT_DIR` toe aan de bestaande `variables` en kies daar het eigen pad. Zo gebruiken de scripts en uploads dezelfde [CI/CD-variabele](https://docs.gitlab.com/ci/variables/where_variables_can_be_used/); alleen een `export` binnen het script stelt die variabele niet voor de artifactupload in. Dit voorbeeld bevat onafhankelijke jobs in dezelfde stage. Gebruik een runner die deze image met Bash uitvoert; `set -eo pipefail` is een Bash-prerequisite. In bestaande jobs kun je alleen de artifactinstellingen overnemen en de eigen installatie en controlecommando’s behouden. Laat `tool_tests` weg wanneer je project geen eigen testsuite heeft.
+Voeg de onderstaande rapportmap en artifactinstellingen toe aan de bijbehorende configuratie in `.gitlab-ci.yml`. Voeg `PROJECT_REPORT_DIR` toe aan de bestaande `variables` en kies daar het eigen pad. Zo gebruiken de scripts en uploads dezelfde [CI/CD-variabele](https://docs.gitlab.com/ci/variables/where_variables_can_be_used/); alleen een `export` binnen het script stelt die variabele niet voor de artifactupload in. Dit voorbeeld voert eerst de secrets-gate uit; de overige jobs delen daarna dezelfde stage. Gebruik een runner die deze image met Bash uitvoert; `set -eo pipefail` is een Bash-prerequisite. In bestaande jobs kun je alleen de artifactinstellingen overnemen en de eigen installatie en controlecommando’s behouden. Laat `tool_tests` weg wanneer je project geen eigen testsuite heeft.
 
 ```yaml
 stages:
+  - secrets
   - checks
 
 variables:
@@ -763,6 +812,13 @@ variables:
           ci_end "$?" ERROR incomplete
       fi
 
+puppet_secrets:
+  extends: .check_setup
+  stage: secrets
+  script:
+    - bundle exec project-tools-secrets --puppet environments/ modules/
+    - git diff --quiet HEAD --
+
 metadata:
   extends: .check_setup
   variables:
@@ -772,7 +828,7 @@ metadata:
     - bundle exec project-tools-metadata --junit "$PROJECT_REPORT_DIR/metadata-report.xml"
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -797,7 +853,7 @@ puppet_dependencies:
     - bundle exec project-tools-module-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-module-dependencies-report.xml"
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -821,7 +877,7 @@ validate:
     - bundle exec validate-junit "$PROJECT_REPORT_DIR/validate-report.xml" environments/production/manifests/site.pp modules/profile/manifests/init.pp
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -863,7 +919,7 @@ puppet_lint:
       fi
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -904,7 +960,7 @@ ruby_lint:
       esac
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -931,7 +987,7 @@ tool_tests:
       ci_end 0 PASSED complete
     - |
       ci_begin 'Checkout changes'
-      if git diff --exit-code HEAD --; then
+      if git diff --quiet HEAD --; then
           ci_end 0 PASSED complete
       else
           CHECKOUT_STATUS=$?
@@ -971,6 +1027,7 @@ Kies de gems voor de benodigde controles volgens [Pakketten en commando’s](#pa
 | Puppet-syntax | `validate-junit` voert de meegeleverde native Puppet-parser uit en schrijft JUnit XML per manifest. | De manifestselectie en het rapportpad. De [optionele Rake-taak](validate/README.md#eigen-manifests-valideren) verzamelt alleen de eigen bestanden en roept dit commando aan. |
 | Puppet-lint | De projectchecks, het gedeelde `config/puppet-lint.rc` en `puppet-lint-junit`. | De eigen bestandsuitsluitingen, het Puppet-modulepad en het rapportpad. Gebruik de [native CLI met het gem-entrypoint](lint/README.md#eigen-code-controleren). |
 | Ruby-lint | RuboCop en het gedeelde `config/rubocop.yml`. De native JUnit-formatter schrijft het rapport. | De eigen `.rubocop.yml` met `inherit_gem`, bestandsselectie en het rapportpad. |
+| Lokale secretcontrole | `project-tools-secrets` scant lokaal en maakt met `--redact` afzonderlijke analysekopieën. | Expliciete bronbestanden, toepasselijke Hiera-conversies en een nieuwe uitvoermap volgens de [scannerhandleiding](secrets/README.md). |
 | Eigen tooltests | De [voorbeelden voor testselectie en rapportage](#eigen-tooltests). | De eigen tests en testdependencies. De reporter van het eigen testframework schrijft JUnit XML. |
 
 Installeer de gekozen gems eenmaal per ontwikkelomgeving of CI-job via de eigen Gemfile en lockfile. Roep vervolgens de gedeelde commando's met `bundle exec` aan. Kopieer geen implementatie, gedeelde profielen of gemtests uit `global-modules` en laad zijn Gemfile of Rakefile niet vanuit je eigen project. Het Rakefile van deze repository selecteert onze bestanden; de gemcommando's werken met jouw selectie.
@@ -1011,6 +1068,7 @@ Puppet/
 │   ├── metadata.json
 │   └── .tools/
 │       ├── README.md
+│       ├── secrets/project-tools-secrets.gemspec
 │       ├── shared/project-tools-shared.gemspec
 │       ├── module-dependencies/project-tools-module-dependencies.gemspec
 │       ├── metadata/project-tools-metadata.gemspec
@@ -1064,9 +1122,10 @@ gem 'project-tools-module-dependencies', path: 'global-modules/.tools/module-dep
 gem 'project-tools-validate', path: 'global-modules/.tools/validate', require: false
 gem 'project-tools-ruby-lint', path: 'global-modules/.tools/ruby-lint', require: false
 gem 'project-tools-metadata', path: 'global-modules/.tools/metadata', require: false
+gem 'project-tools-secrets', path: 'global-modules/.tools/secrets', require: false
 ```
 
-Voor alleen parservalidatie kies je shared en `project-tools-validate`; voor alleen dependencycontrole kies je shared en `project-tools-module-dependencies`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint volstaat `project-tools-ruby-lint`, zonder shared. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of het Rakefile van `global-modules`.
+Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend OpenVox uit de ontwikkelbundle; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-validate`; voor alleen dependencycontrole kies je shared en `project-tools-module-dependencies`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint volstaat `project-tools-ruby-lint`, zonder shared. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of het Rakefile van `global-modules`.
 
 ### Git-dependency uit de monorepo
 
@@ -1084,10 +1143,11 @@ git '<repository-url>',
   gem 'project-tools-validate', require: false
   gem 'project-tools-ruby-lint', require: false
   gem 'project-tools-metadata', require: false
+  gem 'project-tools-secrets', require: false
 end
 ```
 
-Voer `bundle install` vanuit de eigen projectroot uit. Bewaar de gekozen revisie en lockfile. Bij een update gebruik je een gecontroleerde revisie en `bundle update lint-project project-tools-shared project-tools-module-dependencies project-tools-validate project-tools-ruby-lint project-tools-metadata`, gevolgd door de eigen kwaliteitscontroles. Zonder de multi-gemglob vindt Bundler niet alle geneste gemspecs. Zet geen credentials in Gemfile of URL. Een Puppet-modulecheckout blijft afzonderlijk nodig voor de moduleset die je beoordeelt.
+Voer `bundle install` vanuit de eigen projectroot uit. Bewaar de gekozen revisie en lockfile. Bij een update gebruik je een gecontroleerde revisie en `bundle update lint-project project-tools-shared project-tools-module-dependencies project-tools-validate project-tools-ruby-lint project-tools-metadata project-tools-secrets`, gevolgd door de eigen kwaliteitscontroles. Zonder de multi-gemglob vindt Bundler niet alle geneste gemspecs. Zet geen credentials in Gemfile of URL. Een Puppet-modulecheckout blijft afzonderlijk nodig voor de moduleset die je beoordeelt.
 
 De installatietest gebruikt een tijdelijke Git-checkout met een Bundler-local-override voor de huidige werkbestanden, zonder commits te maken. Dat controleert de multi-gembron, glob, lokale packagegrenzen en consumercommando’s. Een installatie van de uiteindelijke gepubliceerde revisie zonder local override blijft een controle na de menselijke commit; de test bewijst evenmin bereikbaarheid of toegangsrechten van de externe server.
 
@@ -1106,6 +1166,7 @@ De meegeleverde Markdown blijft gelijk aan de documentatie in de checkout en vol
 (cd .tools/validate && gem build project-tools-validate.gemspec --output /tmp/project-tools-validate.gem)
 (cd .tools/ruby-lint && gem build project-tools-ruby-lint.gemspec --output /tmp/project-tools-ruby-lint.gem)
 (cd .tools/metadata && gem build project-tools-metadata.gemspec --output /tmp/project-tools-metadata.gem)
+(cd .tools/secrets && gem build project-tools-secrets.gemspec --output /tmp/project-tools-secrets.gem)
 ```
 
 Installeer shared vóór de gekozen tools, zodat een ongepubliceerde shared-gem niet van RubyGems hoeft te komen. De externe dependencies komen uit je goedgekeurde gembron. Deze procedure publiceert niets en veronderstelt geen eigendom van de nieuwe gemnamen op RubyGems.
@@ -1119,6 +1180,7 @@ gem install /tmp/project-tools-module-dependencies.gem
 gem install /tmp/project-tools-validate.gem
 gem install /tmp/project-tools-ruby-lint.gem
 gem install /tmp/project-tools-metadata.gem
+gem install /tmp/project-tools-secrets.gem
 bundle install
 ```
 
@@ -1133,6 +1195,7 @@ gem 'project-tools-module-dependencies', '= 0.1.0', require: false
 gem 'project-tools-validate', '= 0.1.0', require: false
 gem 'project-tools-ruby-lint', '= 0.1.0', require: false
 gem 'project-tools-metadata', '= 0.1.0', require: false
+gem 'project-tools-secrets', '= 0.1.0', require: false
 ```
 
 Installeer uitsluitend shared en de gekozen tools. Voor parservalidatie en dependencycontrole is `lint-project` niet nodig. Richt per gekozen tool het [lintprofiel](lint/README.md#eigen-lintconfiguratie), [Ruby-profiel](ruby-lint/README.md#ruby-controleren-in-een-ander-project) en de [eigen metadataconfiguratie](metadata/README.md) in. Controleer pakketupdates met de eigen volledige lintscan, parservalidatie, dependencycontrole en toepasselijke Ruby- en tooltests. `bundle info --path` toont de werkelijk gebruikte gem; bronbestanden buiten het pakket zijn geen vervanging voor ontbrekende distributie-inhoud. De tijdelijke `.gem`-bestanden mogen na installatie weg; bewaar uitgaven via een goedgekeurde distributieroute.
@@ -1170,9 +1233,9 @@ Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en a
 
 ## Gezamenlijke tooltests
 
-Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint`, `shared`, `validate`, `module-dependencies`, `metadata`, `ruby-lint` en `repository-checks`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../AGENTS.md#test-scope) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
+Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint`, `shared`, `validate`, `module-dependencies`, `metadata`, `ruby-lint`, `secrets` en `repository-checks`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../AGENTS.md#test-scope) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
 
-**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Synthetische toolcontracten. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Niet-lege selectie zonder failures, errors of onverklaarde skips.
+**Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Eigen Puppet-manifesten voor de secrets-gate en synthetische toolcontracten. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Niet-lege selectie zonder failures, errors of onverklaarde skips.
 
 ```sh
 bundle exec rake test
@@ -1183,9 +1246,10 @@ bundle exec rake test:validate
 bundle exec rake test:metadata
 bundle exec rake test:ruby_lint
 bundle exec rake test:repository_checks
+bundle exec rake test:secrets
 ```
 
-De root-Rake-taak ontdekt `.tools/*/tests/**/*_test.rb` recursief. `bundle exec rake` voert dezelfde selectie uit als `bundle exec rake test`; de gerichte taken kiezen één eigenaar. Zonder `MINITEST_REPORTERS_REPORTS_DIR` geven al deze routes en rechtstreeks uitgevoerde testbestanden uitsluitend console-uitvoer. Bestaande rapportbestanden blijven ongewijzigd en er wordt geen rapportmap aangemaakt. De eenmalige bootstrap registreert autorun en de [testreporter](shared/README.md#testondersteuning) slechts één keer. Die toont afgeronde testgevallen, fouten en skips volgens het centrale logcontract; `TESTOPTS='--verbose'` behoudt de native detailuitvoer.
+De standaardtaak voert eerst `secrets:puppet` uit volgens de [scannerhandleiding](secrets/README.md#puppet-manifesten-in-standaardtests-en-ci). Alleen na een geslaagde controle ontdekt de root-Rake-taak `.tools/*/tests/**/*_test.rb` recursief. `bundle exec rake` voert dezelfde selectie uit als `bundle exec rake test`; de gerichte taken kiezen één eigenaar. Zonder `MINITEST_REPORTERS_REPORTS_DIR` geven al deze routes en rechtstreeks uitgevoerde testbestanden uitsluitend console-uitvoer. Bestaande rapportbestanden blijven ongewijzigd en er wordt geen rapportmap aangemaakt. De eenmalige bootstrap registreert autorun en de [testreporter](shared/README.md#testondersteuning) slechts één keer. Die toont afgeronde testgevallen, fouten en skips volgens het centrale logcontract; `TESTOPTS='--verbose'` behoudt de native detailuitvoer.
 
 Vraag JUnit aan met een niet-leeg rapportpad, relatief aan de werkmap of absoluut. De CI-testjob gebruikt onderstaande instelling; je kunt die ook lokaal bij iedere testtaak meegeven:
 

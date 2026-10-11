@@ -7,22 +7,48 @@ require 'yaml'
 class ToolingWorkflowTest < Minitest::Test
   ROOT = File.expand_path('../../..', __dir__)
 
-  def test_six_independent_jobs_use_the_same_setup_after_checkout
+  def test_seven_jobs_use_the_same_setup_with_a_secret_gate
     workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
     jobs = workflow.fetch('jobs')
-    assert_equal ['Metadata', 'Puppet dependencies', 'Puppet lint', 'Ruby lint', 'Tool tests', 'Validate'],
-                 jobs.values.map { |job| job.fetch('name') }.sort
+    names = ['Metadata', 'Puppet dependencies', 'Puppet lint', 'Puppet secrets', 'Ruby lint', 'Tool tests', 'Validate']
+    assert_equal names, jobs.values.map { |job| job.fetch('name') }.sort
     jobs.each_value { |job| assert_job_setup(job) }
     assert_equal 'true', workflow.dig('env', 'BUNDLE_FROZEN')
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
   end
 
   def assert_job_setup(job)
-    refute job.key?('needs')
+    if job.fetch('name') == 'Puppet secrets'
+      refute job.key?('needs')
+    else
+      assert_equal 'puppet_secrets', job.fetch('needs')
+    end
     steps = job.fetch('steps')
     assert_equal 'actions/checkout@v7', steps.first.fetch('uses')
     assert_equal './.github/actions/setup-tooling', steps[1].fetch('uses')
     refute(steps.any? { |step| step.key?('continue-on-error') })
+  end
+
+  def test_secret_status_runs_for_every_push_pull_request_and_merge_group
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    triggers = workflow.fetch('on') { workflow.fetch(true) }
+    assert_equal %w[merge_group pull_request push], triggers.keys.sort
+  end
+
+  def test_secret_job_is_mandatory_and_reports_no_source
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    steps = workflow.dig('jobs', 'puppet_secrets', 'steps')
+    assert_includes steps.filter_map { |step| step['run'] }, 'bundle exec rake secrets:puppet'
+    refute(steps.any? { |step| step.key?('if') || step.key?('continue-on-error') })
+  end
+
+  def test_checkout_checks_do_not_print_source_diffs
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    workflow.fetch('jobs').each_value do |job|
+      runs = job.fetch('steps').filter_map { |step| step['run'] }.join("\n")
+      refute_includes runs, 'git diff --exit-code'
+      assert_includes runs, 'git diff --quiet HEAD --'
+    end
   end
 
   def test_test_job_explicitly_requests_the_published_reports

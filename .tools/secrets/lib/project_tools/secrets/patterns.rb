@@ -1,0 +1,58 @@
+# frozen_string_literal: true
+
+module ProjectTools
+  module Secrets
+    # Deliberately bounded signatures, never entropy guesses or network validation.
+    module Patterns
+      NAME = /password|passwd|passphrase|(?:\A|_)pwd(?:\z|_)|secret|token|api[_-]?key|
+              access[_-]?key|private[_-]?key|encryption[_-]?key|signing[_-]?key|authorization/ix.freeze
+      TOKENS = /\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|
+                xox[baprs]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}|
+                sk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}|
+                eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)(?![A-Za-z0-9_-])/x.freeze
+      AUTH = %r{\b(?:Bearer|Basic)[ \t]+([A-Za-z0-9+/_=.-]{12,})}.freeze
+      URL = %r{\b[a-z][a-z0-9+.-]*://([^\s/"'<>]+@)}i.freeze
+      PEM = /-----BEGIN ([A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE|CERTIFICATE REQUEST|PGP PRIVATE KEY BLOCK))-----/.freeze
+      ENCRYPTED = /ENC\[/.freeze
+      ASSIGNMENT = /["']?([\w:.-]+)["']?(?:[ \t]*\])?[ \t]*(?:=>|=(?!=|>)|:(?!:))[ \t]*/.freeze
+      EMPTY = /\A(?:|undef|null|nil|~|\[REDACTED\])\z/i.freeze
+      REFERENCE = /\A(?:\$[\w:]+|\$\{[\w:]+\}|
+                    lookup\(\s*['"][\w:.-]+['"]\s*(?:,\s*Sensitive\s*\[\s*String\s*\]\s*)?\))\z/x.freeze
+
+      def self.each_match(text, pattern)
+        text.to_enum(:scan, pattern).each { yield Regexp.last_match }
+      end
+
+      def self.signatures(document)
+        matches(document, TOKENS, 'token_signature')
+        matches(document, AUTH, 'authorization', group: 1)
+        matches(document, URL, 'credential_url', group: 1, trim: 1)
+        blocks(document, PEM, 'pem_material') { |match| "-----END #{match[1]}-----" }
+        blocks(document, ENCRYPTED, 'encrypted_secret') { ']' }
+      end
+
+      def self.matches(document, pattern, rule, group: 0, trim: 0)
+        each_match(document.text, pattern) do |match|
+          document.redact(match.begin(group), match.end(group) - trim, rule)
+        end
+      end
+
+      def self.block(document, match, pattern, rule, ending)
+        last = document.text.index(ending, match.end(0))
+        document.finding(rule, match.begin(0), 'value')
+        return document.error("unterminated_#{rule}") unless last
+
+        nested = pattern == ENCRYPTED ? /\[/ : pattern
+        document.error("nested_#{rule}") if nested.match?(document.text[match.end(0)...last])
+        document.redact(match.begin(0), last + ending.length, rule)
+      end
+
+      def self.blocks(document, pattern, rule)
+        each_match(document.text, pattern) do |match|
+          ending = yield match
+          block(document, match, pattern, rule, ending)
+        end
+      end
+    end
+  end
+end

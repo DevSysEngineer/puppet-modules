@@ -2,6 +2,11 @@
 
 require 'rake/testtask'
 
+def project_manifests
+  FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
+                              'reboot/**/*', 'stdlib/**/*')
+end
+
 {
   test: ['Run all tool tests', '.tools/*/tests/**/*_test.rb'],
   'test:metadata' => ['Run metadata tool tests', '.tools/metadata/tests/**/*_test.rb'],
@@ -9,6 +14,7 @@ require 'rake/testtask'
   'test:repository_checks' => ['Run repository integration checks', '.tools/repository-checks/tests/**/*_test.rb'],
   'test:lint' => ['Run linter tests', '.tools/lint/tests/**/*_test.rb'],
   'test:validate' => ['Run Puppet validator tests', '.tools/validate/tests/**/*_test.rb'],
+  'test:secrets' => ['Run sensitive-data scanner tests', '.tools/secrets/tests/**/*_test.rb'],
   'test:shared' => ['Run shared library tests', '.tools/shared/tests/**/*_test.rb'],
   'test:module_dependencies' => ['Run dependency tool tests', '.tools/module-dependencies/tests/**/*_test.rb']
 }.each do |name, (description, pattern)|
@@ -19,11 +25,24 @@ require 'rake/testtask'
   end
 end
 
+namespace :secrets do
+  desc 'Reject hardcoded secrets in first-party Puppet manifests'
+  task :puppet do
+    abort 'No Puppet manifests selected.' if project_manifests.empty?
+    sh 'bundle', 'exec', 'project-tools-secrets', '--puppet', *project_manifests, verbose: false do |ok, status|
+      raise SignalException, status.termsig if status.signaled?
+
+      exit status.exitstatus unless ok
+    end
+  end
+end
+
+task test: 'secrets:puppet'
+
 namespace :validate do
   desc 'Validate first-party Puppet manifests, optionally writing JUnit to the supplied path'
   task :puppet, [:junit] do |_task, args|
-    manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
-                                            'reboot/**/*', 'stdlib/**/*')
+    manifests = project_manifests
     if args[:junit]
       sh 'bundle', 'exec', 'validate-junit', args[:junit], *manifests, verbose: false do |ok, status|
         raise SignalException, status.termsig if status.signaled?

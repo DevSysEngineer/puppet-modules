@@ -48,12 +48,12 @@ class CiNativeStepsTest < Minitest::Test
   def test_checkout_failure_is_a_separate_failed_control_after_success
     step = workflow_steps('metadata').find { |item| item['name'] == 'Check for changes' }
     script = step.fetch('run').sub('source .github/actions/setup-tooling/log.sh', 'source "$1"')
-    native = "printf '[PASSED] Metadata\n'\ngit() { printf 'synthetic diff\n'; return 1; }\n"
+    native = "printf '[PASSED] Metadata\n'\ngit() { [ \"$2\" = --quiet ] || printf 'synthetic diff\n'; return 1; }\n"
     output, _errors, status = shell(native + script)
     assert_equal 1, status.exitstatus
     assert_includes output, '[PASSED] Metadata'
     assert_includes output, '[FAILED] Checkout changes'
-    assert_includes output, 'synthetic diff'
+    refute_includes output, 'synthetic diff'
   end
 
   def test_installation_failure_reports_without_an_installed_bundle
