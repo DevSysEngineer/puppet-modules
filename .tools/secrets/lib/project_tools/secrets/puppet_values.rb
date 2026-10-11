@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'puppet_syntax'
+require_relative 'text_scan'
 
 module ProjectTools
   module Secrets
@@ -14,8 +15,32 @@ module ProjectTools
 
       def sensitive_arguments(node)
         node.arguments.each do |argument|
-          inspect_value(argument) unless computed_reference?(argument)
+          computed_reference?(argument) ? inspect_computed(argument) : inspect_value(argument)
         end
+      end
+
+      def inspect_computed(node)
+        inspect_command(node)
+        node._pcore_all_contents([]) do |child|
+          function(child) if kind(child) == 'CallNamedFunctionExpression' &&
+                             %w[lookup hiera hiera_hash hiera_array].include?(function_name(child))
+        end
+      end
+
+      def inspect_command(node)
+        document = Document.new('computed-command.txt', command_text(node))
+        TextScan.new(document).scan
+        return if document.complete? && document.findings.none? { |finding| finding[:kind] == 'value' }
+
+        @document.redact(node.offset, node.offset + node.length, 'puppet_hardcoded_value', "'[REDACTED]'")
+        @document.values.concat(document.values)
+      end
+
+      def command_text(node)
+        return node.value if kind(node) == 'LiteralString'
+        return '$runtime_value' if %w[VariableExpression NamedAccessExpression].include?(kind(node))
+
+        children(node).map { |child| command_text(child) }.join
       end
 
       def computed_reference?(node)

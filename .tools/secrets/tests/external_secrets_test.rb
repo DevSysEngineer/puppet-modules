@@ -13,7 +13,7 @@ class ExternalSecretsTest < Minitest::Test
     prepare_environment
     build_install('shared', 'project-tools-shared')
     build_install('secrets', 'project-tools-secrets')
-    write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-secrets', '= 0.1.0'\n")
+    write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-secrets', '= 0.2.0'\n")
     run_success('bundle', 'install', '--local')
   end
 
@@ -38,6 +38,41 @@ class ExternalSecretsTest < Minitest::Test
     run_success('bundle', 'exec', 'ruby', '-e',
                 "require 'project_tools/secrets'; " \
                 'abort if (Bundler.load.specs.map(&:name) & %w[openvox lint-project rubocop]).any?')
+  end
+
+  def test_installed_license_detection_inside_gzip
+    buffer = StringIO.new(''.b)
+    Zlib::GzipWriter.wrap(buffer) { |writer| writer.write('license_key=synthetic-installed-license') }
+    write('settings.gz', buffer.string)
+    command('bundle', 'exec', 'project-tools-secrets', '--json', '--redact', 'copies', 'settings.gz')
+    assert_installed_archive
+  end
+
+  def assert_installed_archive
+    result = JSON.parse(@output)
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_equal 'archive', result['files'].first['coverage']
+    refute_includes read(File.join('copies', result['files'].first['copy'])), 'synthetic-installed-license'
+    refute_includes @output + @errors, 'synthetic-installed-license'
+  end
+
+  def test_installed_review_cannot_override_changed_content
+    write('settings.txt', 'license_key=synthetic-installed-review')
+    command('bundle', 'exec', 'project-tools-secrets', '--json', 'settings.txt')
+    record = installed_review(JSON.parse(@output)['files'].first)
+    write('review.json', JSON.generate({ schema: 1, entries: [record] }))
+    command('bundle', 'exec', 'project-tools-secrets', '--json', '--review', 'review.json', 'settings.txt')
+    assert JSON.parse(@output)['complete']
+    write('settings.txt', 'license_key=synthetic-changed-review')
+    command('bundle', 'exec', 'project-tools-secrets', '--json', '--review', 'review.json', 'settings.txt')
+    assert_equal 2, @status.exitstatus
+  end
+
+  def installed_review(file)
+    { path: 'settings.txt', control: 'non_secret_value', owner: 'Synthetic reviewer',
+      rationale: 'Installed package test', reviewed_on: Date.today.iso8601,
+      expires_on: (Date.today + 1).iso8601, sha256: Digest::SHA256.hexdigest(read('settings.txt')),
+      findings: file['findings'], errors: file['errors'] }
   end
 
   def test_package_contains_runtime_and_usage_but_no_test_or_result_files

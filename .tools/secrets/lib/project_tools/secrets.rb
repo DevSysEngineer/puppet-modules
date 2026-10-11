@@ -4,6 +4,7 @@ require 'optparse'
 require 'project_tools/shared/console'
 require_relative 'secrets/scanner'
 require_relative 'secrets/output'
+require_relative 'secrets/command_options'
 
 module ProjectTools
   # Local inspection gate. Findings remain findings after a redacted copy is made.
@@ -14,6 +15,8 @@ module ProjectTools
 
     # Parse options and keep all error reporting independent of input values.
     class Command
+      include CommandOptions
+
       CODES = { 'no_findings' => 0, 'findings' => 1, 'incomplete' => 2 }.freeze
       STATES = { 'no_findings' => 'PASSED', 'findings' => 'FAILED', 'incomplete' => 'ERROR' }.freeze
 
@@ -25,31 +28,32 @@ module ProjectTools
         @report_written = false
       end
 
-      def parser
-        OptionParser.new do |options|
-          options.banner = 'Usage: project-tools-secrets [--redact NEW_DIR] [--json] [--junit NEW_FILE] PATH ...'
-          options.on('--redact NEW_DIR', 'Write separate sanitized copies') { |dir| @options[:redact] = dir }
-          options.on('--json', 'Print metadata only as JSON') { @options[:json] = true }
-          options.on('--puppet', 'Check hardcoded values in Puppet manifests (requires OpenVox)') do
-            @options[:puppet] = true
-          end
-          options.on('--junit NEW_FILE', 'Also write metadata as JUnit XML') { |path| @options[:junit] = path }
-          options.on('-h', '--help', 'Show usage') { @options[:help] = true }
-        end
-      end
-
       def run(arguments)
         paths = arguments.dup
         parser.parse!(paths)
         return help if @options[:help]
         raise OptionParser::MissingArgument if paths.empty?
 
-        @scanner = Scanner.new(puppet: @options[:puppet])
-        @writer = Output.new(@scanner.documents, paths)
-        execute(paths)
+        start_scan(paths)
       rescue OptionParser::ParseError, ArgumentError
         @errors << 'invalid_arguments_or_destination'
         finish
+      end
+
+      def start_scan(paths)
+        review = read_review
+        return finish unless @errors.empty?
+
+        @scanner = Scanner.new(puppet: @options[:puppet], review: review)
+        @writer = Output.new(@scanner.documents, paths)
+        execute(paths)
+      end
+
+      def read_review
+        Review.new(@options[:review]) if @options[:review]
+      rescue StandardError
+        @errors << 'invalid_review_policy'
+        nil
       end
 
       def help
@@ -71,8 +75,8 @@ module ProjectTools
 
       def perform_scan(paths)
         @scanner.scan(paths)
-        redact if @options[:redact]
         write_report if @options[:junit]
+        redact if @options[:redact] && @errors.empty?
       rescue StandardError, SystemStackError, SignalException
         @errors << 'execution_failed'
       end

@@ -11,12 +11,14 @@ module ProjectTools
         @text = text
       end
 
-      def finish(first, balanced: false)
+      def finish(first, balanced: false, outer_quote: nil, word: false)
         return if @text[first..].start_with?('@(', '<<', '|', '>')
 
         @index = first
         @stack = []
         @quote = nil
+        @outer_quote = outer_quote
+        @word = word
         walk(balanced)
       end
 
@@ -26,7 +28,11 @@ module ProjectTools
           return if state == :invalid
           return @index if state == :stop || (balanced && closed?)
         end
-        @index if closed?
+        end_offset
+      end
+
+      def end_offset
+        @index if closed? && @index <= @text.length && !@outer_quote
       end
 
       def closed?
@@ -49,11 +55,15 @@ module ProjectTools
       end
 
       def unquoted(char)
+        return :stop if terminator?(char)
         return :invalid if unsupported_marker?
         return closing(char) if PAIRS.value?(char)
-        return :stop if @stack.empty? && ",;\r\n".include?(char)
 
         opening(char)
+      end
+
+      def terminator?(char)
+        @stack.empty? && (char == @outer_quote || ",;\r\n".include?(char) || (@word && char.match?(/[ \t]/)))
       end
 
       def opening(char)

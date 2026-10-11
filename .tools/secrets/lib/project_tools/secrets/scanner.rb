@@ -4,24 +4,30 @@ require_relative 'document'
 require_relative 'text_scan'
 require_relative 'yaml_scan'
 require_relative 'puppet_scan'
+require_relative 'source_reader'
+require_relative 'review'
 
 module ProjectTools
   module Secrets
     # Selection includes hidden files; skipped or unreadable sources are errors.
     class Scanner
-      MAX_BYTES = 5 * 1024 * 1024
+      MAX_BYTES = SourceReader::MAX_BYTES
       attr_reader :documents
 
-      def initialize(puppet: false)
+      def initialize(puppet: false, review: nil)
         @documents = []
         @seen = {}
         @puppet = puppet
+        @reader = SourceReader.new
+        @review = review
       end
 
       def scan(paths)
         select_paths(paths)
         scan_yaml
-        documents.each { |document| scan_text(document) }
+        leaves.each { |document| scan_text(document) }
+        documents.each(&:aggregate)
+        @review&.apply(documents)
         documents
       rescue StandardError, SystemStackError, SignalException
         documents.each { |document| document.error('inspection_failed') }
@@ -41,7 +47,11 @@ module ProjectTools
       end
 
       def yaml_documents
-        documents.select { |doc| doc.complete? && yaml?(doc) }
+        leaves.select { |doc| doc.complete? && yaml?(doc) }
+      end
+
+      def leaves(selected = documents)
+        selected.flat_map { |document| document.members.empty? ? [document] : leaves(document.members) }
       end
 
       def unresolved_hiera_scope
@@ -80,37 +90,7 @@ module ProjectTools
       end
 
       def read(path)
-        document = Document.new(path)
-        text = File.open(path, File::RDONLY | File::NOFOLLOW | File::NONBLOCK) { |file| snapshot(file, document) }
-        return documents << document unless text
-
-        text.force_encoding(Encoding::UTF_8)
-        code = content_error(text)
-        code ? problem(path, code) : documents << Document.new(path, text)
-      end
-
-      def snapshot(file, document)
-        return document.error('unsupported_file_type') unless file.stat.file?
-        return document.error('file_too_large') if file.stat.size > MAX_BYTES
-
-        before = stamp(file)
-        data = file.read(MAX_BYTES + 1)
-        return document.error('source_changed') unless before == stamp(file)
-
-        data
-      end
-
-      def stamp(file)
-        stat = file.stat
-        [stat.size, stat.mtime, stat.ctime]
-      end
-
-      def content_error(text)
-        return 'file_too_large' if text.bytesize > MAX_BYTES
-        return 'unsupported_encoding' unless text.valid_encoding?
-        return 'binary_content' if text.match?(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/)
-
-        nil
+        documents << @reader.read(path)
       end
 
       def problem(path, code)

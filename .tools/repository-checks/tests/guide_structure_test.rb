@@ -11,7 +11,7 @@ class SharedGuideStructureTest < Minitest::Test
     root = File.expand_path('../../..', __dir__)
     %w[.tools/README.md .tools/shared/README.md .tools/module-dependencies/README.md
        .tools/validate/README.md .tools/metadata/README.md .tools/ruby-lint/README.md
-       .tools/repository-checks/README.md].each do |name|
+       .tools/repository-checks/README.md .tools/secrets/README.md].each do |name|
       text = File.read(File.join(root, name))
       contents = text[/^## Inhoudsopgave\n(.*?)(?=^## )/m, 1]
       assert_equal expected_contents(text), contents.lines.grep(/^ *- /).map(&:chomp), name

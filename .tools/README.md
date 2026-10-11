@@ -47,7 +47,7 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelin
 | [`project-tools-validate`](validate/project-tools-validate.gemspec) | [Parservalidatie](validate/README.md) | Native `puppet parser validate MANIFEST.pp`; met rapport `validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]` |
 | [`lint-project`](lint/lint-project.gemspec) | [Lint](lint/README.md) | `puppet-lint`, `puppet-lint-junit` |
 | [`project-tools-ruby-lint`](ruby-lint/project-tools-ruby-lint.gemspec) | [Ruby-lint](ruby-lint/README.md) | Native `rubocop` met eigen JUnit-formatter |
-| [`project-tools-secrets`](secrets/project-tools-secrets.gemspec) | [Lokale secretcontrole](secrets/README.md) | `project-tools-secrets [--redact NEW_DIR] [--json] [--junit NEW_FILE] PATH ...` |
+| [`project-tools-secrets`](secrets/project-tools-secrets.gemspec) | [Lokale secretcontrole](secrets/README.md) | `project-tools-secrets [--redact NEW_DIR] [--review POLICY.json] [--json] [--junit NEW_FILE] PATH ...` |
 | [`project-tools-shared`](shared/project-tools-shared.gemspec) | [Gedeelde library](shared/README.md) | Geen eigen executable |
 
 Controleer bestanden vóór AI-analyse of externe inzage met de [lokale secretcontrole](secrets/README.md). De handleiding beschrijft de volgorde van scannen, rapport beoordelen en afzonderlijke kopieën maskeren, inclusief de beperkingen bij zoekuitvoer en diffs. Deze voorcontrole draait lokaal vóór openbaarmaking; een CI-scan achteraf vervangt haar niet.
@@ -1014,7 +1014,7 @@ tool_tests:
 
 Kies de tools die je project nodig heeft en voeg hun gems met shared toe aan de eigen ontwikkelbundle. Je project bepaalt de te controleren bestanden, modulepaden en rapportlocaties. Een checkout van Puppet-modules is alleen nodig voor controles die hun code of metadata lezen.
 
-Voor een project met `global-modules` richt je eerst de [eigen bundle](#installatie-in-je-project) en de configuratie voor [Puppet-lint](lint/README.md#eigen-lintconfiguratie) en [RuboCop](ruby-lint/README.md#ruby-controleren-in-een-ander-project) in. Voeg daarnaast de [parservalidatie van eigen manifests](validate/README.md#eigen-manifests-valideren) toe. Heeft je project eigen gereedschap met tests, voeg dan de [testtaak en JUnit-rapportage](#eigen-tooltests) toe. De [rapportafspraken](#rapporten-en-artifacts-in-je-project) en het [CI-voorbeeld](#controle-in-ci) laten zien hoe je de resultaten per controle afzonderlijk bewaart en publiceert.
+Voor een project met `global-modules` begin je met de [secrets-scanner in je eigen project](secrets/README.md#gebruik-in-een-ander-project): die handleiding verbindt de eigen bundle, voorcontrole vóór AI-gebruik, Rake-prerequisite en CI-gate. Richt daarna de configuratie voor [Puppet-lint](lint/README.md#eigen-lintconfiguratie) en [RuboCop](ruby-lint/README.md#ruby-controleren-in-een-ander-project) in via de [eigen bundle](#installatie-in-je-project). Voeg daarnaast de [parservalidatie van eigen manifests](validate/README.md#eigen-manifests-valideren) toe. Heeft je project eigen gereedschap met tests, voeg dan de [testtaak en JUnit-rapportage](#eigen-tooltests) toe. De [rapportafspraken](#rapporten-en-artifacts-in-je-project) en het [CI-voorbeeld](#controle-in-ci) laten zien hoe je de resultaten per controle afzonderlijk bewaart en publiceert.
 
 ### Gedeelde tooling hergebruiken
 
@@ -1027,7 +1027,7 @@ Kies de gems voor de benodigde controles volgens [Pakketten en commando’s](#pa
 | Puppet-syntax | `validate-junit` voert de meegeleverde native Puppet-parser uit en schrijft JUnit XML per manifest. | De manifestselectie en het rapportpad. De [optionele Rake-taak](validate/README.md#eigen-manifests-valideren) verzamelt alleen de eigen bestanden en roept dit commando aan. |
 | Puppet-lint | De projectchecks, het gedeelde `config/puppet-lint.rc` en `puppet-lint-junit`. | De eigen bestandsuitsluitingen, het Puppet-modulepad en het rapportpad. Gebruik de [native CLI met het gem-entrypoint](lint/README.md#eigen-code-controleren). |
 | Ruby-lint | RuboCop en het gedeelde `config/rubocop.yml`. De native JUnit-formatter schrijft het rapport. | De eigen `.rubocop.yml` met `inherit_gem`, bestandsselectie en het rapportpad. |
-| Lokale secretcontrole | `project-tools-secrets` scant lokaal en maakt met `--redact` afzonderlijke analysekopieën. | Expliciete bronbestanden, toepasselijke Hiera-conversies en een nieuwe uitvoermap volgens de [scannerhandleiding](secrets/README.md). |
+| Lokale secretcontrole | `project-tools-secrets` scant lokaal en maakt met `--redact` afzonderlijke analysekopieën. | Eigen bronselectie, voorcontrole, Puppet-gate en eventueel reviewbeleid volgens de [inrichtingsstappen](secrets/README.md#gebruik-in-een-ander-project). |
 | Eigen tooltests | De [voorbeelden voor testselectie en rapportage](#eigen-tooltests). | De eigen tests en testdependencies. De reporter van het eigen testframework schrijft JUnit XML. |
 
 Installeer de gekozen gems eenmaal per ontwikkelomgeving of CI-job via de eigen Gemfile en lockfile. Roep vervolgens de gedeelde commando's met `bundle exec` aan. Kopieer geen implementatie, gedeelde profielen of gemtests uit `global-modules` en laad zijn Gemfile of Rakefile niet vanuit je eigen project. Het Rakefile van deze repository selecteert onze bestanden; de gemcommando's werken met jouw selectie.
@@ -1195,7 +1195,7 @@ gem 'project-tools-module-dependencies', '= 0.1.0', require: false
 gem 'project-tools-validate', '= 0.1.0', require: false
 gem 'project-tools-ruby-lint', '= 0.1.0', require: false
 gem 'project-tools-metadata', '= 0.1.0', require: false
-gem 'project-tools-secrets', '= 0.1.0', require: false
+gem 'project-tools-secrets', '= 0.2.0', require: false
 ```
 
 Installeer uitsluitend shared en de gekozen tools. Voor parservalidatie en dependencycontrole is `lint-project` niet nodig. Richt per gekozen tool het [lintprofiel](lint/README.md#eigen-lintconfiguratie), [Ruby-profiel](ruby-lint/README.md#ruby-controleren-in-een-ander-project) en de [eigen metadataconfiguratie](metadata/README.md) in. Controleer pakketupdates met de eigen volledige lintscan, parservalidatie, dependencycontrole en toepasselijke Ruby- en tooltests. `bundle info --path` toont de werkelijk gebruikte gem; bronbestanden buiten het pakket zijn geen vervanging voor ontbrekende distributie-inhoud. De tijdelijke `.gem`-bestanden mogen na installatie weg; bewaar uitgaven via een goedgekeurde distributieroute.

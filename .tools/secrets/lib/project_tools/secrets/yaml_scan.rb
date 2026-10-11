@@ -2,11 +2,15 @@
 
 require 'psych'
 require_relative 'patterns'
+require_relative 'text_scan'
+require_relative 'yaml_selectors'
 
 module ProjectTools
   module Secrets
     # Psych supplies source ranges only; tags, objects and aliases are never loaded.
     class YamlScan
+      include YamlSelectors
+
       attr_reader :selectors
 
       def initialize(document)
@@ -28,45 +32,6 @@ module ProjectTools
 
       def children(node)
         node.children || []
-      end
-
-      def lookup_options(node)
-        @document.error('unsupported_yaml_alias') if node.is_a?(Psych::Nodes::Alias)
-        node.children.each_slice(2) { |key, value| lookup_entry(key, value) } if node.is_a?(Psych::Nodes::Mapping)
-        children(node).each { |child| lookup_options(child) }
-      end
-
-      def lookup_entry(key, value)
-        return @document.error('unsupported_yaml_key') unless scalar?(key)
-
-        conversions(value) if key.value == 'lookup_options'
-      end
-
-      def conversions(node)
-        return unless node.is_a?(Psych::Nodes::Mapping)
-
-        node.children.each_slice(2) do |key, options|
-          next unless scalar?(key) && options.is_a?(Psych::Nodes::Mapping)
-          next unless options.children.each_slice(2).any? { |name, type| sensitive_conversion?(name, type) }
-
-          conversion(key)
-        end
-      end
-
-      def conversion(key)
-        @document.finding('hiera_sensitive_conversion', offset(key))
-        if key.value.start_with?('^')
-          @document.error('unsupported_hiera_selector')
-        else
-          @selectors << key.value
-        end
-      end
-
-      def sensitive_conversion?(name, type)
-        return false unless scalar?(name) && name.value == 'convert_to'
-
-        candidate = type.is_a?(Psych::Nodes::Sequence) ? type.children.first : type
-        scalar?(candidate) && candidate.value.match?(/\ASensitive(?:\[|\z)/)
       end
 
       def scan(selectors)
@@ -91,8 +56,27 @@ module ProjectTools
           end
           next if key.value == 'lookup_options'
 
-          visit(value, sensitive: sensitive_key?(key) || sensitive)
+          visit(value, sensitive: field_sensitive?(key, value) || sensitive)
         end
+      end
+
+      def field_sensitive?(key, value)
+        named = sensitive_key?(key)
+        return true if @active_selectors.include?(key.value)
+        return false if scalar?(value) && Context.metadata?(key.value, value.value)
+
+        named && !ci_job?(key, value)
+      end
+
+      def ci_job?(key, value)
+        return false unless key.start_column.zero? && key.value.include?(' ') && value.is_a?(Psych::Nodes::Mapping)
+
+        fields = mapping_fields(value)
+        scalar?(fields['stage']) && (scalar?(fields['script']) || fields['script'].is_a?(Psych::Nodes::Sequence))
+      end
+
+      def mapping_fields(node)
+        node.children.each_slice(2).to_h { |name, child| [scalar?(name) ? name.value : nil, child] }
       end
 
       def sensitive_key?(key)
@@ -102,7 +86,8 @@ module ProjectTools
       end
 
       def scalar_value(node, sensitive)
-        sensitive = sensitive_scalar?(node) || sensitive
+        embedded = embedded_value(node)
+        sensitive = sensitive_scalar?(node) || sensitive || embedded
         return unless sensitive
         return if empty?(node)
 
@@ -111,6 +96,13 @@ module ProjectTools
         replacement = '"[REDACTED]"'
         replacement += "\n" if @document.text[first...last].end_with?("\n")
         @document.redact(first, last, 'sensitive_yaml_value', replacement, value: node.value)
+      end
+
+      def embedded_value(node)
+        document = Document.new('yaml-scalar.txt', node.value)
+        TextScan.new(document).scan
+        @document.values.concat(document.values)
+        !document.complete? || document.findings.any? { |finding| finding[:kind] == 'value' }
       end
 
       def empty?(node)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'puppet_values'
+require_relative 'context'
 
 module ProjectTools
   module Secrets
@@ -41,22 +42,36 @@ module ProjectTools
       end
 
       def attribute(node)
-        @values.inspect_value(node.value_expr) if sensitive?(node.attribute_name)
+        inspect_named(node.attribute_name, node.value_expr)
       end
 
       def entry(node)
-        @values.inspect_value(node.value) if sensitive?(literal(node.key))
+        inspect_named(literal(node.key), node.value)
       end
 
       def assignment(node)
         left = node.left_expr
-        @values.inspect_value(node.right_expr) if kind(left) == 'VariableExpression' && sensitive?(left.expr.value)
+        inspect_named(left.expr.value, node.right_expr) if kind(left) == 'VariableExpression'
       end
 
       def parameter(node)
         type = node.type_expr
         typed = type && @document.text[type.offset, type.length].include?('Sensitive')
-        @values.inspect_value(node.value) if sensitive?(node.name) || typed
+        typed ? @values.inspect_value(node.value) : inspect_named(node.name, node.value)
+      end
+
+      def inspect_named(name, node)
+        return unless sensitive?(name) && node
+
+        return if contextual_reference?(name, node)
+
+        @values.inspect_value(node)
+      end
+
+      def contextual_reference?(name, node)
+        return false unless %w[LiteralString LiteralInteger].include?(kind(node))
+
+        Context.metadata?(name.to_s, node.value.to_s) || Context.file_reference?(name.to_s, node.value.to_s)
       end
 
       def sensitive_call(node)
