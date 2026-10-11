@@ -604,7 +604,9 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 
 #### Belangrijke aandachtspunten
 
-`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Voeg bij een overstap vanaf versie 2.0.0 deze parameter toe aan bestaande `mysql`-declaraties en lever het back-upwachtwoord als `Sensitive(...)` uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder die aanpassing kan Puppet de catalogus niet compileren. De root- en applicatiewachtwoorden zijn nog gewone String-parameters en horen daarom uit versleutelde Hiera-data te komen.
+`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Voeg bij een overstap vanaf versie 2.0.0 deze parameter toe aan bestaande `mysql`-declaraties en lever het back-upwachtwoord als `Sensitive(...)` uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder die aanpassing kan Puppet de catalogus niet compileren.
+
+`root_password` accepteert `Optional[Sensitive[String]]`; de parameter `password` van `mysql::user` vereist `Sensitive[String]`. Lever deze waarden vanuit afgeschermde Hiera-data met de juiste typeconversie en geef ze zonder `.unwrap` door. `Sensitive` schermt waarden af in Puppet-uitvoer, maar versleutelt de Hiera-data niet.
 
 Gebruik je MySQL zonder `basic_settings::package_mysql`, stem dan `package_version` af op de geïnstalleerde versie. Met die pakketbron neemt de module de versie daarvan over; zie de [Puppet Strings bij `mysql`](mysql/manifests/init.pp).
 
