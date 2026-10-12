@@ -588,7 +588,7 @@ class basic_settings::network (
     # Check if we need to install a systemd resolved package or if it's all built-in
     if ($systemd_resolved_package) {
       # Keep policy flags last even when caller options contain duplicate or conflicting flags.
-      package { 'systemd-resolved':
+      package { ['dns-root-data', 'systemd-resolved']:
         ensure          => installed,
         install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
       }
@@ -607,6 +607,25 @@ class basic_settings::network (
         resolve       => $systemd_resolved_settings,
         daemon_reload => 'network_firewall_systemd_daemon_reload',
         require       => Package['systemd-resolved'],
+      }
+
+      # Preserve the trust-anchor recovery permissions while allowing the resolver to traverse the directory.
+      file { '/etc/dnssec-trust-anchors.d':
+        ensure => directory,
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0775',
+        notify => Service['systemd-resolved'],
+      }
+
+      # Follow the package-owned trust anchors without managing their contents.
+      file { '/etc/dnssec-trust-anchors.d/root.positive':
+        ensure  => link,
+        owner   => 'root',
+        group   => 'root',
+        target  => '/usr/share/dns/root.ds',
+        require => [Package['dns-root-data'], File['/etc/dnssec-trust-anchors.d']],
+        notify  => Service['systemd-resolved'],
       }
     } else {
       # Ensure that networkd services is always running
