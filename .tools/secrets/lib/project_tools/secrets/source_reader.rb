@@ -2,11 +2,87 @@
 
 require_relative 'document'
 require_relative 'archive'
+require 'securerandom'
+require 'fileutils'
 
 module ProjectTools
   module Secrets
+    # Only fixed codes cross the local processing boundary.
+    class Failure < StandardError
+      attr_reader :code
+
+      def initialize(code)
+        @code = code
+        super
+      end
+    end
+
+    # Reject links in every path component, including existing destination parents.
+    module Paths
+      def self.relative(path)
+        valid = path.is_a?(String) && !path.empty? && !path.start_with?('/') &&
+                path.split('/').none? { |part| ['', '.', '..', '.git'].include?(part.downcase) } &&
+                !path.match?(/[\x00-\x1f\x7f\\]/)
+        raise Failure, 'unsafe_path' unless valid
+
+        path
+      end
+
+      def self.absolute(path)
+        expanded = File.expand_path(path)
+        current = '/'
+        expanded.split('/').reject(&:empty?).each do |part|
+          current = File.join(current, part)
+          raise Failure, 'symlink_path' if File.symlink?(current)
+        end
+        expanded
+      end
+
+      def self.inside(root, path)
+        absolute(File.join(root, relative(path)))
+      end
+
+      def self.within?(path, root)
+        path == root || path.start_with?("#{root}/")
+      end
+
+      def self.outside_git!(path)
+        current = path
+        loop do
+          raise Failure, 'state_inside_git' if File.exist?(File.join(current, '.git'))
+          break if current == '/'
+
+          current = File.dirname(current)
+        end
+      end
+
+      def self.private_directory(path)
+        raise Failure, 'destination_exists' if File.exist?(path) || File.symlink?(path)
+
+        Dir.mkdir(absolute(path), 0o700)
+      end
+
+      def self.write_new(path, bytes, mode = 0o600)
+        File.open(path, File::WRONLY | File::CREAT | File::EXCL | File::NOFOLLOW, mode) do |file|
+          file.write(bytes)
+          file.flush
+          file.fsync
+        end
+      end
+    end
+
     # Read stable, bounded snapshots and delegate archive expansion without extracting files.
     class SourceReader
+      def self.local_read(path)
+        document = SourceReader.new.read(Paths.absolute(path))
+        Scanner.complete!([document])
+        raise Failure, 'archive_write_unsupported' unless document.members.empty?
+
+        document.text
+      rescue SystemCallError, IOError
+        raise Failure, 'source_unavailable'
+      end
+
       MAX_BYTES = 5 * 1024 * 1024
 
       def initialize

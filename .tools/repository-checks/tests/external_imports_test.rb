@@ -57,8 +57,14 @@ class ExternalImportsTest < Minitest::Test
     run_success('bundle', 'exec', 'validate-junit', '.reports/parser.xml', 'manifests/site.pp')
     run_success('bundle', 'exec', 'project-tools-module-dependencies', '--junit', '.reports/dependencies.xml')
     run_success('bundle', 'exec', 'project-tools-metadata', '--junit', '.reports/metadata.xml')
-    run_success('bundle', 'exec', 'project-tools-secrets', 'manifests/site.pp')
+    assert_secrets_tools
     assert_ruby_tool
+  end
+
+  def assert_secrets_tools
+    run_success('bundle', 'exec', 'project-tools-secrets', 'manifests/site.pp')
+    run_success('bundle', 'exec', 'project-tools-secrets-write', '--help')
+    assert_includes @output, '--changes'
   end
 
   def assert_consumer_outcomes

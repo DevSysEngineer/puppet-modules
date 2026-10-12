@@ -10,7 +10,24 @@ module ProjectTools
   # Local inspection gate. Findings remain findings after a redacted copy is made.
   module Secrets
     def self.run(arguments, output: $stdout)
+      if session_action?(arguments)
+        require_relative 'secrets/session_command'
+        return SessionCommand.new(output).run(arguments)
+      end
+
       Command.new(output).run(arguments)
+    end
+
+    def self.session_action?(arguments)
+      actions = %w[prepare diff run close cancel clone register fixture recover]
+      actions.include?(arguments.first) && arguments.drop(1).any? do |argument|
+        argument.match?(/\A--(?:state|policy|root)(?:=|\z)|\A(?:-h|--help)\z/)
+      end
+    end
+
+    def self.write(arguments, output: $stdout)
+      require_relative 'secrets/session_command'
+      SessionCommand.new(output).run(['apply', *arguments])
     end
 
     # Parse options and keep all error reporting independent of input values.

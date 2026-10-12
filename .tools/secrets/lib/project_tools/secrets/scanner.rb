@@ -10,18 +10,48 @@ module ProjectTools
   module Secrets
     # Selection includes hidden files; skipped or unreadable sources are errors.
     class Scanner
+      def self.documents(sources, analysis: true)
+        reader = SourceReader.new
+        documents = sources.map { |path, bytes| reader.inspect_bytes(path, bytes.dup) }
+        Scanner.new(analysis: analysis).scan_documents(documents)
+      end
+
+      def self.complete!(documents)
+        raise Failure, 'inspection_incomplete' unless documents.all?(&:complete?)
+      end
+
+      def self.puppet!(sources)
+        manifests = sources.select { |path, _| File.extname(path) == '.pp' }
+        return if manifests.empty?
+
+        inspected = documents(manifests)
+        complete!(inspected)
+        raise Failure, 'puppet_policy_rejected' if inspected.any? { |doc| !doc.findings.empty? }
+      end
+
       MAX_BYTES = SourceReader::MAX_BYTES
       attr_reader :documents
 
-      def initialize(puppet: false)
+      def initialize(puppet: false, analysis: false)
         @documents = []
         @seen = {}
         @puppet = puppet
+        @analysis = analysis
         @reader = SourceReader.new
       end
 
       def scan(paths)
         select_paths(paths)
+        inspect_documents
+      end
+
+      # Candidate bytes use the same detector without rereading the source files.
+      def scan_documents(documents)
+        @documents = documents
+        inspect_documents
+      end
+
+      def inspect_documents
         scan_yaml
         leaves.each { |document| scan_text(document) }
         documents.each(&:aggregate)
@@ -100,7 +130,8 @@ module ProjectTools
         Patterns.signatures(document)
         return unless document.complete? && !yaml?(document)
 
-        (@puppet ? PuppetScan : TextScan).new(document).scan
+        parser = @puppet || (@analysis && File.extname(document.path) == '.pp')
+        (parser ? PuppetScan : TextScan).new(document).scan
       end
     end
   end

@@ -42,6 +42,10 @@ module ProjectTools
         candidate = type.is_a?(Psych::Nodes::Sequence) ? type.children.first : type
         scalar?(candidate) && candidate.value.match?(/\ASensitive(?:\[|\z)/)
       end
+
+      def children(node)
+        node.children || []
+      end
     end
   end
 end

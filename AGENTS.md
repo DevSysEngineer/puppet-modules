@@ -86,7 +86,7 @@ The [metadata guide](.tools/metadata/README.md#versiebron-en-rapportage) owns ve
 
 ### Preparation
 
-- Run `git status --short` before editing.
+- Inventory changes before editing through [Git inspection](#git-inspection).
 - Inspect the relevant module files and README sections before changing behavior or structure.
 - Inspect the touched module's `metadata.json` when it exists.
 - Apply the metadata guide's [module metadata checks and content review](.tools/metadata/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
@@ -130,6 +130,14 @@ The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentatio
 - Review effects on repository conventions, Puppet abstractions, and reusable wrappers. When a request uses a concrete example, assess whether the same principle applies to other resource types, consumers, or integrations in the affected area. Apply shared behavior consistently, preserve type-specific semantics, and record the scope and any deliberate limits in the change review.
 - Review effects on monitoring, logging, alerting, audit rules, and operational diagnostics.
 - Review effects on documentation, examples, supported platforms, compatibility, and operational commands.
+
+### Git Inspection
+
+- Before any content comparison, inventory changed paths with `git --no-pager status --porcelain=v1 --untracked-files=all`. Include staged, unstaged, added, deleted and renamed files. Treat filenames as potentially confidential: capture the inventory locally and apply [local inspection before disclosure](#local-inspection-before-disclosure) before exposing it.
+- Scan the complete versions actually being compared, with the general secrets scanner and the required context from each corresponding version. An unstaged comparison needs the index and worktree; a staged comparison needs the chosen base and index; a comparison with an older revision needs that revision and the chosen new version. Include the old content for deletions and both old and new paths and contents for renames. A current-file scan, patch scan or Puppet-only scan is insufficient. Export source versions directly to private local files for scanning, without displaying their raw bytes or unreviewed command errors; follow the [practical procedure](.tools/secrets/README.md#git-versies-lokaal-controleren-en-vergelijken).
+- For this decision, treat a file as sensitive if any compared version has a finding, including an indicator, or its classification is uncertain. Never run `git diff` on that file's originals, even when only the old version is sensitive or output would be redirected. Compare only successfully produced safe analysis copies through the [controlled comparison procedure](.tools/secrets/README.md#diagnostiek-en-veilige-diff). Incomplete or failed inspection does not authorize disclosure or comparison of the affected content.
+- A normal diff is allowed only when every involved version and its context has been completely inspected and no sensitive information was found. Limit it to the exact checked files and versions, disable external diff and textconv helpers, and repeat inspection if sources, index, base or relevant context change. One cleared file never authorizes a repository-wide diff.
+- Apply this gate to all content-bearing output, including `git show`, `git log -p`, `git diff --check`, ordinary file comparisons, graphical Git diffs and editor previews. `git diff --check` may print source lines on failure. Report checks withheld by this rule explicitly; do not report them as passed.
 
 ### Git Commits
 
@@ -175,6 +183,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 #### Local Inspection Before Disclosure
 
+- Agents are responsible for following this inspection workflow before reading project content; no separate safe AI session, launcher or automatic enforcement layer is required. Use the [prepared editing workflow](.tools/secrets/README.md#ontwikkelen-met-een-analysewerkboom) when protected values must survive edits. Its private ID mappings and recovery journal belong to the write operation, not to an AI session.
 - Before file content enters AI context or any external analysis, run the local shared scanner from [`.tools/secrets/`](.tools/secrets/README.md): `bundle exec project-tools-secrets PATH ...`. Apply this gate before opening files, displaying search matches, terminal output or diffs; the assistant must not inspect raw content to decide whether scanning is needed.
 - Review only the scanner's metadata first. For findings, use `bundle exec project-tools-secrets --redact NEW_DIR PATH ...` and inspect only the successfully produced copies, following the [usage and selection procedure](.tools/secrets/README.md#controleren-voor-het-lezen). Preserve originals and rescan changed input.
 - With errors, incomplete coverage or uncertain masking, withhold the affected content until the issue is resolved or a person reviews it locally outside the AI context. If the scanner is unavailable, arrange local installation before reading. No matches establishes only the result of the supported checks; it does not replace the disclosure review below or establish safety.
@@ -338,8 +347,8 @@ External disclosure is every transfer outside an organization-controlled or expl
 - Validate each changed Puppet manifest separately with `bundle exec puppet parser validate` followed by its path. Run `bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'` for the complete first-party manifest selection and its explicitly requested JUnit report before completion, following the [validator guide](.tools/validate/README.md#puppet-manifests-valideren).
 - Perform the additional validation relevant to the change, as documented in the [validation guide](.tools/lint/README.md#code-controleren).
 - Complete applicable CI checks before marking the change complete.
-- Inspect the final change scope with `git diff --name-only`.
-- Require `git diff --check` to pass before completion.
+- Review the final change inventory through [Git inspection](#git-inspection), including untracked files.
+- Run `git diff --check` only for files and versions cleared by [Git inspection](#git-inspection). Review controlled analysis copies for the remaining files and report the withheld original-file check and its scope explicitly; do not describe that alternative as a successful `git diff --check`.
 
 ### Linter Changes
 
@@ -601,7 +610,7 @@ These maintenance rules apply to root and local files named `AGENTS.md`. Choose 
 
 ### Final Review
 
-- Review the complete diff against the pre-change version. Verify that every original obligation, prohibition, preference, condition, exception, technical contract, compatibility requirement, security safeguard, explanation, example, and verification instruction remains at its authoritative owner after reorganization or has an explicitly justified correction. For a substantive change of ownership, verify preservation and a working reference under [content and placement](#content-and-placement).
+- Review all changes against the pre-change version through [Git inspection](#git-inspection), using controlled analysis copies for sensitive content. Verify that every original obligation, prohibition, preference, condition, exception, technical contract, compatibility requirement, security safeguard, explanation, example, and verification instruction remains at its authoritative owner after reorganization or has an explicitly justified correction. For a substantive change of ownership, verify preservation and a working reference under [content and placement](#content-and-placement).
 - Verify that generalization and restructuring neither make required behavior optional nor make optional behavior mandatory.
 - Manually verify that every changed rule is necessary, reusable, scannable, non-duplicative, unambiguous, and consistent with the instruction chain, its terminology, and its references.
 - Run automated checks for literal duplicate rules and local link targets, using repository tooling when available or isolated temporary checks otherwise. Review meaning, structure, and readability manually rather than enforcing numerical prose limits.

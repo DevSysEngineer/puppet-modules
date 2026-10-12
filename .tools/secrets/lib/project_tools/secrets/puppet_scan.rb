@@ -14,6 +14,7 @@ module ProjectTools
       def initialize(document)
         @document = document
         @values = PuppetValues.new(document)
+        @literal_keys = []
       end
 
       def scan
@@ -31,6 +32,7 @@ module ProjectTools
       end
 
       def inspect_node(node)
+        record_literal(node)
         case kind(node)
         when 'AssignmentExpression' then assignment(node)
         when 'AttributeOperation' then attribute(node)
@@ -39,6 +41,13 @@ module ProjectTools
         when 'CallNamedFunctionExpression' then sensitive_call(node)
         when 'CallMethodExpression' then sensitive_method(node)
         end
+      end
+
+      def record_literal(node)
+        @literal_keys << node.key if kind(node) == 'KeyedEntry'
+        return unless kind(node) == 'LiteralString' && @literal_keys.none? { |key| key.equal?(node) }
+
+        @document.literals << [node.offset, node.offset + node.length, node.value, 'puppet']
       end
 
       def attribute(node)

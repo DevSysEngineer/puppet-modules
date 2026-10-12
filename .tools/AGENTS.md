@@ -11,7 +11,7 @@ Read the [repository instructions](../AGENTS.md) and this file before maintainin
 | `module-dependencies` | Native module selection and declared dependency analysis | [Module dependencies](module-dependencies/AGENTS.md) |
 | `repository-checks` | Repository documentation, CI configuration, distribution integration and test layout | [Repository checks](repository-checks/AGENTS.md) |
 | `ruby-lint` | Native RuboCop integration and shared Ruby profile | [Ruby lint](ruby-lint/AGENTS.md) |
-| `secrets` | Local sensitive-data detection, redacted copies and safe disclosure reports | [Sensitive data](secrets/AGENTS.md) |
+| `secrets` | Local sensitive-data detection, prepared analysis, controlled writes and safe review | [Sensitive data](secrets/AGENTS.md) |
 | `shared` | Actually shared runtime behavior and repository test support | [Shared library](shared/AGENTS.md) |
 | `validate` | Native parser validation and report integration | [Validator](validate/AGENTS.md) |
 

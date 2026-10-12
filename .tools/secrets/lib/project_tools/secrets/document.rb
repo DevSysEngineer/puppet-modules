@@ -1,12 +1,17 @@
 # frozen_string_literal: true
 
 require 'ripper'
+require 'json'
+require_relative 'marker_syntax'
+require_relative 'ruby_literals'
 
 module ProjectTools
   module Secrets
     # Source bytes remain local; only fixed finding metadata leaves this object.
     class Document
-      attr_reader :path, :text, :findings, :errors, :values, :members
+      include MarkerSyntax
+
+      attr_reader :path, :text, :findings, :errors, :values, :members, :literals
       attr_accessor :copy, :coverage
 
       def initialize(path, text = '')
@@ -14,10 +19,12 @@ module ProjectTools
         @text = text
         initialize_findings
         @members = []
+        @literals = []
         @coverage = 'text'
         @line_ends = []
         text.each_char.with_index { |char, index| @line_ends << index if char == "\n" }
         error('invalid_ruby') if ruby_source? && Ripper.sexp(text).nil?
+        RubyLiterals.new(self).collect if ruby_source? && complete?
       end
 
       def initialize_findings
@@ -56,13 +63,29 @@ module ProjectTools
         %w[.rb .rake .gemspec].include?(File.extname(path)) || %w[Gemfile Rakefile].include?(File.basename(path))
       end
 
-      def sanitized
+      def inspection_coverage
+        return %w[archive text_patterns] unless members.empty?
+        return %w[text_patterns yaml_parser] if %w[.yaml .yml .json].include?(File.extname(path))
+        return %w[text_patterns puppet_parser] if File.extname(path) == '.pp'
+
+        ['text_patterns']
+      end
+
+      def sanitized(markers: [])
         raise ArgumentError unless complete?
         return sanitized_members unless members.empty?
 
         result = text.dup
-        merged_spans.reverse_each { |first, last, replacement| result[first...last] = replacement }
+        merged_spans.reverse_each do |first, last, replacement|
+          next if markers.include?(unquote(text[first...last]))
+
+          result[first...last] = replacement
+        end
         result
+      end
+
+      def unquote(raw)
+        raw.delete_prefix("'").delete_suffix("'").delete_prefix('"').delete_suffix('"')
       end
 
       def sanitized_members

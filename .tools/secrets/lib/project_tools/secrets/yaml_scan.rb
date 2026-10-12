@@ -4,6 +4,7 @@ require 'psych'
 require_relative 'patterns'
 require_relative 'text_scan'
 require_relative 'yaml_selectors'
+require_relative 'yaml_block'
 
 module ProjectTools
   module Secrets
@@ -28,10 +29,6 @@ module ProjectTools
         line = ending ? node.end_line : node.start_line
         column = ending ? node.end_column : node.start_column
         @lines.fetch(line, @document.text.length) + column
-      end
-
-      def children(node)
-        node.children || []
       end
 
       def scan(selectors)
@@ -85,12 +82,32 @@ module ProjectTools
         secret
       end
 
+      def redact_block?(node, sensitive)
+        return false if sensitive || sensitive_scalar?(node)
+
+        YamlBlock.new(@document, node, offset(node), offset(node, ending: true)).redact
+      end
+
       def scalar_value(node, sensitive)
+        @document.literals << [offset(node), offset(node, ending: true), node.value, 'yaml', string_scalar?(node)]
+        return if redact_block?(node, sensitive)
+
         embedded = embedded_value(node)
         sensitive = sensitive_scalar?(node) || sensitive || embedded
         return unless sensitive
         return if empty?(node)
 
+        redact_scalar(node)
+      end
+
+      def string_scalar?(node)
+        return true unless node.plain
+        return false if node.tag && node.tag != 'tag:yaml.org,2002:str'
+
+        !node.value.match?(/\A(?:[-+.]?\d|true\z|false\z|yes\z|no\z|on\z|off\z|null\z|~\z)/i)
+      end
+
+      def redact_scalar(node)
         first = offset(node)
         last = offset(node, ending: true)
         replacement = '"[REDACTED]"'

@@ -1,22 +1,9 @@
 # frozen_string_literal: true
 
-require_relative 'test_helper'
-require_relative '../../shared/test_support/packages'
+require_relative 'external_helper'
 
 # Installed consumers use the same implementation, with no Puppet runtime.
-class ExternalSecretsTest < Minitest::Test
-  include ProjectToolsPackageSupport
-
-  def setup
-    @project = Dir.mktmpdir('secrets-consumer-')
-    consumer_environment
-    prepare_environment
-    build_install('shared', 'project-tools-shared')
-    build_install('secrets', 'project-tools-secrets')
-    write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-secrets', '= 0.2.0'\n")
-    run_success('bundle', 'install', '--local')
-  end
-
+class ExternalSecretsTest < ExternalSecretsTestCase
   def test_installed_scanner_and_masking_work_from_the_consumer_directory
     write('data/common.yaml', "password: synthetic-consumer\nordinary: unchanged\n")
     command('bundle', 'exec', 'project-tools-secrets', '--json', '--redact', 'copies', 'data')

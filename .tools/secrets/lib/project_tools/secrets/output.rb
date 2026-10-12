@@ -2,12 +2,44 @@
 
 require 'fileutils'
 require 'json'
+require 'tmpdir'
+require 'stringio'
 require 'project_tools/shared/junit_report'
 
 module ProjectTools
   module Secrets
+    # Session metadata uses the same JUnit writer as standalone scans.
+    module SessionReport
+      def session_xml(result, operation)
+        buffer = StringIO.new
+        Shared::JunitReport.write(buffer, name: 'secrets-session', **session_counts(result)) do |xml|
+          xml.testcase(name: operation, classname: 'secrets-session') do
+            session_detail(xml, result)
+          end
+        end
+        buffer.string
+      end
+
+      def session_counts(result)
+        { tests: 1, failures: result['status'] == 'findings' ? 1 : 0, errors: result['complete'] ? 0 : 1 }
+      end
+
+      def session_detail(xml, result)
+        detail = JSON.generate(result)
+        if !result['complete']
+          xml.error(detail, type: 'incomplete_operation')
+        elsif result['status'] == 'findings'
+          xml.failure(detail, type: 'possible_sensitive_data')
+        else
+          xml.tag!('system-out', detail)
+        end
+      end
+    end
+
     # Only sanitized snapshots are written, using new private destinations.
     class Output
+      extend SessionReport
+
       def initialize(documents, sources)
         @documents = documents
         @sources = sources.map { |path| File.exist?(path) ? File.realpath(path) : File.expand_path(path) }
@@ -74,6 +106,26 @@ module ProjectTools
             file.write(document.sanitized)
           end
           document.copy = name
+        end
+      end
+
+      # Preparation uses the existing output owner, publishing only complete sanitized trees.
+      def analysis_tree(directory, files)
+        target = destination(directory)
+        staging = Dir.mktmpdir('.secrets-analysis-', File.dirname(target))
+        write_tree(staging, files)
+        raise Failure, 'destination_exists' if File.exist?(target) || File.symlink?(target)
+
+        File.rename(staging, target)
+      ensure
+        FileUtils.remove_entry(staging) if staging && File.exist?(staging)
+      end
+
+      def write_tree(staging, files)
+        files.each do |name, text|
+          path = Paths.inside(staging, name)
+          FileUtils.mkdir_p(File.dirname(path), mode: 0o700)
+          Paths.write_new(path, text)
         end
       end
 

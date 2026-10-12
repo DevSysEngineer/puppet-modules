@@ -21,7 +21,7 @@ class SecretsLicenseGateTest < Minitest::Test
   def write_bundle
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
-      gem 'project-tools-secrets', '= 0.2.0'
+      gem 'project-tools-secrets', '= 0.3.0'
       gem 'openvox', '~> 8.0'
       gem 'syslog'
       gem 'rake'
