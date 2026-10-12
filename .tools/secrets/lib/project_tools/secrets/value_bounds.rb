@@ -7,13 +7,14 @@ module ProjectTools
       PAIRS = { '(' => ')', '[' => ']', '{' => '}' }.freeze
       QUOTES = %w[' " `].freeze
 
-      def initialize(text, puppet: false)
+      def initialize(text, puppet: false, limit: text.length)
         @text = text
         @puppet = puppet
+        @limit = limit
       end
 
       def finish(first, balanced: false, outer_quote: nil, word: false)
-        return if @text[first..].start_with?('@(', '<<', '|', '>')
+        return if @text[first...@limit].start_with?('@(', '<<', '|', '>')
 
         @index = first
         @stack = []
@@ -25,8 +26,19 @@ module ProjectTools
         walk(balanced)
       end
 
+      def enclosing_quote(first, start: 0)
+        start = [start, (@text.rindex("\n", first - 1) || -1) + 1].max
+        quote = nil
+        @text[start...first].scan(/\\.|['"`]/).each do |char|
+          next if char.start_with?('\\')
+
+          quote = quote == char ? nil : quote || char
+        end
+        quote
+      end
+
       def walk(balanced)
-        while @index < @text.length
+        while @index < @limit
           state = step(@text[@index])
           return if state == :invalid
           return @index if state == :stop || (balanced && closed?)
@@ -35,7 +47,7 @@ module ProjectTools
       end
 
       def end_offset
-        @index if closed? && @index <= @text.length && !@outer_quote
+        @index if closed? && @index <= @limit && !@outer_quote
       end
 
       def closed?
@@ -64,7 +76,7 @@ module ProjectTools
       def unquoted(char)
         return lambda_body(char) if @lambda_body
         return :stop if terminator?(char)
-        return :invalid if unsupported_marker?
+        return :invalid if @index + 2 <= @limit && ['@(', '<<'].include?(@text[@index, 2])
         return closing(char) if PAIRS.value?(char)
 
         opening(char)
@@ -106,10 +118,6 @@ module ProjectTools
         @lambda_body = false
         @stack << '}'
         :continue
-      end
-
-      def unsupported_marker?
-        ['@(', '<<'].include?(@text[@index, 2])
       end
 
       def closing(char)

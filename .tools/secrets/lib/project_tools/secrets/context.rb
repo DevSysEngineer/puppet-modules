@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'patterns'
+
 module ProjectTools
   module Secrets
     # Recognize documented value roles; a suffix or a number alone is insufficient.
@@ -10,6 +12,19 @@ module ProjectTools
       DURATION = /\A\d+(?:[smhdw])?\z/i.freeze
       ERB_REFERENCE = /\A<%=\s*(?:@[a-z_]\w*(?:\.unwrap)?|ENV\[['"][A-Z_]\w*['"]\])\s*%>\z/i.freeze
       FILE_SOURCE = %r{\Apuppet:///[^\s?#'"<>]+\z}.freeze
+
+      def self.safe_value?(name, raw)
+        return true if Patterns::EMPTY.match?(raw) || Patterns::REFERENCE.match?(raw)
+
+        value = unquote(raw)
+        ERB_REFERENCE.match?(value) || metadata?(name, value) || file_reference?(name, value)
+      end
+
+      def self.unquote(value)
+        return value[1...-1] if value.length >= 2 && %w[' "].include?(value[0]) && value[-1] == value[0]
+
+        value
+      end
 
       def self.metadata?(name, value)
         return true if COUNT.match?(name) && value.match?(/\A\d+\z/)
