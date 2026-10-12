@@ -12,7 +12,7 @@ module ProjectTools
       include MarkerSyntax
 
       attr_reader :path, :text, :findings, :errors, :values, :members, :literals
-      attr_accessor :copy, :coverage
+      attr_accessor :coverage
 
       def initialize(path, text = '')
         @path = path

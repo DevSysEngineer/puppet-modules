@@ -1,14 +1,19 @@
-# Puppet-coderegels en reviewcriteria
+# Coderegels en reviewcriteria
 
-Dit bestand bevat de algemene Puppet-coderegels en handmatige reviewcriteria van dit project. Volg de toepasselijke regels bij iedere Puppet-wijziging. Raakt je wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, pas dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md) toe.
+Dit bestand is de centrale bron voor codeontwerp, codeconventies en bijbehorende handmatige reviewcriteria. De [algemene ontwerpregels](#algemene-ontwerpregels) gelden voor alle eigen code: modules, scripts, bibliotheken, tools en integratiecode, ook onder `.tools/`. De overige secties beschrijven de aanvullende Puppet-regels; hun syntaxis- en resourceafspraken gelden alleen voor Puppet-code. Het toepassingsgebied bij iedere regel bepaalt waar je haar gebruikt.
+
+Raakt je wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, pas dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md) toe.
 
 Raakt je wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan ook de relevante regels uit [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn en vervangen deze algemene coderegels nooit.
 
-De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter zelf volgt de [lokale ontwikkelinstructies](../AGENTS.md). Het toepassen van deze normen op Puppet-code vereist die onderhoudsroute niet. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter of deze regels volgt de [lokale ontwikkelinstructies](../AGENTS.md). Alleen het toepassen van de regels vereist die onderhoudsroute niet. De [repositoryinstructies](../../../AGENTS.md#code-authority) bepalen voorbereiding, wijzigingsscope, migratie, validatie en oplevering. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
 
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
+- [Algemene ontwerpregels](#algemene-ontwerpregels)
+  - [Gelijk gedrag in één implementatie onderhouden](#gelijk-gedrag-in-één-implementatie-onderhouden)
+  - [Verantwoordelijkheden en interfaces afbakenen](#verantwoordelijkheden-en-interfaces-afbakenen)
 - [Basisopmaak](#basisopmaak)
   - [Twee spaties per inspringniveau](#twee-spaties-per-inspringniveau)
   - [Inhoud direct na een openingsaccolade beginnen](#inhoud-direct-na-een-openingsaccolade-beginnen)
@@ -76,7 +81,141 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 
 <a id="naslag"></a>
 
-De afspraken hieronder vormen de algemene Puppet-codestandaard, met aanvullende regels voor [Puppet-documentatie](DOCUMENTATION_RULES.md) en [operationele wijzigingen](OPERATIONAL_RULES.md). [`.puppet-lint.rc`](../../../.puppet-lint.rc) bepaalt de actieve controles en de [projectchecks](../lib/project_lint/checks/) bepalen hun feitelijke detectie en autofix; de [linthandleiding](../README.md#puppet-code-lintcontroles-en-hergebruik) beschrijft het volledige autoriteitsmodel en hoe je conflicten tussen deze bronnen vastlegt. Gebruik het overzicht om vanuit een lintmelding naar de betreffende afspraak te gaan. De secties bevatten ook handmatige reviewcriteria: een geslaagde scan bewijst geen correct functioneel gedrag, volledige documentatie of veilige serviceconfiguratie.
+De afspraken hieronder verbinden algemene codeprincipes met hun uitwerking voor Puppet. Aanvullende regels staan bij [Puppet-documentatie](DOCUMENTATION_RULES.md) en [operationele wijzigingen](OPERATIONAL_RULES.md). Voor Puppet bepalen [`.puppet-lint.rc`](../../../.puppet-lint.rc) en de [projectchecks](../lib/project_lint/checks/) de actieve controles en hun feitelijke detectie en autofix; de [linthandleiding](../README.md#puppet-code-lintcontroles-en-hergebruik) beschrijft het autoriteitsmodel en de behandeling van conflicten. Gebruik het overzicht om vanuit een ontwerpbeslissing of lintmelding naar de betreffende afspraak te gaan. Een geslaagde scan bewijst geen correct functioneel gedrag, volledige documentatie of veilige serviceconfiguratie.
+
+## Algemene ontwerpregels
+
+<!-- lint-rule-group -->
+
+### Gelijk gedrag in één implementatie onderhouden
+
+**Norm**
+
+Geef gedrag dat bij meerdere aanroepers hetzelfde moet blijven één onderhouden implementatie. Hergebruik of breid de bestaande implementatie uit wanneer zij het benodigde contract kan vervullen. Dubbele implementaties met hetzelfde contract worden samengebracht; vergelijkbare syntax alleen bewijst niet dat verantwoordelijkheden of betekenis gelijk zijn.
+
+Behoud de instellingen, voorwaarden, beveiliging en levenscyclus van iedere aanroeper. Verschillen horen bij de aanroeper of bij de expliciete interface van de gedeelde implementatie. Voor Puppet werkt de regel voor [herhaalde resourceorkestratie](#herhaalde-resourceorkestratie-in-defined-types-delen) dit uit; voor shellcode gelden de [grenzen van gedeelde helpers](OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen).
+
+**Herkomst**
+
+Projectregel
+
+**Toepassingsgebied**
+
+Alle eigen code, waaronder modules, scripts, bibliotheken, tools en integratiecode. De regel geldt binnen een component en tussen componenten die hetzelfde gedrag nodig hebben.
+
+**Automatische controle**
+
+Geen automatische controle
+
+**Detectiegrenzen**
+
+Een syntactische overeenkomst bewijst geen gelijk contract. Bestaande taalcontroles bewaken hun eigen constructies, niet de betekenis of het gedrag van alle aanroepers.
+
+**Meldingen en severity**
+
+Geen lintmelding of severity voor deze algemene ontwerpnorm.
+
+**Autofix**
+
+Geen
+
+**Autofixvoorwaarden**
+
+Niet van toepassing: de keuze van een gedeelde implementatie vereist kennis van de contracten en betrokken aanroepers.
+
+**Toegestane uitzonderingen**
+
+Afzonderlijke implementaties zijn toegestaan wanneer hun verantwoordelijkheden of contracten verschillen. Een verschil in beveiliging of levenscyclus mag niet verdwijnen om code te kunnen delen.
+
+**Suppressions**
+
+Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: Twee ingangen onderhouden ieder dezelfde verwerking, waardoor een correctie slechts één ingang bereikt. Ook het samenvoegen van gelijk uitziende code waarbij een aanroeper zijn eigen toegangscontrole verliest, voldoet niet.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: Beide ingangen gebruiken dezelfde bestaande verwerking met expliciete invoer. Iedere ingang behoudt de eigen selectie en voorwaarden. Een derde ingang met een ander contract blijft afzonderlijk.
+
+**Grensgevallen**
+
+Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een mogelijke toekomstige aanroeper rechtvaardigt geen nieuwe abstractie; de [wijzigingsscope](../../../AGENTS.md#implementation-scope) bepaalt welke toevoegingen nodig zijn.
+
+**Handmatige review**
+
+Vergelijk per aanroeper invoer, resultaat, foutafhandeling, voorwaarden, beveiliging en levenscyclus. Stel vast welk gedrag hetzelfde moet blijven en welke verschillen behouden moeten worden. Controleer dat een correctie aan dat gedeelde gedrag alle betrokken aanroepers bereikt.
+
+**Verificatie**
+
+Beoordeel beide scenario's en valideer de betrokken aanroepers volgens de [hergebruikreview](../../../AGENTS.md#reuse-and-shared-abstractions) en [validatieafspraken](../../../AGENTS.md#validation-and-testing). De documentatiecontracttests bewaken de vindbaarheid en unieke plaats van de norm; zij bewijzen geen gelijkwaardig gedrag.
+
+### Verantwoordelijkheden en interfaces afbakenen
+
+**Norm**
+
+Houd functionaliteit die meerdere taken binnen één component delen bij die component. Plaats technisch gedrag dat verschillende componenten onder hetzelfde contract nodig hebben in de bestaande gedeelde bibliotheek. Houd domeinbeleid en keuzes die alleen een aanroeper betreffen bij hun eigenaar. De afhankelijkheidsrichting blijft expliciet: de gedeelde verwerking is niet afhankelijk van het beleid van haar aanroepers.
+
+Maak invoer, resultaten en afhankelijkheden van herbruikbare code expliciet genoeg voor de werkelijke aanroepers. Houd de ingang die een taak ontvangt gescheiden van de verwerking die zij aanroept. De interface maakt duidelijk welke verantwoordelijkheid bij de aanroeper blijft en welke de ontvangende component uitvoert.
+
+Pas voor Puppet-configuratie de [eigenaarschapscriteria](#instellingen-bij-hun-eigenaar-houden) toe, voor hergebruik van parentwaarden in Puppet de [classcontroles](#classcontroles-hergebruiken), en voor shellcode de [helpergrenzen](OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen). De [toolingarchitectuur](../../README.md#verantwoordelijkheden-gescheiden-houden) benoemt de concrete pakketten en CLI-verantwoordelijkheden die deze principes uitvoeren.
+
+**Herkomst**
+
+Projectregel
+
+**Toepassingsgebied**
+
+Alle eigen code, waaronder modules, scripts, bibliotheken, tools en integratiecode; zowel taakgebonden ingangen als gedeelde verwerking en hun aanroepers.
+
+**Automatische controle**
+
+Geen automatische controle
+
+**Detectiegrenzen**
+
+Namen, bestandslocaties en aantallen aanroepers bewijzen niet wie een verantwoordelijkheid hoort te dragen. Een taal- of dependencycontrole stelt de juiste componentgrens niet vast.
+
+**Meldingen en severity**
+
+Geen lintmelding of severity voor deze algemene ontwerpnorm.
+
+**Autofix**
+
+Geen
+
+**Autofixvoorwaarden**
+
+Niet van toepassing: verplaatsing vereist inhoudelijke kennis van eigenaarschap, interfaces en afhankelijkheden.
+
+**Toegestane uitzonderingen**
+
+Verschillende domeinbesluiten blijven bij hun eigenaren, ook wanneer zij dezelfde technische verwerking gebruiken. Gebruik binnen één component vereist geen gedeelde bibliotheek voor andere componenten.
+
+**Suppressions**
+
+Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: Een gedeelde bibliotheek kiest welk resultaat één specifieke toepassing accepteert en importeert daarvoor de commandolaag van die toepassing. Een tweede toepassing kan de technische verwerking daardoor niet onafhankelijk gebruiken.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: De bibliotheek verwerkt expliciete invoer en levert een resultaat. Iedere toepassing kiest zelf haar invoer en beoordeelt dat resultaat volgens haar eigen beleid. De commandolaag vertaalt de aanroep en presenteert de uitkomst volgens haar CLI-contract.
+
+**Grensgevallen**
+
+Houd een gedeelde taak binnen haar component zolang andere componenten haar niet nodig hebben. Een bestaande component kan haar eigen berekeningen uitvoeren; een afzonderlijke helper of extra laag is daarvoor niet vanzelf nodig. Beoordeel de noodzaak volgens de [wijzigingsscope](../../../AGENTS.md#implementation-scope).
+
+**Handmatige review**
+
+Volg de gegevensstroom van iedere ingang via de verwerking naar het resultaat. Controleer per stap de eigenaar, het publieke contract, de vereiste afhankelijkheden en de plaats van domeinbesluiten. Onderscheid daarbij oorspronkelijke configuratie, intern afgeleide waarden en template-invoer. Beoordeel ingangen en herbruikbare verwerking afzonderlijk en daarna als geheel.
+
+**Verificatie**
+
+Vergelijk de scenario's en controleer de interfaces met hun werkelijke aanroepers volgens de [hergebruikreview](../../../AGENTS.md#reuse-and-shared-abstractions). Bij tooling hoort daar de [integratiereview](../../AGENTS.md#responsibility-and-integration-review) bij. De documentatiecontracttests bewaken structuur en verwijzingen; de inhoudelijke eigendomsbeslissing blijft handmatig.
 
 ## Basisopmaak
 
@@ -616,7 +755,7 @@ $label = join([
 ], ' ')
 ```
 
-Extra functiehaakjes, bijvoorbeeld in `Sensitive.new(join([`, voegen geen inspringniveau toe. De array volgt het omliggende codeblok. Alleen een array die als resourcetitel direct achter de accolade begint, zoals `file { [`, krijgt een extra niveau: de elementen staan vier spaties verder dan `file` en de afsluitende `]` twee spaties.
+Extra functiehaakjes, bijvoorbeeld in `Sensitive.new(join([]))`, voegen geen inspringniveau toe. De array volgt het omliggende codeblok. Alleen een array die als resourcetitel direct achter de accolade begint, zoals `file { [`, krijgt een extra niveau: de elementen staan vier spaties verder dan `file` en de afsluitende `]` twee spaties.
 
 `project_layout` controleert het begin van array-elementen op een nieuwe regel en de afsluitende `]`. Meerdere elementen op één regel zijn toegestaan. Met `--fix` herstelt de check de inspringing, inclusief die van geneste arrays. Stringinhoud, heredocs en commentaar blijven behouden. Vierkante haken in datatypeparameters of indexeringen worden niet als arrays behandeld.
 
@@ -1015,7 +1154,7 @@ Handmatige vergelijking van de beschreven scenario’s; controleer het interface
 
 **Norm**
 
-Gebruik herbruikbare defined types voor herhaalde Puppet-resourceorkestratie en geef instellingen die per aanroeper verschillen als parameters door. Behoud de beveiligings- en levenscyclusvereisten van iedere aanroeper.
+Werk [gedeeld gedrag](#gelijk-gedrag-in-één-implementatie-onderhouden) bij herhaalde Puppet-resourceorkestratie uit in herbruikbare defined types en geef instellingen die per aanroeper verschillen als parameters door. Behoud de beveiligings- en levenscyclusvereisten van iedere aanroeper.
 
 **Herkomst**
 

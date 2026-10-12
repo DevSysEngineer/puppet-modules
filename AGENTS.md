@@ -7,7 +7,7 @@ This file governs project-wide development workflow, engineering responsibilitie
 - Before exposing file content, apply [local inspection before disclosure](#local-inspection-before-disclosure), including when reading these instructions.
 - Before editing, read this complete file, the root [README](README.md), and the applicable instructions from repository root to the affected component. Explicitly open local `AGENTS.md` files before changing a subproject, including when the session starts at root; do not assume links or automatic discovery have loaded their contents. Do not reread unchanged instructions already read in this task.
 - For tooling maintenance, start at [`.tools/AGENTS.md`](.tools/AGENTS.md), then read the affected component instructions from its index and the relevant README contracts. Apply this route by responsibility as well as path: tooling integration in the root Gemfile, Rakefile, `.github/`, or consumer examples also requires it. Shared-interface changes require the instructions and contracts of the actual affected consumers.
-- For Puppet changes outside tooling, follow [Puppet code authority](#puppet-code-authority). The location of the norms under `.tools/lint/docs/` does not limit their applicability or by itself require reading linter development instructions.
+- For every code change, including tooling, follow [code authority](#code-authority). The location of the norms under `.tools/lint/docs/` does not limit their applicability or by itself require reading linter development instructions.
 - Local instructions supplement their parents and must not weaken, contradict or duplicate repository policy. An exception is valid only within an exception explicitly allowed by the rule owner. Report unresolved conflicts in the change review under [conflict resolution](#conflict-resolution), rather than silently giving local wording precedence.
 - Check the active agent environment for instruction overrides and truncated instruction text; read missing applicable content directly and report any unperformed verification. Keep essential routing at the start of instruction files. Do not automatically change personal agent settings. [Codex discovery documentation](https://developers.openai.com/codex/guides/agents-md) describes startup discovery along the path to the working directory and a configurable combined-text limit; a link alone is not evidence of loading.
 
@@ -16,7 +16,7 @@ This file governs project-wide development workflow, engineering responsibilitie
 Every durable norm has exactly one authoritative location. Classify a new or changed norm by the decision it governs, not by the file where the issue was found. Separate mixed passages before assigning ownership; apply the following questions in order, using the specific tooling route for tool procedures:
 
 1. Does it govern how a developer or agent investigates, scopes, reviews, validates, or delivers a change? Keep repository-wide obligations in this `AGENTS.md`, maintenance shared by tools in [`.tools/AGENTS.md`](.tools/AGENTS.md), and component-specific maintenance in the local `AGENTS.md` reached through its index. Choose the smallest applicable owner; split mixed scopes first.
-2. Does it govern how general Puppet code is written or structured? Use [CODE_RULES.md](.tools/lint/docs/CODE_RULES.md).
+2. Does it govern how code is written or structured? Use [CODE_RULES.md](.tools/lint/docs/CODE_RULES.md) for general code principles across all first-party languages and components, including tooling. Keep language-specific rules there with an explicit scope; Puppet syntax and resource rules apply only to Puppet.
 3. Does it govern Puppet Strings, Puppet code comments, or Puppet interface documentation? Use [DOCUMENTATION_RULES.md](.tools/lint/docs/DOCUMENTATION_RULES.md).
 4. Does it govern operational implementation, including managed files, permissions, systemd, shell, runtime tools, or monitoring? Use [OPERATIONAL_RULES.md](.tools/lint/docs/OPERATIONAL_RULES.md).
 5. Does it describe supported installation, package selection, modulepath configuration, distribution, CLI and reporting behavior, CI use or joint tooltest execution? Use the [tooling README](.tools/README.md) and the owning tool's README. Keep lint usage, the daily correction workflow, architecture and the sole check registry in the [lint README](.tools/lint/README.md). Maintenance obligations belong to the applicable instruction layer, linked to these public contracts.
@@ -26,7 +26,7 @@ Every durable norm has exactly one authoritative location. Classify a new or cha
 - Use a short summary only when it is necessary to explain a workflow decision and does not create a second norm. The authoritative source owns conditions, exceptions, and concrete implementation requirements. Checklists refer to that source without redefining it.
 - Maintain code style, layout, naming, and implementation conventions in the rules document that owns the code, not in `AGENTS.md`. This file requires their application and review without defining them again. Linter architecture belongs in the lint README; shared package architecture and installation belong in the tooling README.
 - Rule ownership does not depend on automation. The rules documents are the central code and implementation standard, including fully automated, partly automated, detection-only, and exclusively manual rules. Missing checks or unsafe autofix never move a norm into `AGENTS.md` or make it optional.
-- When a task asks for a new general agreement, determine its owner before editing. Do not automatically add it here merely because the request calls it an "agent rule" or names `AGENTS.md`. Classify workflow, Puppet code, Puppet documentation, operational implementation, tooling, and general repository documentation first; add only a focused reference here when agents need to find the norm.
+- When a task asks for a new general agreement, determine its owner before editing. Do not automatically add it here merely because the request calls it an "agent rule" or names `AGENTS.md`. Classify workflow, general or language-specific code, Puppet documentation, operational implementation, tooling, and general repository documentation first; add only a focused reference here when agents need to find the norm.
 - Keep general workflow out of the rules documents as well: preparation, scope, user changes, Git policy, overall security review, diff review, and reporting incomplete validation remain project-wide responsibilities here.
 - Apply this ownership model when maintaining rules or references in root and local agent instructions, the tooling guides, or other documentation.
 
@@ -87,7 +87,7 @@ The [metadata guide](.tools/metadata/README.md#versiebron-en-rapportage) owns ve
 ### Preparation
 
 - Inventory changes before editing through [Git inspection](#git-inspection).
-- Inspect the relevant module files and README sections before changing behavior or structure.
+- Inspect the relevant module files and README sections before changing behavior or structure. For features and substantial changes, follow the [reuse and responsibility review](#reuse-and-shared-abstractions).
 - Inspect the touched module's `metadata.json` when it exists.
 - Apply the metadata guide's [module metadata checks and content review](.tools/metadata/README.md#modulemetadata-controleren) when adding modules or changing metadata, release versions, or consumer integration.
 - Inspect related manifests, templates, static files, examples, and systemd units, including generated units.
@@ -110,10 +110,11 @@ Apply the [implementation scope](#implementation-scope) when deciding whether ad
 - Do not add input formats, normalization, edge-case handling, fallbacks, checks, helpers, configuration files, or abstractions unless the user's request, an existing project or interface contract, or a demonstrated failure within the task's scope requires them. Hypothetical edge cases, possible future use, and general robustness arguments are not sufficient justification. Tests created for an unsolicited extension do not establish a requirement for that extension.
 - Before adding such behavior or structure, identify the concrete requirement or demonstrated failure and explain why the simpler implementation cannot satisfy it. Record that justification in the change review; omit the addition when the need cannot be demonstrated. During final diff review, remove additions that lack this justification. When the user asks to simplify, remove unnecessary behavior and its supporting code.
 
-### Puppet Code Authority
+### Code Authority
 
-The [general Puppet rules](.tools/lint/docs/CODE_RULES.md), [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md), and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) define the mandatory Puppet conventions, formatting rules, permitted exceptions, and manual review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns lint usage and the daily correction workflow; the [local lint instructions](.tools/lint/AGENTS.md) own linter development; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
+The [code rules](.tools/lint/docs/CODE_RULES.md) own general code principles for all first-party code and additional rules explicitly scoped to Puppet. The [Puppet documentation rules](.tools/lint/docs/DOCUMENTATION_RULES.md) and [operational rules](.tools/lint/docs/OPERATIONAL_RULES.md) own their additional norms, exceptions and review criteria within their respective scopes. The [lint guide](.tools/lint/README.md) owns lint usage and the daily correction workflow; the [local lint instructions](.tools/lint/AGENTS.md) own linter development; [authority and rule placement](#authority-and-rule-placement) distinguishes those procedures from project-wide workflow. The [project puppet-lint configuration](.puppet-lint.rc), shared profiles, and [project checks](.tools/lint/lib/project_lint/checks/) determine automated activation, detection, and correction; tool tests verify the scenarios they execute.
 
+- Before changing any first-party code, apply the [general design rules](.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels), including for scripts, libraries, tools and integration code. Keep general coding principles at that owner; component instructions and usage guides link to them and retain only their own maintenance obligations and concrete architecture contracts.
 - Before changing Puppet code or Puppet Strings, follow the lint guide's [workflow](.tools/lint/README.md#werkwijze-bij-een-wijziging) and use its [reading guide](.tools/lint/README.md#leeswijzer) to select and read the relevant conventions and review criteria in `.tools/lint/docs/CODE_RULES.md`.
 - For changes affecting Puppet code comments, Puppet Strings, or Puppet interface documentation, also read and apply the relevant rules in `.tools/lint/docs/DOCUMENTATION_RULES.md`.
 - For changes affecting managed files or directories, ownership or permissions, security, systemd or services, shell code or templates, runtime tools or operational dependencies, or monitoring checks or registrations, also read and apply the relevant rules in `.tools/lint/docs/OPERATIONAL_RULES.md`. These operational rules apply in addition to the general rules.
@@ -185,7 +186,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 - Agents are responsible for following this inspection workflow before reading project content; no separate safe AI session, launcher or automatic enforcement layer is required. Use the [prepared editing workflow](.tools/secrets/README.md#ontwikkelen-met-een-analysewerkboom) when protected values must survive edits. Its private ID mappings and recovery journal belong to the write operation, not to an AI session.
 - Before file content enters AI context or any external analysis, run the local shared scanner from [`.tools/secrets/`](.tools/secrets/README.md): `bundle exec project-tools-secrets PATH ...`. Apply this gate before opening files, displaying search matches, terminal output or diffs; the assistant must not inspect raw content to decide whether scanning is needed.
-- Review only the scanner's metadata first. For findings, use `bundle exec project-tools-secrets --redact NEW_DIR PATH ...` and inspect only the successfully produced copies, following the [usage and selection procedure](.tools/secrets/README.md#controleren-voor-het-lezen). Preserve originals and rescan changed input.
+- Review only the scanner's metadata first. For findings, use `bundle exec project-tools-secrets prepare` with explicit selection and context, and inspect only the released analysis tree, following the [usage and selection procedure](.tools/secrets/README.md#controleren-voor-het-lezen). Preserve originals and rescan changed input.
 - With errors, incomplete coverage or uncertain masking, withhold the affected content until the issue is resolved or a person reviews it locally outside the AI context. If the scanner is unavailable, arrange local installation before reading. No matches establishes only the result of the supported checks; it does not replace the disclosure review below or establish safety.
 - Handle missed sensitive data and defects in inspection or redaction through the [incident reporting requirements](#disclosure-incidents) and the scanner's [recovery procedure](.tools/secrets/README.md#gemiste-gegevens-of-een-fout-melden).
 - Apply this workflow to consuming projects through their own instruction entry point, referencing the same implementation and [consumer setup](.tools/secrets/README.md#gebruik-in-een-ander-project).
@@ -245,14 +246,14 @@ External disclosure is every transfer outside an organization-controlled or expl
 
 ### Reuse And Shared Abstractions
 
-- Inspect existing abstractions before adding a new one.
-- Review component interfaces and their callers against the [configuration ownership criteria](.tools/lint/docs/CODE_RULES.md#instellingen-bij-hun-eigenaar-houden), including the boundary between source configuration, internal derived values, and template input.
-- Review parent-class interfaces before computing local settings in dependent defines, following the [class-check reuse criteria](.tools/lint/docs/CODE_RULES.md#classcontroles-hergebruiken).
-- When work reveals duplicated behavior in the affected area, extract a shared abstraction and migrate the affected callers in the same change.
-- Apply the [shell-helper boundaries](.tools/lint/docs/OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen) when sharing script functions or template fragments; review all applicable callers and distinguish compilation prerequisites from runtime dependencies.
-- Review repeated Puppet resource orchestration against the [defined-type reuse rule](.tools/lint/docs/CODE_RULES.md#herhaalde-resourceorkestratie-in-defined-types-delen).
-- Preserve caller-specific security and lifecycle requirements during migration.
-- Validate each migrated caller's behavior and dependencies.
+These obligations apply to all first-party code, including modules, scripts, libraries, tools and integration code. Apply them when adding features or making substantial changes, within the affected implementation and its actual consumers.
+
+- Before implementation, inspect existing responsibilities, interfaces, related implementations and actual callers. Identify functionality that can be reused, extended or consolidated before introducing another implementation.
+- Apply the [general design rules and their review criteria](.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels) to the affected implementation and actual callers. Follow their links to the applicable Puppet and shell specializations. For tooling, also follow the [integration review](.tools/AGENTS.md#responsibility-and-integration-review).
+- Apply [implementation scope](#implementation-scope) when introducing or generalizing an abstraction. Explain the demonstrated need for a new implementation where an existing one cannot adequately satisfy it; do not create generic layers solely for hypothetical reuse.
+- Complete consolidation by updating affected callers and removing superseded implementations and references. Keep one supported workflow for each task when replacing a developer or consumer interface; do not retain the old route through aliases, adapters, fallbacks or a temporary compatibility period. Migrate affected consumers, instructions and tests in the same change, and document required consumer actions and breaking release impact under the existing compatibility and migration policy.
+- Review the result as a coherent implementation, including responsibility boundaries, dependency direction and consistent behavior across affected entry points. Record what was reused, consolidated, removed or deliberately kept separate, with the material reasons, in the change review.
+- Preserve caller-specific security and lifecycle requirements during migration. Validate each migrated caller's behavior and dependencies under the existing [validation and test scope](#validation-and-testing).
 
 ### Prerequisite Review
 
@@ -379,7 +380,7 @@ External disclosure is every transfer outside an organization-controlled or expl
 | `.tools/<component>/AGENTS.md` | Component-specific development procedures and verification obligations; parent rules remain applicable. |
 | Tool READMEs | Each tool's public interfaces, architecture, supported usage and tool-specific test commands; find the owner through the [tooling guide](.tools/README.md#pakketten-en-commandos). |
 | `.tools/lint/README.md` | Lint usage, daily correction workflow, the sole check registry, configuration, autofix behavior, architecture and lint-specific test commands. |
-| `.tools/lint/docs/CODE_RULES.md` | Authoritative general Puppet code rules and review criteria applicable to every Puppet change, including exceptions, detection and autofix limits, and examples. |
+| `.tools/lint/docs/CODE_RULES.md` | Authoritative general code principles for all first-party code, including tooling, and explicitly scoped language-specific rules, with exceptions, review criteria, detection and autofix limits, and examples. |
 | `.tools/lint/docs/DOCUMENTATION_RULES.md` | Puppet code comments, Puppet Strings, and Puppet interface documentation, including their exceptions, detection and autofix limits, and examples. General repository documentation policy remains in `AGENTS.md`. |
 | `.tools/lint/docs/OPERATIONAL_RULES.md` | Additional operational Puppet rules and review criteria for managed files, permissions, security, systemd, shell, runtime dependencies, and monitoring, with their exceptions, detection and autofix limits, and examples. |
 | Puppet Strings | Concrete public interfaces, complete parameter descriptions, defaults, and fallback chains. |
@@ -551,7 +552,7 @@ These maintenance rules apply to root and local files named `AGENTS.md`. Choose 
 ### Change Scope
 
 - Read the complete instruction file being changed before a substantive change so existing rules, exceptions, and cross-references inform the edit.
-- Update the owning instruction file when a convention, architecture constraint, validation command, security requirement, non-Puppet engineering standard, or operational workflow in its scope changes. Update root when repository-wide policy or routing changes.
+- Update the owning instruction file when a convention, architecture constraint, validation command, security requirement or operational workflow in its scope changes. General and language-specific code standards follow [code authority](#code-authority). Update root when repository-wide policy or routing changes.
 - Limit routine maintenance to the affected rules and directly impacted references.
 - Restructure the whole file only when explicitly requested or when documented contradictions across sections require it.
 
@@ -622,7 +623,7 @@ These maintenance rules apply to root and local files named `AGENTS.md`. Choose 
 ### Workflow And Validation
 
 - Verify the [applicable instruction chain](#scope-and-authority), [preparation and scope](#working-with-the-existing-codebase).
-- Verify [Puppet code authority](#puppet-code-authority) and [rule placement](#authority-and-rule-placement).
+- Verify [code authority](#code-authority) and [rule placement](#authority-and-rule-placement).
 - Verify applicable [design and implementation review](#design-and-implementation), [shell review and validation](#shell-scripts), and [monitoring review and validation](#monitoring-checks).
 - Verify [documentation responsibilities](#language-and-authority), [durable documentation](#durable-documentation), and the [editorial decision and review workflow](#scope-and-reading-path), including complete affected README module sections and per-file coverage for project-wide reviews.
 - Verify [impact review](#impact-review).

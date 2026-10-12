@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require 'fileutils'
 require 'json'
-require 'tmpdir'
 require 'stringio'
+require_relative 'redaction'
 require 'project_tools/shared/junit_report'
 
 module ProjectTools
@@ -36,28 +35,20 @@ module ProjectTools
       end
     end
 
-    # Only sanitized snapshots are written, using new private destinations.
+    # Present the same inspected findings as console metadata, JSON and JUnit.
     class Output
       extend SessionReport
 
-      def initialize(documents, sources)
+      def initialize(documents)
         @documents = documents
-        @sources = sources.map { |path| File.exist?(path) ? File.realpath(path) : File.expand_path(path) }
-      end
-
-      def safe_path(path)
-        result = path.to_s.encode('UTF-8', invalid: :replace, undef: :replace)
-        @documents.flat_map(&:values).reject(&:empty?).uniq.sort_by { |value| -value.length }.each do |value|
-          result = result.gsub(value, '[REDACTED]')
-        end
-        result.gsub(Patterns::TOKENS, '[REDACTED]').gsub(/[[:cntrl:]]/, '?')
       end
 
       def records
+        redaction = Redaction.new(values: @documents.flat_map(&:values))
         @documents.each_with_index.map do |document, index|
-          { id: index + 1, file: safe_path(document.path), complete: document.complete?,
+          { id: index + 1, file: redaction.path(document.path), complete: document.complete?,
             findings: document.findings.sort_by { |item| [item[:line], item[:rule]] },
-            errors: document.errors, copy: document.copy, coverage: document.coverage }
+            errors: document.errors, coverage: document.coverage }
         end
       end
 
@@ -71,70 +62,16 @@ module ProjectTools
           "#{label} | line=#{item[:line]} | #{item[:kind]} | #{item[:rule]}"
         end
         items += record[:errors].map { |code| "#{label} | #{code}" }
-        items << "#{label} | copy=#{record[:copy]}" if record[:copy]
         items << "#{label} | no_findings" if items.empty?
         items
       end
 
-      def destination(path)
-        raise ArgumentError if path.empty?
-
-        parent = File.realpath(File.dirname(File.expand_path(path)))
-        target = File.join(parent, File.basename(path))
-        raise ArgumentError if File.exist?(target) || File.symlink?(target)
-        raise ArgumentError if @sources.any? { |source| target == source || target.start_with?("#{source}/") }
-
-        target
-      end
-
-      def redact(directory)
-        target = destination(directory)
-        Dir.mkdir(target, 0o700)
-        begin
-          write_copies(target)
-        rescue StandardError, SignalException
-          @documents.each { |document| document.copy = nil }
-          FileUtils.remove_entry(target)
-          raise
+      def junit
+        output = StringIO.new
+        Shared::JunitReport.write(output, name: 'secrets', **counts) do |xml|
+          records.each { |record| junit_case(xml, record) }
         end
-      end
-
-      def write_copies(target)
-        @documents.each_with_index do |document, index|
-          name = format('file-%06d.txt', index + 1)
-          File.open(File.join(target, name), File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
-            file.write(document.sanitized)
-          end
-          document.copy = name
-        end
-      end
-
-      # Preparation uses the existing output owner, publishing only complete sanitized trees.
-      def analysis_tree(directory, files)
-        target = destination(directory)
-        staging = Dir.mktmpdir('.secrets-analysis-', File.dirname(target))
-        write_tree(staging, files)
-        raise Failure, 'destination_exists' if File.exist?(target) || File.symlink?(target)
-
-        File.rename(staging, target)
-      ensure
-        FileUtils.remove_entry(staging) if staging && File.exist?(staging)
-      end
-
-      def write_tree(staging, files)
-        files.each do |name, text|
-          path = Paths.inside(staging, name)
-          FileUtils.mkdir_p(File.dirname(path), mode: 0o700)
-          Paths.write_new(path, text)
-        end
-      end
-
-      def junit(path)
-        File.open(destination(path), File::WRONLY | File::CREAT | File::EXCL, 0o600) do |file|
-          Shared::JunitReport.write(file, name: 'secrets', **counts) do |xml|
-            records.each { |record| junit_case(xml, record) }
-          end
-        end
+        output.string
       end
 
       def counts

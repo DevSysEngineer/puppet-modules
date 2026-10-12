@@ -4,21 +4,14 @@ require_relative 'external_helper'
 
 # Installed consumers use the same implementation, with no Puppet runtime.
 class ExternalSecretsTest < ExternalSecretsTestCase
-  def test_installed_scanner_and_masking_work_from_the_consumer_directory
+  def test_installed_scanner_reports_metadata_from_the_consumer_directory
     write('data/common.yaml', "password: synthetic-consumer\nordinary: unchanged\n")
-    command('bundle', 'exec', 'project-tools-secrets', '--json', '--redact', 'copies', 'data')
+    command('bundle', 'exec', 'project-tools-secrets', '--json', 'data')
     assert_equal 1, @status.exitstatus, @output + @errors
     refute_includes @output + @errors, 'synthetic-consumer'
     result = JSON.parse(@output)
     assert result['complete']
-    assert_consumer_copy(result)
-  end
-
-  def assert_consumer_copy(result)
-    clean = read(File.join('copies', result['files'][0]['copy']))
-    refute_includes clean, 'synthetic-consumer'
-    assert_includes clean, 'ordinary: unchanged'
-    assert_includes read('data/common.yaml'), 'synthetic-consumer'
+    refute result.fetch('files').first.key?('copy')
   end
 
   def test_package_does_not_install_puppet_or_linters
@@ -30,7 +23,7 @@ class ExternalSecretsTest < ExternalSecretsTestCase
   def test_installed_general_scanner_bounds_puppet_lambdas_without_openvox
     source = File.read(File.join(__dir__, 'fixtures/counts.pp'))
     write('counts.pp', source)
-    command('bundle', 'exec', 'project-tools-secrets', '--json', '--redact', 'copies', 'counts.pp')
+    command('bundle', 'exec', 'project-tools-secrets', '--json', 'counts.pp')
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_installed_counter(source)
   end
@@ -39,15 +32,14 @@ class ExternalSecretsTest < ExternalSecretsTestCase
     result = JSON.parse(@output)
     assert result['complete']
     assert_equal source, read('counts.pp')
-    assert_equal "$api_key_name_counts = '[REDACTED]'\n$duplicate_api_key_name_counts = '[REDACTED]'\n",
-                 read(File.join('copies', result['files'].first['copy']))
+    assert result['files'].first['findings'].any?
   end
 
   def test_installed_license_detection_inside_gzip
     buffer = StringIO.new(''.b)
     Zlib::GzipWriter.wrap(buffer) { |writer| writer.write('license_key=synthetic-installed-license') }
     write('settings.gz', buffer.string)
-    command('bundle', 'exec', 'project-tools-secrets', '--json', '--redact', 'copies', 'settings.gz')
+    command('bundle', 'exec', 'project-tools-secrets', '--json', 'settings.gz')
     assert_installed_archive
   end
 
@@ -55,7 +47,6 @@ class ExternalSecretsTest < ExternalSecretsTestCase
     result = JSON.parse(@output)
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_equal 'archive', result['files'].first['coverage']
-    refute_includes read(File.join('copies', result['files'].first['copy'])), 'synthetic-installed-license'
     refute_includes @output + @errors, 'synthetic-installed-license'
   end
 

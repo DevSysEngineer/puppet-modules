@@ -4,6 +4,7 @@ require_relative 'store'
 require_relative 'selection'
 require_relative 'analysis'
 require_relative 'source_versions'
+require_relative 'publication'
 
 module ProjectTools
   module Secrets
@@ -33,7 +34,6 @@ module ProjectTools
         end
         @documents = Scanner.documents(sources)
         Scanner.complete!(documents)
-        raise Failure, 'reserved_marker_in_source' if sources.values.any? { |text| text.include?('[REDACTED-') }
       end
 
       def build_files
@@ -46,9 +46,10 @@ module ProjectTools
 
       def publish
         files = data['files'].transform_values { |file| file['analysis'] }
-        Output.new(documents, [data['root']]).analysis_tree(data['tree'], files)
+        Publication.new([data['root']]).analysis_tree(data['tree'], files)
         @created = true
-        report(@store.create(data))
+        @id = @store.create(data)
+        report(@id)
       rescue StandardError, SignalException
         withdraw
         raise
@@ -56,6 +57,9 @@ module ProjectTools
 
       def withdraw
         FileUtils.remove_entry(data['tree']) if @created
+        @created = false
+        @store.delete(@id) if @id
+        @id = nil
       end
 
       def report(id)

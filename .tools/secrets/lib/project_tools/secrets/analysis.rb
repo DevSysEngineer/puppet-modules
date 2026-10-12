@@ -12,11 +12,18 @@ module ProjectTools
 
       def prepare
         protect_path_references
+        protect_marker_text
         protect_literals
         masked = @document.text.dup
         spans.reverse_each { |first, last, replacement| mask(masked, first, last, replacement) }
         remember_context(masked)
         metadata(masked)
+      end
+
+      def protect_marker_text
+        @document.text.to_enum(:scan, /\[REDACTED-/).each do
+          @document.redact(*Regexp.last_match.offset(0), 'reserved_marker_text', '[REDACTED]')
+        end
       end
 
       def protect_literals

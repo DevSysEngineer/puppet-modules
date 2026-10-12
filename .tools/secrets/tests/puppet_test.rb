@@ -45,13 +45,12 @@ class PuppetSecretsTest < SecretsTest
     assert_equal 0, @status.exitstatus, @out + @err
   end
 
-  def test_invalid_puppet_is_incomplete_and_withholds_all_copies
+  def test_invalid_puppet_is_incomplete
     path = write('broken.pp', "$password = 'synthetic-unclosed")
-    scan('--puppet', '--redact', @copies, path)
+    scan('--puppet', path)
     assert_equal 2, @status.exitstatus
     refute @report['complete']
     assert_no_disclosure('synthetic-unclosed')
-    refute_path_exists @copies
   end
 
   def test_directory_batch_selects_manifests_and_rejects_an_empty_selection
@@ -67,9 +66,8 @@ class PuppetSecretsTest < SecretsTest
   def test_directory_symlinks_cannot_silently_reduce_the_puppet_scope
     write('sample.pp', "notify { 'synthetic': }")
     File.symlink(@directory, File.join(@input, 'linked-directory'))
-    scan('--puppet', '--redact', @copies, @input)
+    scan('--puppet', @input)
     assert_equal 2, @status.exitstatus
     refute @report['complete']
-    refute_path_exists @copies
   end
 end

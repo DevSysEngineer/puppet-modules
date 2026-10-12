@@ -8,7 +8,6 @@ class SecretsTest < Minitest::Test
   def setup
     @directory = Dir.mktmpdir('secrets-test-')
     @input = File.join(@directory, 'input')
-    @copies = File.join(@directory, 'copies')
     FileUtils.mkdir_p(@input)
   end
 
@@ -24,6 +23,7 @@ class SecretsTest < Minitest::Test
   end
 
   def scan(*args)
+    @scan_arguments = args
     command = File.expand_path('../bin/project-tools-secrets', __dir__)
     @out, @err, @status = Open3.capture3(Gem.ruby, command, '--json', *args)
     @report = JSON.parse(@out)
@@ -34,17 +34,26 @@ class SecretsTest < Minitest::Test
   end
 
   def assert_masked(*values, index: 0)
-    values.each { |value| refute_includes copy(index), value }
+    values.each { |value| refute_includes sanitized(index), value }
     assert_no_disclosure(*values)
   end
 
-  def assert_complete_copy
+  def assert_complete_scan
     assert_equal 1, @status.exitstatus, @out + @err
     assert @report['complete']
   end
 
-  def copy(index = 0)
-    File.read(File.join(@copies, @report.fetch('files')[index].fetch('copy')))
+  # Redaction is an internal diagnostic primitive; the CLI publishes only prepared trees.
+  def sanitized(index = 0)
+    args = @scan_arguments.dup
+    options = {}
+    OptionParser.new do |parser|
+      parser.on('--puppet') { options[:puppet] = true }
+      parser.on('--junit PATH') { |_path| nil }
+    end.parse!(args)
+    scanner = ProjectTools::Secrets::Scanner.new(**options)
+    scanner.scan(args)
+    scanner.documents.fetch(index).sanitized
   end
 
   def assert_no_disclosure(*values)
@@ -56,8 +65,8 @@ class SecretsTest < Minitest::Test
 
   def assert_puppet_redaction(source, suffixes)
     path = write('sample.pp', source)
-    scan('--puppet', '--redact', @copies, path)
-    assert_complete_copy
+    scan('--puppet', path)
+    assert_complete_scan
     assert_masked(*suffixes.map { |suffix| "synthetic-#{suffix}" })
     assert_equal source, File.read(path)
   end

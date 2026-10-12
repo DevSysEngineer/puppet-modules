@@ -7,7 +7,7 @@ class SecretsSessionSafetyTest < SecretsSessionTestCase
   def test_a_source_named_like_an_action_retains_the_standalone_scan_contract
     write('prepare', 'ordinary')
     output = StringIO.new
-    code = Dir.chdir(@input) { ProjectTools::Secrets.run(['prepare', '--json'], output: output) }
+    code = Dir.chdir(@input) { ProjectTools::Secrets.run(['./prepare', '--json'], output: output) }
     assert_equal 0, code
     assert_equal 'no_findings', JSON.parse(output.string)['status']
   end

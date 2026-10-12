@@ -13,14 +13,16 @@ class GuideStructureTest < Minitest::Test
                   *Dir.glob('*/AGENTS.md', base: File.join(ROOT, '..')).map { |path| "../#{path}" }].freeze
   SIZE_LIMIT = 300 * 1024
   RULE_GROUPS = {
-    'docs/CODE_RULES.md' => ['Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
+    'docs/CODE_RULES.md' => ['Algemene ontwerpregels', 'Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
                              'Parameters en resources'],
     'docs/DOCUMENTATION_RULES.md' => ['Commentaar en documentatie'],
     'docs/OPERATIONAL_RULES.md' => ['Bestanden en beveiliging', 'Gedeelde services en systemd', 'Shellscripts',
                                     'Monitoringchecks']
   }.freeze
   RULE_OWNERS = {
-    'docs/CODE_RULES.md' => ['Inhoud direct na een openingsaccolade beginnen',
+    'docs/CODE_RULES.md' => ['Gelijk gedrag in één implementatie onderhouden',
+                             'Verantwoordelijkheden en interfaces afbakenen',
+                             'Inhoud direct na een openingsaccolade beginnen',
                              'Herhaalde resourceorkestratie in defined types delen',
                              'Prerequisites van ordering onderscheiden',
                              'Instellingen bij hun eigenaar houden'],

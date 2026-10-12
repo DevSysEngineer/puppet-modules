@@ -22,7 +22,7 @@ class PuppetMultilineTest < SecretsTest
       $other = 'ghp_#{'x' * 36}'
     PUPPET
     assert_puppet_redaction(source, ['pem-body'])
-    refute_includes copy, 'ghp_'
+    refute_includes sanitized, 'ghp_'
   end
 
   def test_unicode_multiline_and_literal_index_values

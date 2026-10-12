@@ -21,30 +21,24 @@ class SecretsArchiveTest < SecretsTest
   def test_nested_archive_license_is_masked_without_extra_top_level_records
     source = gzip(tar('settings.yaml' => "license_key: synthetic-archive-license\n"))
     path = write('payload.tar.gz', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
-    assert_archive_copy
+    scan(path)
+    assert_complete_scan
+    assert_archive_findings
     assert_equal source, File.binread(path)
   end
 
-  def assert_archive_copy
+  def assert_archive_findings
     assert_equal 1, @report['files'].size
     assert_equal 'archive', @report['files'].first['coverage']
     assert_masked('synthetic-archive-license')
-    assert_private_copies
-  end
-
-  def assert_private_copies
-    assert_equal 0o700, File.stat(@copies).mode & 0o777
-    assert_equal 0o600, File.stat(File.join(@copies, @report['files'].first['copy'])).mode & 0o777
   end
 
   def test_hiera_selectors_apply_across_archive_members
     source = tar('options.yaml' => "lookup_options:\n  example::opaque:\n    convert_to: Sensitive\n",
                  'data.yaml' => "example::opaque: synthetic-archive-conversion\n")
     path = write('payload.tar', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-archive-conversion')
   end
 
@@ -55,9 +49,8 @@ class SecretsArchiveTest < SecretsTest
     sources << buffer.string
     sources.each do |source|
       path = write('unsafe.tar', source)
-      scan('--redact', @copies, path)
+      scan(path)
       assert_equal 2, @status.exitstatus
-      refute_path_exists @copies
     end
   end
 
@@ -72,22 +65,19 @@ class SecretsArchiveTest < SecretsTest
   def assert_incomplete_archives(sources)
     sources.each do |source|
       path = write('unsafe.tar', source)
-      scan('--redact', @copies, path)
+      scan(path)
       assert_equal 2, @status.exitstatus
-      refute_path_exists @copies
       assert_no_disclosure('synthetic-trailing-value')
     end
   end
 
   def test_expansion_and_member_count_are_bounded
     path = write('large.gz', gzip('x' * (ProjectTools::Secrets::Scanner::MAX_BYTES + 1)))
-    scan('--redact', @copies, path)
+    scan(path)
     assert_equal 2, @status.exitstatus
-    refute_path_exists @copies
     entries = (0..ProjectTools::Secrets::Archive::MAX_MEMBERS).to_h { |index| ["member-#{index}", 'x'] }
     path = write('many.tar', tar(entries))
-    scan('--redact', @copies, path)
+    scan(path)
     assert_equal 2, @status.exitstatus
-    refute_path_exists @copies
   end
 end

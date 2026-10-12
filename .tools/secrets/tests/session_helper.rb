@@ -24,7 +24,7 @@ class SecretsSessionTestCase < SecretsTest
 
   def call_session(*arguments)
     output = StringIO.new
-    @code = ProjectTools::Secrets::SessionCommand.new(output).run([*arguments, '--state', @state])
+    @code = ProjectTools::Secrets.run([*arguments, '--state', @state], output: output)
     @result = JSON.parse(output.string)
     refute_includes output.string, @value
     @result
@@ -33,7 +33,7 @@ class SecretsSessionTestCase < SecretsTest
   def apply(change)
     path = File.join(@directory, 'change.json')
     File.write(path, JSON.generate(change))
-    call_session('apply', '--session', @session, '--changes', path)
+    call_session('write', '--session', @session, '--changes', path)
   end
 
   def analysis(path)

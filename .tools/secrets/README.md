@@ -1,12 +1,13 @@
 # Gevoelige gegevens lokaal controleren
 
-`project-tools-secrets` leest bestanden lokaal voordat je de inhoud gebruikt voor externe analyse of AI-analyse. De tool meldt mogelijke geheimen zonder hun waarden te tonen en kan afzonderlijke kopieën maken waarin die waarden zijn gemaskeerd. Scanner en voorbereiding maken geen netwerkverbindingen, voeren geen invoer uit en wijzigen geen bronbestanden. De afzonderlijke writer kan gecontroleerde bronwijzigingen toepassen; expliciete diagnostiek start goedgekeurde lokale opdrachten. Neem je deze repository als `global-modules` op in een ander project, begin dan bij [Gebruik in een ander project](#gebruik-in-een-ander-project).
+`project-tools-secrets` leest bestanden lokaal voordat je de inhoud gebruikt voor externe analyse of AI-analyse. De tool meldt mogelijke geheimen zonder hun waarden te tonen en bereidt een analysewerkboom voor waarin die waarden zijn gemaskeerd. Scanner en voorbereiding maken geen netwerkverbindingen, voeren geen invoer uit en wijzigen geen bronbestanden. Het subcommando `write` kan gecontroleerde bronwijzigingen toepassen; expliciete diagnostiek start goedgekeurde lokale opdrachten. Neem je deze repository als `global-modules` op in een ander project, begin dan bij [Gebruik in een ander project](#gebruik-in-een-ander-project).
 
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
 - [Controleren voor het lezen](#controleren-voor-het-lezen)
 - [Analysekopieën maken](#analysekopieën-maken)
+- [Taakingangen en migratie](#taakingangen-en-migratie)
 - [Ontwikkelen met een analysewerkboom](#ontwikkelen-met-een-analysewerkboom)
   - [Lokale selectie en bevoegdheden vastleggen](#lokale-selectie-en-bevoegdheden-vastleggen)
   - [Voorbereiden en een gewone wijziging toepassen](#voorbereiden-en-een-gewone-wijziging-toepassen)
@@ -32,6 +33,7 @@
   - [Neem de controle op in CI](#neem-de-controle-op-in-ci)
   - [Werk de tooling bij](#werk-de-tooling-bij)
 - [Ontwikkelen en testen](#ontwikkelen-en-testen)
+  - [Interne verantwoordelijkheden](#interne-verantwoordelijkheden)
 
 ## Controleren voor het lezen
 
@@ -50,23 +52,36 @@ De CLI onderschept geen assistenttools, bestandslezingen door editors of uploads
 
 ## Analysekopieën maken
 
-Dit is de tijdelijke compatibiliteitsroute voor genummerde kopieën. Gebruik voor codewijzigingen de [analysewerkboom met writer](#ontwikkelen-met-een-analysewerkboom); zie [migratie](#migreren-van-genummerde-kopieën).
+Gebruik voor alle analysekopieën dezelfde [analysewerkboom](#ontwikkelen-met-een-analysewerkboom): leg bestanden en context vast in een lokaal beleid, voer `project-tools-secrets prepare` uit en lees uitsluitend de bijbehorende vrijgegeven bestanden. Voor alleen lezen sluit je daarna af met `close`; voor wijzigingen gebruik je `write`, gevolgd door `diff` en `close`. Er is geen afzonderlijke kopieeroptie.
 
-Kies een **nieuwe** map buiten de geselecteerde invoer, waarvan de bovenliggende map al bestaat:
+De analysemap behoudt veilige relatieve paden en extensies. De map krijgt modus `0700`, de bestanden `0600`. Bevindingen krijgen lokale occurrence-ID's; hun oorspronkelijke waarden blijven in private state. Bestaande doelen worden geweigerd en onvolledige voorbereiding geeft geen gedeeltelijke analysemap vrij. Zie het [doorlopende voorbeeld](#voorbereiden-en-een-gewone-wijziging-toepassen) voor selectie, resultaatcontrole en afsluiten.
 
-```sh
-bundle exec project-tools-secrets --redact /tmp/analysis-copies manifests/site.pp data/
-```
+## Taakingangen en migratie
 
-De tool controleert de invoer opnieuw en vervangt gevonden waarden in dezelfde gecontroleerde inhoud door `[REDACTED]`. Veldnamen en de omliggende structuur blijven waar mogelijk behouden. YAML-mappings en -lijsten behouden hun structuur; bij Puppet blijft de omhullende `Sensitive('...')`-constructie staan. De kopieën zijn bedoeld voor analyse: typen van vervangende waarden en regelaantallen kunnen afwijken van het origineel.
+Het pakket levert uitsluitend `project-tools-secrets`. Zonder subcommando scant deze executable de opgegeven paden; bewerkingen gebruiken expliciete subcommando's:
 
-Het rapport koppelt de bronbestanden aan `file-000001.txt`, `file-000002.txt`, enzovoort. Deze nummering voorkomt dat geheime waarden uit bronbestandsnamen worden overgenomen. De map krijgt modus `0700`; bestanden krijgen vóór het schrijven modus `0600`. Gewone lokale lees- en schrijfrechten volstaan.
+| Aanroep | Taak |
+| --- | --- |
+| `project-tools-secrets [--puppet] PATH ...` | Alleen scanmetadata tonen. |
+| `project-tools-secrets prepare` | Analysewerkboom en private waardekoppelingen voorbereiden. |
+| `project-tools-secrets write` | Gevalideerde analysewijzigingen toepassen. |
+| `project-tools-secrets clone`, `register`, `fixture` | Expliciete markers voor hergebruik of nieuwe waarden registreren. |
+| `project-tools-secrets run` | Goedgekeurde diagnostiek uitvoeren en beide uitvoerstromen controleren. |
+| `project-tools-secrets diff` | Toegepaste wijzigingen gecontroleerd vergelijken. |
+| `project-tools-secrets close`, `cancel` | De lokale bewerking afsluiten of annuleren. |
+| `project-tools-secrets recover` | Een onderbroken schrijfactie herstellen. |
 
-Als een invoerbestand niet volledig kan worden gecontroleerd of een waarde niet betrouwbaar kan worden afgebakend, schrijft de tool **geen kopieën**. Bij een schrijffout verwijdert de tool de kopieën van die aanroep. Bestaande doelbestanden, doelmappen en symlinks worden geweigerd. De tool schrijft geen ongefilterde broninhoud naar tijdelijke uitvoer. Houd de bronbestanden tijdens de controle ongewijzigd; de tool biedt geen snapshotgarantie tegen kwaadwillende gelijktijdige wijzigingen.
+Gebruik `project-tools-secrets --help` of `project-tools-secrets ACTION --help`. Een bronbestand dat naar een subcommando is genoemd, selecteer je als `./run` of na `--`. Bundler-aanroepen beginnen steeds met `bundle exec`.
+
+Vanaf pakketversie `0.4.0` vervalt `--redact`, inclusief `files[].copy` en genummerde bestanden. De eerdere losse prepare-, write- en review-executables worden niet geleverd. Vervang hun aanroepen door respectievelijk `project-tools-secrets prepare`, `project-tools-secrets write` en `project-tools-secrets diff`; ondersteunende subcommando's staan rechtstreeks achter `project-tools-secrets`. Deze wijziging vereist aanpassing van consumers; er is geen alias, fallback of tijdelijke compatibiliteitsroute.
+
+Ruby-consumers gebruiken één ingang: `ProjectTools::Secrets.run(arguments, output: io)`. Bijvoorbeeld `.run(['prepare', *options])`, `.run(['write', *options])` of `.run(['run', *options])`. De methode retourneert de exitcode en schrijft uitsluitend het gecontroleerde publieke resultaat naar `io`.
+
+Werk gemselectie, lockfile, scripts, resultaatlezers en eigen instructies samen bij en doorloop het oefenvoorbeeld hieronder vanuit de consumerbundle. De bestaande private state en het hersteljournal behouden hun formaat: afronden en herstel gebruiken dezelfde `--state` en `--session`. Bewaar die state zolang herstel nodig is. De [migratie van kopieën](#migreren-van-genummerde-kopieën) beschrijft de gewijzigde resultaatvelden.
 
 ## Ontwikkelen met een analysewerkboom
 
-Gebruik vanaf pakketversie `0.3.0` de ingang `prepare` voor ontwikkeling. Deze route behoudt veilige relatieve paden en extensies, geeft ieder beschermd voorkomen een willekeurige ID van 128 bits en bindt die aan één lokale bewerking. Het veld `session` en de optie `--session` identificeren uitsluitend de lokale ID-koppelingen en het hersteljournal voor die bewerking; ze maken geen AI-sessie aan. De aparte executable `project-tools-secrets-write` herstelt volledige gewijzigde bestanden. Beide ingangen gebruiken dezelfde scanner, bronlezer, parsers en uitvoerlaag; een Git-repository of bijzondere agentstart is niet nodig.
+Gebruik `project-tools-secrets prepare` voor ontwikkeling. Deze route behoudt veilige relatieve paden en extensies, geeft ieder beschermd voorkomen een willekeurige ID van 128 bits en bindt die aan één lokale bewerking. Het veld `session` en de optie `--session` identificeren uitsluitend de lokale ID-koppelingen en het hersteljournal voor die bewerking; ze maken geen AI-sessie aan. Het subcommando `project-tools-secrets write` herstelt volledige gewijzigde bestanden. De subcommando's gebruiken dezelfde scanner, bronlezer, parsers en gecontroleerde publicatie; een Git-repository of bijzondere agentstart is niet nodig.
 
 ### Lokale selectie en bevoegdheden vastleggen
 
@@ -146,7 +161,7 @@ File.write(path, File.read(path).sub('ordinary: before', 'ordinary: after'))
 RUBY
 printf '%s\n' '{"write":["common.yaml"]}' > "$TASK_BASE/changes.json"
 
-bundle exec project-tools-secrets-write \
+bundle exec project-tools-secrets write \
     --state "$TASK_BASE/state" --session "$SESSION_REF" \
     --changes "$TASK_BASE/changes.json"
 bundle exec project-tools-secrets diff \
@@ -180,7 +195,7 @@ marker = File.read(path)[/\[REDACTED-[0-9a-f]{32}\]/]
 File.write(path, "ordinary: reorganized\npassword: '#{marker}'\nextra: enabled\n")
 File.write(File.join(root, 'changes.json'), JSON.generate('write' => ['common.yaml']))
 RUBY
-bundle exec project-tools-secrets-write --state "$TASK_BASE/state" \
+bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
     --session "$SESSION_REF" --changes "$TASK_BASE/changes.json"
 ```
 
@@ -190,7 +205,7 @@ Voor een hernoeming naar een vooraf toegestaan doel:
 mkdir -p "$TASK_BASE/analysis/nested"
 mv "$TASK_BASE/analysis/common.yaml" "$TASK_BASE/analysis/nested/moved.yaml"
 printf '%s\n' '{"rename":{"common.yaml":"nested/moved.yaml"}}' > "$TASK_BASE/changes.json"
-bundle exec project-tools-secrets-write --state "$TASK_BASE/state" \
+bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
     --session "$SESSION_REF" --changes "$TASK_BASE/changes.json"
 ```
 
@@ -202,7 +217,7 @@ root = ENV.fetch('TASK_BASE')
 ids = File.read(File.join(root, 'analysis', 'common.yaml')).scan(/\[REDACTED-([0-9a-f]{32})\]/).flatten
 File.write(File.join(root, 'changes.json'), JSON.generate('delete' => ['common.yaml'], 'remove_ids' => ids))
 RUBY
-bundle exec project-tools-secrets-write --state "$TASK_BASE/state" \
+bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
     --session "$SESSION_REF" --changes "$TASK_BASE/changes.json"
 ```
 
@@ -218,7 +233,7 @@ marker = JSON.parse(File.read(File.join(root, 'clone.json'))).fetch('marker')
 File.write(File.join(root, 'analysis', 'extra.yaml'), "password: '#{marker}'\n")
 File.write(File.join(root, 'changes.json'), JSON.generate('add' => ['extra.yaml']))
 RUBY
-bundle exec project-tools-secrets-write --state "$TASK_BASE/state" \
+bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
     --session "$SESSION_REF" --changes "$TASK_BASE/changes.json"
 ```
 
@@ -231,7 +246,9 @@ bundle exec project-tools-secrets-write --state "$TASK_BASE/state" \
 | Letterlijke YAML-scriptblokken | Alleen wanneer gedecodeerde tekens exact naar bronposities zijn terug te voeren, blijft gewone code rondom een credential zichtbaar. Anders wordt de hele gevoelige scalar afgeschermd en meldt het rapport contextverlies. |
 | Gewone tekst, shell en ERB | Afgebakende fragmenten herstellen uitsluitend bij dezelfde extensie, quotes en omliggende regelcontext. Veranderde gevoelige expressies of onzekere interpolatie geven `unsupported_marker_context`. `.sh` wordt met `sh -n` of `bash -n` gecontroleerd; ERB wordt naar Ruby vertaald en met Ripper geparseerd, zonder de template uit te voeren. |
 | Eenvoudige Ruby-stringliterals | Enkele quotes en JSON-compatibele dubbele quotes kunnen als waarde herstellen, onder andere voor fixtures. Interpolatie en andere Ruby-escapes worden niet geëvalueerd; een niet-ondersteunde verplaatsing wordt geweigerd. |
-| Archieven | Alleen de bestaande inspectieroute; `prepare` weigert archiefschrijven. Een tekstweergave is geen bewerkbaar archief. |
+| Archieven | De scan geeft uitsluitend metadata. Laat de lokale caller de benodigde leden veilig naar een private bronmap exporteren en bereid die gewone bestanden met hun context voor. `prepare` weigert het archiefbestand zelf. |
+
+Bestaande markerachtige tekst in broncode of documentatie wordt tijdens voorbereiding eveneens beschermd met een nieuwe ID. De writer herstelt die oorspronkelijke tekst pas nadat de markers in de analyse zijn gevalideerd. Een onbekende of beschadigde marker in de analyse blijft een weigering.
 
 Een marker in een YAML-sleutel, commentaar of niet-ondersteunde expressie is geen geldige nieuwe bestemming voor een literal. Exact behoud van een geheim bewijst niet dat de gewijzigde programmatuur het correct gebruikt: omliggende code kan bijvoorbeeld logging toevoegen. Codereview en functionele validatie blijven nodig.
 
@@ -247,7 +264,7 @@ Voor migratie van een synthetisch hardcoded Puppet-stringgeheim bereid je het ma
 }
 ```
 
-Gebruik in het manifest bijvoorbeeld `$password = lookup('example::password', Sensitive[String])` en in het databestand `example::password: 'MARKER_FROM_ANALYSIS'`, waarbij je de marker letterlijk uit de analyse kopieert. Pas het wijzigingsbestand toe met `project-tools-secrets-write --state STATE --session SESSION --changes CHANGES`. Het manifest moet na herstel de Puppet-gate passeren. Laat je het hardcoded geheim in Puppet staan, dan volgt `puppet_policy_rejected`; alleen de placeholderversie valideren is onvoldoende.
+Gebruik in het manifest bijvoorbeeld `$password = lookup('example::password', Sensitive[String])` en in het databestand `example::password: 'MARKER_FROM_ANALYSIS'`, waarbij je de marker letterlijk uit de analyse kopieert. Pas het wijzigingsbestand toe met `project-tools-secrets write --state STATE --session SESSION --changes CHANGES`. Het manifest moet na herstel de Puppet-gate passeren. Laat je het hardcoded geheim in Puppet staan, dan volgt `puppet_policy_rejected`; alleen de placeholderversie valideren is onvoldoende.
 
 ### Diagnostiek en veilige diff
 
@@ -279,7 +296,7 @@ Het duurzame journal legt intentie vast vóór staging en vervanging. Locks seri
 
 Na procesuitval gebruik je `project-tools-secrets recover --state STATE --session SESSION`. `recover` verwerkt het bestaande journal; het voert de oorspronkelijke wijziging niet opnieuw uit. `external_change` en `recovery_failed` vereisen lokale beoordeling. `close` en `cancel` weigeren zolang herstel nodig is.
 
-Voor een Ruby-integratie gebruik je `require 'project_tools/secrets'`. `ProjectTools::Secrets.run(arguments, output: io)` bedient scan en sessieacties; `ProjectTools::Secrets.write(arguments, output: io)` is dezelfde schrijfroutine als de aparte executable. Beide retourneren de CLI-exitcode en schrijven uitsluitend hun gecontroleerde publieke resultaat naar `io`. Geef de interne stateobjecten nooit door aan een agent.
+Laad voor een Ruby-integratie `require 'project_tools/secrets'` en gebruik de [taakmethoden](#taakingangen-en-migratie). Geef de interne stateobjecten nooit door aan een agent.
 
 Sessieacties geven JSON, ook zonder `--json`. Voorbereiding gebruikt de bestaande scan-exitcodes 0/1/2 plus `prepared`; een succesvolle writer geeft 0, een weigering, rollback of onvolledige uitvoering 2. `run` geeft de processtatus terug na gecontroleerde uitvoer. Optioneel `--junit NEW_FILE` bevat hetzelfde veilige resultaat. Bij een rapportfout na toepassing blijft `status: applied` staan, naast `complete: false` en `report_error`; dat betekent niet dat niets is geschreven. Een rapportfout tijdens voorbereiding trekt de nieuwe werkboom en mapping terug.
 
@@ -314,7 +331,7 @@ bundle exec project-tools-secrets --json \
 [ "$INVENTORY_STATUS" -eq 0 ] || exit "$INVENTORY_STATUS"
 ```
 
-Beoordeel het Git-resultaat en de scanmetadata. Lees bij bevindingen alleen succesvol gemaakte `--redact`-kopieën van de inventaris; los een onvolledige inventaris of scan eerst op. Kies vervolgens lokaal de te vergelijken bestanden, inclusief toegevoegde, verwijderde en hernoemde paden. Gebruik veilige aliases voor vertrouwelijke namen. Een geschatte of afgekorte naam uit een gemaskeerde inventaris is geen bronpad; laat de lokale aanroeper die koppeling vastleggen.
+Beoordeel het Git-resultaat en de scanmetadata. Bereid bij bevindingen de inventarisbestanden met `prepare` voor en lees alleen de vrijgegeven analysebestanden; los een onvolledige inventaris of scan eerst op. Kies vervolgens lokaal de te vergelijken bestanden, inclusief toegevoegde, verwijderde en hernoemde paden. Gebruik veilige aliases voor vertrouwelijke namen. Een geschatte of afgekorte naam uit een gemaskeerde inventaris is geen bronpad; laat de lokale aanroeper die koppeling vastleggen.
 
 Exporteer de volledige inhoud rechtstreeks naar private bestanden. Dit voorbeeld vergelijkt de index met de werkboom voor `data/common.yaml` en zijn context `data/options.yaml`; beide bestanden moeten in beide versies bestaan. Pas de selectie aan het project aan en behoud extensies en contextstructuur. De `|| exit 1` stopt bij een exportfout; de fouttekst blijft lokaal en moet vóór inzage apart worden gescand.
 
@@ -355,26 +372,36 @@ git --no-pager diff --no-ext-diff --no-textconv --no-renames --check -- data/com
 
 Voer deze opdrachten **niet** uit wanneer een van beide versies een bevinding bevat, ook niet bij alleen een indicator of wanneer het geheim alleen in de oude versie staat. Een volledige scan met bevindingen geeft exitcode 1; onvolledige inspectie geeft 2 en houdt de inhoud tegen. Redirectie van een gewone Git-diff maakt een gevoelige bronvergelijking niet toegestaan.
 
-Maak bij bevindingen met voldoende afbakening afzonderlijke analysekopieën van beide volledige selecties:
+Bereid bij bevindingen beide volledige selecties voor via dezelfde analysewerkwijze. Maak een beleidsbestand naast de exports; het voorbeeld bevat exact de twee eerder geëxporteerde bestanden:
 
 ```sh
-bundle exec project-tools-secrets --redact "$REVIEW_DIR/index-safe" "$REVIEW_DIR/index"
-bundle exec project-tools-secrets --redact "$REVIEW_DIR/worktree-safe" "$REVIEW_DIR/worktree"
+printf '%s\n' '{"files":["data/common.yaml"],"context":["data/options.yaml"]}' \
+    > "$REVIEW_DIR/policy.json"
+bundle exec project-tools-secrets prepare \
+    --root "$REVIEW_DIR/index" --policy "$REVIEW_DIR/policy.json" \
+    --tree "$REVIEW_DIR/index-safe" --state "$REVIEW_DIR/index-state" \
+    > "$REVIEW_DIR/index-result.json"
+bundle exec project-tools-secrets prepare \
+    --root "$REVIEW_DIR/worktree" --policy "$REVIEW_DIR/policy.json" \
+    --tree "$REVIEW_DIR/worktree-safe" --state "$REVIEW_DIR/worktree-state" \
+    > "$REVIEW_DIR/worktree-result.json"
 ```
 
-Vereis voor beide aanroepen een volledig resultaat en succesvol geproduceerde kopieën. Kies uit `files[].copy` de bij elkaar horende bestanden; nummering alleen bewijst de koppeling niet. Vergelijk bijvoorbeeld de onderstaande twee kopieën **alleen wanneer beide rapporten bevestigen dat ze bij `data/common.yaml` horen**:
+Controleer beide resultaten zoals in het [voorbereidingsvoorbeeld](#voorbereiden-en-een-gewone-wijziging-toepassen): exitcode 0 of 1, `complete: true`, `prepared: true` en de verwachte selectie. `files[].file` verwijst naar het veilige relatieve pad in de betreffende werkboom. Gebruik expliciete aliases wanneer bronpaden vertrouwelijk zijn. Vergelijk alleen de bij elkaar horende vrijgegeven bestanden:
 
 ```sh
-diff -u "$REVIEW_DIR/index-safe/file-000001.txt" \
-    "$REVIEW_DIR/worktree-safe/file-000001.txt" \
+diff -u "$REVIEW_DIR/index-safe/data/common.yaml" \
+    "$REVIEW_DIR/worktree-safe/data/common.yaml" \
     > "$REVIEW_DIR/comparison.txt" 2> "$REVIEW_DIR/comparison-errors.txt"
 COMPARE_STATUS=$?
-bundle exec project-tools-secrets --redact "$REVIEW_DIR/comparison-safe" \
+bundle exec project-tools-secrets --json \
     "$REVIEW_DIR/comparison.txt" "$REVIEW_DIR/comparison-errors.txt"
 [ "$COMPARE_STATUS" -le 1 ] || exit "$COMPARE_STATUS"
 ```
 
-Bij `diff` betekent 0 gelijk, 1 verschillen en een hogere status een fout. Beoordeel die status en lees uitsluitend de succesvol gecontroleerde vergelijkingsuitvoer. Vergelijk voor een bevestigde toevoeging of verwijdering de betreffende analysekopie met een lokaal leeg bestand; neem nooit een mislukte scan als lege kant. Gebruik voor door de writer toegepaste wijzigingen de bestaande [veilige diff met stabiele IDs](#diagnostiek-en-veilige-diff). De genummerde inspectiekopieën tonen gemaskeerde inhoud, maar bewijzen niet of een oorspronkelijke geheime waarde veranderde.
+Bij `diff` betekent 0 gelijk, 1 verschillen en een hogere status een fout. Beoordeel de scanmetadata voordat je vergelijkingsuitvoer leest. Bij bevindingen bereid je ook deze uitvoerbestanden met hun eigen selectie voor. Sluit beide bronvoorbereidingen na review af met `close`, met de `session` uit hun resultaat en hun eigen `--state`.
+
+Bij een bevestigde toevoeging of verwijdering vergelijk je de betreffende analysekopie met een lokaal leeg bestand; een mislukte scan is nooit een lege kant. Onafhankelijke voorbereidingen gebruiken verschillende ID's en bewijzen geen gelijkheid van geheime waarden. Voor door de writer toegepaste wijzigingen gebruik je de [veilige diff met stabiele IDs](#diagnostiek-en-veilige-diff).
 
 Dezelfde voorcontrole geldt voor `git show`, `git log -p`, `git diff --check`, gewone bestandsvergelijkingen en editorpreviews. Meld expliciet voor welke oorspronkelijke bestanden de Git-diff- of whitespacecontrole is achtergehouden en welke controle van analysekopieën wel is uitgevoerd. Verwijder de private exportmap na lokale beoordeling; bewaar geen bronexports, mappings of analysewerkbomen als CI-artifact.
 
@@ -388,9 +415,11 @@ De zelfstandige Puppet-secretscontrole in tests en CI blijft behouden. De [centr
 
 ## Migreren van genummerde kopieën
 
-De zelfstandige scan, `--puppet` en hun JSON- en exitcodecontracten blijven behouden. `--redact` met `files[].copy` en genummerde bestanden blijft in `0.3.x` tijdelijk beschikbaar voor bestaande consumers die die verwijzingen lezen en voor archiefinspectie. Deze oude kopieën zijn niet terugschrijfbaar. Nieuwe ontwikkeling gebruikt `prepare` en de writer; de oude ontwikkelroute wordt bij de volgende majorpakketversie verwijderd. Beide weergaven delen dezelfde detectie en bronobjecten.
+Vervang oude kopieeropdrachten door `prepare` met expliciete bestanden, context, veilige paden en private state. Vereis `complete: true` én `prepared: true`; lees `files[].file` relatief aan `--tree`. `files[].copy` en de nummering bestaan niet meer. Gebruik dezelfde voorbereiding voor alleen lezen of voor bewerken; sluit de bewerking af met `close` of `cancel`.
 
-Migreer de consumer expliciet: werk de gem en eigen lockfile bij, leg selectie/context/classificatie en private state vast, verwijs vanuit de eigen rootinstructie naar deze ontwikkelroute, en vervang genummerde kopieën door `prepare`, writer, `run` en `diff`. Houd de bestaande eigen Gemfile en Rakefile; de eigen rootinstructie blijft verantwoordelijk voor de verplichte scan- en vergelijkwerkwijze. Doorloop het synthetische voorbeeld hierboven vanuit de eigen bundle voordat je echte bronnen selecteert.
+Pas de rootinstructie en scripts van ieder afnemend project in dezelfde migratie aan. Werk de gem en lockfile bij en verwijder de oude aanroepen en resultaatlezers. De zelfstandige scan en `--puppet` houden hun detectie en exitcodes; zij publiceren uitsluitend metadata. Archiefconsumers moeten de benodigde leden lokaal veilig exporteren en die via `prepare` aanbieden, zoals beschreven bij [Archieven controleren](#archieven-controleren).
+
+De keuze voor één analysewerkwijze volgt de repositorybrede [consolidatieafspraak](../../AGENTS.md#reuse-and-shared-abstractions); de [toolingafspraken](../README.md#verantwoordelijkheden-gescheiden-houden) bepalen de verdeling tussen CLI en library.
 
 ## Resultaten en exitcodes
 
@@ -400,13 +429,13 @@ Migreer de consumer expliciet: werk de gem en eigen lockfile bij, leg selectie/c
 | `1` | `findings` | Mogelijke geheime waarden of aanwijzingen voor gevoelige gegevens gevonden. Beoordeel en maskeer de inhoud vóór openbaarmaking; ook na maskeren blijft de exitcode 1. |
 | `2` | `incomplete` | Selectie, controle, maskeren of rapportage is mislukt of onvolledig. Geef de inhoud niet vrij totdat de oorzaak is verholpen of iemand de inhoud lokaal heeft beoordeeld. |
 
-Per bestand bevat het rapport `file`, `complete`, `findings`, `errors` en eventueel `copy`. Iedere bevinding vermeldt het oorspronkelijke regelnummer in `line`, een vaste herkenningsregel in `rule` en het soort bevinding in `kind`: `value` voor een mogelijke geheime waarde, `indicator` voor een naam of constructie. Geen enkele regel controleert of een gevonden inloggegeven actief is. De algemene JSON-eigenschap `complete` omvat ook fouten bij uitvoer en rapportage en is leidend boven geslaagde deelcontroles.
+Per bestand bevat het rapport `file`, `complete`, `findings`, `errors` en `coverage`. Iedere bevinding vermeldt het oorspronkelijke regelnummer in `line`, een vaste herkenningsregel in `rule` en het soort bevinding in `kind`: `value` voor een mogelijke geheime waarde, `indicator` voor een naam of constructie. Geen enkele regel controleert of een gevonden inloggegeven actief is. De algemene JSON-eigenschap `complete` omvat ook fouten bij uitvoer en rapportage en is leidend boven geslaagde deelcontroles.
 
 Een verwijzing via `lookup('mysql::user::example::password', Sensitive[String])` bevat zelf geen wachtwoord. De scanner behoudt deze expressie in de analysekopie en meldt uitsluitend aanwijzingen (`indicator`), geen geheime waarde (`value`). Exitcode 1 blijft van toepassing omdat het veld op gevoelige gegevens wijst. De daadwerkelijke waarde in het bijbehorende YAML-bestand wordt afzonderlijk gecontroleerd en gemaskeerd; neem dat bestand mee in de selectie. Een letterlijk meegegeven standaardwaarde valt niet onder deze uitzondering en wordt wel gemaskeerd.
 
 Console-uitvoer, JSON en JUnit bevatten geen bronfragmenten, gevonden waarden, fingerprints of oorspronkelijke foutteksten. Fouten hebben vaste identificaties. Gevonden waarden en herkenbare tokenpatronen worden uit getoonde paden verwijderd; vertrouwelijke bestandsnamen vereisen nog steeds lokale beoordeling. Zet geen inloggegevens in argumenten of bestandsnamen. De CLI schakelt het afdrukken van exceptions in Ruby-debugmodus uit en heeft geen modus die gevonden waarden logt.
 
-Met `--junit /existing/parent/new-report.xml` krijg je dezelfde bevindingen ook als JUnit: bevindingen worden `failures`, onvolledig gecontroleerde bestanden worden `errors`. De bovenliggende map moet bestaan en het doelbestand moet nieuw zijn en buiten de invoer liggen. Een schrijffout bij het rapport geeft exitcode 2 en houdt de analysekopieën tegen. Zonder deze optie blijven rapportbestanden ongemoeid. `--json` wijzigt de presentatie op stdout; `--help` toont de gebruiksinstructies zonder te scannen.
+Met `--junit /existing/parent/new-report.xml` krijg je dezelfde bevindingen ook als JUnit: bevindingen worden `failures`, onvolledig gecontroleerde bestanden worden `errors`. De bovenliggende map moet bestaan en het doelbestand moet nieuw zijn en buiten de invoer liggen. Een schrijffout bij het rapport geeft exitcode 2. Zonder deze optie blijven rapportbestanden ongemoeid. `--json` wijzigt de presentatie op stdout; `--help` toont de gebruiksinstructies zonder te scannen.
 
 ## Patronen en beperkingen
 
@@ -439,7 +468,7 @@ De algemene scan ondersteunt tar, gzip, `.tar.gz` en `.tgz` lokaal in het geheug
 
 Per bestand of lid geldt de bestaande grens van 5 MiB. Een aanroep verwerkt maximaal 25 MiB uitgepakte gegevens, 1000 leden en drie archieflagen. Dubbele leden, absolute paden, `..`, symlinks, hardlinks, bijzondere bestandstypen, ongeldige headers, afgebroken inhoud en aanvullende gegevens na het archief worden geweigerd. Een overschreden grens of ongeldig archief geeft een onvolledige controle.
 
-Het rapport behoudt één record per geselecteerd bestand. `coverage: archive` benoemt archiefinspectie; bevindingen hebben daarnaast een numerieke `member`-route. Een analysekopie van een archief bevat alleen de gemaskeerde tekstleden met genummerde labels. Zij is geen opnieuw verpakt archief en bevat geen oorspronkelijke lidnamen. Een fout in één lid houdt alle kopieën van de aanroep tegen.
+Het rapport behoudt één record per geselecteerd bestand. `coverage: archive` benoemt archiefinspectie; bevindingen hebben daarnaast een numerieke `member`-route. Er wordt geen afzonderlijke archiefkopie gepubliceerd. Voor inhoudelijke inzage exporteert een vertrouwde lokale caller de benodigde leden veilig naar een private bronmap, zonder inhoud of lidnamen vooraf te tonen. Selecteer deze bestanden en hun volledige Hiera-context daarna met `prepare`. De export verleent op zichzelf geen toestemming tot inzage. Onvolledige inspectie blijft een blokkade; een tekstweergave kan niet naar een archief worden teruggeschreven.
 
 ## Puppet-manifesten in standaardtests en CI
 
@@ -453,7 +482,7 @@ bundle exec rake test
 
 De CLI accepteert een hele map, meerdere mappen, een lijst bestanden of een combinatie in één proces. Met `--puppet` worden uitsluitend `.pp`-bestanden geselecteerd. Een selectie zonder manifesten, onleesbare invoer of een parserfout faalt met exitcode 2. Niet-geselecteerde bestandstypen zijn daarmee niet gecontroleerd. De repositorytaak selecteert alle eigen manifesten, inclusief `examples/`, en sluit `.tools/`, `vendor/` en de vier externe modules `concat`, `debconf`, `reboot` en `stdlib` uit. `bundle exec rake test` en de standaardtaak `bundle exec rake` voeren deze controle verplicht vóór de tooltests uit. De gerichte `test:*`-taken testen alleen de betreffende tool. De afzonderlijke native parservalidatie blijft verplicht.
 
-`puppet_hardcoded_value` meldt letterlijke waarden in gevoelige parameters, variabelen, resourceattributen en hashvelden. Ook een letterlijk argument van `Sensitive` of `Sensitive.new` wordt afgekeurd. De bestaande herkenning van tokenprefixen, autorisatie, credential-URL's, versleutelde waarden en PEM-materiaal blijft actief. Het rapport toont uitsluitend bestand, regelnummer, regel en volledigheid; exitcode 1 blokkeert de tests. `--json`, `--junit` en `--redact` blijven beschikbaar met hetzelfde veilige uitvoercontract.
+`puppet_hardcoded_value` meldt letterlijke waarden in gevoelige parameters, variabelen, resourceattributen en hashvelden. Ook een letterlijk argument van `Sensitive` of `Sensitive.new` wordt afgekeurd. De bestaande herkenning van tokenprefixen, autorisatie, credential-URL's, versleutelde waarden en PEM-materiaal blijft actief. Het rapport toont uitsluitend bestand, regelnummer, regel en volledigheid; exitcode 1 blokkeert de tests. `--json` en `--junit` presenteren hetzelfde veilige metadatarapport.
 
 Een variabele, geïndexeerde verwijzing, `.unwrap`, `undef`, `Sensitive[String]` of getypeerde Hiera-lookup bevat zelf geen hardcoded geheim. Deze constructies veroorzaken in Puppet-modus geen bevinding en dus geen onterechte testfout. Letterlijke lookup-defaults via argumenten, `default_value`, `default_values_hash`, `override` of een defaultlambda worden wel onderzocht in een gevoelige context; deze invoervormen volgen de [Puppet-lookupinterface](https://help.puppet.com/core/current/Content/PuppetCore/puppet_lookup.htm). Ook ongequote veldnamen en letterlijke woordwaarden worden onderzocht. Een YAML-waarde achter de lookup moet met de algemene scanmodus afzonderlijk worden gecontroleerd.
 
@@ -498,7 +527,7 @@ De tool heeft twee toepassingen. Richt ze afzonderlijk in, omdat ze verschillend
 
 | Toepassing | Aanroep | Wat je ermee controleert |
 | --- | --- | --- |
-| Vóór AI of externe analyse | `bundle exec project-tools-secrets PATH ...` | De werkelijk te lezen bestanden, waaronder YAML/Hiera, templates, scripts en configuratie. Bij bevindingen maak je met `--redact` afzonderlijke analysekopieën. Volg [Controleren voor het lezen](#controleren-voor-het-lezen). |
+| Vóór AI of externe analyse | `bundle exec project-tools-secrets PATH ...` | De werkelijk te lezen bestanden, waaronder YAML/Hiera, templates, scripts en configuratie. Bij bevindingen geef je inhoud uitsluitend vrij via `prepare`. Volg [Controleren voor het lezen](#controleren-voor-het-lezen). |
 | Vóór tests en diagnoses in CI | `bundle exec project-tools-secrets --puppet PATH ...` | Hardcoded waarden in de eigen Puppet-manifesten. Alleen exitcode 0 laat de volgende controle starten. Volg [Puppet-manifesten in standaardtests en CI](#puppet-manifesten-in-standaardtests-en-ci). |
 
 `--puppet` selecteert alleen `.pp`-bestanden. Een geslaagde Puppet-controle geeft dus geen toestemming om daarna Hiera, templates of andere bestanden ongecontroleerd te lezen. Een algemene scan kan op zijn beurt exitcode 1 geven voor een veilige verwijzing: beoordeel daarbij de metadata volgens [Resultaten en exitcodes](#resultaten-en-exitcodes).
@@ -547,14 +576,7 @@ Before project content enters AI context or external analysis, follow the [share
 
 Kies de bestanden die je daadwerkelijk nodig hebt en neem toepasselijke Hiera-`lookup_options` in dezelfde scan mee. De scanner ontdekt geen externe Hiera-hiërarchie. Geef niet zonder selectie de volledige projectroot op: `.git`, geïnstalleerde gems, de submodule, binaire bestanden en oude uitvoer vallen dan ook binnen de recursieve scan; `.gitignore` is geen scanneruitsluiting.
 
-Onderstaand voorbeeld veronderstelt dat beide genoemde bestanden bestaan. Vervang ze door je eigen bronselectie. De tweede opdracht schrijft alleen gemaskeerde kopieën naar een **nieuwe** map buiten de invoer; kies bij een volgende uitvoering een andere nieuwe map.
-
-```sh
-bundle exec project-tools-secrets --json modules/profile/manifests/init.pp data/common.yaml
-bundle exec project-tools-secrets --json --redact /tmp/puppet-analysis-01 modules/profile/manifests/init.pp data/common.yaml
-```
-
-Beoordeel na iedere aanroep eerst de metadata. Exitcode 1 blijft ook na succesvol maskeren bestaan; dat is geen reden om het origineel te openen. Lees uitsluitend de door dat resultaat aangewezen kopieën en volg het [maskeringscontract](#analysekopieën-maken). Exitcode 2 of `complete: false` blokkeert vrijgave. Een automatische koppeling controleert ook de geselecteerde bestanden, hun foutstatus en de geproduceerde kopieën; gebruik niet alleen de aanwezigheid van een uitvoermap als bewijs.
+Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasselijke context mee. Gebruik vervolgens uitsluitend de [analysewerkboomprocedure](#ontwikkelen-met-een-analysewerkboom), ook voor alleen lezen. Controleer het voorbereidingsresultaat vóór inzage en sluit de private waardekoppelingen na gebruik af. Kopieer het synthetische oefenbeleid niet ongewijzigd naar een echt project: de caller bepaalt de werkelijke selectie en bevoegdheden.
 
 ### Koppel de Puppet-controle aan eigen taken
 
@@ -613,6 +635,16 @@ Werk de tooling bij door een goedgekeurde revisie van `global-modules` te kiezen
 
 ## Ontwikkelen en testen
 
-Voeg nieuwe detectie toe in deze bestaande tool: gedeelde signaturen in `patterns.rb`, Puppet-syntaxis in `puppet_scan.rb` en YAML/Hiera in `yaml_scan.rb`. Voeg positieve, negatieve, meerregelige en rapportagegevallen met synthetische waarden toe onder `tests/`; test gewijzigde Rake- en CI-koppelingen onder `../repository-checks/tests/`. Werk deze patroonbeschrijving in dezelfde wijziging bij. Volg de [onderhoudsinstructies](AGENTS.md). De gem bevat de gedeelde runtimecode, beide executables, de README en de licentie. De geïnstalleerde-consumertests oefenen ook voorbereiding, writer en veilige diff zonder repositorymetadata. Links naar andere tools, instructies en tests vereisen de bijbehorende checkout.
+Voeg nieuwe detectie toe in deze bestaande tool: gedeelde signaturen in `patterns.rb`, Puppet-syntaxis in `puppet_scan.rb` en YAML/Hiera in `yaml_scan.rb`. Voeg positieve, negatieve, meerregelige en rapportagegevallen met synthetische waarden toe onder `tests/`; test gewijzigde Rake- en CI-koppelingen onder `../repository-checks/tests/`. Werk deze patroonbeschrijving in dezelfde wijziging bij. Volg de [onderhoudsinstructies](AGENTS.md). De gem bevat de runtimecode, één executable met de beschreven subcommando's, de README en de licentie. De geïnstalleerde-consumertests oefenen ook voorbereiding, writer en veilige diff zonder repositorymetadata. Links naar andere tools, instructies en tests vereisen de bijbehorende checkout.
 
 Voer `bundle exec rake test:secrets` uit voor synthetische tests van herkenning, maskeren, gegevensbescherming, foutafhandeling en zelfstandige installatie. `bundle exec rake test` neemt deze tests mee in de [gezamenlijke suite](../README.md#gezamenlijke-tooltests). Geslaagde tests onderbouwen de geteste afspraken; ze bewijzen niet dat willekeurige bestanden geen onbekende geheimen bevatten.
+
+### Interne verantwoordelijkheden
+
+De executable schakelt Ruby-debuguitvoer uit vóór het laden en vangen laad- en opstartfouten af met een vaste foutmelding en exitcode 2. `Command` bedient de scan; `SessionCommand` verwerkt de expliciet gekozen bewerkingstaak, opties en rapportstatus. Deze commandolagen bevatten geen herstel- of verwijderlogica voor bronbestanden.
+
+`SourceReader` leest begrensde bronversies en behandelt leesfouten zonder de scanner te laden. `Scanner` gebruikt die bronlezer en de bestaande taalparsers. De writer inspecteert herstelde kandidaten eenmaal met hun kandidaatcontext; de Puppet-beleidsbeslissing gebruikt dezelfde documenten. Analyse-invoer, herstelde bytes en versies vlak vóór schrijven of review houden hun eigen controles. Er is geen blijvende inspectiecache.
+
+`Redaction` deelt afscherming tussen selectie, rapportage en diagnostiek. Padweergave maskeert bekende scanwaarden en herkenbare tokens. Diagnostiek maskeert daarnaast bekende paden en ge-escapete waarden en wordt opnieuw geïnspecteerd. Terminalpresentatie via `Shared::Console` vervangt deze afscherming niet. `Output` presenteert metadata en bouwt JUnit met `Shared::JunitReport`; `Publication` beheert uitsluitend nieuwe private analysewerkbomen. Dit exclusieve publicatiecontract blijft afzonderlijk van overschrijfbare rapporten van andere tools.
+
+`Session` beheert voorbereiding en trekt bij mislukte verplichte uitvoer zowel werkboom als lokale mapping in. `MarkerRegistry` registreert en kloont occurrences zolang de voorbereiding schrijfbaar is. `Store` beheert private state, afsluiten en annuleren. `Writer` deelt voor toepassen en herstel dezelfde lockvolgorde: statelock, actuele state herladen, bronroot vergrendelen. `SourceVersions` deelt de beleidsversiecontrole; writer en review behouden hun eigen selectie van te vergelijken bronversies. `SessionReview` verzorgt diagnostiek en roept `ReviewOutput` aan voor de gecontroleerde diff.

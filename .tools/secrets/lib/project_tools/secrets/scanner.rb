@@ -20,13 +20,10 @@ module ProjectTools
         raise Failure, 'inspection_incomplete' unless documents.all?(&:complete?)
       end
 
-      def self.puppet!(sources)
-        manifests = sources.select { |path, _| File.extname(path) == '.pp' }
-        return if manifests.empty?
-
-        inspected = documents(manifests)
-        complete!(inspected)
-        raise Failure, 'puppet_policy_rejected' if inspected.any? { |doc| !doc.findings.empty? }
+      def self.puppet!(documents)
+        manifests = documents.select { |document| File.extname(document.path) == '.pp' }
+        complete!(manifests)
+        raise Failure, 'puppet_policy_rejected' if manifests.any? { |document| !document.findings.empty? }
       end
 
       MAX_BYTES = SourceReader::MAX_BYTES

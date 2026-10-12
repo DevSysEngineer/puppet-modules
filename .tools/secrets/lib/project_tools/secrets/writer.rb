@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'session'
+require_relative 'store'
+require_relative 'scanner'
 require_relative 'source_versions'
 require_relative 'changes'
 require_relative 'restoration'
@@ -17,18 +18,31 @@ module ProjectTools
       def initialize(store, id)
         @store = store
         @id = id
-        @data = store.load(id)
         @integrity = []
       end
 
       def apply(change)
-        @store.synchronize do
-          @data = @store.load(@id)
+        synchronize do
+          prepare(change)
+          transact
+        end
+      end
+
+      def recover
+        synchronize do
+          raise Failure, 'recovery_not_required' unless %w[writing recovery_required].include?(data['status'])
+
+          Transaction.new(@store, @id, data).recover
+        end
+      end
+
+      def synchronize
+        @store.with_session(@id) do |data|
+          @data = data
           File.open(data.fetch('root')) do |root|
             raise Failure, 'source_busy' unless root.flock(File::LOCK_EX | File::LOCK_NB)
 
-            prepare(change)
-            transact
+            yield
           end
         end
       end
@@ -47,8 +61,9 @@ module ProjectTools
 
       def validate_candidates
         sources = candidates.to_h { |path, bytes| [@changes.source(path), bytes] }
-        Scanner.complete!(Scanner.documents(sources))
-        Scanner.puppet!(sources)
+        documents = Scanner.documents(sources)
+        Scanner.complete!(documents)
+        Scanner.puppet!(documents)
         sources.each { |path, bytes| syntax!(path, bytes) }
       end
 

@@ -20,9 +20,8 @@ class SecretsLicenseTest < SecretsTest
     value = 'synthetic-license-complete-value'
     source = format(format, name, value)
     path = write("sample.#{extension}", source)
-    @copies = File.join(@directory, "copies-#{name}-#{extension}")
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked(value)
     assert_equal source, File.read(path)
   end
@@ -51,25 +50,24 @@ class SecretsLicenseTest < SecretsTest
   def test_multiline_and_escaped_license_values
     path = write('sample.yaml',
                  "license_key: |\n  synthetic-first\n  synthetic-last\nlicenseKey: \"synthetic-escaped\\nvalue\"\n")
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-first', 'synthetic-last', 'synthetic-escaped')
   end
 
-  def test_unbounded_license_withholds_copies
+  def test_unbounded_license_is_incomplete
     path = write('sample.properties', "license.key='#{VALUE}\n")
-    scan('--redact', @copies, path)
+    scan(path)
     assert_equal 2, @status.exitstatus
     refute @report['complete']
-    refute_path_exists @copies
     assert_no_disclosure(VALUE)
   end
 
   def test_license_values_are_removed_from_paths_reports_and_debug_output
     path = write("#{VALUE}.env", "LICENSE_KEY=#{VALUE}\n")
     report = File.join(@directory, 'report.xml')
-    scan('--junit', report, '--redact', @copies, path)
-    assert_complete_copy
+    scan('--junit', report, path)
+    assert_complete_scan
     assert_masked(VALUE)
     refute_includes File.read(report), VALUE
     command = File.expand_path('../bin/project-tools-secrets', __dir__)

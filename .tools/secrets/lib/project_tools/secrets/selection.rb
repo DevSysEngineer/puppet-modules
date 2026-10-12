@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'scanner'
-require_relative 'output'
+require_relative 'redaction'
 
 module ProjectTools
   module Secrets
@@ -43,13 +43,13 @@ module ProjectTools
 
       def safe_path(relative, documents)
         supplied = data['policy'].fetch('aliases', {}).fetch(relative, relative)
-        cleaner = Output.new(documents, [])
+        cleaner = Redaction.new(values: documents.flat_map(&:values))
         parts = Paths.relative(supplied).split('/').map { |part| @aliases[part] ||= alias_component(part, cleaner) }
         Paths.relative(parts.join('/'))
       end
 
       def alias_component(part, cleaner)
-        return part if cleaner.safe_path(part) == part
+        return part if cleaner.path(part) == part
 
         extension = File.extname(part)
         extension = '' unless %w[.pp .yaml .yml .json .erb .epp .sh .rb .txt .md].include?(extension)

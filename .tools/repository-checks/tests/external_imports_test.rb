@@ -63,7 +63,9 @@ class ExternalImportsTest < Minitest::Test
 
   def assert_secrets_tools
     run_success('bundle', 'exec', 'project-tools-secrets', 'manifests/site.pp')
-    run_success('bundle', 'exec', 'project-tools-secrets-write', '--help')
+    %w[prepare write diff run close].each do |task|
+      run_success('bundle', 'exec', 'project-tools-secrets', task, '--help')
+    end
     assert_includes @output, '--changes'
   end
 

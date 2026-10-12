@@ -74,6 +74,19 @@ module ProjectTools
         end
       end
 
+      def with_session(id)
+        synchronize { yield load(id) }
+      end
+
+      def close(id, operation)
+        with_session(id) do |data|
+          raise Failure, 'recovery_required' if %w[writing recovery_required].include?(data['status'])
+
+          delete(id)
+          { 'operation' => operation, 'status' => operation == 'close' ? 'closed' : 'cancelled', 'complete' => true }
+        end
+      end
+
       def delete(id)
         File.unlink(path(id))
       end

@@ -7,11 +7,11 @@ class PuppetCountersTest < SecretsTest
   def test_counter_literals_are_not_credentials
     source = fixture('counts.pp')
     path = write('counts.pp', source)
-    scan('--puppet', '--redact', @copies, path)
+    scan('--puppet', path)
     assert_puppet_clean
     assert @report['complete']
     assert_empty @report['files'].first['errors']
-    assert_equal source, copy
+    assert_equal source, sanitized
     assert_equal source, File.read(path)
     assert_unreviewed
   end

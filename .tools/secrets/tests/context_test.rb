@@ -17,54 +17,52 @@ class SecretsContextTest < SecretsTest
   def test_policy_numbers_and_token_durations
     source = "password.minlength = 14\npassword.retrylimit = 5\npassword.expiration = 90\nTOKEN_EXPIRE=14d\n"
     path = write('sample.properties', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
-    assert_equal source, copy
+    scan(path)
+    assert_complete_scan
+    assert_equal source, sanitized
     refute(@report['files'].first['findings'].any? { |finding| finding['kind'] == 'value' })
   end
 
   def test_numeric_password_and_misused_metadata_fields_remain_values
     path = write('sample.env',
                  "PASSWORD=12345\nTOKEN_EXPIRE=synthetic-token-value\npassword.minlength=synthetic-password-value\n")
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('12345', 'synthetic-token-value', 'synthetic-password-value')
   end
 
   def test_erb_reference_is_preserved_but_a_fallback_is_masked
     source = "PASSWORD=<%= @password %>\nTOKEN=<%= ENV['TOKEN'] %>\n"
     path = write('sample.env', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
-    assert_equal source, copy
+    scan(path)
+    assert_complete_scan
+    assert_equal source, sanitized
     path = write('fallback.env', "PASSWORD=<%= @password || 'synthetic-fallback' %>\n")
-    @copies = File.join(@directory, 'fallback-copies')
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-fallback')
   end
 
   def test_ci_job_label_preserves_commands_but_rejects_literal_command_password
     source = "Puppet secrets:\n  stage: test\n  script:\n    - bundle exec rake secrets:puppet\n"
     path = write('pipeline.yaml', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
-    assert_equal source, copy
+    scan(path)
+    assert_complete_scan
+    assert_equal source, sanitized
   end
 
   def test_ci_job_with_literal_command_password
     path = write('unsafe.yaml',
                  "Puppet secrets:\n  stage: test\n  script:\n    - client --password=synthetic-command-value\n")
-    @copies = File.join(@directory, 'unsafe-copies')
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-command-value')
   end
 
   def test_ssh_password_and_http_userinfo_are_still_credentials
     path = write('urls.txt', "ssh://git:synthetic-ssh-value@example.test/repository\nhttps://synthetic-http-value@example.test/\n")
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-ssh-value', 'synthetic-http-value')
   end
 
@@ -84,16 +82,16 @@ class SecretsContextTest < SecretsTest
   def test_explicit_hiera_conversion_overrides_numeric_metadata_role
     options = write('options.yaml', "lookup_options:\n  TOKEN_EXPIRE:\n    convert_to: Sensitive\n")
     data = write('data.yaml', "TOKEN_EXPIRE: 86400\n")
-    scan('--redact', @copies, options, data)
-    assert_complete_copy
+    scan(options, data)
+    assert_complete_scan
     assert_masked('86400', index: 1)
   end
 
   def test_shell_fixture_assignments_use_the_enclosing_quote
     source = "printf '%s\\n' \"password=synthetic-shell-value\"\n"
     path = write('fixture.sh', source)
-    scan('--redact', @copies, path)
-    assert_complete_copy
+    scan(path)
+    assert_complete_scan
     assert_masked('synthetic-shell-value')
     assert_equal source, File.read(path)
   end

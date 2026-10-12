@@ -23,8 +23,8 @@ class SecretsLookupTest < SecretsTest
     REFERENCES.each_with_index do |expression, index|
       source = manifest(expression)
       path = write("reference-#{index}.pp", source)
-      scan_copy(path, index)
-      assert_equal source, copy
+      scan_with_findings(path)
+      assert_equal source, sanitized
       assert_equal ['indicator'], kinds
       assert_equal source, File.read(path)
     end
@@ -34,9 +34,9 @@ class SecretsLookupTest < SecretsTest
     source = manifest(REFERENCES.first)
     reference = write('reference.pp', source)
     data = write('data.yaml', YAML_SOURCE)
-    scan('--redact', @copies, reference, data)
-    assert_complete_copy
-    assert_equal source, copy
+    scan(reference, data)
+    assert_complete_scan
+    assert_equal source, sanitized
     assert_equal ['indicator'], kinds
     assert_includes kinds(1), 'value'
     assert_masked(VALUE, index: 1)
@@ -46,7 +46,7 @@ class SecretsLookupTest < SecretsTest
   def test_lookup_expressions_with_literal_values_are_still_masked
     LITERALS.each_with_index do |expression, index|
       path = write("literal-#{index}.pp", "password => #{expression},\n")
-      scan_copy(path, index)
+      scan_with_findings(path)
       assert_masked(VALUE)
       assert_includes kinds, 'value'
     end
@@ -58,10 +58,9 @@ class SecretsLookupTest < SecretsTest
     "mysql::user { 'sample':\n  password => #{expression},\n}\n"
   end
 
-  def scan_copy(path, index)
-    @copies = File.join(@directory, "copies-#{index}")
-    scan('--redact', @copies, path)
-    assert_complete_copy
+  def scan_with_findings(path)
+    scan(path)
+    assert_complete_scan
   end
 
   def kinds(index = 0)

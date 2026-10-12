@@ -50,7 +50,7 @@ class SecretsSessionFailuresTest < SecretsSessionTestCase
     edit('a.txt', 'after')
     change = File.join(@directory, 'change.json')
     File.write(change, JSON.generate('write' => ['a.txt']))
-    call_session('apply', '--session', @session, '--changes', change, '--junit', @policy)
+    call_session('write', '--session', @session, '--changes', change, '--junit', @policy)
     assert_applied
     assert_equal 'report_write_failed', @result['report_error']
     assert_equal 2, @code

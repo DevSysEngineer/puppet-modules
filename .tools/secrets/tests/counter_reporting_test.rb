@@ -6,11 +6,10 @@ require_relative 'test_helper'
 class CounterReportingTest < SecretsTest
   def test_signatures_in_counter_blocks_are_masked_in_both_modes
     source, values = signature_source
-    [[], ['--puppet']].each_with_index do |mode, index|
-      @copies = File.join(@directory, "copies-#{index}")
+    [[], ['--puppet']].each do |mode|
       path = write('counts.pp', source)
-      scan(*mode, '--redact', @copies, path)
-      assert_complete_copy
+      scan(*mode, path)
+      assert_complete_scan
       assert_masked(*values)
       assert_equal source, File.read(path)
     end
@@ -34,7 +33,7 @@ class CounterReportingTest < SecretsTest
   def assert_reports(path, mode, index)
     report = File.join(@directory, "report-#{index}.xml")
     scan(*mode, '--junit', report, path)
-    assert_complete_copy
+    assert_complete_scan
     refute_includes File.read(report), 'synthetic-after-counter'
     assert_no_disclosure('synthetic-after-counter')
     assert_unreviewed

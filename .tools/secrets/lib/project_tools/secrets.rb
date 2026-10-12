@@ -4,30 +4,21 @@ require 'optparse'
 require 'project_tools/shared/console'
 require_relative 'secrets/scanner'
 require_relative 'secrets/output'
+require_relative 'secrets/publication'
 require_relative 'secrets/command_options'
 
 module ProjectTools
   # Local inspection gate. Findings remain findings after a redacted copy is made.
   module Secrets
+    ACTIONS = %w[prepare write diff run close cancel clone register fixture recover].freeze
+
     def self.run(arguments, output: $stdout)
-      if session_action?(arguments)
+      if ACTIONS.include?(arguments.first)
         require_relative 'secrets/session_command'
-        return SessionCommand.new(output).run(arguments)
+        SessionCommand.new(output).run(arguments)
+      else
+        Command.new(output).run(arguments)
       end
-
-      Command.new(output).run(arguments)
-    end
-
-    def self.session_action?(arguments)
-      actions = %w[prepare diff run close cancel clone register fixture recover]
-      actions.include?(arguments.first) && arguments.drop(1).any? do |argument|
-        argument.match?(/\A--(?:state|policy|root)(?:=|\z)|\A(?:-h|--help)\z/)
-      end
-    end
-
-    def self.write(arguments, output: $stdout)
-      require_relative 'secrets/session_command'
-      SessionCommand.new(output).run(['apply', *arguments])
     end
 
     # Parse options and keep all error reporting independent of input values.
@@ -59,7 +50,8 @@ module ProjectTools
 
       def start_scan(paths)
         @scanner = Scanner.new(puppet: @options[:puppet])
-        @writer = Output.new(@scanner.documents, paths)
+        @writer = Output.new(@scanner.documents)
+        @publication = Publication.new(paths)
         execute(paths)
       end
 
@@ -83,21 +75,12 @@ module ProjectTools
       def perform_scan(paths)
         @scanner.scan(paths)
         write_report if @options[:junit]
-        redact if @options[:redact] && @errors.empty?
       rescue StandardError, SystemStackError, SignalException
         @errors << 'execution_failed'
       end
 
-      def redact
-        if @scanner.documents.all?(&:complete?)
-          @writer.redact(@options[:redact])
-        else
-          @errors << 'redaction_withheld'
-        end
-      end
-
       def write_report
-        @writer.junit(@options[:junit])
+        Paths.write_new(@publication.destination(@options[:junit]), @writer.junit)
         @report_written = true
       rescue StandardError
         @errors << 'report_write_failed'

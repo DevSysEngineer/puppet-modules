@@ -2,6 +2,8 @@
 
 require 'open3'
 require 'tmpdir'
+require_relative 'redaction'
+require_relative 'source_versions'
 
 module ProjectTools
   module Secrets
@@ -9,32 +11,6 @@ module ProjectTools
     class ReviewOutput
       def initialize(data)
         @data = data
-      end
-
-      def safe_text(text)
-        text = mask_known(text)
-        documents = Scanner.documents({ 'diagnostics.txt' => text }, analysis: false)
-        Scanner.complete!(documents)
-        documents.first.sanitized(markers: @data['markers'].keys.map { |id| "[REDACTED-#{id}]" })
-      end
-
-      def mask_known(text)
-        text = mask_paths(text)
-        known_values.each { |value| text = text.gsub(value, '[REDACTED]') }
-        text
-      end
-
-      def known_values
-        values = @data['markers'].values.flat_map { |entry| [entry['raw'], entry['value']] }.compact.reject(&:empty?)
-        values.flat_map { |value| [value, JSON.generate(value)[1...-1], value.dump[1...-1]] }
-              .uniq.sort_by { |value| -value.length }
-      end
-
-      def mask_paths(text)
-        @data['files'].each do |safe, file|
-          text = text.gsub(File.join(@data['root'], file['source']), safe).gsub(file['source'], safe)
-        end
-        text
       end
 
       def diff
@@ -58,7 +34,7 @@ module ProjectTools
       end
 
       def unchanged_versions
-        raise Failure, 'context_conflict' unless SourceReader.local_read(@data['policy_path']) == @data['policy_bytes']
+        SourceVersions.verify_policy(@data)
 
         changed = @data['journal'].map { |entry| entry['file'] }
         @data['files'].each do |safe, file|
@@ -88,7 +64,7 @@ module ProjectTools
         stdout, _stderr, status = Open3.capture3('diff', '-u', '--label', "a/#{path}", '--label', "b/#{path}", old, new)
         raise Failure, 'diff_failed' unless [0, 1].include?(status.exitstatus)
 
-        safe_text(stdout)
+        Redaction.new(data: @data).diagnostics(stdout)
       end
     end
   end

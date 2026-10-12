@@ -13,7 +13,7 @@ class ExternalSecretsTestCase < Minitest::Test
     prepare_environment
     build_install('shared', 'project-tools-shared')
     build_install('secrets', 'project-tools-secrets')
-    write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-secrets', '= 0.3.0'\n")
+    write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-secrets', '= 0.4.0'\n")
     run_success('bundle', 'install', '--local')
   end
 end

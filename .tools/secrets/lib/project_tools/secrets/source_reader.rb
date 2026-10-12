@@ -75,7 +75,7 @@ module ProjectTools
     class SourceReader
       def self.local_read(path)
         document = SourceReader.new.read(Paths.absolute(path))
-        Scanner.complete!([document])
+        raise Failure, 'inspection_incomplete' unless document.complete?
         raise Failure, 'archive_write_unsupported' unless document.members.empty?
 
         document.text

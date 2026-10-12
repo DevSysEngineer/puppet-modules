@@ -3,7 +3,7 @@
 <a id="puppet-lint-en-rubocop"></a>
 <a id="doel-en-reikwijdte"></a>
 
-Deze handleiding beschrijft hoe je Puppet-code voor de repository `puppet-modules` controleert. Je vindt hier de dagelijkse werkwijze, de lintcommando's en verwijzingen naar de [algemene Puppet-coderegels](docs/CODE_RULES.md), [regels voor Puppet-documentatie](docs/DOCUMENTATION_RULES.md) en [operationele regels](docs/OPERATIONAL_RULES.md). Ook lees je hoe je die controles in een ander Puppet-project gebruikt en hoe de linter is opgebouwd. Voor onderhoud in de ontwikkelcheckout volg je de [lokale ontwikkelinstructies](AGENTS.md).
+Deze handleiding beschrijft hoe je Puppet-code voor de repository `puppet-modules` controleert. Je vindt hier de dagelijkse werkwijze, de lintcommando's en verwijzingen naar de [algemene coderegels en aanvullende Puppet-regels](docs/CODE_RULES.md), [regels voor Puppet-documentatie](docs/DOCUMENTATION_RULES.md) en [operationele regels](docs/OPERATIONAL_RULES.md). Ook lees je hoe je die controles in een ander Puppet-project gebruikt en hoe de linter is opgebouwd. Voor onderhoud in de ontwikkelcheckout volg je de [lokale ontwikkelinstructies](AGENTS.md).
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
 
@@ -17,9 +17,9 @@ De lintnormen en gebruiksdocumentatie staan in vier centrale documenten: deze to
 
 | Bron | Verantwoordelijkheid |
 | --- | --- |
-| [`AGENTS.md`](../../AGENTS.md) | Repositorybrede workflow, engineering, security en documentatiebeheer; geen tweede verzameling Puppet-normen. |
+| [`AGENTS.md`](../../AGENTS.md) | Repositorybrede workflow, engineering, security en documentatiebeheer; geen tweede verzameling codeprincipes. |
 | Deze [README](#inhoudsopgave) | Gebruik, installatie, configuratie, checks, CLI, CI, imports en onderhoud van de linttooling. |
-| [`docs/CODE_RULES.md`](docs/CODE_RULES.md) | Algemene Puppet-coderegels, uitzonderingen en handmatige reviewcriteria voor iedere Puppet-wijziging. |
+| [`docs/CODE_RULES.md`](docs/CODE_RULES.md) | Algemene codeprincipes voor alle eigen code, inclusief tooling, en aanvullende Puppet-regels; per regel het toepassingsgebied, uitzonderingen en handmatige reviewcriteria. |
 | [`docs/DOCUMENTATION_RULES.md`](docs/DOCUMENTATION_RULES.md) | Commentaar in Puppet-code, Puppet Strings en documentatie van Puppet-interfaces, met uitzonderingen en handmatige reviewcriteria. Algemene Markdown- en README-afspraken blijven in `AGENTS.md`. |
 | [`docs/OPERATIONAL_RULES.md`](docs/OPERATIONAL_RULES.md) | Aanvullende Puppet-regels voor beheerde bestanden, rechten, beveiliging, systemd, shell en monitoring. |
 | [`.puppet-lint.rc`](../../.puppet-lint.rc) en [gedeelde configuratie](config/) | Actieve lintconfiguratie. |
@@ -34,7 +34,7 @@ Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of co
 
 Gebruik je de tooling voor het eerst, begin dan bij de snelstart voor [deze repository](#snelstart-in-deze-repository) of [je eigen Puppet-project](#snelstart-in-een-ander-puppet-project). Voor een wijziging volg je de [dagelijkse werkwijze](#werkwijze-bij-een-wijziging). De onderwerpentabel verwijst naar de secties die je wijziging raakt; de taakroutes eronder verbinden die naslag met de benodigde stappen. Je hoeft de overige gespecialiseerde naslag niet vooraf door te nemen. Komt tijdens je werk een nieuwe afhankelijkheid of integratie in beeld, neem dan de bijbehorende sectie erbij.
 
-Volg bij iedere Puppet-wijziging de toepasselijke algemene regels uit [CODE_RULES.md](docs/CODE_RULES.md). Raakt de wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, lees en volg dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md).
+Volg bij iedere codewijziging de [algemene ontwerpregels](docs/CODE_RULES.md#algemene-ontwerpregels), ook voor Ruby, scripts en tooling. Voor Puppet gelden daarnaast de toepasselijke syntax-, parameter- en resourceregels in datzelfde bestand. Raakt de wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, lees en volg dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md).
 
 Raakt de wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan ook de relevante regels uit [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn. Ze vervangen de algemene coderegels nooit.
 
@@ -42,6 +42,7 @@ Gebruik deze beslisstructuur om de toepasselijke documenten te kiezen. De onderw
 
 | Je wijziging | Toepasselijke regelsbestanden |
 | --- | --- |
+| Codeontwerp, hergebruik of componentgrenzen in modules, scripts, bibliotheken of tooling | [Algemene ontwerpregels](docs/CODE_RULES.md#algemene-ontwerpregels). |
 | Algemene Puppet-code, zoals een parameterwijziging | [CODE_RULES.md](docs/CODE_RULES.md). |
 | Commentaar, Puppet Strings of Puppet-interface-documentatie, zoals gewijzigde Strings bij een class | [CODE_RULES.md](docs/CODE_RULES.md) + [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md). |
 | Bestanden, beveiliging, systemd, shell of monitoring, zoals een nieuwe systemd-service | [CODE_RULES.md](docs/CODE_RULES.md) + [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). |
@@ -49,6 +50,7 @@ Gebruik deze beslisstructuur om de toepasselijke documenten te kiezen. De onderw
 
 | Je taak | Lees hierbij |
 | --- | --- |
+| Gedrag delen of interfaces tussen componenten wijzigen | [Gedeelde implementaties](docs/CODE_RULES.md#gelijk-gedrag-in-één-implementatie-onderhouden) en [verantwoordelijkheden en interfaces](docs/CODE_RULES.md#verantwoordelijkheden-en-interfaces-afbakenen). |
 | Een normaal Puppet-manifest aanpassen | [Basisopmaak](docs/CODE_RULES.md#basisopmaak) en [parameters en resources](docs/CODE_RULES.md#parameters-en-resources). |
 | Verantwoordelijkheden tussen caller, component en template wijzigen | [Instellingen bij hun eigenaar houden](docs/CODE_RULES.md#instellingen-bij-hun-eigenaar-houden); controleer de gegevensstroom en het gedrag met de [aanvullende validatie](#aanvullende-validatie). |
 | Commentaar of Puppet-interface-documentatie aanpassen | [Commentaar en documentatie](docs/DOCUMENTATION_RULES.md#commentaar-en-documentatie), waaronder [toelichtingen bij code](docs/DOCUMENTATION_RULES.md#toelichtingen-bij-code) en [interfacebeschrijvingen synchroniseren](docs/DOCUMENTATION_RULES.md#interfacebeschrijvingen-synchroniseren). |
@@ -688,11 +690,12 @@ Het ontbreken van een check, gedeeltelijke detectie of het ontbreken van veilige
 
 ## Puppet-coderegels en reviewcriteria
 
-De volledige Puppet-coderegels en reviewcriteria staan in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). De drie bestanden beschrijven per regel de norm, detectiegrenzen, autofixvoorwaarden, uitzonderingen, voorbeelden en handmatige review. Iedere regel heeft één autoritatieve locatie.
+De algemene codeprincipes, Puppet-coderegels en aanvullende reviewcriteria staan in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). De drie bestanden beschrijven per regel de norm, detectiegrenzen, autofixvoorwaarden, uitzonderingen, voorbeelden en handmatige review. Iedere regel heeft één autoritatieve locatie.
 
 Volg bij iedere Puppet-wijziging de toepasselijke algemene regels:
 
-- [Basisopmaak](docs/CODE_RULES.md#basisopmaak), inclusief inspringing, komma's en lange regels.
+- [Algemene ontwerpregels](docs/CODE_RULES.md#algemene-ontwerpregels) voor alle eigen code, inclusief tooling.
+- [Basisopmaak](docs/CODE_RULES.md#basisopmaak) voor Puppet, inclusief inspringing, komma's en lange regels.
 - [Parameters en resources](docs/CODE_RULES.md#parameters-en-resources).
 
 Raakt de wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, volg dan daarnaast de regels voor [Commentaar en documentatie](docs/DOCUMENTATION_RULES.md#commentaar-en-documentatie), inclusief [Puppet Strings](docs/DOCUMENTATION_RULES.md#puppet-strings).
@@ -919,7 +922,7 @@ De interne gem maakt de runtime-afhankelijkheden, laadpaden en gedeelde profiele
 ├── AGENTS.md                # Ontwikkelinstructies in de checkout.
 ├── README.md                # Gebruik, architectuur en checkregister.
 └── docs/
-    ├── CODE_RULES.md          # Algemene Puppet-coderegels en reviewcriteria.
+    ├── CODE_RULES.md          # Algemene codeprincipes en aanvullende Puppet-regels.
     ├── DOCUMENTATION_RULES.md # Puppet-codecommentaar, Strings en interface-documentatie.
     └── OPERATIONAL_RULES.md   # Aanvullende operationele Puppet-regels.
 ```
@@ -1033,9 +1036,9 @@ Zie de [gezamenlijke toolinghandleiding](../README.md#junit-rapportage-instellen
 
 ## Documentatiecontract voor maintainers
 
-Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [`AGENTS.md`](../../AGENTS.md#markdown). Het onderstaande schema bepaalt welke informatie iedere Puppet-regel daarnaast moet bevatten.
+Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [`AGENTS.md`](../../AGENTS.md#markdown). Het onderstaande schema bepaalt welke informatie iedere coderegel daarnaast moet bevatten, inclusief algemene ontwerpregels zonder automatische taalcontrole.
 
-Iedere onafhankelijke Puppet-regel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Het schema bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](AGENTS.md#documentation-changes-and-verification) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
+Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Het schema bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](AGENTS.md#documentation-changes-and-verification) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
 
 ```markdown
 **Norm**

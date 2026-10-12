@@ -2,12 +2,15 @@
 
 require 'optparse'
 require_relative 'command_options'
+require_relative 'session'
 require_relative 'writer'
 require_relative 'session_review'
+require_relative 'marker_registry'
+require_relative 'output'
 
 module ProjectTools
   module Secrets
-    # Both executables use the same session API and metadata-only failure boundary.
+    # Dispatch explicit actions while parsing and metadata-only reporting stay shared.
     class SessionCommand
       include CommandOptions
 
@@ -42,6 +45,8 @@ module ProjectTools
       def parse(arguments)
         args = arguments.dup
         @operation = args.shift
+        raise Failure, 'unknown_operation' unless Secrets::ACTIONS.include?(@operation)
+
         session_parser.parse!(args)
         raise Failure, 'unexpected_arguments' unless args.empty?
       end
@@ -55,18 +60,28 @@ module ProjectTools
         store = Store.new(@options.fetch('state'))
         return prepare(store) if @operation == 'prepare'
 
-        id = @options.fetch('session')
-        if @operation == 'apply'
-          return Writer.new(store,
-                            id).apply(JSON.parse(SourceReader.local_read(@options.fetch('changes'))))
-        end
+        execute_existing(store, @options.fetch('session'))
+      end
 
-        SessionReview.new(store, id).perform(@operation, @options)
+      def execute_existing(store, id)
+        case @operation
+        when 'write'
+          Writer.new(store, id).apply(changes)
+        when 'recover' then Writer.new(store, id).recover
+        when 'clone', 'register', 'fixture' then MarkerRegistry.new(store, id).perform(@operation, @options)
+        when 'close', 'cancel' then store.close(id, @operation)
+        else SessionReview.new(store, id).perform(@operation, @options)
+        end
+      end
+
+      def changes
+        JSON.parse(SourceReader.local_read(@options.fetch('changes')))
       end
 
       def prepare(store)
-        Session.new(root: @options.fetch('root'), policy: @options.fetch('policy'),
-                    tree: @options.fetch('tree'), store: store).prepare
+        @preparation = Session.new(root: @options.fetch('root'), policy: @options.fetch('policy'),
+                                   tree: @options.fetch('tree'), store: store)
+        @preparation.prepare
       end
 
       def emit
@@ -102,10 +117,8 @@ module ProjectTools
       def withdraw_preparation
         return unless @operation == 'prepare' && @result['prepared']
 
-        store = Store.new(@options.fetch('state'))
-        data = store.load(@result.fetch('session'))
-        FileUtils.remove_entry(data['tree'])
-        store.delete(@result.delete('session'))
+        @preparation.withdraw
+        @result.delete('session')
         @result.merge!('prepared' => false, 'files' => [], 'status' => 'incomplete', 'complete' => false)
       end
     end

@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = 'project-tools-secrets'
-  spec.version = '0.3.0'
+  spec.version = '0.4.0'
   spec.summary = 'Local sensitive-data inspection, editable analysis and controlled source restoration'
   spec.authors = ['Puppet modules maintainers']
   spec.license = 'Apache-2.0'
@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = '>= 3.2'
   spec.files = Dir.chdir(__dir__) { Dir['lib/**/*.rb', 'bin/*', 'README.md', 'LICENSE'] }
   spec.bindir = 'bin'
-  spec.executables = %w[project-tools-secrets project-tools-secrets-write]
+  spec.executables = ['project-tools-secrets']
   spec.require_paths = ['lib']
 
   spec.add_dependency 'project-tools-shared', '>= 0.1.1', '< 0.2.0'

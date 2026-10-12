@@ -6,9 +6,9 @@ module ProjectTools
     module CommandOptions
       def parser
         OptionParser.new do |options|
-          options.banner = 'Usage: project-tools-secrets [--redact NEW_DIR] [--json] [--junit NEW_FILE] PATH ...'
-          options.separator 'Development: project-tools-secrets prepare --help; project-tools-secrets-write --help'
-          options.on('--redact NEW_DIR', 'Write separate sanitized copies') { |dir| @options[:redact] = dir }
+          options.banner = 'Usage: project-tools-secrets [--json] [--junit NEW_FILE] PATH ...'
+          options.separator "Actions: #{Secrets::ACTIONS.join(', ')} (ACTION --help)."
+          options.separator 'Use ./PATH or -- PATH for a source named after an action.'
           options.on('--json', 'Print metadata only as JSON') { @options[:json] = true }
           inspection_options(options)
           options.on('--junit NEW_FILE', 'Also write metadata as JUnit XML') { |path| @options[:junit] = path }
@@ -35,8 +35,7 @@ module ProjectTools
       end
 
       def session_usage(options)
-        options.banner = 'Usage: project-tools-secrets ACTION [OPTIONS]; project-tools-secrets-write [OPTIONS]'
-        options.separator 'Actions: prepare, diff, run, close, cancel, clone, register, fixture, recover.'
+        options.banner = "Usage: project-tools-secrets #{@operation} [OPTIONS]"
         options.separator 'Writer accepts --state, --session, --changes.'
         options.separator 'Prepare: --root --policy --tree --state. Other session actions: --state --session.'
         options.separator 'See README for operation-specific options.'

@@ -1,14 +1,19 @@
 # frozen_string_literal: true
 
+require_relative 'source_reader'
+
 module ProjectTools
   module Secrets
     # Selected sources and context share the same conflict boundary.
     module SourceVersions
       def self.verify(data)
-        raise Failure, 'context_conflict' unless SourceReader.local_read(data['policy_path']) == data['policy_bytes']
-
+        verify_policy(data)
         data['files'].each_value { |file| verify_file(data['root'], file) }
         verify_absent(data)
+      end
+
+      def self.verify_policy(data)
+        raise Failure, 'context_conflict' unless SourceReader.local_read(data['policy_path']) == data['policy_bytes']
       end
 
       def self.verify_absent(data)

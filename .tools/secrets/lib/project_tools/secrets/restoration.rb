@@ -35,9 +35,9 @@ module ProjectTools
       end
 
       def apply_edits(text, edits)
+        # MarkerIntegrity validated the analysis; restored literals may contain marker examples.
         restored = text.dup
         edits.sort_by(&:first).reverse_each { |first, last, raw| restored[first...last] = raw }
-        raise Failure, 'unhandled_marker' if restored.include?('[REDACTED-')
 
         restored
       end

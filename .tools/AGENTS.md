@@ -15,13 +15,14 @@ Read the [repository instructions](../AGENTS.md) and this file before maintainin
 | `shared` | Actually shared runtime behavior and repository test support | [Shared library](shared/AGENTS.md) |
 | `validate` | Native parser validation and report integration | [Validator](validate/AGENTS.md) |
 
-Read multiple local instruction files when a change crosses their responsibilities. For a shared interface, identify the actual callers and read their instructions and contracts as well as shared's. Reading Puppet norms under `lint/docs/` for a module change does not itself require linter development instructions.
+Read multiple local instruction files when a change crosses their responsibilities. For a shared interface, identify the actual callers and read their instructions and contracts as well as shared's. Apply the [general code rules](lint/docs/CODE_RULES.md#algemene-ontwerpregels) to every tooling component. Reading code norms under `lint/docs/` does not itself require linter development instructions; editing those norms does.
 
 The [tooling README](README.md) owns installation, package selection, modulepath settings, CLI and reporting contracts, CI usage, distribution, and joint test commands. This file governs maintenance of those contracts; [shared's instructions](shared/AGENTS.md) govern the shared library and test support specifically.
 
 ## Responsibility And Integration Review
 
-- Review tool changes against the [responsibility boundaries](README.md#verantwoordelijkheden-gescheiden-houden) and [CLI and reporting contract](README.md#cli-en-rapportage), including independent installation and consuming projects.
+- Apply the repository's [reuse and shared abstraction review](../AGENTS.md#reuse-and-shared-abstractions) and the [general design criteria](lint/docs/CODE_RULES.md#algemene-ontwerpregels) across affected tools and their actual consumers. Review executable entry points, command handling, tool-owned processing and shared runtime behavior against the [responsibility boundaries](README.md#verantwoordelijkheden-gescheiden-houden) and [CLI and reporting contract](README.md#cli-en-rapportage), including independent installation and consuming projects.
+- For changes to task entry points, verify that each distinct user task has a clear subcommand within the tool's single executable and delegates substantive behavior to its owning library. Apply the repository consolidation rule when replacing a workflow; consumers must migrate instead of retaining parallel routes. Update installed executables, lint coverage, relevant integrations and consumer migration together; do not introduce another implementation behind a new command.
 - Keep each independent control's CLI, runtime dependencies, configuration, corrections, reports and behavior tests with its owner. Review package boundaries against the [package contracts](README.md#pakketten-en-commandos); a shared development bundle does not justify dependencies between independent tools or a new runtime package for repository checks.
 - Keep development dependencies and orchestration in the root Gemfile and Rakefile. Use the same Bundler, Rake and native CLI routes locally and in CI; do not add a second development bundle inside a toolgem.
 - When moving responsibilities, update consumer installation, CI, reports and documentation together. Keep shared settings, tasks and report locations neutrally named and tool-specific settings with their owner.
@@ -50,7 +51,7 @@ The [tooling README](README.md) owns installation, package selection, modulepath
 
 ## Tooling Documentation
 
-- Keep public installation, usage, configuration, interfaces, exit codes, reports, examples and supported integrations in the owning README. Keep maintenance obligations in the narrowest applicable instruction file and link to the public contract instead of copying it.
+- Keep general coding principles in [CODE_RULES.md](lint/docs/CODE_RULES.md); link to them from component documentation without restating the norm. Keep public installation, usage, configuration, concrete architecture, interfaces, exit codes, reports, examples and supported integrations in the owning README. Keep maintenance obligations in the narrowest applicable instruction file and link to the public contract instead of copying it.
 - The shared tooling, shared library, metadata, Ruby-lint, repository-checks, validator and dependency-tool READMEs own their separate interfaces and usage procedures; they must not duplicate lint norms. Follow [lint documentation maintenance](lint/AGENTS.md#lint-documentation-maintenance) for the four central lint documents and their limits.
 - Keep tool-specific test instructions in the owning tooling guide. Do not create separate test READMEs.
 - Review packaged documentation links when relocating information. Normal use must remain understandable from the distributed README and rule documents; links to development instructions require the corresponding checkout. Change gem contents only when a supported distribution route requires it, preserving package boundaries and licenses.

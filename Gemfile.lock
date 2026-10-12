@@ -36,7 +36,7 @@ PATH
 PATH
   remote: .tools/secrets
   specs:
-    project-tools-secrets (0.3.0)
+    project-tools-secrets (0.4.0)
       json (>= 2.21, < 4)
       project-tools-shared (>= 0.1.1, < 0.2.0)
       psych (>= 5, < 6)
