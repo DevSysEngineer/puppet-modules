@@ -50,6 +50,15 @@ class SecretsSessionTestCase < SecretsTest
     assert_equal 'applied', @result['status'], @result.inspect
   end
 
+  def assert_source(path, expected)
+    assert File.binread(path) == expected, 'Source bytes differ from the expected local content'
+  end
+
+  def file_metadata(path)
+    stat = File.stat(path)
+    [stat.mode, stat.uid, stat.gid]
+  end
+
   def assert_reviewed
     assert_equal 'reviewed', @result['status'], @result.inspect
   end

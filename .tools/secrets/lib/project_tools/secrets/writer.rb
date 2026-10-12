@@ -81,14 +81,23 @@ module ProjectTools
       end
 
       def syntax!(path, bytes)
+        if erb_template?(path, bytes)
+          raise Failure, 'invalid_template' unless Ripper.sexp(ERB.new(bytes, trim_mode: '-').src)
+
+          return
+        end
+
         case File.extname(path)
         when '.sh' then shell_syntax!(bytes)
         when '.json' then JSON.parse(bytes)
-        when '.erb'
-          raise Failure, 'invalid_template' unless Ripper.sexp(ERB.new(bytes).src)
         end
       rescue JSON::ParserError
         raise Failure, 'invalid_json'
+      end
+
+      def erb_template?(path, bytes)
+        File.extname(path) == '.erb' ||
+          (path.split(File::SEPARATOR).include?('templates') && bytes.match?(/<%(?!%).*?%>/m))
       end
 
       def shell_syntax!(bytes)

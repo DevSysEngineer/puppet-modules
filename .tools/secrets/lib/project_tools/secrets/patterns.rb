@@ -15,6 +15,9 @@ module ProjectTools
       PEM = /-----BEGIN ([A-Z0-9 ]*(?:PRIVATE KEY|CERTIFICATE|CERTIFICATE REQUEST|PGP PRIVATE KEY BLOCK))-----/.freeze
       ENCRYPTED = /ENC\[/.freeze
       ASSIGNMENT = /["']?([\w:.-]+)["']?(?:[ \t]*\])?[ \t]*(?:=>|=(?!=|>)|(?<!:):(?!:))[ \t]*/.freeze
+      SHELL_CASE_LABEL = /\A[ \t]*\(?[ \t]*[^\s"'`$();=\\|]+(?:[ \t]*\|[ \t]*[^\s"'`$();=\\|]+)*[ \t]*\)/.freeze
+      SHELL_CASE_START = /(?:^[ \t]*case[ \t]+[^\r\n]+[ \t]+in|;;)[ \t]*(?:\#[^\r\n]*)?\r?\n
+                         (?:[ \t]*(?:\#[^\r\n]*)?\r?\n)*\z/x.freeze
       EMPTY = /\A(?:|undef|null|nil|~|\[REDACTED\])\z/i.freeze
       REFERENCE = /\A(?:\$[\w:]+|\$\{[\w:]+\}|
                     lookup\(\s*['"][\w:.-]+['"]\s*(?:,\s*Sensitive\s*\[\s*String\s*\]\s*)?\))\z/x.freeze

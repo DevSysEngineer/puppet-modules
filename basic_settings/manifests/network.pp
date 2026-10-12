@@ -606,7 +606,7 @@ class basic_settings::network (
         path          => '/etc/systemd',
         resolve       => $systemd_resolved_settings,
         daemon_reload => 'network_firewall_systemd_daemon_reload',
-        require       => Package['systemd-resolved'],
+        require       => Package['systemd-resolved.service'],
       }
 
       # Preserve the trust-anchor recovery permissions while allowing the resolver to traverse the directory.
@@ -615,7 +615,7 @@ class basic_settings::network (
         owner  => 'root',
         group  => 'root',
         mode   => '0775',
-        notify => Service['systemd-resolved'],
+        notify => Service['systemd-resolved.service'],
       }
 
       # Follow the package-owned trust anchors without managing their contents.
@@ -625,7 +625,7 @@ class basic_settings::network (
         group   => 'root',
         target  => '/usr/share/dns/root.ds',
         require => [Package['dns-root-data'], File['/etc/dnssec-trust-anchors.d']],
-        notify  => Service['systemd-resolved'],
+        notify  => Service['systemd-resolved.service'],
       }
     } else {
       # Ensure that networkd services is always running

@@ -245,15 +245,48 @@ bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
 | Puppet `.pp` | Native parser tijdens voorbereiding en herstel; veilige lookups en verwijzingen blijven zichtbaar. Letterlijke stringwaarden kunnen naar een ondersteunde literalcontext worden verplaatst. De Puppet-gate beoordeelt daarna de echte herstelde bron. |
 | YAML/Hiera/JSON | Complete scalarwaarden gebruiken de parserwaarde. Ongewijzigde context herstelt exacte bronbytes; ondersteunde wijzigingen van quotes of inspringing worden opnieuw gecodeerd. Niet-stringtypen met een gewijzigde representatie worden geweigerd. Bij schrijven van `.json` controleert ook de JSON-parser de volledige kandidaat. |
 | Letterlijke YAML-scriptblokken | Alleen wanneer gedecodeerde tekens exact naar bronposities zijn terug te voeren, blijft gewone code rondom een credential zichtbaar. Anders wordt de hele gevoelige scalar afgeschermd en meldt het rapport contextverlies. |
-| Gewone tekst, shell en ERB | Afgebakende fragmenten herstellen uitsluitend bij dezelfde extensie, quotes en omliggende regelcontext. Veranderde gevoelige expressies of onzekere interpolatie geven `unsupported_marker_context`. `.sh` wordt met `sh -n` of `bash -n` gecontroleerd; ERB wordt naar Ruby vertaald en met Ripper geparseerd, zonder de template uit te voeren. |
+| Gewone tekst, shell en ERB | Afgebakende fragmenten herstellen uitsluitend bij dezelfde extensie, quotes en omliggende regelcontext. Veranderde gevoelige expressies of onzekere interpolatie geven `unsupported_marker_context`. Gewone `.sh`-bestanden krijgen shellsyntaxcontrole; herkende ERB-templates krijgen de hieronder beschreven templatevalidatie. |
 | Eenvoudige Ruby-stringliterals | Enkele quotes en JSON-compatibele dubbele quotes kunnen als waarde herstellen, onder andere voor fixtures. Interpolatie en andere Ruby-escapes worden niet geëvalueerd; een niet-ondersteunde verplaatsing wordt geweigerd. |
 | Archieven | De scan geeft uitsluitend metadata. Laat de lokale caller de benodigde leden veilig naar een private bronmap exporteren en bereid die gewone bestanden met hun context voor. `prepare` weigert het archiefbestand zelf. |
 
 Bestaande markerachtige tekst in broncode of documentatie wordt tijdens voorbereiding eveneens beschermd met een nieuwe ID. De writer herstelt die oorspronkelijke tekst pas nadat de markers in de analyse zijn gevalideerd. Een onbekende of beschadigde marker in de analyse blijft een weigering.
 
-Een marker in een YAML-sleutel, commentaar of niet-ondersteunde expressie is geen geldige nieuwe bestemming voor een literal. Exact behoud van een geheim bewijst niet dat de gewijzigde programmatuur het correct gebruikt: omliggende code kan bijvoorbeeld logging toevoegen. Codereview en functionele validatie blijven nodig.
+De writer herkent `.erb` als ERB. Ook bestanden onder een map `templates/` met een volledige ERB-tag (`<% … %>`, inclusief expressies, commentaar en trimtags) krijgen templatevalidatie, ongeacht hun extensie. Dit omvat de `.sh`-templates en templates zonder extensie in deze repository. Alleen de tekst `<%` is onvoldoende: een gewoon shellscript dat die tekst afdrukt blijft shellcode. Een `.sh`-bestand buiten `templates/` blijft eveneens shellcode; gebruik daar `.erb` om een template aan te geven.
 
-De writer inspecteert alle herstelde kandidaten samen met de kandidaatversie van de context. Een algemene bevinding voor een behouden waarde in toegestane Hiera-data is geen schrijfweigering. Een nieuw herkenbaar geheim als gewone analysetekst geeft `unregistered_value`, ook wanneer gewijzigde `lookup_options` een voorheen onopvallende waarde gevoelig maakt. Voeg echte nieuwe waarden uitsluitend via de lokale caller toe met `register --input PRIVATE_FILE --to PATH`; geef nooit de inhoud van dat invoerbestand aan de agent. De caller ontvangt een nieuwe marker voor een ondersteunde literalcontext.
+Templatevalidatie vertaalt de herstelde inhoud met `ERB.new(bytes, trim_mode: '-')` naar Ruby-bron en parseert die met Ripper. De writer voert de Ruby-code niet uit. Geldige Puppet-trimtags zoals `<%-` en `-%>` worden ondersteund; ongeldige Ruby-expressies geven `invalid_template`. Een geslaagde controle bewijst alleen syntactische geldigheid van de gegenereerde Ruby-bron. Zij bewijst niet dat templatevariabelen beschikbaar zijn of dat de gerenderde shellcode geldig is. Render vaste synthetische varianten afzonderlijk en controleer hun uitvoer met de passende shellparser. Gewone `.sh`-bestanden worden met `sh -n` gecontroleerd, of met `bash -n` wanneer de eerste regel `bash` bevat; afkeuring geeft `invalid_shell`. Ook die syntaxcontrole voert het script niet uit en bewijst geen correct runtimegedrag.
+
+Bij fragmentherstel telt de tekst vóór en achter de marker op dezelfde regel mee, inclusief quotes, expressietekst en commentaar. Voorloopinspringing mag bij een eenregelig fragment veranderen. De volgende voorbeelden gebruiken `MARKER` als leesbaar label voor de exacte marker die `prepare` heeft gemaakt; typ dit label niet in de analysekopie en wijzig de echte marker niet. Uitgaande van `<%= render(MARKER) %>` wordt een inline voorwaarde geweigerd:
+
+```erb
+<%= render(MARKER) if enabled %>
+```
+
+Een omvattend blok behoudt de regelcontext en is voor een eenregelig fragment wel ondersteund:
+
+```erb
+<% if enabled -%>
+  <%= render(MARKER) %>
+<% end -%>
+```
+
+Ook commentaar achter het fragment op dezelfde regel verandert de herstelcontext en wordt geweigerd:
+
+```erb
+<%= render(MARKER) %> # toelichting
+```
+
+Plaats commentaar op een eigen regel om de fragmentcontext te behouden:
+
+```erb
+<%# Toelichting bij de volgende expressie. %>
+<%= render(MARKER) %>
+```
+
+Bij meerregelig afgeschermde inhoud moet bovendien de oorspronkelijke inspringing behouden blijven. Een marker kan in de analysekopie op één regel staan terwijl hij meerdere oorspronkelijke regels vervangt; `context_omitted` meldt dat contextverlies. Het omvattende blok hierboven kan dan alsnog `unsupported_marker_context` geven door de twee extra spaties vóór de markerregel. Laat in dat geval de oorspronkelijke inspringing intact.
+
+Een marker in een YAML-sleutel, commentaar of niet-ondersteunde expressie is geen geldige nieuwe bestemming voor een literal. Behoud van markercontext en van de oorspronkelijke waarde bewijst niet dat de gewijzigde programmatuur het correct gebruikt: omliggende code kan bijvoorbeeld logging toevoegen. Codereview en functionele validatie blijven nodig.
+
+De writer inspecteert alle herstelde kandidaten samen met de kandidaatversie van de context. Ook ongewijzigde geselecteerde bestanden blijven onder de marker-, syntax- en bronversiecontroles vallen; alleen het opnieuw schrijven van ongewijzigde bytes wordt overgeslagen. Een algemene bevinding voor een behouden waarde in toegestane Hiera-data is geen schrijfweigering. Een nieuw herkenbaar geheim als gewone analysetekst geeft `unregistered_value`, ook wanneer gewijzigde `lookup_options` een voorheen onopvallende waarde gevoelig maakt. Voeg echte nieuwe waarden uitsluitend via de lokale caller toe met `register --input PRIVATE_FILE --to PATH`; geef nooit de inhoud van dat invoerbestand aan de agent. De caller ontvangt een nieuwe marker voor een ondersteunde literalcontext.
 
 Voor migratie van een synthetisch hardcoded Puppet-stringgeheim bereid je het manifest en de benodigde Hiera-context voor, met het nieuwe databestand onder `destinations`. Vervang de toewijzing in de analysekopie door een gewone lookup, plaats de oorspronkelijke marker als YAML-waarde in het nieuwe bestand en benoem de verplaatsing:
 
@@ -459,6 +492,8 @@ Een naam of getal alleen bepaalt geen uitzondering. `api_key_count` met een gehe
 
 Een volledige ERB-verwijzing naar een instantievariabele, eventueel met `.unwrap`, of `ENV['NAAM']` blijft behouden. Een letterlijk fallbackargument blijft een waarde. De scanner herkent een CI-job met een naam met spaties, een `stage` en een `script` op het hoogste YAML-niveau; het joblabel maakt de gewone opdrachten niet gevoelig. Geneste geheime velden en letterlijke credentials in die opdrachten worden wel onderzocht. Rake-taaknamen na het commando `rake` worden als opdrachten behandeld. Dit maakt de overige inhoud van een script of codeblok niet automatisch veilig.
 
+In `.sh`-bestanden en bestanden met een `sh`- of `bash`-shebang herkent de scanner eenvoudige ongequote `case`-taklabels aan het begin van een regel na `case … in` of `;;`, eventueel met lege regels of commentaar ertussen. Een optionele openingshaak en alternatieven met `|` worden ondersteund. De dubbele punt na een patroonnaam zoals `caching_sha2_password` of `mysql_native_password`, gevolgd door `*)`, is daar onderdeel van het patroon, geen toewijzing. De naam kan een gevoeligheidsindicator blijven, maar levert zelf geen waardebevinding op. Dit geldt ook bij voorbereiding en schrijven: zo'n nieuw programmapatroon vereist geen geheimregistratie. Echte toewijzingen en ondersteunde geheime commandoregelopties in de tak blijven afzonderlijk gecontroleerd en afgeschermd. Een nieuw geheim als gewone analysetekst blijft `unregistered_value` geven. Dit is beperkte constructieherkenning, geen volledige shellparser; niet-herkende vormen en onzekere waardegrenzen behouden de conservatieve controle.
+
 Voor Ruby-bronnen gebruikt de scanner Ripper uitsluitend om geldige bronsyntaxis te herkennen. Dit voorkomt dat een volgende Ruby-opdracht als ingesprongen vervolgwaarde wordt behandeld. Ongeldige Ruby en onbegrensde geheime invoer in testliterals blijven onvolledig; geldige Ruby maakt de inhoud van die literals niet automatisch veilig. Bij geciteerde shellopdrachten begrenst het omringende aanhalingsteken de waarde. Niet-ondersteunde heredocs en andere onduidelijke grenzen blijven geblokkeerd. De tool voert broncode of fixtures nooit uit.
 
 In `.pp`-bestanden begrenst de algemene scan lambda-expressies met ongetypeerde variabeleparameters tussen `|` en een bijbehorend `{ ... }`-blok. Komma's en regeleinden tussen parameters beëindigen de toegewezen waarde niet; strings en geneste haakjes blijven onderdeel van de expressie. Na een variabeleverwijzing met eventuele indexen of argumentloze methoden, of na een afgesloten lambda herkent de scanner een volgende ingesprongen `if` of `unless` met een conditie en sluitend blok als afzonderlijk statement. Deze beperkte bronherkenning vereist geen OpenVox en vervangt geen Puppet-parservalidatie. Getypeerde parameters, parameterdefaults en andere niet-herkende lambdavormen blijven conservatief behandeld; onvolledige lambda's, strings en onzekere voortzettingen blokkeren analysekopieën. De algemene scan kan de volledige afgebakende expressie maskeren en exitcode 1 geven, ook wanneer de Puppet-modus geen credential vindt.
@@ -660,7 +695,7 @@ De executable schakelt Ruby-debuguitvoer uit vóór het laden en vangen laad- en
 
 `SourceReader` leest begrensde bronversies en behandelt leesfouten zonder de scanner te laden. `Scanner` gebruikt die bronlezer en de bestaande taalparsers. De writer inspecteert herstelde kandidaten eenmaal met hun kandidaatcontext; de Puppet-beleidsbeslissing gebruikt dezelfde documenten. Analyse-invoer, herstelde bytes en versies vlak vóór schrijven of review houden hun eigen controles. Er is geen blijvende inspectiecache.
 
-`MarkdownContext` levert uitsluitend bronintervallen aan `TextScan`. `ValueBounds` gebruikt de bijbehorende bovengrens bij de bestaande expressieanalyse en bepaalt de omringende quotecontext vanaf de ondergrens. `TextScan` begrenst ook whitespace en vervolgregels; `Context` beoordeelt de bestaande veilige referenties en metadatawaarden. De detectieregels, overlappende maskeringen in `Document` en markerregistratie in `Analysis` houden hun bestaande verantwoordelijkheid. Er is geen afzonderlijke Markdown-scanroute.
+`MarkdownContext` levert uitsluitend bronintervallen aan `TextScan`. `ValueBounds` gebruikt de bijbehorende bovengrens bij de bestaande expressieanalyse en bepaalt de omringende quotecontext vanaf de ondergrens. `TextScan` begrenst ook whitespace en vervolgregels; `Context` beoordeelt veilige referenties, metadatawaarden en herkenbare programmaconstructies zoals Rake-taaknamen en shelltaklabels. De detectieregels, overlappende maskeringen in `Document` en markerregistratie in `Analysis` houden hun bestaande verantwoordelijkheid. Er is geen afzonderlijke Markdown-scanroute.
 
 `Redaction` deelt afscherming tussen selectie, rapportage en diagnostiek. Padweergave maskeert bekende scanwaarden en herkenbare tokens. Diagnostiek maskeert daarnaast bekende paden en ge-escapete waarden en wordt opnieuw geïnspecteerd. Terminalpresentatie via `Shared::Console` vervangt deze afscherming niet. `Output` presenteert metadata en bouwt JUnit met `Shared::JunitReport`; `Publication` beheert uitsluitend nieuwe private analysewerkbomen. Dit exclusieve publicatiecontract blijft afzonderlijk van overschrijfbare rapporten van andere tools.
 

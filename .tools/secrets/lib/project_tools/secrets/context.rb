@@ -13,6 +13,26 @@ module ProjectTools
       ERB_REFERENCE = /\A<%=\s*(?:@[a-z_]\w*(?:\.unwrap)?|ENV\[['"][A-Z_]\w*['"]\])\s*%>\z/i.freeze
       FILE_SOURCE = %r{\Apuppet:///[^\s?#'"<>]+\z}.freeze
 
+      def self.assignment_code?(document, match)
+        rake = match[0].end_with?(':') && document.text[0...match.begin(0)].match?(/\brake[ \t]+['"]?\z/)
+        rake || shell_case_label?(document.path, document.text, match)
+      end
+
+      def self.shell_case_label?(path, text, match)
+        return false unless match[0].rstrip.end_with?(':')
+        return false unless shell_source?(path, text)
+
+        first = (text[0...match.begin(0)].rindex("\n") || -1) + 1
+        return false unless Patterns::SHELL_CASE_START.match?(text[0...first])
+
+        label = Patterns::SHELL_CASE_LABEL.match(text[first..])
+        label && match.end(0) <= first + label.end(0)
+      end
+
+      def self.shell_source?(path, text)
+        File.extname(path) == '.sh' || text.match?(/\A\#![^\r\n]*\b(?:ba)?sh\b/)
+      end
+
       def self.safe_value?(name, raw)
         return true if Patterns::EMPTY.match?(raw) || Patterns::REFERENCE.match?(raw)
 

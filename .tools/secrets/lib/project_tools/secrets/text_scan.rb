@@ -37,7 +37,7 @@ module ProjectTools
       def assignments
         Patterns.each_match(@text, Patterns::ASSIGNMENT) do |match|
           next unless Patterns::NAME.match?(match[1])
-          next if match[0].end_with?(':') && @text[0...match.begin(0)].match?(/\brake[ \t]+['"]?\z/)
+          next if Context.assignment_code?(@document, match)
           next unless within_context?(match)
 
           value(skip_space(match.end(0)), 'sensitive_assignment', name: match[1], word: match[1].start_with?('--'))
