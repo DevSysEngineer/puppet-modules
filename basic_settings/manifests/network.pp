@@ -606,7 +606,7 @@ class basic_settings::network (
         path          => '/etc/systemd',
         resolve       => $systemd_resolved_settings,
         daemon_reload => 'network_firewall_systemd_daemon_reload',
-        require       => Package['systemd-resolved.service'],
+        require       => Package['systemd-resolved'],
       }
 
       # Preserve the trust-anchor recovery permissions while allowing the resolver to traverse the directory.
