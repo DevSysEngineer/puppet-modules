@@ -34,9 +34,17 @@
 # @param package_version
 #   MySQL version used when no `basic_settings::package_mysql` class is present.
 #
+# @param root_authentication
+#   Optional explicit authentication for root@localhost on MySQL 8.0 or 8.4. `auth_socket` uses the OS root identity
+#   over the local Unix socket and ignores root_password; the plugin must already be loaded on the server.
+#   `caching_sha2_password` requires root_password and explicitly selects that password plugin.
+#   With undef, root_password retains the existing version-dependent behavior; both undef leave root unmanaged.
+#   Switching methods requires working administrative access and changes how external root clients authenticate.
+#
 # @param root_password
-#   Optional Sensitive root password managed through `mysql::user`. An effectively resolved `undef` leaves root
-#   credentials unmanaged; automatic parameter lookup can still supply a value when an explicit argument is `undef`.
+#   Optional Sensitive root password managed through `mysql::user`, ignored with root_authentication => auth_socket.
+#   Without an explicit root_authentication, undef leaves root unmanaged; automatic parameter lookup can still supply
+#   a value when an explicit argument is undef.
 #   The existing defaults file must provide working administrative access for initial setup or rotation. Desired
 #   credentials are tried first to recover interrupted rotations. No password reset or implicit bootstrap is attempted.
 #   The combined server/client configuration remains readable by mysql and OS root, with Puppet backups disabled.
@@ -46,15 +54,19 @@
 #
 # @api public
 class mysql (
-  Sensitive[String]           $automysqlbackup_password,
-  String                      $automysqlbackup_backupdir = '/var/lib/automysqlbackup',
-  Hash                        $automysqlbackup_settings  = {},
-  Integer                     $nice_level                = 12,
-  String                      $package_name              = 'mysql',
-  Float                       $package_version           = 8.0,
-  Optional[Sensitive[String]] $root_password             = undef,
-  Hash                        $settings                  = {},
+  Sensitive[String]                                      $automysqlbackup_password,
+  String                                                 $automysqlbackup_backupdir = '/var/lib/automysqlbackup',
+  Hash                                                   $automysqlbackup_settings  = {},
+  Integer                                                $nice_level                = 12,
+  String                                                 $package_name              = 'mysql',
+  Float                                                  $package_version           = 8.0,
+  Optional[Enum['auth_socket', 'caching_sha2_password']] $root_authentication       = undef,
+  Optional[Sensitive[String]]                            $root_password             = undef,
+  Hash                                                   $settings                  = {},
 ) {
+  # Both explicit socket authentication and password management own the administrative configuration.
+  $root_managed = $root_authentication != undef or $root_password != undef
+
   # Reuse the existing baseline selection for systemd settings and the monitoring template.
   $basic_settings_enable = defined(Class['basic_settings'])
   $systemd_enable = defined(Package['systemd'])
@@ -459,51 +471,64 @@ class mysql (
     content => template('mysql/mysql.cnf'),
   }
 
-  # Actual root user
-  if ($root_password != undef) {
-    # Share the option-file encoder with account credential checks without unwrapping in Puppet scope.
-    $client_username = 'root'
-    $client_password = $root_password
+  # Manage root when either explicit authentication or the existing password interface requests it.
+  if ($root_managed) {
+    # Explicit plugin selection uses the supported MySQL 8 account columns and SQL syntax.
+    if ($root_authentication == undef or $version in [8.0, 8.4]) {
+      # Socket authentication needs no password; every managed password mode requires one.
+      if ($root_authentication == 'auth_socket' or $root_password != undef) {
+        # Share the option-file encoder with account credential checks without unwrapping in Puppet scope.
+        $client_username = 'root'
+        $client_password = $root_authentication ? {
+          'auth_socket' => undef,
+          default       => $root_password,
+        }
 
-    # Create mysql user
-    mysql::user { 'root':
-      ensure   => present,
-      hostname => 'localhost',
-      password => $root_password,
-      username => 'root',
-    }
+        # Create mysql user
+        mysql::user { 'root':
+          ensure   => present,
+          hostname => 'localhost',
+          password => $client_password,
+          username => 'root',
+        }
 
-    # Create config cnf
-    file { 'mysql_debian_cnf':
-      path      => $defaults_file,
-      content   => Sensitive.new(template('mysql/debian.cnf', 'mysql/client.cnf')),
-      backup    => false,
-      show_diff => false,
-      owner     => 'mysql',
-      group     => 'mysql',
-      mode      => '0600', # Only readably for user mysql
-      require   => Mysql::User['root'],
-    }
+        # Create config cnf
+        file { 'mysql_debian_cnf':
+          path      => $defaults_file,
+          content   => Sensitive.new(template('mysql/debian.cnf', 'mysql/client.cnf')),
+          backup    => false,
+          show_diff => false,
+          owner     => 'mysql',
+          group     => 'mysql',
+          mode      => '0600', # Only readably for user mysql
+          require   => Mysql::User['root'],
+        }
 
-    # Create debian cnf
-    if ($package_name == 'mysql') {
-      file { 'mysql_debian_cnf_extra':
-        path    => '/etc/mysql/debian.cnf',
-        owner   => 'mysql',
-        group   => 'mysql',
-        mode    => '0600',
-        content => template('mysql/mysql.cnf'),
-        require => File['mysql_debian_cnf'],
+        # Create debian cnf
+        if ($package_name == 'mysql') {
+          file { 'mysql_debian_cnf_extra':
+            path    => '/etc/mysql/debian.cnf',
+            owner   => 'mysql',
+            group   => 'mysql',
+            mode    => '0600',
+            content => template('mysql/mysql.cnf'),
+            require => File['mysql_debian_cnf'],
+          }
+        }
+
+        # Set mysql grant for user root
+        mysql::grant { 'root_privileges':
+          ensure       => present,
+          hostname     => 'localhost',
+          grant_option => true,
+          username     => 'root',
+          require      => File['mysql_debian_cnf'],
+        }
+      } else {
+        fail('mysql::root_authentication caching_sha2_password requires root_password')
       }
-    }
-
-    # Set mysql grant for user root
-    mysql::grant { 'root_privileges':
-      ensure       => present,
-      hostname     => 'localhost',
-      grant_option => true,
-      username     => 'root',
-      require      => File['mysql_debian_cnf'],
+    } else {
+      fail('mysql::root_authentication requires MySQL 8.0 or 8.4')
     }
   }
 }

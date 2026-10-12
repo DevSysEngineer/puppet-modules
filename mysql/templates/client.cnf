@@ -12,17 +12,23 @@ quote_option = lambda do |value|
   raise 'MySQL credentials cannot contain NUL' if value.include?("\0")
   '"' + value.gsub(/[\\"\b\t\n\r]/, option_escapes) + '"'
 end
-password_option = quote_option.call(@client_password.unwrap)
+if @client_password
+  password_option = quote_option.call(@client_password.unwrap)
+end
 -%>
 # Managed by puppet
 [client]
 host     = localhost
 user     = <%= quote_option.call(@client_username) %>
+<% if password_option -%>
 password = <%= password_option %>
+<% end -%>
 protocol = socket
 socket   = /var/run/mysqld/mysqld.sock
 
 [mysql_upgrade]
 user     = <%= quote_option.call(@client_username) %>
+<% if password_option -%>
 password = <%= password_option %>
+<% end -%>
 socket   = /var/run/mysqld/mysqld.sock

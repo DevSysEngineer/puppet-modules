@@ -54,8 +54,14 @@ check_login() {
     fi
 }
 
-# These are password-backed plugins; auth_socket and unknown plugins cannot prove a desired password.
-password_plugin_matches() {
+# Accept socket authentication only when explicitly selected; password modes must prove a password-backed plugin.
+authentication_matches() {
+    case "$AUTHENTICATION" in
+        auth_socket|caching_sha2_password)
+            [ "${AUTH_STATE%%:*}" = "$AUTHENTICATION" ] && [ "${AUTH_STATE##*:}" = N ]
+            return $?
+            ;;
+    esac
     case "$AUTHENTICATION:$AUTH_STATE" in
         mysql_native_password:mysql_native_password:*) return 0 ;;
         default:mysql_native_password:*|default:caching_sha2_password:*|default:sha256_password:*) return 0 ;;
@@ -71,7 +77,7 @@ inspect_account() {
 
 # Only remote accounts use the confirmation record; local accounts always prove the desired login and plugin.
 account_matches() {
-    [ -n "$AUTH_STATE" ] && password_plugin_matches || return 1
+    [ -n "$AUTH_STATE" ] && authentication_matches || return 1
     if [ "$ACCOUNT_HOST" = 'localhost' ]; then
         [ "$DESIRED_WORKS" = true ]
     elif [ -f "$INPUT_BASE.applied" ]; then
@@ -144,7 +150,7 @@ case "$ACTION" in
         else
             SQL_INPUT="$INPUT_BASE.create.sql"
         fi
-        run_mysql "$ADMIN_DEFAULTS" < "$SQL_INPUT" >/dev/null 2>&1 || die 'account password change failed'
+        run_mysql "$ADMIN_DEFAULTS" < "$SQL_INPUT" >/dev/null 2>&1 || die 'account authentication change failed'
         if [ "$ACCOUNT_HOST" = 'localhost' ]; then
             check_login || die 'new account credentials could not be confirmed'
             if [ "$ROOT_ACCOUNT" = true ]; then
@@ -152,7 +158,7 @@ case "$ACTION" in
             fi
         fi
         inspect_account
-        [ -n "$AUTH_STATE" ] && password_plugin_matches || die 'new password authentication state could not be confirmed'
+        [ -n "$AUTH_STATE" ] && authentication_matches || die 'new account authentication state could not be confirmed'
         if [ "$ACCOUNT_HOST" != 'localhost' ]; then
             save_confirmation
         fi

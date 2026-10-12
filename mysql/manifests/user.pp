@@ -5,7 +5,8 @@
 # backups or diffs. Removing an account deletes its secret inputs and confirmation record, but keeps the shared helper.
 # Root rotation selects working desired credentials before inspecting accounts, then falls back to existing management
 # credentials. Other accounts wait for the managed root configuration. Missing management access stops all mutations.
-# Local password checks exclude login-path overrides and require a password authentication plugin. Remote accounts
+# Local checks exclude login-path overrides and verify the selected authentication plugin. Socket authentication is
+# supported for the class-managed root account only and does not require a password. Remote accounts
 # cannot be authenticated from the local socket: their first application sets the password and records the input digest
 # and server authentication state. Subsequent runs compare both; an external password change invalidates that record.
 #
@@ -19,16 +20,18 @@
 # @param ensure
 #   Creates or updates the user when `present`; drops it and removes private credential inputs when `absent`.
 #
-# @param password
-#   Required Sensitive string, including when ensure is absent. Empty passwords retain their existing meaning.
-#   NUL is rejected before applying a catalog because the MySQL client cannot pass it intact. Other characters are
-#   encoded separately for SQL and MySQL option files. Plain strings are rejected; convert Hiera lookups at their keys.
-#
 # @param username
 #   MySQL username to manage. The username and hostname together identify the account and its private input files.
 #
 # @param hostname
 #   MySQL host part for the account. The default is `localhost`; this is an account selector, not a connection endpoint.
+#
+# @param password
+#   Sensitive string required for a present account using password authentication; omit for class-managed socket root
+#   or absent accounts.
+#   Empty passwords retain their existing meaning.
+#   NUL is rejected before applying a catalog because the MySQL client cannot pass it intact. Other characters are
+#   encoded separately for SQL and MySQL option files. Plain strings are rejected; convert Hiera lookups at their keys.
 #
 # @param password_latency
 #   Selects the MySQL 8 password storage path. Use `authentication_string` for legacy `mysql_native_password`; the
@@ -37,11 +40,11 @@
 #
 # @api public
 define mysql::user (
-  Enum['present', 'absent'] $ensure,
-  Sensitive[String]         $password,
-  String                    $username,
-  String                    $hostname         = 'localhost',
-  String                    $password_latency = 'password',
+  Enum['present', 'absent']   $ensure,
+  String                      $username,
+  String                      $hostname         = 'localhost',
+  Optional[Sensitive[String]] $password         = undef,
+  String                      $password_latency = 'password',
 ) {
   # The parent supplies the service, client packages and shared helper before account management.
   if (defined(Class['mysql'])) {
@@ -51,8 +54,8 @@ define mysql::user (
     $input_files = ["${input_base}.cnf", "${input_base}.create.sql", "${input_base}.alter.sql"]
 
     # The class-owned root account must run before the new management configuration is published.
-    $root_account = $username == 'root' and $hostname == 'localhost' and $mysql::root_password != undef
-    if ($mysql::root_password != undef and !$root_account) {
+    $root_account = $username == 'root' and $hostname == 'localhost' and $mysql::root_managed
+    if ($mysql::root_managed and !$root_account) {
       # Ordinary accounts use the completed root rotation, including recovery from an interrupted run.
       $config_require = [File['mysql_debian_cnf']]
     } else {
@@ -60,23 +63,29 @@ define mysql::user (
       $config_require = []
     }
 
-    # Select SQL syntax and plugin requirements once for the helper and SQL rendering.
-    case $mysql::version {
-      5.7: {
-        # MySQL 5.7 retains native authentication while using log-redactable account statements.
-        $authentication = 'mysql_native_password'
-      }
-      8.0, 8.4: {
-        # Only the explicit compatibility selection requests the native authentication plugin.
-        $authentication = $password_latency ? {
-          'authentication_string' => 'mysql_native_password',
-          default                 => 'default',
+    # The class owns root authentication; ordinary users retain their version and password_latency selection.
+    if (!$root_account or $mysql::root_authentication == undef) {
+      # Select SQL syntax and plugin requirements once for the helper and SQL rendering.
+      case $mysql::version {
+        5.7: {
+          # MySQL 5.7 retains native authentication while using log-redactable account statements.
+          $authentication = 'mysql_native_password'
+        }
+        8.0, 8.4: {
+          # Only the explicit compatibility selection requests the native authentication plugin.
+          $authentication = $password_latency ? {
+            'authentication_string' => 'mysql_native_password',
+            default                 => 'default',
+          }
+        }
+        default: {
+          # Preserve the password column and SET PASSWORD statement for older servers.
+          $authentication = 'legacy'
         }
       }
-      default: {
-        # Preserve the password column and SET PASSWORD statement for older servers.
-        $authentication = 'legacy'
-      }
+    } else {
+      # Apply the explicit policy only to the root account owned by the parent class.
+      $authentication = $mysql::root_authentication
     }
 
     # Encode all non-secret helper arguments at the shell boundary.
@@ -107,8 +116,12 @@ define mysql::user (
     if ($ensure == 'present') {
       # Share the client option-file encoder with the class-owned management configuration.
       $client_username = $username
-      $client_password = $password
+      $client_password = $authentication ? {
+        'auth_socket' => undef,
+        default       => assert_type(Sensitive[String], $password),
+      }
 
+      # Publish only the connection options required by the selected authentication method.
       file { "${input_base}.cnf":
         ensure    => file,
         content   => Sensitive.new(template('mysql/client.cnf')),

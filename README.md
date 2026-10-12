@@ -606,7 +606,13 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 
 `automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Voeg bij een overstap vanaf versie 2.0.0 deze parameter toe aan bestaande `mysql`-declaraties en lever het back-upwachtwoord als `Sensitive(...)` uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder die aanpassing kan Puppet de catalogus niet compileren.
 
-`root_password` accepteert `Optional[Sensitive[String]]`; de parameter `password` van `mysql::user` vereist `Sensitive[String]`. Lever deze waarden vanuit afgeschermde Hiera-data met de juiste typeconversie en geef ze zonder `.unwrap` door. `Sensitive` schermt waarden af in Puppet-uitvoer, maar versleutelt de Hiera-data niet.
+`root_password` accepteert `Optional[Sensitive[String]]`; de parameter `password` van `mysql::user` gebruikt `Sensitive[String]` voor wachtwoordauthenticatie. Lever deze waarden vanuit afgeschermde Hiera-data met de juiste typeconversie en geef ze zonder `.unwrap` door. `Sensitive` schermt waarden af in Puppet-uitvoer, maar versleutelt de Hiera-data niet.
+
+Met `root_authentication => 'auth_socket'` beheer je `root@localhost` via de lokale Unix-socket als OS-gebruiker root. De plugin moet al geladen zijn. `root_password` wordt dan genegeerd en de beheerde clientconfiguraties en account-SQL bevatten geen rootwachtwoord. De `.cnf`-bestanden blijven nodig voor de gebruikersnaam, socket en serverinstellingen.
+
+Voor expliciete wachtwoordauthenticatie kies je `root_authentication => 'caching_sha2_password'` en lever je `root_password` als `Sensitive[String]`. Beide expliciete keuzes ondersteunen MySQL 8.0 en 8.4. Zonder de nieuwe optie blijft de bestaande versieafhankelijke wachtwoordkeuze gelden; zonder beide rootparameters blijft root onbeheerd.
+
+Een overstap vereist werkende bestaande beheertoegang of een al werkende login met de gewenste methode. Puppet controleert de accountidentiteit en plugin, past de authenticatie aan en publiceert daarna de beheerconfiguratie. Pas externe rootclients aan bij een overstap; `auth_socket` biedt geen rootlogin via TCP of als een andere OS-gebruiker. De lokale back-upservice draait als root en gebruikt dezelfde beheerconfiguratie.
 
 Gebruik je MySQL zonder `basic_settings::package_mysql`, stem dan `package_version` af op de geïnstalleerde versie. Met die pakketbron neemt de module de versie daarvan over; zie de [Puppet Strings bij `mysql`](mysql/manifests/init.pp).
 
@@ -625,6 +631,7 @@ class { 'basic_settings':
 # Configure database administration and backup credentials after preparing packages.
 class { 'mysql':
   automysqlbackup_password => Sensitive('replace-with-backup-password'),
+  root_authentication      => 'caching_sha2_password',
   root_password            => lookup('mysql::root_password'),
   require                  => Class['basic_settings'],
 }

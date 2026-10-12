@@ -18,8 +18,10 @@ SELECT CONCAT(plugin, ':', HEX(authentication_string), ':', password_expired) FR
 <% end -%>
 <% elsif statement == 'drop' -%>
 DROP USER <%= account %>;
+<% elsif @authentication == 'auth_socket' -%>
+<%= statement.upcase %> USER <%= account %> IDENTIFIED WITH auth_socket;
 <% elsif @authentication == 'legacy' && statement == 'alter' -%>
 SET PASSWORD FOR <%= account %> = PASSWORD(<%= quote_sql.call(@password.unwrap) %>);
 <% else -%>
-<%= statement.upcase %> USER <%= account %> IDENTIFIED<% if @authentication == 'mysql_native_password' %> WITH mysql_native_password<% end %> BY <%= quote_sql.call(@password.unwrap) %>;
+<%= statement.upcase %> USER <%= account %> IDENTIFIED<% if ['mysql_native_password', 'caching_sha2_password'].include?(@authentication) %> WITH <%= @authentication %><% end %> BY <%= quote_sql.call(@password.unwrap) %>;
 <% end -%>
