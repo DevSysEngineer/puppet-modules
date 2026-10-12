@@ -124,7 +124,6 @@ class mysql (
   # Basic variable
   $script_path = '/usr/local/lib/puppet/mysql-grant.sh'
   $user_script_path = '/usr/local/lib/puppet/mysql-user.sh'
-  $user_input_dir = '/usr/local/lib/puppet/mysql-users'
 
   # Get version
   if (defined(Class['basic_settings::package_mysql'])) {
@@ -353,13 +352,12 @@ class mysql (
     require => [File['/usr/local/lib/puppet'], Package[$management_packages]],
   }
 
-  # Keep account inputs private without restricting the shared helper directory.
-  file { $user_input_dir:
-    ensure  => directory,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0700',
-    require => File['/usr/local/lib/puppet'],
+  # Retire the helper's old private inputs and confirmation records without making backups.
+  file { '/usr/local/lib/puppet/mysql-users':
+    ensure    => absent,
+    force     => true,
+    backup    => false,
+    show_diff => false,
   }
 
   # The helper reads native MySQL files; its arguments never contain credentials.
@@ -369,7 +367,7 @@ class mysql (
     owner   => 'root',
     group   => 'root',
     mode    => '0700',
-    require => [File[$user_input_dir], Package[$management_packages]],
+    require => [File['/usr/local/lib/puppet'], Package[$management_packages]],
   }
 
   # Set config file

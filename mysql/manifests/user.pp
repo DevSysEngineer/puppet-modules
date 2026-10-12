@@ -1,14 +1,16 @@
 # @summary Creates, updates, or removes a MySQL user account using private credential input.
 #
 # Declare mysql before this defined type. The helper uses the parent's administrative defaults file and service.
-# Desired credentials and SQL stay in root-only files under /usr/local/lib/puppet/mysql-users, without Puppet file
-# backups or diffs. Removing an account deletes its secret inputs and confirmation record, but keeps the shared helper.
+# Desired credentials and SQL exist only during each shell invocation in a private mktemp directory under /root.
+# Both the guard and mutation install an EXIT trap before writing inputs; neither leaves managed secret files.
+# No account confirmation files persist between runs. SIGKILL cannot run cleanup traps.
+# Sensitive hides command text in Puppet reports; the root shell command still contains the rendered credentials.
 # Root rotation selects working desired credentials before inspecting accounts, then falls back to existing management
 # credentials. Other accounts wait for the managed root configuration. Missing management access stops all mutations.
 # Local checks exclude login-path overrides and verify the selected authentication plugin. Socket authentication is
-# supported for the class-managed root account only and does not require a password. Remote accounts
-# cannot be authenticated from the local socket: their first application sets the password and records the input digest
-# and server authentication state. Subsequent runs compare both; an external password change invalidates that record.
+# supported for the class-managed root account only and does not require a password. Every present account must
+# authenticate over the local socket and return the managed User@Host identity. Accounts restricted to an external
+# client cannot pass this local verification; a different account or failed post-change login stops the operation.
 #
 # @example Create a MySQL application user after declaring mysql
 #   mysql::user { 'app':
@@ -18,10 +20,10 @@
 #   }
 #
 # @param ensure
-#   Creates or updates the user when `present`; drops it and removes private credential inputs when `absent`.
+#   Creates or updates the user when `present`; drops it when `absent`.
 #
 # @param username
-#   MySQL username to manage. The username and hostname together identify the account and its private input files.
+#   MySQL username to manage. The username and hostname together identify the account.
 #
 # @param hostname
 #   MySQL host part for the account. The default is `localhost`; this is an account selector, not a connection endpoint.
@@ -48,11 +50,6 @@ define mysql::user (
 ) {
   # The parent supplies the service, client packages and shared helper before account management.
   if (defined(Class['mysql'])) {
-    # Hash the serialized identity so neither path separators nor ambiguous account joins can alias input files.
-    $account_id = sha256(to_json([$username, $hostname]))
-    $input_base = "${mysql::user_input_dir}/${account_id}"
-    $input_files = ["${input_base}.cnf", "${input_base}.create.sql", "${input_base}.alter.sql"]
-
     # The class-owned root account must run before the new management configuration is published.
     $root_account = $username == 'root' and $hostname == 'localhost' and $mysql::root_managed
     if ($mysql::root_managed and !$root_account) {
@@ -88,83 +85,60 @@ define mysql::user (
       $authentication = $mysql::root_authentication
     }
 
-    # Encode all non-secret helper arguments at the shell boundary.
-    $script_shell = stdlib::shell_escape($mysql::user_script_path)
-    $defaults_shell = stdlib::shell_escape($mysql::defaults_file)
-    $input_shell = stdlib::shell_escape($input_base)
-    $authentication_shell = stdlib::shell_escape($authentication)
-    $root_shell = stdlib::shell_escape(String($root_account))
-    $hostname_shell = stdlib::shell_escape($hostname)
-    $account_shell = stdlib::shell_escape("${username}@${hostname}")
-    $helper_arguments = "${defaults_shell} ${input_shell} ${authentication_shell} ${root_shell} ${hostname_shell} ${account_shell}" # lint:ignore:140chars
-
-    # Inspections and removal statements contain account identifiers only, including during retirement.
-    ['inspect', 'drop'].each |$statement| {
-      file { "${input_base}.${statement}.sql":
-        ensure    => file,
-        content   => Sensitive.new(template('mysql/user.sql')),
-        backup    => false,
-        show_diff => false,
-        owner     => 'root',
-        group     => 'root',
-        mode      => '0600',
-        require   => File[$mysql::user_input_dir],
-      }
-    }
-
-    # Secret input is only rendered for present accounts; Puppet owns its persistent lifecycle.
+    # Render native client input only when the desired account uses it.
     if ($ensure == 'present') {
-      # Share the client option-file encoder with the class-owned management configuration.
+      # Reuse the option-file encoder used by the administrative configuration.
       $client_username = $username
       $client_password = $authentication ? {
         'auth_socket' => undef,
         default       => assert_type(Sensitive[String], $password),
       }
-
-      # Publish only the connection options required by the selected authentication method.
-      file { "${input_base}.cnf":
-        ensure    => file,
-        content   => Sensitive.new(template('mysql/client.cnf')),
-        backup    => false,
-        show_diff => false,
-        owner     => 'root',
-        group     => 'root',
-        mode      => '0600',
-        require   => File[$mysql::user_input_dir],
-      }
-
-      # Separate create and alter statements prevent passwordless intermediate accounts.
-      ['create', 'alter'].each |$statement| {
-        file { "${input_base}.${statement}.sql":
-          ensure    => file,
-          content   => Sensitive.new(template('mysql/user.sql')),
-          backup    => false,
-          show_diff => false,
-          owner     => 'root',
-          group     => 'root',
-          mode      => '0600',
-          require   => File[$mysql::user_input_dir],
-        }
-      }
+      $client_input = { 'cnf' => template('mysql/client.cnf') }
+      $statements = ['inspect', 'drop', 'create', 'alter']
     } else {
-      # Remove only this account's secret inputs and helper-owned confirmation record.
-      $retired_files = concat($input_files, ["${input_base}.applied"])
-      file { $retired_files:
-        ensure    => absent,
-        backup    => false,
-        show_diff => false,
-      }
+      # Retirement needs account selectors only, without rendering a password.
+      $client_input = {}
+      $statements = ['inspect', 'drop']
     }
 
-    # Repeat preflight in the mutation path because Puppet treats any failed unless as permission to run command.
-    $required_files = concat($input_files, ["${input_base}.inspect.sql", "${input_base}.drop.sql", $mysql::user_script_path])
+    # Keep the existing SQL encoder for both the credential check and mutation.
+    $account_input = $statements.reduce($client_input) |$input, $statement| {
+      $input + { "${statement}.sql" => template('mysql/user.sql') }
+    }
+    $temporary_files = $account_input.map |$extension, $content| {
+      # Quote rendered input before embedding it in the shell command.
+      $content_shell = stdlib::shell_escape($content)
+      $filename_shell = stdlib::shell_escape("account.${extension}")
+      "printf '%s' ${content_shell} > \"\${tmpdir}\"/${filename_shell} || exit 2"
+    }
+    $setup_script = join(concat([
+      'umask 077',
+      'tmpdir=$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 2',
+      'trap \'rm -rf -- "$tmpdir"\' EXIT',
+      'trap \'exit 129\' HUP',
+      'trap \'exit 130\' INT',
+      'trap \'exit 143\' TERM',
+    ], $temporary_files), "\n")
+
+    # Quote helper arguments independently; the temporary input prefix is resolved by the shell.
+    $script_shell = stdlib::shell_escape($mysql::user_script_path)
+    $defaults_shell = stdlib::shell_escape($mysql::defaults_file)
+    $authentication_shell = stdlib::shell_escape($authentication)
+    $root_shell = stdlib::shell_escape(String($root_account))
+    $account_shell = stdlib::shell_escape("${username}@${hostname}")
     $ensure_shell = stdlib::shell_escape($ensure)
+    $helper_arguments = join([
+      $defaults_shell, '"$tmpdir/account"', $authentication_shell, $root_shell,
+      $account_shell,
+    ], ' ')
+
+    # Each check and mutation owns its temporary files, even when no change is necessary.
     exec { "mysql_user_${username}@${hostname}":
       provider  => shell,
-      unless    => Sensitive.new("${script_shell} check-${ensure_shell} ${helper_arguments}"),
-      command   => Sensitive.new("${script_shell} ${ensure_shell} ${helper_arguments}"),
+      unless    => Sensitive.new("${setup_script}\n${script_shell} check-${ensure_shell} ${helper_arguments}"),
+      command   => Sensitive.new("${setup_script}\n${script_shell} ${ensure_shell} ${helper_arguments}"),
       logoutput => false,
-      require   => concat([Service[$mysql::package_name], File[$required_files]], $config_require),
+      require   => concat([Service[$mysql::package_name], File[$mysql::user_script_path]], $config_require),
     }
   } else {
     fail('Class mysql is not defined, but is required for mysql::user')

@@ -1,11 +1,11 @@
 #!/bin/sh
 # Managed by puppet
-# Manage one account using Puppet-owned MySQL option and SQL files; never accept a password argument.
-# Usage: mysql-user.sh ACTION DEFAULTS INPUT_BASE AUTHENTICATION ROOT_ACCOUNT HOST ACCOUNT
+# Manage one account using private temporary MySQL inputs; never accept a password argument.
+# Usage: mysql-user.sh ACTION DEFAULTS INPUT_BASE AUTHENTICATION ROOT_ACCOUNT ACCOUNT
 # ACTION: check-present, present, check-absent, absent. Checks return 0 for convergence, 1 for drift, 2 for failure.
 # Mutations repeat all preconditions and return 2 on failure. No raw client diagnostics are printed.
-# Only remote accounts need an applied record: input digest plus the observed server authentication state.
-# Puppet removes that record and secret inputs on retirement; the helper never deletes managed inputs.
+# Every present account must prove its desired login and account identity on each invocation.
+# The calling shell owns temporary input creation and cleanup.
 
 # Client errors can contain SQL and must never be included in the error category.
 die() {
@@ -14,7 +14,6 @@ die() {
 }
 
 MYSQL=$(command -v mysql 2>/dev/null) || die 'mysql client is unavailable'
-SHA256SUM=$(command -v sha256sum 2>/dev/null) || die 'sha256sum is unavailable'
 
 # Isolate client authentication without changing or deleting the operator's login-path file.
 unset MYSQL_PWD MYSQL_HOST MYSQL_TCP_PORT MYSQL_UNIX_PORT MYSQL_GROUP_SUFFIX
@@ -28,8 +27,7 @@ DEFAULTS="$2"
 INPUT_BASE="$3"
 AUTHENTICATION="$4"
 ROOT_ACCOUNT="$5"
-ACCOUNT_HOST="$6"
-ACCOUNT="$7"
+ACCOUNT="$6"
 ADMIN_DEFAULTS="$DEFAULTS"
 DESIRED_WORKS=false
 
@@ -40,12 +38,12 @@ run_mysql() {
 }
 
 # Desired credentials are not proven by a successful socket-authenticated connection alone.
-# Return 1 only for authentication denial or a different account; transport and input errors abort before mutation.
+# Return 1 only for authentication denial; a different account or technical error aborts before mutation.
 check_login() {
     login_result=$(printf '%s\n' 'SELECT CURRENT_USER();' | run_mysql "$INPUT_BASE.cnf" 2>&1)
     login_status=$?
     if [ "$login_status" -eq 0 ]; then
-        [ "$login_result" = "$ACCOUNT" ]
+        [ "$login_result" = "$ACCOUNT" ] || die 'desired-credential login selected a different account'
     else
         case "$login_result" in
             'ERROR 1045 '*|'ERROR 1698 '*|'ERROR 1820 '*) return 1 ;;
@@ -75,30 +73,13 @@ inspect_account() {
     AUTH_STATE=$(run_mysql "$ADMIN_DEFAULTS" < "$INPUT_BASE.inspect.sql" 2>/dev/null) || die 'account inspection failed'
 }
 
-# Only remote accounts use the confirmation record; local accounts always prove the desired login and plugin.
+# A successful login must belong to this account and use the requested authentication plugin.
 account_matches() {
-    [ -n "$AUTH_STATE" ] && authentication_matches || return 1
-    if [ "$ACCOUNT_HOST" = 'localhost' ]; then
-        [ "$DESIRED_WORKS" = true ]
-    elif [ -f "$INPUT_BASE.applied" ]; then
-        [ -r "$INPUT_BASE.applied" ] || die 'account confirmation record is unreadable'
-        {
-            IFS= read -r applied_input && IFS= read -r applied_auth
-        } < "$INPUT_BASE.applied" || return 1
-        [ "$applied_input" = "$INPUT_DIGEST" ] && [ "$applied_auth" = "$AUTH_STATE" ]
-    else
-        return 1
-    fi
-}
-
-# A partial record after interruption fails comparison and is rebuilt on the next application.
-# This persistent private file avoids temporary remnants and is removed by Puppet when the account retires.
-save_confirmation() {
-    printf '%s\n%s\n' "$INPUT_DIGEST" "$AUTH_STATE" > "$INPUT_BASE.applied" || die 'cannot write account confirmation record'
+    [ "$DESIRED_WORKS" = true ] && [ -n "$AUTH_STATE" ] && authentication_matches
 }
 
 # Reject incomplete input before establishing connections or changing an account.
-[ "$#" -eq 7 ] || die 'invalid helper arguments'
+[ "$#" -eq 6 ] || die 'invalid helper arguments'
 case "$ACTION" in
     present|check-present|absent|check-absent) ;;
     *) die 'invalid action' ;;
@@ -111,8 +92,7 @@ case "$ACTION" in
         for INPUT_FILE in "$INPUT_BASE.cnf" "$INPUT_BASE.create.sql" "$INPUT_BASE.alter.sql"; do
             [ -f "$INPUT_FILE" ] && [ -r "$INPUT_FILE" ] || die 'credential input is missing or unreadable'
         done
-        INPUT_DIGEST=$($SHA256SUM < "$INPUT_BASE.alter.sql") || die 'cannot read credential input'
-        if [ "$ACCOUNT_HOST" = 'localhost' ] && check_login; then
+        if check_login; then
             DESIRED_WORKS=true
         fi
         # Recover interrupted root rotation before the first query against mysql.user.
@@ -126,7 +106,7 @@ ADMIN_RESULT=$(printf '%s\n' 'SELECT 1;' | run_mysql "$ADMIN_DEFAULTS" 2>/dev/nu
 [ "$ADMIN_RESULT" = 1 ] || die 'administrative connection returned an unexpected result'
 inspect_account
 
-# Checks never change SQL, files, or server state.
+# Checks never change accounts.
 case "$ACTION" in
     check-present)
         account_matches
@@ -151,16 +131,11 @@ case "$ACTION" in
             SQL_INPUT="$INPUT_BASE.create.sql"
         fi
         run_mysql "$ADMIN_DEFAULTS" < "$SQL_INPUT" >/dev/null 2>&1 || die 'account authentication change failed'
-        if [ "$ACCOUNT_HOST" = 'localhost' ]; then
-            check_login || die 'new account credentials could not be confirmed'
-            if [ "$ROOT_ACCOUNT" = true ]; then
-                ADMIN_DEFAULTS="$INPUT_BASE.cnf"
-            fi
+        check_login || die 'new account credentials could not be confirmed'
+        if [ "$ROOT_ACCOUNT" = true ]; then
+            ADMIN_DEFAULTS="$INPUT_BASE.cnf"
         fi
         inspect_account
         [ -n "$AUTH_STATE" ] && authentication_matches || die 'new account authentication state could not be confirmed'
-        if [ "$ACCOUNT_HOST" != 'localhost' ]; then
-            save_confirmation
-        fi
         ;;
 esac
