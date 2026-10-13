@@ -52,20 +52,6 @@ module ProjectTools
         end
       end
 
-      def console_details
-        records.flat_map { |record| record_details(record) }
-      end
-
-      def record_details(record)
-        label = "#{record[:file]} | complete=#{record[:complete]} | coverage=#{record[:coverage]}"
-        items = record[:findings].map do |item|
-          "#{label} | line=#{item[:line]} | #{item[:kind]} | #{item[:rule]}"
-        end
-        items += record[:errors].map { |code| "#{label} | #{code}" }
-        items << "#{label} | no_findings" if items.empty?
-        items
-      end
-
       def junit
         output = StringIO.new
         Shared::JunitReport.write(output, name: 'secrets', **counts) do |xml|

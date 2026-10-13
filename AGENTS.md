@@ -329,6 +329,16 @@ These obligations apply to all first-party code, including modules, scripts, lib
 - Perform required functional validation with existing validators and isolated temporary checks outside the repository.
 - Never create first-party test directories or test files outside the [documented tool locations](.tools/README.md#gezamenlijke-tooltests). This includes root-level `test/`, `tests/`, and `spec/` directories, standalone root-level test files, and module-specific test suites. Follow the [tooling test maintenance instructions](.tools/AGENTS.md#tool-test-structure) when adding or moving tool tests.
 
+### Test Scenario Review
+
+- When adding or changing tests, including isolated functional validation, derive scenarios and expected outcomes from the supported contract, actual consumers, and plausible failure modes. Cover normal use and challenge assumptions about inputs, state, dependencies, and execution; the reported example or current implementation branches alone do not define sufficient coverage.
+- Cover relevant boundary and failure cases: missing, empty, malformed, and out-of-range input; zero, one, and multiple items; unavailable dependencies or denied access; interrupted or partially completed operations; and repeated execution or different ordering when these affect the contract. Select cases according to the changed behavior and the consequences of failure.
+- Test combinations where outcomes interact, including multiple independent failures and mixed successful and failing inputs. Include failures after earlier work has succeeded. Verify that each relevant result remains correct and that a later failure does not hide earlier findings or incorrectly imply complete success.
+- Assert observable behavior and required invariants, including results, diagnostics, status or exit codes, state changes, and cleanup where applicable. Check required absence of side effects as well as expected effects. Derive assertions independently of the implementation; a test that repeats the same calculation or only checks that execution completes is insufficient evidence for the behavior it claims to cover.
+- When testing a bug fix, include a regression test that rejects the defective behavior and accepts the correction. Review adjacent inputs and combinations that could fail for the same reason; reproducing one reported example does not complete that review.
+- Before completion, compare the tests with the selected scenarios and record coverage, deliberate omissions, and unverified cases in the change review under [isolation and evidence](#isolation-and-evidence). A passing suite or a high test count does not establish coverage of cases that were not exercised.
+- Preserve the [test scope](#test-scope) and [implementation scope](#implementation-scope). Exploring failure cases does not authorize new supported inputs, fallbacks, or other product behavior merely to satisfy a newly written test.
+
 ### Development Environment
 
 - Set up development and CI through the [documented bundle setup](.tools/README.md#installatie).

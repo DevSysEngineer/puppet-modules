@@ -31,6 +31,7 @@ The [tooling README](README.md) owns installation, package selection, modulepath
 ## Tool Test Structure
 
 - Apply the tooling guide's [test location and task contracts](README.md#gezamenlijke-tooltests) when adding or moving repository tool tests. The repository-wide [test restrictions](../AGENTS.md#test-scope) remain applicable.
+- Apply the repository-wide [test scenario review](../AGENTS.md#test-scenario-review) when adding or changing tool tests.
 - Correct misplaced tests by moving them to the owning tool. Do not broaden test discovery or document an exception merely to accommodate their existing placement.
 - Use fixtures and supporting functionality in tool tests only when they help verify a tool contract.
 - Keep tool-specific helpers and fixtures with that tool's tests.
@@ -47,7 +48,7 @@ The [tooling README](README.md) owns installation, package selection, modulepath
 ## CI Jobs And Reports
 
 - Apply and verify the [CI and reporting procedures](README.md#ci-van-deze-repository) when changing tooling or pipelines. Preserve the documented secrets gate before independent diagnostic jobs, and preserve selections, thresholds, exit codes and report publication contracts.
-- Review changed CI calls against the [job log contract](README.md#joblogs). Keep execution and presentation responsibilities separate and validate the affected tool and repository integration tests.
+- Review changed reporters and CI calls against the [job log contract](README.md#joblogs). Inspect representative console output for a clean run, one finding among many clean inputs, multiple findings within and across inputs, and incomplete execution combining findings with multiple execution errors. Keep these cases in the owning tool's behavior tests and record the manual readability review; use of the shared console alone does not establish compliance. Keep execution and presentation responsibilities separate and validate the affected tool and repository integration tests.
 
 ## Tooling Documentation
 

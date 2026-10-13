@@ -4,6 +4,7 @@ require 'optparse'
 require 'project_tools/shared/console'
 require_relative 'secrets/scanner'
 require_relative 'secrets/output'
+require_relative 'secrets/console_report'
 require_relative 'secrets/publication'
 require_relative 'secrets/command_options'
 
@@ -107,11 +108,11 @@ module ProjectTools
 
       def console_result(data)
         console = @console || Shared::Console.new('Sensitive data scan', output: @output)
-        details = @writer ? @writer.console_details : []
+        presentation = ConsoleReport.new(data)
+        facts = presentation.facts + ['No findings means no matches in these checks, not a safety guarantee.']
         console.finish(status: STATES.fetch(data[:status]), execution: data[:complete] ? 'complete' : 'incomplete',
-                       facts: ["Result: #{data[:status]}", "Files: #{data[:files].length}",
-                               'No findings means no matches in these checks, not a safety guarantee.'],
-                       details: details + data[:errors], report: @report_written ? '[requested report]' : nil)
+                       facts: facts, details: presentation.details,
+                       report: @report_written ? '[requested report]' : nil)
       end
     end
   end
