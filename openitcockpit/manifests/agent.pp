@@ -54,6 +54,9 @@
 # @param push_enable
 #   Enables push mode when `true` and the required URL/API key are present.
 #
+# @param push_timeout
+#   Timeout in seconds for the HTTP push client. The default is `30`.
+#
 # @param push_url
 #   OpenITCOCKPIT server URL used for push mode.
 #
@@ -89,6 +92,7 @@ class openitcockpit::agent (
   Optional[String]            $proxy                     = undef,
   Optional[Sensitive[String]] $push_apikey               = undef,
   Boolean                     $push_enable               = false,
+  Integer                     $push_timeout              = 30,
   Optional[String]            $push_url                  = undef,
   Optional[Boolean]           $sensorstats_enable        = undef,
   Boolean                     $services_enable           = true,

@@ -2,8 +2,8 @@
 #
 # This defined type writes or removes a root-owned plugin script and registers it in OpenITCOCKPIT `customchecks.ini`
 # when that backend is active. It centralizes plugin file permissions, scheduling metadata, and optional sudoers support
-# for checks that need elevated privileges. Optional private state is managed before registration and passed as
-# STATE_DIR at runtime. ERB templates are rendered here so they can use the same derived state_dir.
+# for checks that need elevated privileges. Optional private state is managed before registration. ERB templates use
+# the derived state_dir; inline content, file sources and shared-script references receive STATE_DIR at runtime.
 #
 # @example Register a custom OpenITCOCKPIT check
 #   basic_settings::monitoring_custom { 'example':
@@ -51,7 +51,8 @@
 # @param state
 #   Manages a root-owned 0700 directory per registration under the agent state directory when true. The resource title
 #   must contain only letters, digits, dots, underscores or hyphens, excluding `.` and `..`. The derived state_dir is
-#   available in templates and supplied as STATE_DIR to the command. False manages no state. Retirement retains state.
+#   available in templates; commands without template receive it as STATE_DIR. False manages no state. Retirement
+#   retains state.
 #
 # @param template
 #   Optional module-relative ERB template name, rendered in this type's scope. Mutually exclusive with source/content
@@ -154,7 +155,10 @@ define basic_settings::monitoring_custom (
               mode    => '0700',
               require => File['monitoring_location_state'],
             }
-            $registration_require = [File[$script_path, $state_dir], Package['coreutils']]
+            $registration_require = $template ? {
+              undef   => [File[$script_path, $state_dir], Package['coreutils']],
+              default => File[$script_path, $state_dir],
+            }
           } else {
             # Disabled state or retirement must not remove previously collected history.
             $registration_require = File[$script_path]
@@ -169,13 +173,13 @@ define basic_settings::monitoring_custom (
             $command_args = "${script_path} ${cmd}"
           }
 
-          # Supply the same directory to static scripts and template-based checks without a wrapper executable.
-          if ($state) {
+          # Static scripts and shared-script references need runtime state; own templates already receive state_dir.
+          if ($state and $template == undef) {
             # env also works with executors that launch commands without a shell.
             $state_dir_shell = stdlib::shell_escape($state_dir)
             $command = "/usr/bin/env STATE_DIR=${state_dir_shell} ${command_args}"
           } else {
-            # Preserve commands for checks that do not request storage.
+            # Use the rendered default for templates and preserve commands for checks without storage.
             $command = $command_args
           }
 

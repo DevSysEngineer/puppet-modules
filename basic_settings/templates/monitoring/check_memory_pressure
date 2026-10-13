@@ -310,14 +310,17 @@ append_top_swap_processes() {
                         uid_name[passwd_parts[3]] = passwd_parts[1]
                     }
                     close(passwd_path)
-                }
-                # VmSwap and VmRSS are already reported in KiB by procfs.
-                $1 == "Name:" { name=$2 }
-                $1 == "Uid:" { uid=$2 }
-                $1 == "VmRSS:" { rss=$2 }
-                $1 == "VmSwap:" { swp=$2 }
-                END {
-                    if (swp + 0 > 0) {
+
+                    # Explicit getline handles processes disappearing after the shell readability check without a fatal input-file error.
+                    # VmSwap and VmRSS are already reported in KiB by procfs.
+                    while ((status_read = (getline < ARGV[1])) > 0) {
+                        if ($1 == "Name:") { name=$2 }
+                        if ($1 == "Uid:") { uid=$2 }
+                        if ($1 == "VmRSS:") { rss=$2 }
+                        if ($1 == "VmSwap:") { swp=$2 }
+                    }
+                    close(ARGV[1])
+                    if (status_read == 0 && swp + 0 > 0) {
                         user = uid
                         if (uid in uid_name) {
                             user = uid_name[uid]
