@@ -1,6 +1,8 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Session attribution uses Linux process metadata from procps and existing who login records, without sudo or audit tooling, rules, or logs.
 # Run with visibility of all host processes; this is a snapshot of registered terminals and their descendants, including console logins.
 # A root login record remains critical even when its original account cannot be independently verified; process associations do not prove a historical user-switch chain.
@@ -8,7 +10,7 @@
 
 # Fail helper
 die() {
-    printf 'SSH check cannot run: %s\n' "$*"
+    monitor_error 'SSH check cannot run: ' "$*"
     exit 3
 }
 
@@ -41,7 +43,6 @@ CRIT_THRESH=${CRIT_THRESH:-2} # critical session count (active)
 WARN_THRESH=${WARN_THRESH:-1} # warning session count (active)
 LONG_OUTPUT=""
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
-LONG_OUTPUT_SEP="__CHECK_SSH_NL__"
 MAX_IDLE=${MAX_IDLE:-5} # minutes: session idle-time <= MAX_IDLE => active
 MAX_AGE=${MAX_AGE:-30} # minutes: session age > MAX_AGE => CRITICAL
 STATE_CODE=0
@@ -77,71 +78,8 @@ esac
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'SSH %s\n' "$*"
+    monitor_error 'SSH ' "$*"
     exit 2
-}
-
-# Keep user names and journal fragments safe before the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Append one line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line followed by sanitized session and journal detail.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
 }
 
 # Append one semicolon-separated cause to the short output.
@@ -270,14 +208,14 @@ $SESSION_PROCESSES
 EOF
     if [ "$USER" = root ] || [ "$ROOT_COUNT" -gt 0 ]; then
         if [ "$ROOT_ACTIVITY" = false ]; then
-            append_long "Root activity:"
+            monitor_section "Root activity"
         fi
         ROOT_ACTIVITY=true
         if [ "$USER" = root ]; then
             # Login records can also be written by privilege tools, so a root record alone does not prove a direct SSH login.
-            append_long "  root - login registered as root on ${TTY}; originating account not independently verified"
+            monitor_item "  root - login registered as root on ${TTY}; originating account not independently verified"
         else
-            append_long "  ${USER} -> root - ${ROOT_COUNT} root process(es) associated with login on ${TTY}"
+            monitor_item "  ${USER} -> root - ${ROOT_COUNT} root process(es) associated with login on ${TTY}"
         fi
     fi
 
@@ -299,12 +237,19 @@ EOF
 
 # Auth failure detection is PID-aware so retries followed by a successful login are not over-counted.
 AUTH_HISTORY_AVAILABLE=false
+AUTH_HISTORY_CONTEXT="Not applicable: systemd journal inspection is disabled"
 AUTH_LOG=""
 <% if @systemd_enable != false -%>
-if use_systemd && [ -n "$JOURNALCTL" ]; then
-    if AUTH_LOG=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today 2>/dev/null); then
-        AUTH_HISTORY_AVAILABLE=true
+if use_systemd; then
+    AUTH_HISTORY_CONTEXT="Unavailable: journal access or journalctl is unavailable"
+    if [ -n "$JOURNALCTL" ]; then
+        if AUTH_LOG=$($JOURNALCTL -q -o short-unix -u ssh -u sshd --since today 2>/dev/null); then
+            AUTH_HISTORY_AVAILABLE=true
+            AUTH_HISTORY_CONTEXT="Source: ssh/sshd journal; window: since local midnight"
+        fi
     fi
+else
+    AUTH_HISTORY_CONTEXT="Not applicable: systemd is not managing this host"
 fi
 <% end -%>
 if [ "$AUTH_HISTORY_AVAILABLE" = true ]; then
@@ -458,22 +403,36 @@ fi
 [ "$ZOMBIE_COUNT" -gt 0 ] && SUMMARY_CAUSES=$(append_summary_reason "$SUMMARY_CAUSES" "${ZOMBIE_COUNT} zombie sshd process(es)")
 
 # Long output shows bounded user and journal-classification context.
+monitor_section "Sessions"
 if [ "$PROCESS_INSPECTION_FAILED" = true ]; then
-    append_long "Process inspection unavailable: verify procps and access to the host process table; root attribution is incomplete."
+    monitor_item "Process inspection unavailable: verify procps and access to the host process table; root attribution is incomplete."
 fi
-append_long "Session totals: ${ACTIVE_SESSIONS} active, maximum age ${MAX_SESSION_AGE_MIN}m, root activity ${ROOT_ACTIVITY}"
-[ -n "$USERS_LIST_TEXT" ] && append_long "Active users: ${USERS_LIST_TEXT}"
-[ -n "$BAD_WL_USERS_TEXT" ] && append_long "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
-[ "$AUTH_HISTORY_AVAILABLE" = true ] || append_long "Authentication history unavailable or not applicable; current sessions are still inspected. U counters do not mean zero failures."
-append_long "Authentication counters: ${FAIL_TOTAL} total failures, ${FAIL_WL_UNMATCHED} allowlist unmatched, ${FAIL_OTH_TOTAL} other raw, ${FAIL_OTH_UNMATCHED} other unmatched, ${ABORT_WL} allowlist aborts, ${ABORT_OTH} other aborts"
-[ "$ZOMBIE_COUNT" -gt 0 ] && append_long "Zombie sshd processes: ${ZOMBIE_COUNT}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Active session count, root activity, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."
-append_long "Root login records remain critical. User -> root associates current processes with a registered login terminal, not a proven switch history or root shell. Inspect the reported terminals."
-append_long "Session totals count login terminals, including consoles and additional pseudo-terminals. Detached processes without a remaining terminal or ancestry link and activity between checks are outside this snapshot."
-append_long "Non-allowlist authentication failures and user-initiated aborts are context only. Inspect active sessions and allowlisted-user failures first when the summary reports SSH exposure."
+monitor_item "Active sessions: ${ACTIVE_SESSIONS}"
+monitor_item "Maximum session age: ${MAX_SESSION_AGE_MIN} min"
+if [ "$ROOT_ACTIVITY" = true ]; then
+    monitor_item "Root activity: detected"
+elif [ "$PROCESS_INSPECTION_FAILED" = true ]; then
+    monitor_item "Root activity: inspection incomplete"
+else
+    monitor_item "Root activity: none observed"
+fi
+[ -n "$USERS_LIST_TEXT" ] && monitor_item "Active users: ${USERS_LIST_TEXT}"
+[ -n "$BAD_WL_USERS_TEXT" ] && monitor_item "Allowlist users with unmatched failures: ${BAD_WL_USERS_TEXT}"
+monitor_section "Authentication history"
+monitor_item "$AUTH_HISTORY_CONTEXT"
+monitor_item "Total failures: $(monitor_value "$FAIL_TOTAL")"
+monitor_item "Allowlist unmatched failures: $(monitor_value "$FAIL_WL_UNMATCHED")"
+monitor_item "Other raw failures: $(monitor_value "$FAIL_OTH_TOTAL")"
+monitor_item "Other unmatched failures: $(monitor_value "$FAIL_OTH_UNMATCHED")"
+monitor_item "Allowlist aborts: $(monitor_value "$ABORT_WL")"
+monitor_item "Other aborts: $(monitor_value "$ABORT_OTH")"
+[ "$ZOMBIE_COUNT" -gt 0 ] && monitor_item "Zombie sshd processes: ${ZOMBIE_COUNT}"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Active session count, root activity, long-lived sessions, unmatched failures for allowed users, and zombie sshd processes can affect the exit code."
+monitor_item "Root login records remain critical. User -> root associates current processes with a registered login terminal, not a proven switch history or root shell. Inspect the reported terminals."
+monitor_item "Session totals count login terminals, including consoles and additional pseudo-terminals. Detached processes without a remaining terminal or ancestry link and activity between checks are outside this snapshot."
+monitor_item "Non-allowlist authentication failures and user-initiated aborts are context only. Inspect active sessions and allowlisted-user failures first when the summary reports SSH exposure."
 
 # Perfdata carries both active-session counters and journal classification totals.
 AGE_CRIT_METRIC=0
@@ -491,5 +450,8 @@ PERF_DATA="$PERF_DATA age_crit=${AGE_CRIT_METRIC}"
 # Output for monitoring; dynamic user names are sanitized before the perfdata delimiter.
 SUMMARY="SSH sessions active: ${ACTIVE_SESSIONS}"
 [ -n "$SUMMARY_CAUSES" ] && SUMMARY="${SUMMARY}; ${SUMMARY_CAUSES}"
-emit_check "$SUMMARY" "$PERF_DATA"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'SSH findings' "$SUMMARY" 'Inspect the reported sessions, terminals and authentication history.'
+fi
+monitor_result "$SUMMARY" "$PERF_DATA"
 exit "$STATE_CODE"

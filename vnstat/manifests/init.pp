@@ -186,7 +186,7 @@ class vnstat (
       # Register the check after its configuration and runtime packages are available.
       basic_settings::monitoring_custom { 'vnstat_interfaces':
         ensure   => present,
-        source   => 'puppet:///modules/vnstat/check_vnstat_interfaces',
+        template => 'vnstat/check_vnstat_interfaces',
         friendly => 'vnStat interfaces',
         timeout  => 60,
         require  => [Concat['/etc/vnstat-monitoring.conf'], Package[$monitoring_required_packages]],

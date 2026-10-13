@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'systemd-timesyncd check cannot run: %s\n' "$*"
+    monitor_error 'systemd-timesyncd check cannot run: ' "$*"
     exit 3
 }
 
@@ -24,7 +26,6 @@ TIMEDATECTL=$(command -v timedatectl 2>/dev/null) || die "timedatectl not availa
 CRIT_MSG=""
 LONG_OUTPUT=""
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
-LONG_OUTPUT_SEP="__CHECK_SYSTEMD_TIMESYNCD_NL__"
 WARN_MSG=""
 STATE_CODE=0
 INCOMPLETE=0
@@ -84,7 +85,7 @@ esac
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'systemd-timesyncd %s\n' "$*"
+    monitor_error 'systemd-timesyncd ' "$*"
     exit 2
 }
 
@@ -101,69 +102,6 @@ add_warn() {
 # Compare two numeric values using awk for floating-point support.
 ge() {
     $AWK -v a="$1" -v b="$2" 'BEGIN{exit (a != "U" && a>=b)?0:1}'
-}
-
-# Keep server/status text safe before the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Append one diagnostic line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line followed by fixed time-synchronization context.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
 }
 
 # Convert the subsystem's displayed units to seconds without inventing zero for missing fields.
@@ -277,16 +215,32 @@ PERF="$PERF root_dist=$(metric_seconds "$ROTDIST_SEC");${ROOT_WARN};${ROOT_CRIT}
 PERF="$PERF delay=$(metric_seconds "$DELAY_SEC");;;0"
 PERF="$PERF stratum=${STRAT};${STRAT_WARN};${STRAT_CRIT};0;16"
 
-# Detail output explains the measured time source quality without repeating threshold inventories.
-append_long "Timesyncd server: ${SERVER:-unknown}"
-append_long "Clock synchronized: ${NTPSYNC:-unknown}"
-append_long "Observed timing: offset ${ABS_OFFSET}s, jitter ${JITTER_SEC}s, root distance ${ROTDIST_SEC}s, delay ${DELAY_SEC}s, stratum ${STRAT}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "systemd-timesyncd service state, NTPSynchronized, absolute offset, jitter, root distance, and stratum decide the exit code."
-append_long "Inspect the configured NTP servers, DNS, routing, and systemd-timesyncd journal when the summary reports an unsynchronised clock or poor time quality."
+# Group time quality measurements with their configured thresholds.
+monitor_section "Time synchronization"
+monitor_item "Timesyncd server: ${SERVER:-unknown}"
+case "$NTPSYNC" in yes|1) SYNC_TEXT=yes ;; no|0) SYNC_TEXT=no ;; *) SYNC_TEXT=unavailable ;; esac
+monitor_item "Clock synchronized: $SYNC_TEXT"
+monitor_section "Time quality"
+for timing_field in "Offset:$ABS_OFFSET" "Jitter:$JITTER_SEC" "Root distance:$ROTDIST_SEC" "Delay:$DELAY_SEC"; do
+    timing_value=${timing_field#*:}
+    if [ "$timing_value" = U ]; then timing_value=unavailable; else timing_value="${timing_value} s"; fi
+    case "${timing_field%%:*}" in
+        Offset) timing_limit="warning $OFFSET_WARN s; critical $OFFSET_CRIT s" ;;
+        Jitter) timing_limit="warning $JITTER_WARN s; critical $JITTER_CRIT s" ;;
+        'Root distance') timing_limit="warning $ROOT_WARN s; critical $ROOT_CRIT s" ;;
+        *) timing_limit='' ;;
+    esac
+    monitor_item "${timing_field%%:*}: $timing_value${timing_limit:+; $timing_limit}"
+done
+if [ "$STRAT" = U ]; then monitor_item "Stratum: unavailable"; else monitor_item "Stratum: $STRAT; warning $STRAT_WARN; critical $STRAT_CRIT"; fi
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "systemd-timesyncd service state, NTPSynchronized, absolute offset, jitter, root distance, and stratum decide the exit code."
+monitor_item "Inspect the configured NTP servers, DNS, routing, and systemd-timesyncd journal when the summary reports an unsynchronised clock or poor time quality."
 
 # Emit one monitoring line; server names are sanitized before the perfdata delimiter.
-emit_check "$MSG" "$PERF"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'Time synchronization findings' "$MSG" 'Verify the configured time source and current synchronization state.'
+fi
+monitor_result "$MSG" "$PERF"
 exit "$STATE_CODE"

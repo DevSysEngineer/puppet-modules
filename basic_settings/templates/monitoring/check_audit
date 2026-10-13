@@ -1,11 +1,18 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'Auditd check cannot run: %s\n' "$*"
+    monitor_error 'Auditd check cannot run: ' "$*"
     if [ -n "${CRITICAL_REASONS:-}" ]; then
-        printf 'Verified failures: %s\n' "$CRITICAL_REASONS"
+        LONG_OUTPUT=''
+        monitor_section 'Audit findings'
+        monitor_item "$CRITICAL_REASONS"
+        monitor_section 'Interpretation'
+        monitor_item 'Resolve the verified findings and restore audit inspection; the result is incomplete.'
+        printf '%s\n' "$LONG_OUTPUT"
         exit 2
     fi
     exit 3
@@ -48,7 +55,6 @@ CRITICAL_REASONS=""
 HW_SEG=""
 LONG_OUTPUT=""
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
-LONG_OUTPUT_SEP="__CHECK_AUDIT_NL__"
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 USAGE_TEXT="Usage: $0 [-q <int>] [-d <int>] [-l chars]
 Environment: QUEUE_WARN (-q); DROPPED_CRIT (-d); DETAIL_LIMIT (-l).
@@ -89,11 +95,6 @@ trim_file() {
     printf '%s' "$val"
 }
 
-# Keep audit keys, journal snippets, and hardware fields safe before perfdata.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
 # Attach a custom perfdata UOM only when the value is numeric; Nagios U stays unit-free.
 metric_with_unit() {
     case "$1" in
@@ -123,67 +124,9 @@ add_warning() {
     [ "$STATE_CODE" -lt 1 ] && STATE_CODE=1
 }
 
-# Append one diagnostic line to the bounded long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit the summary line, perfdata, and sanitized detail output.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
-}
-
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$(monitor_text_value "$1")"
+    monitor_error '' "$1"
     exit 2
 }
 
@@ -209,7 +152,9 @@ case "$ENABLED" in
     *) die "kernel audit enabled flag is invalid" ;;
 esac
 [ "$AUDIT_PID" -eq 0 ] && add_critical "no audit daemon registered with the kernel"
-append_long "Kernel audit status: enabled ${ENABLED}, daemon PID ${AUDIT_PID}"
+monitor_section "Kernel audit"
+case "$ENABLED" in 0) AUDIT_MODE=disabled ;; 1) AUDIT_MODE=enabled ;; 2) AUDIT_MODE="enabled, immutable" ;; esac
+monitor_item "Kernel auditing: $AUDIT_MODE; daemon PID: $AUDIT_PID"
 
 # Use the kernel backlog limit as default warning threshold when Puppet did not pass one.
 [ -z "$QUEUE_WARN" ] && QUEUE_WARN=$BLIMIT
@@ -222,8 +167,8 @@ fi
 if [ "$LOST" -gt "$DROPPED_CRIT" ]; then
     add_critical "lost audit events ${LOST} detected"
 fi
-append_long "Audit backlog: ${BACKLOG}/${BLIMIT}"
-append_long "Lost audit events: ${LOST}"
+monitor_item "Audit backlog: ${BACKLOG}/${BLIMIT}; warning above $QUEUE_WARN events"
+monitor_item "Lost audit events: ${LOST}"
 
 # The daily audit summary is the authoritative source for account/config/anomaly counters.
 SUM=""
@@ -261,7 +206,13 @@ if { [ "$ACCT" != U ] && [ "$ACCT" -gt 0 ]; } || { [ "$ANOM" != U ] && [ "$ANOM"
     { [ "$KEYS" != U ] && [ "$KEYS" -gt 0 ]; } && SECURITY_REASONS=$(append_reason "$SECURITY_REASONS" "keyed events $KEYS")
     add_critical "security events: ${SECURITY_REASONS}"
 fi
-append_long "Audit event counters: account changes ${ACCT}, anomaly events ${ANOM}, config changes ${CFG}, failed syscalls ${FAIL}, failed authentications ${FAILED_AUTH}, keyed events ${KEYS}"
+monitor_section "Audit events today"
+monitor_item "Account changes: $(monitor_value "$ACCT")"
+monitor_item "Anomaly events: $(monitor_value "$ANOM")"
+monitor_item "Configuration changes: $(monitor_value "$CFG")"
+monitor_item "Failed syscalls: $(monitor_value "$FAIL")"
+monitor_item "Failed authentications: $(monitor_value "$FAILED_AUTH")"
+monitor_item "Keyed events: $(monitor_value "$KEYS")"
 
 <% if @systemd_enable != false -%>
 if use_systemd && [ -n "$JOURNALCTL" ]; then
@@ -280,7 +231,7 @@ ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
     END{
         if (c==0) { print "0|"; exit }
         printf "%d|", c
-        for (i=c; i>=1; i--) printf "%s%s", (i<c ? "; " : ""), errors[i]
+        for (i=c; i>=1; i--) printf "%s%s", (i<c ? "\n" : ""), errors[i]
     }')
 ERROR_COUNT=${ERR_COMBINED%%|*}
 [ "$JLOG_RC" -eq 0 ] || ERROR_COUNT=U
@@ -289,7 +240,9 @@ ERROR_SNIPPET=${ERR_COMBINED#*|}
 # Journal errors override earlier OK text because they show audit runtime failure.
 if [ "$ERROR_COUNT" != U ] && [ "$ERROR_COUNT" -gt 0 ]; then
     add_critical "journal errors since boot ${ERROR_COUNT}"
-    append_long "Audit journal errors, newest first: ${ERROR_SNIPPET:-unknown}"
+    monitor_section "Audit journal"
+    monitor_item "Source: audit journal since boot, newest first"
+    monitor_log_items "$ERROR_SNIPPET"
 fi
 else
 <% end -%>
@@ -297,7 +250,8 @@ ERROR_COUNT=U
 <% if @systemd_enable != false -%>
 fi
 <% end -%>
-append_long "Journal errors since boot: ${ERROR_COUNT}"
+monitor_section "Audit journal"
+monitor_item "Journal errors since boot: $(monitor_value "$ERROR_COUNT")"
 
 # Loaded rule count verifies that auditd is enforcing something, not only running.
 RULES_RAW=$($AUDITCTL -l 2>/dev/null) || die "audit rules could not be listed"
@@ -305,10 +259,11 @@ RULES_COUNT=$(printf '%s\n' "$RULES_RAW" | $GREP '^-' | $AWK 'END{print NR+0}')
 if [ "$RULES_COUNT" -eq 0 ]; then
     add_critical "no audit rules loaded"
 fi
-append_long "Audit rules loaded: ${RULES_COUNT}"
+monitor_section "Loaded audit rules"
+monitor_item "Audit rules loaded: ${RULES_COUNT}"
 
 # Rule files and augenrules only describe generated configuration, not the kernel's loaded rules.
-append_long "Rule inspection uses the loaded kernel rules; generated rule files are not required."
+monitor_item "Rule inspection uses the loaded kernel rules; generated rule files are not required."
 
 # A fresh reboot changes audit context, so report it for operators reviewing recent events.
 NOW=$($DATE +%s)
@@ -318,14 +273,16 @@ if [ -n "$BTIME" ]; then
     if [ "$BOOT_AGE" -lt 86400 ]; then
         BOOT_HUMAN=$($DATE -d "@$BTIME" '+%a %Y-%m-%d %H:%M:%S %Z')
         add_warning "reboot within 24h (${BOOT_HUMAN})"
-        append_long "Boot context: reboot within 24h (${BOOT_HUMAN})"
+        monitor_section "Boot history"
+        monitor_item "Boot context: reboot within 24h (${BOOT_HUMAN})"
     fi
 elif [ -r /proc/uptime ]; then
     UPTIME_SEC=$($CUT -d. -f1 /proc/uptime 2>/dev/null)
     if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
         BOOT_HUMAN=$($DATE -d "@$(($NOW - UPTIME_SEC))" '+%a %Y-%m-%d %H:%M:%S %Z')
         add_warning "reboot within 24h (${BOOT_HUMAN})"
-        append_long "Boot context: reboot within 24h (${BOOT_HUMAN})"
+        monitor_section "Boot history"
+        monitor_item "Boot context: reboot within 24h (${BOOT_HUMAN})"
     fi
 fi
 
@@ -345,11 +302,13 @@ if [ "${UPTIME_SEC:-0}" -lt 86400 ]; then
         # Previous kernel found; only report if it differs from the current one.
         if [ "$KERNEL_BOOT" != "$KERNEL_CURRENT" ]; then
             add_warning "kernel changed from ${KERNEL_BOOT} to ${KERNEL_CURRENT}"
-            append_long "Kernel context: previous=${KERNEL_BOOT}, current=${KERNEL_CURRENT}"
+            monitor_section "Kernel history"
+            monitor_item "Kernel context: previous=${KERNEL_BOOT}, current=${KERNEL_CURRENT}"
         fi
     else
         # Missing previous-boot history cannot establish a kernel change.
-        append_long "Kernel context: previous kernel not retrieved from the previous boot journal"
+        monitor_section "Kernel history"
+        monitor_item "Kernel context: previous kernel not retrieved from the previous boot journal"
     fi
 fi
 fi
@@ -362,7 +321,10 @@ if [ -n "$AUSEARCH" ] && { [ "$KEYS" != U ] && [ "$KEYS" -gt 0 ]; }; then
             for(i=n-1;i>=0; i--) if(!seen[k[i]]++) list[c++]=k[i];
             for(i=0;i<c;i++) printf "%s%s", (i? ", ":""), list[i]
         }')
-    [ -n "$LAST_KEYS" ] && append_long "Latest distinct audit keys: ${LAST_KEYS}"
+    if [ -n "$LAST_KEYS" ]; then
+        monitor_section "Audit keys"
+        monitor_item "Latest distinct audit keys: ${LAST_KEYS}"
+    fi
 fi
 
 # DMI hardware fields help correlate audit alerts with physical inventory.
@@ -398,7 +360,8 @@ fi
 # Append hardware summary if present.
 if [ -n "$HW_SEG" ]; then
     HW_SEG=${HW_SEG#, }
-    append_long "Hardware context: ${HW_SEG}"
+    monitor_section "Hardware"
+    monitor_item "Hardware context: ${HW_SEG}"
 fi
 
 # Keep the kernel findings while inspecting the required auditd service or registered process.
@@ -409,7 +372,8 @@ case "$AUDIT_SERVICE_STATE" in
     2) add_critical "$SERVICE_CONTEXT" ;;
     3) UNKNOWN_REASONS=$(append_reason "$UNKNOWN_REASONS" "$SERVICE_CONTEXT") ;;
 esac
-append_long "$SERVICE_CONTEXT"
+monitor_section "Service"
+monitor_item "$SERVICE_CONTEXT"
 if [ "$AUDIT_SERVICE_STATE" -eq 4 ]; then
 <% end -%>
     # Match the daemon registered with the kernel, preserving any proven audit failures.
@@ -426,14 +390,6 @@ if [ "$AUDIT_SERVICE_STATE" -eq 4 ]; then
 <% if @systemd_enable != false -%>
 fi
 <% end -%>
-
-# Explain which audit findings are alert scope and which lines are supporting context.
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Audit event counters, journal errors, loaded rule count, backlog/lost counters, the required auditd service or process, recent reboot context, and kernel-change context can affect the exit code."
-append_long "Latest keys and hardware context help identify the affected host or event source but do not by themselves add severity beyond the counters above."
-append_long "Inspect auditd, augenrules, and the named audit keys first when the summary reports security events, missing loaded rules, backlog pressure, lost events, or journal errors."
 
 # The five-minute event rate is a compact pressure signal for sudden audit volume changes.
 EVENT_RESULT=U
@@ -475,9 +431,20 @@ fi
 # Confirmed failures take precedence over unavailable required history, then warnings.
 if [ -n "$UNKNOWN_REASONS" ]; then
     [ "$STATE_CODE" -eq 2 ] || STATE_CODE=3
-    append_long "Incomplete inspection: ${UNKNOWN_REASONS}"
+    monitor_section "Inspection coverage"
+    monitor_item "Incomplete inspection: ${UNKNOWN_REASONS}"
 fi
 
 # Emit one monitoring line; dynamic audit and hardware text is sanitized before perfdata.
-emit_check "$MSG" "$PERF"
+# Explain which audit findings are alert scope and which lines are supporting context.
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Audit event counters, journal errors, loaded rule count, backlog/lost counters, the required auditd service or process, recent reboot context, and kernel-change context can affect the exit code."
+monitor_item "Latest keys and hardware context help identify the affected host or event source but do not by themselves add severity beyond the counters above."
+monitor_item "Inspect auditd, augenrules, and the named audit keys first when the summary reports security events, missing loaded rules, backlog pressure, lost events, or journal errors."
+
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'Audit findings' "$MSG" 'Inspect the named audit event, kernel audit status and loaded rules.'
+fi
+monitor_result "$MSG" "$PERF"
 exit $STATE_CODE

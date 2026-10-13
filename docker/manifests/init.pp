@@ -107,14 +107,14 @@ class docker (
 
       # The parent owns one shared check; project definitions only register their arguments.
       basic_settings::monitoring_custom { 'docker_compose':
-        source   => 'puppet:///modules/docker/check_compose',
+        template => 'docker/check_compose',
         register => false,
         require  => Package[$monitoring_required_packages],
       }
 
       # Store registrations share the executable and never own its lifetime or credential files.
       basic_settings::monitoring_custom { 'nextcloud_s3':
-        source   => 'puppet:///modules/docker/check_nextcloud_s3',
+        template => 'docker/check_nextcloud_s3',
         register => false,
         require  => Package[$monitoring_required_packages],
       }

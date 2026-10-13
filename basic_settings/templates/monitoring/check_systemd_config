@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper used for missing runtime dependencies.
 die() {
-    printf 'systemd configuration check cannot run: %s\n' "$*"
+    monitor_error 'systemd configuration check cannot run: ' "$*"
     exit 3
 }
 
@@ -26,10 +28,6 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 QUIET=${QUIET:-0}
 SHOW_RAW_VERIFY=${SHOW_RAW_VERIFY:-0}
 STRICT_RELOAD=${STRICT_RELOAD:-0}
-
-# Formatting sequences used when building multi-line detail sections.
-LINE_BREAK='\n'
-INDENT='    '
 
 # Search roots used to locate backing files, symlinks, or textual references for missing units.
 REFERENCE_SEARCH_ROOTS='/etc/systemd/system,/run/systemd/system,/run/systemd/generator,/run/systemd/generator.early,/run/systemd/generator.late,/usr/lib/systemd/system,/lib/systemd/system'
@@ -307,68 +305,6 @@ metric_value_with_unit() {
     fi
 }
 
-# Sanitize dynamic monitoring text that may contain Nagios perfdata delimiters.
-sanitize_monitor_stream() {
-    $AWK '{ gsub(/[|]/, "[or]"); print }'
-}
-
-# Keep dynamic text safe before adding it to the monitoring output.
-sanitize_monitor_text() {
-    printf '%s\n' "$1" | sanitize_monitor_stream
-}
-
-# The rendered report has many conditional sections, so bound blank separators after dynamic lines have been sanitized at their source.
-normalize_monitor_output() {
-    $AWK '
-        function emit_line(line) {
-            sub(/[[:space:]]+$/, "", line)
-            if (line == "") {
-                if (printed && !pending_blank) {
-                    pending_blank = 1
-                }
-                return
-            }
-            if (pending_blank) {
-                print ""
-                pending_blank = 0
-            }
-            print line
-            printed = 1
-        }
-        {
-            emit_line($0)
-        }
-    '
-}
-
-# Bound the diagnostic report before Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
-}
-
-# Keep the first line safe before adding the real perfdata delimiter.
-monitor_text_value() {
-    sanitize_monitor_text "$1" | $AWK 'NR == 1 { print; exit }'
-}
-
 # Append one unique reference path to the current comma-separated list.
 append_reference_path() {
     NEW_REFERENCE=$1
@@ -418,39 +354,6 @@ collect_reference_paths() {
                 append_reference_path "$FOUND_PATH"
             done
         fi
-    done
-
-    IFS=$OLD_IFS
-}
-
-# Render the collected reference list as an indented multiline bullet block.
-format_reference_paths() {
-    if [ -n "$1" ]; then
-        printf '%s\n' "$1" | $AWK -F',' -v indent="$INDENT" '
-            {
-                for (field_index = 1; field_index <= NF; field_index++) {
-                    if ($field_index == "") {
-                        continue
-                    }
-                    if (count > 0) {
-                        printf "\\n"
-                    }
-                    printf "%s- %s", indent, $field_index
-                    count++
-                }
-            }
-        '
-    fi
-}
-
-# Print a comma-separated detail bucket as individual rendered lines.
-print_detail_block() {
-    OLD_IFS=$IFS
-    IFS=','
-
-    for DETAIL_LINE in $1; do
-        [ -n "$DETAIL_LINE" ] || continue
-        printf '%b\n' "$DETAIL_LINE" | sanitize_monitor_stream
     done
 
     IFS=$OLD_IFS
@@ -527,87 +430,49 @@ match_known_runtime_quirk() {
     return 1
 }
 
-# Render grouped detail buckets with optional suppression of duplicate headers.
-print_grouped_details() {
-    GROUP_NOT_FOUND=$1
-    GROUP_ERROR=$2
-    GROUP_BAD_SETTING=$3
-    GROUP_OTHER=$4
-    SUPPRESS_SINGLE_NOT_FOUND_HEADER=$5
-    GROUP_COUNT=0
-
-    [ -n "$GROUP_NOT_FOUND" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
-    [ -n "$GROUP_ERROR" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
-    [ -n "$GROUP_BAD_SETTING" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
-    [ -n "$GROUP_OTHER" ] && GROUP_COUNT=$((GROUP_COUNT + 1))
-
-    if [ -n "$GROUP_NOT_FOUND" ]; then
-        printf '%s\n' ""
-        if [ "$SUPPRESS_SINGLE_NOT_FOUND_HEADER" != '1' ] || [ "$GROUP_COUNT" -gt 1 ]; then
-            printf '%s\n' 'not-found:'
-        fi
-        print_detail_block "$GROUP_NOT_FOUND"
-    fi
-
-    if [ -n "$GROUP_ERROR" ]; then
-        printf '%s\n' ""
-        printf '%s\n' 'error:'
-        print_detail_block "$GROUP_ERROR"
-    fi
-
-    if [ -n "$GROUP_BAD_SETTING" ]; then
-        printf '%s\n' ""
-        printf '%s\n' 'bad-setting:'
-        print_detail_block "$GROUP_BAD_SETTING"
-    fi
-
-    if [ -n "$GROUP_OTHER" ]; then
-        printf '%s\n' ""
-        printf '%s\n' 'other:'
-        print_detail_block "$GROUP_OTHER"
-    fi
-}
-
-# Count how many rendered lines a grouped detail section would emit.
-count_grouped_detail_lines() {
-    print_grouped_details "$1" "$2" "$3" "$4" "$5" | $AWK 'END { print NR + 0 }'
-}
-
-# Print a grouped detail section with a maximum rendered line limit.
-print_grouped_details_limited() {
-    print_grouped_details "$1" "$2" "$3" "$4" "$5" | $AWK -v max="$6" '
-        NR <= max { print }
-        END {
-            if (NR > max) {
-                print "[truncated after " max " lines]"
-            }
-        }
-    '
-}
-
-# Print one detail section heading and apply the configured truncation policy.
+# Each unit remains one record; the configured line selection is independent of the total text budget.
 print_detail_section() {
-    SECTION_TITLE=$1
-    SECTION_COUNT=$2
-    GROUP_NOT_FOUND=$3
-    GROUP_ERROR=$4
-    GROUP_BAD_SETTING=$5
-    GROUP_OTHER=$6
-    SUPPRESS_SINGLE_NOT_FOUND_HEADER=$7
-
-    if [ "$SECTION_COUNT" -eq 0 ]; then
-        printf '%s\n' "${SECTION_TITLE}: none"
-        return
-    fi
-
-    SECTION_TOTAL_LINES=$(count_grouped_detail_lines "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER")
-
-    if [ "$SECTION_TOTAL_LINES" -gt "$MAX_DETAIL_LINES" ]; then
-        printf '%s\n' "${SECTION_TITLE} (${SECTION_COUNT}, showing first ${MAX_DETAIL_LINES} of ${SECTION_TOTAL_LINES} lines):"
-        print_grouped_details_limited "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER" "$MAX_DETAIL_LINES"
+    monitor_section "$1"
+    detail_count=$2
+    shift 2
+    detail_records=''
+    detail_old_ifs=$IFS
+    IFS=','
+    for detail_group in "$1" "$2" "$3" "$4"; do
+        for detail_record in $detail_group; do
+            [ -z "$detail_record" ] || detail_records=$(printf '%s\n%s' "$detail_records" "$detail_record")
+        done
+    done
+    IFS=$detail_old_ifs
+    if [ "$detail_count" -eq 0 ]; then
+        monitor_item "0 units"
     else
-        printf '%s\n' "${SECTION_TITLE} (${SECTION_COUNT}):"
-        print_grouped_details "$GROUP_NOT_FOUND" "$GROUP_ERROR" "$GROUP_BAD_SETTING" "$GROUP_OTHER" "$SUPPRESS_SINGLE_NOT_FOUND_HEADER"
+        monitor_items "$(printf '%s\n' "$detail_records" | $AWK -v max="$MAX_DETAIL_LINES" 'NF {if (++n <= max) print}')"
+        if [ "$detail_count" -gt "$MAX_DETAIL_LINES" ]; then
+            monitor_item "Selection: first $MAX_DETAIL_LINES of $detail_count units."
+        fi
+    fi
+}
+
+# Failed runtime units explain the manager state and retain their existing severity scope.
+print_failed_units_section() {
+    [ "$MANAGER_STATE" = degraded ] || return 0
+    monitor_section "Failed runtime units"
+    if [ "$FAILED_UNITS_UNKNOWN" = 1 ]; then
+        monitor_item "Inspection unavailable: $FAILED_UNIT_SCAN_ERROR"
+        monitor_item "Escalate to server operations for investigation."
+    elif [ "$FAILED_UNITS" -eq 0 ]; then
+        monitor_item "No failed units returned despite the degraded manager state; investigate on the host."
+    else
+        monitor_items "$(printf '%s\n' "$FAILED_UNIT_DETAILS" | $AWK -v max="$MAX_FAILED_UNIT_LINES" 'NR <= max')"
+        if [ "$FAILED_UNITS" -gt "$MAX_FAILED_UNIT_LINES" ]; then
+            monitor_item "Selection: first $MAX_FAILED_UNIT_LINES of $FAILED_UNITS failed units."
+        fi
+        if [ -n "$CRITICAL_REASONS" ]; then
+            monitor_item "Review configuration errors first; these runtime units explain the degraded manager state."
+        else
+            monitor_item "No configuration errors were found; escalate unexpected failed units to server/application operations."
+        fi
     fi
 }
 
@@ -650,65 +515,11 @@ collect_failed_units() {
                     description = "(no description)"
                 }
                 gsub(/[[:cntrl:]]/, " ", description)
-                printf "- %s; load state %s; active state %s; sub state %s; description %s\n", $1, $2, $3, $4, description
+                printf "%s; load state %s; active state %s; sub state %s; description %s\n", $1, $2, $3, $4, description
             }
         ')
     else
         FAILED_UNIT_DETAILS=''
-    fi
-}
-
-# Print bounded failed-unit context without changing the check into a service-health check.
-print_failed_units_section() {
-    if [ "$MANAGER_STATE" != 'degraded' ]; then
-        return
-    fi
-
-    if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
-        printf '%s\n' 'Failed units causing degraded state: unavailable'
-        if [ -n "$FAILED_UNIT_SCAN_ERROR" ]; then
-            printf '%s\n' "Reason: ${FAILED_UNIT_SCAN_ERROR}"
-        fi
-        printf '%s\n' ""
-        printf '%s\n' 'Failed-unit context:'
-        printf '%s\n' 'The check could not determine the failed runtime units behind the degraded manager state.'
-        printf '%s\n' 'Escalate to server operations for manual investigation.'
-        return
-    fi
-
-    if [ "$FAILED_UNITS" -eq 0 ]; then
-        printf '%s\n' 'Failed units causing degraded state: none returned'
-        printf '%s\n' ""
-        printf '%s\n' 'Failed-unit context:'
-        printf '%s\n' 'systemd reports degraded, but no failed units were returned by systemctl list-units --failed.'
-        printf '%s\n' 'Escalate to server operations for manual investigation.'
-        return
-    fi
-
-    if [ "$FAILED_UNITS" -gt "$MAX_FAILED_UNIT_LINES" ]; then
-        printf '%s\n' "Failed units causing degraded state (showing first ${MAX_FAILED_UNIT_LINES} of ${FAILED_UNITS}):"
-        printf '%s\n' "$FAILED_UNIT_DETAILS" | sanitize_monitor_stream | $AWK -v max="$MAX_FAILED_UNIT_LINES" '
-            NR <= max { print }
-            END {
-                if (NR > max) {
-                    print "[truncated after " max " lines]"
-                }
-            }
-        '
-    else
-        printf '%s\n' "Failed units causing degraded state (${FAILED_UNITS}):"
-        printf '%s\n' "$FAILED_UNIT_DETAILS" | sanitize_monitor_stream
-    fi
-
-    printf '%s\n' ""
-    printf '%s\n' 'Failed-unit context:'
-    if [ -n "$CRITICAL_REASONS" ]; then
-        printf '%s\n' 'Systemd configuration errors were also found by this check.'
-        printf '%s\n' 'Review the configuration findings first; the failed runtime units explain why the manager state is degraded.'
-    else
-        printf '%s\n' 'No systemd configuration errors were found by this check.'
-        printf '%s\n' 'The degraded manager state is caused by failed runtime units.'
-        printf '%s\n' 'Escalate to server/application operations if these failed units are unexpected.'
     fi
 }
 
@@ -832,9 +643,9 @@ inspect_bad_units() {
         fi
 
         # Detail buffers are split by actionable/contextual class for clearer long output.
-        UNIT_DETAIL="- ${UNIT_NAME}; class=${UNIT_CLASS}"
+        UNIT_DETAIL="${UNIT_NAME}; class=${UNIT_CLASS}; load state=${UNIT_LOAD_STATE}"
         if [ -n "$UNIT_REFERENCE_PATHS" ]; then
-            UNIT_DETAIL="${UNIT_DETAIL}; referenced_by:${LINE_BREAK}$(format_reference_paths "$UNIT_REFERENCE_PATHS")"
+            UNIT_DETAIL="${UNIT_DETAIL}; referenced by: $(printf '%s' "$UNIT_REFERENCE_PATHS" | $AWK '{gsub(/,/, "; "); print}')"
         fi
 
         if [ "$UNIT_ACTIONABLE" -eq 1 ]; then
@@ -1099,7 +910,7 @@ if [ "$QUIET" -eq 1 ]; then
     exit "$STATE"
 fi
 
-{
+monitor_section "Systemd manager"
 if is_number "$UPTIME_SECONDS"; then
     UPTIME_TEXT="${UPTIME_SECONDS}s"
 else
@@ -1112,97 +923,100 @@ case "$BOOT_GRACE_ACTIVE" in
     *) BOOT_GRACE_TEXT='unknown' ;;
 esac
 
-printf '%s\n' "Manager state: ${MANAGER_STATE}"
-printf '%s\n' "Uptime: ${UPTIME_TEXT}"
-printf '%s\n' "Boot grace active: ${BOOT_GRACE_TEXT}"
-printf '%s\n' "Default target: ${DEFAULT_TARGET}"
-printf '%s\n' "Default target LoadState: ${DEFAULT_TARGET_LOAD_STATE}"
-printf '%s\n' "Need daemon reload: ${NEED_DAEMON_RELOAD}"
-printf '%s\n' "Verify mode: ${VERIFY_COMMAND_MODE}"
-printf '%s\n' ""
+monitor_item "Manager state: ${MANAGER_STATE}"
+monitor_item "Uptime: ${UPTIME_TEXT}"
+monitor_item "Boot grace active: ${BOOT_GRACE_TEXT}"
+monitor_item "Default target: ${DEFAULT_TARGET}"
+monitor_item "Default target LoadState: ${DEFAULT_TARGET_LOAD_STATE}"
+monitor_item "Need daemon reload: ${NEED_DAEMON_RELOAD}"
+monitor_item "Verify mode: ${VERIFY_COMMAND_MODE}"
 
+
+monitor_section "Configuration assessment"
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
-    printf '%s\n' 'Configuration finding: default target is invalid or unavailable'
+    monitor_item 'Configuration finding: default target is invalid or unavailable'
 elif [ "$LIST_UNITS_RC" -ne 0 ]; then
-    printf '%s\n' 'Configuration finding: load/config unit scan failed'
+    monitor_item 'Configuration finding: load/config unit scan failed'
 elif [ "$BAD_LOAD_UNITS" -gt 0 ]; then
-    printf '%s\n' "Configuration finding: ${BAD_LOAD_UNITS} actionable load/config error(s) found"
+    monitor_item "Configuration finding: ${BAD_LOAD_UNITS} actionable load/config error(s) found"
 elif [ "$VERIFY_EXIT_NONZERO" = '1' ]; then
-    printf '%s\n' 'Configuration finding: systemd-analyze verify failed'
+    monitor_item 'Configuration finding: systemd-analyze verify failed'
 elif [ "$DEFAULT_TARGET_LOAD_STATE" != 'loaded' ]; then
-    printf '%s\n' "Configuration finding: default target load state ${DEFAULT_TARGET_LOAD_STATE}"
+    monitor_item "Configuration finding: default target load state ${DEFAULT_TARGET_LOAD_STATE}"
 elif [ "$NEED_DAEMON_RELOAD" = 'yes' ]; then
     if [ "$STRICT_RELOAD" -eq 1 ]; then
-        printf '%s\n' 'Configuration finding: daemon-reload is required'
+        monitor_item 'Configuration finding: daemon-reload is required'
     else
-        printf '%s\n' 'Configuration finding: daemon-reload is required but no actionable load/config errors were found'
+        monitor_item 'Configuration finding: daemon-reload is required but no actionable load/config errors were found'
     fi
 else
-    printf '%s\n' 'Configuration finding: no actionable load/config errors found'
+    monitor_item 'Configuration finding: no actionable load/config errors found'
 fi
 
 case "$MANAGER_STATE" in
     degraded)
         if [ "$FAILED_UNITS_UNKNOWN" = '1' ]; then
-            printf '%s\n' 'Runtime manager context: degraded, but failed units are unavailable'
+            monitor_item 'Runtime manager context: degraded, but failed units are unavailable'
         elif [ "$FAILED_UNITS" -gt 0 ]; then
-            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: degraded because ${FAILED_UNITS} unit(s) are failed")"
+            monitor_item "$(monitor_text_value "Runtime manager context: degraded because ${FAILED_UNITS} unit(s) are failed")"
         else
-            printf '%s\n' 'Runtime manager context: degraded, but no failed units were returned'
+            monitor_item 'Runtime manager context: degraded, but no failed units were returned'
         fi
         ;;
     starting|initializing|stopping)
         if [ "$BOOT_GRACE_ACTIVE" = '1' ]; then
-            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE} during boot grace")"
+            monitor_item "$(monitor_text_value "Runtime manager context: ${MANAGER_STATE} during boot grace")"
         else
-            printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE}")"
+            monitor_item "$(monitor_text_value "Runtime manager context: ${MANAGER_STATE}")"
         fi
         ;;
     *)
-        printf '%s\n' "$(sanitize_monitor_text "Runtime manager context: ${MANAGER_STATE}")"
+        monitor_item "$(monitor_text_value "Runtime manager context: ${MANAGER_STATE}")"
         ;;
 esac
 
-printf '%s\n' ""
 
+
+monitor_section "Unit verification"
 if [ "$DEFAULT_TARGET_VALID" -ne 1 ]; then
-    printf '%s\n' 'systemd-analyze verify output: skipped because the default target is invalid'
-elif [ "$VERIFY_MESSAGES" = 'U' ]; then
-    printf '%s\n' 'systemd-analyze verify output: unavailable'
+    monitor_item "Not evaluated: the default target is invalid"
+elif [ "$VERIFY_MESSAGES" = U ]; then
+    monitor_item "Inspection unavailable"
 elif [ "$VERIFY_MESSAGES" -eq 0 ]; then
-    printf '%s\n' 'systemd-analyze verify output: no messages'
+    monitor_item "No messages"
 elif [ "$SHOW_RAW_VERIFY" -eq 1 ] || [ "$VERIFY_MESSAGES" -le "$MAX_VERIFY_LINES" ]; then
-    printf '%s\n' "systemd-analyze verify output (${VERIFY_MESSAGES} lines):"
-    sanitize_monitor_text "$VERIFY_OUTPUT"
+    monitor_items "$VERIFY_OUTPUT"
 else
-    printf '%s\n' "systemd-analyze verify output (first ${MAX_VERIFY_LINES} of ${VERIFY_MESSAGES} lines):"
-    printf '%s\n' "$VERIFY_OUTPUT" | sanitize_monitor_stream | $AWK -v max="$MAX_VERIFY_LINES" 'NR <= max { print }'
-    printf '%s\n' '[truncated]'
+    monitor_items "$(printf '%s\n' "$VERIFY_OUTPUT" | $AWK -v max="$MAX_VERIFY_LINES" 'NR <= max')"
+    monitor_item "Selection: first $MAX_VERIFY_LINES of $VERIFY_MESSAGES verification messages."
 fi
-
-printf '%s\n' ""
 
 if [ "$LIST_UNITS_RC" -eq 0 ]; then
     print_detail_section 'Actionable units with load/config errors' "$BAD_LOAD_UNITS" "$ACTIONABLE_NOT_FOUND_DETAILS" "$ACTIONABLE_ERROR_DETAILS" "$ACTIONABLE_BAD_SETTING_DETAILS" "$ACTIONABLE_OTHER_DETAILS" 0
 else
-    printf '%s\n' 'Actionable units with load/config errors: unavailable'
+    monitor_item 'Actionable units with load/config errors: unavailable'
 fi
 
 if [ "$MANAGER_STATE" = 'degraded' ]; then
-    printf '%s\n' ""
+
     print_failed_units_section
 fi
 
 if [ "$LIST_UNITS_RC" -eq 0 ] && [ "$CONTEXTUAL_NOT_FOUND_UNITS" -gt 0 ]; then
-    printf '%s\n' ""
+
     print_detail_section 'Contextual not-found units not counted as config errors' "$CONTEXTUAL_NOT_FOUND_UNITS" "$CONTEXTUAL_NOT_FOUND_DETAILS" "$CONTEXTUAL_ERROR_DETAILS" "$CONTEXTUAL_BAD_SETTING_DETAILS" "$CONTEXTUAL_OTHER_DETAILS" 1
 fi
-} | normalize_monitor_output | limit_long_output_details
+monitor_limit "$DETAIL_LIMIT"
 
-printf '%s\n' ""
-printf '%s\n' 'Interpretation:'
-printf '%s\n' 'Default target validity, default target load state, systemd-analyze verify output, actionable load/config units, and optional strict daemon-reload handling decide the configuration exit code.'
-printf '%s\n' 'The systemd manager state and failed-unit list provide runtime context; degraded runtime units affect this check as non-critical findings unless actionable configuration errors are also present.'
-printf '%s\n' 'Inspect actionable load/config errors first, then verify failed runtime units and daemon-reload state when the summary names those findings.'
+
+monitor_section "Interpretation"
+monitor_item 'Default target validity, default target load state, systemd-analyze verify output, actionable load/config units, and optional strict daemon-reload handling decide the configuration exit code.'
+monitor_item 'The systemd manager state and failed-unit list provide runtime context; degraded runtime units affect this check as non-critical findings unless actionable configuration errors are also present.'
+monitor_item 'Inspect actionable load/config errors first, then verify failed runtime units and daemon-reload state when the summary names those findings.'
+
+if [ "$STATE" -ne 0 ]; then
+    monitor_prepend 'Configuration findings' "$SUMMARY" 'Inspect the named units and systemd-analyze verify output.'
+fi
+printf '%s\n' "$LONG_OUTPUT"
 
 exit "$STATE"

@@ -7,7 +7,7 @@
 #
 # @example Register a custom OpenITCOCKPIT check
 #   basic_settings::monitoring_custom { 'example':
-#     source   => 'puppet:///modules/profile/check_example',
+#     template => 'profile/check_example',
 #     friendly => 'Example service',
 #     interval => 300,
 #   }

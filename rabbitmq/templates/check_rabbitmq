@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'RabbitMQ check cannot run: %s\n' "$*"
+    monitor_error 'RabbitMQ check cannot run: ' "$*"
     exit 3
 }
 
@@ -47,7 +49,7 @@ done
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'RabbitMQ %s\n' "$*"
+    monitor_error 'RabbitMQ ' "$*"
     exit 2
 }
 
@@ -86,7 +88,6 @@ MAX_Q_CRIT=""
 MAX_Q_WARN=""
 MSG="RabbitMQ running"
 LONG_OUTPUT=""
-LONG_OUTPUT_SEP="__CHECK_RABBITMQ_NL__"
 
 # Orphaned queues remain diagnostic and do not change status.
 NO_CONSUMER_COUNT=0
@@ -121,75 +122,12 @@ queue_item() {
     printf '%s (%s msgs)' "$1" "$2"
 }
 
-# Keep queue names safe before the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
-}
-
 # Attach a custom perfdata UOM only when the value is numeric; Nagios U stays unit-free.
 metric_with_unit() {
     case "$1" in
         ''|U) printf '%s' 'U' ;;
         *)    printf '%s%s' "$1" "$2" ;;
     esac
-}
-
-# Append one line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line followed by sanitized queue detail.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
 }
 
 # Read tab-separated lines; queue names may contain spaces, so TAB is the only safe separator.
@@ -292,24 +230,30 @@ fi
 [ -n "$RATE_NOTICE" ] && MSG="$MSG, $RATE_NOTICE"
 
 # Preserve all queue diagnostics until the single character limit is applied below.
+monitor_section "Queues requiring attention"
 if [ "$CRIT_COUNT" -gt 0 ]; then
-    append_long "High backlog queues: ${CRIT_LIST}"
+    monitor_item "High backlog queues: ${CRIT_LIST}"
 fi
 if [ "$WARN_COUNT" -gt 0 ]; then
-    append_long "Elevated backlog queues: ${WARN_LIST}"
+    monitor_item "Elevated backlog queues: ${WARN_LIST}"
 fi
 if [ "$NO_CONSUMER_COUNT" -gt 0 ]; then
-    append_long "Queues with messages but no consumers: ${ORPHAN_LIST}"
+    monitor_item "Queues with messages but no consumers: ${ORPHAN_LIST}"
 fi
-append_long "$SERVICE_CONTEXT"
-append_long "Queue totals: ${QUEUE_COUNT} queue(s), ${TOTAL_MSG} message(s), ${TOTAL_CONSUMERS} consumer(s)"
-[ -n "$RATE_NOTICE" ] && append_long "Rate metric context: ${RATE_NOTICE}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Queue depth for queues with consumers decides queue severity. Incomplete queue rows are UNKNOWN unless a critical backlog is verified; optional rate metrics are context only."
-append_long "Queues with messages but no consumers are diagnostic context and do not raise severity by themselves."
-append_long "Inspect the listed high or elevated backlog queues first. When only rate metrics are unavailable, verify rabbitmqadmin and the managed HTTP config while queue health continues to be checked through rabbitmqctl."
+monitor_section "Service"
+monitor_item "$SERVICE_CONTEXT"
+monitor_section "Queues"
+monitor_item "Queues: ${QUEUE_COUNT}"
+monitor_item "Messages: ${TOTAL_MSG}"
+monitor_item "Consumers: ${TOTAL_CONSUMERS}"
+monitor_item "Backlog thresholds for queues with consumers: warning $WARN messages; critical $CRIT messages"
+monitor_section "Rate metrics"
+[ -n "$RATE_NOTICE" ] && monitor_item "Rate metric context: ${RATE_NOTICE}"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Queue depth for queues with consumers decides queue severity. Incomplete queue rows are UNKNOWN unless a critical backlog is verified; optional rate metrics are context only."
+monitor_item "Queues with messages but no consumers are diagnostic context and do not raise severity by themselves."
+monitor_item "Inspect the listed high or elevated backlog queues first. When only rate metrics are unavailable, verify rabbitmqadmin and the managed HTTP config while queue health continues to be checked through rabbitmqctl."
 
 # Perfdata keeps labels stable; message rates use a custom messages-per-second UOM.
 PUBLISH_RATE_METRIC=$(metric_with_unit "$PUBLISH_RATE" msgps)
@@ -324,5 +268,8 @@ PERF="$PERF consumers_total=${TOTAL_CONSUMERS}"
 PERF="$PERF queues_total=${QUEUE_COUNT}"
 
 # Emit one monitoring line; queue names are sanitized to avoid accidental perfdata separators.
-emit_check "${MSG#, }" "$PERF"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'Broker findings' "${MSG#, }" 'Inspect the named queues and their consumers; restore incomplete queue inspection.'
+fi
+monitor_result "${MSG#, }" "$PERF"
 exit $STATE_CODE

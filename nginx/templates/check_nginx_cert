@@ -1,5 +1,7 @@
 #!/bin/sh
 # Managed by puppet
+
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
 # Local configuration and file validation, never a probe of a live TLS connection.
 # Requires Nginx >= 1.9.2, OpenSSL >= 1.1.1, POSIX awk/dash and GNU coreutils (date, stat, timeout).
 # Puppet templates the main configuration path once. Each registration passes its target and settings as CLI arguments.
@@ -11,7 +13,7 @@
 
 # Early failures contain fixed text only and still leave operator guidance visible.
 die() {
-    printf 'Nginx TLS check cannot run: %s | validity_remaining=Us\n\nInterpretation:\nRestore the required tooling or check settings; no live certificate was tested.\n' "$1"
+    monitor_error 'Nginx TLS check cannot run: ' "$1" ' | validity_remaining=Us'
     exit 3
 }
 
@@ -76,47 +78,31 @@ shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die 'unexpected positional arguments'
 case "$CONFIG_FILE" in /*) ;; *) die 'an absolute vhost configuration file is required' ;; esac
 
-# Sanitize only dynamic output at its boundary, before Nagios sees pipes or line breaks.
-text_value() {
-    printf '%s\n' "$1" | $AWK '{ gsub(/[|]/, "/"); gsub(/[[:cntrl:]]/, " "); printf "%s%s", (NR > 1 ? " " : ""), $0 }'
-}
-
 # Explicit severity order: a proven target defect outranks incomplete work.
 finding() {
     case "$1:$STATE" in
         2:0|2:1|2:3|3:0|3:1|1:0) STATE=$1; SUMMARY=$2 ;;
     esac
     [ "$1" != 3 ] || INCOMPLETE=1
-    DETAILS=$(printf '%s\n%s' "$DETAILS" "$(text_value "$2")")
+    DETAILS=$(printf '%s\n%s' "$DETAILS" "$(monitor_summary "$2")")
 }
 
 # One diagnostic character budget leaves Interpretation visible even with many pairs and aliases.
 emit() {
     TARGET_LABEL=$SERVER_NAME
     [ -n "$TARGET_LABEL" ] || TARGET_LABEL="configuration $CONFIG_FILE"
-    HEAD="Nginx TLS $(text_value "$TARGET_LABEL"): $(text_value "$SUMMARY")"
+    HEAD="Nginx TLS $(monitor_summary "$TARGET_LABEL"): $(monitor_summary "$SUMMARY")"
     [ "$INCOMPLETE" -eq 0 ] || HEAD="$HEAD; some checks could not be completed"
-    # Summary and details share one budget; machine perfdata and the fixed truncation notice are separate output metadata.
-    printf '%s\n%s\n' "$HEAD" "$DETAILS" | $AWK -v limit="$DETAIL_LIMIT" \
-        -v perfdata="validity_remaining=${MINIMUM}s;${WARN_SECONDS}:;${CRIT_SECONDS}:" '
-        NR == 1 {
-            print substr($0, 1, limit) " | " perfdata
-            used = length($0) + 1
-            if (used > limit) truncated = 1
-            next
-        }
-        NF {
-            remaining = limit - used
-            if (remaining <= 0) { truncated = 1; next }
-            if (length($0) + 1 > remaining) {
-                print substr($0, 1, remaining); used = limit; truncated = 1
-            } else { print; used += length($0) + 1 }
-        }
-        END { if (truncated) print "Diagnostic output truncated; inspect the local configuration and certificate files." }
-    '
-    printf '\nInterpretation:\nThis checks the current local files, not the certificate served by running workers.\n'
-    [ "$INCOMPLETE" -eq 0 ] || printf 'Some required checks were not completed; this is a partial assessment.\n'
-    printf 'Repair the reported files or trust configuration and run this check again; manage renewal and Nginx reload separately.\n'
+    HEAD=$(monitor_text_limit "$HEAD" "$DETAIL_LIMIT")
+    LONG_OUTPUT=''; MONITOR_ACTIVE_TOPIC=''
+    monitor_section 'Local certificates'
+    monitor_items "$DETAILS"
+    monitor_limit "$((DETAIL_LIMIT - ${#HEAD} - 1))"
+    monitor_section 'Interpretation'
+    monitor_item 'This checks current local files, not the certificate served by running workers.'
+    [ "$INCOMPLETE" -eq 0 ] || monitor_item 'Some required checks were not completed; this is a partial assessment.'
+    monitor_item 'Repair the reported files or trust configuration and rerun; manage renewal and Nginx reload separately.'
+    monitor_result "$HEAD" "validity_remaining=${MINIMUM}s;${WARN_SECONDS}:;${CRIT_SECONDS}:"
     [ -z "${WORK:-}" ] || printf '%s\n' "$STATE" > "$WORK/status"
 }
 

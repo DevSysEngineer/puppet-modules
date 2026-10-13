@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'GitLab check cannot run: %s\n' "$*"
+    monitor_error 'GitLab check cannot run: ' "$*"
     exit 3
 }
 
@@ -48,58 +50,10 @@ GROUP_STORAGE_MAX_NAME=""
 GROUP_STORAGE_TOTAL_MB=0
 LIC_CONTEXT="unknown"
 LONG_OUTPUT=""
-LONG_OUTPUT_SEP="__CHECK_GITLAB_NL__"
 STATE_CODE=0
 MSG=""
 PERF=""
 VERSION_CONTEXT="version check data unavailable"
-
-# Nagios treats raw pipes after the first output line as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Append one line to the diagnostic long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
 
 # Read the first useful diagnostic line from command output.
 first_line() {
@@ -109,26 +63,6 @@ first_line() {
         p
         q
     '
-}
-
-# Emit one monitoring line with optional perfdata.
-emit_check() {
-    if [ -n "${2:-}" ]; then
-        printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    else
-        printf '%s\n' "$(monitor_text_value "$1")"
-    fi
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
 }
 
 # GitLab group paths may contain characters that are not safe in perfdata labels.
@@ -147,13 +81,13 @@ SVC_RC=$?
 DOWN=$(printf '%s\n' "$SVC_RAW" | $AWK -F': ' '/^down:/ {print $2}')
 if [ -n "$DOWN" ]; then
     DOWN_LIST=$(printf '%s' "$DOWN" | $TR '\n' ',' | $SED 's/,$//')
-    emit_check "GitLab service(s) down: ${DOWN_LIST}"
+    monitor_result "GitLab service(s) down: ${DOWN_LIST}"
     exit 2
 fi
 [ "$SVC_RC" -eq 0 ] || {
     SVC_ERROR=$(first_line "$SVC_RAW")
     [ -n "$SVC_ERROR" ] || SVC_ERROR="gitlab-ctl status exited with ${SVC_RC}"
-    emit_check "GitLab service status could not be read: ${SVC_ERROR}"
+    monitor_result "GitLab service status could not be read: ${SVC_ERROR}"
     exit 3
 }
 
@@ -307,20 +241,30 @@ if [ "$LIC_MODE" = "ee" ]; then
 fi
 
 # Long output explains the independent GitLab checks without flooding operators with every group metric.
-append_long "Version check: ${VERSION_CONTEXT}"
-append_long "License: ${LIC_CONTEXT}"
-append_long "Group storage: ${GROUP_COUNT} group(s), total ${GROUP_STORAGE_TOTAL_MB} MB"
-[ -n "$GROUP_STORAGE_MAX_NAME" ] && append_long "Largest group storage: ${GROUP_STORAGE_MAX_NAME} (${GROUP_STORAGE_MAX_MB} MB)"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Omnibus service state, Rails version-check result, unexpected license command failures, and EE license expiry or user overage can affect the exit code; no-license installations are treated as normal."
-append_long "Group storage is emitted as perfdata for capacity trending and does not change severity by itself. Inspect stopped services, pending security updates, or license findings first when the summary names them."
+monitor_section "Version"
+monitor_item "Version check: ${VERSION_CONTEXT}"
+monitor_section "License"
+monitor_item "License: ${LIC_CONTEXT}"
+monitor_section "Group storage"
+monitor_item "Groups: ${GROUP_COUNT}"
+monitor_item "Total storage: ${GROUP_STORAGE_TOTAL_MB} MB"
+[ -n "$GROUP_STORAGE_MAX_NAME" ] && monitor_item "Largest group storage: ${GROUP_STORAGE_MAX_NAME} (${GROUP_STORAGE_MAX_MB} MB)"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Omnibus service state, Rails version-check result, unexpected license command failures, and EE license expiry or user overage can affect the exit code; no-license installations are treated as normal."
+monitor_item "Group storage is emitted as perfdata for capacity trending and does not change severity by itself. Inspect stopped services, pending security updates, or license findings first when the summary names them."
 
 # Finalize the short output; perfdata is optional because CE may have no group/license counters.
 [ -z "$MSG" ] && MSG="GitLab is running"
 PERF=${PERF# }
 
 # Emit one monitoring line and sanitize GitLab-provided text before perfdata.
-emit_check "$MSG" "$PERF"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'GitLab findings' "$MSG" 'Inspect the named service, version check or license condition.'
+fi
+if [ -n "$PERF" ]; then
+    monitor_result "$MSG" "$PERF"
+else
+    monitor_result "$MSG"
+fi
 exit "$STATE_CODE"

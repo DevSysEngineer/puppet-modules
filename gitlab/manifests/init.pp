@@ -209,7 +209,7 @@ class gitlab (
 
     # Register the check after its runtime packages.
     basic_settings::monitoring_custom { 'gitlab':
-      source   => 'puppet:///modules/gitlab/check_gitlab',
+      template => 'gitlab/check_gitlab',
       friendly => 'GitLab',
       timeout  => 300,
       interval => 600,

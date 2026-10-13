@@ -1,12 +1,14 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Runtime: nftables, jq with exact decimal literals, coreutils and awk (systemd helper).
 # One kernel snapshot supplies structure, dynamic blacklists and cumulative byte counters.
 # Structural CRITICAL precedes service inspection; required service CRITICAL precedes incomplete counters.
 # Counter labels retain the old normalization but now carry bytes, not packets. No local rates or state.
 die() {
-    printf 'nftables check cannot run: %s\n' "$*"
+    monitor_error 'nftables check cannot run: ' "$*"
     exit 3
 }
 
@@ -36,7 +38,7 @@ shift $((OPTIND - 1))
 
 # Direct failures retain their short output contract.
 crit() {
-    printf 'nftables %s\n' "$*"
+    monitor_error 'nftables ' "$*"
     exit 2
 }
 
@@ -368,34 +370,47 @@ format_perfdata() {
 # Keep diagnostics ahead of byte details and Interpretation outside the shared detail budget.
 # JSON strings carry all text between stages; no delimiter in a comment can split a record.
 emit_check() {
-    printf '%s | %s\n' "$1" "$PERF_DATA"
-    printf '%s' "$REPORT" | $JQ -r --arg limit "$DETAIL_LIMIT" --arg service "$SERVICE_CONTEXT" --arg counter_error "$COUNTER_ERROR" '
-        def safe: gsub("[\\x00-\\x1f\\x7f]"; " ") | gsub("\\|"; "[or]");
+    output_records=$(printf '%s' "$REPORT" | $JQ -r --arg service "$SERVICE_CONTEXT" --arg counter_error "$COUNTER_ERROR" '
+        def safe: gsub("[\\x00-\\x1f\\x7f]"; " ");
         if $counter_error != "" then .counters = [] | .errors += [$counter_error] | .errors |= unique else . end
-        |
-        (["Ruleset structure: \(.rules_total) rule(s) in \(.table_count) table(s)",
-            (if .chain_empty|length > 0 then "Empty chains: " + (.chain_empty|join(" ")) else empty end),
-            (if .table_empty|length > 0 then "Empty tables: " + (.table_empty|join(" ")) else empty end),
-            (if .allowed|length > 0 then "Allowed empty Docker chains: " + (.allowed|join(" ")) else empty end),
-            (.errors[] | "Incomplete inspection: " + safe),
-            ($service | select(length > 0) | safe)] +
-         [.blacklists[] | "", "\(.kind // "Address") addresses in \(.name) filter (\(if .error then "unknown" else .items|length end)):",
-            (if .error then .error | safe elif .items|length == 0 then "None" else .items[] | "- " + . end)] +
-         [.counters[] | "", .label, (.detail | safe),
-            (if .early then "Counter precedes later conditions; it may count traffic that fails the rest of this rule." else empty end),
-            "Bytes: " + .bytes]) | join("\n") as $details
-        | ($limit|tonumber) as $max
-        | if ($details|length) > $max then $details[0:$max] +
-            "... [detail truncated]\nLong output details truncated after \($limit) characters to keep Interpretation visible."
-          else $details end
-    '
-    printf '\n%s\n' 'Interpretation:'
-    printf '%s\n' \
-        'Ruleset structure and the required systemd loader decide availability; incomplete inspection is UNKNOWN unless a CRITICAL is established. An active loader or populated ruleset does not prove packet reachability.' \
-        'Blacklist sections show dynamic inet/filter address sets used by drop or reject rules. Entries alone do not raise an alarm. Allowed empty Docker chains suppress only their chain alarm; an empty table remains critical.' \
-        'Counter perfdata contains cumulative bytes (UOM c), only for valid positive counters. Zero counters are omitted; absent metrics do not prove absent rules. Rules without counters are unmeasured. Named counters are shared measurements.' \
-        'Do not sum rule counters into a network total: traffic can cross several counters. Earlier established/related acceptance can bypass service counters; without output counters, replies are not measured. JSON does not change those measurement points.' \
-        'Rates and resets belong to monitoring. At migration from packets, start a new byte baseline and keep old packet history separate. Inspect named empty chains/tables and incomplete data before interpreting traffic.'
+        | [
+            ["section", "Ruleset structure"],
+            ["item", "Rules: \(.rules_total); tables: \(.table_count)"],
+            (if .chain_empty|length > 0 then ["item", "Empty chains: " + (.chain_empty|join(" "))] else empty end),
+            (if .table_empty|length > 0 then ["item", "Empty tables: " + (.table_empty|join(" "))] else empty end),
+            (if .allowed|length > 0 then ["item", "Allowed empty Docker chains: " + (.allowed|join(" "))] else empty end),
+            (.errors[] | ["item", "Incomplete inspection: " + .]),
+            ["section", "Service"], ($service | select(length > 0) | ["item", .]),
+            ["section", "Blacklists"],
+            (.blacklists[] |
+                ["item", "\(.name): \(if .error then "inspection unavailable" else "\(.items|length) addresses" end)"],
+                (if .error then ["continuation", .error] else (.items[] | ["continuation", .]) end)),
+            ["section", "Traffic counters"],
+            (.counters[] | ["item", .label + ": " + .bytes + " bytes"], ["continuation", .detail],
+                (if .early then ["continuation", "Counter precedes later conditions and can include traffic rejected later in this rule."] else empty end))
+          ] | .[] | map(safe) | join("\t")
+    ')
+    output_tab=$(printf '\t')
+    while IFS="$output_tab" read -r output_kind output_text; do
+        case "$output_kind" in
+            section) monitor_section "$output_text" ;;
+            item) monitor_item "$output_text" ;;
+            continuation) monitor_continuation "$output_text" ;;
+        esac
+    done <<EOF
+$output_records
+EOF
+    monitor_limit "$DETAIL_LIMIT"
+    monitor_section "Interpretation"
+    monitor_item "Ruleset structure and the required systemd loader decide availability. Incomplete inspection is unknown unless a critical defect is established; neither proves packet reachability."
+    monitor_item "Blacklists are dynamic inet/filter address sets used by drop or reject rules; entries alone do not raise an alarm. Allowed empty Docker chains do not excuse empty tables."
+    monitor_item "Counters measure cumulative bytes at their rule position. Only valid positive counters have perfdata; omitted counters do not prove absent rules. Named counters are shared measurements."
+    monitor_item "Do not sum rule counters: traffic can cross several counters, earlier acceptance can bypass them, and replies need output counters. Monitoring handles rates/resets; keep old packet history separate from the byte baseline."
+    monitor_item "Inspect the named empty chains, tables and incomplete sources before interpreting traffic."
+    if [ "${2:-0}" -eq 1 ]; then
+        monitor_prepend 'Firewall findings' "$1" 'Inspect the named chains, tables and incomplete sources.'
+    fi
+    monitor_result "$1" "$PERF_DATA"
 }
 
 <% if @systemd_enable != false -%>
@@ -450,11 +465,11 @@ fi
 CHAIN_EMPTY=$(printf '%s' "$REPORT" | $JQ -r '.chain_empty | join(" ")')
 TABLE_EMPTY=$(printf '%s' "$REPORT" | $JQ -r '.table_empty | join(" ")')
 if [ -n "$CHAIN_EMPTY" ]; then
-    emit_check "nftables has no rules in chain(s): $CHAIN_EMPTY"
+    emit_check "nftables has no rules in chain(s): $CHAIN_EMPTY" 1
     exit 2
 fi
 if [ -n "$TABLE_EMPTY" ]; then
-    emit_check "nftables has no rules in table(s): $TABLE_EMPTY"
+    emit_check "nftables has no rules in table(s): $TABLE_EMPTY" 1
     exit 2
 fi
 if [ "$(printf '%s' "$REPORT" | $JQ -r '.empty_ruleset')" = true ]; then
@@ -471,7 +486,7 @@ SERVICE_CONTEXT="Firewall availability is verified through the loaded kernel rul
 INSPECTION_ERROR=$COUNTER_ERROR
 [ -n "$INSPECTION_ERROR" ] || INSPECTION_ERROR=$(printf '%s' "$REPORT" | $JQ -r '.errors[0] // empty')
 if [ -n "$INSPECTION_ERROR" ]; then
-    emit_check "nftables inspection incomplete: $INSPECTION_ERROR"
+    emit_check "nftables inspection incomplete: $INSPECTION_ERROR" 1
     exit 3
 fi
 SUMMARY=$(printf '%s' "$REPORT" | $JQ -r '

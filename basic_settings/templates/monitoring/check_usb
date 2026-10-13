@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'USB check cannot run: %s\n' "$*"
+    monitor_error 'USB check cannot run: ' "$*"
     exit 3
 }
 
@@ -51,7 +53,6 @@ EXPECTED_VP_IDS_ACTIVE=""
 # Time state and final monitoring status are captured once for deterministic rule evaluation.
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 LONG_OUTPUT=""
-LONG_OUTPUT_SEP="__CHECK_USB_NL__"
 MSG=""
 NOW_HM=""
 NOW_MIN=0
@@ -91,69 +92,6 @@ case "$DETAIL_LIMIT" in
     ''|*[!0-9]*) die "detail limit must be numeric" ;;
 esac
 [ "$DETAIL_LIMIT" -ge 1 ] || die "detail limit must be at least 1"
-
-# Keep USB product, manufacturer, and serial text safe before the perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Append one line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit the short monitoring line and the bounded device detail output.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
-}
 
 # Append one semicolon-separated cause to the short output.
 append_summary_reason() {
@@ -619,20 +557,20 @@ if [ -z "$MSG" ]; then
 fi
 
 # Keep device lists out of the short output; long output is bounded and explicitly marks truncation.
-append_long "Attached USB endpoint devices: ${TOTAL_DEV}"
-append_long "Active expected devices: ${EXPECTED_PRESENT_COUNT}/${EXPECTED_TOTAL_COUNT} present"
-append_long "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL_COUNT} present"
-[ -n "$UNAUTHORIZED_DEV_LIST" ] && append_long "Unauthorized devices: ${UNAUTHORIZED_DEV_LIST}"
-[ -n "$EXPECTED_LIST_MISSING" ] && append_long "Expected devices missing: ${EXPECTED_LIST_MISSING}"
-[ "$ANYREQ_OK" -eq 0 ] && [ -n "$ANYREQ_ACTIVE_REQUIREMENT_LIST" ] && append_long "Active any-required candidates that would satisfy the policy: ${ANYREQ_ACTIVE_REQUIREMENT_LIST}"
-[ -n "$ANYREQ_MATCHED_LIST" ] && append_long "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
-[ -n "$WHITELISTED_DEV_LIST" ] && append_long "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."
-append_long "Whitelist and matched any-required device lists are diagnostic context; timed rules authorize known devices outside their active windows but only require presence during active windows."
-append_long "Inspect the listed unauthorized devices, missing expected identifiers, or active any-required candidates first, then update the Puppet USB policy if the device is expected for this host and time window."
+monitor_section "USB policy"
+monitor_item "Attached USB endpoint devices: ${TOTAL_DEV}"
+monitor_item "Active expected devices: ${EXPECTED_PRESENT_COUNT}/${EXPECTED_TOTAL_COUNT} present"
+monitor_item "Active any-required devices: ${ANYREQ_PRESENT_COUNT}/${ANYREQ_TOTAL_COUNT} present"
+[ -n "$UNAUTHORIZED_DEV_LIST" ] && monitor_item "Unauthorized devices: ${UNAUTHORIZED_DEV_LIST}"
+[ -n "$EXPECTED_LIST_MISSING" ] && monitor_item "Expected devices missing: ${EXPECTED_LIST_MISSING}"
+[ "$ANYREQ_OK" -eq 0 ] && [ -n "$ANYREQ_ACTIVE_REQUIREMENT_LIST" ] && monitor_item "Active any-required candidates that would satisfy the policy: ${ANYREQ_ACTIVE_REQUIREMENT_LIST}"
+[ -n "$ANYREQ_MATCHED_LIST" ] && monitor_item "Any-required matched devices: ${ANYREQ_MATCHED_LIST}"
+[ -n "$WHITELISTED_DEV_LIST" ] && monitor_item "Whitelisted attached devices: ${WHITELISTED_DEV_LIST}"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Unauthorized devices, active expected devices that are missing, and active any-required groups with no present member decide the exit code."
+monitor_item "Whitelist and matched any-required device lists are diagnostic context; timed rules authorize known devices outside their active windows but only require presence during active windows."
+monitor_item "Inspect the listed unauthorized devices, missing expected identifiers, or active any-required candidates first, then update the Puppet USB policy if the device is expected for this host and time window."
 
 # Perfdata (ACTIVE items only for expected/any-required totals)
 PERF="usb_total=${TOTAL_DEV}"
@@ -645,5 +583,8 @@ PERF="$PERF any_required_present=${ANYREQ_PRESENT_COUNT}"
 PERF="$PERF any_required_ok=${ANYREQ_OK}"
 
 # Output one monitoring line; sysfs-provided device text is sanitized before perfdata.
-emit_check "$MSG" "$PERF"
+if [ "$STATUS_CODE" -ne 0 ]; then
+    monitor_prepend 'USB findings' "$MSG" 'Check the named devices against the active USB policy and time window.'
+fi
+monitor_result "$MSG" "$PERF"
 exit $STATUS_CODE

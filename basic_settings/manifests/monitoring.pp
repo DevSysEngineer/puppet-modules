@@ -319,7 +319,7 @@ class basic_settings::monitoring (
       # Register the check after its runtime packages.
       basic_settings::monitoring_custom { 'systemd_config':
         friendly => 'Systemd config',
-        source   => 'puppet:///modules/basic_settings/monitoring/check_systemd_config',
+        template => 'basic_settings/monitoring/check_systemd_config',
         timeout  => 60,
         require  => Package[$systemd_check_required_packages],
       }

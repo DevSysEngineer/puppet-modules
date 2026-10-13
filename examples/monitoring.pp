@@ -48,7 +48,7 @@ node 'monitored-host.example.org' {
     friendly      => 'Application health',
     interval      => 300,
     root_required => true,
-    source        => 'puppet:///modules/profile/check_application_health',
+    template      => 'profile/check_application_health',
     timeout       => 30,
     require       => Class['openitcockpit::agent'],
   }

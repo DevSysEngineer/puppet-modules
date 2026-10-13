@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'Mirth Connect check cannot run: %s\n' "$*"
+    monitor_error 'Mirth Connect check cannot run: ' "$*"
     exit 3
 }
 
@@ -38,7 +40,6 @@ STATUS_SHOWN=0
 SUMMARY_QUEUE=""
 SUMMARY_STATUS=""
 LONG_OUTPUT=""
-LONG_OUTPUT_SEP="__CHECK_MIRTH_CONNECT_NL__"
 
 # Persistent queue state tracks how long channels have been above the warning threshold.
 STATE_DIR=${STATE_DIR:-<%= @state_dir %>}
@@ -90,81 +91,21 @@ esac
 [ -x "$MCCOMMAND" ] || die "mccommand not available at ${MCCOMMAND}"
 [ -r "$CONFIG" ] || die "config file ${CONFIG} is not readable"
 
-# Keep monitoring text safe before and after the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
 # Strip carriage returns, terminal escape sequences, and non-printable bytes before the CLI text is parsed or rendered.
 strip_terminal_control() {
     $TR -d '\r' | $AWK '{ gsub(/\033\[[0-9;]*[A-Za-z]/, ""); print }' | $TR -cd '\11\12\40-\176'
 }
 
-# Append one line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line; perfdata is attached by the caller when available.
-emit_check() {
-    if [ -n "${2:-}" ]; then
-        printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    else
-        printf '%s\n' "$(monitor_text_value "$1")"
-    fi
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
-}
-
 # Emit a CRITICAL result and stop immediately.
 crit() {
-    emit_check "Mirth Connect $1" "${2:-}"
+    if [ -n "$LONG_OUTPUT" ]; then
+        monitor_prepend 'Channel findings' "$1" 'Inspect the named channel state or queue in Mirth Connect before restarting services.'
+    fi
+    if [ -n "${2:-}" ]; then
+        monitor_result "Mirth Connect $1" "$2"
+    else
+        monitor_result "Mirth Connect $1"
+    fi
     exit 2
 }
 
@@ -316,16 +257,18 @@ if IFS='|' read -r _t tot_recv tot_sent <"$WORK_DIR/parsed_totals.txt"; then
 fi
 
 # Long output keeps channel names bounded while preserving the direct cause in the short output.
-append_long "$SERVICE_CONTEXT"
-append_long "Channels checked: ${TOTAL_CHANS}"
-[ "$STATUS_ISSUES" -gt 0 ] && append_long "Channels not running: ${SUMMARY_STATUS}"
-[ "$STATUS_UNKNOWN" -eq 0 ] || append_long "Channel state unavailable for ${STATUS_UNKNOWN} channel(s)."
-[ "$QUEUE_ISSUES" -gt 0 ] && append_long "Channels with queued messages: ${SUMMARY_QUEUE}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Channel started/stopped state and queued-message age decide the exit code; received/sent totals and maximum queue depth are supporting metrics."
-append_long "Queued channels affect the exit code only after they stay elevated for the configured grace window. Inspect the listed channel status or queue in Mirth Connect before restarting services."
+monitor_section "Service"
+monitor_item "$SERVICE_CONTEXT"
+monitor_section "Channels"
+monitor_item "Channels checked: ${TOTAL_CHANS}"
+[ "$STATUS_ISSUES" -gt 0 ] && monitor_item "Channels not running: ${SUMMARY_STATUS}"
+[ "$STATUS_UNKNOWN" -eq 0 ] || monitor_item "Channel state unavailable for ${STATUS_UNKNOWN} channel(s)."
+[ "$QUEUE_ISSUES" -gt 0 ] && monitor_item "Channels with queued messages: ${SUMMARY_QUEUE}"
+monitor_item "Queue thresholds: warning $WARN_Q; critical $CRIT_Q messages; grace $GRACE s"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Channel started/stopped state and queued-message age decide the exit code; received/sent totals and maximum queue depth are supporting metrics."
+monitor_item "Queued channels affect the exit code only after they stay elevated for the configured grace window. Inspect the listed channel status or queue in Mirth Connect before restarting services."
 
 # Status issues take precedence over aged queue warnings in the final state.
 if [ "$STATUS_ISSUES" -gt 0 ]; then
@@ -335,13 +278,15 @@ elif [ "$QUEUE_CRIT" -eq 1 ]; then
     QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
     crit "${QUEUE_ISSUES} channel(s) queue stayed high${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
 elif [ "$STATUS_UNKNOWN" -gt 0 ]; then
-    emit_check "Mirth Connect channel status inspection incomplete" "$PERF_DATA"
+    monitor_prepend 'Channel findings' 'Channel status inspection is incomplete.' 'Verify mccommand access and the returned channel states.'
+    monitor_result "Mirth Connect channel status inspection incomplete" "$PERF_DATA"
     exit 3
 elif [ "$QUEUE_ISSUES" -gt 0 ]; then
     QUEUE_PRIMARY=${SUMMARY_QUEUE%%, *}
-    emit_check "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
+    monitor_prepend 'Channel findings' "${QUEUE_ISSUES} channel(s) have queued messages${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" 'Inspect the named queue and its configured grace window in Mirth Connect.'
+    monitor_result "Mirth Connect ${QUEUE_ISSUES} channel(s) have queued messages${QUEUE_PRIMARY:+: $QUEUE_PRIMARY}" "$PERF_DATA"
     exit 1
 fi
 
-emit_check "Mirth Connect ${TOTAL_CHANS} channel(s) running as expected" "$PERF_DATA"
+monitor_result "Mirth Connect ${TOTAL_CHANS} channel(s) running as expected" "$PERF_DATA"
 exit 0

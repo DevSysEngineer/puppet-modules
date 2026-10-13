@@ -1,11 +1,19 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'Network check cannot run: %s\n' "$*"
+    monitor_error 'Network check cannot run: ' "$*"
     if [ -n "${CRIT_MSG:-}" ]; then
-        printf 'Verified failures: %s\n' "$CRIT_MSG"
+        LONG_OUTPUT=''; MONITOR_ACTIVE_TOPIC=''
+        monitor_section 'Network findings'
+        monitor_item "$CRIT_MSG"
+        monitor_item 'Inspect the verified service or interface failure and restore network inspection.'
+        monitor_section 'Interpretation'
+        monitor_item 'The verified failure retains priority; additional inspection is incomplete.'
+        printf '%s\n' "$LONG_OUTPUT"
         exit 2
     fi
     exit 3
@@ -74,7 +82,6 @@ IPV6_ULA=0
 
 # Long output and optional service checks share the same final network status.
 LONG_OUTPUT=""
-LONG_OUTPUT_SEP="__CHECK_NETWORK_NL__"
 SERVICES_IDS=""
 SERVICES_LIST=<%= @service_str_shell %>
 SERVICES=${SERVICES:-""}
@@ -124,72 +131,10 @@ sanitize_label() {
     printf '%s' "$1" | $TR '[:upper:]' '[:lower:]' | $SED 's/[^a-z0-9_]/_/g'
 }
 
-# Keep interface, SSID, and service names safe before the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Append one diagnostic line to the bounded long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
 # Store one interface detail line; final long output is capped once before Interpretation.
 append_interface_detail() {
-    append_long "$1"
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line followed by sanitized interface details.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
-    fi
+    monitor_section "Network interfaces"
+    monitor_item "$1"
 }
 
 # Return success when the interface matches one configured filter.
@@ -575,11 +520,10 @@ elif [ "$UP_COUNT" -eq 0 ] && [ "$UNKNOWN_LINKS" -eq 0 ]; then
 fi
 
 # Explain which parts of the network inventory can change the monitoring state.
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface MAC and IP addresses, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
-append_long "Inspect named down services or wired interfaces first. Public-IP values of n/a are contextual unless the summary also reports a direct interface or service failure."
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Service state, filter matches, no usable interface, and wired-down failover policy decide the exit code; interface MAC and IP addresses, Wi-Fi AP identity, kernel counters, and public-IP lookup results are supporting context."
+monitor_item "Inspect named down services or wired interfaces first. Public-IP values of n/a are contextual unless the summary also reports a direct interface or service failure."
 
 # Compose a cause-oriented short output; counters stay in perfdata and interface inventory stays in long output.
 MSG="Network is healthy; public IPs: $PUBIP_SUMMARY"
@@ -626,5 +570,8 @@ PERF_GLOBAL="$PERF_GLOBAL wired_down=${WIRED_DOWN_COUNT};;;0"
 
 # Merge global and per-interface perfdata, then sanitize the dynamic summary.
 PERF="$PERF_GLOBAL${PERF:+ $PERF}"
-emit_check "$MSG" "$PERF"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'Network findings' "$MSG" 'Inspect the named service or interface; verify link state and failover.'
+fi
+monitor_result "$MSG" "$PERF"
 exit $STATE_CODE

@@ -3798,7 +3798,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Zet in de lange uitvoer de belangrijkste diagnose vooraan. Beschrijf het betrokken onderdeel, wat is waargenomen, de waarschijnlijke oorzaak en een bruikbare vervolgstap of escalatieroute. Verberg de hoofdoorzaak niet tussen details en neem daar geen drempelwaarden op.
+Zet in de lange uitvoer de belangrijkste diagnose vooraan. Beschrijf het betrokken onderdeel, wat is waargenomen, de waarschijnlijke oorzaak en een bruikbare vervolgstap of escalatieroute. Verberg de hoofdoorzaak niet tussen details. Zet meetwaarden en ingestelde grenzen bij het inhoudelijke onderwerp waarop ze betrekking hebben; de openingsdiagnose blijft gericht op de afwijking en de eerste controle.
 
 **Herkomst**
 
@@ -3850,7 +3850,7 @@ Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
 
 **Handmatige review**
 
-Lees de diagnose in afgedrukte volgorde; controleer dat de hoofdoorzaak vooraan staat en drempelwaarden daar ontbreken.
+Lees de diagnose in afgedrukte volgorde; controleer dat de hoofdoorzaak en vervolgstap vooraan staan en meetwaarden en grenzen bij het juiste onderwerp staan.
 
 **Verificatie**
 
@@ -3860,7 +3860,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Sluit niet-triviale lange uitvoer af met `Interpretation:`. Leg daarin uit hoe de getoonde gegevens, reikwijdte en context gelezen moeten worden. De perfdata hoeft daar niet nogmaals te worden opgesomd.
+Sluit niet-triviale lange uitvoer af met `Interpretation:`, met direct daaronder korte `- `-opsommingspunten volgens de [uitvoernorm](#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken). Geef alleen uitleg die relevant is voor de getoonde metingen, reikwijdte, beperkingen en eerste vervolgstap. Herhaal geen perfdata. Verplaats algemene handleidingtekst naar de README; de actuele uitvoer moet zelfstandig begrijpelijk blijven.
 
 **Herkomst**
 
@@ -3988,7 +3988,16 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Nagios kan tekst na een pipe ook op vervolgregels als perfdata lezen. Maak ruwe `|`-tekens daarom veilig zodra dynamische data in de lange uitvoer wordt opgenomen. Begin en eindig zonder lege regels en zet één lege regel tussen afzonderlijke secties; opeenvolgende lege regels zijn niet toegestaan.
+Gebruik inhoudelijke onderwerpblokken in Engelse platte tekst, bijvoorbeeld `Service:`, `Connections:`, `Blacklists:` of `Scan history:`. Algemene verzamelkoppen zoals `Details:` en `Diagnostics:` zijn niet toegestaan. Iedere kop staat op een eigen regel en eindigt met een dubbele punt. Direct op de volgende regel begint het eerste zelfstandige gegeven met letterlijk `- `; er staat geen lege regel tussen de kop en dit punt of tussen punten van dezelfde lijst. Tussen onderwerpblokken staat precies één lege regel. De long output begint en eindigt zonder lege regel. Kleuren, HTML, BBCode, Markdown-verwerking en uitlijning met veel spaties mogen niet nodig zijn voor de leesbaarheid.
+
+Groepeer actuele en historische waarden van hetzelfde onderwerp bij elkaar en benoem het verschil. Gebruik begrijpelijke namen en eenheden. Vertaal `1`, `0` en `U` alleen wanneer hun betekenis uit de meetbron vaststaat; houd gemeten nul, ontbrekende informatie en een niet-toepasselijke controle uit elkaar. Laat lege onderwerpen weg. Een vastgestelde lege blacklist kan compact `0 addresses` tonen. Houd ieder scanrecord of iedere loggebeurtenis onder één opsommingspunt; vervolggegevens staan daaronder ingesprongen met twee spaties. Behoud bron en tijdvenster waar die voor de interpretatie nodig zijn.
+
+Nagios kan tekst na een pipe ook op vervolgregels als perfdata lezen. Bescherm dynamische `|`-tekens op alle tekstregels. Dynamische tekst mag geen eigen koppen, lijststructuur of ongewenste witruimte invoegen. Gebruik voor nieuwe en aangepaste eigen shellchecks de [gedeelde POSIX-presentatiehelper](../../../basic_settings/templates/monitoring/_output), tijdens ERB-rendering opgenomen met `scope.function_template(['basic_settings/monitoring/_output'])`, volgens het bestaande patroon van de systemd-helper. Dit geldt ook voor voorheen statische checks: render die via de Puppet-integratie. De formatter beheert koppen, punten, vervolgregels, scheidingen en tekstbegrenzing. De check bepaalt inhoud, prioriteit, metingen, beoordeling, exitcode en perfdata; de formatter leidt geen status af en meet niets. Houd geen tweede lokale formatter in stand en voeg hiervoor geen Ruby- of Python-afhankelijkheid op hosts toe.
+
+`monitor_section` selecteert een onderwerp, `monitor_item` voegt één record toe en `monitor_continuation` bindt vervolgtekst aan dat record. `monitor_items` verwerkt zelfstandige regels; `monitor_log_items` behoudt ingesprongen logvervolgregels. `monitor_records` is uitsluitend voor reeds door de check opgebouwde interne records, niet voor ruwe externe tekst. `monitor_limit` begrenst verzamelde diagnostiek vóór de afsluitende interpretatie. De check bewaart noodzakelijke hoofdoorzaak en vervolgstap buiten het afkapbare detaildeel en houdt rekening met een eventuele totale uitvoerlimiet. `monitor_result` drukt de door de check bepaalde samenvatting en perfdata af. Korte triviale fouten hebben geen kunstmatige blokken nodig; meerregelige fout- en helppaden volgen dezelfde uitvoernorm.
+
+Vermeld een beperking eenmaal bij het betreffende onderwerp: onderscheid een beperkte selectie uit beschikbare records, gestopte gegevensverzameling en ingekorte uitvoertekst. Behoud bestaande werk- en uitvoerbegrenzingen en kap tekst op volledige regels of records af. Zie ook [werkbegrenzing](#werkbegrenzing-van-tekstbegrenzing-onderscheiden) en [zichtbare interpretatie](#interpretatie-zichtbaar-houden-bij-een-ui-limiet).
+
 
 **Herkomst**
 
@@ -4032,7 +4041,21 @@ Handmatig reviewscenario: Een logregel met een ruwe pipe wordt als vervolgtekst 
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Maak de pipe veilig bij opname en gebruik precies één lege regel tussen secties, zonder begin- of eindlege regel. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Letterlijke uitvoer met illustratieve meetwaarden:
+
+```text
+Connections:
+- Current: 10 / 1000
+- Historical peak: 13 / 1000
+- Running threads: 2
+
+Scan history:
+- Scheduled scan: completed; 0 detections
+  Scanned: 200 files; duration: 12 s
+
+Interpretation:
+- Current connections and the historical peak are evaluated separately.
+```
 
 **Grensgevallen**
 
@@ -4040,7 +4063,7 @@ Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het
 
 **Handmatige review**
 
-Controleer data met pipes op de eerste en volgende regels en controleer opeenvolgende, leidende en afsluitende lege regels.
+Controleer alle normale, afwijkende, onvolledige en vroege foutpaden, inclusief gedeelde helpers en gegenereerde scripts. Controleer dynamische pipes, regelovergangen, behoud van records en exacte witruimte. Beoordeel de letterlijke uitvoer ook in de gebruikte monitoringinterface; automatische Markdown-weergave is geen uitgangspunt. Controleer dat nieuwe plugins de gedeelde formatter gebruiken.
 
 **Verificatie**
 

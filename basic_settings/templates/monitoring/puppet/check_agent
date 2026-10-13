@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'Puppet check cannot run: %s\n' "$*"
+    monitor_error 'Puppet check cannot run: ' "$*"
     exit 3
 }
 
@@ -80,46 +82,9 @@ esac
 [ "$RUN_JOURNAL_END_GRACE" -ge 0 ] || die "RUN_JOURNAL_END_GRACE must be zero or greater"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 
-# Emit the summary line and optional long output.
-emit_check() {
-    # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$JOURNAL_JOINED" ]; then
-        monitor_text_value "$JOURNAL_JOINED"
-    fi
-}
-
-# Nagios treats raw pipes after the first output line as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_text_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
-}
-
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf '%s\n' "$(monitor_text_value "Puppet $*")"
+    monitor_error 'Puppet ' "$*"
     exit 2
 }
 
@@ -127,15 +92,19 @@ crit() {
 filter_puppet_journal() {
     printf '%s\n' "$1" | $AWK '
         NF == 0 { next }
+        /^[[:space:]]/ { if (selected) print; next }
         {
+            selected=0
             ident = $3
 
             if (ident ~ /^puppet([-.[:alnum:]_]+)?(\[[0-9]+\])?:$/) {
+                selected=1
                 print
                 next
             }
 
             if (ident ~ /^systemd\[[0-9]+\]:$/ && index($0, "puppet.service") > 0) {
+                selected=1
                 print
             }
         }
@@ -299,18 +268,9 @@ if [ "$JOURNAL_FILTERED_COUNT" -gt 0 ]; then
         JOURNAL_TRUNCATED=1
     fi
 
-    JOURNAL_JOINED=$(
-        {
-            if [ "$JOURNAL_TRUNCATED" -eq 1 ]; then
-                printf '%s\n' "- Showing last ${LOG_LINES} Puppet journal lines from ${JOURNAL_CONTEXT_LABEL}; ${JOURNAL_OMITTED} older line(s) omitted"
-            else
-                printf '%s\n' "- Showing Puppet journal lines from ${JOURNAL_CONTEXT_LABEL}"
-            fi
-            printf '%s\n' "$JOURNAL_FILTERED" | $SED '/^$/d; s/[[:space:]]\+$//; s/^/- /'
-        }
-    )
+    JOURNAL_JOINED=$JOURNAL_FILTERED
 elif [ -n "$JOURNAL_RAW" ]; then
-    JOURNAL_JOINED="- No Puppet-tagged journal lines found in ${JOURNAL_CONTEXT_LABEL}"
+    JOURNAL_JOINED=""
 else
     JOURNAL_JOINED=""
 fi
@@ -319,17 +279,21 @@ JOURNAL_JOINED=""
 fi
 <% end -%>
 
-# Add interpretation after journal details when long output exists.
+monitor_section "Puppet journal"
 if [ -n "$JOURNAL_JOINED" ]; then
-    JOURNAL_JOINED=$(
-        {
-            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
-            printf '%s\n' ''
-            printf '%s\n' 'Interpretation:'
-            printf '%s\n' 'Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context from the Puppet-timed last-run window.'
-            printf '%s\n' 'Inspect the Puppet service, catalog errors, and the named lastrun summary file when the summary reports stale runs, failed resources, failed events, or a disabled agent.'
-        }
-    )
+    monitor_item "Source: $JOURNAL_CONTEXT_LABEL"
+    if [ "${JOURNAL_OMITTED:-0}" -gt 0 ]; then
+        monitor_item "Selection: latest $LOG_LINES lines; $JOURNAL_OMITTED older lines omitted."
+    fi
+    monitor_log_items "$JOURNAL_JOINED"
+elif [ -n "${JOURNAL_RAW:-}" ]; then
+    monitor_item "No Puppet-tagged journal lines found in $JOURNAL_CONTEXT_LABEL"
+fi
+if [ -n "${LONG_OUTPUT:-}" ]; then
+    monitor_limit "$DETAIL_LIMIT"
+    monitor_section "Interpretation"
+    monitor_item "Puppet lastrun summary fields and last-run age decide the exit code; filtered journal lines are diagnostic context from the Puppet-timed last-run window."
+    monitor_item "Inspect the Puppet service, catalog errors, and the named lastrun summary file when the summary reports stale runs, failed resources, failed events, or a disabled agent."
 fi
 
 # Build perfdata while keeping the unknown age sentinel unit-free.
@@ -353,8 +317,11 @@ PERF="$PERF time_total=${TIME_TOTAL_METRIC}"
 PERF="$PERF time_config_retrieval=${TIME_CONF_RETR_METRIC}"
 
 # Emit the final Nagios line; the exit code carries the machine-readable state.
+if [ "$EXITCODE_STATE" -ne 0 ] && [ -n "${LONG_OUTPUT:-}" ]; then
+    monitor_prepend 'Puppet run findings' "$STATUS_DETAIL; last run: $LAST_RUN_HUMAN" 'Inspect the last-run summary, service state and catalog errors in this journal window.'
+fi
 case "$EXITCODE_STATE" in
-  0) emit_check "Puppet is running (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 0 ;;
-  1) emit_check "Puppet last run is stale (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;
-  *) emit_check "Puppet failed (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 2 ;;
+  0) monitor_result "Puppet is running (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 0 ;;
+  1) monitor_result "Puppet last run is stale (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 1 ;;
+  *) monitor_result "Puppet failed (${STATUS_DETAIL}); last run: ${LAST_RUN_HUMAN}" "$PERF"; exit 2 ;;
 esac

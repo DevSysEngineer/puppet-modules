@@ -1,23 +1,12 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    # Failure text may contain regex pipes before sed is available, so sanitize with shell builtins here.
-    _die_text=$*
-    printf 'vnStat check cannot run: '
-    while :; do
-        case "$_die_text" in
-            *'|'*)
-                printf '%s[or]' "${_die_text%%|*}"
-                _die_text=${_die_text#*|}
-                ;;
-            *)
-                printf '%s\n' "$_die_text"
-                exit 3
-                ;;
-        esac
-    done
+    monitor_error 'vnStat check cannot run: ' "$*"
+    exit 3
 }
 
 # Binary checks
@@ -104,12 +93,6 @@ while getopts ':C:V:i:x:w:c:d:D:m:M:u:U:l:h' opt; do
 done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
-
-# Failure and long-output text may contain regexes or command output with pipes.
-# Sanitize those values so Nagios does not parse them as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
 
 # Read the first diagnostic line from command output.
 first_line_value() {
@@ -261,38 +244,6 @@ append_interface_block() {
             ;;
     esac
 
-}
-
-# Emit one long-output section with exactly one blank line before it.
-emit_long_section() {
-    _long_section=$1
-    [ -n "$_long_section" ] || return
-
-    printf '\n'
-    monitor_text_value "$_long_section"
-}
-
-# Bound diagnostic sections before Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
 }
 
 # Nagios metric labels cannot safely contain arbitrary interface characters.
@@ -739,19 +690,13 @@ $INTERFACES
 EOF
 
 if [ "$CHECKED_COUNT" -eq 0 ]; then
-    printf '%s | interfaces_checked=0 interfaces_ignored=%s\n' "$(monitor_text_value 'vnStat has no interfaces after filtering')" "$IGNORED_COUNT"
-    {
-        monitor_text_value 'Ignored interfaces:'
-        if [ "$IGNORED_COUNT" -gt 0 ]; then
-            printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
-        else
-            monitor_text_value '  none'
-        fi
-    } | limit_long_output_details
-    printf '\n'
-    monitor_text_value 'Interpretation:'
-    monitor_text_value '  Interface include/exclude filters removed every vnStat interface, so no traffic, capacity, growth, or freshness checks were evaluated.'
-    monitor_text_value '  Adjust the include or exclude regexes, or verify that vnStat is tracking the expected interfaces.'
+    monitor_section "Ignored interfaces"
+    monitor_items "$(printf '%s' "$IGNORED_ITEMS" | $TR ',' '\n')"
+    monitor_limit "$DETAIL_LIMIT"
+    monitor_section "Interpretation"
+    monitor_item "The include/exclude filters removed every interface; no traffic, capacity, growth or freshness was evaluated."
+    monitor_item "Adjust the filters or verify that vnStat tracks the expected interfaces."
+    monitor_result "vnStat has no interfaces after filtering" "interfaces_checked=0 interfaces_ignored=$IGNORED_COUNT"
     exit "$STATE_UNKNOWN"
 fi
 
@@ -1052,45 +997,49 @@ while IFS= read -r IFACE || [ -n "$IFACE" ]; do
 
     # Keep long output operator-readable and grouped by final interface status without repeating threshold inventories.
     INTERFACE_BLOCK=$(
-        printf 'Interface %s: %s\n' "$IFACE_TEXT" "$(state_detail_text "$INTERFACE_STATE")"
+        LONG_OUTPUT=""
+        MONITOR_TOPIC=""
+        monitor_section "Interface $IFACE_TEXT"
+        monitor_item "State: $(state_detail_text "$INTERFACE_STATE")"
         if [ -n "$TRAFFIC_ERROR" ]; then
-            printf '  Traffic data: unavailable (%s)\n' "$(monitor_text_value "$TRAFFIC_ERROR")"
+            monitor_item "Traffic data: unavailable ($TRAFFIC_ERROR)"
         fi
 
         if [ "$P95_STATE" = 'UNKNOWN' ]; then
-            printf '  95th percentile: unavailable%s\n' "$(monitor_text_value "${P95_ERROR:+ ($P95_ERROR)}")"
+            monitor_item "95th percentile: unavailable${P95_ERROR:+ ($P95_ERROR)}"
         elif [ "$P95_MBIT" = 'U' ]; then
-            printf '  95th percentile: unavailable%s\n' "$(monitor_text_value "${P95_ERROR:+ ($P95_ERROR)}")"
+            monitor_item "95th percentile: unavailable${P95_ERROR:+ ($P95_ERROR)}"
         else
-            printf '  95th percentile: %s Mbit/s\n' "$(format_number "$P95_MBIT")"
+            monitor_item "95th percentile: $(format_number "$P95_MBIT") Mbit/s"
         fi
-        printf '  95th percentile coverage: %s%% (%s/%s entries)\n' "$P95_COVERAGE" "$P95_SEEN" "$P95_EXPECTED"
+        monitor_item "95th percentile coverage: $(monitor_value "$P95_COVERAGE" '%') ($(monitor_value "$P95_SEEN")/$(monitor_value "$P95_EXPECTED") entries)"
 
         if [ "$CAPACITY_STATE" = 'OK' ] && [ "$CAPACITY_PCT" = 'U' ]; then
-            printf '  Capacity: skipped (%s)\n' "$(monitor_text_value "$CAPACITY_NOTE")"
+            monitor_item "Capacity: skipped ($CAPACITY_NOTE)"
         elif [ "$CAPACITY_STATE" = 'UNKNOWN' ]; then
-            printf '  Capacity: unavailable (%s)\n' "$(monitor_text_value "$CAPACITY_NOTE")"
+            monitor_item "Capacity: unavailable ($CAPACITY_NOTE)"
         else
-            printf '  Capacity: %s%%\n' "$(format_number "$CAPACITY_PCT")"
+            monitor_item "Capacity: $(format_number "$CAPACITY_PCT")%"
         fi
 
         if [ "$DAY_BASELINE_AVAILABLE" -eq 1 ]; then
-            printf '  Day growth: %s%%\n' "$(format_number "$DAY_GROWTH_PCT")"
+            monitor_item "Day growth: $(format_number "$DAY_GROWTH_PCT")%"
         else
-            printf '  Day growth: skipped (%s)\n' "$DAY_GROWTH_NOTE"
+            monitor_item "Day growth: skipped ($DAY_GROWTH_NOTE)"
         fi
 
         if [ "$MONTH_BASELINE_AVAILABLE" -eq 1 ]; then
-            printf '  Month growth: %s%%\n' "$(format_number "$MONTH_GROWTH_PCT")"
+            monitor_item "Month growth: $(format_number "$MONTH_GROWTH_PCT")%"
         else
-            printf '  Month growth: skipped (%s)\n' "$MONTH_GROWTH_NOTE"
+            monitor_item "Month growth: skipped ($MONTH_GROWTH_NOTE)"
         fi
 
-        printf '  Current day total: %s\n' "$(format_bytes "$CURRENT_DAY_TOTAL")"
-        printf '  Previous day total: %s\n' "$(format_bytes "$PREVIOUS_DAY_TOTAL")"
-        printf '  Current month total: %s\n' "$(format_bytes "$CURRENT_MONTH_TOTAL")"
-        printf '  Previous month total: %s\n' "$(format_bytes "$PREVIOUS_MONTH_TOTAL")"
-        printf '  Last vnStat update age: %s seconds\n' "$LAST_UPDATE_AGE"
+        monitor_item "Current day total: $(format_bytes "$CURRENT_DAY_TOTAL")"
+        monitor_item "Previous day total: $(format_bytes "$PREVIOUS_DAY_TOTAL")"
+        monitor_item "Current month total: $(format_bytes "$CURRENT_MONTH_TOTAL")"
+        monitor_item "Previous month total: $(format_bytes "$PREVIOUS_MONTH_TOTAL")"
+        monitor_item "Last vnStat update age: $(monitor_value "$LAST_UPDATE_AGE" ' s')"
+        printf '%s\n' "$LONG_OUTPUT"
     )
 
     case "$INTERFACE_STATE" in
@@ -1154,34 +1103,27 @@ else
     if [ "$OK_COUNT" -gt 0 ]; then SUMMARY_TEXT="${SUMMARY_TEXT}${SUMMARY_SEPARATOR}${OK_COUNT} healthy"; fi
 fi
 
-printf '%s | %s\n' "$(monitor_text_value "$SUMMARY_TEXT")" "$PERFDATA"
-
-{
-    monitor_text_value 'Summary:'
-    if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_text_value "  Exceeds configured limits: $NAMES_CRITICAL"; fi
-    if [ "$WARNING_COUNT" -gt 0 ]; then monitor_text_value "  Elevated traffic or freshness findings: $NAMES_WARNING"; fi
-    if [ "$UNKNOWN_COUNT" -gt 0 ]; then monitor_text_value "  Incomplete data: $NAMES_UNKNOWN"; fi
-    if [ "$OK_COUNT" -gt 0 ]; then monitor_text_value "  Healthy interfaces: $NAMES_OK"; fi
-    monitor_text_value "  Checked interfaces: $CHECKED_COUNT"
-    monitor_text_value "  Ignored interfaces: $IGNORED_COUNT"
-    emit_long_section "$LONG_CRITICAL"
-    emit_long_section "$LONG_WARNING"
-    emit_long_section "$LONG_UNKNOWN"
-    emit_long_section "$LONG_OK"
-    IGNORED_BLOCK=$(
-        printf 'Ignored interfaces:\n'
-        if [ "$IGNORED_COUNT" -gt 0 ]; then
-            printf '%s\n' "$IGNORED_ITEMS" | $TR ',' '\n' | $SED 's/[|]/[or]/g; s/^/  /'
-        else
-            printf '  none\n'
-        fi
-    )
-    emit_long_section "$IGNORED_BLOCK"
-} | limit_long_output_details
-printf '\n'
-monitor_text_value 'Interpretation:'
-monitor_text_value '  Interface sections are grouped by final interface state. Last update age, 95th percentile thresholds when configured, capacity thresholds when a reliable capacity exists, and growth thresholds decide the exit code.'
-monitor_text_value '  Skipped capacity or growth lines explain data that was outside scope or lacked a baseline; ignored interfaces are filtered out and do not affect the exit code.'
-monitor_text_value '  Inspect interfaces named in the summary first, then check vnstatd freshness, interface capacity configuration, and vnStat JSON output when UNKNOWN or stale data is reported.'
-
+monitor_section "Network interfaces"
+if [ "$CRITICAL_COUNT" -gt 0 ]; then monitor_item "Exceeds configured limits: $NAMES_CRITICAL"; fi
+if [ "$WARNING_COUNT" -gt 0 ]; then monitor_item "Elevated traffic or freshness findings: $NAMES_WARNING"; fi
+if [ "$UNKNOWN_COUNT" -gt 0 ]; then monitor_item "Incomplete data: $NAMES_UNKNOWN"; fi
+if [ "$OK_COUNT" -gt 0 ]; then monitor_item "Healthy interfaces: $NAMES_OK"; fi
+monitor_item "Checked interfaces: $CHECKED_COUNT"
+monitor_item "Ignored interfaces: $IGNORED_COUNT"
+for interface_group in "$LONG_CRITICAL" "$LONG_WARNING" "$LONG_UNKNOWN" "$LONG_OK"; do
+    monitor_append "$interface_group"
+done
+monitor_section "Ignored interfaces"
+if [ "$IGNORED_COUNT" -gt 0 ]; then
+    monitor_items "$(printf '%s' "$IGNORED_ITEMS" | $TR ',' '\n')"
+fi
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Interfaces are ordered by their assessed condition. Freshness, configured 95th-percentile limits, reliable capacity and growth determine the exit code."
+monitor_item "Skipped capacity or growth measurements lack a baseline or are outside scope. Filtered interfaces do not affect the exit code."
+monitor_item "Inspect named interfaces first, then vnstatd freshness, capacity configuration and vnStat JSON output."
+if [ "$FINAL_EXIT" -ne "$STATE_OK" ]; then
+    monitor_prepend 'vnStat findings' "$SUMMARY_TEXT" 'Inspect the named interfaces, vnstatd freshness and capacity configuration.'
+fi
+monitor_result "$SUMMARY_TEXT" "$PERFDATA"
 exit "$FINAL_EXIT"

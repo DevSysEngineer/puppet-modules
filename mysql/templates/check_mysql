@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'MySQL check cannot run: %s\n' "$*"
+    monitor_error 'MySQL check cannot run: ' "$*"
     exit 3
 }
 
@@ -28,7 +30,6 @@ CRIT_HIT_PCT=${CRIT_HIT_PCT:-90} # CRITICAL when buffer hit < 90%
 # Runtime state collects the worst status and human-readable causes.
 LONG_OUTPUT=""
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
-LONG_OUTPUT_SEP="__CHECK_MYSQL_NL__"
 STATE_CODE=0
 ISSUES=""
 
@@ -68,7 +69,7 @@ esac
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'MySQL %s\n' "$*"
+    monitor_error 'MySQL ' "$*"
     exit 2
 }
 
@@ -78,69 +79,6 @@ add_issue() {
         ISSUES="${ISSUES}; $1"
     else
         ISSUES=$1
-    fi
-}
-
-# Keep MySQL status text safe before the real perfdata delimiter.
-monitor_text_value() {
-    printf '%s\n' "$1" | $AWK '{gsub(/[|]/, "[or]"); print}'
-}
-
-# Append one diagnostic line to the long output buffer.
-append_long() {
-    if [ -z "$LONG_OUTPUT" ]; then
-        LONG_OUTPUT=$1
-    else
-        LONG_OUTPUT="${LONG_OUTPUT}${LONG_OUTPUT_SEP}$1"
-    fi
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_long_output_details() {
-    [ -n "$LONG_OUTPUT" ] || return
-
-    LONG_OUTPUT=$(
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" -v max="$DETAIL_LIMIT" '
-            function emit(line) {
-                printf "%s%s", (printed ? sep : ""), line
-                printed = 1
-            }
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    line = lines[i]
-                    line_len = length(line)
-                    separator_len = printed ? 1 : 0
-                    if (used + separator_len + line_len <= max) {
-                        emit(line)
-                        used += separator_len + line_len
-                        continue
-                    }
-                    remaining = max - used - separator_len
-                    if (remaining > 0) {
-                        emit(substr(line, 1, remaining) "... [detail truncated]")
-                    }
-                    emit("Long output details truncated after " max " characters to keep Interpretation visible.")
-                    exit
-                }
-            }
-        '
-    )
-}
-
-# Emit one monitoring line followed by the fixed MySQL diagnostic context.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "$LONG_OUTPUT" ]; then
-        $AWK -v data="$LONG_OUTPUT" -v sep="$LONG_OUTPUT_SEP" '
-            BEGIN {
-                count = split(data, lines, sep)
-                for (i = 1; i <= count; i++) {
-                    gsub(/[|]/, "[or]", lines[i])
-                    print lines[i]
-                }
-            }
-        '
     fi
 }
 
@@ -277,6 +215,7 @@ else
     CRIT_HIT_RANGE=""
     HIT_RATE_METRIC=U
     HIT_RATE_TEXT="unavailable"
+    [ "$BUF_READ_REQ" != 0 ] || HIT_RATE_TEXT="not applicable: no read requests"
 fi
 
 # Buffer wait events indicate pressure even when the hit-rate threshold has not fired.
@@ -296,15 +235,27 @@ OUTPUT_MSG="MySQL is responding"
 [ -n "$ISSUES" ] && OUTPUT_MSG="${OUTPUT_MSG}; ${ISSUES}"
 
 # Long output explains the summary with the observed MySQL state and separates status inputs from supporting counters.
-append_long "$SERVICE_CONTEXT"
-append_long "Connection usage: ${THREADS_CONNECTED}/${MAX_CONNECTIONS} current, ${MAX_USED_CONN}/${MAX_CONNECTIONS} historical peak, ${THREADS_RUNNING} running thread(s)"
-append_long "InnoDB buffer pool: hit rate ${HIT_RATE_TEXT}, ${BUF_PAGES_FREE}/${BUF_PAGES_TOTAL} pages free, ${BUF_WAIT_FREE} wait event(s)"
-append_long "Workload counters: uptime ${UPTIME}s, slow queries ${SLOW_QUERIES}"
-limit_long_output_details
-append_long ""
-append_long "Interpretation:"
-append_long "mysqladmin ping, current connection usage, historical connection peak, buffer hit rate, InnoDB wait events, and slow-query count decide the exit code."
-append_long "Inspect connection pressure, the processlist, buffer-pool sizing, and the slow query log first when the summary reports MySQL issues."
+monitor_section "Service"
+monitor_item "$SERVICE_CONTEXT"
+monitor_section "Connections"
+monitor_item "Current: ${THREADS_CONNECTED} / ${MAX_CONNECTIONS}"
+monitor_item "Historical peak: ${MAX_USED_CONN} / ${MAX_CONNECTIONS}"
+monitor_item "Running threads: $(monitor_value "$THREADS_RUNNING")"
+monitor_item "Current thresholds: warning ${WARN_CONN_CURR_PCT}%, critical ${CRIT_CONN_CURR_PCT}%"
+monitor_item "Historical peak thresholds: warning ${WARN_CONN_PEAK_PCT}%, critical ${CRIT_CONN_PEAK_PCT}%"
+monitor_section "InnoDB buffer pool"
+monitor_item "Hit rate: ${HIT_RATE_TEXT}"
+monitor_item "Hit-rate thresholds: warning below ${WARN_HIT_PCT}%, critical below ${CRIT_HIT_PCT}%"
+monitor_item "Free pages: $(monitor_value "$BUF_PAGES_FREE") / $(monitor_value "$BUF_PAGES_TOTAL")"
+monitor_item "Wait events: $(monitor_value "$BUF_WAIT_FREE")"
+monitor_section "Workload"
+monitor_item "Uptime: $(monitor_value "$UPTIME" ' s')"
+monitor_item "Slow queries: ${SLOW_QUERIES}"
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Current connections and the historical peak are evaluated separately."
+monitor_item "Slow-query and InnoDB wait counts are cumulative."
+monitor_item "Missing optional counters do not indicate zero; hit rate requires read requests."
 
 # Perfdata labels are unit-free; low-water hit-rate thresholds use Nagios range syntax.
 PERF="curr_connections=${THREADS_CONNECTED};${WARN_CURR_ABS};${CRIT_CURR_ABS};0;${MAX_CONNECTIONS}"
@@ -317,5 +268,8 @@ BUF_PAGES_MAX=$BUF_PAGES_TOTAL
 PERF="${PERF} innodb_pages_free=${BUF_PAGES_FREE};;;0;${BUF_PAGES_MAX}"
 
 # Emit one monitoring line; the summary and long output are sanitized so dynamic MySQL text cannot add perfdata separators.
-emit_check "$OUTPUT_MSG" "$PERF"
+if [ -n "$ISSUES" ]; then
+    monitor_prepend 'MySQL findings' "$ISSUES" 'Check connection pressure, the processlist, buffer-pool sizing and the slow query log.'
+fi
+monitor_result "$OUTPUT_MSG" "$PERF"
 exit $STATE_CODE

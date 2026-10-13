@@ -295,6 +295,7 @@ These obligations apply to all first-party code, including modules, scripts, lib
 ### Monitoring Checks
 
 - Apply the [monitoring implementation rules](.tools/lint/docs/OPERATIONAL_RULES.md#monitoringchecks) and review effects on existing checks and registrations.
+- For every new or changed monitoring plugin, review all output paths and the rendered Puppet integration against the [central long-output standard](.tools/lint/docs/OPERATIONAL_RULES.md#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken), including use of the shared presentation helper. Compare representative healthy, abnormal and incomplete results for status/perfdata preservation; report unavailable monitoring-interface validation explicitly.
 - Review executor scheduling separately from script options against the [agent scheduling contract](.tools/lint/docs/OPERATIONAL_RULES.md#agentplanning-afzonderlijk-afstemmen).
 - Report changed operational risks and verify the affected monitoring behavior with the validation below.
 

@@ -266,7 +266,7 @@ De ondersteunde agentidentiteit is een subject `CN=<certname>`, gelijk aan de na
 
 Pas zo nodig de optionele `monitoring_server_*`-parameters aan op de bestaande classdeclaratie of via Hiera. De [Puppet Strings](basic_settings/manifests/puppet.pp) beschrijven de overrides; `undef` laat de scriptdefault intact. Bij los gebruik toont `check_puppet_server -h` alle CLI-opties, omgevingsvariabelen en defaults. CLI-invoer gaat vóór environment, de laatste herhaalde optie wint. Iedere registratie die hetzelfde executable zelfstandig aanroept moet bij een andere server ook diens eigen paden en statedirectory gebruiken.
 
-De uitvoer blijft standaard binnen 3500 bytes, met de hoofdoorzaak vooraan en `Interpretation:` als laatste sectie. Afwijkende agents staan op oudste check-in gesorteerd; bij ruimtegebrek verschijnt het aantal weggelaten agents/certificaten. CRITICAL gaat vóór UNKNOWN, UNKNOWN vóór WARNING. Ontbrekende rechten, reporting, onleesbare bestanden, een onvolledige snapshot of een uitgeput tijdbudget blijven herkenbaar; niet betrouwbaar gemeten perfdata worden weggelaten.
+De uitvoer blijft standaard binnen 3500 bytes, met de hoofdoorzaak vooraan en `Interpretation:` als laatste sectie. Afwijkende agents staan op oudste check-in gesorteerd; bij ruimtegebrek verschijnt een melding dat volledige records zijn weggelaten. CRITICAL gaat vóór UNKNOWN, UNKNOWN vóór WARNING. Ontbrekende rechten, reporting, onleesbare bestanden, een onvolledige snapshot of een uitgeput tijdbudget blijven herkenbaar; niet betrouwbaar gemeten perfdata worden weggelaten.
 
 | Perfdata | Betekenis |
 | --- | --- |
@@ -280,7 +280,7 @@ Deze waarden zijn gauges zonder `c`-eenheid. Een echte nul blijft nul; ontbreken
 
 ```text
 Puppet Server: agent.example.org is missing a recent stored report; check agent scheduling and connectivity | nodes_total=1 nodes_today=0 nodes_stale=1 certs_expiring=0 ca_days_left=400
-Cause / Next action:
+Server findings:
 - agent.example.org is missing a recent stored report; check agent scheduling and connectivity
 
 Puppet Server:
@@ -482,7 +482,7 @@ Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en
 
 Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L238). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
 
-Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/files/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
+Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
 
 Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud_s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
 
@@ -1074,29 +1074,50 @@ Servicecontroles verwachten standaard dat de bewaakte service bestaat en actief 
 
 Monitoringtemplates delen de systemd-inspectie via een tijdens compilatie ingevoegd [helperfragment](basic_settings/templates/monitoring/_systemd_service_status). Hiervoor moet `basic_settings` op het modulepath staan; je hoeft de class `basic_settings` niet te declareren of een helperbestand op de host te installeren. De registratie blijft verantwoordelijk voor de runtimevereisten van het gegenereerde script. De algemene ontwerpafspraken staan bij [gedeelde helpers](.tools/lint/docs/OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen), [runtimebronkeuze](.tools/lint/docs/OPERATIONAL_RULES.md#actuele-hosttoestand-uit-kernelgegevens-bepalen) en [inspectiestatus](.tools/lint/docs/OPERATIONAL_RULES.md#vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden).
 
+Alle onderstaande eigen checks gebruiken ook de tijdens compilatie ingevoegde [presentatiehelper](basic_settings/templates/monitoring/_output). De [centrale uitvoernorm](.tools/lint/docs/OPERATIONAL_RULES.md#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken) beschrijft de onderwerpblokken, records, witruimte en veilige dynamische tekst. Nieuwe of aangepaste plugins nemen deze helper op; metingen, prioriteiten, exitcodes en perfdata blijven in de check.
+
+De eerder statisch uitgerolde checks worden nu vanuit `templates/` gerenderd. Registraties, CLI-opties en paden op de host blijven gelijk. Eigen profielen die een hieronder genoemde check rechtstreeks met `source => 'puppet:///modules/…'` uitrolden, moeten `template => 'module/checknaam'` bij `monitoring_custom` gebruiken, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`. Kopieer geen ongerenderde template naar een host. `basic_settings` moet op het modulepath staan; de helper voegt geen runtimebestand of Ruby-/Python-afhankelijkheid toe.
+
+Dit vereenvoudigde voorbeeld toont letterlijke long output; de waarden zijn illustratief:
+
+```text
+Connections:
+- Current: 10 / 1000
+- Historical peak: 13 / 1000
+- Running threads: 2
+
+Workload:
+- Uptime: 27923 s
+- Slow queries: 0
+
+Interpretation:
+- Current connections and the historical peak are evaluated separately.
+- The slow-query count is cumulative.
+```
+
 - [`check_apt`](basic_settings/templates/monitoring/check_apt)
 - [`check_audit`](basic_settings/templates/monitoring/check_audit)
-- [`check_compose`](docker/files/check_compose)
+- [`check_compose`](docker/templates/check_compose)
 - [`check_eset`](basic_settings/templates/monitoring/check_eset)
-- [`check_gitlab`](gitlab/files/check_gitlab)
+- [`check_gitlab`](gitlab/templates/check_gitlab)
 - [`check_memory_pressure`](basic_settings/templates/monitoring/check_memory_pressure)
 - [`check_mirth_connect`](openitcockpit/templates/agent/check_mirth_connect)
 - [`check_mysql`](mysql/templates/check_mysql)
 - [`check_network`](basic_settings/templates/monitoring/check_network)
-- [`check_nextcloud_s3`](docker/files/check_nextcloud_s3)
+- [`check_nextcloud_s3`](docker/templates/check_nextcloud_s3)
 - [`check_nginx_cert`](nginx/templates/check_nginx_cert)
 - [`check_nftables`](basic_settings/templates/monitoring/check_nftables)
-- [`check_npm_audit`](basic_settings/files/monitoring/check_npm_audit)
+- [`check_npm_audit`](basic_settings/templates/monitoring/check_npm_audit)
 - [`check_puppet_agent`](basic_settings/templates/monitoring/puppet/check_agent)
 - [`check_puppet_server`](basic_settings/templates/monitoring/puppet/check_server)
 - [`check_rabbitmq`](rabbitmq/templates/check_rabbitmq)
 - [`check_ssh`](ssh/templates/check_ssh)
-- [`check_systemd_config`](basic_settings/files/monitoring/check_systemd_config)
-- [`check_systemd_service`](basic_settings/files/monitoring/check_systemd_service)
-- [`check_systemd_timer`](basic_settings/files/monitoring/check_systemd_timer)
-- [`check_systemd_timesyncd`](basic_settings/files/monitoring/check_systemd_timesyncd)
+- [`check_systemd_config`](basic_settings/templates/monitoring/check_systemd_config)
+- [`check_systemd_service`](basic_settings/templates/monitoring/check_systemd_service)
+- [`check_systemd_timer`](basic_settings/templates/monitoring/check_systemd_timer)
+- [`check_systemd_timesyncd`](basic_settings/templates/monitoring/check_systemd_timesyncd)
 - [`check_usb`](basic_settings/templates/monitoring/check_usb)
-- [`check_vnstat_interfaces`](vnstat/files/check_vnstat_interfaces)
+- [`check_vnstat_interfaces`](vnstat/templates/check_vnstat_interfaces)
 
 ## Uitgebreide voorbeelden
 

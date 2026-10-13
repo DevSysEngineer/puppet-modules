@@ -109,7 +109,7 @@ define basic_settings::monitoring_timer (
     # Preserve the shared executable when an individual registration is retired.
     file { $script_path:
       ensure  => file,
-      source  => 'puppet:///modules/basic_settings/monitoring/check_systemd_timer',
+      content => template('basic_settings/monitoring/check_systemd_timer'),
       owner   => $uid,
       group   => $gid,
       mode    => '0700',

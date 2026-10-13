@@ -1,10 +1,20 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'systemd service check cannot run: %s\n' "$*"
+    monitor_error 'systemd service check cannot run: ' "$*"
     exit 3
+}
+
+# The caller has selected a non-success path; keep its finding ahead of journal context.
+emit_service_finding() {
+    if [ -n "${LONG_OUTPUT:-}" ]; then
+        monitor_prepend 'Service findings' "$1" 'Inspect the named unit status and journal; check its configured schedule and policy.'
+    fi
+    monitor_result "$@"
 }
 
 # These checks inspect systemd concepts; other init systems are not applicable (Nagios UNKNOWN).
@@ -312,56 +322,6 @@ metric_value_with_unit() {
     esac
 }
 
-# Helper: emit a check line with optional journal info
-emit_check() {
-    # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "${JOURNAL_JOINED:-}" ]; then
-        monitor_text_value "$JOURNAL_JOINED"
-    fi
-}
-
-# Nagios treats raw pipes after the first output line as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Format journal lines with a configurable line count and per-line character cap.
-format_journal_lines() {
-    printf '%s\n' "$1" | $SED '/^$/d; s/[[:space:]]\+$//' | $AWK -v max="$MAXLOG" '
-        {
-            line = $0
-            if (length(line) > max) {
-                line = substr(line, 1, max) "... [line truncated]"
-            }
-            print "- " line
-        }
-    '
-}
-
-# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_text_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
-}
-
 # Pull all required systemd properties in one call to reduce check latency.
 SHOW=$($SYSTEMCTL show "$SERVICE_UNIT" \
     -p LoadState -p ActiveState -p SubState -p Result \
@@ -378,16 +338,16 @@ fi
 
 # Check existence and load state
 if [ "$LOAD_STATE" = "not-found" ]; then
-    emit_check "${SERVICE_UNIT} does not exist" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    emit_service_finding "${SERVICE_UNIT} does not exist" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 
 # Outside-schedule missing units are accepted only when suppression is active.
 if [ "$OUTSIDE_SUPPRESS" = "1" ] && [ "$LOAD_STATE" != "loaded" ]; then
-    emit_check "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); unit is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    monitor_result "${SERVICE_UNIT} outside schedule (${SUPPRESS_REASON:-outside}); unit is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 0
 elif [ "$LOAD_STATE" != "loaded" ]; then
-    emit_check "${SERVICE_UNIT} is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
+    emit_service_finding "${SERVICE_UNIT} is not loaded (load state ${LOAD_STATE})" "active_age=U last_change_age=U restarts=U exit_code=U in_schedule=${IN_SCHEDULE}"
     exit 2
 fi
 
@@ -460,33 +420,19 @@ case "$JOURNAL_LINE_COUNT" in
     ''|*[!0-9]*) JOURNAL_LINE_COUNT=0 ;;
 esac
 
+monitor_section "Service journal"
 if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
+    monitor_item "Source: $SERVICE_UNIT; since @$REF_TS"
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
-        JOURNAL_OMITTED=$((JOURNAL_LINE_COUNT - LOG_LINES))
-        JOURNAL_JOINED=$(
-            {
-                printf '%s\n' "- Showing last ${LOG_LINES} journal lines for ${SERVICE_UNIT}; ${JOURNAL_OMITTED} older line(s) omitted"
-                format_journal_lines "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES"
-            }
-        )
-    else
-        JOURNAL_JOINED=$(format_journal_lines "$JOURNAL_RAW")
+        monitor_item "Selection: latest $LOG_LINES lines; $((JOURNAL_LINE_COUNT - LOG_LINES)) older lines omitted."
     fi
-else
-    JOURNAL_JOINED=""
+    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES")" "$MAXLOG"
 fi
-
-# Add interpretation after journal details when long output exists.
-if [ -n "$JOURNAL_JOINED" ]; then
-    JOURNAL_JOINED=$(
-        {
-            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
-            printf '%s\n' ''
-            printf '%s\n' 'Interpretation:'
-            printf '%s\n' 'systemctl unit properties, schedule policy, require-active policy, and configured journal failure/warning regex matches decide the exit code.'
-            printf '%s\n' 'Other journal lines are bounded diagnostic context. Inspect the named unit status and recent journal first when the summary reports inactive, failed, transitional, outside-schedule, or marker-based service state.'
-        }
-    )
+if [ -n "${LONG_OUTPUT:-}" ]; then
+    monitor_limit "$DETAIL_LIMIT"
+    monitor_section "Interpretation"
+    monitor_item "systemctl unit properties, schedule policy, require-active policy, and configured journal failure/warning regex matches decide the exit code."
+    monitor_item "Other journal lines are bounded diagnostic context. Inspect the named unit status and recent journal first when the summary reports inactive, failed, transitional, outside-schedule, or marker-based service state."
 fi
 
 # Perfdata mirrors the service state age, restart count, exit status, and schedule state.
@@ -497,7 +443,7 @@ PERFDATA="active_age=${ACTIVE_AGE_METRIC} last_change_age=${LAST_CHANGE_AGE_METR
 
 # Outside schedule (no -a): always OK, but include full status/perfdata
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" != "1" ]; then
-    emit_check \
+    monitor_result \
         "$SERVICE_UNIT outside schedule (${SUPPRESS_REASON:-outside}); state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} with result ${RESULT_PROP:-unknown}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 0
@@ -505,14 +451,14 @@ fi
 
 # Outside schedule alerting is healthy when the unit is inactive and CRITICAL when it is still active.
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
-    emit_check \
+    monitor_result \
         "$SERVICE_UNIT outside schedule (${SUPPRESS_REASON:-outside}); state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} with result ${RESULT_PROP:-unknown}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 0
 fi
 
 if [ "$SCHEDULE_DEFINED" = "1" ] && [ "$IN_SCHEDULE" != "1" ] && [ "$ACTIVE_ALERT_OUTSIDE" = "1" ] && [ "$ACTIVE_STATE" = "active" ]; then
-    emit_check \
+    emit_service_finding \
         "$SERVICE_UNIT active outside schedule (${SUPPRESS_REASON:-outside}); state ${ACTIVE_STATE}/${SUB_STATE} with result ${RESULT_PROP:-unknown}; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 2
@@ -520,7 +466,7 @@ fi
 
 # Failed state is always CRITICAL regardless of journal scanning.
 if [ "$ACTIVE_STATE" = "failed" ]; then
-    emit_check \
+    emit_service_finding \
         "$SERVICE_UNIT failed with state ${ACTIVE_STATE}/${SUB_STATE}, result ${RESULT_PROP}, exit status ${EXEC_STATUS:-U}, and code ${EXEC_CODE:-U}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 2
@@ -530,19 +476,19 @@ fi
 if [ "$REQUIRE_ACTIVE" = "1" ] && [ "$ACTIVE_STATE" != "active" ]; then
     case "$ACTIVE_STATE" in
         activating|deactivating)
-            emit_check \
+            emit_service_finding \
                 "$SERVICE_UNIT is transitional with state ${ACTIVE_STATE}/${SUB_STATE}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
                 "$PERFDATA"
             exit 1
             ;;
         inactive)
-            emit_check \
+            emit_service_finding \
                 "$SERVICE_UNIT is inactive with result ${RESULT_PROP}, exit status ${EXEC_STATUS:-U}, and code ${EXEC_CODE:-U}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
                 "$PERFDATA"
             exit 2
             ;;
         *)
-            emit_check \
+            emit_service_finding \
                 "$SERVICE_UNIT has unknown state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown}; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
                 "$PERFDATA"
             exit 3
@@ -552,7 +498,7 @@ fi
 
 # A recent journal failure marker upgrades an otherwise active service to CRITICAL.
 if [ -n "$FAIL_LINE" ]; then
-    emit_check \
+    emit_service_finding \
         "$SERVICE_UNIT is active but the journal contains a recent failure marker; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 2
@@ -563,7 +509,7 @@ if [ "$REQUIRE_ACTIVE" = 0 ] && [ "$ACTIVE_STATE" != active ]; then
     case "$RESULT_PROP" in
         success|''|n/a) : ;;
         *)
-            emit_check "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
+            emit_service_finding "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
             exit 2
             ;;
     esac
@@ -574,7 +520,7 @@ fi
 
 # Warning markers are opt-in through WARN_RE and only affect otherwise healthy services.
 if [ -n "$WARN_LINE" ]; then
-    emit_check \
+    emit_service_finding \
         "$SERVICE_UNIT journal contains a recent warning marker; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
         "$PERFDATA"
     exit 1
@@ -583,7 +529,7 @@ fi
 # For oneshot-style services, a clean last result is healthy even when the unit is inactive.
 if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
     if [ "${EXEC_STATUS:-U}" = "0" ] && [ "$RESULT_PROP" = "success" ]; then
-        emit_check \
+        monitor_result \
             "$SERVICE_UNIT is not active as expected for oneshot-style service and the last result was successful; last change: ${LAST_CHANGE_TEXT:-unknown}; status: ${STATUS_TEXT:-unknown}" \
             "$PERFDATA"
         exit 0
@@ -591,14 +537,14 @@ if [ "$REQUIRE_ACTIVE" = "0" ] && [ "$ACTIVE_STATE" != "active" ]; then
     case "$RESULT_PROP:${EXEC_STATUS:-U}" in
         :*|n/a:*|*:U) die "oneshot result unavailable" ;;
         *)
-            emit_check "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
+            emit_service_finding "$SERVICE_UNIT last run failed with result $RESULT_PROP and exit ${EXEC_STATUS:-U}" "$PERFDATA"
             exit 2
             ;;
     esac
 fi
 
 # Normal success path for active services with no relevant journal markers.
-emit_check \
+monitor_result \
     "$SERVICE_UNIT is running as expected with state ${ACTIVE_STATE:-unknown}/${SUB_STATE:-unknown} and result ${RESULT_PROP:-unknown}; active since ${ACTIVE_ENTER:-unknown}; main PID ${MAIN_PID:-0}; restart count ${NRESTARTS:-U}; status: ${STATUS_TEXT:-unknown}" \
     "$PERFDATA"
 exit 0

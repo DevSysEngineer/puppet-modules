@@ -1,0 +1,222 @@
+# Shared presentation only; the caller owns measurements, priorities, limits and perfdata.
+# Include before error helpers; normal formatting uses the caller's discovered awk.
+# LONG_OUTPUT is the rendered buffer; MONITOR_TOPIC is emitted only with a non-empty item.
+
+# Preserve literal data, including backslashes, and protect every Nagios text line.
+monitor_text_value() {
+    printf '%s\n' "$1" | "${AWK:-awk}" '{ gsub(/[|]/, "[or]"); gsub(/[[:cntrl:]]/, " "); print }'
+}
+
+# Summary values cannot create another output line.
+monitor_summary() {
+    monitor_text_value "$1" | "${AWK:-awk}" 'BEGIN { ORS="" } { printf "%s%s", sep, $0; sep=" " }'
+}
+
+# A single oversized summary still keeps the caller's perfdata delimiter intact.
+monitor_text_limit() {
+    monitor_summary "$1" | "${AWK:-awk}" -v max="$2" '{
+        suffix="... [text shortened]"
+        if (max < length(suffix)) print substr($0, 1, max > 0 ? max : 0)
+        else if (length($0) > max) print substr($0, 1, max-length(suffix)) suffix
+        else print
+    }'
+}
+
+# Join trusted, already formatted topic buffers without leading or trailing blanks.
+monitor_append() {
+    [ -n "$1" ] || return 0
+    if [ -n "${LONG_OUTPUT:-}" ]; then
+        LONG_OUTPUT=$(printf '%s\n\n%s' "$LONG_OUTPUT" "$1")
+    else
+        LONG_OUTPUT=$1
+    fi
+    MONITOR_ACTIVE_TOPIC=''
+}
+
+# The caller decides which values are unavailable; measured zero is retained.
+monitor_value() {
+    case "$1" in U|'') printf 'unavailable' ;; *) printf '%s%s' "$1" "${2:-}" ;; esac
+}
+
+# Early command-discovery failures can be printed without another external tool.
+# A multiline invocation keeps its original first line and groups the remaining help.
+monitor_error() {
+    monitor_error_text=$2
+    monitor_error_safe=''
+    while :; do
+        case "$monitor_error_text" in
+            *'|'*) monitor_error_safe="$monitor_error_safe${monitor_error_text%%|*}[or]"; monitor_error_text=${monitor_error_text#*|} ;;
+            *) monitor_error_safe=$monitor_error_safe$monitor_error_text; break ;;
+        esac
+    done
+    if [ -n "${AWK:-}" ]; then
+        monitor_error_safe=$(monitor_text_value "$monitor_error_safe")
+    fi
+    monitor_nl='
+'
+    case "$monitor_error_safe" in
+        *"$monitor_nl"*)
+            printf '%s%s%s\n' "$1" "${monitor_error_safe%%"$monitor_nl"*}" "${3:-}"
+            LONG_OUTPUT=''; MONITOR_ACTIVE_TOPIC=''
+            monitor_section 'Invocation'
+            monitor_items "${monitor_error_safe#*"$monitor_nl"}"
+            monitor_section 'Interpretation'
+            monitor_item 'Correct the invocation and rerun; measurements were not completed.'
+            printf '%s\n' "$LONG_OUTPUT"
+            ;;
+        *) printf '%s%s%s\n' "$1" "$monitor_error_safe" "${3:-}" ;;
+    esac
+}
+
+# Select a topic. Empty topics are never emitted.
+monitor_section() {
+    MONITOR_TOPIC=$(monitor_text_value "$1" | "${AWK:-awk}" 'BEGIN { ORS="" } { printf "%s%s", sep, $0; sep=" " }')
+}
+
+# Append one record; additional non-empty lines belong to that same record.
+monitor_item() {
+    monitor_record=$(printf '%s\n' "$1" | "${AWK:-awk}" '
+        /[^[:space:]]/ {
+            gsub(/[|]/, "[or]")
+            gsub(/[[:cntrl:]]/, " ")
+            sub(/^[[:space:]]+/, "")
+            sub(/[[:space:]]+$/, "")
+            print (seen++ ? "  " : "- ") $0
+        }
+    ')
+    [ -n "$monitor_record" ] || return 0
+    if [ -n "${MONITOR_TOPIC:-}" ] && [ "$MONITOR_TOPIC" = "${MONITOR_ACTIVE_TOPIC:-}" ]; then
+        MONITOR_TOPIC=''
+    fi
+    if [ -n "${MONITOR_TOPIC:-}" ]; then
+        if [ -n "${LONG_OUTPUT:-}" ]; then
+            LONG_OUTPUT=$(printf '%s\n\n%s:\n%s' "$LONG_OUTPUT" "$MONITOR_TOPIC" "$monitor_record")
+        else
+            LONG_OUTPUT=$(printf '%s:\n%s' "$MONITOR_TOPIC" "$monitor_record")
+        fi
+        MONITOR_ACTIVE_TOPIC=$MONITOR_TOPIC
+        MONITOR_TOPIC=''
+    else
+        LONG_OUTPUT=$(printf '%s\n%s' "$LONG_OUTPUT" "$monitor_record")
+    fi
+}
+
+# Each input line is an independent fact or event, not a continuation.
+monitor_items() {
+    while IFS= read -r monitor_line; do
+        monitor_item "$monitor_line"
+    done <<EOF
+$1
+EOF
+}
+
+# Attach source text to the preceding record without allowing injected headings or bullets.
+monitor_continuation() {
+    monitor_more=$(printf '%s\n' "$1" | "${AWK:-awk}" '
+        /[^[:space:]]/ {
+            gsub(/[|]/, "[or]"); gsub(/[[:cntrl:]]/, " ")
+            sub(/[[:space:]]+$/, ""); print "  " $0
+        }
+    ')
+    [ -z "$monitor_more" ] || LONG_OUTPUT=$(printf '%s\n%s' "$LONG_OUTPUT" "$monitor_more")
+}
+
+# Preserve an already grouped internal record buffer (never use for untrusted text).
+monitor_records() {
+    while IFS= read -r monitor_line; do
+        case "$monitor_line" in
+            '- '*) monitor_item "${monitor_line#- }" ;;
+            '  '*) monitor_continuation "${monitor_line#  }" ;;
+            '') ;;
+            *) monitor_item "$monitor_line" ;;
+        esac
+    done <<EOF
+$1
+EOF
+}
+
+# Journal continuation lines stay attached to the event that precedes them.
+monitor_log_items() {
+    monitor_log_seen=0
+    monitor_log_shortened=0
+    monitor_log_partial=0
+    while IFS= read -r monitor_line; do
+        case "$monitor_line" in
+            ' '*|"$(printf '\t')"*)
+                if [ "$monitor_log_seen" -eq 0 ]; then
+                    monitor_log_partial=1
+                    continue
+                fi
+                monitor_log_continuation=1
+                ;;
+            '') continue ;;
+            *) monitor_log_continuation=0; monitor_log_seen=1 ;;
+        esac
+        monitor_line=$(monitor_text_value "$monitor_line")
+        if [ -n "${2:-}" ] && [ "${#monitor_line}" -gt "$2" ]; then
+            monitor_line=$(printf '%s\n' "$monitor_line" | "$AWK" -v max="$2" '{print substr($0, 1, max)}')
+            monitor_log_shortened=1
+        fi
+        if [ "$monitor_log_continuation" -eq 1 ]; then
+            monitor_continuation "$monitor_line"
+        else
+            monitor_item "$monitor_line"
+        fi
+    done <<EOF
+$1
+EOF
+    [ "$monitor_log_partial" -eq 0 ] || monitor_item 'Partial first event omitted from the selected log lines.'
+    [ "$monitor_log_shortened" -eq 0 ] || monitor_item "Some event text shortened to $2 characters per line."
+}
+
+# The caller supplies the primary finding and action, independently of status evaluation.
+monitor_prepend() {
+    monitor_saved_output=$LONG_OUTPUT
+    LONG_OUTPUT=''; MONITOR_ACTIVE_TOPIC=''; MONITOR_TOPIC=''
+    monitor_section "$1"
+    monitor_item "$2"
+    monitor_item "$3"
+    monitor_append "$monitor_saved_output"
+    MONITOR_ACTIVE_TOPIC=''
+}
+
+# Bound already collected diagnostics on whole records, keeping each heading with its list.
+# Call before adding Interpretation; collection limits remain the check's responsibility.
+monitor_limit() {
+    [ "${#LONG_OUTPUT}" -gt "$1" ] || return 0
+    LONG_OUTPUT=$(printf '%s\n' "$LONG_OUTPUT" | "${AWK:-awk}" -v max="$1" '
+        function flush(    prefix, candidate) {
+            if (record == "" || stopped) return
+            prefix = topic != active ? (used ? "\n\n" : "") topic "\n" : "\n"
+            candidate = prefix record
+            if (used + length(candidate) + length(notice) + 2 > max) {
+                if (active != "") printf "\n%s", notice
+                else if (length(topic) + length(notice) + 1 <= max) printf "%s\n%s", topic, notice
+                stopped=1
+            } else {
+                printf "%s", candidate
+                used += length(candidate)
+                active=topic
+            }
+            record=""
+        }
+        BEGIN { notice="- Further records omitted (text limit)." }
+        /^$/ { next }
+        /^[^ -].*:$/ { flush(); topic=$0; next }
+        /^- / { flush(); record=$0; next }
+        /^  / { record=record "\n" $0 }
+        END { flush(); if (used || stopped) print "" }
+    ')
+    MONITOR_ACTIVE_TOPIC=''
+
+}
+
+# Emit the completed text; only the caller-provided perfdata follows a literal pipe.
+monitor_result() {
+    if [ "$#" -ge 2 ]; then
+        printf '%s | %s\n' "$(monitor_summary "$1")" "$2"
+    else
+        printf '%s\n' "$(monitor_summary "$1")"
+    fi
+    [ -z "${LONG_OUTPUT:-}" ] || printf '%s\n' "$LONG_OUTPUT"
+}

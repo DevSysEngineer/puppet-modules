@@ -1,11 +1,19 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'ESET check cannot run: %s\n' "$*"
+    monitor_error 'ESET check cannot run: ' "$*"
     if [ -n "${CRIT_MSG:-}" ]; then
-        printf 'Verified failures: %s\n' "$CRIT_MSG"
+        LONG_OUTPUT=''; MONITOR_ACTIVE_TOPIC=''
+        monitor_section 'Protection findings'
+        monitor_item "$CRIT_MSG"
+        monitor_item 'Inspect the verified protection failure and restore ESET history inspection.'
+        monitor_section 'Interpretation'
+        monitor_item 'The verified failure retains priority; additional inspection is incomplete.'
+        printf '%s\n' "$LONG_OUTPUT"
         exit 2
     fi
     exit 3
@@ -94,7 +102,7 @@ done
 
 # Emit a direct CRITICAL result and stop immediately.
 crit() {
-    printf 'ESET %s\n' "$*"
+    monitor_error 'ESET ' "$*"
     exit 2
 }
 
@@ -106,42 +114,6 @@ add_crit() {
 # Append one warning reason to the summary.
 add_warn() {
     WARN_MSG="${WARN_MSG:+$WARN_MSG; }$1"
-}
-
-# Emit the summary line and optional long output.
-emit_check() {
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "${LONG_OUTPUT:-}" ]; then
-        monitor_text_value "$LONG_OUTPUT"
-    fi
-}
-
-# Nagios treats raw pipes after the first output line as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Bound diagnostic details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_text_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
 }
 
 # Parse the scan CSV once into typed records for latest-scan metrics and capped history.
@@ -255,7 +227,7 @@ LOG_CSV=$($LSLOG -c 2>/dev/null) || die "ESET update history unavailable"
 SCAN_CSV=$($LSLOG -s -c 2>/dev/null) || die "ESET scan history unavailable"
 SCAN_PARSE=$(parse_scan_csv "$SCAN_CSV")
 SCANS_TOTAL=0
-SCAN_HISTORY=""
+monitor_section "Scan history"
 
 while IFS='|' read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
     case "$KIND" in
@@ -291,40 +263,21 @@ while IFS='|' read -r KIND COL1 COL2 COL3 COL4 COL5 COL6 COL7; do
             ;;
         HISTORY)
             # History lines are diagnostic only and are capped in the long output below.
-            DETAIL_LINE="- ${COL1}: status ${COL2}, scanned ${COL3}, cleaned ${COL4}, detections ${COL5}, duration ${COL6}"
-            [ -n "$COL7" ] && DETAIL_LINE="$DETAIL_LINE, triggered by ${COL7}"
-            if [ -z "$SCAN_HISTORY" ]; then
-                SCAN_HISTORY=$DETAIL_LINE
-            else
-                SCAN_HISTORY=$(printf '%s\n%s' "$SCAN_HISTORY" "$DETAIL_LINE")
-            fi
+            monitor_item "${COL1}; progress: $(monitor_value "$COL2")"
+            monitor_continuation "Scanned: $(monitor_value "$COL3"); cleaned: $(monitor_value "$COL4"); detections: $(monitor_value "$COL5"); duration: $(monitor_value "$COL6")"
+            [ -z "$COL7" ] || monitor_continuation "Triggered by: ${COL7}"
             ;;
     esac
 done <<EOF
 $SCAN_PARSE
 EOF
 
-# State the history cap explicitly when the ESET scan list is truncated.
-if [ -n "$SCAN_HISTORY" ]; then
-    if [ "$SCANS_TOTAL" -gt "$SCAN_HISTORY_LIMIT" ]; then
-        LONG_OUTPUT=$(printf 'Last %s of %s scans:\n%s\n... truncated to %s of %s scans' "$SCAN_HISTORY_LIMIT" "$SCANS_TOTAL" "$SCAN_HISTORY" "$SCAN_HISTORY_LIMIT" "$SCANS_TOTAL")
-    else
-        LONG_OUTPUT=$(printf 'Last %s scans:\n%s' "$SCANS_TOTAL" "$SCAN_HISTORY")
-    fi
-else
-    LONG_OUTPUT="Last ${SCAN_HISTORY_LIMIT} scans: none"
+# Report the source selection once, independently of the final text budget.
+if [ "$SCANS_TOTAL" -eq 0 ]; then
+    monitor_item "No scan records available"
+elif [ "$SCANS_TOTAL" -gt "$SCAN_HISTORY_LIMIT" ]; then
+    monitor_item "Selection: latest $SCAN_HISTORY_LIMIT of $SCANS_TOTAL scans from ESET lslog."
 fi
-
-# Explain how ESET scan history relates to the status decision.
-LONG_OUTPUT=$(
-    {
-        printf '%s\n' "$LONG_OUTPUT" | limit_text_details
-        printf '%s\n' ''
-        printf '%s\n' 'Interpretation:'
-        printf '%s\n' 'Daemon/module health, engine update age, latest scan age, latest scan detections, and recent update errors decide the exit code.'
-        printf '%s\n' 'Scan history is bounded diagnostic context. Inspect ESET services, kernel modules, updater logs, and the latest scan result when the summary reports stale updates, stale scans, missing protection, detections, or cleaned files.'
-    }
-)
 
 # Stale scans and detections are status causes; full scan history stays in long output.
 [ "$LAST_SCAN_AGE" -ge "$CRIT_NO_SCAN_DAYS" ] && add_crit "no scan ${LAST_SCAN_AGE}d"
@@ -421,6 +374,14 @@ PERF="$PERF last_scan_detections=${LAST_DET}"
 PERF="$PERF last_scan_duration=${LAST_SCAN_SECS}s"
 PERF="$PERF last_scan_files=${LAST_FILES}"
 
+monitor_limit "$DETAIL_LIMIT"
+monitor_section "Interpretation"
+monitor_item "Daemon/module health, engine update age, latest scan age and detections, and recent update errors decide the exit code."
+monitor_item "Older scans are historical context. Inspect the named protection component, updater log or latest scan first."
+
 # Emit summary, perfdata, and bounded scan-history long output.
-emit_check "$MSG" "$PERF"
+if [ "$STATE_CODE" -ne 0 ]; then
+    monitor_prepend 'Protection findings' "$MSG" 'Inspect the named protection component, updater log or latest scan.'
+fi
+monitor_result "$MSG" "$PERF"
 exit $STATE_CODE

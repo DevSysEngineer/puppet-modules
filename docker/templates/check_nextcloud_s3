@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Dependency and usage errors cannot contain unfiltered runtime data.
 die() {
-    printf 'S3 check cannot run: %s\n' "$1"
+    monitor_error 'S3 check cannot run: ' "$1"
     exit 3
 }
 
@@ -139,28 +141,31 @@ finish() {
 '*}
         fi
     done
-    final_detail=$(printf '%s\n%s\n%s\n\nMetadata access:\n%s\n\nCertificate:\n%s' \
-        "$CRITICAL_REASONS" "$UNKNOWN_REASONS" "$WARNING_REASONS" "$REQUEST_DETAIL" "$CERT_DETAIL" |
-        $AWK 'NF { if (gap && seen) print ""; print; seen=1; gap=0; next } { gap=1 }')
-    final_detail=$(printf '%s' "$final_detail" | $AWK -v limit="$DETAIL_LIMIT" '
-        { text = text separator $0; separator = "\n" }
-        END { if (length(text) > limit) printf "%s\n[Diagnostic text truncated.]\n", substr(text, 1, limit); else print text }')
+    monitor_section "S3 access findings"
+    monitor_items "$CRITICAL_REASONS"
+    monitor_items "$UNKNOWN_REASONS"
+    monitor_items "$WARNING_REASONS"
+    monitor_section "Metadata access"
+    monitor_items "$REQUEST_DETAIL"
+    monitor_section "Certificate"
+    monitor_items "$CERT_DETAIL"
+    monitor_limit "$DETAIL_LIMIT"
     cleanup
     final_now=$($DATE +%s.%N)
     final_total=$($AWK -v start="$START_TIME" -v now="$final_now" 'BEGIN { printf "%.3f", now-start }')
     printf 'S3 store %s: %s | total=%ss' "$S3_STORE" "$final_summary" "$final_total"
     [ -z "$RESPONSE" ] || printf ' response=%ss;%s;%s;0' "$RESPONSE" "$RESPONSE_WARNING" "$RESPONSE_CRITICAL"
     [ -z "$CERT_VALIDITY" ] || printf ' cert_validity=%ss;%s:;%s:' "$CERT_VALIDITY" "$VALIDITY_WARNING_SECONDS" "$VALIDITY_CRITICAL_SECONDS"
-    printf '\n\n%s\n\nInterpretation:\n' "$final_detail"
-    printf '%s\n' 'This check assesses read-only S3 metadata access from the monitoring host.' \
-        'It does not test uploads, object contents, decryption, deletion, capacity or the complete Nextcloud file workflow.'
+    printf '\n'
+    monitor_section "Interpretation"
+    monitor_item "Read-only S3 metadata access is measured from the monitoring host; uploads, object contents, decryption, deletion, capacity and the complete Nextcloud workflow are outside scope."
     if [ "$REQUEST_SCHEME" = http ]; then
-        printf '%s\n' 'The store explicitly uses unencrypted HTTP. TLS and certificate checks do not apply.'
+        monitor_item "The store uses unencrypted HTTP; TLS and certificate checks do not apply."
     elif [ "$REQUEST_SCHEME" = https ]; then
-        printf '%s\n' 'HTTPS uses the host CA store, not the Nextcloud container or PHP trust store.' \
-            'Expiry thresholds concern the server certificate, not a full chain forecast or OCSP.'
+        monitor_item "HTTPS uses the host CA store, not the Nextcloud/PHP trust store. Expiry thresholds concern the server certificate, not a chain forecast or OCSP."
     fi
-    [ "$final_status" -eq 0 ] || printf '%s\n' "$final_summary"
+    [ "$final_status" -eq 0 ] || monitor_item "$final_summary"
+    printf '%s\n' "$LONG_OUTPUT"
     exit "$final_status"
 }
 

@@ -1,9 +1,11 @@
 #!/bin/sh
 # Managed by puppet
 
+<%= scope.function_template(['basic_settings/monitoring/_output']) %>
+
 # Fail helper
 die() {
-    printf 'systemd timer check cannot run: %s\n' "$*"
+    monitor_error 'systemd timer check cannot run: ' "$*"
     exit 3
 }
 
@@ -64,61 +66,11 @@ esac
 [ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
 
-# Emit the summary line and optional long output.
-emit_check() {
-    # $1 = summary/status line, $2 = perfdata
-    printf '%s | %s\n' "$(monitor_text_value "$1")" "$2"
-    if [ -n "${JOURNAL_JOINED:-}" ]; then
-        monitor_text_value "$JOURNAL_JOINED"
-    fi
-}
-
-# Nagios treats raw pipes after the first output line as perfdata separators.
-monitor_text_value() {
-    printf '%s\n' "$1" | $SED 's/|/[or]/g'
-}
-
-# Format journal lines with a configurable line count and per-line character cap.
-format_journal_lines() {
-    printf '%s\n' "$1" | $SED '/^$/d; s/[[:space:]]\+$//' | $AWK -v max="$MAXLOG" '
-        {
-            line = $0
-            if (length(line) > max) {
-                line = substr(line, 1, max) "... [line truncated]"
-            }
-            print "- " line
-        }
-    '
-}
-
-# Bound journal details before adding Interpretation so final operator guidance stays visible in monitoring UIs.
-limit_text_details() {
-    $AWK -v max="$DETAIL_LIMIT" '
-        {
-            line = $0
-            line_len = length(line)
-            separator_len = printed ? 1 : 0
-            if (used + separator_len + line_len <= max) {
-                print line
-                used += separator_len + line_len
-                printed = 1
-                next
-            }
-            remaining = max - used - separator_len
-            if (remaining > 0) {
-                print substr(line, 1, remaining) "... [detail truncated]"
-            }
-            print "Long output details truncated after " max " characters to keep Interpretation visible."
-            exit
-        }
-    '
-}
-
 # Inspect manager properties: a bus failure does not prove a missing or inactive unit.
 TIMER_LOAD=$($SYSTEMCTL show "$TIMER_UNIT" -p LoadState --value 2>/dev/null)
 TIMER_RC=$?
 if [ "$TIMER_LOAD" = not-found ]; then
-    emit_check "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
+    monitor_result "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
     exit 2
 fi
 [ "$TIMER_RC" -eq 0 ] && [ -n "$TIMER_LOAD" ] || die "timer LoadState unavailable"
@@ -126,7 +78,7 @@ TIMER_ACTIVE=$($SYSTEMCTL show "$TIMER_UNIT" -p ActiveState --value 2>/dev/null)
 case "$TIMER_ACTIVE" in
     active) : ;;
     inactive|failed|activating|deactivating)
-        emit_check "${TIMER_UNIT} is not active (${TIMER_ACTIVE})" "last_run_age=U exit_code=U"
+        monitor_result "${TIMER_UNIT} is not active (${TIMER_ACTIVE})" "last_run_age=U exit_code=U"
         exit 2
         ;;
     *) die "timer ActiveState unavailable or invalid" ;;
@@ -137,7 +89,7 @@ SERVICE_UNIT=$($SYSTEMCTL show "$TIMER_UNIT" -p Unit --value 2>/dev/null) || die
 # The last trigger timestamp anchors both age perfdata and the journal window.
 LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value 2>/dev/null) || die "timer trigger timestamp unavailable"
 if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
-    emit_check "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
+    monitor_result "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
     exit 1
 fi
 
@@ -145,7 +97,7 @@ fi
 LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
 NOW_TS=$($DATE +%s)
 [ -n "${LAST_RUN_TS:-}" ] || {
-    emit_check "${TIMER_UNIT} last run could not be parsed" "last_run_age=U exit_code=U"
+    monitor_result "${TIMER_UNIT} last run could not be parsed" "last_run_age=U exit_code=U"
     exit 3
 }
 
@@ -176,33 +128,19 @@ case "$JOURNAL_LINE_COUNT" in
     ''|*[!0-9]*) JOURNAL_LINE_COUNT=0 ;;
 esac
 
+monitor_section "Service journal"
 if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
+    monitor_item "Source: $SERVICE_UNIT; trigger $LAST_RUN_TEXT; window $WINDOW s"
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
-        JOURNAL_OMITTED=$((JOURNAL_LINE_COUNT - LOG_LINES))
-        JOURNAL_JOINED=$(
-            {
-                printf '%s\n' "- Showing last ${LOG_LINES} journal lines from this timer run; ${JOURNAL_OMITTED} older line(s) omitted"
-                format_journal_lines "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES"
-            }
-        )
-    else
-        JOURNAL_JOINED=$(format_journal_lines "$JOURNAL_RAW")
+        monitor_item "Selection: latest $LOG_LINES lines; $((JOURNAL_LINE_COUNT - LOG_LINES)) older lines omitted."
     fi
-else
-    JOURNAL_JOINED=""
+    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES")" "$MAXLOG"
 fi
-
-# Add interpretation after journal details when long output exists.
-if [ -n "$JOURNAL_JOINED" ]; then
-    JOURNAL_JOINED=$(
-        {
-            printf '%s\n' "$JOURNAL_JOINED" | limit_text_details
-            printf '%s\n' ''
-            printf '%s\n' 'Interpretation:'
-            printf '%s\n' 'Current properties of the timer target decide the exit code; journal lines are bounded context from the last trigger window.'
-            printf '%s\n' 'Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome.'
-        }
-    )
+if [ -n "${LONG_OUTPUT:-}" ]; then
+    monitor_limit "$DETAIL_LIMIT"
+    monitor_section "Interpretation"
+    monitor_item "Current properties of the timer target decide the exit code; journal lines are bounded context from the last trigger window."
+    monitor_item "Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome."
 fi
 
 # Perfdata exposes timer age and the last observed service exit status.
@@ -217,14 +155,17 @@ fi
 
 # A completed target result and numeric zero exit status establish success.
 if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
-    emit_check \
+    monitor_result \
         "$SERVICE_UNIT successful (${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
         "$PERFDATA"
     exit 0
 fi
 
 # Preserve the observed result, including signal/timeout failures with zero ExecMainStatus.
-emit_check \
+if [ -n "${LONG_OUTPUT:-}" ]; then
+    monitor_prepend 'Timer findings' "$SERVICE_UNIT: $RESULT; exit $(monitor_value "$EXIT_CODE"); last trigger $LAST_RUN_TEXT" 'Inspect the target service result and journal around the timer trigger.'
+fi
+monitor_result \
     "$SERVICE_UNIT $RESULT with exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
     "$PERFDATA"
 
