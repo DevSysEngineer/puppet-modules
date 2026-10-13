@@ -2,7 +2,7 @@
 
 `project-tools-validate` levert `validate-junit`: native OpenVox-syntaxvalidatie met JUnit per manifest. De gem gebruikt `project-tools-shared` voor de XML-opbouw en kan zonder linter, lintplugins, RuboCop of dependencytool worden geïnstalleerd. De [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) beschrijft installatie, packagekeuze en consumermigratie.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
 
 ## Inhoudsopgave
 
@@ -128,6 +128,13 @@ De [gemspec](project-tools-validate.gemspec) beheert de vereiste versies van sha
 `validate-junit` heeft precies één eigenaar: deze gem. `lint-project` gebruikt OpenVox voor zijn eigen AST-analyse, maar installeert de validatorgem niet. De [migratie-instructies](../README.md#migreren-naar-afzonderlijke-toolpakketten) beschrijven hoe bestaande afnemers hun bundle aanvullen. De repositorytaak en CI-rapportlocaties staan in de [gezamenlijke CI-uitleg](../README.md#ci-van-deze-repository).
 
 ## Ontwikkelen en testen
+
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
+
+- Behoud de [native runtime- en packagegrenzen](#runtime-en-packagegrenzen): parseruitvoering via `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`, afzonderlijke procesargumenten zonder shellinterpretatie en gelijke API- en CLI-resultaten. Voeg geen syntaxparser, catalogustoepassing of lintconfiguratiedependency toe.
+- Verifieer wijzigingen tegen [manifestselectie](#puppet-manifests-valideren) en [exitcontracten](#exitcodes-van-validate-junit), inclusief lege selecties, ongeldige invoer, dubbele en bijzondere paden, waarschuwingen, parserfouten, doorgaan na fouten, opstart- of signaalfouten, bronbehoud en rapportschrijffouten.
+- Werk README-contracten en tooltests samen bij. Verifieer zelfstandige pakket- en pathinstallatie zonder lint of projectmetadata en de gezamenlijke Git-bronroute met haar lokale override. Houd testondersteuning en ontwikkelgems buiten de runtimegem.
+- Houd volledige eigen syntaxvalidatie gescheiden van synthetische tooltests en hun dependencies volgens [TESTS.md](../../TESTS.md#testscope-en-plaatsing). Review root- of consumer-Rakeselectie samen met [repositorycontroles](../repository-checks/README.md#onderhoud).
 
 Voer vanuit de repositoryroot `bundle exec rake test:validate` uit voor de tooltests en `bundle exec rake test` voor alle tools. Tests en eventuele fixtures staan uitsluitend onder `tests/`; de gedeelde bootstrap en packagehulp komen uit `project-tools-shared`-testondersteuning in de checkout en zijn geen runtime-dependency.
 

@@ -19,27 +19,27 @@ class GuideNavigationTest < Minitest::Test
     end
   end
 
-  def test_lint_maintenance_is_owned_locally_and_linked_from_the_usage_guide
+  def test_lint_maintenance_is_owned_by_the_usage_guide_and_required_by_agents
     instructions = File.read(File.join(ROOT, 'AGENTS.md'))
     guide = File.read(File.join(ROOT, 'README.md'))
-    %w[check-development safe-autofix-development lint-documentation-boundaries
-       documentation-changes-and-verification].each do |anchor|
-      assert_includes guide, "(AGENTS.md##{anchor})"
+    %w[checkontwikkeling veilige-autofix-ontwikkelen grenzen-van-de-lintdocumentatie
+       documentatiewijzigingen-verifiëren].each do |anchor|
+      assert_includes guide, "(##{anchor})"
     end
     assert_includes instructions, '(README.md#documentatiecontract-voor-maintainers)'
     assert_includes instructions, '(README.md#beschikbare-projectchecks)'
   end
 
   def test_workflow_navigation_links_to_the_owning_operational_rules
-    agents = File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md'))
+    instructions = File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md'))
+    assert_includes instructions, '(.tools/lint/README.md#leeswijzer)'
+    assert_includes instructions, '(.tools/lint/docs/OPERATIONAL_RULES.md)'
     guide = File.read(File.join(ROOT, 'README.md'))
     %w[shellscripts monitoringchecks door-puppet-beheerde-inhoud-markeren
        beheerhelpers-op-de-gedeelde-locatie-installeren shellhelpers-op-een-herkenbare-taak-afbakenen
        actuele-hosttoestand-uit-kernelgegevens-bepalen
        vastgestelde-afwijkingen-en-onvolledige-inspecties-onderscheiden].each do |anchor|
-      [agents, guide].each do |text|
-        assert_includes text, "docs/OPERATIONAL_RULES.md##{anchor})"
-      end
+      assert_includes guide, "docs/OPERATIONAL_RULES.md##{anchor})"
     end
   end
 end

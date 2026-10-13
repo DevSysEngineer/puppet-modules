@@ -2,7 +2,7 @@
 
 `project-tools-module-dependencies` vergelijkt gedeclareerde module- en rootdependencies met één native OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
 
 ## Inhoudsopgave
 
@@ -92,6 +92,13 @@ De adapter gebruikt de actieve OpenVox-bundle, neutraliseert tijdelijk `PUPPETLI
 De controle installeert of wijzigt geen modules, metadata, gitlinks, lockfiles of hostconfiguratie. Er is geen catalogus, facts-uitvoering, pluginsync, Puppet Server of verbinding met beheerde hosts nodig. Het laden van de vertrouwde Ruby-runtime is geen sandbox voor willekeurige externe code. De [gemspec](project-tools-module-dependencies.gemspec) begrenst de OpenVox- en JSON-versies; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast.
 
 ## Ontwikkelen en testen
+
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
+
+- Behoud het [native selectie- en dekkingscontract](#native-selectie-en-dekking). Test eerste-modulekeuze, omgekeerde paden, Forge-identiteit, symlinks, verborgen en onbruikbare metadata, externe aanvragers, native ranges en lege scans. Voeg geen eigen resolver toe en kies geen latere module om een dependency passend te maken.
+- Review modulepadwijzigingen met de [shared-interface](../shared/README.md#runtimecontracten) en haar onderhoudsafspraken. Houd dependencyselectie gescheiden van lintbronleesgrenzen en metadataselectie; parservalidatie en metadataherstel blijven bij hun tools.
+- Verifieer [rootdependencies](#rootdependencies) vanuit de actieve werkmap zonder metadataconfiguratie of VERSION te vereisen. Test de [runtimegrenzen](#runtime-en-veiligheidsgrenzen), inclusief herstel van persoonlijke instellingen na in-process gebruik.
+- Werk geraakte contracten en tooltests samen bij. Behoud native vergelijkingen met `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`, gescheiden stdout, stderr en status. Verifieer bevindingen tegenover uitvoerfouten, dekking, rapportvervanging, escaping en zelfstandige distributie zonder lint, RuboCop of ontwikkelgems. Echte checkoutconflicten horen bij de afzonderlijke scan, nooit een bewust falende tooltest.
 
 Voer vanuit de repositoryroot `bundle exec rake test:module_dependencies` uit voor de synthetische toolcontracten. De tests behandelen eerste-modulekeuze, omgekeerde paden, ontbrekende en onbruikbare metadata, Forge-identiteit, symlinks, externe aanvragers, native ranges, rootinvoer, persoonlijke instellingen, rapportvervanging, escaping en foutstatussen. Native CLI-vergelijkingen gebruiken `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')` met afzonderlijke stdout, stderr en processtatus.
 

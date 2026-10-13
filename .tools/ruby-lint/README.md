@@ -2,7 +2,7 @@
 
 `project-tools-ruby-lint` levert RuboCop en het gedeelde profiel `config/rubocop.yml`. Gebruik de native `rubocop`-CLI en zijn JUnit-formatter. Het pakket installeert geen Puppet, lintplugins of shared-library en heeft geen eigen wrapper. Kies je gembron volgens de [installatiehandleiding](../README.md#importeren-en-distribueren).
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-tests).
 
 ## Inhoudsopgave
 
@@ -33,11 +33,9 @@ Begin met een gewone scan voordat je automatisch corrigeert. Kies daarna de best
 bundle exec rubocop --config .rubocop.yml --force-exclusion --autocorrect .tools/lint/lib/project_lint/ast.rb
 bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
-git diff --check
-git diff
 ```
 
-`--force-exclusion` respecteert de uitgesloten paden ook wanneer je een bestand expliciet opgeeft. [`--autocorrect`](https://docs.rubocop.org/rubocop/usage/autocorrect.html) gebruikt alleen correcties die RuboCop als veilig aanmerkt. Beoordeel de diff en voer de tests opnieuw uit. Controleer gewijzigde Ruby-code in modules ook met tijdelijke functionele controles buiten de repository; de tooltests dekken dat gedrag niet. `--autocorrect-all` bevat ook mogelijk gedragsveranderende correcties en hoort niet bij deze veilige correctiestap.
+`--force-exclusion` respecteert de uitgesloten paden ook wanneer je een bestand expliciet opgeeft. [`--autocorrect`](https://docs.rubocop.org/rubocop/usage/autocorrect.html) gebruikt alleen correcties die RuboCop als veilig aanmerkt. Beoordeel de wijzigingen en whitespace via de [veilige Git-inspectie](../../CONTRIBUTING.md#git-inspectie) en voer de tests opnieuw uit. Controleer gewijzigde Ruby-code in modules ook met tijdelijke functionele controles buiten de repository; de tooltests dekken dat gedrag niet. `--autocorrect-all` bevat ook mogelijk gedragsveranderende correcties en hoort niet bij deze veilige correctiestap.
 
 RuboCop beoordeelt statische eigenschappen zoals opmaak, mogelijke fouten en complexiteit. De tooltests en inhoudelijke review blijven nodig om vast te stellen of de gecontroleerde Ruby-code correct werkt.
 
@@ -76,6 +74,12 @@ bundle exec rubocop --config .rubocop.yml
 Voor veilige lokale correcties volg je de [RuboCop-werkwijze](#ruby-code-controleren), met de `.rubocop.yml` van je eigen project. Voor console-uitvoer en JUnit XML uit één uitvoering gebruik je de [rapportaanroep](../README.md#rapporten-en-artifacts-in-je-project). Voer de Ruby-scan ook in je eigen CI uit. Puppet-lint en RuboCop hebben afzonderlijke commando's: een Puppet-lintscan voert geen Ruby-scan uit.
 
 ## Onderhoud en tests
+
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
+
+- Behoud de [native gebruiks- en correctieroute](#ruby-code-controleren) en [consumerprofielintegratie](#ruby-controleren-in-een-ander-project). Voeg geen projectwrapper, tweede formatter of dependencies op Puppet, lintplugins of shared toe.
+- Review profielwijzigingen tegen repository- en consumerselectie, inclusief verborgen tooling, uitgesloten dependencies en templates. Behoud standaard-RuboCopregels en inschakeling van nieuwe checks zonder een suppressielijst voor bestaande bevindingen te genereren.
+- Werk gebruiks- en testcontracten samen bij. Verifieer zelfstandige installatie met eigen consumerbundle, overerving van het profiel, schone en falende Ruby-invoer en native JUnit. Behoud native diagnostiek, annotaties en exitcodes bij CI-presentatiewijzigingen; betrek repositorycontroles bij workflowintegratie.
 
 De gem bevat het profiel, deze README en de licentie. Lokale aanroepen houden de native uitvoer. CI gebruikt de native progress- en JUnit-formatters, `--stderr` voor ongebufferde voortgang en de bestaande Bash-aanroeplaag voor het [centrale logcontract](../README.md#joblogs). Native diagnostiek en eventuele GitHub-annotaties worden niet nogmaals geparseerd of uitgezonden. RuboCopstatus 1 wordt als `FAILED` getoond; andere niet-nul statussen als `ERROR`. De getoonde native bestands- en offenseaantallen blijven afzonderlijk van de JUnit-testcases. Native RuboCop bepaalt de exitcodes en maakt JUnit met `--format junit --out REPORT.xml`; de [gezamenlijke gids](../README.md#rapporten-en-artifacts-in-je-project) beschrijft CI en rapportpaden. Exitcode 0 is schoon, 1 betekent offenses en uitvoerings- of configuratiefouten leveren een foutstatus op.
 

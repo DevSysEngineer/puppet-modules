@@ -84,7 +84,8 @@ class GuideLinksTest < Minitest::Test
     paths = repository_markdown(ROOT)
     refute_empty paths
     paths.each do |source|
-      refute File.read(source).match?(repository_url), "#{source}: Use relative repository links (AGENTS.md#markdown)"
+      message = "#{source}: Use relative links (.tools/lint/docs/DOCUMENTATION_RULES.md#markdown)"
+      refute File.read(source).match?(repository_url), message
     end
   end
 end

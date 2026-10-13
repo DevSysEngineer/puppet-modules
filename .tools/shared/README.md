@@ -27,9 +27,14 @@ De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een
 
 ## Afhankelijkheden en onderhoud
 
-De [shared-gemspec](project-tools-shared.gemspec) declareert Builder als runtime-dependency. Iedere afnemende tool beheert zijn vereiste shared-versie in de eigen gemspec; zie het [pakketoverzicht](../README.md#pakketten-en-commandos). Shared gebruikt geen tool en krijgt geen OpenVox-specifieke JSON-grens. De gem bevat uitsluitend eigen `lib/`, deze README en de licentie, zonder executable, tests, fixtures of rapporten.
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
 
-Metadata-autofix, selectiebeleid, Puppet-lintchecks, parserorkestratie en dependencybevindingen behoren tot de betreffende tool. De [lokale ontwikkelinstructies](AGENTS.md) regelen uitbreiding van shared en de review van betrokken CLI’s en distributieroutes.
+- Voeg shared-code alleen toe wanneer concrete consumers hetzelfde technische gedrag nodig hebben. Houd metadataherstel, selectiebeleid, lintchecks, parserorkestratie en dependencybevindingen bij hun tools volgens de packagegrenzen hieronder.
+- Identificeer bij gewijzigde [runtimeinterfaces](#runtimecontracten) alle geraakte aanroepers, lees hun README-contracten en verifieer hun CLI en ondersteunde distributieroutes. Agents lezen ook hun lokale instructies. Behoud selectie-, resultaat- en exitsemantiek bij de caller, isolatie bij laden en de lint-JUnit-compatibility-shim.
+- Houd [testondersteuning](#testondersteuning) buiten de runtimegem. Verifieer eenmalige bootstrap en reporterinitialisatie, opt-in JUnit, behoud van andere rapporten en foutstatus bij rapportschrijffouten. Lintconfiguratie en verwachtingen blijven in de linthelper.
+- Onderhoud package-testhelpers tegen de bestaande offline consumerroute met gescheiden stdout, stderr en processtatus. Gebruik shared-tests voor library- en bootstrapcontracten; navigatie, workflow en testindeling horen bij repositorycontroles.
+
+De [shared-gemspec](project-tools-shared.gemspec) declareert Builder als runtime-dependency. Iedere afnemende tool beheert zijn vereiste shared-versie in de eigen gemspec; zie het [pakketoverzicht](../README.md#pakketten-en-commandos). Shared gebruikt geen tool en krijgt geen OpenVox-specifieke JSON-grens. De gem bevat uitsluitend eigen `lib/`, deze README en de licentie, zonder executable, tests, fixtures of rapporten.
 
 ## Testondersteuning
 
@@ -37,4 +42,4 @@ Repository-testhulp staat in `test_support/` en wordt niet verpakt. `bootstrap.r
 
 `packages.rb` deelt tijdelijke consumeromgevingen, subprocess-uitvoering met afzonderlijke stdout/stderr/status en het bouwen en installeren van afzonderlijke gems. De linthelper voegt alleen zijn eigen configuratie en verwachtingen toe. Validator- en dependencydistributietests gebruiken dezelfde packagehulp zonder lintbeleid. Package-tests werken offline met beschikbare externe gems, eigen Gemfiles en lockfiles; ze publiceren niets.
 
-Voer vanuit de repositoryroot `bundle exec rake test:shared` uit voor deze library en `bundle exec rake test` voor alle tools. De bootstraptests bewaken eenmalige initialisatie en behoud van andere rapportbestanden. Documentatielinks, workflow- en testindeling horen bij de [repositorycontroles](../repository-checks/README.md). De [projectbrede testscope](../../AGENTS.md#test-scope) en [gezamenlijke testinrichting](../README.md#gezamenlijke-tooltests) blijven leidend.
+Voer vanuit de repositoryroot `bundle exec rake test:shared` uit voor deze library en `bundle exec rake test` voor alle tools. De bootstraptests bewaken eenmalige initialisatie en behoud van andere rapportbestanden. Documentatielinks, workflow- en testindeling horen bij de [repositorycontroles](../repository-checks/README.md). De [projectbrede testscope](../../TESTS.md#testscope-en-plaatsing) en [gezamenlijke testinrichting](../README.md#gezamenlijke-tooltests) blijven leidend.

@@ -2,11 +2,11 @@
 
 Dit bestand is de centrale bron voor codeontwerp, codeconventies en bijbehorende handmatige reviewcriteria. De [algemene ontwerpregels](#algemene-ontwerpregels) gelden voor alle eigen code: modules, scripts, bibliotheken, tools en integratiecode, ook onder `.tools/`. De overige secties beschrijven de aanvullende Puppet-regels; hun syntaxis- en resourceafspraken gelden alleen voor Puppet-code. Het toepassingsgebied bij iedere regel bepaalt waar je haar gebruikt.
 
-Raakt je wijziging commentaar, Puppet Strings of documentatie van Puppet-interfaces, pas dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md) toe.
+Raakt je wijziging documentatie of codecommentaar, inclusief Puppet Strings en interfacebeschrijvingen, pas dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md) toe.
 
 Raakt je wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan ook de relevante regels uit [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn en vervangen deze algemene coderegels nooit.
 
-De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter of deze regels volgt de [lokale ontwikkelinstructies](../AGENTS.md). Alleen het toepassen van de regels vereist die onderhoudsroute niet. De [repositoryinstructies](../../../AGENTS.md#code-authority) bepalen voorbereiding, wijzigingsscope, migratie, validatie en oplevering. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter of deze regels volgt het [lintonderhoud](../README.md#linter-ontwikkelen-en-testen). Alleen het toepassen van de regels vereist die onderhoudsroute niet. De [gezamenlijke ontwikkelafspraken](../../../CONTRIBUTING.md#leesroute-en-verantwoordelijkheid) bepalen voorbereiding, wijzigingsscope, migratie, validatie en oplevering. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
 
 ## Inhoudsopgave
 
@@ -81,7 +81,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 
 <a id="naslag"></a>
 
-De afspraken hieronder verbinden algemene codeprincipes met hun uitwerking voor Puppet. Aanvullende regels staan bij [Puppet-documentatie](DOCUMENTATION_RULES.md) en [operationele wijzigingen](OPERATIONAL_RULES.md). Voor Puppet bepalen [`.puppet-lint.rc`](../../../.puppet-lint.rc) en de [projectchecks](../lib/project_lint/checks/) de actieve controles en hun feitelijke detectie en autofix; de [linthandleiding](../README.md#puppet-code-lintcontroles-en-hergebruik) beschrijft het autoriteitsmodel en de behandeling van conflicten. Gebruik het overzicht om vanuit een ontwerpbeslissing of lintmelding naar de betreffende afspraak te gaan. Een geslaagde scan bewijst geen correct functioneel gedrag, volledige documentatie of veilige serviceconfiguratie.
+De afspraken hieronder verbinden algemene codeprincipes met hun uitwerking voor Puppet. Aanvullende regels staan bij [documentatienormen](DOCUMENTATION_RULES.md) en [operationele wijzigingen](OPERATIONAL_RULES.md). Voor Puppet bepalen [`.puppet-lint.rc`](../../../.puppet-lint.rc) en de [projectchecks](../lib/project_lint/checks/) de actieve controles en hun feitelijke detectie en autofix; de [linthandleiding](../README.md#puppet-code-lintcontroles-en-hergebruik) beschrijft het autoriteitsmodel en de behandeling van conflicten. Gebruik het overzicht om vanuit een ontwerpbeslissing of lintmelding naar de betreffende afspraak te gaan. Een geslaagde scan bewijst geen correct functioneel gedrag, volledige documentatie of veilige serviceconfiguratie.
 
 ## Algemene ontwerpregels
 
@@ -141,7 +141,7 @@ Handmatig reviewscenario: Beide ingangen gebruiken dezelfde bestaande verwerking
 
 **Grensgevallen**
 
-Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een mogelijke toekomstige aanroeper rechtvaardigt geen nieuwe abstractie; de [wijzigingsscope](../../../AGENTS.md#implementation-scope) bepaalt welke toevoegingen nodig zijn.
+Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een mogelijke toekomstige aanroeper rechtvaardigt geen nieuwe abstractie; de [wijzigingsscope](../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen) bepaalt welke toevoegingen nodig zijn.
 
 **Handmatige review**
 
@@ -149,7 +149,7 @@ Vergelijk per aanroeper invoer, resultaat, foutafhandeling, voorwaarden, beveili
 
 **Verificatie**
 
-Beoordeel beide scenario's en valideer de betrokken aanroepers volgens de [hergebruikreview](../../../AGENTS.md#reuse-and-shared-abstractions) en [validatieafspraken](../../../AGENTS.md#validation-and-testing). De documentatiecontracttests bewaken de vindbaarheid en unieke plaats van de norm; zij bewijzen geen gelijkwaardig gedrag.
+Beoordeel beide scenario's en valideer de betrokken aanroepers volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang) en [validatieafspraken](../../../TESTS.md#testbeleid-en-validatie). De documentatiecontracttests bewaken de vindbaarheid en unieke plaats van de norm; zij bewijzen geen gelijkwaardig gedrag.
 
 ### Verantwoordelijkheden en interfaces afbakenen
 
@@ -207,7 +207,7 @@ Handmatig reviewscenario: De bibliotheek verwerkt expliciete invoer en levert ee
 
 **Grensgevallen**
 
-Houd een gedeelde taak binnen haar component zolang andere componenten haar niet nodig hebben. Een bestaande component kan haar eigen berekeningen uitvoeren; een afzonderlijke helper of extra laag is daarvoor niet vanzelf nodig. Beoordeel de noodzaak volgens de [wijzigingsscope](../../../AGENTS.md#implementation-scope).
+Houd een gedeelde taak binnen haar component zolang andere componenten haar niet nodig hebben. Een bestaande component kan haar eigen berekeningen uitvoeren; een afzonderlijke helper of extra laag is daarvoor niet vanzelf nodig. Beoordeel de noodzaak volgens de [wijzigingsscope](../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen).
 
 **Handmatige review**
 
@@ -215,7 +215,7 @@ Volg de gegevensstroom van iedere ingang via de verwerking naar het resultaat. C
 
 **Verificatie**
 
-Vergelijk de scenario's en controleer de interfaces met hun werkelijke aanroepers volgens de [hergebruikreview](../../../AGENTS.md#reuse-and-shared-abstractions). Bij tooling hoort daar de [integratiereview](../../AGENTS.md#responsibility-and-integration-review) bij. De documentatiecontracttests bewaken structuur en verwijzingen; de inhoudelijke eigendomsbeslissing blijft handmatig.
+Vergelijk de scenario's en controleer de interfaces met hun werkelijke aanroepers volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang). Bij tooling hoort daar de [integratiereview](../../README.md#verantwoordelijkheden-en-integratie-reviewen) bij. De documentatiecontracttests bewaken structuur en verwijzingen; de inhoudelijke eigendomsbeslissing blijft handmatig.
 
 ## Basisopmaak
 
@@ -1210,7 +1210,7 @@ Vergelijk iedere gemigreerde aanroeper, diens instellingen, resource-eigendom, b
 
 **Verificatie**
 
-Vergelijk beide reviewscenario’s en valideer iedere gemigreerde aanroeper afzonderlijk volgens de [hergebruikreview](../../../AGENTS.md#reuse-and-shared-abstractions).
+Vergelijk beide reviewscenario’s en valideer iedere gemigreerde aanroeper afzonderlijk volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang).
 
 ### Publieke parameters expliciet typeren
 
@@ -1519,7 +1519,7 @@ Controleer true als veilige standaard, false als weglaten en scalar als eigen wa
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Parameternamen op onderwerp kiezen
 
@@ -1581,7 +1581,7 @@ Controleer naamvolgorde en test een cijfer aan het begin op iedere ondersteunde 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden en validatie
 
@@ -1806,7 +1806,7 @@ Vergelijk de aanwezigheid van de regel en haar inhoud afzonderlijk voor explicie
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Optionele waarden alleen bij gebruik valideren
 
@@ -1868,7 +1868,7 @@ Volg beide gebruikspaden en controleer dat de foutmelding in de laatste else sta
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Classcontroles hergebruiken
 
@@ -2012,7 +2012,7 @@ Valideer de aanwezigheid en afwezigheid en de daadwerkelijke evaluatievolgorde v
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Resources en afhankelijkheden
 
@@ -2224,7 +2224,7 @@ Vergelijk de contractafspraak tussen beide onderdelen en gebruik na een afgeweze
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Dependencies pas na een geslaagde controle koppelen
 
@@ -2286,7 +2286,7 @@ Traceer zichtbaarheid op het evaluatiemoment en onderscheid die van de uiteindel
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Prerequisites van ordering onderscheiden
 
@@ -2294,7 +2294,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 Maak bij dependencies onderscheid tussen wat een operatie nodig heeft om te kunnen draaien en wat alleen de uitvoervolgorde bepaalt. Het weglaten van een dependencyreference, zoals `require`, schakelt de afhankelijke operatie niet uit. Leid runtimebeschikbaarheid nooit uitsluitend af uit de aanwezigheid of afwezigheid van een declaratie.
 
-Het gedocumenteerde contract moet vereiste prerequisites vóór gebruik leveren of het gedrag bij ontbreken vastleggen: sla een optionele operatie over of faal duidelijk bij een verplichte operatie. De [prerequisitereview](../../../AGENTS.md#prerequisite-review) vereist validatie met prerequisites aanwezig en afwezig, inclusief de relevante declaratie- en evaluatievolgorde.
+Het gedocumenteerde contract moet vereiste prerequisites vóór gebruik leveren of het gedrag bij ontbreken vastleggen: sla een optionele operatie over of faal duidelijk bij een verplichte operatie. De [prerequisitereview](../../../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud) vereist validatie met prerequisites aanwezig en afwezig, inclusief de relevante declaratie- en evaluatievolgorde.
 
 **Herkomst**
 
@@ -2350,7 +2350,7 @@ Controleer aanwezigheid, afwezigheid, declaratievolgorde en evaluatievolgorde vo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Runtime-inventarisatie met Facter modelleren
 
@@ -2360,7 +2360,7 @@ Gebruik bij voorkeur Facter voor herbruikbare, alleen-lezen inventarisatie die P
 
 Houd een fact generiek wanneer meerdere afnemers dezelfde informatie kunnen gebruiken. Applicatiespecifieke selectie en beleid horen in de afnemende Puppet-code. Als optionele software of een optionele service ontbreekt of niet bereikbaar is, retourneert de fact een passende lege of afwezige waarde zonder de factverzameling te laten mislukken.
 
-Facts vormen een momentopname vóór het toepassen van de catalogus. Een object dat tijdens diezelfde Puppet-run ontstaat, verschijnt pas bij een volgende verzameling. Gebruik geen fact voor mutaties, acties die alleen tijdens catalogustoepassing zinvol zijn of toestand die pas tijdens dezelfde run ontstaat en direct daarna nodig is. De [ontwerpreview](../../../AGENTS.md#runtime-discovery-and-facter) bepaalt wanneer dit model wordt onderzocht; alleen het vermijden van een `exec` is geen reden voor een fact.
+Facts vormen een momentopname vóór het toepassen van de catalogus. Een object dat tijdens diezelfde Puppet-run ontstaat, verschijnt pas bij een volgende verzameling. Gebruik geen fact voor mutaties, acties die alleen tijdens catalogustoepassing zinvol zijn of toestand die pas tijdens dezelfde run ontstaat en direct daarna nodig is. Onderzoek dit model vóór je shellgebaseerde runtimediscovery aan Puppet-resources toevoegt: heeft Puppet herbruikbare waargenomen toestand nodig bij cataloguscompilatie? Alleen het vermijden van een `exec` is geen reden voor een fact; onderbouw of het om herbruikbare inventarisatie gaat of dat scheiding tussen observatie en configuratie het Puppet-model verduidelijkt.
 
 **Herkomst**
 
@@ -2412,11 +2412,11 @@ Een container kan tussen factverzameling en catalogustoepassing verdwijnen. Een 
 
 **Handmatige review**
 
-Controleer dat discovery alleen leest, algemene inventarisatie geen applicatiebeleid bevat en de afnemer de momentopname correct gebruikt. Beoordeel normale uitvoer, lege inventaris, ontbrekende executables, onbereikbare services, mislukte discovery en objecten die later ontstaan of verdwijnen.
+Controleer dat discovery alleen leest, algemene inventarisatie geen applicatiebeleid bevat en de afnemer de momentopname correct gebruikt. Beoordeel normale uitvoer, lege inventaris, ontbrekende executables, onbereikbare services, mislukte discovery en objecten die later ontstaan of verdwijnen. Neem alle geraakte consumers en het moment van factverzameling mee en leg vast wanneer een volgende Puppet-run nodig is.
 
 **Verificatie**
 
-Beoordeel beide scenario's tegen de norm. Valideer factuitvoer en catalogusgedrag met geïsoleerde synthetische runtimegegevens buiten de repository volgens de [validatieafspraken](../../../AGENTS.md#isolation-and-evidence). De documentatietests controleren structuur en verwijzingen, niet het runtimegedrag van de fact.
+Beoordeel beide scenario's tegen de norm. Valideer factuitvoer en catalogusgedrag met geïsoleerde synthetische runtimegegevens buiten de repository volgens de [validatieafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De documentatietests controleren structuur en verwijzingen, niet het runtimegedrag van de fact.
 
 ### Packageafhankelijkheden bij externe commando’s
 
@@ -3381,11 +3381,11 @@ Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats
 
 **Handmatige review**
 
-Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende implementatie en controleer de concrete evaluatieafhankelijkheid.
+Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende implementatie en controleer de concrete evaluatieafhankelijkheid. Noteer een noodzakelijke plaatsingsuitzondering en haar technische reden in de wijzigingsreview.
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Relaties en meldingen behouden
 
@@ -3449,7 +3449,7 @@ Volg de cyclus door require, notify, subscribe en containment; controleer welke 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Instellingen bij hun eigenaar houden
 

@@ -2,7 +2,7 @@
 
 `project-tools-metadata` controleert root- en modulemetadata en synchroniseert bekende velden met `--fix`. Het pakket gebruikt JSON en `project-tools-shared` voor rapportage en installeert geen Puppet of RuboCop. De [gemspec](project-tools-metadata.gemspec) beheert de dependencygrenzen. Gebruik de [gezamenlijke installatiehandleiding](../README.md#importeren-en-distribueren) voor de gekozen gembron.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud aan deze tool volg je daar de [lokale ontwikkelinstructies](AGENTS.md).
+Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-verificatie).
 
 ## Inhoudsopgave
 
@@ -15,6 +15,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 - [Versiebron en rapportage](#versiebron-en-rapportage)
 - [Metadata automatisch herstellen](#metadata-automatisch-herstellen)
 - [Aanvullende validatie](#aanvullende-validatie)
+- [Onderhoud en verificatie](#onderhoud-en-verificatie)
 
 ## Gebruik in een ander project
 
@@ -138,7 +139,7 @@ Beoordeel de inhoud naast de automatische structuurcontrole. Naam, omschrijving 
 
 ## Versiebron en rapportage
 
-Kies de releaseversie volgens het [versie- en releasebeleid](../../AGENTS.md#versioning-and-releases). De metadatatool controleert of metadata die gekozen versie volgen. Hij beoordeelt de compatibiliteitsimpact niet en verhoogt de versie niet zelfstandig.
+Kies de releaseversie volgens het [versie- en releasebeleid](../../CONTRIBUTING.md#compatibiliteit-en-versies). De metadatatool controleert of metadata die gekozen versie volgen. Hij beoordeelt de compatibiliteitsimpact niet en verhoogt de versie niet zelfstandig.
 
 De check leest de projectversie uitsluitend uit `<projectroot>/VERSION`. Het bestand bevat `MAJOR.MINOR.PATCH`: drie gehele getallen zonder voorloopnullen, bijvoorbeeld `2.0.0`. Een afsluitend regeleinde is toegestaan; een `v`-prefix, prerelease, buildmetadata, spaties of extra regels zijn ongeldig. De validator ondersteunt daarmee alleen de normale SemVer-versienummers, zonder de optionele prerelease- en buildtoevoegingen. De [VERSION van deze repository](../../VERSION) bepaalt de versie van het hoofdproject en de eigen modules; de Ruby-gems behouden hun afzonderlijke pakketversies.
 
@@ -146,7 +147,7 @@ Een ontbrekend, onleesbaar, leeg of ongeldig `VERSION`-bestand levert één bron
 
 Een inladend project gebruikt uitsluitend zijn eigen `<projectroot>/VERSION`. Bij `3.1.0` in dat bestand volgen zijn rootmetadata en eigen modules versie `3.1.0`. Heeft `global-modules/VERSION` waarde `2.0.0`, dan blijven de metadata van dat gedeelde project bij `2.0.0`. Houd dependencies buiten de ingestelde eigen modulemap of sluit ze expliciet uit. `PROJECT_TOOLS_MODULEPATH` selecteert hun metadata niet. Om het gedeelde project zelf te controleren, voer je de metadata-aanroep vanuit die projectroot uit met zijn eigen modulelocatie.
 
-Synchroniseer de gekozen projectversie volgens het [versiebeleid](../../AGENTS.md#version-updates-and-release-preparation) als volgt:
+Synchroniseer de gekozen projectversie volgens het [versiebeleid](../../CONTRIBUTING.md#versie-kiezen-en-synchroniseren) als volgt:
 
 1. Wijzig uitsluitend het eigen `VERSION`-bestand naar de gekozen projectversie.
 2. Gebruik de hieronder beschreven `--fix`-aanroep om die waarde over te nemen in het veld `version` van `<projectroot>/metadata.json` en iedere geselecteerde eigen module onder `PROJECT_METADATA_MODULES_PATH`. Behoud alle andere metadatavelden en de bestanden van ingeladen dependencies. Gebruik ook bij nieuwe metadata altijd de waarde uit `VERSION`.
@@ -206,3 +207,12 @@ Controleer bij gewijzigde modulemetadata daarnaast het uitgebreidere Puppet-meta
 ```sh
 bundle exec metadata-json-lint basic_settings/metadata.json
 ```
+
+## Onderhoud en verificatie
+
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
+
+- Beoordeel selectiewijzigingen tegen [modulegrenzen](#metadata-in-modulemappen) en het [rootcontract](#metadata-in-de-projectroot). Verifieer repository- en consumerindelingen, expliciete modulelocaties, uitsluitingen, symlinks, modules zonder manifests, projecten zonder modules en grenzen van geïmporteerde projecten.
+- Houd versievalidatie en synchronisatie ondergeschikt aan het [releasebeleid](../../CONTRIBUTING.md#compatibiliteit-en-versies). Test de [versiebron](#versiebron-en-rapportage), ook onafhankelijke consumerversies, ongeldige of ontbrekende bronnen en uitvoering zonder Git. Laat de tool geen release kiezen of een versie uit metadata of Git halen.
+- Verifieer bij herstelwijzigingen het [synchronisatiecontract](#metadata-automatisch-herstellen): echte en gedeeltelijke fixes, behoud van overige velden en dependencies, weigering bij onveilig herstel en idempotentie. Houd onvolledige metadata zichtbaar.
+- Werk README-contracten en [metadatatests](#exitcodes-en-tests) samen bij. Verifieer CLI-argumentfouten, bevindingen, rapport- en schrijffouten en zelfstandig geïnstalleerd gebruik zonder Puppet-lint, OpenVox of RuboCop.

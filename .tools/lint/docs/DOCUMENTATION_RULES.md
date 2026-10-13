@@ -1,14 +1,39 @@
-# Puppet-code documenteren
+# Documentatienormen en reviewcriteria
 
-Dit bestand bevat de regels voor commentaar in Puppet-code, Puppet Strings en documentatie van Puppet-interfaces. Pas de relevante regels toe wanneer je wijziging deze documentatie raakt. Blijf daarbij de toepasselijke algemene coderegels uit [CODE_RULES.md](CODE_RULES.md) volgen.
+Dit document bevat de algemene normen voor repositorydocumentatie, informatieplaatsing, Markdown, README's en redactionele review. De aanvullende codecommentaar- en interfaceregels benoemen hun scope; Puppet Strings en Puppet-specifieke opmaak blijven tot Puppet beperkt. Gebruik de [gezamenlijke ontwikkelwerkwijze](../../../CONTRIBUTING.md) en het [testbeleid](../../../TESTS.md) voor voorbereiding, verplichte validatie en oplevering.
 
-Raakt de wijziging ook beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan daarnaast de relevante regels uit [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn en vervangen de algemene coderegels nooit.
+Volg bij codewijzigingen ook de toepasselijke [algemene en taalspecifieke coderegels](CODE_RULES.md), en bij bestanden, rechten, beveiliging, services, shell, runtime-tools of monitoring de [operationele normen](OPERATIONAL_RULES.md). De drie bronnen kunnen tegelijk gelden. Een groene scan bewijst geen volledige naleving; normen zonder automatische controle blijven verplicht.
 
-De [linthandleiding](../README.md) beschrijft het gebruik en de werking van de tooling. Onderhoud aan de linter zelf volgt de [lokale ontwikkelinstructies](../AGENTS.md); het toepassen van deze normen vereist die onderhoudsroute niet. De algemene afspraken voor repositorydocumentatie, Markdown, README-stijl en redactionele review staan in [AGENTS.md](../../../AGENTS.md#documentation). Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beheert gebruik, architectuur en linteronderhoud. Alleen normen toepassen vereist die onderhoudsroute niet. Het bestaande [documentatieschema](../README.md#schema-voor-regels-en-procedures) geldt voor de aanvullende coderegels onder Commentaar en documentatie; de algemene documentatie- en redactionele afspraken hieronder hebben hun eigen onderwerpstructuur.
 
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
+- [Algemene documentatienormen](#algemene-documentatienormen)
+  - [Taal en informatieplaatsing](#taal-en-informatieplaatsing)
+    - [Informatieplaatsing](#informatieplaatsing)
+  - [Duurzame documentatie](#duurzame-documentatie)
+  - [Markdown](#markdown)
+- [Redactionele review](#redactionele-review)
+  - [Doelgroep en leesroute](#doelgroep-en-leesroute)
+    - [Vóór bewerken](#vóór-bewerken)
+    - [Tijdens bewerken](#tijdens-bewerken)
+    - [Na bewerken](#na-bewerken)
+  - [Technisch bewijs en links](#technisch-bewijs-en-links)
+  - [Proza beoordelen](#proza-beoordelen)
+  - [Grenzen van redactionele automatisering](#grenzen-van-redactionele-automatisering)
+- [README-richtlijnen](#readme-richtlijnen)
+  - [Scope en configuratie](#scope-en-configuratie)
+  - [Stijl en uitleg](#stijl-en-uitleg)
+  - [Navigatie en prerequisites](#navigatie-en-prerequisites)
+  - [Modulesecties](#modulesecties)
+    - [Belangrijke aandachtspunten](#belangrijke-aandachtspunten)
+- [Afspraken onderhouden](#afspraken-onderhouden)
+  - [Wijzigingsbereik en noodzaak](#wijzigingsbereik-en-noodzaak)
+  - [Inhoud behouden en samenbrengen](#inhoud-behouden-en-samenbrengen)
+  - [Regelstructuur en formulering](#regelstructuur-en-formulering)
+  - [Conflicten beoordelen](#conflicten-beoordelen)
+  - [Eindreview van afspraken](#eindreview-van-afspraken)
 - [Commentaar en documentatie](#commentaar-en-documentatie)
   - [Toelichtingen bij code](#toelichtingen-bij-code)
   - [Toelichtingsblokken van eerdere code scheiden](#toelichtingsblokken-van-eerdere-code-scheiden)
@@ -42,9 +67,188 @@ De [linthandleiding](../README.md) beschrijft het gebruik en de werking van de t
   - [Documentatie op haar aangewezen plaats onderhouden](#documentatie-op-haar-aangewezen-plaats-onderhouden)
   - [Uitvoerbare voorbeeldscenario’s onderhouden](#uitvoerbare-voorbeeldscenarios-onderhouden)
 
+## Algemene documentatienormen
+
+Deze normen gelden voor alle repository-eigen documentatie, inclusief verborgen mappen, geneste componenten, voorbeelden, nieuwe bestanden en centrale of lokale agentinstructies. Beoordeel ieder document naar zijn doelgroep en taak. De aanvullende regels onder [Commentaar en documentatie](#commentaar-en-documentatie) benoemen hun eigen code- en Puppet-scope; Puppet Strings-tags zijn geen vereiste voor andere talen.
+
+### Taal en informatieplaatsing
+
+Schrijf technische documentatie in het Engels, inclusief changelogteksten en ieder root- of lokaal `AGENTS.md`, behalve de Nederlandstalige bronnen: root-`README.md`, `CONTRIBUTING.md`, `TESTS.md`, alle eigen README's op iedere diepte onder `.tools/` (ook nieuwe tools) en de drie regelsdocumenten `CODE_RULES.md`, `DOCUMENTATION_RULES.md` en `OPERATIONAL_RULES.md`. Een expliciet verzoek van de gebruiker kan een andere taal bepalen. Pas duurzame documentatie toe op bestaande en toekomstige Markdown volgens het doel van het document.
+
+Voeg alleen een ADR toe wanneer gevraagd of al gebruikelijk. Dit ontslaat je niet van documentatie van de geraakte interface of het gedrag.
+
+#### Informatieplaatsing
+
+Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan de hand van de beslissing die de norm regelt, niet van het bestand waar het probleem is gevonden. Splits gemengde passages vóór toewijzing en gebruik voor toolprocedures de specifieke eigenaar hieronder.
+
+| Bron | Verantwoordelijkheid |
+| --- | --- |
+| Root-`README.md` | Centrale gebruikershandleiding voor modulegebruik en operationele keuzes, met een vindbare ontwikkelaarsingang. |
+| [CONTRIBUTING.md](../../../CONTRIBUTING.md) | Gezamenlijke voorbereiding, scope, ontwikkelworkflow, impact- en beveiligingsreview, Git-beleid, versiebeleid en oplevering. |
+| [TESTS.md](../../../TESTS.md) | Repositorybreed testbeleid, toepasselijkheid en volgorde van verplichte controles, scenarioselectie, aanvullende validatie en bewijsvoering. |
+| Root- en lokale `AGENTS.md` | Verplichte agentleesroutes, instructiehiërarchie en werkelijk agentspecifieke aanwijzingen. |
+| [Gedeelde tooling-README](../../README.md) | Installatie, pakketkeuze, modulepad, commando-overzicht, CI, rapporten, consumermigratie, distributie, gezamenlijke tooltests en gedeeld toolingonderhoud. |
+| Tool-README's | Publieke interfaces, architectuur, ondersteund gebruik, componentonderhoud, verificatie en concrete testaanroepen; vind de eigenaar via het [tooloverzicht](../../README.md#pakketten-en-commandos). |
+| [Lint-README](../README.md) | Lintgebruik, dagelijkse correctiewerkwijze, het enige checkregister, configuratie, autofixgedrag, architectuur, lintonderhoud en linttestaanroepen. |
+| [CODE_RULES.md](CODE_RULES.md) | Algemene codeprincipes voor alle eigen talen en componenten, inclusief tooling; herkenbaar afgebakende taalregels, voorwaarden, uitzonderingen, handmatige reviewcriteria, detectie- en autofixgrenzen en voorbeelden. Puppet-syntax en resourceregels gelden alleen voor Puppet. |
+| Dit document | Algemene documentatienormen en aanvullende codecommentaar-, Puppet Strings- en interfaceafspraken, met toepasselijke uitzonderingen, detectie- en autofixgrenzen en voorbeelden. |
+| [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md) | Operationele implementatie en reviewcriteria voor beheerde bestanden, rechten, beveiliging, systemd, shell, runtimeafhankelijkheden en monitoring, met algemene normen en specifieke uitwerkingen, uitzonderingen, detectie- en autofixgrenzen en voorbeelden. |
+| Puppet Strings | Concrete publieke Puppet-interfaces, volledige parameterbeschrijvingen, defaults en fallbackketens. |
+| Scripts en templates | Lokale, niet-zichtbare technische redenen en beperkingen, intern gedrag en uitvoercontracten per check. |
+| `examples/` | Uitgebreide configuratiescenario's. |
+| Tooltests | Toolgedrag, regressies, grenzen, fouten en automatisch verifieerbare toolcontracten. |
+| Projectdocumentatie | Systeemstructuur, gegevensstromen, componentrelaties en -doel, installatie, deployment, beheer en probleemoplossing. |
+| Feature- of implementatiedocumentatie | Featurespecifieke interfaces, implementatiestappen, tijdelijke migraties en acceptatiescenario's buiten projectbreed beleid. |
+| Configuratiereferentie | Volledige configuratievariabelen, operationele defaults en exacte start- of deploymentcommando's buiten Puppet Strings. |
+| ADR's | Architectuurbesluiten, alternatieven, afwegingen en onderbouwing. |
+| Wijzigingsreviews en uitvoeringsrapporten | Wijzigingsspecifieke beslissingen, compatibiliteitsafwegingen, voortgang, validatiecommando's en resultaten, dekking en open bevindingen. |
+
+- Kies de kleinste toepasselijke eigenaar en splits gemengde scope eerst. Algemene ontwikkelworkflow hoort in CONTRIBUTING, testbeleid in TESTS, gedeeld toolonderhoud in de tooling-README en componentonderhoud in de eigen README. Houd algemene workflow uit de regelsdocumenten; zij bezitten de inhoudelijke normen en hun specifieke reviewcriteria.
+- Dupliceer geen volledige norm tussen deze lagen. Verwijs naar de bron wanneer een workflowverplichting van een code- of implementatienorm afhangt. Een korte toelichting is alleen gerechtvaardigd voor een eigen lezersbeslissing en mag geen tweede norm worden: voorwaarden, uitzonderingen en concrete eisen blijven bij de eigenaar. Checklists verwijzen daarnaar zonder de norm opnieuw te definiëren.
+- Houd codestijl, layout, naamgeving en implementatieconventies bij het passende regelsdocument, niet in agentinstructies. Lintarchitectuur hoort bij de lint-README, gedeelde packagearchitectuur en installatie bij de tooling-README.
+- Eigenaarschap hangt niet af van automatisering. De regelsdocumenten zijn de centrale code- en implementatiestandaard, ook voor gedeeltelijke detectie, uitsluitend detectie en volledig handmatige normen. Een ontbrekende check of onveilige autofix verplaatst de norm niet naar `AGENTS.md` en maakt haar niet optioneel.
+- Classificeer een nieuwe algemene afspraak vóór bewerken, ook als de vraag haar een agentregel noemt of `AGENTS.md` noemt. Voeg daar alleen de verwijzing toe die agents nodig hebben om de gezamenlijke bron te vinden. Pas dit eigenaarschap ook toe op onderhoud van bestaande normen en verwijzingen.
+- De twee rootdocumenten CONTRIBUTING en TESTS bestaan naast de vier centrale lintdocumenten; zij vormen geen vijfde lintregelsdocument. Behoud de [lintdocumentgrenzen](../README.md#grenzen-van-de-lintdocumentatie), inclusief omvangslimiet en het enige checkregister, en maak geen extra regelsbestand per klein onderwerp.
+
+### Duurzame documentatie
+
+- Beschrijf ondersteund gedrag, verantwoordelijkheden, voorwaarden en herbruikbare procedures rechtstreeks in de tegenwoordige tijd. Leg een blijvende keuze uit wanneer de reden een beperking begrijpelijk maakt of correct handelen ondersteunt. Werk bij veranderd gedrag de bestaande uitleg bij in plaats van taakgeschiedenis toe te voegen.
+- Houd voortgang, voltooiingsclaims, afzonderlijke validatieresultaten en wijzigingsspecifieke oordelen in de review of een passend uitvoeringsrapport. Een instructie om een reviewuitkomst vast te leggen of te onderbouwen bedoelt die bestemming tenzij zij een andere noemt. Blijvende interface-eisen en noodzakelijke lokale implementatieredenen horen bij hun gezaghebbende documentatie of code. Maak geen permanent Markdown-document per bevinding.
+- Onderhoud ieder technisch feit op één plaats. Verwijs voor veranderlijke waarden naar de configuratie, implementatie, het register of de referentie; leg zo nodig een bestaande opvraagopdracht uit. Behoud alleen een korte samenvatting voor een eigen lezersbehoefte, met voorwaarden en volledig detail bij de eigenaar. Een link moet de benodigde informatie leveren en mag ontbrekende uitleg niet verhullen.
+- Vermijd onnodige kopieën van versies, aantallen, namen, omgevingen, status en voorbeelduitvoer. Gebruik herkenbare placeholders voor eigen invoer en leg de herkomst uit. Behoud letterlijke waarden die nodig zijn voor geldige commando's, defaults, eenheden, limieten, compatibiliteit, migratiegrenzen, waarschuwingen en exacte contracten. Label illustratieve uitvoer; wijzig dependency-pins of runtimegedrag niet om waarden niet te hoeven documenteren.
+- Beoordeel alle eigen Markdown naar doel, inclusief verborgen mappen, geneste componenten, voorbeelden en instructies. Historische rapporten behouden gebeurtenis, datum of identificatie en noodzakelijke feiten; een statusregister maakt doel en geldigheid duidelijk. Behoud juridische tekst en fixtures met exacte inhoudscontracten. Corrigeer bij gegenereerde uitvoer eerst de beheerde bron en genereer opnieuw. Benoem extern eigenaarschap en de upstreamonderhoudsroute; bewerk dependencies niet als eigen proza.
+- Houd noodzakelijke workarounds en beperkingen naast de betrokken actie, met voorwaarde, gevolg en vereiste handeling. Verwijs voor veranderlijke voortgang naar haar bron. Verifieer vermeende veroudering vóór verwijderen van een waarschuwing, uitzondering of technische beperking en meld onopgeloste verschillen volgens de technische review.
+
+### Markdown
+
+- Gebruik relatieve paden vanaf het huidige Markdown-bestand voor eigen bestanden en mappen, met `#anker` voor eigen secties. Zet daarin geen hostingdomein, repository-eigenaar, repositorynaam, branch of absoluut filesystempad vast. Dit geldt ook voor verpakte documentatie; links buiten een gem vereisen de bijbehorende checkout. Gebruik de herkenbare placeholder `<repository-url>` voor clone- en Git-bronvoorbeelden. Externe documentatielinks behouden hun echte URL.
+- Onderhoud bovenaan ieder eigen `.md`-bestand een gekoppelde inhoudsopgave, behalve bij de enige bestandsnaamexceptie: `AGENTS.md` op iedere diepte. Neem alle secties en subsecties op alle dieptes in documentvolgorde op, genest volgens de headinghiërarchie, zonder documenttitel of headings in codevoorbeelden. Beperk alleen bij root-`README.md` de inhoudsopgave tot niveau twee en drie. Werk haar bij en controleer de links bij gewijzigde headings.
+- Houd zinnen, alinea's, lijsten, tabellen en voorbeelden bij het onderwerp van hun heading en in logische leesvolgorde. Introduceer begrippen vóór gebruik en verbind uitleg vóór en na voorbeelden en tabellen. Herschrijf omringende tekst als verplaatsing of toevoeging die samenhang breekt.
+- Houd iedere prozaalinea of lijstitem op één fysieke regel zonder harde regelafbreking, behalve waar Markdownsyntax, tabellen of codeblokken dat vereisen. Scheid onderwerpen met gewone alineagrenzen en schrijf professioneel, concreet en gericht op operationele gevolgen en risico's.
+
+## Redactionele review
+
+### Doelgroep en leesroute
+
+#### Vóór bewerken
+
+- Bepaal de lezer en taak van ieder geraakt document; onderscheid modulegebruik, moduleontwikkeling en toolingonderhoud.
+- Bepaal bij iedere inhoudelijke wijziging welke informatie ontbreekt, onjuist of geraakt is, inclusief interfaces, gebruiksvoorwaarden, risico's en eigenschappen. Benoem welke keuze, voorbereiding, actie, verwachte uitkomst of concrete waarschuwing zij ondersteunt. Noteer geraakte documenten of de reden dat bijwerken niet nodig is in de review; een bestaand documentatiegat binnen het geraakte onderwerp kan ook een update rechtvaardigen.
+- Lees vóór iedere inhoudelijke wijziging en iedere bewerking van eigen Markdown de volledige geraakte secties en omliggende leesroute, ook bij `AGENTS.md` en kleine aanvullingen. Lees voor de root-README de volledige geraakte modulesectie en pas de scope- en configuratierichtlijnen toe.
+- Inventariseer bij een projectbrede Markdown-review zowel versiebeheer als het filesystem, inclusief verborgen, genegeerde, nieuwe en anders gekapitaliseerde Markdown, zonder versiebeheeropslag. Lees ieder gevonden bestand volledig. Noteer pad, doel, eigenaar, eventuele generatiebron, oordeel, actie en bijzondere behandeling in review of uitvoeringsrapport. Zoekpatronen en automatische controles bewijzen geen volledige inhoudelijke dekking.
+
+#### Tijdens bewerken
+
+- Integreer wijzigingen in de bestaande uitleg en verbind omringende tekst volgens de Markdownregels. Beschrijf actueel gebruik als een samenhangend geheel volgens taal en informatieplaatsing.
+- Beoordeel iedere toegevoegde, gewijzigde, verplaatste of verwijderde passage op lezersbehoefte, document- en headingscope, nuttige informatie en consistentie. Technische juistheid alleen bewijst geen relevantie.
+- Behoud bij consolidatie samenvattingen, opvallende waarschuwingen en prerequisites die een eigen beslissing of ingang bedienen. Herhaling alleen rechtvaardigt geen verwijdering.
+- Controleer of een passage onjuist zou worden door een incidentele waarde- of statuswijziging. Pas duurzame documentatie toe op betekenis en doel, niet door alleen een getal, datum of woord te schrappen.
+- Verwijder passages zonder taak voor de lezer in plaats van ze onder een andere heading of een voorbeeld te verplaatsen. Verwijder overbodige parameteruitleg die een gelinkt contract herhaalt en heroverweeg de subheading; behoud uitsluitend een lokaal gerechtvaardigde samenvatting of waarschuwing.
+
+#### Na bewerken
+
+- Herlees de volledige geraakte secties en leesroute, inclusief de hele geraakte root-README-modulesectie, niet alleen de diff. Controleer samenhang, plaatsing en of de gebruikersgids geen tweede parameterreferentie of implementatiehandleiding is geworden. Een nieuwe lezer moet prerequisites, volgende actie en verwachte uitkomst kunnen vinden zonder ontbrekende context te reconstrueren.
+- Herlees bij projectbrede review volledige gewijzigde documenten en sluit de eindinventaris aan op de oorspronkelijke lijst, met toevoegingen, verplaatsingen en verwijderingen. Geef ieder bestand een afgerond oordeel of expliciet open punt. Controleer dat centrale en lokale instructies overeenstemmen en naar unieke normeigenaars verwijzen. Bewaar dit bewijs bij de wijziging, buiten permanente projectinstructies.
+
+### Technisch bewijs en links
+
+- Verifieer gewijzigde, verplaatste of als verouderd verwijderde technische claims tegen actuele manifests, Puppet Strings, scripts, templates en voorbeelden. De README is geen implementatiebewijs.
+- Meld onopgeloste verschillen tussen documentatie en implementatie en behoud noodzakelijke waarschuwingen totdat het verschil is opgelost.
+- Controleer commando's, paden, opties en verwijzingen tegen voorbeelden en actuele implementatie. Controleer gewijzigde links en relatieve repositorylinks met de [documentatietests](../../repository-checks/README.md); beoordeel externe bestemmingen afzonderlijk. Controleer dat verplaatste informatie daadwerkelijk op de bestemming staat.
+
+### Proza beoordelen
+
+Lees de passage als doorlopende uitleg, inclusief ongewijzigde omgeving. Corrigeer onnatuurlijke formulering, wisselende terminologie, abrupte overgangen en onverklaarde onderwerpwisselingen zonder technische betekenis te veranderen. Vergelijk gewijzigd lint-README-proza met representatieve root-README-passages volgens de README-stijlafspraken. Neem een korte representatieve passage op in de review voor feedback van de eigenaar en gebruik een geaccepteerde passage als concreet stijlvoorbeeld.
+
+### Grenzen van redactionele automatisering
+
+Een technische controle bewijst nooit dat uitleg duidelijk, prettig leesbaar of nuttig is. Gebruik geen AI-detectiescores of woordenblacklists voor stijlkwaliteit of relevantie. Leg geen vaste aantallen of lengtes van woorden, zinnen of alinea's op aan verklarend proza, ook niet via tests. Pas bij normteksten de [regelstructuur](#regelstructuur-en-formulering) toe.
+
+## README-richtlijnen
+
+### Scope en configuratie
+
+- Pas inhoud aan doel en doelgroep aan; leg moduleoverzichten en toolinghandleidingen niet dezelfde outline op. Gebruik vóór, tijdens en na root-README-wijzigingen de redactionele review.
+- Voeg detail aan de root-README uitsluitend toe wanneer gebruikers het vóór gebruik of tijdens de beschreven handeling nodig hebben, het een beveiligings- of compatibiliteitskeuze verandert of het basisvoorbeeld het vereist.
+- Kies gebruikersinformatie afzonderlijk van parametercontracten en implementatiekennis. Parameter-voor-parameterinstructies, volledige contracten en ontwikkelaarsspecifieke implementatiekennis blijven buiten de rootgebruikersgids bij hun eigenaar. Een codewijziging of nieuwe parameter rechtvaardigt niet vanzelf een README-aanvulling; onderzoek eerst of bestaande uitleg correctie nodig heeft.
+- Gebruik een gerichte link naar Strings of een bestaand voorbeeld wanneer die volstaat. Onderbouw extra proza met wat de lezer anders niet correct en veilig kan kiezen, doen of begrijpen. Werk standaard bestaande uitleg bij, overal in de root-README en niet alleen onder aandachtspunten. Voeg een passage of subsection alleen toe voor een aparte relevante taak of noodzakelijke uitleg; een featurenaam of parametergroep is op zichzelf geen taak.
+- Hergebruik documentatie voor uitgebreide varianten en parameterdetails; maak geen document per detail en kopieer geen volledige contracten tussen lagen.
+- Verifieer vóór voorgeschreven configuratie wat defaults, overerving en gedeclareerde componenten al leveren. Beschrijf dat effectieve gedrag eerst. Leg aanvullende configuratie alleen uit als de lezer een keuze of handeling nodig heeft; presenteer optionele overrides niet als verplichte inrichting.
+
+### Stijl en uitleg
+
+- Schrijf als een ervaren collega voor een technisch vaardige lezer die het project nog niet kent. Gebruik representatief root-README-proza als referentie voor een directe, praktische infrastructuurtoon, niet als template of kwaliteitsbewijs. Kopieer onnatuurlijke of te samengeperste tekst niet omwille van consistentie.
+- Schrijf gewoon, toegankelijk Nederlands rond exacte identifiers. Kies vertrouwde Nederlandse woorden boven onnodig Engels of abstract toolingjargon en spreek de lezer direct aan. Behoud natuurlijke verbindingen zonder boilerplate, stockovergangen, ongebruikelijke synoniemen, reclame of geforceerde informaliteit.
+- Organiseer gebruiksuitleg rond de lezerstaak, niet de implementatievolgorde of reviewvereisten. Geef iedere alinea één samenhangend onderwerp; scheid onafhankelijke aanwijzingen in plaats van ze voor beknoptheid samen te persen. Beschrijf concrete acties, voorwaarden en gevolgen en verklaar niet-vanzelfsprekende keuzes wanneer dat handelen helpt.
+- Gebruik headings, lijsten en tabellen waar navigatie of vergelijking dat vraagt, behalve waar de aandachtspunten proza vereisen. Behoud nuttige lijsten zoals eigenschappen en installatiestappen. Voeg geen vulling toe om secties uniform te maken. Verplichte velden uit het lintdocumentatiecontract zijn geen vulling: vul ze in of onderbouw niet-toepasselijkheid zonder ontbrekend bewijs te verhullen.
+- Behoud noodzakelijke technische termen en exacte identifiers; leg projectbegrippen vóór gebruik uit. Begin README-prozalijstitems met een hoofdletter, met behoud van case van identifiers, module- en classnamen, paden en literals. Behoud bedoelde auteursstandpunten en relevante projectcontext bij herindeling.
+- Behoud noodzakelijke technische eisen, waarschuwingen, uitzonderingen, waarborgen en operationele kennis bij hun eigenaar; volg voor lint de [documentgrenzen](../README.md#grenzen-van-de-lintdocumentatie). Voeg geen extra documentlaag toe om omvang te reduceren. Verwijder duplicaten en aantoonbaar verouderde informatie pas na redactionele review.
+
+### Navigatie en prerequisites
+
+- Houd prerequisites, essentiële waarschuwingen en beveiligings- of compatibiliteitsvoorwaarden naast de geraakte actie, ook bij verplaatsing van verdieping. Verbind de achterblijvende waarschuwing en actie met de nieuwe uitleg.
+- Houd placeholderhostnamen, vervangwaarden, Hiera-uitleg en de behandeling van `Sensitive`-wrappers bij de quick start.
+- Gebruik in Nederlandse README's `## Inhoudsopgave`, nooit `Legenda`. Onderhoud onderaan een lijst met uitgebreide voorbeelden.
+
+### Modulesecties
+
+Behoud de bestaande modulevolgorde. Presenteer doel, standaardgebruik, eigenschappen, relevante aandachtspunten, compact voorbeeld en daarna uitgebreide voorbeelden of Strings in die volgorde. Voeg niet voor iedere module nieuwe vaste subheadings toe. Noem maximaal acht belangrijkste eigenschappen, minder als dat volstaat. Geef één compact basisvoorbeeld, link naar een relevant scenario in `examples/` en verwijs naar Strings voor de publieke interface.
+
+#### Belangrijke aandachtspunten
+
+- Beperk deze sectie tot modulespecifieke voorwaarden, risico's, beperkingen en niet-vanzelfsprekende keuzes voor correct gebruik, een relevante keuze of het voorkomen van een concrete fout, onveiligheid of onverwachte wijziging.
+- Sluit volledige parameterbeschrijvingen, interne uitvoeringsvolgorde, testresultaten, ontwikkelgeschiedenis en algemeen beheeradvies zonder concrete gebruiksnoodzaak uit. Neem bestandsnamen, rechten, defaults en ander technisch detail alleen op als het een gebruikerskeuze of -actie beïnvloedt.
+- Beoordeel ernst naast frequentie. Verwijder waarschuwingen voor gegevensverlies, verlies van beheertoegang, overschreven configuratie, beveiliging of incompatibiliteit nooit alleen wegens zeldzaamheid of tekstlengte.
+- Maak toepasselijke voorwaarde, gevolg en vereiste actie duidelijk zonder vast zinsjabloon. Schrijf natuurlijke doorlopende tekst, met een alinea per zelfstandig onderwerp. Gebruik geen bullets, nummering of tabellen en vervang lijsten niet door één lange komma- of puntkommazin. Laat de heading weg wanneer geen relevante aandachtspunten overblijven.
+
+## Afspraken onderhouden
+
+Deze criteria gelden voor duurzame gezamenlijke afspraken en agentroutes. Kies de kleinste eigenaar volgens informatieplaatsing; een componentwijziging vereist geen rootwijziging zolang routing en projectbrede afspraken correct blijven. Specifiek laden en volgen van agentinstructies wordt in de agentroute geregeld.
+
+### Wijzigingsbereik en noodzaak
+
+- Lees vóór inhoudelijke wijziging het volledige geraakte afsprakenbestand zodat bestaande regels, uitzonderingen en verwijzingen worden meegenomen. Werk de eigenaar bij wanneer een conventie, architectuurgrens, validatiecommando, beveiligingseis of operationele werkwijze verandert; codeafspraken blijven bij hun regelbron en de rootroute verandert alleen waar nodig.
+- Beperk routineonderhoud tot geraakte regels en direct betrokken verwijzingen. Herstructureer een heel bestand alleen op expliciet verzoek of bij gedocumenteerde tegenspraak tussen secties.
+- Bepaal vóór nieuw beleid het doel, vereiste gedrag of blijvende kennis, scope, uitzonderingen en eigenaar, ook als de opdracht al een bestandsnaam noemt. Zoek bestaande regels die dit geheel of gedeeltelijk dekken.
+- Onderscheid ontbrekend beleid, vindbaarheids- of interpretatieproblemen en verificatiegaten van het niet volgen van een duidelijke, vindbare regel. Herhaalde overtreding alleen rechtvaardigt geen nieuwe regel; onderzoek welke instructie, uitvoeringsstap of reviewverbinding faalde.
+- Laat afspraken ongewijzigd wanneer bestaand beleid volledig en ondubbelzinnig dekt en plaatsing en verificatie geen verbetering vragen, ook na herhaalde overtreding. Herstel uitvoeringsfouten via de werkwijze. Verduidelijk of consolideer bij gebrekkige vindbaarheid, interpretatie of verificatie de eigenaar of diens reviewverbinding. Een vergelijkbare regel elders is geen reden om gerichte verbetering af te wijzen. Verbreed uitsluitend op basis van bestaande autoriteit of expliciete opdracht; voeg alleen nieuw beleid toe voor nog ongedekt noodzakelijk duurzaam gedrag.
+
+### Inhoud behouden en samenbrengen
+
+- Bewaar alleen duurzame afspraken binnen de scope van de eigenaar en blijvende kennis voor latere ontwikkeling. Neem geen taak-, ticket-, bug-, feature- of promptgeschiedenis op, behalve historische context die noodzakelijk is voor een technisch contract of bewuste uitzondering.
+- Zet opdrachten, terugkerende reviewbevindingen, productie- of beveiligingsproblemen, testfouten, toolingwijzigingen en agentfouten alleen om in regels wanneer het benodigde gedrag verder reikt dan één taak. Kopieer een opdracht niet letterlijk als beleid alleen omdat om een beleidsupdate is gevraagd.
+- Plaats featurespecifieke implementatiekennis, configuratiehandleidingen, probleemoplossing, plannen, voorbeelden en concrete scenario's bij hun aangewezen eigenaar. Behoud exacte namen, waarden en versies waar contract, beperking, uitzondering, compatibiliteit of beveiliging die vereisen.
+- Behoud relevante techniek, uitleg, voorbeelden en verificatie-instructies bij de juiste eigenaar. Een structurele bewerking rechtvaardigt geen herverdeling van unieke inhoud. Review eigendomsoverdracht als inhoudelijke wijziging, met behoud van informatie en een gerichte verwijzing; eigendomsoverdracht staat nooit informatieverlies toe.
+- Consolideer dubbele of zwakkere varianten uitsluitend met behoud van hun volledige betekenis: afzonderlijke voorwaarden, uitzonderingen, uitleg, voorbeelden en verificatie-eisen. Orden op onderwerp en werkelijk bereik, niet op oorspronkelijke taak; plaats uitzonderingen direct bij de regel.
+- Combineer alleen regels met hetzelfde doel, bereik, gedrag en beslismoment zonder zelfstandige verplichtingen te verbergen. Consolideer bij gedeeltelijke overlap de gedeelde norm en behoud aanvullende voorwaarden zichtbaar. Pas de grenzen voor samenvattingen en checklists toe en kopieer projectbeleid nooit naar codecommentaar.
+
+### Regelstructuur en formulering
+
+- Gebruik een herkenbare heading per zelfstandig onderwerp of beslisdomein. Gebruik normatieve bullets wanneer die regels onderscheidbaar maken, met samenhangende voorwaarden en uitzonderingen bij elkaar. Splits alleen als onafhankelijke beslissingen daardoor duidelijker worden, niet uitsluitend omdat een regel meerdere samenhangende zinnen bevat.
+- Stel geen vaste limieten aan woorden, zinnen, bullets, headings of nestingdiepte; kies een begrijpelijke structuur. Gebruik proza voor samenhangende uitleg, definities, doel, reden en context. Orden waar nuttig van algemeen naar specifiek, zonder vast sectiesjabloon. Tabellen dienen echte matrices of vaste relaties, niet het verbergen van lange prozaregels.
+- Formuleer actief en concreet met consistente terminologie, expliciet bereik en triggers, verplicht gedrag en technische grenzen. Generaliseer alleen zover de afspraak draagt, met behoud van specifieke grenzen en uitzonderingen.
+- Gebruik verplichtende taal voor eisen en verboden; reserveer mogen, kunnen, bij voorkeur en optioneel voor werkelijke keuzevrijheid. Benoem hoe naleving wordt geverifieerd als dat niet duidelijk is.
+- Geef volledigheid, juistheid, leesbaarheid, scope en traceerbaarheid voorrang boven minder woorden of headings. Verbeter ordening zonder informatie samen te persen; maak van onafhankelijke eisen geen dichte alinea om het document te verkorten.
+
+### Conflicten beoordelen
+
+- Behoud bij consolidatie de sterkste toepasselijke beveiligingsregel.
+- Corrigeer onduidelijke, verouderde, onjuiste of tegenstrijdige normen alleen wanneer repositorybewijs of een expliciete projectbeslissing de bedoeling vaststelt. Een verschil tussen code en documentatie bewijst niet welke fout is.
+- Noteer inhoudelijke beleidswijzigingen, tegenstrijdigheden en redenen voor correctie of verwijdering in de review: betreffende passages, oude en nieuwe betekenis en ondersteunend bewijs of besluit.
+- Houd onbeslisbare informatie herkenbaar, markeer het conflict als onopgelost en benoem de ontbrekende beslissing. Ga door met onbetwist werk, maar presenteer het resultaat niet als conflictvrij en kies niet automatisch de strengste, breedste of schijnbaar veiligste tekst.
+
+### Eindreview van afspraken
+
+- Vergelijk met de eerdere versie via de [toegestane Git-inspectie](../../../CONTRIBUTING.md#git-inspectie), met gecontroleerde analysekopieën voor gevoelige inhoud. Verifieer behoud bij de eigenaar van iedere oorspronkelijke verplichting, verbod, voorkeur, voorwaarde, uitzondering, technisch contract, compatibiliteitseis, waarborg, uitleg, voorbeeld en verificatie-instructie, of een expliciet onderbouwde correctie. Controleer bij eigendomsoverdracht ook de werkende verwijzing.
+- Controleer dat verbreding en herindeling verplichtingen niet optioneel en opties niet verplicht maken. Review iedere gewijzigde norm handmatig op noodzaak, herbruikbaarheid, scanbaarheid, unieke plaats, ondubbelzinnigheid en consistentie met instructieketen, terminologie en verwijzingen.
+- Voer automatische controles op letterlijke duplicaten en lokale links uit met bestaande tooling of geïsoleerde tijdelijke controles. Review betekenis, structuur en leesbaarheid handmatig, zonder numerieke prozalengte-eisen.
+- Leg voor iedere inhoudelijke regelwijziging bestaand beleid, reden, behouden verplichtingen en uitzonderingen vast buiten permanente instructies. Controleer ook de omgekeerde richting: iedere nieuwe verplichting, uitzondering of technische claim moet steunen op eerder beleid, een bestaande projectafspraak of expliciete opdracht. Maak open conflicten zichtbaar vóór oplevering.
+
 ## Commentaar en documentatie
 
 <!-- lint-rule-group -->
+
+De onderstaande regels gelden voor Puppet, tenzij het toepassingsgebied expliciet alle eigen code noemt. In die algemene gevallen blijven Puppet Strings-tags, Puppet-opmaak en de lintdetectie beperkt tot hun beschreven Puppet-uitwerking.
 
 ### Toelichtingen bij code
 
@@ -219,7 +423,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Bestaande toelichtingen in geraakte implementatieblokken.
+Bestaande toelichtingen in geraakte implementatieblokken van alle eigen code, inclusief scripts, templates, bibliotheken en tooling.
 
 **Automatische controle**
 
@@ -267,7 +471,7 @@ Vergelijk met de huidige code en goed gedocumenteerde voorbeelden en controleer 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Niet-zichtbare implementatiekeuzes toelichten
 
@@ -281,7 +485,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Resourcegroepen, execs, afgeleide waarden, directives, delegatie, opruimroutes, helpers en templatelogica.
+Alle eigen code: onder meer afgeleide waarden, delegatie, opruimroutes, helpers en templatelogica; resourcegroepen en execs zijn Puppet-uitwerkingen.
 
 **Automatische controle**
 
@@ -329,7 +533,7 @@ Controleer iedere genoemde soort keuze en koppel de uitleg aan het lokale risico
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Codecommentaar in Engelse zinnen schrijven
 
@@ -343,7 +547,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Gewone codecomments buiten Puppet Strings.
+Gewone codecomments in alle eigen talen, buiten Puppet Strings; de aparte Strings-opmaak geldt alleen voor Puppet.
 
 **Automatische controle**
 
@@ -391,7 +595,7 @@ Lees de volledige zin en werk willekeurige afbrekingen in geraakte comments weg.
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden toelichten
 
@@ -692,15 +896,17 @@ De volgende zelfstandige regels delen de Strings-parser. Inhoudelijke controles 
 
 **Norm**
 
-Puppet Strings beschrijft de publieke interface bij de code. Zet de documentatie direct boven iedere publieke class en ieder publiek defined type. De lezer moet daarmee kunnen bepalen welke parameters nodig zijn en wat de declaratie op een host verandert.
+Documenteer publieke interfaces bij hun beheerde bron, zodat aanroepers het ondersteunde contract kunnen vinden zonder een tweede handmatig contract te onderhouden. Gebruik de documentatievorm van de betreffende taal of component; tool-README's blijven eigenaar van hun CLI- en gebruikscontracten.
+
+Voor Puppet beschrijft Puppet Strings de publieke interface bij de code. Zet die documentatie direct boven iedere publieke class en ieder publiek defined type. De lezer moet daarmee kunnen bepalen welke parameters nodig zijn en wat de declaratie op een host verandert.
 
 **Herkomst**
 
-Projectspecificatie van upstream; [Puppet Strings-stijlgids](https://help.puppet.com/core/current/Content/PuppetCore/puppet_strings_style.htm). De precieze verplichte velden en projectbreedtes volgen uit de behouden projectafspraak.
+Projectregel voor publieke interfaces; de Puppet-uitwerking is een projectspecificatie van de [Puppet Strings-stijlgids](https://help.puppet.com/core/current/Content/PuppetCore/puppet_strings_style.htm). De precieze verplichte velden en projectbreedtes volgen uit de behouden projectafspraak.
 
 **Toepassingsgebied**
 
-Puppet Strings direct boven classes en defined types. API-markering van nieuwe functies blijft handmatig waar die niet wordt geanalyseerd.
+Publieke interfaces in alle eigen code. Voor Puppet: Strings direct boven classes en defined types; API-markering van nieuwe functies blijft handmatig waar die niet wordt geanalyseerd. Andere talen krijgen geen Puppet Strings-tagverplichting.
 
 **Automatische controle**
 
@@ -708,7 +914,7 @@ Puppet Strings direct boven classes en defined types. API-markering van nieuwe f
 
 **Detectiegrenzen**
 
-Aanwezigheid van tekst bewijst niet dat die tekst het gedrag beschrijft. Alleen statisch gevonden declaraties worden onderzocht; de linter voert voorbeelden niet uit.
+Aanwezigheid van tekst bewijst niet dat die tekst het gedrag beschrijft. Alleen statisch gevonden Puppet-declaraties worden onderzocht; de linter voert voorbeelden niet uit en controleert interfaces in andere talen niet.
 
 **Meldingen en severity**
 
@@ -760,7 +966,7 @@ De inhoudscheck betrekt ook niet als public gemarkeerde classes en defined types
 
 **Handmatige review**
 
-Vergelijk de documentatie met de publieke parameters en de daadwerkelijke gevolgen op een host; beoordeel ook een aanwezig maar onjuist contract.
+Controleer voor iedere geraakte publieke interface de vindbare bron, invoer, resultaat en gevolgen tegen de implementatie en werkelijke aanroepers. Vergelijk voor Puppet de publieke parameters en gevolgen op een host; beoordeel ook een aanwezig maar onjuist contract.
 
 **Verificatie**
 
@@ -1229,7 +1435,7 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 Met `--fix` kan de documentatiecheck gewone tekst afbreken en herkenbare tag-inspringing en sectiescheiding herstellen. Woorden, backtick-inhoud en alinea's blijven behouden. Summaries, voorbeeldtitels, voorbeeldcode en gestructureerde Markdown, zoals lijsten, tabellen en codeblokken, vragen waar nodig handmatige correctie. Een lange summary of voorbeeldtitel kort je zelf in. Bij onveilige of onduidelijke correcties blijft een melding met `[review]` staan.
 
-> **Verschil tussen norm en lintgedrag:** de norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met een warning, waardoor het profiel faalt. Breek zulke tekst af tot maximaal 120 tekens om deze melding te verhelpen. De grensgevallen staan in `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` van [documentation_width_test.rb](../tests/documentation_width_test.rb). Of de voorkeur een verplichte grens moet zijn, vereist een expliciet besluit volgens de [conflictprocedure](../../../AGENTS.md#conflict-resolution); het lintgedrag stelt die norm niet vast.
+> **Verschil tussen norm en lintgedrag:** de norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met een warning, waardoor het profiel faalt. Breek zulke tekst af tot maximaal 120 tekens om deze melding te verhelpen. De grensgevallen staan in `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` van [documentation_width_test.rb](../tests/documentation_width_test.rb). Of de voorkeur een verplichte grens moet zijn, vereist een expliciet besluit volgens de [conflictprocedure](#conflicten-beoordelen); het lintgedrag stelt die norm niet vast.
 
 ### Strings-taginspringing
 
@@ -1502,7 +1708,7 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 **Norm**
 
-Werk bij een interfacewijziging de Puppet Strings en de geraakte voorbeelden mee bij. Vergelijk de beschreven defaults, relaties en gegenereerde configuratie met het manifest. Als monitoringgedrag voor beheerders verandert, kijk dan ook naar het checkoverzicht in de project-README.
+Werk bij iedere interfacewijziging de bronbeschrijving en geraakte voorbeelden mee bij. Voor Puppet betekent dit Puppet Strings; vergelijk defaults, relaties en gegenereerde configuratie met het manifest. Als monitoringgedrag voor beheerders verandert, kijk dan ook naar het checkoverzicht in de project-README.
 
 **Herkomst**
 
@@ -1510,7 +1716,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Puppet Strings, voorbeelden en het beheerdergerichte checkoverzicht bij interfacewijzigingen.
+Bronbeschrijvingen en voorbeelden van alle eigen publieke interfaces; Puppet Strings en het beheerdergerichte checkoverzicht zijn de specifieke Puppet- en monitoringuitwerkingen.
 
 **Automatische controle**
 
@@ -1554,17 +1760,17 @@ Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedr
 
 **Handmatige review**
 
-Vergelijk defaults, relaties en gegenereerde configuratie afzonderlijk met het manifest.
+Vergelijk het gewijzigde interfacecontract en voorbeelden met de implementatie en gebruikers. Controleer bij Puppet defaults, relaties en gegenereerde configuratie afzonderlijk tegen het manifest.
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Documentatie op haar aangewezen plaats onderhouden
 
 **Norm**
 
-Onderhoud parametercontracten in Puppet Strings bij de code. Maak geen handmatige `REFERENCE.md` of `docs/`-boom voor informatie die Puppet Strings kan genereren. Gebruik voor algemene informatieplaatsing en ADR’s de [repositorydocumentatie-indeling](../../../AGENTS.md#language-and-authority).
+Onderhoud parametercontracten in Puppet Strings bij de code. Maak geen handmatige `REFERENCE.md` of `docs/`-boom voor informatie die Puppet Strings kan genereren. Gebruik voor algemene informatieplaatsing en ADR’s de [repositorydocumentatie-indeling](#taal-en-informatieplaatsing).
 
 **Herkomst**
 
@@ -1620,13 +1826,13 @@ Controleer de verantwoordelijkheden van iedere geraakte uitleg en voorkom een tw
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Uitvoerbare voorbeeldscenario’s onderhouden
 
 **Norm**
 
-Breid bij voorkeur een bestaand voorbeeldscenario uit. Toon daarin de benodigde parameters en zorg dat het voorbeeld met de genoemde voorwaarden uitvoerbaar is. De [project-README](../../../README.md#gebruik-van-voorbeelden-en-parameterdocumentatie) beschrijft het gebruik van voorbeeldwaarden, `Sensitive(...)` en Hiera; voor synthetische gegevens gelden de [beveiligingsregels](../../../AGENTS.md#security-and-privacy).
+Breid bij voorkeur een bestaand voorbeeldscenario uit. Toon daarin de benodigde parameters en zorg dat het voorbeeld met de genoemde voorwaarden uitvoerbaar is. De [project-README](../../../README.md#gebruik-van-voorbeelden-en-parameterdocumentatie) beschrijft het gebruik van voorbeeldwaarden, `Sensitive`-wrappers en Hiera; voor synthetische gegevens gelden de [beveiligingsregels](../../../CONTRIBUTING.md#veilig-werken-en-gegevensdeling).
 
 **Herkomst**
 
@@ -1682,4 +1888,4 @@ Controleer alle genoemde prerequisites, argumenten en synthetische waarden; vali
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.

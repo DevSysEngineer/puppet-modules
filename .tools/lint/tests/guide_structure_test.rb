@@ -15,7 +15,8 @@ class GuideStructureTest < Minitest::Test
   RULE_GROUPS = {
     'docs/CODE_RULES.md' => ['Algemene ontwerpregels', 'Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
                              'Parameters en resources'],
-    'docs/DOCUMENTATION_RULES.md' => ['Commentaar en documentatie'],
+    'docs/DOCUMENTATION_RULES.md' => ['Algemene documentatienormen', 'Redactionele review', 'README-richtlijnen',
+                                      'Afspraken onderhouden', 'Commentaar en documentatie'],
     'docs/OPERATIONAL_RULES.md' => ['Bestanden en beveiliging', 'Gedeelde services en systemd', 'Shellscripts',
                                     'Monitoringchecks']
   }.freeze
@@ -79,7 +80,7 @@ class GuideStructureTest < Minitest::Test
   end
 
   def test_implementation_topics_have_one_owner_across_all_documentation_layers
-    headings = [*DOCUMENTS, *INSTRUCTIONS].to_h do |name|
+    headings = [*DOCUMENTS, *INSTRUCTIONS, '../../CONTRIBUTING.md', '../../TESTS.md'].to_h do |name|
       [name, prose(File.read(File.join(ROOT, name))).scan(/^\#{2,6} (.+)$/).flatten]
     end
     RULE_OWNERS.each do |owner, titles|
@@ -95,17 +96,6 @@ class GuideStructureTest < Minitest::Test
       text = prose(File.read(File.join(ROOT, name)))
       refute_includes text, '<!-- BEGIN PROJECT CHECK REGISTRY -->', name
       refute_match(/^\| Check \| Actief in repositoryprofiel \|/, text, name)
-    end
-  end
-
-  def test_general_workflow_and_documentation_policy_remain_in_agents
-    agents = heading_anchors(File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md')))
-    assert_includes agents, 'authority-and-rule-placement'
-    %w[markdown readme-guidance editorial-review shell-validation monitoring-validation].each do |anchor|
-      assert_includes agents, anchor
-      [*RULE_GROUPS.keys, *INSTRUCTIONS.reject { |name| name == '../../AGENTS.md' }].each do |name|
-        refute_includes heading_anchors(File.read(File.join(ROOT, name))), anchor
-      end
     end
   end
 end

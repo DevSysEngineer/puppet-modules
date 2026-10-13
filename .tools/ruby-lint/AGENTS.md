@@ -1,11 +1,7 @@
-# Ruby Lint Development Instructions
+# Ruby Lint Agent Instructions
 
-## Scope
+## Required Reading Route
 
-Read the [repository instructions](../../AGENTS.md), [tooling instructions](../AGENTS.md), and [Ruby-lint README](README.md). This component maintains the shared RuboCop profile and native CLI and formatter integration.
+Read and apply the [repository instructions](../../AGENTS.md), [tooling instructions](../AGENTS.md), and this component's [README](README.md), including [maintenance and verification](README.md#onderhoud-en-tests). Follow the root inspection bootstrap before reading linked content. The shared [development workflow](../../CONTRIBUTING.md) and [test policy](../../TESTS.md) remain applicable.
 
-## Maintenance And Verification
-
-- Preserve the [native usage and correction workflow](README.md#ruby-code-controleren) and [consumer profile integration](README.md#ruby-controleren-in-een-ander-project). Do not add a project CLI wrapper, second formatter or dependencies on Puppet, lintplugins or shared.
-- Review profile changes against both repository and consumer selection, including hidden tooling, excluded dependencies and templates. Keep standard RuboCop rules and new checks enabled without generating a suppression list for existing findings.
-- Update affected usage and [test contracts](README.md#onderhoud-en-tests) together. Verify independent installation with its own consumerbundle, inherited profile use, clean and failing Ruby input and native JUnit. Preserve native diagnostics, annotations and exit codes when changing CI presentation; involve repository checks for workflow integration.
+Actually read the affected README contracts and the code, documentation and operational norms selected by the parent route before editing. For a shared-interface or integration change, also open the actual affected consumers' local instructions and README contracts. Do not reread unchanged sources already read in this task.

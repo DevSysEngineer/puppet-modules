@@ -81,6 +81,9 @@ class GuideContractTest < Minitest::Test
   def rule_blocks
     RULES.flat_map do |name|
       chapter = File.read(File.join(File.dirname(GUIDE), name)).sub(/^## Inhoudsopgave\n.*?(?=^## )/m, '')
+      if name == 'docs/DOCUMENTATION_RULES.md'
+        chapter = "## Commentaar en documentatie\n#{chapter.split(/^## Commentaar en documentatie\n/, 2).fetch(1)}"
+      end
       prose(chapter).split(/(?=^\#{2,3} )/).drop(1).reject { |block| block.include?('<!-- lint-rule-group -->') }
     end
   end

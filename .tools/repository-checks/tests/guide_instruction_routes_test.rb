@@ -11,12 +11,12 @@ class GuideInstructionRoutesTest < Minitest::Test
 
   ROOT = File.expand_path('../../..', __dir__)
   COMPONENTS = %w[lint metadata module-dependencies repository-checks ruby-lint secrets shared validate].freeze
+  COMPONENT_PARENTS = %w[../../AGENTS.md ../AGENTS.md README.md ../../CONTRIBUTING.md ../../TESTS.md].freeze
   INSTRUCTION_ROUTES = {
-    'AGENTS.md' => ['.tools/AGENTS.md'],
+    'AGENTS.md' => ['.tools/AGENTS.md', 'CONTRIBUTING.md', 'TESTS.md'],
     '.tools/AGENTS.md' => ['../AGENTS.md', 'README.md', *COMPONENTS.map { |name| "#{name}/AGENTS.md" }],
-    **COMPONENTS.to_h { |name| [".tools/#{name}/AGENTS.md", ['../../AGENTS.md', '../AGENTS.md', 'README.md']] }
+    **COMPONENTS.to_h { |name| [".tools/#{name}/AGENTS.md", COMPONENT_PARENTS] }
   }.freeze
-
   def instruction_route_errors(root)
     INSTRUCTION_ROUTES.flat_map do |name, targets|
       source = File.join(root, name)
@@ -38,6 +38,7 @@ class GuideInstructionRoutesTest < Minitest::Test
         File.write(source, "# Instructions\n\n#{targets.map { |target| "[Source](#{target})" }.join("\n")}\n")
         File.write(File.join(File.dirname(source), 'README.md'), "# Guide\n")
       end
+      %w[CONTRIBUTING.md TESTS.md].each { |name| File.write(File.join(root, name), "# Shared guide\n") }
       yield root
     end
   end
@@ -78,6 +79,14 @@ class GuideInstructionRoutesTest < Minitest::Test
       File.write(path, "[Missing](absent.md)\n", mode: 'a')
       errors = paths.flat_map { |source| link_errors(File.read(source), source: source, root: root) }
       assert errors.any? { |error| error.include?('Missing link target: absent.md') }, errors.join("\n")
+    end
+  end
+
+  def test_instruction_routes_reject_a_missing_shared_source
+    with_instruction_tree do |root|
+      File.unlink(File.join(root, 'TESTS.md'))
+      errors = instruction_route_errors(root)
+      assert errors.any? { |error| error.include?('Missing link target: TESTS.md') }, errors.join("\n")
     end
   end
 

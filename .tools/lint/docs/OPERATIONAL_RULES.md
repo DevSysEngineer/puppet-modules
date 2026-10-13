@@ -1,10 +1,10 @@
-# Operationele Puppet-regels en reviewcriteria
+# Operationele normen en reviewcriteria
 
-Dit bestand bevat de aanvullende Puppet-regels voor runtimegedrag, beheerde hosts en operationele integraties. Volg bij iedere Puppet-wijziging de toepasselijke algemene regels uit [CODE_RULES.md](CODE_RULES.md). Raakt je wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, pas dan daarnaast de relevante regels uit dit bestand toe. Deze operationele regels vervangen de algemene coderegels nooit.
+Dit document bevat normen voor eigen scripts, services, runtimegedrag, beheerde hosts en operationele integraties. Algemene beveiligings-, toegangs- en transportnormen gelden ook buiten Puppet; shellregels gelden voor eigen shellcode en gegenereerde shell, systemd-regels voor systemd-services en monitoringregels voor de beschreven monitoringchecks. Het toepassingsgebied bij iedere norm bepaalt haar bereik. Puppet-resources, beheerheaders, modulepaden, centrale registraties en packagegaranties behouden hun specifieke voorwaarden; hun syntax of integratie wordt niet op andere technieken opgelegd.
 
-Raakt je wijziging ook commentaar, Puppet Strings of documentatie van Puppet-interfaces, volg dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](DOCUMENTATION_RULES.md). Bij zo'n wijziging gelden dus de toepasselijke regels uit alle drie regelsbestanden.
+Pas naast deze normen altijd de toepasselijke [algemene en taalspecifieke coderegels](CODE_RULES.md) toe, en bij documentatie de [documentatienormen](DOCUMENTATION_RULES.md). De [gezamenlijke ontwikkelwerkwijze](../../../CONTRIBUTING.md) beheert algemene beveiligingsreview en externe gegevensdeling; [TESTS.md](../../../TESTS.md) bepaalt de verplichte validatie. De concrete scannerprocedures staan in de [secrets-handleiding](../../secrets/README.md).
 
-De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter zelf volgt de [lokale ontwikkelinstructies](../AGENTS.md). Het toepassen van deze normen op Puppet-code vereist die onderhoudsroute niet. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beschrijft gebruik en linteronderhoud. Alleen deze normen toepassen vereist die onderhoudsroute niet. Een groene scan bewijst geen volledige naleving; ontbrekende automatische detectie vormt geen uitzondering.
 
 ## Inhoudsopgave
 
@@ -223,7 +223,7 @@ Volg het helperpad door bestanden, aanroepen en dependencies en controleer de ge
 
 **Verificatie**
 
-Controleer bij verplaatsing alle aanroepen en dependencies volgens de [helperreview](../../../AGENTS.md#managed-files-and-helpers). Vergelijk de reviewscenario’s en valideer geraakt gedrag tijdelijk buiten de repository.
+Werk bij verplaatsing alle aanroepen en dependencies samen bij en valideer ze. Vergelijk de reviewscenario’s en valideer geraakt gedrag tijdelijk buiten de repository.
 
 ### Gegenereerde configuratie met ERB renderen
 
@@ -478,7 +478,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples
 
 `project_packages` controleert de opties met inbegrip van zichtbare lokale resourcedefaults. Verwijderresources en expliciet niet-APT-providers vallen buiten die controle. Bij een onopgeloste provider, overerving, overrides of samengestelde opties kan een `[review]`-melding volgen. Beoordeel dan de effectieve opties en de reden voor een eventuele pakketuitzondering. De check heeft geen autofix.
 
-> **Verschil tussen norm en lintgedrag:** de norm laat een onderbouwde concrete pakketuitzondering toe. De check geeft voor ontbrekende of afwijkende opties ook bij zo’n onderbouwing een warning; het profiel faalt en `project_packages` mag niet worden onderdrukt. De check heeft geen interface om die onderbouwing te erkennen. Leg bij zo’n uitzondering de reden en de resterende lintmelding vast in de wijzigingsreview. Erkenning door de check bij directe resource-declaraties vraagt een expliciet besluit volgens de [conflictprocedure](../../../AGENTS.md#conflict-resolution).
+> **Verschil tussen norm en lintgedrag:** de norm laat een onderbouwde concrete pakketuitzondering toe. De check geeft voor ontbrekende of afwijkende opties ook bij zo’n onderbouwing een warning; het profiel faalt en `project_packages` mag niet worden onderdrukt. De check heeft geen interface om die onderbouwing te erkennen. Leg bij zo’n uitzondering de reden en de resterende lintmelding vast in de wijzigingsreview. Erkenning door de check bij directe resource-declaraties vraagt een expliciet besluit volgens de [conflictprocedure](DOCUMENTATION_RULES.md#conflicten-beoordelen).
 
 > **Detectiegrens bij de APT-flagvolgorde:** de norm toont de afsluitende opties in de volgorde recommends, suggests. De [check](../lib/project_lint/checks/packages.rb) accepteert ook de omgekeerde volgorde. Volg de normvolgorde bij het opstellen en reviewen van de opties; een geslaagde scan bewijst die volgorde niet. Een andere normvolgorde vereist een inhoudelijk besluit.
 
@@ -650,7 +650,7 @@ Inventariseer executable-inhoud en applicatiebehoeften; controleer ook het effec
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Recursieve bewerkingen tot module-eigendom beperken
 
@@ -714,7 +714,7 @@ Bepaal eerst de eigenaar van ieder subtree en controleer de gevolgen van opschon
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Eigenaars en rechten
 
@@ -806,7 +806,7 @@ Bij Linux-symlinks stel je het eigenaarschap expliciet in en beveilig je het doe
 
 **Norm**
 
-Plaats geen hardcoded wachtwoorden, API-keys, authenticatietokens, privésleutels of andere cryptografische geheimen in Puppet-manifesten. Beheer waarden in een goedgekeurde externe secretbron en gebruik lookups of parameters. Ook een letterlijke waarde binnen `Sensitive` blijft hardcoded. De algemene [geheimenbescherming](../../../AGENTS.md#secrets-and-authentication-material) geldt daarnaast voor alle overige bronbestanden en uitvoer.
+Plaats geen hardcoded wachtwoorden, API-keys, authenticatietokens, privésleutels of andere cryptografische geheimen in Puppet-manifesten. Beheer waarden in een goedgekeurde externe secretbron en gebruik lookups of parameters. Ook een letterlijke waarde binnen `Sensitive` blijft hardcoded. De algemene [geheimenbescherming](../../../CONTRIBUTING.md#geheimen-en-vertrouwelijke-gegevens) geldt daarnaast voor alle overige bronbestanden en uitvoer.
 
 **Herkomst**
 
@@ -858,7 +858,7 @@ Een lookup met een hardcoded geheime default blijft fout. Een variabele of veili
 
 **Handmatige review**
 
-Controleer secretbeheer, standaardwaarden, logging en alle uitvoerkanalen. Volg bij een vermoed lek de [incidentprocedure](../../../AGENTS.md#disclosure-incidents); herhaal nooit de waarde in de melding.
+Controleer secretbeheer, standaardwaarden, logging en alle uitvoerkanalen. Volg bij een vermoed lek de [incidentprocedure](../../../CONTRIBUTING.md#openbaarmakingsincidenten); herhaal nooit de waarde in de melding.
 
 **Verificatie**
 
@@ -876,7 +876,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Sudo, logrotate, audit, monitoring, services en gevoelige Puppet-inhoud.
+Toegang en rapportage bij eigen scripts, sudo, logrotate, audit, monitoring en services. De genoemde Sensitive-types en wrappers zijn uitsluitend de Puppet-uitwerking.
 
 **Automatische controle**
 
@@ -924,7 +924,7 @@ Controleer elke indirecte toegangsroute en de weergave in rapporten met syntheti
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Privétoegang en uitvoerrechten onderbouwen
 
@@ -986,7 +986,7 @@ Controleer daadwerkelijke lezers en uitvoerders, privé-SSH-paden en de reden vo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Shellcommando's in Puppet
 
@@ -1125,7 +1125,7 @@ Controleer de herkomst van escapes en gebruik voor willekeurige meerregelige inh
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### SQL als volledige shellwaarde doorgeven
 
@@ -1187,7 +1187,7 @@ Vergelijk het uiteindelijk gelezen SQL-argument inclusief afsluiter en controlee
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Quoting per parserlaag toepassen
 
@@ -1249,7 +1249,7 @@ Controleer per laag wat exact één argument vormt en voer synthetische spaties,
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Shellsyntaxis tegen Puppet-interpolatie beschermen
 
@@ -1311,7 +1311,7 @@ Volg de string eerst door Puppet en daarna door de shell; controleer tmpdir, pos
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Afhankelijkheden, audit en transport
 
@@ -1319,9 +1319,65 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 ### Lokale integraties en runtimeafhankelijkheden kiezen
 
-<!-- lint-rule-group -->
+**Norm**
 
-De keuze van toegestane externe Puppet-moduledependencies is [repositorybeleid](../../../AGENTS.md#first-party-code-and-dependencies), inclusief de onderbouwde uitzondering en review van gevoelige onderdelen. Gebruik voor de technische integratie de regels voor [gedeelde voorzieningen](#gedeelde-services-en-systemd) en voor executables het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos).
+Gebruik bij voorkeur bestaande lokale modules voor integraties. Runtime-Puppet-moduledependencies zijn beperkt tot `stdlib`, `concat`, `reboot` en `debconf`, behalve wanneer een concrete eis aantoonbaar niet voldoende met de lokale implementatie kan worden vervuld. Vergelijkbare functionaliteit alleen rechtvaardigt geen externe Docker-, MySQL-, Nginx- of RabbitMQ-module.
+
+**Herkomst**
+
+Projectregel
+
+**Toepassingsgebied**
+
+Runtime-Puppet-moduledependencies van de eigen modules. Dit is geen beperking van Ruby-gemdependencies of een algemene lijst toegestane executables.
+
+**Automatische controle**
+
+Geen automatische controle
+
+**Detectiegrenzen**
+
+Dependency- en lintcontroles stellen de inhoudelijke keuze voor een externe module niet vast.
+
+**Meldingen en severity**
+
+Geen lintmelding of severity voor deze handmatige dependencybeslissing.
+
+**Autofix**
+
+Geen
+
+**Autofixvoorwaarden**
+
+Niet van toepassing: de keuze vereist beoordeling van de concrete eis en lokale interfaces.
+
+**Toegestane uitzonderingen**
+
+Een externe module is alleen toegestaan wanneer de concrete eis aantoonbaar niet voldoende door de lokale implementatie kan worden vervuld.
+
+**Suppressions**
+
+Niet van toepassing op automatische detectie; een lintmarkering heft de handmatige review niet op.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: Een externe Nginx-module wordt uitsluitend voor vergelijkbare functionaliteit toegevoegd. Wijs dit af.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: Een onderbouwde eis kan niet voldoende met de lokale Nginx-integratie worden vervuld. Beoordeel de aangetoonde beperking voordat de externe dependency als uitzondering wordt geaccepteerd.
+
+**Grensgevallen**
+
+Neem bij gevoelige componenten pakketbeleid, monitoring en audit mee; vergelijkbare namen of features bewijzen geen noodzaak.
+
+**Handmatige review**
+
+Toets de concrete eis tegen bestaande lokale interfaces vóór acceptatie van een uitzondering. Review pakketbeleid, monitoring en audit bij gevoelige componenten. Gebruik voor technische integratie de [gedeelde voorzieningen](#gedeelde-services-en-systemd) en voor executables het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos).
+
+**Verificatie**
+
+Leg de vergelijking en uitzonderingsbeslissing vast in de wijzigingsreview; de linter levert dat bewijs niet. Valideer dependencies en betrokken afnemers volgens [TESTS.md](../../../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud).
 
 ### Audituitzonderingen onderbouwen
 
@@ -1383,7 +1439,7 @@ Vergelijk de afzonderlijke en gezamenlijke filterreikwijdte met de genoemde gebe
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Transportversleuteling behouden
 
@@ -1397,7 +1453,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Reverse proxies en verbindingen tussen services, inclusief lokale en self-signed upstreams.
+Reverse proxies en verbindingen tussen services in alle eigen operationele integraties, inclusief lokale en self-signed upstreams, ongeacht de configuratietaal.
 
 **Automatische controle**
 
@@ -1445,7 +1501,7 @@ Controleer upstream-TLS-ondersteuning, gebruikte trustbron en verificatiekeuze; 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Een minder streng beveiligingsmodel toelichten
 
@@ -1507,7 +1563,7 @@ Lees de reden tegen het concrete servicegedrag en bepaal welke gevolgen vooraf b
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Firewallconfiguratie bij de deployment houden
 
@@ -1573,7 +1629,7 @@ Controleer configuratie-eigendom, de herkomst van iedere verwachting en de concl
 
 **Verificatie**
 
-Beoordeel beide scenario’s en valideer passende, ontbrekende en afwijkende structuren met synthetische invoer. Voer vereiste bereikbaarheidstests afzonderlijk uit volgens de [netwerkreview](../../../AGENTS.md#network-review).
+Beoordeel beide scenario’s en valideer passende, ontbrekende en afwijkende structuren met synthetische invoer. Voer vereiste bereikbaarheidstests afzonderlijk uit volgens de [netwerkreview](../../../CONTRIBUTING.md#beveiligingsreview).
 
 ## Gedeelde services en systemd
 
@@ -1816,7 +1872,7 @@ Volg de registratie en levenscyclus door de gedeelde bouwstenen; voorkom dubbele
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Uiteindelijke systemd-units volledig reviewen
 
@@ -1830,7 +1886,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Gegenereerde units, wrappers, vendor-drop-ins, Service-resources, templates en statische units.
+Alle eigen systemd-integraties: gegenereerde units, wrappers, vendor-drop-ins, templates en statische units, en bij Puppet ook Service-resources.
 
 **Automatische controle**
 
@@ -1878,7 +1934,7 @@ Vergelijk de effectieve unit met elke producerende bron en leg de beoordeelde na
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Gedeelde targets en service-integratie behouden
 
@@ -1940,7 +1996,7 @@ Volg system, storage, services, production, helpers en require-services; control
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Servicebeveiliging
 
@@ -2006,7 +2062,7 @@ Volg het startpunt tot de uitvoerende unit en controleer waar de uitvoeringsopti
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Servicebeperkingen tegen alle uitvoerpaden beoordelen
 
@@ -2070,7 +2126,7 @@ Doorloop elk object uit de norm: paden, sockets, logs, tijdelijke opslag, appara
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Hardeningbesluiten per optie vastleggen
 
@@ -2152,7 +2208,7 @@ Controleer voor iedere tabelrij de genoemde functies en schrijfbare of leesbare 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Umask per service expliciet kiezen
 
@@ -2214,7 +2270,7 @@ Controleer wie nieuwe bestanden, mappen, sockets en logs moet kunnen gebruiken; 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Wrapperdefaults voor alle afnemers beoordelen
 
@@ -2276,7 +2332,7 @@ Zoek alle wrappergebruikers en controleer hun normale en privilegegevoelige uitv
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ## Shellscripts
 
@@ -2286,7 +2342,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-De regels in dit hoofdstuk gelden voor alle eigen POSIX-shell- en Bash-code, ongeacht doel of bestandsextensie: `.sh`-bestanden, executables zonder extensie, shelltemplates, gegenereerde shellcode en inline fragmenten. Broncode en gegenereerde code moeten aan dezelfde toepasselijke shellregels voldoen. Voor de uitvoering van syntaxis- en functionele controles geldt de [shellvalidatie](../../../AGENTS.md#shell-validation).
+De regels in dit hoofdstuk gelden voor alle eigen POSIX-shell- en Bash-code, ongeacht doel of bestandsextensie: `.sh`-bestanden, executables zonder extensie, shelltemplates, gegenereerde shellcode en inline fragmenten. Broncode en gegenereerde code moeten aan dezelfde toepasselijke shellregels voldoen. Voor de uitvoering van syntaxis- en functionele controles geldt de [shellvalidatie](../../../TESTS.md#shellvalidatie).
 
 **Herkomst**
 
@@ -2342,7 +2398,7 @@ Controleer interpreter, opbouw, naamgeving, inspringing, commandodetectie, argum
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Interpreter en shellcompatibiliteit
 
@@ -2406,7 +2462,7 @@ Vergelijk gebruikte constructies met de interpreter, ook na renderen; controleer
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Shellscripts in uitvoervolgorde opbouwen
 
@@ -2468,7 +2524,7 @@ Volg de eerste aanroep van iedere helper en vergelijk de onderdelen met de voorg
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Externe commando’s rechtstreeks vinden
 
@@ -2530,7 +2586,7 @@ Controleer de discovery, fouthelper, commandopositie en gescheiden argumenten; o
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Shellcode opmaken en benoemen
 
@@ -2596,7 +2652,7 @@ Controleer namen, blokdoelen en de stroom van voorbereiding tot resultaat; verge
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Shellargumenten en runtime-instellingen verwerken
 
@@ -2666,7 +2722,7 @@ Volg iedere ondersteunde invoerbron tot de gebruikte waarde; vergelijk usage, ar
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Shellhelpers op een herkenbare taak afbakenen
 
@@ -2738,7 +2794,7 @@ Beoordeel de taak, alle relevante aanroepers en weggenomen duplicatie; houd eenm
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Shellbuffers en tijdelijke bestanden kiezen
 
@@ -2800,7 +2856,7 @@ Controleer dat het medium bij omvang en commandocontract past; volg levensduur e
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Tekstbuffers en substitutiemetadata opbouwen
 
@@ -2864,7 +2920,7 @@ Controleer formats, scheidingstekens en verlies van afsluitende regeleinden; beh
 
 **Verificatie**
 
-Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../AGENTS.md#shell-validation) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
+Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzigde shellcode de [shellvalidatie](../../../TESTS.md#shellvalidatie) uit op bron en gerenderde uitvoer. Dit zijn handmatige scenario’s; de documentatietests bewijzen alleen de structuur en verwijzingen van deze regel.
 
 ### Runtime-tools op hun functie beoordelen
 
@@ -2876,7 +2932,7 @@ Gebruik shellvergelijkingen, `case`-patronen, parameterexpansie en builtins voor
 
 Gebruik een specifieke parser zoals `jq` wanneer oorspronkelijke gestructureerde uitvoer betrouwbare verwerking van meerdere velden of complexe structuren vereist. Vervang een noodzakelijke gestructureerde parser niet door kwetsbare shellparsing alleen om een dependency te verwijderen.
 
-Voor runtime-dependencies geldt het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Behoud dependencies die andere afnemers nog nodig hebben. De [shellreview en validatie](../../../AGENTS.md#shell-scripts) regelen het onderzoek van alle afnemers en de vergelijking van gedrag bij vervanging.
+Voor runtime-dependencies geldt het [packagecontract](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Behoud dependencies die andere afnemers nog nodig hebben. Onderzoek vóór het verwijderen van discovery, packages of dependencyverwijzingen waarvoor iedere externe tool wordt gebruikt en welke afnemers daarvan afhankelijk zijn. De [shellvalidatie](../../../TESTS.md#shellvalidatie) regelt de vergelijking van gedrag bij vervanging.
 
 **Herkomst**
 
@@ -2932,7 +2988,7 @@ Vergelijk output, fouten en exitcodes voor en na vervanging volgens de shellvali
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Puppet-waarden rechtstreeks in shelltemplates invoegen
 
@@ -2996,7 +3052,7 @@ Controleer iedere ingevoegde waarde en de parserlaag die haar leest; vergelijk b
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Daemonconfiguratie als invoerbron behouden
 
@@ -3058,7 +3114,7 @@ Vergelijk de gelezen waarde met de effectieve daemoninstelling en controleer dat
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ## Monitoringchecks
 
@@ -3186,7 +3242,7 @@ Volg iedere registratie naar hetzelfde executable en controleer gedeelde templat
 
 **Verificatie**
 
-Valideer minstens twee targets met eigen instellingen en verwijder of deactiveer één target volgens de [monitoringvalidatie](../../../AGENTS.md#monitoring-validation). Controleer behoud van het executable en de andere registratie. Vergelijk ook beide handmatige reviewscenario’s.
+Valideer minstens twee targets met eigen instellingen en verwijder of deactiveer één target volgens de [monitoringvalidatie](../../../TESTS.md#monitoringvalidatie). Controleer behoud van het executable en de andere registratie. Vergelijk ook beide handmatige reviewscenario’s.
 
 ### Monitoring onafhankelijk van de waargenomen taak houden
 
@@ -3476,7 +3532,7 @@ Volg default, override en lege registratie door manifest, wrapper en executable;
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Effectieve monitoringinvoer volgens het configuratiecontract valideren
 
@@ -3540,7 +3596,7 @@ Controleer de volgorde van invoerbronnen en toets alleen werkelijk ingevulde Pup
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Agentplanning afzonderlijk afstemmen
 
@@ -3602,7 +3658,7 @@ Vergelijk de scriptuitvoering, beëindiging en outputbudget met de toegestane ex
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Uitvoer voor beheerders
 
@@ -3668,7 +3724,7 @@ Beoordeel of een beheerder uit alleen de eerste regel kan bepalen wat wordt geco
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Status en technische tellers buiten de samenvatting houden
 
@@ -3730,7 +3786,7 @@ Controleer de eerste regel en oorzakenlabels op statuswoorden, nulcategorieën, 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Oorzaak en reikwijdte in de diagnose onderscheiden
 
@@ -3792,7 +3848,7 @@ Koppel iedere statusbepalende waarneming aan het gecontroleerde bereik en onders
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### De hoofdoorzaak vooraan in lange uitvoer zetten
 
@@ -3854,7 +3910,7 @@ Lees de diagnose in afgedrukte volgorde; controleer dat de hoofdoorzaak en vervo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Lange uitvoer afsluiten met interpretatie
 
@@ -3916,7 +3972,7 @@ Controleer de laatste sectie op betekenis en vervolginformatie zonder perfdata o
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Veilige en begrensde uitvoer
 
@@ -3982,7 +4038,7 @@ Identificeer per bewerking de onveilige bron en het effect; licht niet-vanzelfsp
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Pipes en lege regels in lange uitvoer veilig maken
 
@@ -4067,7 +4123,7 @@ Controleer alle normale, afwijkende, onvolledige en vroege foutpaden, inclusief 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Eén afkapmechanisme per diagnoseblok gebruiken
 
@@ -4129,7 +4185,7 @@ Volg ieder verzameld item door alle limieten en bepaal welke informatie iedere a
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Interpretatie zichtbaar houden bij een UI-limiet
 
@@ -4191,7 +4247,7 @@ Controleer de uitvoer bij de exacte grens en bij overschrijding; behoud afkapmel
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Werkbegrenzing van tekstbegrenzing onderscheiden
 
@@ -4253,7 +4309,7 @@ Controleer de plaats van de grens vóór of na verzameling en behoud zichtbare m
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Perfdata en compatibiliteit
 
@@ -4319,7 +4375,7 @@ Controleer labeltekens, eenheid en iedere veldpositie zonder betekenisvolle sche
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Counter-UOM alleen voor monotone tellers gebruiken
 
@@ -4381,7 +4437,7 @@ Volg de meetwaarde over meerdere waarnemingen en bepaal of een daling uitsluiten
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### De externe monitoringinterface behouden
 
@@ -4443,4 +4499,4 @@ Vergelijk de genoemde interfaceonderdelen vóór en na de wijziging en valideer 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../AGENTS.md#isolation-and-evidence). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.

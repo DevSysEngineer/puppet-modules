@@ -38,7 +38,7 @@
 
 ## Controleren voor het lezen
 
-De [repositorywerkwijze](../../AGENTS.md#local-inspection-before-disclosure) bepaalt welke bestanden je vooraf moet controleren en welke documentatie je rechtstreeks mag lezen. De onderstaande voorcontrole geldt voor inhoud buiten die leesuitzondering.
+De [repositorywerkwijze](../../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) bepaalt welke bestanden je vooraf moet controleren en welke documentatie je rechtstreeks mag lezen. De onderstaande voorcontrole geldt voor inhoud buiten die leesuitzondering.
 
 Installeer de bundle volgens de [gezamenlijke installatiehandleiding](../README.md#installatie). Geef bestanden of mappen op ten opzichte van je huidige werkmap. Je kunt meerdere bestanden en mappen combineren in één aanroep. De tool controleert mappen recursief, inclusief verborgen bestanden, zonder Git-uitsluitingen of andere impliciete uitsluitingen.
 
@@ -51,7 +51,7 @@ Beoordeel eerst de metadata in het rapport. Maak bij bevindingen gemaskeerde kop
 
 Zoek alleen in gecontroleerde kopieën. Exporteer voor diffs beide volledige bronversies lokaal, controleer ze en vergelijk daarna hun kopieën: een diff alleen mist de context van meerregelige waarden en Hiera. Sla commando-uitvoer die brongegevens kan bevatten eerst op in een afgeschermd lokaal bestand. Controleer dat bestand en deel uitsluitend de gecontroleerde of gemaskeerde uitvoer. Toon de ongefilterde uitvoer niet tegelijkertijd via `tee`.
 
-De CLI onderschept geen assistenttools, bestandslezingen door editors of uploads. Pas de [verplichte voorcontrole](../../AGENTS.md#local-inspection-before-disclosure) daarom bij iedere aanroeper toe. Een geautomatiseerde integratie moet een volledig resultaat vereisen en uitsluitend de bijbehorende kopieën lezen.
+De CLI onderschept geen assistenttools, bestandslezingen door editors of uploads. Pas de [verplichte voorcontrole](../../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) daarom bij iedere aanroeper toe. Een geautomatiseerde integratie moet een volledig resultaat vereisen en uitsluitend de bijbehorende kopieën lezen.
 
 ## Analysekopieën maken
 
@@ -113,7 +113,7 @@ Het beleid bevat expliciete bestanden, geen recursieve projectselectie. Dit synt
 | `commands` | Lokaal goedgekeurde diagnostiek, als naam naar argumentenlijst. `run` voert die opdracht op de echte bron uit en controleert beide uitvoerstromen. Dit is uitvoering van vertrouwde opdrachten, geen sandbox voor willekeurige code. |
 | `fixture_paths` | Expliciete testbestanden waarvoor de tool [synthetische waarden](#synthetische-fixtures-bewerken) mag genereren. |
 
-Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestanden die je bij de bewerking wilt betrekken; de tool zoekt niet automatisch naar agentconfiguratie. Gewijzigde geselecteerde context of gewijzigd beleid maakt een oude voorbereiding ongeldig. De tool ontdekt geen ontbrekende Hiera-hiërarchie: de aanroeper blijft verantwoordelijk voor een volledige `context`-selectie. De [repositorywerkwijze](../../AGENTS.md#local-inspection-before-disclosure) bepaalt ook hier wanneer voorcontrole verplicht is; er is geen aparte agentlauncher nodig.
+Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestanden die je bij de bewerking wilt betrekken; de tool zoekt niet automatisch naar agentconfiguratie. Gewijzigde geselecteerde context of gewijzigd beleid maakt een oude voorbereiding ongeldig. De tool ontdekt geen ontbrekende Hiera-hiërarchie: de aanroeper blijft verantwoordelijk voor een volledige `context`-selectie. De [repositorywerkwijze](../../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) bepaalt ook hier wanneer voorcontrole verplicht is; er is geen aparte agentlauncher nodig.
 
 ### Voorbereiden en een gewone wijziging toepassen
 
@@ -347,11 +347,11 @@ bundle exec project-tools-secrets clone --state STATE --session SESSION --id FIR
 
 Plaats de eerste marker als geciteerde waarde in de fixture en de tweede als geciteerde verwachte waarde in de assertion. Voeg de volledige Ruby-file toe via `add`, of bewerk een bestaande via `write`. Gewone testlogica blijft zichtbaar. De detector blijft de fictieve oorspronkelijke waarde herkennen. Een tekstlabel `dummy` of `synthetic` vormt geen algemene uitzondering.
 
-De tool geeft geen publicatievrijstelling voor fixtures. Ook synthetische bevindingen betekenen bij [Git-review](../../AGENTS.md#git-inspection) dat je uitsluitend gecontroleerde analysekopieën vergelijkt. Beoordeel publicatie afzonderlijk volgens het projectbeleid; de reguliere Puppet-secretscontrole blijft gelden.
+De tool geeft geen publicatievrijstelling voor fixtures. Ook synthetische bevindingen betekenen bij [Git-review](../../CONTRIBUTING.md#git-inspectie) dat je uitsluitend gecontroleerde analysekopieën vergelijkt. Beoordeel publicatie afzonderlijk volgens het projectbeleid; de reguliere Puppet-secretscontrole blijft gelden.
 
 ## Git-versies lokaal controleren en vergelijken
 
-De [rootinstructies](../../AGENTS.md#git-inspection) bepalen welke vergelijking is toegestaan. De onderstaande opdrachten zijn handmatige lokale stappen met Git en de bestaande scanner. De secrets-tool verwerkt zelf geen index, revisies of Git-opdrachten.
+De [gezamenlijke Git-afspraken](../../CONTRIBUTING.md#git-inspectie) bepalen welke vergelijking is toegestaan. De onderstaande opdrachten zijn handmatige lokale stappen met Git en de bestaande scanner. De secrets-tool verwerkt zelf geen index, revisies of Git-opdrachten.
 
 Begin vanuit de repositoryroot met alleen de inventaris. Bestandsnamen kunnen vertrouwelijk zijn: bewaar ook deze uitvoer eerst lokaal, zonder `tee` of shelltracing. Gebruik een POSIX-shell, de geïnstalleerde bundle en een private tijdelijke map:
 
@@ -455,7 +455,7 @@ Vervang oude kopieeropdrachten door `prepare` met expliciete bestanden, context,
 
 Pas de rootinstructie en scripts van ieder afnemend project in dezelfde migratie aan. Werk de gem en lockfile bij en verwijder de oude aanroepen en resultaatlezers. De zelfstandige scan en `--puppet` houden hun detectie en exitcodes; zij publiceren uitsluitend metadata. Archiefconsumers moeten de benodigde leden lokaal veilig exporteren en die via `prepare` aanbieden, zoals beschreven bij [Archieven controleren](#archieven-controleren).
 
-De keuze voor één analysewerkwijze volgt de repositorybrede [consolidatieafspraak](../../AGENTS.md#reuse-and-shared-abstractions); de [toolingafspraken](../README.md#verantwoordelijkheden-gescheiden-houden) bepalen de verdeling tussen CLI en library.
+De keuze voor één analysewerkwijze volgt de repositorybrede [consolidatieafspraak](../../CONTRIBUTING.md#hergebruik-en-samenhang); de [toolingafspraken](../README.md#verantwoordelijkheden-gescheiden-houden) bepalen de verdeling tussen CLI en library.
 
 ## Resultaten en exitcodes
 
@@ -564,7 +564,7 @@ Voer na herstel opnieuw `bundle exec rake secrets:puppet` en de standaardtests u
 
 ## Gemiste gegevens of een fout melden
 
-Blijkt dat de scanner gevoelige gegevens heeft gemist, onvolledig heeft gemaskeerd of via een rapport of foutmelding heeft getoond, volg dan de [incidentafspraken](../../AGENTS.md#disclosure-incidents). Die vereisen een directe melding aan de gebruiker met hersteladvies, ook als het probleem lokaal is ontdekt voordat iets extern is gedeeld. Een eerdere exitcode 0 of een gemaakte analysekopie neemt die meldplicht niet weg. De scanner kan een patroon dat hij niet herkent niet zelf als gemist rapporteren; deze werkwijze geldt zodra een gebruiker, assistent of aanvullende controle het probleem vaststelt of vermoedt.
+Blijkt dat de scanner gevoelige gegevens heeft gemist, onvolledig heeft gemaskeerd of via een rapport of foutmelding heeft getoond, volg dan de [incidentafspraken](../../CONTRIBUTING.md#openbaarmakingsincidenten). Die vereisen een directe melding aan de gebruiker met hersteladvies, ook als het probleem lokaal is ontdekt voordat iets extern is gedeeld. Een eerdere exitcode 0 of een gemaakte analysekopie neemt die meldplicht niet weg. De scanner kan een patroon dat hij niet herkent niet zelf als gemist rapporteren; deze werkwijze geldt zodra een gebruiker, assistent of aanvullende controle het probleem vaststelt of vermoedt.
 
 Gebruik voor de melding uitsluitend veilige metadata: het soort gegevens, een geanonimiseerde bronverwijzing, zo mogelijk het regelnummer of de herkenningsregel, en waar de gegevens mogelijk terechtkwamen. Maak onderscheid tussen alleen lokaal aangetroffen gegevens, bevestigde externe blootstelling en onbekende of vermoede blootstelling. Neem geen waarde, ongefilterd tekstfragment, fingerprint of oorspronkelijke fouttekst over. Benoem een oorzaak alleen als die is vastgesteld; geef anders aan wat nog onderzocht moet worden.
 
@@ -577,7 +577,7 @@ Geef in dezelfde melding een uitvoerbaar hersteladvies. Stel verdere analyse van
 | Een rapport, foutmelding of log toont brongegevens. | Verwijder de ongefilterde uitvoer uit dat uitvoerpad en gebruik veilige metadata of een vaste foutidentificatie. Controleer alle betrokken uitvoervormen op hetzelfde lek. |
 | Een aanroeper leest het origineel of deelt uitvoer vóór de scan. | Herstel de aanroepvolgorde zodat de lokale controle en beoordeling vóór het lezen plaatsvinden en de analyse de vrijgegeven kopieën gebruikt. |
 
-De [onderhoudsinstructies](AGENTS.md) regelen de synthetische reproductie, regressietests en reparatie van de gedeelde implementatie. Maak na herstel nieuwe kopieën uit opnieuw gecontroleerde bronnen en beoordeel de betrokken uitvoerpaden opnieuw. Vermeld welke correctie is uitgevoerd, waarmee die is gecontroleerd en welke onzekerheden of vervolgstappen openstaan. Zolang veilige controle of maskering onzeker blijft, blijft lokale menselijke beoordeling nodig voordat de betrokken inhoud extern wordt gebruikt.
+De [onderhoudsinstructies](#ontwikkelen-en-testen) regelen de synthetische reproductie, regressietests en reparatie van de gedeelde implementatie. Maak na herstel nieuwe kopieën uit opnieuw gecontroleerde bronnen en beoordeel de betrokken uitvoerpaden opnieuw. Vermeld welke correctie is uitgevoerd, waarmee die is gecontroleerd en welke onzekerheden of vervolgstappen openstaan. Zolang veilige controle of maskering onzeker blijft, blijft lokale menselijke beoordeling nodig voordat de betrokken inhoud extern wordt gebruikt.
 
 ## Gebruik in een ander project
 
@@ -633,7 +633,7 @@ Leg in de eigen `AGENTS.md` vast dat de voorcontrole verplicht is. Een korte ver
 ```markdown
 ## Local inspection before disclosure
 
-Before project content enters AI context or external analysis, follow the [shared local inspection procedure](global-modules/.tools/secrets/README.md#controleren-voor-het-lezen) and the [repository Git inspection rules](global-modules/AGENTS.md#git-inspection). Run the installed scanner from this project root and withhold content when inspection or masking is incomplete. The agent must follow these rules without a separate AI session or launcher. Use the [practical comparison procedure](global-modules/.tools/secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) for Git versions and command output.
+Before project content enters AI context or external analysis, follow the [shared local inspection procedure](global-modules/.tools/secrets/README.md#controleren-voor-het-lezen) and the [repository Git inspection rules](global-modules/CONTRIBUTING.md#git-inspectie). Run the installed scanner from this project root and withhold content when inspection or masking is incomplete. The agent must follow these rules without a separate AI session or launcher. Use the [practical comparison procedure](global-modules/.tools/secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) for Git versions and command output.
 ```
 
 Kies de bestanden die je daadwerkelijk nodig hebt en neem toepasselijke Hiera-`lookup_options` in dezelfde scan mee. De scanner ontdekt geen externe Hiera-hiërarchie. Geef niet zonder selectie de volledige projectroot op: `.git`, geïnstalleerde gems, de submodule, binaire bestanden en oude uitvoer vallen dan ook binnen de recursieve scan; `.gitignore` is geen scanneruitsluiting.
@@ -697,7 +697,22 @@ Werk de tooling bij door een goedgekeurde revisie van `global-modules` te kiezen
 
 ## Ontwikkelen en testen
 
-Voeg nieuwe detectie toe in deze bestaande tool: gedeelde signaturen in `patterns.rb`, Puppet-syntaxis in `puppet_scan.rb` en YAML/Hiera in `yaml_scan.rb`. Voeg positieve, negatieve, meerregelige en rapportagegevallen met synthetische waarden toe onder `tests/`; test gewijzigde Rake- en CI-koppelingen onder `../repository-checks/tests/`. Werk deze patroonbeschrijving in dezelfde wijziging bij. Volg de [onderhoudsinstructies](AGENTS.md). De gem bevat de runtimecode, één executable met de beschreven subcommando's, de README en de licentie. De geïnstalleerde-consumertests oefenen ook voorbereiding, writer en veilige diff zonder repositorymetadata. Links naar andere tools, instructies en tests vereisen de bijbehorende checkout.
+Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
+
+- Verifieer iedere ondersteunde detectieregel met synthetische positieve, negatieve en meerregelige invoer. Onderscheid waardebevindingen van gevoeligheidsindicatoren en documenteer niet-ondersteunde constructies bij [patronen en beperkingen](#patronen-en-beperkingen).
+- Oefen bij detectie- of foutwijzigingen ieder openbaarmakingskanaal: stdout, stderr, JSON, JUnit, paden, Ruby-debugmodus en analysewerkbomen. Toon nooit exceptionteksten of bronfragmenten; verifieer dat onvolledige inspectie kopieën achterhoudt.
+- Volg voor gemiste waarden en onveilige uitvoer de [incidentafspraken](../../CONTRIBUTING.md#openbaarmakingsincidenten) en [scannerherstelprocedure](#gemiste-gegevens-of-een-fout-melden). Reproduceer defecten synthetisch en voeg regressiedekking toe voor detectie, maskering en openbaarmaking vóór reparatie van de gedeelde implementatie. Verifieer volledige maskering of achtergehouden kopieën bij onbepaalbare grenzen en werk geraakte patronen en beperkingen bij.
+- Verifieer bronbehoud, begrensde waarden, private uitvoerrechten, schrijffouten en weigering bestaande doelen te overschrijven. Houd snapshots lokaal en gebruik dezelfde geïnspecteerde bytes voor maskering.
+- Test geïnstalleerde gem en consumerprojecten bij CLI- of packagewijzigingen. Behoud zelfstandige installatie en het [exitcontract](#resultaten-en-exitcodes).
+- Houd nieuwe secretdetectie en Puppet-integraties in deze tool. Gebruik de native syntaxboom zonder invoer uit te voeren; behoud veilige lookups en referenties en wijs literals binnen Sensitive-wrappers af. Werk detectietests, consumerintegratietests en deze Nederlandse README samen bij.
+- Verifieer de verplichte lokale testprerequisite en stabiele GitHub-status met repositoryintegratietests. Detectie, parserfouten en logs houden hetzelfde metadata-onlyrapportcontract; vervolgdiagnostiek mag na een afgekeurde scan geen bron tonen.
+- Beoordeel taakgrenzen en dependencyrichting tegen de [interne verantwoordelijkheden](#interne-verantwoordelijkheden). Scanning, voorbereiding, herstel, diagnostiek en vergelijking gebruiken dezelfde scanner en bronlezer. Review syntax- en contextbehoud tegen het [schrijfcontract](#herstelcontext-en-validatie), inclusief volledige herschrijvingen en kandidaat-Hieracontext.
+- Oefen globale markerintegriteit over gewijzigde én ongewijzigde bestanden, expliciete verwijdering, verplaatsing en hergebruik, bron- en contextconflicten, symlinkgrenzen en metadatabehoud. Test [journal en herstel](#conflicten-en-herstel-na-fouten) bij fouten na gedeeltelijk toepassen, abrupte processtop en tussentijdse wijzigingen van een ander proces.
+- Voeg geen Git-hooks, opdrachtwrappers, revisieverwerking of AI-sessieframework toe om de [repositorywerkwijze](../../CONTRIBUTING.md#git-inspectie) af te dwingen. Houd de tool onafhankelijk van Git en agentlaunchers; behoud lokale ID-koppelingen en herstelstate voor bewerking. Test geïnstalleerd scannen, voorbereiden, schrijven en vergelijken buiten Git zonder agentstart.
+- Oefen bij taakingangwijzigingen de ene executable en alle [ondersteunde subcommando's](#taakingangen-en-migratie), inclusief laadfouten vóór commandobehandeling, argumentfouten, vereiste uitvoer en optionele rapportfouten. Verifieer dat intrekken van voorbereiding zowel boom als mapping verwijdert, terwijl een rapportfout na schrijven de toegepaste uitkomst behoudt.
+- Bewijs bij hergebruik van inspectieresultaten gelijkheid van bytes, selectie, context en parsersemantiek. Behoud afzonderlijke controles van gewijzigde invoer en definitieve bronversies; test geaccepteerde en afgewezen Puppet-kandidaten en dezelfde state-/bronlockvolgorde bij schrijven en herstel.
+
+Voeg nieuwe detectie toe in deze bestaande tool: gedeelde signaturen in `patterns.rb`, Puppet-syntaxis in `puppet_scan.rb` en YAML/Hiera in `yaml_scan.rb`. Voeg positieve, negatieve, meerregelige en rapportagegevallen met synthetische waarden toe onder `tests/`; test gewijzigde Rake- en CI-koppelingen onder `../repository-checks/tests/`. Werk deze patroonbeschrijving in dezelfde wijziging bij. De gem bevat de runtimecode, één executable met de beschreven subcommando's, de README en de licentie. De geïnstalleerde-consumertests oefenen ook voorbereiding, writer en veilige diff zonder repositorymetadata. Links naar andere tools, instructies en tests vereisen de bijbehorende checkout.
 
 Voer `bundle exec rake test:secrets` uit voor synthetische tests van herkenning, maskeren, gegevensbescherming, foutafhandeling en zelfstandige installatie. `bundle exec rake test` neemt deze tests mee in de [gezamenlijke suite](../README.md#gezamenlijke-tooltests). Geslaagde tests onderbouwen de geteste afspraken; ze bewijzen niet dat willekeurige bestanden geen onbekende geheimen bevatten.
 

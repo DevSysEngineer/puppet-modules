@@ -23,9 +23,6 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 - [Gebruik van voorbeelden en parameterdocumentatie](#gebruik-van-voorbeelden-en-parameterdocumentatie)
 - [Modules](#modules)
   - [`basic_settings`](#basic_settings)
-    - [Puppet Server controleren](#puppet-server-controleren)
-    - [Tijdzone en NTP](#tijdzone-en-ntp)
-    - [Migreren van de externe timezone-module](#migreren-van-de-externe-timezone-module)
   - [`docker`](#docker)
   - [`gitlab`](#gitlab)
   - [`letsencrypt`](#letsencrypt)
@@ -162,7 +159,7 @@ Voer de volgende stappen uit vanuit de hoofdmap van je Puppet-project.
 
 Gebruik de [toolinghandleiding voor je eigen project](.tools/README.md#importeren-en-distribueren) om de gedeelde controles voor je eigen Puppet- en Ruby-code in te richten.
 
-Het [versiebeleid](AGENTS.md#versioning-and-releases) beschrijft hoe het project compatibiliteit bij updates beoordeelt.
+Het [versiebeleid](CONTRIBUTING.md#compatibiliteit-en-versies) beschrijft hoe het project compatibiliteit bij updates beoordeelt.
 
 ## Quick start
 
@@ -1132,6 +1129,6 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 
 ## Contributie
 
-Pull requests en meldingen zijn welkom. Begin bij [`AGENTS.md`](AGENTS.md) voor het werkproces en de reviewverantwoordelijkheden. Voor toolingonderhoud, ook in rootconfiguratie of CI, volg je daarna [`.tools/AGENTS.md`](.tools/AGENTS.md) en de betrokken componentinstructies. De [algemene ontwerpregels](.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels) gelden voor alle eigen code, inclusief scripts en tooling. De [leeswijzer](.tools/lint/README.md#leeswijzer) wijst je naar de aanvullende Puppet-, documentatie- en operationele regels die op je wijziging van toepassing zijn.
+Pull requests en meldingen zijn welkom. Begin bij [CONTRIBUTING.md](CONTRIBUTING.md) voor voorbereiding, wijzigingsscope, veilig werken, review, versiebeleid en oplevering. Daar vind je de directe leesroutes naar [TESTS.md](TESTS.md), de code-, documentatie- en operationele normen en de [toolhandleidingen](.tools/README.md#gedeeld-toolingonderhoud). Menselijke ontwikkelaars en agents gebruiken dezelfde inhoudelijke afspraken.
 
-De standaardtests starten met de verplichte [Puppet-secretscontrole](.tools/secrets/README.md#puppet-manifesten-in-standaardtests-en-ci). Richt de [ontwikkelomgeving](.tools/README.md#installatie) in en volg de [werkwijze van beginscan tot oplevering](.tools/lint/README.md#werkwijze-bij-een-wijziging). De [gezamenlijke toolinghandleiding](.tools/README.md) beschrijft de afzonderlijke gems voor Puppet- en Ruby-lint, [metadata](.tools/metadata/README.md), [parservalidatie](.tools/validate/README.md) en [dependencycontrole](.tools/module-dependencies/README.md), plus hun installatie en consumermigratie. Modulegedrag en documentatievoorbeelden vragen daarnaast [afzonderlijke validatie](.tools/lint/README.md#aanvullende-validatie). De [CI-uitleg](.tools/README.md#ci-van-deze-repository) beschrijft waar je de rapporten vindt.
+Richt de [ontwikkelomgeving](.tools/README.md#installatie) in en volg de [verplichte controlevolgorde](TESTS.md#controlevolgorde-en-verplichte-eindcontroles), inclusief de secretsvoorcontrole. De toolhandleidingen beschrijven de concrete commando's en rapporten; een geslaagde `bundle exec rake test` vervangt de overige eindcontroles en functionele validatie niet.

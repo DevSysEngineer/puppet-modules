@@ -2,7 +2,7 @@
 
 Gebruik één ontwikkelbundle met afzonderlijke tools voor lokale secretcontrole, Puppet-lint, Ruby-lint, metadata, parservalidatie en moduledependencies. Iedere tool heeft een eigen commando en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
 
-Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelinstructies](AGENTS.md), met de index naar ieder component. Installatie en gebruik staan in deze handleiding.
+Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsafspraken](#gedeeld-toolingonderhoud), met de index naar ieder component. Installatie en gebruik staan in deze handleiding.
 
 ## Inhoudsopgave
 
@@ -32,6 +32,11 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde ontwikkelin
   - [Git-dependency uit de monorepo](#git-dependency-uit-de-monorepo)
   - [Gebouwd gempakket installeren](#gebouwd-gempakket-installeren)
   - [Migreren naar afzonderlijke toolpakketten](#migreren-naar-afzonderlijke-toolpakketten)
+- [Gedeeld toolingonderhoud](#gedeeld-toolingonderhoud)
+  - [Verantwoordelijkheden en integratie reviewen](#verantwoordelijkheden-en-integratie-reviewen)
+  - [Toolteststructuur onderhouden](#toolteststructuur-onderhouden)
+  - [CI en rapporten onderhouden](#ci-en-rapporten-onderhouden)
+  - [Toolingdocumentatie onderhouden](#toolingdocumentatie-onderhouden)
 - [Gezamenlijke tooltests](#gezamenlijke-tooltests)
   - [Versies bijwerken](#versies-bijwerken)
   - [Eigen tooltests](#eigen-tooltests)
@@ -56,7 +61,7 @@ De pakketlinks verwijzen naar de gemspecs die de pakketversies en dependencygren
 
 De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. De algemene secretcontrole gebruikt shared, JSON en Psych en heeft geen Puppet-runtime nodig. Voor de Puppet-gate en voorbereiding van `.pp`-bestanden is OpenVox 8 wel vereist. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository-checks/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
 
-De secrets-gem levert één executable: `project-tools-secrets`. De subcommando's `prepare`, `write`, `run`, `diff` en `close` bedienen de analysewerkwijze. De [taakindeling en migratie](secrets/README.md#taakingangen-en-migratie) beschrijven ook markerregistratie, diagnostiek, afsluiten en herstel. Gebruik voor bewerkingen met beschermde waarden de [voorbereide analysebestanden](secrets/README.md#ontwikkelen-met-een-analysewerkboom), met eigen lokale selectie, Hiera-context en private ID-koppelingen. Scanner, voorbereiding, writer, diagnostiek en gecontroleerde vergelijking delen hetzelfde pakket en werken zonder Git-repository of agentlauncher. De [rootinstructies](../AGENTS.md#git-inspection) verplichten de agent tot voorcontrole; de [praktische Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) beschrijft hoe je volledige versies lokaal aanbiedt. Ruim eerder ingerichte koppelingen op volgens de [migratie-instructies](secrets/README.md#oude-integraties-opruimen).
+De secrets-gem levert één executable: `project-tools-secrets`. De subcommando's `prepare`, `write`, `run`, `diff` en `close` bedienen de analysewerkwijze. De [taakindeling en migratie](secrets/README.md#taakingangen-en-migratie) beschrijven ook markerregistratie, diagnostiek, afsluiten en herstel. Gebruik voor bewerkingen met beschermde waarden de [voorbereide analysebestanden](secrets/README.md#ontwikkelen-met-een-analysewerkboom), met eigen lokale selectie, Hiera-context en private ID-koppelingen. Scanner, voorbereiding, writer, diagnostiek en gecontroleerde vergelijking delen hetzelfde pakket en werken zonder Git-repository of agentlauncher. De [gezamenlijke Git-afspraken](../CONTRIBUTING.md#git-inspectie) verplichten tot voorcontrole; de [praktische Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) beschrijft hoe je volledige versies lokaal aanbiedt. Ruim eerder ingerichte koppelingen op volgens de [migratie-instructies](secrets/README.md#oude-integraties-opruimen).
 
 ## Verantwoordelijkheden gescheiden houden
 
@@ -66,7 +71,7 @@ Een tool met een eigen CLI biedt één executable met expliciete subcommando's v
 
 Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependencies, configuratie, correcties, rapport en gedragstests. Puppet-lint corrigeert Puppet-invoer; metadatawijzigingen vereisen het metadatacommando. Ruby-lint gebruikt de native RuboCop-CLI en formatter. Een gezamenlijke bundle of CI-setup maakt deze tools niet afhankelijk van elkaar.
 
-Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. De [ontwikkelinstructies](AGENTS.md#responsibility-and-integration-review) regelen review en onderhoud over deze grenzen heen.
+Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) regelen review en onderhoud over deze grenzen heen.
 
 ### CLI en rapportage
 
@@ -76,7 +81,7 @@ Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapp
 
 Gebruik bestaande native commando’s en hun uitvoeropties wanneer die de controle al aanbieden. Puppet-lint en RuboCop hebben hun eigen CLI en correctieopties; `puppet parser validate` biedt syntaxvalidatie zonder rapport. Voeg daarvoor geen gelijknamige projectwrapper of uniforme set opties toe. Een aparte converter of rapportagevariant mag een uitvoerformaat in zijn naam en een verplicht rapportpad hebben: `puppet-lint-junit` zet bestaande JSON-uitvoer om, terwijl `validate-junit` native parserresultaten per manifest verzamelt. Documenteer bij zo’n variant ook het gewone commando zonder rapport.
 
-Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. De [ontwikkelinstructies](AGENTS.md#responsibility-and-integration-review) bepalen welke gedragstests en integratiecontroles dit contract bij wijzigingen bewaken.
+Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) bepalen welke gedragstests en integratiecontroles dit contract bij wijzigingen bewaken.
 
 ### Joblogs
 
@@ -111,6 +116,7 @@ De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-che
 ```sh
 export PROJECT_METADATA_MODULES_PATH=.
 export PROJECT_TOOLS_MODULEPATH="$PWD"
+bundle exec rake secrets:puppet
 bundle exec project-tools-metadata
 bundle exec project-tools-module-dependencies
 bundle exec rake validate:puppet
@@ -119,7 +125,7 @@ bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
 ```
 
-Voer de opdrachten afzonderlijk uit en beoordeel iedere exitstatus. De [project-README](../README.md#ondersteuning-en-compatibiliteit) beschrijft de gebruikte dependencies en hun compatibiliteitsgrenzen. Pas ranges of gitlinks alleen aan na inhoudelijk compatibiliteitsonderzoek.
+Volg de [verplichte controlevolgorde](../TESTS.md#controlevolgorde-en-verplichte-eindcontroles): de Puppet-secretscontrole moet slagen vóór bronhoudende diagnostiek. Voer de opdrachten afzonderlijk uit en beoordeel iedere exitstatus. De [project-README](../README.md#ondersteuning-en-compatibiliteit) beschrijft de gebruikte dependencies en hun compatibiliteitsgrenzen. Pas ranges of gitlinks alleen aan na inhoudelijk compatibiliteitsonderzoek.
 
 ## Installatie en compatibiliteit
 
@@ -205,7 +211,7 @@ Gebruik dezelfde waarde lokaal en in CI. In het [GitHub-voorbeeld](#controle-in-
 
 ### CI van deze repository
 
-Voer eerst de bestaande secrets-tool uit als job **Puppet secrets**. Onderhoud metadata, dependencycontrole, parservalidatie, Puppet-linting, Ruby-linting en tooltests daarna als afzonderlijke CI-jobs. Alleen de secrets-job is een prerequisite: bij afkeuring mogen downstreamdiagnoses geen brongegevens tonen. Genereer alle gepubliceerde validatie-, lint- en testrapporten tijdens de betreffende uitvoering als JUnit XML. Publiceer iedere soort als afzonderlijk artifact na succes of een gewone controlefout en behoud de oorspronkelijke exitstatus. Bewaar gegenereerde rapporten in een genegeerde results-map onder `.tools/` en documenteer commando’s en locaties hier. Sluit het geslaagde validatiepad van iedere job af met `git diff --quiet HEAD --`; de [projectworkflow](../AGENTS.md#ci-jobs-and-reports) verbiedt herstel om die controle te laten slagen.
+Voer eerst de bestaande secrets-tool uit als job **Puppet secrets**. Onderhoud metadata, dependencycontrole, parservalidatie, Puppet-linting, Ruby-linting en tooltests daarna als afzonderlijke CI-jobs. Alleen de secrets-job is een prerequisite: bij afkeuring mogen downstreamdiagnoses geen brongegevens tonen. Genereer alle gepubliceerde validatie-, lint- en testrapporten tijdens de betreffende uitvoering als JUnit XML. Publiceer iedere soort als afzonderlijk artifact na succes of een gewone controlefout en behoud de oorspronkelijke exitstatus. Bewaar gegenereerde rapporten in een genegeerde results-map onder `.tools/` en documenteer commando’s en locaties hier. Sluit het geslaagde validatiepad van iedere job af met `git diff --quiet HEAD --`; de [projectworkflow](#ci-en-rapporten-onderhouden) verbiedt herstel om die controle te laten slagen.
 
 [GitHub Actions](../.github/workflows/checks.yml) voert eerst de secrets-gate en daarna de hieronder beschreven afzonderlijke jobs uit. Iedere job haalt de repository met submodules op en roept daarna [setup-tooling](../.github/actions/setup-tooling/action.yml) aan voor dezelfde Ruby-, Bundler- en frozen-bundle-installatie. Daarna volgt de eigen controle. De Ruby-job controleert de Ruby-code van alle tools. De testjob voert alle suites uit, inclusief repositorycontroles. Een fout na de secrets-gate houdt de andere gestarte jobs niet tegen; een afgekeurde of onvolledige secrets-scan blokkeert ze allemaal.
 
@@ -227,7 +233,7 @@ Open de workflowrun onder **Actions** om de afzonderlijke uitslagen en de artifa
 
 Puppet-lint schrijft onder `.tools/lint/results/`, Ruby-lint onder `.tools/ruby-lint/results/` en tooltests onder `.tools/results/tests/`. De metadata-, parser- en dependencyreporters maken hun eigen bovenliggende rapportmap aan. De uploads gebruiken `include-hidden-files: true`, omdat `.tools` een verborgen map is. Iedere artifactselectie wijst uitsluitend naar het eigen lint- of validatierapport of naar `TEST-*.xml`; de testsamenvatting leest dezelfde testselectie.
 
-De scanner sluit de secrets-controle af met veilige metadata; de overige controles gebruiken de Bash-presentatie; iedere job voert daarna op het geslaagde pad rechtstreeks `git diff --quiet HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de [voorwaardelijke lokale whitespacecontrole](../AGENTS.md#required-checks) niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
+De scanner sluit de secrets-controle af met veilige metadata; de overige controles gebruiken de Bash-presentatie; iedere job voert daarna op het geslaagde pad rechtstreeks `git diff --quiet HEAD --` uit. Dit vindt wijzigingen die installatie of controles in gevolgde bestanden hebben achtergelaten ten opzichte van de uitgecheckte commit. Nieuwe, niet-gevolgde bestanden vallen erbuiten. De opdracht vergelijkt geen twee commits en vervangt de [voorwaardelijke lokale whitespacecontrole](../TESTS.md#controlevolgorde-en-verplichte-eindcontroles) niet. Voer deze CI-controle uit vanuit een schone checkout; lokale ontwikkelwijzigingen geven eveneens een verschil.
 
 De workflow gebruikt de nieuwste stabiele Ruby en installeert Bundler zonder versiepin. `BUNDLE_FROZEN=true` bewaakt de lockfile; `BUNDLE_IGNORE_CONFIG=1` voorkomt afhankelijkheid van persoonlijke Bundler-instellingen. Gems worden binnen de checkout geïnstalleerd via `BUNDLE_PATH=vendor/bundle`. De metadatajob stelt `PROJECT_METADATA_MODULES_PATH=.` in; de overige jobs hebben die instelling niet nodig. De jobs gebruiken Bash met `pipefail`, zodat ook de Puppet-lintaanroep met JUnit-omzetting zijn foutstatus behoudt. Beide linters controleren alleen; de workflow maakt geen commits en publiceert geen gem.
 
@@ -302,7 +308,7 @@ Gebruik voor het testartifact en de testsamenvatting uitsluitend `TEST-*.xml` bi
 
 ### Controle in CI
 
-Volg lokaal de [verplichte voorcontrole](../AGENTS.md#local-inspection-before-disclosure) en de [Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken); een CI-run begint pas na verzending. Publiceer geen analysewerkbomen, mappings, staging of ruwe herstelgegevens als artifact. De zelfstandige Puppet-secretsgate en de bestaande CI-inrichting blijven hiervan afzonderlijk functioneren.
+Volg lokaal de [verplichte voorcontrole](../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) en de [Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken); een CI-run begint pas na verzending. Publiceer geen analysewerkbomen, mappings, staging of ruwe herstelgegevens als artifact. De zelfstandige Puppet-secretsgate en de bestaande CI-inrichting blijven hiervan afzonderlijk functioneren.
 
 Gebruik de eigen `VERSION` en rootmetadata en leg de modulelocatie en naamprefix vast volgens [Modulemetadata controleren](metadata/README.md#modulemetadata-controleren). De onderstaande GitHub- en GitLab-voorbeelden gebruiken `example` als synthetische eigenaar; vervang die door de vastgelegde eigenaar van je project.
 
@@ -774,7 +780,7 @@ jobs:
 
 De publicatiestappen gebruiken `!cancelled()`: ook na een gewone validatie-, lint- of testfout bewaren ze de gemaakte rapporten, terwijl de producerende job zijn foutstatus behoudt. Na een installatie- of opstartfout is er mogelijk nog geen rapport. Een geannuleerde uitvoering hoeft geen artifacts op te leveren. Laat fouten zichtbaar; gebruik geen autofix of foutonderdrukking in CI.
 
-Iedere job controleert na zijn geslaagde opdracht met `git diff --quiet HEAD --` of installatie of uitvoering gevolgde bestanden verandert. Hiervoor is een schone checkout nodig. Nieuwe, niet-gevolgde bestanden vallen buiten deze controle; herstel bestanden niet om de stap te laten slagen. Voor de lokale whitespacecontrole met `git diff --check` gelden de [voorcontrole en beperkingen](../AGENTS.md#git-inspection).
+Iedere job controleert na zijn geslaagde opdracht met `git diff --quiet HEAD --` of installatie of uitvoering gevolgde bestanden verandert. Hiervoor is een schone checkout nodig. Nieuwe, niet-gevolgde bestanden vallen buiten deze controle; herstel bestanden niet om de stap te laten slagen. Voor de lokale whitespacecontrole met `git diff --check` gelden de [voorcontrole en beperkingen](../CONTRIBUTING.md#git-inspectie).
 
 Open in GitHub **Actions** en kies de workflowrun. Daar download je `Metadata-report`, `Project-tools-module-dependencies-report`, `Validate-report`, `Puppet-lint-report`, `Ruby-lint-report` en, wanneer de testjob aanwezig is, `Test-results`. Het workflowoverzicht toont daarnaast de JUnit-samenvattingen van de tooltests en dependencycontrole. De configuratie gebruikt alleen `contents: read`; de samenvatting schrijft geen pull-requestcomments en vraagt geen extra repositoryschrijfrechten. Een beheerder kan de nieuwe job bij branchbeveiliging als verplichte statuscheck instellen; de tooling wijzigt die instelling niet.
 
@@ -1115,7 +1121,7 @@ De namen `profile`, `production` en `quality/results` zijn voorbeelden. Voeg de 
 
 Houd eigen taken voor deze controles beperkt tot de projectspecifieke selectie en het aanroepen van de [gedeelde tooling](#gedeelde-tooling-hergebruiken). Verbeteringen aan de checks, validators en rapportcommando's die voor alle afnemers gelden, horen in de gedeelde gem.
 
-Leg de gekozen toolingindeling en rapportmap vast in de eigen gebruikshandleiding. Verwijs daarnaar vanuit de workflowafspraken in de eigen `AGENTS.md`. Verwijs voor gedeelde tooling naar deze handleiding onder `global-modules/.tools/README.md` en voor algemene codeprincipes, toepasselijke Puppet-regels en reviewcriteria naar `global-modules/.tools/lint/docs/CODE_RULES.md`. Verwijs voor commentaar, Puppet Strings en interface-documentatie aanvullend naar `global-modules/.tools/lint/docs/DOCUMENTATION_RULES.md` en voor operationele wijzigingen naar `global-modules/.tools/lint/docs/OPERATIONAL_RULES.md`. Beide aanvullende regelsbestanden kunnen tegelijk van toepassing zijn. Zo wordt iedere uitleg op haar eigen plek onderhouden. De `AGENTS.md` in de submodule beschrijft het werk aan die repository; afnemers leggen de afspraken voor hun eigen project expliciet vast.
+Leg de gekozen toolingindeling en rapportmap vast in de eigen gebruikshandleiding. Leg de gezamenlijke ontwikkel- en testafspraken vast in de eigen ontwikkeldocumentatie en verwijs daarnaar vanuit de eigen `AGENTS.md`. Verwijs voor gedeelde tooling naar deze handleiding onder `global-modules/.tools/README.md` en voor algemene codeprincipes, toepasselijke Puppet-regels en reviewcriteria naar `global-modules/.tools/lint/docs/CODE_RULES.md`. Verwijs voor commentaar, Puppet Strings en interface-documentatie aanvullend naar `global-modules/.tools/lint/docs/DOCUMENTATION_RULES.md` en voor operationele wijzigingen naar `global-modules/.tools/lint/docs/OPERATIONAL_RULES.md`. Beide aanvullende regelsbestanden kunnen tegelijk van toepassing zijn. Zo wordt iedere uitleg op haar eigen plek onderhouden. De root-`CONTRIBUTING.md` en `TESTS.md` in de submodule beschrijven het werk aan die repository; haar `AGENTS.md` routeert agents naar diezelfde bronnen. Afnemers leggen de afspraken voor hun eigen project expliciet vast.
 
 Een bestaand project met een andere indeling hoeft daarvoor geen Puppet-modules of environments te verplaatsen. Beschrijf de afwijkende paden in de eigen README en houd Gemfile, bestandsselectie, modulepad en CI daarmee in overeenstemming. Voor de manifestanalyse is de indeling een aanbevolen werkwijze. Stel voor de [metadatacontrole](metadata/README.md#modulemetadata-controleren) `PROJECT_METADATA_MODULES_PATH` in op de gekozen map met eigen modules; de naam `modules` is alleen een voorbeeld. Gebruik je een los gempakket, dan vervalt `global-modules/` als installatievereiste en blijven de afspraken voor de eigen tooling hetzelfde.
 
@@ -1165,7 +1171,7 @@ De installatietest gebruikt een tijdelijke Git-checkout met een Bundler-local-ov
 
 Bouw ieder pakket vanuit zijn eigen map. Runtimecode gebruikt gewone `require`-paden; er is geen fallback naar siblingbroncode als shared ontbreekt. Iedere gem bevat uitsluitend eigen runtimecode, bedoelde executables, licentie en documentatie. Shared bevat geen tests of testbootstrap. Resultaten, caches, fixtures, rootlockfile en Puppet-modules blijven buiten de pakketten.
 
-De meegeleverde Markdown blijft gelijk aan de documentatie in de checkout en volgt de [afspraken voor documentatielinks](../AGENTS.md#markdown). Links naar meegeleverde bestanden werken ook binnen de geïnstalleerde gem. Open de documentatie in de bijbehorende checkout voor verwijzingen naar andere tools, repository-instructies, tests of Puppet-modules; die bestanden zitten niet in het pakket.
+De meegeleverde Markdown blijft gelijk aan de documentatie in de checkout en volgt de [afspraken voor documentatielinks](lint/docs/DOCUMENTATION_RULES.md#markdown). Links naar meegeleverde bestanden werken ook binnen de geïnstalleerde gem. Open de documentatie in de bijbehorende checkout voor verwijzingen naar CONTRIBUTING, TESTS, andere tools, agentroutes, tests of Puppet-modules; die bestanden zitten niet in het pakket.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Gevalideerde bronnen en RubyGems. **Invoer:** De gemspecs van de gekozen tools. **Wijzigt bestanden:** Alleen /tmp-gempakketten. **Verwacht resultaat:** Zelfstandig installeerbare pakketten.
 
@@ -1241,9 +1247,54 @@ De gedeelde console voor [joblogs](#joblogs) is beschikbaar vanaf `project-tools
 
 Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en aanpassing van de parseraanroep. `puppet-lint-junit` blijft een converter: geldige conversie kan status 0 geven terwijl de XML failures bevat; de lintpipe blijft `pipefail` vereisen. `validate-junit` blijft ieder geselecteerd manifest native valideren. De nieuwe dependencytool gebruikt zijn eigen [exitcodes en rapportlevenscyclus](module-dependencies/README.md#exitcodes-en-rapporten).
 
+## Gedeeld toolingonderhoud
+
+Volg bij onderhoud de [gezamenlijke ontwikkelwerkwijze](../CONTRIBUTING.md) en het [repositorybrede testbeleid](../TESTS.md). Deze onderhoudsroute geldt ook voor integratie in de root-Gemfile, het Rakefile, `.github/` en consumervoorbeelden. Lees daarna de README van ieder geraakt component; bij een gedeelde interface ook de contracten van de werkelijke afnemers. De [algemene ontwerpregels](lint/docs/CODE_RULES.md#algemene-ontwerpregels) gelden voor ieder component.
+
+| Component | Onderhoud en verificatie |
+| --- | --- |
+| Lint | [Checks, architectuur, veilige autofix en documentatie](lint/README.md#linter-ontwikkelen-en-testen). |
+| Metadata | [Selectie, versiebron, herstel en rapporten](metadata/README.md#onderhoud-en-verificatie). |
+| Moduledependencies | [Native selectie, runtimegrenzen en distributie](module-dependencies/README.md#ontwikkelen-en-testen). |
+| Repositorycontroles | [Documentatie, instructieroutes, CI, distributie-integratie en testindeling](repository-checks/README.md#onderhoud). |
+| Ruby-lint | [Native RuboCop, profiel en consumerintegratie](ruby-lint/README.md#onderhoud-en-tests). |
+| Secrets | [Detectie, analysekopieën, herstel en veilige review](secrets/README.md#ontwikkelen-en-testen). |
+| Shared | [Gedeelde runtime en testondersteuning](shared/README.md#afhankelijkheden-en-onderhoud). |
+| Validator | [Native parser, selectie en rapporten](validate/README.md#ontwikkelen-en-testen). |
+
+### Verantwoordelijkheden en integratie reviewen
+
+- Pas de [hergebruikreview](../CONTRIBUTING.md#hergebruik-en-samenhang) en algemene ontwerpcriteria toe over de geraakte tools en hun echte consumers. Beoordeel executable, commandolaag, toolverwerking en gedeelde runtime tegen de [verantwoordelijkheidsgrenzen](#verantwoordelijkheden-gescheiden-houden) en het [CLI-contract](#cli-en-rapportage), ook voor zelfstandige installatie en consumerprojecten.
+- Verifieer bij taakingangen dat iedere afzonderlijke gebruikstaak een duidelijk subcommando binnen de ene executable heeft en de inhoudelijke verwerking aan de eigen library overdraagt. Pas bij vervanging de consolidatieafspraak toe: consumers migreren in plaats van parallelle routes te behouden. Werk geïnstalleerde executables, lintdekking, integraties en consumermigratie samen bij, zonder een tweede implementatie achter een nieuw commando.
+- Review packagegrenzen tegen het [pakketcontract](#pakketten-en-commandos): CLI, runtime-dependencies, configuratie, correcties, rapporten en gedragstests blijven bij hun onafhankelijke controle. Een gedeelde ontwikkelbundle rechtvaardigt geen afhankelijkheden tussen onafhankelijke tools of een runtimepakket voor repositorycontroles.
+- Houd ontwikkeldependencies en orkestratie in root-Gemfile en Rakefile. Gebruik lokaal en in CI dezelfde Bundler-, Rake- en native CLI-routes; voeg geen tweede ontwikkelbundle binnen een toolgem toe.
+- Werk bij verplaatsing consumerinstallatie, CI, rapporten en documentatie samen bij. Benoem gedeelde instellingen, taken en rapportlocaties neutraal en behoud toolspecifieke instellingen bij hun eigenaar.
+- Verifieer het CLI- en rapportcontract met gedragstests: geslaagde en afgekeurde controles met en zonder rapport, herstel zonder rapport waar ondersteund, geen rapportwijziging zonder verzoek en behoud van foutstatus bij rapportagefouten. Controleer de geïnstalleerde CLI en wijzig bij een commandowijziging voorbeelden, CI en consumermigratie tegelijk.
+
+### Toolteststructuur onderhouden
+
+Volg bij toevoegen en verplaatsen de [testlocaties en taken](#gezamenlijke-tooltests), de [repositorybrede testscope](../TESTS.md#testscope-en-plaatsing) en [scenarioselectie](../TESTS.md#scenarios-kiezen).
+
+- Verplaats verkeerd geplaatste tests naar hun eigenaar; verbreed discovery niet en documenteer geen uitzondering alleen om de bestaande plaats te behouden.
+- Gebruik fixtures en ondersteuning uitsluitend om een toolcontract te toetsen. Houd toolspecifieke helpers en fixtures bij hun tests; deel testhulp alleen als meerdere tools haar werkelijk nodig hebben.
+- Werk bij structuurwijzigingen discovery, padresolutie, taken, CI en documentatie samen bij. Verwijder na migratie vervangen testmappen, dubbele bestanden, ongebruikte ondersteuningsdata, verouderde taken en verwijzingen.
+- Behoud regressiedekking en rapporteer bewust verwijderde tests. Verifieer dat de verwachte tests daadwerkelijk worden ontdekt en uitgevoerd: succes zonder toepasselijke tests bewijst niets.
+
+### CI en rapporten onderhouden
+
+Pas de [CI- en rapportprocedures](#ci-van-deze-repository) toe bij tooling- of pipelinewijzigingen. Behoud de secrets-gate vóór onafhankelijke diagnostische jobs en de selecties, drempels, exitcodes en publicatiecontracten.
+
+Beoordeel gewijzigde reporters en CI-aanroepen tegen het [joblogcontract](#joblogs). Inspecteer representatieve uitvoer voor een schone run, één bevinding tussen veel schone invoer, meerdere bevindingen binnen en over invoer, en onvolledige uitvoering met bevindingen en meerdere uitvoerfouten. Bewaar die gevallen in de gedragstests van de eigenaar en noteer de handmatige leesbaarheidsreview. Alleen gebruik van de gedeelde console bewijst geen naleving. Houd uitvoering en presentatie gescheiden en valideer betrokken tool- en repositoryintegratietests.
+
+### Toolingdocumentatie onderhouden
+
+Houd algemene codeprincipes bij CODE_RULES en verwijs daarnaar zonder herhaling. Publieke installatie, gebruik, configuratie, concrete architectuur, interfaces, exitcodes, rapporten, voorbeelden, ondersteunde integraties en onderhoud staan in de kleinste passende README. De gedeelde gids en de README's van shared, metadata, Ruby-lint, repositorycontroles, validator en dependencies bezitten hun eigen interfaces en procedures en dupliceren geen lintnormen. Volg voor de vier centrale lintdocumenten hun [onderhoudsafspraken en grenzen](lint/README.md#lintdocumentatie-onderhouden).
+
+Houd toolspecifieke testinstructies in de eigen handleiding en maak geen losse test-README's. Controleer bij verplaatsing ook verpakte documentatielinks. Normaal gebruik moet begrijpelijk blijven vanuit de meegeleverde README en regelsdocumenten; aanvullende ontwikkeldocumentatie buiten de gem vereist de bijbehorende checkout. Wijzig geminhoud alleen wanneer een ondersteunde distributieroute dat vereist, met behoud van packagegrenzen en licenties.
+
 ## Gezamenlijke tooltests
 
-Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint`, `shared`, `validate`, `module-dependencies`, `metadata`, `ruby-lint`, `secrets` en `repository-checks`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../AGENTS.md#test-scope) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
+Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint`, `shared`, `validate`, `module-dependencies`, `metadata`, `ruby-lint`, `secrets` en `repository-checks`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../TESTS.md#testscope-en-plaatsing) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Eigen Puppet-manifesten voor de secrets-gate en synthetische toolcontracten. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Niet-lege selectie zonder failures, errors of onverklaarde skips.
 
@@ -1271,7 +1322,7 @@ MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests bundle exec rake test
 
 De reporter maakt de opgegeven map aan en vervangt alleen `TEST-*.xml`; andere rapporten blijven staan. Testklassen hebben unieke namen, zodat bestanden niet worden overschreven. Een mislukte test houdt zijn foutstatus, met of zonder rapport. Een fout bij het schrijven van een gevraagd rapport geeft eveneens een foutstatus.
 
-De shared-tests controleren paden, XML, laadbijwerkingen en de gedeelde testbootstrap. Repositorycontroles bewaken documentatienavigatie, CI, package-integratie en testindeling. Metadata- en Ruby-tests bewaken hun eigen CLI, correcties, rapporten en onafhankelijke installatie. De linkcontrole verifieert lokale doelen en ankers en meldt vaste repository-URL’s in Markdown volgens de [documentatieafspraken](../AGENTS.md#markdown). Dependencytests controleren synthetische selectie, rootvoorwaarden, runtime-isolatie, presentatie, package-inhoud en afzonderlijke installatie. Validatortests controleren native parseruitvoering, selectie, foutstatus, bronbehoud en afzonderlijke installatie. Linttests bewaren de bestaande lint-CLI-, autofix- en packagecontracten. Het [testonderhoud](AGENTS.md#tool-test-structure) bewaakt plaatsing, discovery en dekking; de [lintgids](lint/README.md#tests-uitvoeren-en-uitbreiden) beschrijft zijn eigen testaanroepen.
+De shared-tests controleren paden, XML, laadbijwerkingen en de gedeelde testbootstrap. Repositorycontroles bewaken documentatienavigatie, CI, package-integratie en testindeling. Metadata- en Ruby-tests bewaken hun eigen CLI, correcties, rapporten en onafhankelijke installatie. De linkcontrole verifieert lokale doelen en ankers en meldt vaste repository-URL’s in Markdown volgens de [documentatieafspraken](lint/docs/DOCUMENTATION_RULES.md#markdown). Dependencytests controleren synthetische selectie, rootvoorwaarden, runtime-isolatie, presentatie, package-inhoud en afzonderlijke installatie. Validatortests controleren native parseruitvoering, selectie, foutstatus, bronbehoud en afzonderlijke installatie. Linttests bewaren de bestaande lint-CLI-, autofix- en packagecontracten. Het [testonderhoud](#toolteststructuur-onderhouden) bewaakt plaatsing, discovery en dekking; de [lintgids](lint/README.md#tests-uitvoeren-en-uitbreiden) beschrijft zijn eigen testaanroepen.
 
 ### Versies bijwerken
 
@@ -1283,16 +1334,16 @@ Bij de eerste installatie gebruikt Bundler de versies uit de lockfile. Wil je di
 export PROJECT_METADATA_MODULES_PATH=.
 gem install bundler
 BUNDLE_VERSION=system bundle update --all
+bundle exec rake secrets:puppet
 bundle exec puppet-lint --no-config --config .puppet-lint.rc .
 bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml
 bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
-git diff -- Gemfile.lock
 ```
 
 [`bundle update --all`](https://bundler.io/man/bundle-update.1.html) kiest de nieuwste stabiele gems die onderling en met de ingestelde Ruby-versie passen. Gems kunnen zelf beperkingen aan hun afhankelijkheden stellen. Gebruik geen prereleases voor de gewone ontwikkelomgeving.
 
-Controleer de gewijzigde lockfile en eventuele codeaanpassingen in de review. `bundle install` gebruikt daarna steeds die geteste combinatie.
+Controleer de gewijzigde lockfile en eventuele codeaanpassingen via de [veilige Git-inspectie](../CONTRIBUTING.md#git-inspectie) in de review. `bundle install` gebruikt daarna steeds die geteste combinatie.
 
 Werk op macOS Ruby bij met `brew update` en `brew upgrade ruby`. Open daarna een nieuwe terminal, zodat ook het pad voor gemcommando's opnieuw wordt bepaald, en volg opnieuw [Gems installeren](#gems-installeren). Draai na een Ruby-update de volledige lintscan en testsuite.
 
