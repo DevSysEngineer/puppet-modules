@@ -26,11 +26,11 @@ module ProjectTools
         text.to_enum(:scan, pattern).each { yield Regexp.last_match }
       end
 
-      def self.signatures(document)
+      def self.signatures(document, pem_searches: [])
         matches(document, TOKENS, 'token_signature')
         matches(document, AUTH, 'authorization', group: 1)
         credential_urls(document)
-        blocks(document, PEM, 'pem_material') { |match| "-----END #{match[1]}-----" }
+        blocks(document, PEM, 'pem_material', searches: pem_searches) { |match| "-----END #{match[1]}-----" }
         blocks(document, ENCRYPTED, 'encrypted_secret') { ']' }
       end
 
@@ -50,26 +50,41 @@ module ProjectTools
         end
       end
 
-      def self.block(document, match, pattern, rule, ending)
-        last = document.text.index(ending, match.end(0))
-        issue = block_issue(document, match, pattern, last)
+      def self.block(document, match, pattern, rule, searches)
+        ending = yield
+        last = block_end(document.text, ending, match.end(0), searches)
+        issue = block_issue(document, match, pattern, last, searches)
         document.finding(rule, match.begin(0), 'value')
         return document.error("#{issue}_#{rule}") if issue
 
         document.redact(match.begin(0), last + ending.length, rule)
       end
 
-      def self.block_issue(document, match, pattern, last)
+      def self.block_end(text, ending, start, searches)
+        last = text.index(ending, start)
+        last = text.index(ending, last + ending.length) while last && search_marker?(searches, last)
+        last
+      end
+
+      def self.block_issue(document, match, pattern, last, searches)
         return 'unterminated' unless last
 
         nested = pattern == ENCRYPTED ? /\[/ : pattern
-        'nested' if nested.match?(document.text[match.end(0)...last])
+        each_match(document.text[match.end(0)...last], nested) do |inner|
+          return 'nested' unless search_marker?(searches, match.end(0) + inner.begin(0))
+        end
+        nil
       end
 
-      def self.blocks(document, pattern, rule)
+      def self.search_marker?(searches, offset)
+        searches.any? { |first, last| offset >= first && offset < last }
+      end
+
+      def self.blocks(document, pattern, rule, searches: [])
         each_match(document.text, pattern) do |match|
-          ending = yield match
-          block(document, match, pattern, rule, ending)
+          next if search_marker?(searches, match.begin(0))
+
+          block(document, match, pattern, rule, searches) { yield match }
         end
       end
     end

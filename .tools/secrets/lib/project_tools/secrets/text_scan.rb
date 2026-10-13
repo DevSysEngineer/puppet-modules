@@ -12,6 +12,8 @@ module ProjectTools
       def initialize(document)
         @document = document
         @text = document.text
+        @shell = Context.shell_source?(document.path, @text)
+        @shell_context = ShellContext.new(@text) if @shell
         @markdown = MarkdownContext.new(@text) if %w[.md .markdown].include?(File.extname(document.path).downcase)
         @region = MarkdownContext::Region.new(0, @text.length, false)
       end
@@ -30,7 +32,7 @@ module ProjectTools
           next unless Patterns::NAME.match?(match[1])
           next unless within_context?(match)
 
-          value(match.end(0), 'sensitive_assignment', name: match[1], word: true)
+          value(skip_space(match.end(0), continuation: @shell), 'sensitive_assignment', name: match[1], word: true)
         end
       end
 
@@ -39,6 +41,7 @@ module ProjectTools
           next unless Patterns::NAME.match?(match[1])
           next if Context.assignment_code?(@document, match)
           next unless within_context?(match)
+          next if @shell_context&.code?(match.begin(0)) && Context.empty_shell_assignment?(@text, match)
 
           value(skip_space(match.end(0)), 'sensitive_assignment', name: match[1], word: match[1].start_with?('--'))
         end
@@ -72,8 +75,13 @@ module ProjectTools
         @document.redact(@region.first, @region.last, rule)
       end
 
-      def skip_space(index)
-        index += 1 while index < @region.last && @text[index]&.match?(/[ \t\r\n]/)
+      def skip_space(index, continuation: false)
+        loop do
+          index += 1 while index < @region.last && @text[index]&.match?(/[ \t\r\n]/)
+          break unless continuation && @text[index, 2] == "\\\n"
+
+          index += 2
+        end
         index
       end
 
@@ -88,8 +96,11 @@ module ProjectTools
 
       def value_bounds(first, word)
         parser = bounds
-        last = parser.finish(first, outer_quote: parser.enclosing_quote(first, start: @region.first), word: word)
-        return unless last && last > first && !ambiguous_continuation?(first, last, parser.lambda?)
+        quote = Context.enclosing_quote(@text, first, start: @region.first)
+        shell = @shell_context&.code?(first) && !quote
+        last = parser.finish(first, outer_quote: quote, word: word, shell: shell)
+        return unless last && last > first
+        return if !shell && ambiguous_continuation?(first, last, parser.lambda_start)
 
         [first, last]
       end
@@ -103,7 +114,7 @@ module ProjectTools
 
         following = tail.lines.find { |line| /\S/.match?(line) }
         return false unless following.to_s.match?(/\A[ \t]+\S/)
-        return false if puppet_statement?(first, last, lambda_expression)
+        return false if Context.puppet_statement?(@document, first, last, lambda_expression)
 
         !following.match?(/\A[ \t]*(?:[#}\]);]|["'$]?[\w:.-]+["']?\s*(?:=>|=|:))/)
       end
@@ -112,29 +123,13 @@ module ProjectTools
         File.extname(@document.path) == '.pp'
       end
 
-      def puppet_statement?(first, last, lambda_expression)
-        return false unless puppet_source? && puppet_expression?(first, last, lambda_expression)
-
-        start = skip_space(last)
-        return false unless @text[start..].match?(/\A(?:if|unless)\s+[^\r\n{]+\{/)
-
-        opening = @text.index('{', start)
-        !!ValueBounds.new(@text, puppet: true).finish(opening, balanced: true)
-      end
-
-      def puppet_expression?(first, last, lambda_expression)
-        expression = @text[first...last].strip
-        (lambda_expression && expression.end_with?('}')) ||
-          expression.match?(/\A\$[\w:]+(?:\[[^\r\n]+\]|\.[a-z_]\w*)*\z/)
-      end
-
       def ruby_source?
         @document.ruby_source? && @document.complete?
       end
 
       def redact(first, last, rule, name: '')
         raw = @text[first...last].strip
-        return if Context.safe_value?(name, raw)
+        return if Context.safe_value?(name, raw, shell: @shell_context&.code?(first))
 
         @document.redact(first, last, rule, "'[REDACTED]'", value: Context.unquote(raw))
       end

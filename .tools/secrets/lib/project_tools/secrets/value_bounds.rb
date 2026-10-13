@@ -5,7 +5,7 @@ module ProjectTools
     # Recognize complete quoted/balanced expressions without executing them.
     class ValueBounds
       PAIRS = { '(' => ')', '[' => ']', '{' => '}' }.freeze
-      QUOTES = %w[' " `].freeze
+      attr_reader :lambda_start
 
       def initialize(text, puppet: false, limit: text.length)
         @text = text
@@ -13,28 +13,22 @@ module ProjectTools
         @limit = limit
       end
 
-      def finish(first, balanced: false, outer_quote: nil, word: false)
+      def finish(first, balanced: false, outer_quote: nil, word: false, shell: false)
         return if @text[first...@limit].start_with?('@(', '<<', '|', '>')
 
+        reset(first, outer_quote: outer_quote, word: word, shell: shell)
+        walk(balanced)
+      end
+
+      def reset(first, outer_quote: nil, word: false, shell: false)
         @index = first
         @stack = []
         @quote = nil
         @outer_quote = outer_quote
-        @word = word
+        @word = word || shell
+        @shell = shell
         @lambda_start = nil
         @lambda_body = false
-        walk(balanced)
-      end
-
-      def enclosing_quote(first, start: 0)
-        start = [start, (@text.rindex("\n", first - 1) || -1) + 1].max
-        quote = nil
-        @text[start...first].scan(/\\.|['"`]/).each do |char|
-          next if char.start_with?('\\')
-
-          quote = quote == char ? nil : quote || char
-        end
-        quote
       end
 
       def walk(balanced)
@@ -54,18 +48,25 @@ module ProjectTools
         @stack.empty? && !@quote && !@lambda_body
       end
 
-      def lambda?
-        !@lambda_start.nil?
-      end
-
       def step(char)
-        if char == '\\'
+        if char == '\\' && !(@shell && @quote == "'")
           @index += 2
           return :continue
         end
+        return :continue if shell_expansion?
+
         state = @quote ? quoted(char) : unquoted(char)
         @index += 1 if state == :continue
         state
+      end
+
+      def shell_expansion?
+        return false unless @shell && @quote != "'" && ['${', '$('].include?(@text[@index, 2])
+
+        @stack << [PAIRS.fetch(@text[@index + 1]), @quote]
+        @quote = nil
+        @index += 2
+        true
       end
 
       def quoted(char)
@@ -83,13 +84,14 @@ module ProjectTools
       end
 
       def terminator?(char)
-        @stack.empty? && (char == @outer_quote || ",;\r\n".include?(char) || (@word && char.match?(/[ \t]/)))
+        separators = @shell ? ";\r\n|&<>" : ",;\r\n"
+        @stack.empty? && (char == @outer_quote || separators.include?(char) || (@word && char.match?(/[ \t]/)))
       end
 
       def opening(char)
         return lambda_pipe if @puppet && char == '|'
 
-        if QUOTES.include?(char)
+        if %q('"`).include?(char)
           @quote = char
         elsif PAIRS.key?(char)
           @stack << PAIRS.fetch(char)
@@ -102,8 +104,7 @@ module ProjectTools
           parameters = @text[@lambda_start...@index]
           return :invalid unless parameters.match?(/\A\s*\$\w+(?:\s*,\s*\$\w+)*\s*\z/)
 
-          @stack.pop
-          @lambda_body = true
+          @lambda_body = @stack.pop == '|'
         else
           @lambda_start = @index + 1
           @stack << '|'
@@ -116,14 +117,16 @@ module ProjectTools
         return :invalid unless char == '{'
 
         @lambda_body = false
-        @stack << '}'
-        :continue
+        opening(char)
       end
 
       def closing(char)
         return :stop if @stack.empty?
 
-        @stack.pop == char ? :continue : :invalid
+        expected, @quote = @stack.pop
+        return :invalid unless expected == char
+
+        :continue
       end
     end
   end

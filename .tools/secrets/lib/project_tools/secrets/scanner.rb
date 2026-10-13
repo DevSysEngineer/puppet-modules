@@ -124,7 +124,7 @@ module ProjectTools
       end
 
       def scan_text(document)
-        Patterns.signatures(document)
+        Patterns.signatures(document, pem_searches: Context.pem_searches(document))
         return unless document.complete? && !yaml?(document)
 
         parser = @puppet || (@analysis && File.extname(document.path) == '.pp')
