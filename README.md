@@ -461,6 +461,14 @@ Met [`docker::nextcloud_occ`](docker/manifests/nextcloud_occ.pp) voer je aanvull
 
 Activeer `allow_local_remote_servers` alleen voor benodigde lokale integraties, zoals federatieve shares of webcal: deze functies krijgen daarmee toegang tot lokale diensten. Standaard staat dit uit.
 
+##### Inloggen via OIDC
+
+Wil je gebruikers rechtstreeks naar je OIDC-provider sturen, installeer en activeer dan eerst `user_oidc` en richt één werkende provider in. Geef daarna optioneel `user_oidc_allow_multiple_user_backends => false` mee aan `docker::nextcloud`, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L238). Met `true` sta je meerdere inlogmethoden toe. De standaard `undef` laat de bestaande instelling ongemoeid; ook het weglaten van een eerder opgegeven waarde verwijdert of herstelt niets. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven het volledige parametercontract.
+
+Puppet beheert alleen deze applicatie-instelling via de bestaande OCC-voorziening, zodra Nextcloud geïnstalleerd is en zonder containerherstart. Na de installatiecontrole toetst een afzonderlijke, alleen-lezen OCC-controle of de `user_oidc`-commando’s beschikbaar zijn. Ontbreken ze, bijvoorbeeld doordat de app ontbreekt of uitgeschakeld is, dan faalt die controle en wordt de instelling niet geschreven. Een werkende providerconfiguratie blijft je eigen verantwoordelijkheid. De parameter installeert geen app en verandert geen providers, gebruikers of authenticatiegegevens; mislukte OCC-schrijfopdrachten blijven fouten.
+
+Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/login?direct=1` kun je de normale loginpagina bereiken zolang die route beschikbaar blijft, zoals beschreven in de [user_oidc-documentatie](https://github.com/nextcloud/user_oidc#disable-other-login-methods). Deze instelling bepaalt het inloggedrag en maakt niet alle alternatieve authenticatiemethoden technisch onmogelijk.
+
 ##### AIO-back-ups
 
 Puppet maakt `/opt/docker/<naam>/backup` aan met eigenaar `root:root` en rechten `0700`. Dit activeert nog geen back-ups. Vul het volledige hostpad eenmalig in bij **Local backup location** in de AIO-interface, zonder afsluitende slash of `/borg`. Voor het voorbeeld is dat `/opt/docker/nextcloud-aio/backup`; AIO plaatst de Borg-repository daaronder in `borg`. Je kunt ook een hostpad buiten de projectmap of een externe Borg-repository kiezen.
@@ -485,7 +493,7 @@ Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en g
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L301) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L304) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
