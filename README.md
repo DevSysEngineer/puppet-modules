@@ -461,6 +461,14 @@ Met [`docker::nextcloud_occ`](docker/manifests/nextcloud_occ.pp) voer je aanvull
 
 Activeer `allow_local_remote_servers` alleen voor benodigde lokale integraties, zoals federatieve shares of webcal: deze functies krijgen daarmee toegang tot lokale diensten. Standaard staat dit uit.
 
+##### Bitrate voor Talk beheren
+
+Geef in een bestaande `docker::nextcloud`-declaratie bijvoorbeeld `talk_max_stream_bitrate => 10485760` op voor een maximale camerabitrate van ongeveer 10,5 Mbit/s. Met `talk_max_screen_bitrate` stel je de bitrate voor schermdelen in. Beide parameters gebruiken bit/s. De standaard `undef` laat de betreffende instelling ongemoeid, ook als je een eerder ingestelde waarde weer weglaat. De [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de controles en uitvoeringsvoorwaarden.
+
+Puppet controleert de ingestelde bitrates tijdens iedere run en corrigeert afwijkingen in beide secties van de Talk-configuratie. Bij een wijziging herstart het eenmaal de service `signaling`. Een ontbrekende of gestopte Talk-container wordt overgeslagen. AIO genereert de configuratie bij iedere containerstart opnieuw; deze oplossing herstelt de gewenste waarden pas tijdens de volgende Puppet-run.
+
+De herstart van `signaling` kan actieve gesprekken verstoren. Voer de eerste integratietest daarom buiten actieve gesprekken uit. Controleer daarna ook een ongewijzigde Puppet-run, `--noop` en herstel na een containerstart.
+
 ##### Inloggen via OIDC
 
 Wil je gebruikers rechtstreeks naar je OIDC-provider sturen, installeer en activeer dan eerst `user_oidc` en richt één werkende provider in. Geef daarna optioneel `user_oidc_allow_multiple_user_backends => false` mee aan `docker::nextcloud`, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L238). Met `true` sta je meerdere inlogmethoden toe. De standaard `undef` laat de bestaande instelling ongemoeid; ook het weglaten van een eerder opgegeven waarde verwijdert of herstelt niets. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven het volledige parametercontract.

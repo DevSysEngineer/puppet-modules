@@ -48,6 +48,16 @@
 # with docker::nextcloud_s3 and ensure present for this deployment; matching registrations run before selection.
 # Selecting primary object storage does not migrate existing files; prepare storage migration and backups first.
 #
+# Optional Talk bitrates are checked on every Puppet run in nextcloud-aio-talk, independently of OCC installation.
+# Both [backend-1] and [mcu] in /conf/signaling.conf must exist exactly once, with one numeric entry per managed key
+# in each section. Unexpected configuration or failed reads/writes fail without restarting signaling.
+# Missing or stopped Talk containers are skipped without starting them. Guards only read, including during --noop.
+# One configuration action notifies one refresh-only `dinitctl --system restart signaling`; a failed restart fails
+# the Puppet run. AIO regenerates the configuration on container startup, so overrides return on the next Puppet run.
+# Restarting signaling can disrupt active calls; perform the first integration test outside active calls.
+# The container image supplies sh, awk, sed with -i support, and dinitctl. No additional packages or scripts are
+# installed.
+#
 # SMTP shares docker::authentik's parameter names, relay fallback and Sensitive password contract. A resolved relay
 # manages mail_smtpmode, mail_smtphost, mail_smtpsecure and boolean mail_smtpauth. Port, timeout, sender and credentials
 # are only written when supplied. Omitting these optional values does not remove previously stored values, but
@@ -227,6 +237,16 @@
 #   after domain setup. True requires a matching proxy_ssl_name and proxy_ssl_trusted_certificate configured through
 #   nginx http_directives. The application upstream uses HTTP and does not consume this setting.
 #
+# @param talk_max_screen_bitrate
+#   Optional maximum screen-sharing bitrate in bit/s, as a positive integer. Defaults to undef: leave both stored
+#   maxscreenbitrate values untouched, including when a previously managed value is omitted. Only ensure present
+#   enables management; both bitrates share one update and one signaling restart when configuration changes.
+#
+# @param talk_max_stream_bitrate
+#   Optional maximum camera bitrate in bit/s, as a positive integer; 10485760 is approximately 10.5 Mbit/s.
+#   Defaults to undef: leave both stored maxstreambitrate values untouched, including when a previously managed
+#   value is omitted. Only ensure present enables management. With both bitrates undef, no Talk actions are declared.
+#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated Compose service. The default is
 #   `services`.
@@ -279,6 +299,8 @@ define docker::nextcloud (
   Optional[String]                      $ssl_certificate_key                    = undef,
   Optional[String]                      $ssl_certificate_trusted                = undef,
   Boolean                               $ssl_verify                             = false,
+  Optional[Integer[1]]                  $talk_max_screen_bitrate                = undef,
+  Optional[Integer[1]]                  $talk_max_stream_bitrate                = undef,
   String                                $target                                 = 'services',
   Optional[Boolean]                     $user_oidc_allow_multiple_user_backends = undef,
 ) {
@@ -461,6 +483,81 @@ define docker::nextcloud (
               stop_pre_commands          => $nextcloud_stop_pre_commands,
               target                     => $target,
               require                    => Class['docker'],
+            }
+          }
+
+          # Check Talk on each run, even when AIO has regenerated its configuration since the previous run.
+          if ($talk_max_stream_bitrate != undef or $talk_max_screen_bitrate != undef) {
+            # Empty arguments leave the corresponding key unmanaged, without resetting a previous override.
+            $talk_stream_value = $talk_max_stream_bitrate ? {
+              undef   => '',
+              default => String($talk_max_stream_bitrate),
+            }
+            $talk_screen_value = $talk_max_screen_bitrate ? {
+              undef   => '',
+              default => String($talk_max_screen_bitrate),
+            }
+
+            # Share validation between the read-only guard and mutation; emit only numeric sed edits, never configuration.
+            $talk_bitrate_inspect = @(TALK_INSPECT)
+              AWK=$(command -v awk) || exit 1
+              EDITS=$($AWK -v stream="$1" -v screen="$2" '
+                  BEGIN { wanted["maxstreambitrate"] = stream; wanted["maxscreenbitrate"] = screen }
+                  /^[ \t]*\[/ {
+                      if ($0 !~ /^[ \t]*\[[^][]+\][ \t]*([#;].*)?$/) bad = 1
+                      section = $0
+                      sub(/^[ \t]*\[[ \t]*/, "", section)
+                      sub(/[ \t]*\].*$/, "", section)
+                      sections[section]++
+                      next
+                  }
+                  section == "backend-1" || section == "mcu" {
+                      line = $0
+                      sub(/^[ \t]*/, "", line)
+                      key = line
+                      sub(/[^a-zA-Z0-9_].*$/, "", key)
+                      if (!(key in wanted) || wanted[key] == "") next
+                      seen[section, key]++
+                      if (line !~ ("^" key "[ \t]*=[ \t]*[0-9]+[ \t]*([#;].*)?$")) bad = 1
+                      sub(/^[^=]*=[ \t]*/, "", line)
+                      sub(/[ \t]*([#;].*)?$/, "", line)
+                      if ("x" line != "x" wanted[key]) edits = edits NR "s/[0-9][0-9]*/" wanted[key] "/;\n"
+                  }
+                  END {
+                      if (sections["backend-1"] != 1 || sections["mcu"] != 1) bad = 1
+                      for (key in wanted)
+                          if (wanted[key] != "" && (seen["backend-1", key] != 1 || seen["mcu", key] != 1)) bad = 1
+                      if (bad) exit 1
+                      printf "%s", edits
+                  }
+              ' < /conf/signaling.conf) || exit 1
+              | TALK_INSPECT
+
+            # sed -i stages the replacement; validation must succeed before any write, preserving AIO-owned content and mode.
+            $talk_bitrate_write = join([
+              $talk_bitrate_inspect,
+              'SED=$(command -v sed) || exit 1',
+              '[ -z "$EDITS" ] || $SED -i -e "$EDITS" /conf/signaling.conf',
+            ], "\n")
+            $talk_bitrate_unless = join([$talk_bitrate_inspect, '[ -z "$EDITS" ]'], "\n")
+
+            # A trivial container guard skips unavailable Talk containers without hiding configuration read/write failures.
+            docker::compose_exec { "${name}_talk_bitrates":
+              command        => ['/bin/sh', '-c', $talk_bitrate_write, 'puppet-talk-bitrate', $talk_stream_value, $talk_screen_value],
+              compose_name   => $name,
+              container_name => 'nextcloud-aio-talk',
+              onlyif         => ['/bin/true'],
+              unless         => ['/bin/sh', '-c', $talk_bitrate_unless, 'puppet-talk-bitrate', $talk_stream_value, $talk_screen_value],
+              notify         => Docker::Compose_exec["${name}_talk_signaling_restart"],
+            }
+
+            # Coalesce both bitrate changes into one Dinit service restart and propagate its exit status unchanged.
+            docker::compose_exec { "${name}_talk_signaling_restart":
+              command        => ['dinitctl', '--system', 'restart', 'signaling'],
+              compose_name   => $name,
+              container_name => 'nextcloud-aio-talk',
+              onlyif         => ['/bin/true'],
+              refreshonly    => true,
             }
           }
 
