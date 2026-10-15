@@ -32,7 +32,7 @@
 # `default_language`, `default_locale`, `default_phone_region`, `default_app`, `files_max_chunk_size`,
 # `skeleton_directory`) through
 # `docker::nextcloud_occ`. Puppet only writes on an actual difference. These settings are always managed, with
-# configurable values. SMTP, OIDC login behavior and objectstore selections have optional parameters below; use
+# configurable values. App Store link visibility, SMTP, OIDC login behavior and objectstore selections are optional; use
 # `docker::nextcloud_occ` for other settings.
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
@@ -104,6 +104,13 @@
 #   Allows requests to remote servers with local addresses, such as federated shares and webcal services, when true.
 #   Defaults to false, retaining Nextcloud's restriction on these requests. Enable only for required local integrations.
 #   Written through OCC `config:system:set allow_local_remote_servers` with `--type=boolean`.
+#
+# @param appstore_link_shown
+#   Optional visibility of the App Store link in the app menu for users without admin rights. False hides the link;
+#   true shows it. Defaults to undef: leave the stored value unmanaged, including when a previously supplied value
+#   is omitted. Applies only with ensure present after Nextcloud installation, without restarting containers.
+#   Writes core appstore_link_shown through OCC `config:app:set` with `--type=boolean` and compares typed JSON.
+#   Requires a Nextcloud version supporting this setting; does not disable the App Store or app installation.
 #
 # @param default_app
 #   Global default app written through OCC `config:system:set defaultapp`.
@@ -267,6 +274,7 @@ define docker::nextcloud (
   Optional[String[1]]                   $admin_server_name                      = undef,
   Array[Stdlib::IP::Address]            $admin_whitelist_ips                    = [],
   Boolean                               $allow_local_remote_servers             = false,
+  Optional[Boolean]                     $appstore_link_shown                    = undef,
   String[1]                             $default_app                            = 'files',
   String[1]                             $default_language                       = 'nl',
   String[1]                             $default_locale                         = 'nl_NL',
@@ -587,6 +595,23 @@ define docker::nextcloud (
             compose_name => $name,
             unless       => ['config:app:get', 'files', 'default_quota'],
             unless_json  => stdlib::to_json($default_quota),
+          }
+
+          # Manage the app menu link only when requested; omission preserves Nextcloud's stored choice.
+          if ($appstore_link_shown != undef) {
+            # Compare boolean JSON so false remains distinct from an absent or string-valued setting.
+            docker::nextcloud_occ { "${name}_appstore_link_shown":
+              command      => [
+                'config:app:set',
+                'core',
+                'appstore_link_shown',
+                "--value=${appstore_link_shown}",
+                '--type=boolean',
+              ],
+              compose_name => $name,
+              unless       => ['config:app:get', 'core', 'appstore_link_shown'],
+              unless_json  => stdlib::to_json($appstore_link_shown),
+            }
           }
 
           # Manage OIDC login behavior only when explicitly requested; omission preserves the stored value.

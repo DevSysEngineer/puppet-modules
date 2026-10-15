@@ -263,6 +263,7 @@ node 'nextcloud.example.org' {
   docker::nextcloud { 'nextcloud-aio':
     admin_server_name                      => 'cloud-admin.example.org',
     admin_whitelist_ips                    => ['192.0.2.10', '2001:db8::/32'],
+    appstore_link_shown                    => false,
     objectstore_default                    => 'server2',
     objectstore_root                       => 'server1',
     server_name                            => 'cloud.example.org',
