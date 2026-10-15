@@ -112,11 +112,13 @@ get_seconds() {
             if (index($0, key) != 1) next
             value=substr($0, length(key)+1)
             sub(/^[[:space:]]+/, "", value)
+            # Ignore a trailing annotation such as the maximum root distance.
+            sub(/[[:space:]]*[(][^()]*[)][[:space:]]*$/, "", value)
             if (!match(value, /^[+-]?[0-9]+([.][0-9]+)?/)) exit
             number=substr(value, RSTART, RLENGTH)+0
             unit=substr(value, RLENGTH+1)
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", unit)
-            if (unit=="s") scale=1
+            if (unit=="s" || (unit=="" && number==0)) scale=1
             else if (unit=="ms") scale=1000
             else if (unit=="us" || unit=="µs" || unit=="μs") scale=1000000
             else if (unit=="ns") scale=1000000000
