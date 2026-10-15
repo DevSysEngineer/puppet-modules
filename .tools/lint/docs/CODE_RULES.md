@@ -2684,11 +2684,11 @@ Lokale berekeningen binnen dezelfde evaluatiecontext. Hergebruik is geen caching
 
 **Automatische controle**
 
-`project_duplicate_function_calls` vergelijkt directe aanroepen uit een intern functieregister binnen één resource-expressie. Hoofdletterconversies en geneste aanroepen tellen mee. Functieresolutie, alle argumentexpressies, typen, opties, volgorde en variabelenbindingen moeten bekend zijn.
+`project_duplicate_function_calls` vergelijkt directe aanroepen uit een intern functieregister binnen één resource-expressie of tussen zelfstandige gewone resources met dezelfde directe AST-blokouder. Hoofdletterconversies en geneste aanroepen tellen mee. Functieresolutie, alle argumentexpressies, typen, opties, volgorde en variabelenbindingen moeten bekend zijn.
 
 **Detectiegrenzen**
 
-Geen samenvoeging tussen afzonderlijke resources, statements, branches, classes, defines, functies, lambda's of bestanden. Onbekende functies en onbekende objectinhoud zijn geen bewezen duplicaten. Kortsluiting, selectors, interpolaties, heredocs en codeblokken vallen buiten deze eerste dekking. Een gewone string of commentaar is geen aanroep. De check voert geen manifestfuncties uit.
+Geen samenvoeging tussen andere soorten statements, verschillende AST-blokken, branches, classes, defines, functies, lambda's of bestanden. Onbekende functies en onbekende objectinhoud zijn geen bewezen duplicaten. Kortsluiting, selectors, interpolaties, heredocs en codeblokken vallen buiten deze eerste dekking. Een gewone string of commentaar is geen aanroep. De check voert geen manifestfuncties uit.
 
 **Meldingen en severity**
 
@@ -2700,7 +2700,7 @@ Voorwaardelijk, via native `puppet-lint --fix`.
 
 **Autofixvoorwaarden**
 
-Eén gewone resourcebody, op een zelfstandige statementgrens binnen de bestaande branch. De toekenning komt vóór de resource en haar bijbehorende commentaar. Invoer moet daar beschikbaar zijn; eerdere evaluaties, mogelijke fouten en neveneffecten mogen niet worden gepasseerd. De naam mag niet botsen met parameters, toekenningen of bekende referenties. Overerving, onzekere tokens, suppressions, commentaar binnen de aanroepen en een meerregelige eerste aanroep verhinderen autofix. De hele groep wordt vooraf gevalideerd en samen vervangen; weigering laat de bron intact. Bij geneste groepen heeft de grootste gedeelde expressie voorrang. Zie de [technische grenzen](../README.md#herhaalde-functieaanroepen).
+Iedere betrokken eigenaar heeft één gewone resourcebody, op een zelfstandige statementgrens binnen hetzelfde directe AST-blok. De toekenning komt zo lokaal mogelijk vóór de eerste eigenaar. Bij één eigenaar staat zij onder diens gewone toelichtingsblok zonder extra lege regel; bij meerdere eigenaren vóór het eerste resourcecommentaar met een lege regel ertussen. Volg de [commentaarbinding](DOCUMENTATION_RULES.md#toelichtingsblokken-van-eerdere-code-scheiden) en [verplichte groepsuitleg](DOCUMENTATION_RULES.md#een-variabelegroep-bij-blokbegin-toelichten); ontbrekende verplichte uitleg wordt niet verzonnen en verhindert de fix. Invoer moet daar beschikbaar zijn; eerdere evaluaties, mogelijke fouten en neveneffecten mogen niet worden gepasseerd. De naam mag niet botsen met parameters, toekenningen of bekende referenties. Overerving, onzekere tokens, suppressions, betekenisdragende commentaarmarkeringen, commentaar binnen de aanroepen en een meerregelige eerste aanroep verhinderen autofix. De hele groep wordt vooraf gevalideerd en samen vervangen; weigering laat de bron intact. Bij geneste groepen heeft de grootste gedeelde expressie voorrang. Zie de [technische grenzen](../README.md#herhaalde-functieaanroepen).
 
 **Toegestane uitzonderingen**
 
@@ -2739,7 +2739,7 @@ Controleer de werkelijke implementatie, overloads, expliciete invoer en alle gen
 
 **Verificatie**
 
-[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../TESTS.md).
+[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [duplicate_function_placement_test.rb](../tests/duplicate_function_placement_test.rb) en [duplicate_function_placement_safety_test.rb](../tests/duplicate_function_placement_safety_test.rb) controleren één en meerdere AST-eigenaren, commentaarbinding, verplichte groepsuitleg, scopes en interacties met de sectiechecks. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../TESTS.md).
 
 ### Alle verplichte argumenten doorgeven
 

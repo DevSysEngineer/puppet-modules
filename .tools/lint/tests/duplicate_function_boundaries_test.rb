@@ -58,11 +58,11 @@ class DuplicateFunctionBoundariesTest < Minitest::Test
   end
 
   def test_case_branch_fix_preserves_guard_and_other_branch
-    body = resource('Integer(42)', 'Integer(42)').gsub("\n", "\n    ").rstrip
+    body = "# Report the converted value.\n#{resource('Integer(42)', 'Integer(42)')}".gsub("\n", "\n    ").rstrip
     before = "case $choice {\n  'yes': {\n    #{body}\n  }\n  default: {}\n}\n"
     problems, fixed = lint(before, fix: true)
     assert_equal([:fixed], problems.map { |problem| problem[:kind] })
-    assert_includes fixed, "'yes': {\n    # Reuse"
+    assert_includes fixed, "'yes': {\n    # Report the converted value.\n    $integer_result"
     assert_includes fixed, '$integer_result = Integer(42)'
     assert_includes fixed, 'default: {}'
     Puppet::Pops::Parser::EvaluatingParser.new.parse_string(fixed)

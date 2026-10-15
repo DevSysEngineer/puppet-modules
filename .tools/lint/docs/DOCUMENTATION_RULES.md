@@ -260,6 +260,8 @@ De onderstaande regels gelden voor Puppet, tenzij het toepassingsgebied explicie
 
 Een zelfstandig toelichtingsblok begint na een lege regel wanneer er code aan voorafgaat. Aaneengesloten commentaarregels vormen samen één blok; commentaar achter code en lintmarkeringen vormen geen nieuwe toelichting. Direct na `{`, `[` of `(` is geen lege regel vóór het commentaar nodig.
 
+Bij een lokaal gedeelde berekening voor één resource of ondersteunde zelfstandige instructie blijft het gewone leidende toelichtingsblok boven de combinatie van voorbereiding en handeling: commentaar, toekenning en instructie volgen zonder extra lege regel. Bij meerdere eigenaren staat de gedeelde toekenning vóór het commentaar van de eerste eigenaar, met één lege regel ertussen. Bepaal eigenaarschap uit codegrenzen, niet uit commentaarwoorden of gelijke teksten. Behoud bestaande commentaarinhoud en inline bindingen; verander het bereik van lintmarkeringen, Strings-documentatie, formatteringsaanwijzingen en beheer- of licentieheaders niet. De [groepsuitleg bij blokbegin](#een-variabelegroep-bij-blokbegin-toelichten) blijft verplicht.
+
 **Herkomst**
 
 Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
@@ -700,6 +702,8 @@ De check schrijft of verplaatst geen commentaar. Beoordeel bij een melding of de
 **Norm**
 
 Groepeer variabelen op het doel waarvoor je ze berekent. Begin een codeblok dat na `{` meteen variabelen toekent met een toelichting binnen dat blok, direct boven de eerste toekenning. Dit geldt ook voor één variabele en voor korte `else`-, `elsif`- en `case`-takken, classes, defined types en lambdablokken. De toelichting boven de voorwaarde beschrijft waarom de tak wordt uitgevoerd; de uitleg binnen het blok beschrijft de variabelen.
+
+Een autofix die een variabele toevoegt, moet deze toelichting behouden of de correctie weigeren. Zij mag geen inhoudelijke uitleg verzinnen of resourcecommentaar op grond van tekstherkenning omzetten in groepscommentaar. Bij één eigenaar kan diens bestaande gewone toelichting de combinatie van voorbereiding en handeling introduceren volgens de [commentaarplaatsing](#toelichtingsblokken-van-eerdere-code-scheiden).
 
 **Herkomst**
 

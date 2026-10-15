@@ -21,14 +21,14 @@ class DuplicateFunctionCallsTest < Minitest::Test
     assert_clean_passes(resource('String(42)'))
     [2, 3].each do |count|
       before = resource(Array.new(count, 'String(42)'))
-      after = "$string_result = String(42)\n\n#{resource(*Array.new(count, '$string_result'))}"
+      after = "$string_result = String(42)\n#{resource(*Array.new(count, '$string_result'))}"
       assert_fix(before, after, count: 1)
     end
   end
 
   def test_whitespace_and_multiline_occurrences
     before = resource('String(42)', "String(\n    42\n  )")
-    after = "$string_result = String(42)\n\n#{resource('$string_result', '$string_result')}"
+    after = "$string_result = String(42)\n#{resource('$string_result', '$string_result')}"
     assert_fix(before, after, count: 1)
   end
 
@@ -45,10 +45,10 @@ class DuplicateFunctionCallsTest < Minitest::Test
 
   def test_nested_largest_group_and_independent_groups
     before = resource('String(abs(-42))', 'String(abs(-42))')
-    after = "$string_result = String(abs(-42))\n\n#{resource('$string_result', '$string_result')}"
+    after = "$string_result = String(abs(-42))\n#{resource('$string_result', '$string_result')}"
     assert_fix(before, after, count: 1)
     before = resource('String(42)', 'String(42)', 'abs(-2)', 'abs(-2)')
-    after = "$string_result = String(42)\n\n$abs_result = abs(-2)\n\n" \
+    after = "$string_result = String(42)\n$abs_result = abs(-2)\n" \
             "#{resource('$string_result', '$string_result', '$abs_result', '$abs_result')}"
     assert_fix(before, after, count: 2)
   end

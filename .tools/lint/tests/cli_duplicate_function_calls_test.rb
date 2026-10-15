@@ -19,7 +19,7 @@ class CliDuplicateFunctionCallsTest < Minitest::Test
     write_source(resource('String(42)', 'String( 42 )').sub("'example'", '"example"'))
     assert_cli_failure(@file)
     assert_cli_success('--fix', @file)
-    expected = "$string_result = String(42)\n\n#{resource('$string_result', '$string_result')}"
+    expected = "$string_result = String(42)\n#{resource('$string_result', '$string_result')}"
     assert_equal expected, source
     assert_cli_stable(expected)
   end
@@ -30,8 +30,7 @@ class CliDuplicateFunctionCallsTest < Minitest::Test
              "message => [String(42), String(42)],\n  }\n}\n"
     write_source(before)
     assert_cli_success('--fix', @file)
-    expected = before.sub('  # Report', "  # Reuse the repeated calculation in this block.\n  " \
-                                        "$string_result = String(42)\n\n  # Report")
+    expected = before.sub('  notify', "  $string_result = String(42)\n  notify")
                      .sub('[String(42), String(42)]', '[$string_result, $string_result]')
     assert_equal expected, source
     assert_cli_stable(expected)
@@ -74,5 +73,37 @@ class CliDuplicateFunctionCallsTest < Minitest::Test
     assert_cli_success('--only-checks', 'project_arrays', '--fix', @file)
     assert_empty @output
     assert_equal code, source
+  end
+
+  def test_shared_conversion_passes_the_full_profile_and_two_fix_runs
+    before = shared_resource_input
+    expected = "$string_result = String(42)\n\n#{before.gsub('String(42)', '$string_result')}"
+    write_source(before)
+    assert_cli_failure(@file)
+    assert_equal before, source
+    assert_cli_success('--fix', @file)
+    assert_equal expected, source
+    Puppet::Pops::Parser::EvaluatingParser.new.parse_string(source, @file)
+    assert_cli_stable(expected)
+  end
+
+  def test_refused_group_does_not_write_a_partial_fix
+    before = "if true {\n#{shared_resource_input}}\n"
+    write_source(before)
+    2.times { assert_cli_failure('--only-checks', CHECK, '--fix', @file) }
+    assert_equal before, source
+  end
+
+  def test_native_suppression_keeps_the_file_unchanged
+    before = "# lint:ignore:project_duplicate_function_calls\n#{resource('String(42)', 'String(42)')}# lint:endignore\n"
+    write_source(before)
+    assert_cli_success('--only-checks', CHECK, '--fix', @file)
+    assert_equal before, source
+  end
+
+  def shared_resource_input
+    first = resource('String(42)', 'String(42)')
+    second = resource('String(42)').sub("'example'", "'other'")
+    "# Report the first value.\n#{first}\n# Report the second value.\n#{second}"
   end
 end

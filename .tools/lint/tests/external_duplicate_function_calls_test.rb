@@ -13,7 +13,7 @@ class ExternalDuplicateFunctionCallsTest < Minitest::Test
   def test_installed_profile_detection_fix_and_idempotence
     relative = 'manifests/site.pp'
     before = resource('String(42)', 'String(42)')
-    after = "$string_result = String(42)\n\n#{resource('$string_result', '$string_result')}"
+    after = "$string_result = String(42)\n#{resource('$string_result', '$string_result')}"
     write(relative, before)
     lint(relative)
     refute @status.success?, @output + @errors

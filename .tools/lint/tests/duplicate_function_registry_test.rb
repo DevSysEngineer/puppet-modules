@@ -47,7 +47,7 @@ class DuplicateFunctionRegistryTest < Minitest::Test
         call = "#{name}(#{arguments})"
         variable = "$#{name.split('::').last.sub(/\Ato_/, '').downcase}_result"
         before = resource(call)
-        after = "#{variable} = #{call}\n\n#{resource(variable)}"
+        after = "#{variable} = #{call}\n#{resource(variable)}"
         assert_fix(before, after, count: 1)
       end
       assert_clean_passes(resource("#{name}(lookup('example::unknown'))"))

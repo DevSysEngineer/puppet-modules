@@ -21,7 +21,7 @@ class DuplicateFunctionSafetyTest < Minitest::Test
   def test_prior_typed_lookup_is_not_moved
     prefix = "$chunk_size = lookup('example::chunk_size', Integer)\n"
     before = prefix + resource('String($chunk_size)', 'String($chunk_size)')
-    after = "#{prefix}$chunk_size_string = String($chunk_size)\n\n" \
+    after = "#{prefix}$chunk_size_string = String($chunk_size)\n" \
             "#{resource('$chunk_size_string', '$chunk_size_string')}"
     assert_fix(before, after, count: 1)
   end

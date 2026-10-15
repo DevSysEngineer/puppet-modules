@@ -5,6 +5,7 @@ require 'project_lint/parameter_source'
 require 'project_lint/module_resolver'
 require 'project_lint/section_layout'
 require 'project_lint/token_helpers'
+require 'project_lint/variable_dependencies'
 
 module ProjectLint
   # Native manifest checks.
@@ -398,14 +399,14 @@ module ProjectLint
         end
       end
 
-      # Group eager calls within one resource expression and prefer enclosing duplicates.
+      # Group eager calls by their AST owners, retaining each execution boundary.
       module Detection
         def candidates(resource)
           ast.descendants(resource).grep(Ast::M::CallNamedFunctionExpression).filter_map do |node|
             next unless eager_use?(node, resource)
 
             info = expression(node)
-            anchor_call(info, node) if info
+            anchor_call(info, node).merge(resource: resource) if info
           end
         end
 
@@ -432,10 +433,19 @@ module ProjectLint
           end
         end
 
-        def duplicate_groups(resource)
-          groups = candidates(resource).group_by { |entry| entry[:key] }.values.select { |group| group.length > 1 }
+        def duplicate_groups
+          groups = grouped_candidates.values.select { |group| group.length > 1 }
           selected = nonoverlapping_groups(groups)
           selected.sort_by { |group| group.first[:node].offset }
+        end
+
+        def grouped_candidates
+          calls = ast.each_node(Ast::M::ResourceExpression).flat_map { |resource, _| candidates(resource) }
+          calls.group_by { |entry| [grouping_owner(entry[:resource]).object_id, entry[:key]] }
+        end
+
+        def grouping_owner(resource)
+          sharing_block(resource) || resource
         end
 
         def nonoverlapping_groups(groups)
@@ -453,18 +463,28 @@ module ProjectLint
           outer.offset <= inner.offset && outer.offset + outer.length >= inner.offset + inner.length
         end
 
-        def report(resource, group)
+        def report(group)
           first, second = group.map { |entry| entry[:node] }
-          @edits << { resource: resource, group: group, anchor: resource_anchor(resource) }
+          resources = group.map { |entry| entry[:resource] }.uniq(&:object_id)
+          @edits << { resources: resources, group: group, anchor: resource_anchor(resources) }
           notify(:warning, message: "Repeated #{group.first[:name]}() call with identical arguments; " \
                                     'reuse a local variable. ' \
                                     "First occurrence at line #{first.line}.",
                            line: second.line, column: second.pos, edit: @edits.length - 1)
         end
 
-        def resource_anchor(resource)
-          line = @sections.fetch([resource.line, resource.pos], resource.line)
-          tokens.find { |token| token.line == line && !%i[INDENT WHITESPACE].include?(token.type) }
+        def resource_anchor(resources)
+          resource = resources.first
+          comments = @leading_comments.fetch([resource.line, resource.pos], [])
+          return comments.first if resources.length > 1 && comments.any?
+
+          @positions[[resource.line, resource.pos]]
+        end
+
+        def sharing_block(resource)
+          parent = @parents.fetch(resource).last
+          parent if statement_resource?(resource) && parent.is_a?(Ast::M::BlockExpression) &&
+                    parent.statements.any? { |statement| statement.equal?(resource) }
         end
       end
 
@@ -515,6 +535,32 @@ module ProjectLint
 
           events.take(first).all? { |node| safe_predecessor?(node, edit) } &&
             events[first..last].all? { |node| expression(node) }
+        end
+
+        def safe_resource_sequence?(edit)
+          return true if edit[:resources].one?
+
+          sequence = intervening_resources(edit[:resources])
+          return false unless sequence.all? { |node| safe_resource_owner?(node) }
+
+          events = sequence.flat_map { |resource| resource_events(resource) }
+          safe_shared_events?(events, edit[:group])
+        end
+
+        def safe_shared_events?(events, group)
+          first, last = event_bounds(events, group)
+          first && last && events[first..last].all? { |node| expression(node) }
+        end
+
+        def safe_resource_owner?(node)
+          node.is_a?(Ast::M::ResourceExpression) && statement_resource?(node)
+        end
+
+        def intervening_resources(resources)
+          statements = sharing_block(resources.first).statements
+          first = statements.index { |node| node.equal?(resources.first) }
+          last = statements.index { |node| node.equal?(resources.last) }
+          statements[first..last]
         end
 
         def event_bounds(events, group)
@@ -568,27 +614,104 @@ module ProjectLint
       # Prepare every replacement before modifying the native token stream.
       module Correction
         def replacement_plan(edit)
-          raise PuppetLint::NoFix unless statement_resource?(edit[:resource]) && safe_evaluation_order?(edit)
-
+          validate_resource_order(edit)
           name = variable_name(edit[:group])
           raise PuppetLint::NoFix unless available_name?(name)
 
           build_plan(edit, name)
         end
 
+        def validate_resource_order(edit)
+          raise PuppetLint::NoFix unless safe_resource_sequence?(edit)
+
+          edit[:resources].each do |resource|
+            group = edit[:group].select { |entry| entry[:resource].equal?(resource) }
+            raise PuppetLint::NoFix unless statement_resource?(resource) &&
+                                           safe_evaluation_order?(resource: resource, group: group)
+          end
+        end
+
         def build_plan(edit, name)
           spans = edit[:group].map { |entry| validated_span(entry) }
           anchor = edit[:anchor]
-          validate_insertion(anchor, spans.last.last)
-          replacements = spans.map { |span| [span, PuppetLint::Lexer.new.tokenise("$#{name}")] }
-          { name: name, replacements: replacements, anchor: anchor,
+          validate_placement(edit, spans.last.last)
+          { name: name, replacements: replacement_tokens(spans, name), anchor: anchor,
+            reads: ast.references(edit[:group].first[:node]),
             declaration: declaration_tokens(name, spans.first, anchor) }
         end
 
-        def validate_insertion(anchor, last)
+        def replacement_tokens(spans, name)
+          spans.map { |span| [span, PuppetLint::Lexer.new.tokenise("$#{name}")] }
+        end
+
+        def validate_placement(edit, last)
+          anchor = edit[:anchor]
           raise PuppetLint::NoFix unless anchor && line_prefix(anchor).match?(/\A *\z/)
-          raise PuppetLint::NoFix if ignored_span?(anchor, last)
-          raise PuppetLint::NoFix if token_span(anchor, last).any? { |token| control_comment?(token) }
+
+          resource = edit[:resources].first
+          comments = @leading_comments.fetch([resource.line, resource.pos], [])
+          validate_comments(comments.first || anchor, last)
+          raise PuppetLint::NoFix unless opening_explained?(edit, comments) && variable_group_safe?(edit, comments)
+        end
+
+        def validate_comments(first, last)
+          # Detached directives can still govern the next statement across blank lines.
+          first = adjacent_code(first, :prev_token) || tokens.first
+          raise PuppetLint::NoFix if token_span(first, last).any? { |token| special_comment?(token) }
+          raise PuppetLint::NoFix if PuppetLint::Data.ignore_overrides.any? do |check, _|
+            ignored_span?(first, last, check)
+          end
+        end
+
+        def explained_single_owner?(edit, comments)
+          edit[:resources].one? && comments.any? { |token| !token.value.strip.empty? }
+        end
+
+        def opening_explained?(edit, comments)
+          adjacent_code(edit[:anchor], :prev_token)&.type != :LBRACE || explained_single_owner?(edit, comments)
+        end
+
+        def special_comment?(token)
+          return false unless %i[COMMENT SLASH_COMMENT MLCOMMENT].include?(token.type)
+
+          directive = /(?:lint|puppet-lint|rubocop|prettier|puppetfmt|fmt|format|formatter|vim)\s*[:-]/i
+          header = /SPDX-|Copyright\b|Licen[cs](?:e|ed)\b|Managed by\b|This file is managed\b|DO NOT EDIT\b/i
+          control_comment?(token) || token.value.match?(/(?:\A|\n)\s*\*?\s*(?:@|#{directive}|#{header})/)
+        end
+
+        def variable_group_safe?(edit, comments)
+          return true if explained_single_owner?(edit, comments)
+
+          group = explained_assignments(edit[:resources].first)
+          assigned, linked = assignment_dependencies(group, edit[:anchor])
+          !linked || (ast.references(edit[:group].first[:node]) & assigned).any?
+        end
+
+        def preceding_assignments(resource)
+          block = @parents.fetch(resource).last
+          return [] unless block.is_a?(Ast::M::BlockExpression)
+
+          previous = block.statements.take_while { |statement| !statement.equal?(resource) }
+          previous.reverse.take_while { |statement| statement.is_a?(Ast::M::AssignmentExpression) }.reverse
+        end
+
+        def explained_assignments(resource)
+          group = preceding_assignments(resource)
+          start = group.rindex { |node| @sections.key?([node.left_expr.line, node.left_expr.pos]) }
+          start ? group.drop(start) : []
+        end
+
+        def assignment_dependencies(group, anchor)
+          dependencies = group.map { |node| [assignment_names(node), variable_reads(node.right_expr)] }
+          # Earlier fixes at this anchor now belong to the preceding assignment group.
+          dependencies.concat(@inserted_assignments.fetch(anchor, []))
+          assigned = []
+          linked = false
+          dependencies.each do |names, reads|
+            linked ||= (reads & assigned).any?
+            assigned.concat(names)
+          end
+          [assigned, linked]
         end
 
         def declaration_tokens(name, span, anchor)
@@ -596,14 +719,8 @@ module ProjectLint
           source = span.map(&:to_manifest).join
           raise PuppetLint::NoFix if source.include?("\n")
 
-          comment = declaration_comment(anchor, indent)
-          PuppetLint::Lexer.new.tokenise("#{comment}$#{name} = #{source}\n\n#{indent}")
-        end
-
-        def declaration_comment(anchor, indent)
-          return '' unless adjacent_code(anchor, :prev_token)&.type == :LBRACE
-
-          "# Reuse the repeated calculation in this block.\n#{indent}"
+          separation = standalone_comment?(anchor) ? "\n\n" : "\n"
+          PuppetLint::Lexer.new.tokenise("$#{name} = #{source}#{separation}#{indent}")
         end
 
         def apply_plan(plan)
@@ -611,6 +728,7 @@ module ProjectLint
           plan[:declaration].each_with_index { |token, offset| add_token(index + offset, token) }
           apply_replacements(plan)
           @introduced << plan[:name]
+          (@inserted_assignments[plan[:anchor]] ||= []) << [[plan[:name]], plan[:reads]]
         end
 
         def apply_replacements(plan)
@@ -622,6 +740,7 @@ module ProjectLint
 
       include SectionLayout
       include TokenHelpers
+      include VariableDependencies
       include Types
       include Expressions
       include ArgumentForms
@@ -632,9 +751,7 @@ module ProjectLint
 
       def check
         prepare_analysis
-        ast.each_node(Ast::M::ResourceExpression) do |resource, _|
-          duplicate_groups(resource).each { |group| report(resource, group) }
-        end
+        duplicate_groups.each { |group| report(group) }
       end
 
       def prepare_analysis
@@ -642,6 +759,7 @@ module ProjectLint
         @types = {}
         @resolved = {}
         @introduced = []
+        @inserted_assignments = {}.compare_by_identity
         @completed = []
         @edits = []
         @values = ParameterSource.new(ast)
@@ -653,6 +771,17 @@ module ProjectLint
         @parents = {}.compare_by_identity
         ast.nodes.each { |node, parents| @parents[node] = parents }
         @sections = section_starts
+        @positions = token_positions
+        @leading_comments = leading_comment_sections
+      end
+
+      def leading_comment_sections
+        grouped_comments.filter_map do |section|
+          following = adjacent_code(section.last, :next_token)
+          next unless following && following.line == comment_end_line(section.last) + 1
+
+          [[following.line, following.column], section]
+        end.to_h
       end
 
       def fix(problem)
