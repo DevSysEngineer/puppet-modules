@@ -6,6 +6,10 @@
 # It also registers a stack-level monitoring check so container health can be evaluated separately from the
 # orchestration unit.
 # Declare `docker` before managing a project, including removal; the class owns all shared Compose tools.
+# Puppet leaves the service's running state unmanaged. Start a new stack explicitly or through its systemd target;
+# a stopped stack stays stopped during Puppet runs, including when its Compose or environment file changes.
+# Changes to those files restart an already running service after systemd has reloaded the unit and target binding.
+# Direct boot enablement is disabled because the selected host target owns startup.
 #
 # @example Deploy a Compose stack from a Puppet file source
 #   docker::compose { 'example':
@@ -309,11 +313,11 @@ define docker::compose (
 
               # Subscribe to the managed project files using the array required by the shared service wrapper.
               if ($env_source == undef and $env_content == undef) {
-                # Start and refresh the stack using only the Compose file when no environment file is configured.
+                # Refresh an active stack when its Compose file changes and no environment file is configured.
                 $service_require_base = [Package[$service_packages], File[$compose_file]]
                 $service_subscribe = [File[$compose_file]]
               } else {
-                # Start and refresh the stack only after both Compose and environment files are managed.
+                # Refresh an active stack only after both Compose and environment files are managed.
                 $service_require_base = [Package[$service_packages], File[$env_file, $compose_file]]
                 $service_subscribe = File[$env_file, $compose_file]
               }
@@ -377,10 +381,8 @@ define docker::compose (
                 require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
               }
 
-              # The shared service wrapper manages enablement only; Compose must also start on its first Puppet run.
-              # Wait for both the unit and target binding to be loaded before starting or refreshing the stack.
+              # Preserve manual stops while loading the unit and target binding before refreshing an active stack.
               Service <| title == $service_name |> {
-                ensure  => running,
                 require +> Exec[$daemon_reload],
               }
             }

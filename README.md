@@ -376,7 +376,7 @@ Bij `ensure => absent` verwijdert Compose de volledige projectmap, inclusief bac
 
 #### Basisvoorbeeld
 
-Plaats het Compose-bestand in je eigen profielmodule op het hieronder genoemde pad en vervang het voorbeeldgeheim door een waarde uit je beveiligde configuratie. Puppet maakt de projectmap en start de stack als `docker-compose-example.service`.
+Plaats het Compose-bestand in je eigen profielmodule op het hieronder genoemde pad en vervang het voorbeeldgeheim door een waarde uit je beveiligde configuratie. Puppet maakt de projectmap en de systemd-service `docker-compose-example.service`.
 
 ```puppet
 class { 'basic_settings':
@@ -395,6 +395,8 @@ docker::compose { 'example':
   require        => Class['docker'],
 }
 ```
+
+Start de stack na de eerste inrichting met `sudo systemctl start docker-compose-example.service`. Bij het opstarten van de server verzorgt het gekoppelde systemd-target de start. Puppet laat een gestopte stack gestopt; wijzigingen aan het Compose-bestand of `.env` herstarten alleen een al actieve service. Dit geldt ook voor de applicatiewrappers.
 
 Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L4), [Nginx-proxy](examples/docker.pp#L58), [Authentik met eigen beheerder](examples/docker.pp#L121) en [Twenty met S3-opslag](examples/docker.pp#L184). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
 

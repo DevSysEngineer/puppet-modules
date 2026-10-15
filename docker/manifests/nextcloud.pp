@@ -109,7 +109,8 @@
 #   Optional visibility of the App Store link in the app menu for users without admin rights. False hides the link;
 #   true shows it. Defaults to undef: leave the stored value unmanaged, including when a previously supplied value
 #   is omitted. Applies only with ensure present after Nextcloud installation, without restarting containers.
-#   Writes core appstore_link_shown through OCC `config:app:set` with `--type=boolean` and compares typed JSON.
+#   Writes core appstore_link_shown through OCC `config:app:set` with `--type=boolean` and compares the JSON string
+#   returned by `config:app:get`: "1" for true and "0" for false.
 #   Requires a Nextcloud version supporting this setting; does not disable the App Store or app installation.
 #
 # @param default_app
@@ -599,7 +600,13 @@ define docker::nextcloud (
 
           # Manage the app menu link only when requested; omission preserves Nextcloud's stored choice.
           if ($appstore_link_shown != undef) {
-            # Compare boolean JSON so false remains distinct from an absent or string-valued setting.
+            # App config reads expose stored booleans as strings even with --output=json.
+            $appstore_link_shown_value = $appstore_link_shown ? {
+              true  => '1',
+              false => '0',
+            }
+
+            # Keep the boolean write type while comparing the representation returned by OCC.
             docker::nextcloud_occ { "${name}_appstore_link_shown":
               command      => [
                 'config:app:set',
@@ -610,7 +617,7 @@ define docker::nextcloud (
               ],
               compose_name => $name,
               unless       => ['config:app:get', 'core', 'appstore_link_shown'],
-              unless_json  => stdlib::to_json($appstore_link_shown),
+              unless_json  => stdlib::to_json($appstore_link_shown_value),
             }
           }
 
