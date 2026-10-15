@@ -61,6 +61,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
     - [Optionele packages activeren met realize](#optionele-packages-activeren-met-realize)
   - [Gedeelde voorwaarden om resources groeperen](#gedeelde-voorwaarden-om-resources-groeperen)
   - [Aanroepen en publieke interfaces](#aanroepen-en-publieke-interfaces)
+  - [Herhaalde zuivere functieaanroepen lokaal hergebruiken](#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken)
   - [Alle verplichte argumenten doorgeven](#alle-verplichte-argumenten-doorgeven)
     - [Verdieping bij Alle verplichte argumenten doorgeven](#verdieping-bij-alle-verplichte-argumenten-doorgeven)
   - [Overbodige parameterdoorgifte rechtstreeks schrijven](#overbodige-parameterdoorgifte-rechtstreeks-schrijven)
@@ -2666,6 +2667,79 @@ Volg alle afhankelijke verwerking en behoud iedere aanvullende lokale voorwaarde
 ### Aanroepen en publieke interfaces
 
 <!-- lint-rule-group -->
+
+### Herhaalde zuivere functieaanroepen lokaal hergebruiken
+
+**Norm**
+
+Leg herhaalde, aantoonbaar zuivere berekeningen lokaal vast wanneer dezelfde invoer dezelfde waarde geeft en hergebruik de betekenis behoudt. Behoud expliciete conversies, uitvoeringsvoorwaarden en relevante evaluatievolgorde. Kies een inhoudelijke naam: bijvoorbeeld `$files_max_chunk_size_string` voor `String($files_max_chunk_size)`, niet een algemene `_correct`-naam.
+
+**Herkomst**
+
+Projectregel; de [functiedekking](../README.md#herhaalde-functieaanroepen) begrenst de beoordeelde runtimevormen.
+
+**Toepassingsgebied**
+
+Lokale berekeningen binnen dezelfde evaluatiecontext. Hergebruik is geen caching tussen Puppet-runs of garantie over verschillende runtimeversies.
+
+**Automatische controle**
+
+`project_duplicate_function_calls` vergelijkt directe aanroepen uit een intern functieregister binnen één resource-expressie. Hoofdletterconversies en geneste aanroepen tellen mee. Functieresolutie, alle argumentexpressies, typen, opties, volgorde en variabelenbindingen moeten bekend zijn.
+
+**Detectiegrenzen**
+
+Geen samenvoeging tussen afzonderlijke resources, statements, branches, classes, defines, functies, lambda's of bestanden. Onbekende functies en onbekende objectinhoud zijn geen bewezen duplicaten. Kortsluiting, selectors, interpolaties, heredocs en codeblokken vallen buiten deze eerste dekking. Een gewone string of commentaar is geen aanroep. De check voert geen manifestfuncties uit.
+
+**Meldingen en severity**
+
+`Repeated {functie}() call with identical arguments; reuse a local variable. First occurrence at line {regel}.`: één `warning` per groep, op de tweede aanroep. Alleen functienaam en bronlocaties verschijnen in de melding; argumentwaarden blijven weg. Een bewezen groep zonder veilige verplaatsing behoudt de warning.
+
+**Autofix**
+
+Voorwaardelijk, via native `puppet-lint --fix`.
+
+**Autofixvoorwaarden**
+
+Eén gewone resourcebody, op een zelfstandige statementgrens binnen de bestaande branch. De toekenning komt vóór de resource en haar bijbehorende commentaar. Invoer moet daar beschikbaar zijn; eerdere evaluaties, mogelijke fouten en neveneffecten mogen niet worden gepasseerd. De naam mag niet botsen met parameters, toekenningen of bekende referenties. Overerving, onzekere tokens, suppressions, commentaar binnen de aanroepen en een meerregelige eerste aanroep verhinderen autofix. De hele groep wordt vooraf gevalideerd en samen vervangen; weigering laat de bron intact. Bij geneste groepen heeft de grootste gedeelde expressie voorrang. Zie de [technische grenzen](../README.md#herhaalde-functieaanroepen).
+
+**Toegestane uitzonderingen**
+
+Onbekende functies, noodzakelijke afzonderlijke uitvoeringen en berekeningen die niet veilig verplaatst kunnen worden. Een ongetypeerde variabele is geen bewijs van gewone gegevens. Een eerder vastgelegde, expliciet getypeerde lookupwaarde kan wel worden hergebruikt zonder de lookup te verplaatsen.
+
+**Suppressions**
+
+Suppressie is in dit project niet toegestaan. De native engine verwerkt suppressions technisch; een groep met een onderdrukt bereik wordt nooit gedeeltelijk gecorrigeerd.
+
+**Onjuist voorbeeld**
+
+Fragment; alleen `project_duplicate_function_calls`; verwacht één warning.
+
+<!-- lint-example: project_duplicate_function_calls warning -->
+```puppet
+notify { 'example': message => [String(42), String(42)] }
+```
+
+**Correct voorbeeld**
+
+Fragment; dezelfde check; verwacht geen melding.
+
+<!-- lint-example: project_duplicate_function_calls clean -->
+```puppet
+$string_result = String(42)
+notify { 'example': message => [$string_result, $string_result] }
+```
+
+**Grensgevallen**
+
+`String(lookup('example::value'))` blijft uitgesloten: de volledige argumentexpressie telt. Een `if` vormt een uitvoeringsgrens zonder automatisch een nieuwe variabelenscope te maken. Verschillende stringinhoud, getaltypen, regexopties en array- of hashvolgorden blijven verschillend. Een naamconflict vraagt handmatige naamkeuze; de fix verzint geen genummerde alternatieven.
+
+**Handmatige review**
+
+Controleer de werkelijke implementatie, overloads, expliciete invoer en alle geneste expressies. Vergelijk het uitvoeringspad en het moment van mogelijke fouten, inclusief resourcetitel en eerdere attributen. Behoud noodzakelijke afzonderlijke uitvoeringen, datatypen, volgorde, formattering, commentaar en bestaande voorwaarden. Controleer bekende omringende scopes en indirecte naamafnemers. Beoordeel een geweigerde fix inhoudelijk; een warning verplicht geen onveilige verplaatsing.
+
+**Verificatie**
+
+[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../TESTS.md).
 
 ### Alle verplichte argumenten doorgeven
 

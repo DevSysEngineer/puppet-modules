@@ -658,12 +658,14 @@ define docker::nextcloud (
             unless_json  => stdlib::to_json($allow_local_remote_servers),
           }
 
+          $files_max_chunk_size_string = String($files_max_chunk_size)
+
           # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
           docker::nextcloud_occ { "${name}_files_max_chunk_size":
-            command      => ['config:app:set', 'files', 'max_chunk_size', '--value', String($files_max_chunk_size)],
+            command      => ['config:app:set', 'files', 'max_chunk_size', '--value', $files_max_chunk_size_string],
             compose_name => $name,
             unless       => ['config:app:get', 'files', 'max_chunk_size'],
-            unless_json  => stdlib::to_json(String($files_max_chunk_size)),
+            unless_json  => stdlib::to_json($files_max_chunk_size_string),
           }
 
           # Set the default UI language for new sessions.

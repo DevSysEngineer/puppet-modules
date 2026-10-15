@@ -165,6 +165,7 @@ Begin in de ontwikkelcheckout bij het [lintonderhoud](#linter-ontwikkelen-en-tes
   - [Veilige autofix ontwikkelen](#veilige-autofix-ontwikkelen)
   - [Linttests onderhouden](#linttests-onderhouden)
   - [Technische werking van de checks](#technische-werking-van-de-checks)
+    - [Herhaalde functieaanroepen](#herhaalde-functieaanroepen)
     - [Omvang en validatiestructuur](#omvang-en-validatiestructuur)
     - [Classcontroles en vindbare afnemers](#classcontroles-en-vindbare-afnemers)
     - [References en relatiecontext](#references-en-relatiecontext)
@@ -618,6 +619,7 @@ De tabel beschrijft de automatische dekking en verwijst naar de volledige regel.
 | `project_parameter_passthrough` | Ja | Ja | [Overbodige parameterdoorgifte rechtstreeks schrijven](docs/CODE_RULES.md#overbodige-parameterdoorgifte-rechtstreeks-schrijven) | Per meldingsvariant: inline identiteitshash; filters, gedeelde hashes en conflicten blijven ter review: [Overbodige parameterdoorgifte rechtstreeks schrijven](docs/CODE_RULES.md#overbodige-parameterdoorgifte-rechtstreeks-schrijven) | [Overbodige parameterdoorgifte rechtstreeks schrijven](docs/CODE_RULES.md#overbodige-parameterdoorgifte-rechtstreeks-schrijven) |
 | `project_monitoring_backend` | Ja | Ja | [Targets en monitoring](docs/OPERATIONAL_RULES.md#targets-en-monitoring) | Geen: Backendkeuze kan functioneel gedrag bevatten | [Targets en monitoring](docs/OPERATIONAL_RULES.md#targets-en-monitoring) |
 | `project_suppressions` | Ja | Ja | [Alleen toegestane suppressions gebruiken](docs/CODE_RULES.md#alleen-toegestane-suppressions-gebruiken) | Geen: Verwijderen kan andere fixes vrijgeven voordat hun gevolgen zijn beoordeeld | [Alleen toegestane suppressions gebruiken](docs/CODE_RULES.md#alleen-toegestane-suppressions-gebruiken) |
+| `project_duplicate_function_calls` | Ja | Ja | [Herhaalde zuivere functieaanroepen lokaal hergebruiken](docs/CODE_RULES.md#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken) | Voorwaardelijk: één lokale variabele per bewezen groep; onzekere verplaatsing blijft handmatig: [Herhaalde zuivere functieaanroepen lokaal hergebruiken](docs/CODE_RULES.md#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken) | [Herhaalde zuivere functieaanroepen lokaal hergebruiken](docs/CODE_RULES.md#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken) |
 <!-- END PROJECT CHECK REGISTRY -->
 
 `require 'project_lint'` registreert de checks; de configuratieprofielen bepalen afzonderlijk hun activatie. `--list-checks` toont alleen beschikbaarheid. Controleer bij wijzigingen aan de bundle of registratie dit overzicht tegen het entrypoint, beide profielen en de [configuratietests](tests/cli_configuration_test.rb). De [rootlockfile](../../Gemfile.lock) beheert de gebruikte gemversies. Leg uitvoeringsresultaten vast in de wijzigingsreview.
@@ -981,6 +983,87 @@ Het entrypoint laadt eerst `puppet-lint` en daarna de eigen checks. Gebruik daar
 
 
 [`ModuleResolver`](lib/project_lint/module_resolver.rb) leest het modulepad bij het maken van een analyse, zodat een volgende scan gewijzigde environmentinstellingen kan gebruiken. Gevonden bestanden worden alleen binnen die analyse gecachet en bij gewijzigde bestandsmetadata opnieuw gelezen. Er zijn geen modulepaden die tijdens `require` als globale constants worden vastgelegd. De regels voor vindbaarheid staan bij [Aanroepen van modules controleren](#aanroepen-van-modules-controleren).
+
+#### Herhaalde functieaanroepen
+
+`project_duplicate_function_calls` is standaard actief in beide profielen. Vanaf twee structureel gelijke, bewezen herhaalbare aanroepen volgt één `warning` op de tweede aanroep, met de regel van de eerste. De melding bevat geen argumentwaarden. Met `--fail-on-warnings` kan deze nieuwe check de scan laten falen; inventariseer bevindingen vóór een consumerupdate. De [norm en reviewcriteria](docs/CODE_RULES.md#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken) blijven ook buiten de automatische dekking gelden.
+
+Het interne register in [duplicate_function_calls.rb](lib/project_lint/checks/duplicate_function_calls.rb) is beoordeeld tegen OpenVox 8.29.0 en stdlib 10.1.0 uit de checkout. De bestaande gemspecafhankelijkheden veranderen niet. Controleer bij runtime-updates opnieuw dispatches en implementaties; de [Puppet-functiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/Markdown/function.htm), [conversiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/typecasting.htm) en [stdlib 10.1.0-bron](https://github.com/puppetlabs/puppetlabs-stdlib/tree/v10.1.0/lib/puppet) helpen die review, maar vervangen haar niet.
+
+Alleen onderstaande exacte namen en positionele vormen zijn ingeschakeld. `Data` betekent gewone Puppet-data: scalars, `undef`, arrays daarvan en hashes met stringkeys; `ScalarData` betekent string, getal of boolean. `Collection` is hier `Array[Data]` of `Hash[String, Data]`. Vierkante tekst tussen haakjes in de argumentkolom geeft optionele argumenten aan, geen Puppet-typesyntax. De resultaatkolom is een conservatief statisch type, geen uitvoering van de functie.
+
+| Exacte functie | Ingeschakelde argumenten | Resultaat en begrenzing |
+| --- | --- | --- |
+| `String` | `Data`[, niet-lege String-opmaak] | String; geen object- of type-opmaakhash |
+| `Integer` | String/Numeric/Boolean[, letterlijke radix 2/8/10/16[, Boolean absolute waarde]] | Integer; geen named options of `default`-radix |
+| `Float` | String/Numeric/Boolean[, Boolean absolute waarde] | Float; geen named options |
+| `Boolean` | String/Numeric/Boolean | Boolean; geen objectconversie |
+| `Array` | Collection[, Boolean wrap], of Data met expliciet `true` | Array van Data; geen Iterable of iterator |
+| `Hash` | Hash met stringkeys, array van stringkey/waarde-paren, of even scalaire array met statisch bewezen stringkeys | Hash met stringkeys; geen tree-conversie of objecten |
+| `downcase`, `upcase`, `capitalize` | Eén String | String; geen array- of hashvorm |
+| `strip`, `lstrip`, `rstrip`, `chomp`, `chop` | Eén String | String; geen meervoudige of collectie-invoer |
+| `sprintf` | String-opmaak en één of meer ScalarData-argumenten | String; geen named format-hash |
+| `join` | Array van Data[, String-scheidingsteken] | String |
+| `split` | String, String of letterlijke Regexp | Array van strings |
+| `regsubst` | String, String/Regexp-patroon, String-vervanging[, letterlijke flags] | String; stringpatroon: uitsluitend G/E/I/M; regex: leeg of G; geen vijfde encodingargument |
+| `keys`, `values` | Hash met stringkeys en Data-waarden | Array van scalars respectievelijk Data; volgorde blijft relevant |
+| `dig` | Collection en één of meer String/Integer-sleutels | Data; geen objectnavigatie |
+| `length`, `size`, `empty` | String of Collection | Integer, Integer respectievelijk Boolean |
+| `flatten` | Eén Array van Data | Array van Data; geen variadische vorm |
+| `sort` | Array van uitsluitend strings of uitsluitend getallen | Array van Data; geen comparatorblok of gemengde typen |
+| `unique` | Array van Data | Array van Data; geen blok of stringvorm |
+| `abs`, `floor`, `ceiling`, `round` | Eén Numeric | Numeric voor abs, anders Integer; geen deprecated stringoverloads |
+| `stdlib::to_json` | Eén Data | String; geen opties |
+| `stdlib::to_json_pretty` | Collection[, Boolean skip_undef] | String; geen formatteringshash of expliciete undef-optie |
+| `stdlib::to_yaml` | Eén Data | String; geen optieshash |
+| `stdlib::merge` | Twee of meer hashes met stringkeys en Data-waarden | Hash; geen codeblok |
+| `stdlib::shell_escape` | Eén String | String |
+| `shell_join`, `shell_split` | Array van strings respectievelijk één String | String respectievelijk Array van strings |
+| `base64` | encode/decode, String[, default/strict/urlsafe] | String; bewerking en variant moeten door hun letterlijke waarde of Enum-type vaststaan |
+| `basename` | String[, String-suffix] | String; uitsluitend padtekst |
+| `dirname` | Niet-lege String | String; uitsluitend padtekst |
+| `stdlib::sha256` | Eén ScalarData | String; geen undef, collectie of object |
+| `stdlib::seeded_rand` | Positieve Integer, String-seed | Integer; beide argumenten expliciet en veilig |
+
+Niet genoemde overloads zijn uitgeschakeld. Met name JSON/YAML-optieshashes, named conversieopties en type-opmaakhashes zijn niet als complete veilige vorm getest; de check doet daarvoor geen veiligheidsclaim. Array/Hash-iterators en codeblokken hebben uitvoerbaar gedrag. Deprecated numerieke stringoverloads en aliassen worden niet overgenomen. `stdlib::basename` wordt bijvoorbeeld niet verzonnen. De gerichte [registertests](tests/duplicate_function_registry_test.rb) bevatten positieve varianten en uitgesloten invoer voor iedere ingeschakelde naam.
+
+Voor stdlib vergelijkt de resolver de gekozen implementatiebestanden met de beoordeelde SHA-256-identiteiten; JSON/YAML vereisen ook de bekende `rewrap_sensitive_data`-helper. Afwijkende, ontbrekende of overschaduwde bestanden vallen buiten detectie. De resolver volgt het [modulepad](#aanroepen-van-modules-controleren), leest geen manifestfuncties in als Ruby-code en voert ze niet uit. Voor ingebouwde namen weigert hij zichtbare gelijknamige implementaties in de invoer, modulemappen of environmentfuncties. Stem het lintmodulepad af op de werkelijke environment; code die alleen elders op de server beschikbaar is kan de linter niet bewijzen.
+
+De volledige argumentboom moet veilig zijn. `String(lookup('example::value'))` is uitgesloten, net als `Deferred`, `Sensitive`, eigen objecten, captures zoals `$1`, onbekende variabelen en dynamische aanroepen. Een eerdere eenduidige toekenning uit `lookup('example::value', Integer)` levert wel statische type-informatie: alleen herhaald gebruik van de al vastgelegde waarde wordt gedeeld. Ook ingebouwde parametertypen en eerdere gewone lokale waarden tellen mee; typealiases, gekwalificeerde variabelen en algemene datastroomanalyse blijven buiten bereik.
+
+Structurele sleutels behouden functie, geordende argumenten, letterlijke typen en waarden, opties, regexopties, array- en hashvolgorde en bindingen. Spaties en bronposities veranderen die sleutel niet. De detectie blijft binnen één resource-expressie en combineert geen afzonderlijke statements, branches of scopes. Aanroepen onder kortsluiting, selectors, lambda's, interpolatie of heredocs worden niet verplaatst of als onvoorwaardelijke groep gemeld. Groepen van grotere gedeelde expressies gaan vóór volledig afgedekte binnenste groepen.
+
+Autofix vereist één gewone resourcebody op een veilige statementgrens. De toekenning blijft binnen de bestaande branch en komt vóór het aan de resource gekoppelde commentaar. De titel en eerdere argumenten mogen geen relevante evaluatie of mogelijk falende andere aanroep veroorzaken vóór de eerste kandidaat. Onbekende tussenliggende evaluaties verhinderen de fix. Bij naamconflict, overerving, commentaar in de aanroep, meerregelige eerste aanroep, gewijzigde tokenankers of suppressions blijft de warning staan en weigert `PuppetLint::NoFix` vóór iedere wijziging. Alle vervangingen en de toekenning worden vooraf voorbereid. Meerregelige latere voorkomens mogen worden vervangen wanneer hun volledige tokenbereik veilig is.
+
+Eén duidelijke bronvariabele krijgt een bewerkingssuffix, bijvoorbeeld `_string`, `_integer`, `_float`, `_boolean`, `_array`, `_hash` of `_json`. Anders gebruikt de check een vaste naam zoals `$sprintf_result`. Bestaande namen worden niet overschreven of automatisch genummerd. Bij een nieuw variabeleblok direct na `{` voegt de fix een korte toelichting toe; bestaande resourcecommentaren blijven bij de resource. Handmatige correctie kiest een geschikte naam en bewijst dezelfde voorwaarden, inclusief mogelijke fouten en indirecte naamafnemers.
+
+Fragment uit Nextcloud; `$files_max_chunk_size` is daar een getypeerde Integer-parameter. Alleen de dubbele conversie wordt gedeeld. Vóór correctie:
+
+```puppet
+# Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
+docker::nextcloud_occ { "${name}_files_max_chunk_size":
+  command      => ['config:app:set', 'files', 'max_chunk_size', '--value', String($files_max_chunk_size)],
+  compose_name => $name,
+  unless       => ['config:app:get', 'files', 'max_chunk_size'],
+  unless_json  => stdlib::to_json(String($files_max_chunk_size)),
+}
+```
+
+Na correctie, binnen dezelfde bestaande voorwaarde:
+
+```puppet
+$files_max_chunk_size_string = String($files_max_chunk_size)
+
+# Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
+docker::nextcloud_occ { "${name}_files_max_chunk_size":
+  command      => ['config:app:set', 'files', 'max_chunk_size', '--value', $files_max_chunk_size_string],
+  compose_name => $name,
+  unless       => ['config:app:get', 'files', 'max_chunk_size'],
+  unless_json  => stdlib::to_json($files_max_chunk_size_string),
+}
+```
+
+Gebruik de [native CLI-route](#werking-van-de-controles) met `--only-checks project_duplicate_function_calls` voor inventarisatie en voeg alleen voor de gekozen bestanden `--fix` toe. Controleer daarna de diff, het volledige profiel, de native parser en een ongewijzigde tweede fixrun. De [CLI-tests](tests/cli_duplicate_function_calls_test.rb) controleren ook console/JSON/JUnit zonder argumentwaarden, scan zonder schrijven en samenwerking met opmaakchecks. De [consumertest](tests/external_duplicate_function_calls_test.rb) controleert de gebouwde gem zonder ontwikkelcheckout. Parseracceptatie bewijst geen volledige semantische gelijkheid; voer de toepasselijke functionele controles afzonderlijk uit.
 
 #### Omvang en validatiestructuur
 
