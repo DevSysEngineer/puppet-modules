@@ -2,6 +2,7 @@
 #
 # This private helper writes or removes the RabbitMQ Erlang and RabbitMQ Server package sources and signing keys. It is
 # called by `basic_settings` after OS support has been calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_rabbitmq':
@@ -12,7 +13,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates both repositories and imports keys when `true`; removes them when `false`.
@@ -42,11 +43,27 @@ class basic_settings::package_rabbitmq (
     # Use separate deb822 source files for Erlang and RabbitMQ.
     $file_erlang = '/etc/apt/sources.list.d/rabbitmq-erlang.sources'
     $file_server = '/etc/apt/sources.list.d/rabbitmq-server.sources'
+    $alternative = ['/etc/apt/sources.list.d/rabbitmq-erlang.list', '/etc/apt/sources.list.d/rabbitmq-server.list']
   } else {
     # Use separate one-line APT source files for Erlang and RabbitMQ.
     $file_erlang = '/etc/apt/sources.list.d/rabbitmq-erlang.list'
     $file_server = '/etc/apt/sources.list.d/rabbitmq-server.list'
+    $alternative = ['/etc/apt/sources.list.d/rabbitmq-erlang.sources', '/etc/apt/sources.list.d/rabbitmq-server.sources']
   }
+
+  # Keep every source-related exec behind alternative-format cleanup.
+  $source_execs = ['package_rabbitmq_erlang_source', 'package_rabbitmq_server_source']
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec[$source_execs],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec[$source_execs] -> Exec['basic_settings_source_reload']
 
   # Set keys
   $key_erlang = '/usr/share/keyrings/rabbitmq-erlang.gpg'

@@ -2,6 +2,7 @@
 #
 # This private helper writes or removes the MySQL package source, repository key, and APT preference file. It supports
 # MySQL version-specific key selection and is called by `basic_settings` after OS support has been calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_mysql':
@@ -13,7 +14,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository, key, and preference file when `true`; removes them when `false`.
@@ -46,10 +47,26 @@ class basic_settings::package_mysql (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $source_file = '/etc/apt/sources.list.d/mysql.sources'
+    $alternative = '/etc/apt/sources.list.d/mysql.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $source_file = '/etc/apt/sources.list.d/mysql.list'
+    $alternative = '/etc/apt/sources.list.d/mysql.sources'
   }
+
+  # Keep every source-related exec behind alternative-format cleanup.
+  $source_execs = ['package_mysql_preference', 'package_mysql_source']
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec[$source_execs],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec[$source_execs] -> Exec['basic_settings_source_reload']
   $file_preference = '/etc/apt/preferences.d/90-mysql'
 
   # Set keyrings file
@@ -108,7 +125,8 @@ class basic_settings::package_mysql (
       command     => $key_rebuild,
       onlyif      => "/usr/bin/test -e ${key_file_shell}",
       refreshonly => true,
-      require     => Package[$repository_required_packages],
+      require     => [File[$alternative], Package[$repository_required_packages]],
+      before      => Exec['basic_settings_source_reload'],
     }
 
     # Create MySQL key

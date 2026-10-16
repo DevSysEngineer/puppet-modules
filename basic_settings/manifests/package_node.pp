@@ -12,7 +12,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository, imports its key, and installs Node.js when `true`; removes them when `false`.
@@ -37,9 +37,19 @@ class basic_settings::package_node (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $file = '/etc/apt/sources.list.d/nodesource.sources'
+    $alternative = '/etc/apt/sources.list.d/nodesource.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $file = '/etc/apt/sources.list.d/nodesource.list'
+    $alternative = '/etc/apt/sources.list.d/nodesource.sources'
+  }
+
+  # Remove the unused source format before applying the selected source and refreshing APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => File['package_node_source'],
+    notify  => Exec['package_node_source_reload'],
   }
 
   # Set repository and permission-helper paths.
@@ -161,6 +171,9 @@ class basic_settings::package_node (
     package { 'nodejs':
       ensure => purged,
     }
+
+    # Preserve package removal before cleaning either repository format.
+    Package['nodejs'] -> File[$alternative]
 
     # Remove the local npm permission helper when Node.js package management is disabled.
     file { $npm_permission_helper_path:

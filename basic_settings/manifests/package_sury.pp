@@ -3,6 +3,7 @@
 # This private helper writes or removes the PHP package source and signing key.
 # Ubuntu systems use the Ondrej PPA key path; Debian systems install the Sury archive keyring package through a
 # root-only temporary file.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_sury':
@@ -13,7 +14,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository and imports its key when `true`; removes repository files when `false`.
@@ -42,10 +43,23 @@ class basic_settings::package_sury (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $file = '/etc/apt/sources.list.d/sury_php.sources'
+    $alternative = '/etc/apt/sources.list.d/sury_php.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $file = '/etc/apt/sources.list.d/sury_php.list'
+    $alternative = '/etc/apt/sources.list.d/sury_php.sources'
   }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_sury_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_sury_source'] -> Exec['basic_settings_source_reload']
 
   # Set keyrings file
   $key = '/usr/share/keyrings/sury.gpg'

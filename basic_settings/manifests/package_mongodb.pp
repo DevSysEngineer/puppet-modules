@@ -2,6 +2,7 @@
 #
 # This private helper writes or removes the MongoDB package source and signing key, and installs or purges
 # `mongodb-org-server` with the repository state. It is called by `basic_settings` after OS support has been calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_mongodb':
@@ -13,7 +14,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository, imports its key, and installs the server package when `true`; removes them when `false`.
@@ -46,10 +47,23 @@ class basic_settings::package_mongodb (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $file = '/etc/apt/sources.list.d/mongodb.sources'
+    $alternative = '/etc/apt/sources.list.d/mongodb.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $file = '/etc/apt/sources.list.d/mongodb.list'
+    $alternative = '/etc/apt/sources.list.d/mongodb.sources'
   }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_mongodb_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_mongodb_source'] -> Exec['basic_settings_source_reload']
 
   # Set keyrings file
   $key = '/usr/share/keyrings/mongodb.gpg'
@@ -99,6 +113,9 @@ class basic_settings::package_mongodb (
     package { 'mongodb-org-server':
       ensure => purged,
     }
+
+    # Preserve package removal before cleaning either repository format.
+    Package['mongodb-org-server'] -> File[$alternative]
 
     # Wait for server removal as well as the source-list tools.
     $removal_packages = concat($source_packages, ['mongodb-org-server'])

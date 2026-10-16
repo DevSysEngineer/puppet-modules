@@ -3,6 +3,7 @@
 # This private helper writes or removes the Mozilla package source and signing key. Ubuntu uses the Mozilla Team PPA;
 # other supported systems use `packages.mozilla.org`. It is called by `basic_settings` after platform support has been
 # calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_mozilla':
@@ -13,7 +14,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository and imports its key when `true`; removes both when `false`.
@@ -42,10 +43,23 @@ class basic_settings::package_mozilla (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $file = '/etc/apt/sources.list.d/mozilla.sources'
+    $alternative = '/etc/apt/sources.list.d/mozilla.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $file = '/etc/apt/sources.list.d/mozilla.list'
+    $alternative = '/etc/apt/sources.list.d/mozilla.sources'
   }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_mozilla_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_mozilla_source'] -> Exec['basic_settings_source_reload']
 
   # Set keyrings file
   $key = '/usr/share/keyrings/mozilla.gpg'

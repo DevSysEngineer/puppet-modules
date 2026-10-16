@@ -2,6 +2,7 @@
 #
 # This private helper writes or removes the GitLab package source and signing key. It is called by `basic_settings`
 # after OS support has been calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
 #   class { 'basic_settings::package_gitlab':
@@ -12,7 +13,7 @@
 #   }
 #
 # @param deb_version
-#   APT source format to manage: `list` or `822`.
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
 #
 # @param enable
 #   Creates the repository and imports its key when `true`; removes both when `false`.
@@ -41,10 +42,23 @@ class basic_settings::package_gitlab (
   if ($deb_version == '822') {
     # Use the .sources filename for a deb822 repository definition.
     $file = '/etc/apt/sources.list.d/gitlab.sources'
+    $alternative = '/etc/apt/sources.list.d/gitlab.list'
   } else {
     # Use the .list filename for a one-line APT repository definition.
     $file = '/etc/apt/sources.list.d/gitlab.list'
+    $alternative = '/etc/apt/sources.list.d/gitlab.sources'
   }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_gitlab_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_gitlab_source'] -> Exec['basic_settings_source_reload']
 
   # Set keyrings file
   $key = '/usr/share/keyrings/gitlab.gpg'
