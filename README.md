@@ -30,6 +30,7 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
   - [`naemon`](#naemon)
   - [`netplanio`](#netplanio)
   - [`nginx`](#nginx)
+  - [`nvidia`](#nvidia)
   - [`openitcockpit`](#openitcockpit)
   - [`php8`](#php8)
   - [`proxmox`](#proxmox)
@@ -52,6 +53,7 @@ De modules kiezen veilige standaardinstellingen en zijn zo opgebouwd dat Puppet 
 | `naemon` | Naemon-engine en host- en hostgroupconfiguratie voor OpenITCOCKPIT. |
 | `netplanio` | Netplan-configuratie voor ethernet en WiFi. |
 | `nginx` | Webservers, TLS, PHP-FPM-koppelingen en reverse proxies. |
+| `nvidia` | Gepinde open headless GPU-driver voor Ubuntu 24.04 ARM64, met automatische GPU-integratie in Docker. |
 | `openitcockpit` | OpenITCOCKPIT-agent, servercomponenten en specifieke agentchecks. |
 | `php8` | PHP 8 CLI, extensies, PHP-FPM en afzonderlijke FPM-pools. |
 | `proxmox` | Proxmox VE-installatie en de overstap naar een Proxmox-kernel. |
@@ -223,7 +225,13 @@ Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is ha
 
 De class kan belangrijke serverconfiguratie en conflicterende pakketten vervangen. Controleer vooral sudoers, firewall, netwerk, bootloader, APT-bronnen, automatische updates en de gekozen bron voor Puppet Server.
 
-Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de class schakelt een niet-ondersteunde pakketbron daarom uit. Controleer of de benodigde pakketbronnen op jouw platform worden ingeschakeld.
+Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de meeste helpers schakelen een niet-ondersteunde pakketbron daarom uit. NVIDIA DGX is strikter: `nvidia_dgx_enable => true` vereist Ubuntu 24.04 (`noble`) met APT-architectuur `arm64` en geeft op andere platforms een fout. Deze optie beheert uitsluitend de DGX- en CUDA-pakketbronnen en hun openbare ondertekeningssleutels; zij installeert geen NVIDIA-softwarestack.
+
+Alle `package_*`-repositoryhelpers verwijderen de alternatieve bronvariant: bij deb822 verdwijnt hun `.list`-bestand en bij het klassieke formaat hun `.sources`-bestand. Bij uitschakelen verwijderen ze beide varianten. Dit geldt uitsluitend voor de vaste bronbestandsnamen van de betreffende helper, waaronder beide RabbitMQ-bronnen; andere APT-bronnen blijven behouden. Een opruiming ververst ook de APT-index wanneer de gekozen bron al aanwezig is. Bewaar eigen aanvullende bronnen daarom onder andere bestandsnamen.
+
+De standaard `nvidia_dgx_enable => false` verwijdert `dgx.list`, `dgx.sources`, `cuda-compute-repo.list` en `cuda-compute-repo.sources` uit `/etc/apt/sources.list.d`, plus `cuda_debian_prod.gpg` en `dgx_debian_prod.gpg` uit `/usr/share/keyrings`. Zet de parameter vóór invoering expliciet op `true` op hosts waar deze bronnen moeten blijven. Controleer vooraf of aanvullende APT-bronnen dezelfde sleutelpaden gebruiken: die werken niet meer wanneer de helper de sleutels verwijdert. Andere NVIDIA-configuratie en geïnstalleerde pakketten blijven buiten deze helper.
+
+Ontbreekt één sleutel of is die leeg, dan haalt Puppet beide sleutels opnieuw uit het NVIDIA-archief. Niet-lege sleutelinhoud wordt niet vergeleken en sleutelrotatie gebeurt niet automatisch; plan die afzonderlijk. Broninhoud, eigenaar en rechten worden wel hersteld. Zie het [helpercontract](basic_settings/manifests/package_nvidia_dgx.pp) voor beide ondersteunde bronformaten en de beheergrens.
 
 Interactieve Bash-shells sluiten na 15 minuten zonder invoer aan de prompt in `production`, en na 30 minuten in andere serveromgevingen. Hiervoor telt `basic_settings::environment`, niet de Puppet-codeomgeving. Open na een wijziging een nieuwe login-shell en controleer de werking bij afwijkende shells of profielen. Gestarte scripts kunnen deze timeout via `TMOUT` erven; de [login-documentatie](basic_settings/manifests/login.pp) beschrijft hoe je daarmee omgaat.
 
@@ -231,15 +239,37 @@ Puppet stopt standaard de ontdekte tekst- en seriële consoles; kioskmodus houdt
 
 #### Basisvoorbeeld
 
+Dit voorbeeld activeert ook de NVIDIA-bronnen en vereist daarom Ubuntu 24.04 (`noble`) op `arm64`. Voeg `nvidia_dgx_enable` toe aan je bestaande `basic_settings`-declaratie; declareer de class niet opnieuw. Laat de optie voor andere platforms op `false`.
+
 ```puppet
 class { 'basic_settings':
   hosts_enable            => true,
+  nvidia_dgx_enable       => true,
   server_fdqn             => 'server01.example.org',
   systemd_ntp_extra_pools => ['ntp.example.org'],
 }
 ```
 
 Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp). De Puppet Strings bij [`basic_settings`](basic_settings/manifests/init.pp) en [`basic_settings::login_user`](basic_settings/manifests/login_user.pp) beschrijven de instellingen voor de serverbasis en gebruikers, inclusief bestandsrechten en toegestane bronnen voor home- en sleutelbestanden.
+
+#### Een NVIDIA DGX Spark-kernel kiezen
+
+Gebruik `kernel_flavor => 'nvidia'` voor een NVIDIA DGX Spark of ASUS Ascent GX10 met Ubuntu 24.04 (`noble`) op ARM64. De keuze geldt ook wanneer de host vóór de eerste herstart nog een `-generic`-kernel draait. Andere besturingssystemen, Ubuntu-versies en architecturen geven bij deze expliciete keuze een compilatiefout. Controleer op de doelhost `facter os.architecture` en `dpkg --print-architecture`: Facter mag `aarch64` of `arm64` melden, APT gebruikt `arm64`. Beide factwaarden worden ook door de DGX-repositoryhelper geaccepteerd.
+
+De parameter is beschikbaar in `basic_settings` en bij los gebruik in `basic_settings::kernel`:
+
+| `kernel_flavor` | Keuze |
+| --- | --- |
+| `auto` (standaard) | Behoudt het bestaande gedrag: `-generic` kiest generic, `-raspi` kiest raspi en andere suffixen selecteren geen kernelpakketten. Ook `-nvidia` blijft onder deze terugval vallen. |
+| `generic` | Kiest expliciet de bestaande generic-tak, onafhankelijk van de draaiende kernel. |
+| `raspi` | Kiest expliciet de bestaande raspi-tak, inclusief het bestaande pakket- en bootbeheer. |
+| `nvidia` | Installeert `linux-nvidia-hwe-24.04` en `linux-tools-nvidia-hwe-24.04` op Ubuntu 24.04 ARM64. |
+
+Het NVIDIA-profiel behoudt `linux-tools-common` voor de kerneltools en laat bestaande generieke kernelpakketten beschikbaar als terugvalmogelijkheid. Het gebruikt geen `-nvidia-64k`-kernellijn en legt geen kernelbuild vast. De metapakketten komen uit de Ubuntu-pakketbronnen; `kernel_flavor` vereist daarom geen NVIDIA-repositories. Zie de Ubuntu-pakketbeschrijvingen voor [de kernel en headers](https://packages.ubuntu.com/linux-nvidia-hwe-24.04) en [de kerneltools](https://packages.ubuntu.com/linux-tools-nvidia-hwe-24.04), en NVIDIA's [release notes voor de Spark-kernelflavor](https://docs.nvidia.com/dgx/dgx-os-7-user-guide/release_notes.html).
+
+Het [headless DGX Spark-voorbeeld](examples/nvidia_dgx_spark.pp) combineert deze kernelkeuze met `nvidia_dgx_enable => true` voor de afzonderlijke repository- en keyringintegratie. Het vereist beide interfaces; bij een checkout zonder `nvidia_dgx_enable` laat je die optie weg of neem je eerst de afzonderlijke repositorywijziging over. `basic_settings` beheert daarnaast de gewone serverbasis, waaronder netwerk, beveiliging en bestaande kernelinstellingen. Het voorbeeld declareert daarna de [headless driver](#nvidia) en Docker, zodat de Container Toolkit en NVIDIA-runtime automatisch worden ingericht. CUDA-applicaties blijven in containers; DGX-systempakketten en een desktop worden niet aangevraagd.
+
+Controleer vóór installatie de beschikbare pakketten en voer op de testhost `sudo apt-get --simulate install linux-nvidia-hwe-24.04 linux-tools-nvidia-hwe-24.04` uit. Ga niet verder bij onverwachte verwijderingen van kernel-, firmware- of bootpakketten. Controleer na installatie de APT-uitvoer, beschikbare kernels en bootconfiguratie en plan zelf een gecontroleerde herstart; dit kernelprofiel triggert geen reboot en kiest geen bootentry. Bevestig daarna met `uname -r` het suffix `-nvidia`, controleer met `dpkg-query -W linux-nvidia-hwe-24.04 linux-tools-nvidia-hwe-24.04 linux-tools-common` de pakketten en controleer dat een tweede Puppet-run geen nieuwe pakketacties voor dit profiel uitvoert.
 
 #### Puppet Server controleren
 
@@ -349,7 +379,7 @@ De laatste opdracht moet geen bestanden of gitlink meer tonen. Laat de bewaarde 
 
 #### Belangrijkste eigenschappen
 
-- Installeert Docker CE; de officiële APT-bron kan via `basic_settings` worden beheerd.
+- Installeert Docker CE en beheert de centrale daemonconfiguratie; de officiële APT-bron kan via `basic_settings` worden beheerd.
 - Accepteert Compose-bronnen via `puppet:///`, `file:///` of HTTPS en ondersteunt SHA256-controle voor downloads.
 - Beheert per stack een eigen projectmap, `.env`, mappen voor bind mounts en een systemd-service.
 - Kan containerstatus, healthchecks, toegestane eenmalige containers, orphans en databaseback-ups monitoren.
@@ -361,6 +391,14 @@ De laatste opdracht moet geen bestanden of gitlink meer tonen. Laat de bewaarde 
 #### Belangrijke aandachtspunten
 
 Declareer `docker` vóór Compose-resources en zorg dat de Docker-pakketbron beschikbaar is. Voor het starten en beheren van stacks als systemd-service is ook `basic_settings::systemd` nodig. Bij ingeschakelde databaseback-ups, waaronder Authentik en Twenty, is deze class verplicht. Het basisvoorbeeld richt beide voorzieningen in via `basic_settings`.
+
+Voor GPU-toegang declareer je eerst `basic_settings`, daarna [`nvidia`](#nvidia) en daarna `docker`, elk eenmaal. Docker detecteert alleen een class die tijdens zijn evaluatie al is gedeclareerd; een `require` of relatiepijl vervangt die volgorde niet. De beschikbare module alleen activeert niets. Het [Spark-voorbeeld](examples/nvidia_dgx_spark.pp) toont de volledige samenstelling.
+
+Docker beheert het volledige `/etc/docker/daemon.json` via één template en file-resource. Met `daemon_config` overschrijf je de standaardinstellingen; geneste hashes worden samengevoegd, zodat bijvoorbeeld een andere `log-opts.max-size` de standaard `max-file` behoudt. Neem vóór ingebruikname alle bestaande afwijkende instellingen in deze hash over: lokale bestandsinhoud wordt vervangen. De [Docker Strings](docker/manifests/init.pp) beschrijven het configuratiecontract.
+
+Wanneer `nvidia` is gedeclareerd, voegt Docker de runtime toe aan diezelfde configuratie. Andere opgegeven runtimes blijven behouden en de integratie verandert de default-runtime niet. Laat de NVIDIA-runtime buiten je eigen hash als de automatische integratie hem beheert. Laat je de class later weg, dan verdwijnt de automatisch toegevoegde runtime; driver- en toolkitpakketten blijven geïnstalleerd. Zorg eerst dat geen container of ingestelde default-runtime meer van die vermelding afhankelijk is. Ook gewone Docker-hosts krijgen de centraal beheerde daemonconfiguratie, zonder automatische GPU-aanvulling.
+
+Gebruik de standaardconfiguratielocatie en controleer vooraf met `systemctl cat docker.service` dat startopties en daemonconfiguratie geen dubbele instellingen bevatten. Laat geen andere voorziening, zoals `nvidia-ctk` of een eigen file-resource, hetzelfde bestand schrijven. De nieuwe configuratie wordt vóór vervanging met `dockerd --validate` gecontroleerd; een wijziging herstart alleen een actieve Docker-daemon en kan containers onderbreken. Plan de eerste activering daarom in een onderhoudsmoment.
 
 Een start of herstart kan nieuwe images ophalen, ook tijdens een serverstart. Compose hergebruikt standaard aanwezige images, behalve bij `latest`. Twenty en GitLab Runner halen bij `image_tag => 'latest'` altijd images op; bij Twenty geldt dat ook voor PostgreSQL en Redis. Houd dus rekening met upgrades en bereikbaarheid van de registry. Kies een andere updatewijze volgens de [Puppet Strings over `pull`](docker/manifests/compose.pp); `never` vereist dat alle images lokaal aanwezig zijn.
 
@@ -385,7 +423,10 @@ class { 'basic_settings':
 
 # Install the runtime after preparing the Docker package source.
 class { 'docker':
-  require => Class['basic_settings'],
+  daemon_config => {
+    'log-opts' => { 'max-size' => '20m' },
+  },
+  require       => Class['basic_settings'],
 }
 
 # Deploy the application with its managed Compose definition and environment.
@@ -782,6 +823,58 @@ De Nginx-master moet BPF-programma's mogen laden, ook binnen containers of aanvu
 
 Multipath TCP vereist Nginx 1.29.7 of nieuwer met die ondersteuning en Linux 5.6 of nieuwer. De optie staat standaard uit. Bij toevoegen of verwijderen activeert Nginx ook `SO_REUSEPORT`; beoordeel de [beveiligingsgevolgen](https://nginx.org/en/docs/http/ngx_http_core_module.html#listen). Socketinstellingen gelden voor alle vhosts op hetzelfde luisteradres, poort en transport. Gebruik daarvoor dezelfde schrijfwijze en stem afwijkende waarden af volgens de Strings.
 
+### `nvidia`
+
+#### Doel
+
+`nvidia` installeert een expliciet gepinde open headless GPU-driver voor Ubuntu 24.04 ARM64 op een DGX Spark. De module beheert de driverselectie; `basic_settings` blijft eigenaar van pakketbronnen, kernel en headers. Docker installeert zijn Container Toolkit automatisch wanneer de driverclass vóór Docker is gedeclareerd.
+
+#### Belangrijkste eigenschappen
+
+- Gebruikt een positief geheel branchnummer voor zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-open`.
+- Installeert de headless DKMS-driver en `nvidia-modprobe`, zonder aanbevolen of voorgestelde pakketten.
+- Controleert oude pins rechtstreeks in de class en verwijdert hun configuratie via APT vóór driverinstallatie.
+- Laat verplichte dependencies van de gekozen driverbranch intact.
+- Installeert geen host-CUDA-toolkit, desktop, volledige DGX-platformstack of applicatieframework.
+
+#### Belangrijke aandachtspunten
+
+Gebruik een headless Ubuntu 24.04-basis met ARM64, de NVIDIA-pakketbron en de geselecteerde kernel inclusief headers. Dit is een selectieve installatie, geen volledige DGX OS-inrichting of claim dat iedere Spark-workload is gevalideerd. Bestaande desktop- en CUDA-pakketten worden niet opgeschoond. De pakketbron moet voor de gekozen branch zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-open` aanbieden.
+
+Geef `pinning` op als een positief geheel getal, bijvoorbeeld `580`, zonder quotes of versiesuffix. Dit nummer bepaalt zowel het pinningpakket als het headless-driverpakket. Een ontbrekend pakket geeft een installatiefout. Binnen de gekozen branch worden bestaande driverpakketten niet automatisch bijgewerkt; een ander branchnummer selecteert een ander driverpakket. Beoordeel bij een branchwissel het APT-pakketplan en plan DKMS-controle voor de bedoelde bootkernel en zo nodig een handmatige herstart. Secure Boot blijft ongewijzigd.
+
+Controleer vóór de driverinstallatie op de doelhost het APT-pakketplan nadat de gekozen pin daadwerkelijk is geïnstalleerd. NVIDIA's [pakketindex](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/) toont de beschikbare pakketten. Controleer na installatie de driver en de benodigde utilities zoals beschreven bij [GPU-toegang controleren](#gpu-toegang-controleren).
+
+#### Basisvoorbeeld
+
+Voeg de driver tussen de bestaande platform- en Docker-declaraties in. Het volledige [Spark-hostvoorbeeld](examples/nvidia_dgx_spark.pp) bereidt beide pakketbronnen en de kernel voor:
+
+```puppet
+class { 'nvidia':
+  pinning => 580,
+  require => [
+    Class['basic_settings::kernel', 'basic_settings::package_nvidia_dgx'],
+    Exec['basic_settings_source_reload'],
+  ],
+}
+```
+
+De [Puppet Strings](nvidia/manifests/init.pp) beschrijven pinning, installatieopties, prerequisites en updategedrag. Alleen deze driverclass gebruiken installeert geen Docker of Container Toolkit.
+
+#### GPU-toegang controleren
+
+Controleer na installatie en de geplande herstart eerst `uname -r`, `dkms status` en `nvidia-smi`. De draaiende kernel moet de gekozen `-nvidia`-kernel zijn en de geladen driver moet overeenkomen met de geïnstalleerde bibliotheken. Test vervolgens expliciete GPU-toegang zonder de normale Docker-runtime te veranderen:
+
+```sh
+sudo docker info --format '{{json .Runtimes}}'
+sudo docker run --rm --runtime=nvidia --gpus all \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility ubuntu:24.04 nvidia-smi
+```
+
+Gebruik bij Compose `runtime: nvidia` en een GPU-reservering met `driver: nvidia`, `count: all` en `capabilities: [gpu]`; combineer `count` niet met `device_ids`. Het [Docker Compose GPU-voorbeeld](https://docs.docker.com/compose/how-tos/gpu-support/) beschrijft de structuur. Deze controles vereisen geen privileged-container, Docker-socketmount of gepubliceerde poort.
+
+`nvidia-smi` bewijst apparaattoegang, maar nog geen CUDA-berekening. Voer ook een berekening uit in een voor ARM64, Spark en de gekozen driver geschikte frameworkcontainer en leg de image-digest vast. Test een gewone container, een ongewijzigde Puppet-run, noop, herstel van de runtimevermelding en het weglaten van de driverclass. Controleer GPU-toegang tevens na de normale projectroute voor `systemctl daemon-reload`: NVIDIA beschrijft voor bepaalde systemd/cgroup-combinaties [verlies van GPU-toegang](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Pas cgroups of hardening alleen aan wanneer de gebruikte combinatie dat aantoonbaar vereist.
+
 ### `openitcockpit`
 
 #### Doel
@@ -1144,6 +1237,7 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 - [`examples/data-services.pp`](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
 - [`examples/monitoring.pp`](examples/monitoring.pp): OpenITCOCKPIT-agent, eigen checks en monitoringinstellingen.
 - [`examples/hosts.pp`](examples/hosts.pp): Beheer van `/etc/hosts` via de hoofdclass, networkclass en losse entries.
+- [`examples/nvidia_dgx_spark.pp`](examples/nvidia_dgx_spark.pp): Headless DGX Spark / ASUS Ascent GX10 met Ubuntu 24.04 ARM64, NVIDIA-pakketbronnen en kernel, gepinde GPU-driver en automatische Docker-GPU-integratie.
 
 ## Contributie
 

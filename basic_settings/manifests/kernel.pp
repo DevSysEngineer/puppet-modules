@@ -55,6 +55,15 @@
 # @param ip_version
 #   Selects IPv4-only (`4`) or dual-stack (`all`) behavior for kernel and network templates.
 #
+# @param kernel_flavor
+#   Selects `auto` (default), `generic`, `raspi`, or `nvidia`. Automatic selection retains the running kernel suffix
+#   detection: `-generic` and `-raspi` select their profiles; all other suffixes leave kernel packages unmanaged.
+#   Explicit selections work before reboot. `nvidia` requires Ubuntu 24.04 ARM64 (`arm64` or `aarch64` in Facter).
+#   It installs linux-nvidia-hwe-24.04
+#   and linux-tools-nvidia-hwe-24.04, retaining linux-tools-common and existing generic kernels. Ubuntu APT sources
+#   must provide these packages; NVIDIA repositories are not required. No GPU drivers, CUDA or reboot are managed
+#   by this selection. Other kernel-class settings still apply. Verify boot configuration and reboot manually.
+#
 # @param memory_available_profiles
 #   Optional MemAvailable threshold profiles for memory-pressure monitoring.
 #   `undef` resolves to the built-in RAM profile list. Each profile hash accepts `max_ram`, `warning`, and `critical`;
@@ -99,38 +108,49 @@
 #
 # @api public
 class basic_settings::kernel (
-  Optional[String]             $antivirus_package         = undef,
-  String                       $bootloader                = 'grub',
-  Integer                      $connection_max            = 4096,
-  String                       $cpu_governor              = 'performance',
-  Boolean                      $guest_agent_enable        = false,
-  Optional[Boolean]            $hardware_passthrough      = undef,
-  Integer                      $hugepages                 = 0,
-  Array                        $install_options           = [],
-  Boolean                      $ip_ra_enable              = true,
-  Boolean                      $ip_ra_learn_prefix        = true,
-  String                       $ip_regdom                 = 'NL',
-  Enum['all', '4']             $ip_version                = 'all',
-  Optional[Array[Hash]]        $memory_available_profiles = undef,
-  Variant[Boolean, Integer[0]] $mglru_enable              = true,
-  String                       $network_mode              = 'strict',
-  Enum['initramfs', 'dracut']  $ram_disk_package          = 'initramfs',
-  Variant[Boolean, String]     $security_lockdown         = true,
-  Optional[Array[Hash]]        $swap_free_profiles        = undef,
-  String                       $tcp_congestion_control    = 'brr',
-  Integer                      $tcp_fastopen              = 3,
-  Array                        $usb_any_requirements      = [],
-  Array                        $usb_expected              = [],
-  Array                        $usb_whitelist             = [],
+  Optional[String]                           $antivirus_package         = undef,
+  String                                     $bootloader                = 'grub',
+  Integer                                    $connection_max            = 4096,
+  String                                     $cpu_governor              = 'performance',
+  Boolean                                    $guest_agent_enable        = false,
+  Optional[Boolean]                          $hardware_passthrough      = undef,
+  Integer                                    $hugepages                 = 0,
+  Array                                      $install_options           = [],
+  Boolean                                    $ip_ra_enable              = true,
+  Boolean                                    $ip_ra_learn_prefix        = true,
+  String                                     $ip_regdom                 = 'NL',
+  Enum['all', '4']                           $ip_version                = 'all',
+  Enum['auto', 'generic', 'raspi', 'nvidia'] $kernel_flavor             = 'auto',
+  Optional[Array[Hash]]                      $memory_available_profiles = undef,
+  Variant[Boolean, Integer[0]]               $mglru_enable              = true,
+  String                                     $network_mode              = 'strict',
+  Enum['initramfs', 'dracut']                $ram_disk_package          = 'initramfs',
+  Variant[Boolean, String]                   $security_lockdown         = true,
+  Optional[Array[Hash]]                      $swap_free_profiles        = undef,
+  String                                     $tcp_congestion_control    = 'brr',
+  Integer                                    $tcp_fastopen              = 3,
+  Array                                      $usb_any_requirements      = [],
+  Array                                      $usb_expected              = [],
+  Array                                      $usb_whitelist             = [],
 ) {
   # Set variables
   $os_name = $facts['os']['name'];
   $os_version = $facts['os']['release']['major']
-  $kernel_type = $facts['kernelrelease'] ? {
+
+  # Detect the currently running kernel without changing legacy automatic behavior.
+  $detected_kernel_type = $facts['kernelrelease'] ? {
     /-raspi$/   => 'raspi',
     /-generic$/ => 'generic',
     default     => 'other',
   }
+
+  # Use the selected kernel flavor even before the first reboot.
+  $kernel_type = $kernel_flavor ? {
+    'auto'  => $detected_kernel_type,
+    default => $kernel_flavor,
+  }
+
+  # Detect systemd integration independently of the selected kernel flavor.
   $systemd_enable = defined(Package['systemd'])
 
   # Serialize configured USB filters as literal shell words before rendering the monitoring assignments.
@@ -360,6 +380,21 @@ class basic_settings::kernel (
         require         => Package['linux-raspi'],
       }
     }
+    'nvidia': {
+      # Accept Facter's aarch64 and APT's arm64 naming for Ubuntu 24.04 ARM64 only.
+      if $os_name != 'Ubuntu' or $os_version != '24.04' or !($facts['os']['architecture'] in ['aarch64', 'arm64']) {
+        fail('NVIDIA DGX Spark kernel requires Ubuntu 24.04 ARM64')
+      }
+
+      # Install the NVIDIA kernel and tools while retaining existing generic kernels for recovery.
+      package { [
+          'linux-nvidia-hwe-24.04',
+          'linux-tools-nvidia-hwe-24.04',
+        ]:
+          ensure          => installed,
+          install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+      }
+    }
     default: {
       # Other kernel selections do not require a specialized kernel package.
     }
@@ -457,8 +492,25 @@ class basic_settings::kernel (
     }
   }
 
-  # Remove unnecessary packages
-  package { ['apport', 'installation-report', 'linux-tools-common', 'pemmican-common', 'plymouth', 'thermald', 'upower']:
+  # Keep the existing package cleanup outside the NVIDIA tool dependency.
+  $unnecessary_packages = [
+    'apport',
+    'installation-report',
+    'pemmican-common',
+    'plymouth',
+    'thermald',
+    'upower',
+  ]
+
+  # NVIDIA kernel tools require linux-tools-common.
+  $unnecessary_kernel_tools = $kernel_type ? {
+    'nvidia' => [],
+    default  => ['linux-tools-common'],
+  }
+  $packages_to_purge = concat($unnecessary_packages, $unnecessary_kernel_tools)
+
+  # Purge the selected cleanup packages without removing NVIDIA tool dependencies.
+  package { $packages_to_purge:
     ensure => purged,
   }
 
