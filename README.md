@@ -225,6 +225,8 @@ Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is ha
 
 De class kan belangrijke serverconfiguratie en conflicterende pakketten vervangen. Controleer vooral sudoers, firewall, netwerk, bootloader, APT-bronnen, automatische updates en de gekozen bron voor Puppet Server.
 
+Hostforwarding staat standaard uit (`ip_forwarding => false`). Zet voor een router of Docker-host expliciet `ip_forwarding => true`. `ip_version` bepaalt dan de families: `'all'` schakelt IPv4- en IPv6-forwarding in; `'4'` schakelt alleen IPv4-forwarding in en houdt IPv6 uitgeschakeld. De keuze staat los van `docker_enable`, dat alleen de pakketbron voorbereidt. De los gebruikte kernelclass heeft dezelfde boolean `basic_settings::kernel::ip_forwarding`; de [kernel-Strings](basic_settings/manifests/kernel.pp) beschrijven de bestaande sysctl-route. Laad eerst je eigen firewallbeleid en volg bij Docker de [migratievoorwaarden](#docker).
+
 Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de meeste helpers schakelen een niet-ondersteunde pakketbron daarom uit. NVIDIA DGX is strikter: `nvidia_dgx_enable => true` vereist Ubuntu 24.04 (`noble`) met APT-architectuur `arm64` en geeft op andere platforms een fout. Deze optie beheert uitsluitend de DGX- en CUDA-pakketbronnen en hun openbare ondertekeningssleutels; zij installeert geen NVIDIA-softwarestack.
 
 Alle `package_*`-repositoryhelpers verwijderen de alternatieve bronvariant: bij deb822 verdwijnt hun `.list`-bestand en bij het klassieke formaat hun `.sources`-bestand. Bij uitschakelen verwijderen ze beide varianten. Dit geldt uitsluitend voor de vaste bronbestandsnamen van de betreffende helper, waaronder beide RabbitMQ-bronnen; andere APT-bronnen blijven behouden. Een opruiming ververst ook de APT-index wanneer de gekozen bron al aanwezig is. Bewaar eigen aanvullende bronnen daarom onder andere bestandsnamen.
@@ -396,7 +398,15 @@ Voor GPU-toegang declareer je eerst `basic_settings`, daarna [`nvidia`](#nvidia)
 
 Docker beheert het volledige `/etc/docker/daemon.json` via één template en file-resource. Met `daemon_config` overschrijf je de standaardinstellingen; geneste hashes worden samengevoegd, zodat bijvoorbeeld een andere `log-opts.max-size` de standaard `max-file` behoudt. Neem vóór ingebruikname alle bestaande afwijkende instellingen in deze hash over: lokale bestandsinhoud wordt vervangen. De [Docker Strings](docker/manifests/init.pp) beschrijven het configuratiecontract.
 
-Docker neemt standaard de firewallkeuze over van een eerder gedeclareerde `basic_settings::network`; zonder die class blijft het iptables gebruiken. Op bestaande hosts met nftables of firewalld verandert daardoor het firewallgedrag. Kies expliciet `firewall_package => 'iptables'` om het eerdere gedrag te behouden. De nftables-backend vereist Docker Engine 29 of nieuwer. Bij nftables en firewalld wordt `iptables` standaard `false`: dit onderdrukt ook de meeste automatische nftables-regels. Zorg dan zelf voor de benodigde netwerkregels en test containerbereikbaarheid vóór uitrol; zie de [Docker-firewalldocumentatie](https://docs.docker.com/engine/network/packet-filtering-firewalls/) en het [parametercontract](docker/manifests/init.pp).
+Docker neemt standaard de firewallkeuze over van een eerder gedeclareerde `basic_settings::network`; zonder die class blijft het iptables gebruiken. Bij `nftables` zet de module `firewall-backend` op `nftables`. De gedeelde daemondefaults zetten `iptables` voor iedere firewallkeuze op `true`, zodat Docker zijn IPv4-regels voor bridges, NAT, poortpublicatie en isolatie beheert. Voor elke firewallkeuze volgen `ip6tables` en `ipv6` de bestaande `ip_version`: beide zijn `true` bij `'all'` en `false` bij `'4'`. Docker neemt die IP-keuze over van de eerder gedeclareerde netwerkclass, anders van de kernelclass, en gebruikt zonder beide `'all'`. `ipv6` schakelt IPv6 in op de standaardbridge; zelf aangemaakte netwerken en Compose-netwerken kiezen IPv6 afzonderlijk. De module kiest geen IPv6-subnet; geef desgewenst `fixed-cidr-v6` mee via `daemon_config`. Expliciete daemoninstellingen gaan voor, ook `false` bij bewust vervangend firewallbeheer. Zie de [Docker-firewalldocumentatie](https://docs.docker.com/engine/network/packet-filtering-firewalls/), de [IPv6-bridgeopties](https://docs.docker.com/engine/network/drivers/bridge/#use-ipv6-with-the-default-bridge-network) en het [parametercontract](docker/manifests/init.pp).
+
+De native nftables-backend is volgens de [Docker-documentatie](https://docs.docker.com/engine/network/firewall-nftables/) beschikbaar vanaf Engine 29.0.0, experimenteel en niet ondersteund in Swarm-modus. Controleer deze voorwaarden voor de werkelijk geïnstalleerde Engine-versie. De backend schakelt hostforwarding niet zelf in. Stel expliciet `ip_forwarding => true` in; bij `ip_version => 'all'` forwarden beide families en bij `'4'` alleen IPv4. Dit geeft geen algemene toestemming voor verkeer: het consumerproject blijft eigenaar van zijn forward-filter. Bij zelfstandig Docker-gebruik moet de consumer ook de host-sysctls verzorgen.
+
+De geplande moduleset `3.0.0` bevat deze forwardingparameter, nftables-defaults en IP-afhankelijke IPv6-defaults; gebruik een revisie waarin deze wijziging is opgenomen. Een checkout met de eerdere ontwikkeldefault `iptables => false` voor nftables of firewalld gaat bij de update Docker-regels aanmaken. Bij `ip_version => 'all'` wordt nu ook IPv6 op de standaardbridge ingeschakeld, inclusief bij zelfstandig Docker-gebruik. Behoud zo nodig de eerdere IPv6-keuze met expliciete `daemon_config`-waarden. Behoud zo nodig je bestaande vervangende firewallbeheer met expliciete `daemon_config`-waarden en beoordeel die combinatie vóór omschakeling. Migreer eventuele `DOCKER-USER`-regels en controleer achtergebleven iptables-`FORWARD`-policies; die kunnen verkeer blijven blokkeren. Beheer eigen nftables-regels in aparte tabellen en behoud Docker-tabellen bij het herladen van je firewall.
+
+Laad bij de eerste omschakeling het eigen forward-filter vóór `Exec['kernel_sysctl_reload']` en vóór activering van de Docker-configuratie. `File['/etc/sysctl.d/90-network.conf']` meldt wijzigingen aan deze refresh-only exec, die `sysctl --system` uitvoert; bij hugepages gaat de bestaande hugepage-service daaraan vooraf. `File['/etc/docker/daemon.json']` valideert de volledige kandidaat met `dockerd --validate` en meldt wijzigingen aan `Service['docker']`. Borg in je consumer de volgorde firewall laden, sysctls toepassen, Docker omschakelen, en de overeenkomstige systemd-opstartvolgorde. Alleen de pakket- of servicedeclaratie van nftables bewijst niet dat je eigen filter geladen is. Een forwardingwijziging op zichzelf meldt geen Docker-herstart.
+
+De bestaande sysctlconfiguratie wordt bij het opstarten opnieuw geladen. Test op de integratiehost ook na een reboot de sysctlwaarden, nieuwe bridges, uitgaand containerverkeer, gepubliceerde poorten en geblokkeerd verkeer tussen hostinterfaces. Controleer dat een ongewijzigde tweede Puppet-run geen configuratie schrijft of services herstart. `dockerd --validate` bewijst alleen configuratiegeldigheid. Behoud het bestaande RA-beleid; eventuele benodigde Router Advertisements op een IPv6-uplink stem je af via het bestaande interfacebeheer.
 
 Wanneer `nvidia` is gedeclareerd, voegt Docker de runtime toe aan diezelfde configuratie. Andere opgegeven runtimes blijven behouden en de integratie verandert de default-runtime niet. Laat de NVIDIA-runtime buiten je eigen hash als de automatische integratie hem beheert. Laat je de class later weg, dan verdwijnt de automatisch toegevoegde runtime; driver- en toolkitpakketten blijven geïnstalleerd. Zorg eerst dat geen container of ingestelde default-runtime meer van die vermelding afhankelijk is. Ook gewone Docker-hosts krijgen de centraal beheerde daemonconfiguratie, zonder automatische GPU-aanvulling.
 
@@ -408,19 +418,20 @@ Geef `.env`-inhoud met geheimen door als `Sensitive(...)` en gebruik voor gedown
 
 Declareer voor `docker::compose_proxy` ook `nginx`; kies alleen HTTP naar de achterliggende applicatie als die geen TLS ondersteunt.
 
-`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L121), of zet `akadmin_remove => false` om het account te behouden.
+`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L125), of zet `akadmin_remove => false` om het account te behouden.
 
 Authentik en Nextcloud nemen zonder eigen relay de SMTP-relay over uit de gedeclareerde `basic_settings`. Controleer de transportbeveiliging: standaard gebruikt Authentik geen TLS en Nextcloud alleen STARTTLS als de relay dat aanbiedt. Verplichte versleuteling vraagt dus een expliciete keuze; zie de SMTP-contracten bij [Authentik](docker/manifests/authentik.pp) en [Nextcloud](docker/manifests/nextcloud.pp).
 
-Bij `ensure => absent` verwijdert Compose de volledige projectmap, inclusief back-ups en lokale bind-mountgegevens, zonder zelf de applicatiecontainers te stoppen. Kopieer benodigde gegevens eerst naar een andere locatie. Ontkoppel de stack van het systemd-target, herlaad systemd en stop de stack terwijl de projectbestanden nog bestaan; stop en deactiveer ook de back-uptimer en -service. Laat vervallen unitbestanden door het centrale mapbeheer opruimen en herlaad systemd daarna opnieuw. Docker named volumes blijven bestaan. Zie het [verwijdervoorbeeld](examples/docker.pp#L46) en het [`ensure`-contract](docker/manifests/compose.pp).
+Bij `ensure => absent` verwijdert Compose de volledige projectmap, inclusief back-ups en lokale bind-mountgegevens, zonder zelf de applicatiecontainers te stoppen. Kopieer benodigde gegevens eerst naar een andere locatie. Ontkoppel de stack van het systemd-target, herlaad systemd en stop de stack terwijl de projectbestanden nog bestaan; stop en deactiveer ook de back-uptimer en -service. Laat vervallen unitbestanden door het centrale mapbeheer opruimen en herlaad systemd daarna opnieuw. Docker named volumes blijven bestaan. Zie het [verwijdervoorbeeld](examples/docker.pp#L49) en het [`ensure`-contract](docker/manifests/compose.pp).
 
 #### Basisvoorbeeld
 
-Plaats het Compose-bestand in je eigen profielmodule op het hieronder genoemde pad en vervang het voorbeeldgeheim door een waarde uit je beveiligde configuratie. Puppet maakt de projectmap en de systemd-service `docker-compose-example.service`.
+Plaats het Compose-bestand in je eigen profielmodule op het hieronder genoemde pad en lever de volledige environment-inhoud via `profile::example::environment` als `Sensitive[String]` uit beveiligde Hiera-data. Puppet maakt de projectmap en de systemd-service `docker-compose-example.service`.
 
 ```puppet
 class { 'basic_settings':
   docker_enable => true,
+  ip_forwarding => true,
 }
 
 # Install the runtime after preparing the Docker package source.
@@ -434,18 +445,18 @@ class { 'docker':
 # Deploy the application with its managed Compose definition and environment.
 docker::compose { 'example':
   compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
-  env_content    => Sensitive("COMPOSE_PROJECT_NAME=example\nAPP_SECRET=replace-with-secret\n"),
+  env_content    => lookup('profile::example::environment', Sensitive[String]),
   require        => Class['docker'],
 }
 ```
 
 Start de stack na de eerste inrichting met `sudo systemctl start docker-compose-example.service`. Bij het opstarten van de server verzorgt het gekoppelde systemd-target de start. Puppet laat een gestopte stack gestopt; wijzigingen aan het Compose-bestand of `.env` herstarten alleen een al actieve service. Dit geldt ook voor de applicatiewrappers.
 
-Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L4), [Nginx-proxy](examples/docker.pp#L58), [Authentik met eigen beheerder](examples/docker.pp#L121) en [Twenty met S3-opslag](examples/docker.pp#L184). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
+Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L6), [Nginx-proxy](examples/docker.pp#L61), [Authentik met eigen beheerder](examples/docker.pp#L125) en [Twenty met S3-opslag](examples/docker.pp#L189). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
 
 #### Databaseback-ups en herstel
 
-Authentik en Twenty maken dagelijks om 05:00 uur in de lokale servertijd een PostgreSQL-back-up, met zeven dagen retentie. Bij deze wrappers kun je de back-up niet uitschakelen. Gebruik voor een eigen project het [Compose-scenario met databaseback-up](examples/docker.pp#L4). De [Compose Strings](docker/manifests/compose.pp) beschrijven de serviceselectie, planning en retentie; dezelfde instellingen zijn beschikbaar via `docker::compose_proxy`.
+Authentik en Twenty maken dagelijks om 05:00 uur in de lokale servertijd een PostgreSQL-back-up, met zeven dagen retentie. Bij deze wrappers kun je de back-up niet uitschakelen. Gebruik voor een eigen project het [Compose-scenario met databaseback-up](examples/docker.pp#L6). De [Compose Strings](docker/manifests/compose.pp) beschrijven de serviceselectie, planning en retentie; dezelfde instellingen zijn beschikbaar via `docker::compose_proxy`.
 
 De back-up werkt met één draaiende PostgreSQL-container; externe databases vallen erbuiten. Controleer de [containervereisten bij `backup_service`](docker/manifests/compose.pp) en of de applicatie daadwerkelijk de geselecteerde database gebruikt. Voer databasewijzigingen en wachtwoordrotaties ook in PostgreSQL door; initialisatievariabelen wijzigen een bestaande database niet.
 
@@ -484,7 +495,7 @@ Controleer na herstel schemas, data, rollen, eigenaarschap en extensies voordat 
 
 ##### Installatie en bereikbaarheid
 
-Gebruik het [Nextcloud-scenario](examples/docker.pp#L238) om [`docker::nextcloud`](docker/manifests/nextcloud.pp) achter een HTTPS-proxy op dezelfde host te installeren. Met `server_name` maakt Puppet die proxy; declareer ook `nginx` en lever een geldig certificaat met sleutel. Zonder `server_name` verzorg je de HTTPS-proxy zelf. Voer dezelfde applicatiedomeinnaam in de AIO-interface in en rond de domeinvalidatie en installatie af. De eerste Puppet-run die een voltooide installatie herkent, past de applicatie-instellingen toe.
+Gebruik het [Nextcloud-scenario](examples/docker.pp#L244) om [`docker::nextcloud`](docker/manifests/nextcloud.pp) achter een HTTPS-proxy op dezelfde host te installeren. Met `server_name` maakt Puppet die proxy; declareer ook `nginx` en lever een geldig certificaat met sleutel. Zonder `server_name` verzorg je de HTTPS-proxy zelf. Voer dezelfde applicatiedomeinnaam in de AIO-interface in en rond de domeinvalidatie en installatie af. De eerste Puppet-run die een voltooide installatie herkent, past de applicatie-instellingen toe.
 
 AIO vereist vaste container- en volumenamen: er kan maar één installatie per Docker-daemon draaien, ook met andere resourcetitels of poorten. Deze wrapper gebruikt de lokale rootful daemon; gebruik voor meer installaties [afzonderlijke VM's of Docker-daemons](https://github.com/nextcloud/all-in-one/blob/main/multiple-instances.md). Compose-monitoring ziet alleen de mastercontainer. Regel afzonderlijk toezicht op Nextcloud, de database en AIO-back-ups, en bij Talk ook de bereikbaarheid van de Talk-poort.
 
@@ -516,7 +527,7 @@ De herstart van `signaling` kan actieve gesprekken verstoren. Voer de eerste int
 
 ##### Inloggen via OIDC
 
-Wil je gebruikers rechtstreeks naar je OIDC-provider sturen, installeer en activeer dan eerst `user_oidc` en richt één werkende provider in. Geef daarna optioneel `user_oidc_allow_multiple_user_backends => false` mee aan `docker::nextcloud`, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L238). Met `true` sta je meerdere inlogmethoden toe. De standaard `undef` laat de bestaande instelling ongemoeid; ook het weglaten van een eerder opgegeven waarde verwijdert of herstelt niets. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven het volledige parametercontract.
+Wil je gebruikers rechtstreeks naar je OIDC-provider sturen, installeer en activeer dan eerst `user_oidc` en richt één werkende provider in. Geef daarna optioneel `user_oidc_allow_multiple_user_backends => false` mee aan `docker::nextcloud`, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L244). Met `true` sta je meerdere inlogmethoden toe. De standaard `undef` laat de bestaande instelling ongemoeid; ook het weglaten van een eerder opgegeven waarde verwijdert of herstelt niets. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven het volledige parametercontract.
 
 Puppet beheert alleen deze applicatie-instelling via de bestaande OCC-voorziening, zodra Nextcloud geïnstalleerd is en zonder containerherstart. Na de installatiecontrole toetst een afzonderlijke, alleen-lezen OCC-controle of de `user_oidc`-commando’s beschikbaar zijn. Ontbreken ze, bijvoorbeeld doordat de app ontbreekt of uitgeschakeld is, dan faalt die controle en wordt de instelling niet geschreven. Een werkende providerconfiguratie blijft je eigen verantwoordelijkheid. De parameter installeert geen app en verandert geen providers, gebruikers of authenticatiegegevens; mislukte OCC-schrijfopdrachten blijven fouten.
 
@@ -532,13 +543,13 @@ Bij `ensure => absent` verdwijnt de hele projectmap, inclusief deze lokale back-
 
 ##### S3-opslag kiezen en wijzigen
 
-Gebruik het [voorbeeld met twee stores](examples/docker.pp#L238) om S3-opslag aan een geïnstalleerde AIO-deployment toe te voegen. Registratie alleen activeert geen primaire opslag; het voorbeeld laat ook die keuze zien. De gekozen stores moeten bestaan of via Puppet worden aangemaakt. De [S3 Strings](docker/manifests/nextcloud_s3.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de configuratie en opslagkeuzes. Een ingestelde keuze weglaten behoudt de opgeslagen selectie.
+Gebruik het [voorbeeld met twee stores](examples/docker.pp#L244) om S3-opslag aan een geïnstalleerde AIO-deployment toe te voegen. Registratie alleen activeert geen primaire opslag; het voorbeeld laat ook die keuze zien. De gekozen stores moeten bestaan of via Puppet worden aangemaakt. De [S3 Strings](docker/manifests/nextcloud_s3.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de configuratie en opslagkeuzes. Een ingestelde keuze weglaten behoudt de opgeslagen selectie.
 
 Gebruik per store een eigen bucket waar alleen deze Nextcloud-installatie toegang toe heeft. Het wijzigen van primaire opslag migreert geen bestanden en kan bestaande data ontoegankelijk maken. Regel vooraf de migratie en back-ups van zowel de database als de objectdata; volg de [Nextcloud-handleiding voor primaire objectopslag](https://docs.nextcloud.com/server/stable/admin_manual/configuration_files/primary_storage.html).
 
 Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en proxy-URL's kunnen gevoelig zijn. Puppet schermt OCC-uitvoer af, maar beheerders kunnen geheimen in procesargumenten zien. Beperk Docker- en procestoegang en bescherm de Nextcloud-configuratie, logs en profiler. Dit geldt ook voor andere OCC-opdrachten met geheimen.
 
-Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L238). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
+Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L244). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
 
 Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
 
@@ -546,7 +557,7 @@ Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en g
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L304) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L312) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
@@ -601,7 +612,7 @@ class { 'gitlab::config':
 }
 ```
 
-Het [GitLab-profiel](examples/site.pp#L146) combineert GitLab met de serverbasis. De Puppet Strings bij [`gitlab`](gitlab/manifests/init.pp) en [`gitlab::config`](gitlab/manifests/config.pp) beschrijven installatie en configuratie.
+Het [GitLab-profiel](examples/site.pp#L150) combineert GitLab met de serverbasis. De Puppet Strings bij [`gitlab`](gitlab/manifests/init.pp) en [`gitlab::config`](gitlab/manifests/config.pp) beschrijven installatie en configuratie.
 
 ### `letsencrypt`
 
@@ -771,7 +782,7 @@ netplanio::ethernet { 'primary':
 }
 ```
 
-Het [netwerkprofiel](examples/site.pp#L134) staat in `examples/site.pp`. De Puppet Strings bij [`netplanio`](netplanio/manifests/init.pp), [`ethernet`](netplanio/manifests/ethernet.pp) en [`wifi`](netplanio/manifests/wifi.pp) beschrijven de geërfde netwerkinstellingen en interfaceconfiguratie.
+Het [netwerkprofiel](examples/site.pp#L138) staat in `examples/site.pp`. De Puppet Strings bij [`netplanio`](netplanio/manifests/init.pp), [`ethernet`](netplanio/manifests/ethernet.pp) en [`wifi`](netplanio/manifests/wifi.pp) beschrijven de geërfde netwerkinstellingen en interfaceconfiguratie.
 
 ### `nginx`
 
@@ -1001,7 +1012,7 @@ class { 'proxmox':
 }
 ```
 
-De plaats van Proxmox in een [serverprofiel](examples/site.pp#L166) staat in `examples/site.pp`; ook daar moet je de pakketbron zelf aanleveren. Zie de [Puppet Strings](proxmox/manifests/init.pp) voor de platformvoorwaarden.
+De plaats van Proxmox in een [serverprofiel](examples/site.pp#L170) staat in `examples/site.pp`; ook daar moet je de pakketbron zelf aanleveren. Zie de [Puppet Strings](proxmox/manifests/init.pp) voor de platformvoorwaarden.
 
 ### `rabbitmq`
 

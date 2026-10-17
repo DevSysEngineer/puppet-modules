@@ -43,6 +43,16 @@
 #   Additional APT options; an empty array adds no caller options. Mandatory no-recommends and no-suggests flags are
 #   appended without deduplication so they remain effective.
 #
+# @param ip_forwarding
+#   Enables host unicast forwarding for the families selected by ip_version. The default false disables forwarding.
+#   With true, ip_version => 'all' forwards IPv4 and IPv6; ip_version => '4' forwards only IPv4 and omits IPv6 sysctls.
+#   Manages net.ipv4.ip_forward and net.ipv4.conf.default.forwarding, plus IPv6 all/default.forwarding, in
+#   /etc/sysctl.d/90-network.conf before network hardening. Changes notify the refresh-only
+#   Exec['kernel_sysctl_reload']; the existing sysctl boot loader restores the persisted configuration.
+#   The consumer owns firewall rules and activation ordering. Forwarding does not grant a firewall permit,
+#   enable a disabled IP family or restart Docker. docker_enable and Docker declaration order do not select forwarding.
+#   Existing multicast and Router Advertisement policy is retained.
+#
 # @param ip_ra_enable
 #   Controls IPv6 router advertisement handling in generated sysctl and network defaults.
 #
@@ -116,6 +126,7 @@ class basic_settings::kernel (
   Optional[Boolean]                          $hardware_passthrough      = undef,
   Integer                                    $hugepages                 = 0,
   Array                                      $install_options           = [],
+  Boolean                                    $ip_forwarding             = false,
   Boolean                                    $ip_ra_enable              = true,
   Boolean                                    $ip_ra_learn_prefix        = true,
   String                                     $ip_regdom                 = 'NL',
@@ -150,559 +161,569 @@ class basic_settings::kernel (
     default => $kernel_flavor,
   }
 
-  # Detect systemd integration independently of the selected kernel flavor.
-  $systemd_enable = defined(Package['systemd'])
+  # Apply the profile only when the selected kernel's platform prerequisite is satisfied.
+  if ($kernel_type != 'nvidia' or (
+      $os_name == 'Ubuntu' and $os_version == '24.04' and $facts['os']['architecture'] in ['aarch64', 'arm64']
+  )) {
+    # Detect systemd integration independently of the selected kernel flavor.
+    $systemd_enable = defined(Package['systemd'])
 
-  # Serialize configured USB filters as literal shell words before rendering the monitoring assignments.
-  $usb_whitelist_shell = stdlib::shell_escape(join($usb_whitelist, ' '))
-  $usb_expected_shell = stdlib::shell_escape(join($usb_expected, ' '))
-  $usb_any_requirements_shell = stdlib::shell_escape(join($usb_any_requirements, ' '))
+    # Serialize configured USB filters as literal shell words before rendering the monitoring assignments.
+    $usb_whitelist_shell = stdlib::shell_escape(join($usb_whitelist, ' '))
+    $usb_expected_shell = stdlib::shell_escape(join($usb_expected, ' '))
+    $usb_any_requirements_shell = stdlib::shell_escape(join($usb_any_requirements, ' '))
 
-  # Resolve the built-in MemAvailable profile list only when no caller overrides it.
-  $memory_available_profiles_correct = $memory_available_profiles ? {
-    undef   => [
-      { 'max_ram' => '4GB', 'warning' => '768MB', 'critical' => '384MB' },
-      { 'max_ram' => '8GB', 'warning' => '1024MB', 'critical' => '512MB' },
-      { 'max_ram' => '16GB', 'warning' => '1536MB', 'critical' => '768MB' },
-      { 'max_ram' => '32GB', 'warning' => '2048MB', 'critical' => '1024MB' },
-      { 'max_ram' => '64GB', 'warning' => '3072MB', 'critical' => '1536MB' },
-      { 'max_ram' => undef, 'warning' => '4096MB', 'critical' => '2048MB' },
-    ],
-    default => $memory_available_profiles,
-  }
-
-  # Serialize profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
-  $memory_available_profile_specs = $memory_available_profiles_correct.map |$profile| {
-    # Represent omitted memory-profile limits as empty fields for the check configuration.
-    $memory_profile_max = $profile['max_ram'] ? {
-      undef   => '',
-      default => $profile['max_ram'],
-    }
-    $memory_profile_warning = $profile['warning'] ? {
-      undef   => '',
-      default => $profile['warning'],
-    }
-    $memory_profile_critical = $profile['critical'] ? {
-      undef   => '',
-      default => $profile['critical'],
+    # Resolve the built-in MemAvailable profile list only when no caller overrides it.
+    $memory_available_profiles_correct = $memory_available_profiles ? {
+      undef   => [
+        { 'max_ram' => '4GB', 'warning' => '768MB', 'critical' => '384MB' },
+        { 'max_ram' => '8GB', 'warning' => '1024MB', 'critical' => '512MB' },
+        { 'max_ram' => '16GB', 'warning' => '1536MB', 'critical' => '768MB' },
+        { 'max_ram' => '32GB', 'warning' => '2048MB', 'critical' => '1024MB' },
+        { 'max_ram' => '64GB', 'warning' => '3072MB', 'critical' => '1536MB' },
+        { 'max_ram' => undef, 'warning' => '4096MB', 'critical' => '2048MB' },
+      ],
+      default => $memory_available_profiles,
     }
 
-    "${memory_profile_max}|${memory_profile_warning}|${memory_profile_critical}"
-  }
-  $memory_available_profiles_spec = join($memory_available_profile_specs, ',')
-  $memory_available_profiles_spec_shell = stdlib::shell_escape($memory_available_profiles_spec)
-
-  # Resolve the built-in SwapFree profile list only when no caller overrides it.
-  $swap_free_profiles_correct = $swap_free_profiles ? {
-    undef   => [
-      { 'max_swap' => '1GB', 'warning' => '128MB', 'critical' => '32MB' },
-      { 'max_swap' => '2GB', 'warning' => '256MB', 'critical' => '64MB' },
-      { 'max_swap' => '4GB', 'warning' => '512MB', 'critical' => '128MB' },
-      { 'max_swap' => undef, 'warning' => '1024MB', 'critical' => '256MB' },
-    ],
-    default => $swap_free_profiles,
-  }
-
-  # Serialize swap profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
-  $swap_free_profile_specs = $swap_free_profiles_correct.map |$profile| {
-    # Represent omitted swap-profile limits as empty fields for the check configuration.
-    $swap_profile_max = $profile['max_swap'] ? {
-      undef   => '',
-      default => $profile['max_swap'],
-    }
-    $swap_profile_warning = $profile['warning'] ? {
-      undef   => '',
-      default => $profile['warning'],
-    }
-    $swap_profile_critical = $profile['critical'] ? {
-      undef   => '',
-      default => $profile['critical'],
-    }
-
-    "${swap_profile_max}|${swap_profile_warning}|${swap_profile_critical}"
-  }
-  $swap_free_profiles_spec = join($swap_free_profile_specs, ',')
-  $swap_free_profiles_spec_shell = stdlib::shell_escape($swap_free_profiles_spec)
-
-  # Resolve MGLRU to the default min_ttl_ms, a custom min_ttl_ms, or disabled.
-  $mglru_min_ttl_ms_correct = $mglru_enable ? {
-    true    => 1000,
-    false   => 0,
-    default => $mglru_enable,
-  }
-  $mglru_active = $mglru_enable ? {
-    false   => false,
-    default => true,
-  }
-
-  # Resolve kernel lockdown to the default, an explicit value, or none for opt-out.
-  $security_lockdown_default = 'integrity'
-  $security_lockdown_requested = $security_lockdown ? {
-    true    => $security_lockdown_default,
-    false   => 'none',
-    default => $security_lockdown,
-  }
-
-  # Set monitoring variables
-  $monitoring_enable = defined(Class['basic_settings::monitoring'])
-  if ($monitoring_enable) {
-    # Route unit failures through the configured monitoring notification service.
-    $unit_failure = {
-      'OnFailure' => 'notify-failed@%i.service',
-    }
-  } else {
-    # Leave unit failure hooks empty when monitoring is unavailable.
-    $unit_failure = {}
-  }
-
-  # Try to get some settings
-  if ($facts['is_virtual']) {
-    case $facts['virtual'] {
-      'vmware': {
-        # Select the guest integration package for VMware.
-        $guest_agent_package = 'open-vm-tools'
+    # Serialize profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
+    $memory_available_profile_specs = $memory_available_profiles_correct.map |$profile| {
+      # Represent omitted memory-profile limits as empty fields for the check configuration.
+      $memory_profile_max = $profile['max_ram'] ? {
+        undef   => '',
+        default => $profile['max_ram'],
       }
-      default: {
-        # Select the guest integration package for QEMU-compatible virtualization.
-        $guest_agent_package = 'qemu-guest-agent'
+      $memory_profile_warning = $profile['warning'] ? {
+        undef   => '',
+        default => $profile['warning'],
       }
+      $memory_profile_critical = $profile['critical'] ? {
+        undef   => '',
+        default => $profile['critical'],
+      }
+
+      "${memory_profile_max}|${memory_profile_warning}|${memory_profile_critical}"
+    }
+    $memory_available_profiles_spec = join($memory_available_profile_specs, ',')
+    $memory_available_profiles_spec_shell = stdlib::shell_escape($memory_available_profiles_spec)
+
+    # Resolve the built-in SwapFree profile list only when no caller overrides it.
+    $swap_free_profiles_correct = $swap_free_profiles ? {
+      undef   => [
+        { 'max_swap' => '1GB', 'warning' => '128MB', 'critical' => '32MB' },
+        { 'max_swap' => '2GB', 'warning' => '256MB', 'critical' => '64MB' },
+        { 'max_swap' => '4GB', 'warning' => '512MB', 'critical' => '128MB' },
+        { 'max_swap' => undef, 'warning' => '1024MB', 'critical' => '256MB' },
+      ],
+      default => $swap_free_profiles,
     }
 
-    # Check if we need extra tools for hardware passthrough
-    if ($hardware_passthrough == undef) {
-      # Keep hardware passthrough disabled by default in a virtual machine.
-      $hardware_passthrough_correct = false
+    # Serialize swap profile hashes into a compact shell list; the monitoring check validates sizes and ordering at runtime.
+    $swap_free_profile_specs = $swap_free_profiles_correct.map |$profile| {
+      # Represent omitted swap-profile limits as empty fields for the check configuration.
+      $swap_profile_max = $profile['max_swap'] ? {
+        undef   => '',
+        default => $profile['max_swap'],
+      }
+      $swap_profile_warning = $profile['warning'] ? {
+        undef   => '',
+        default => $profile['warning'],
+      }
+      $swap_profile_critical = $profile['critical'] ? {
+        undef   => '',
+        default => $profile['critical'],
+      }
+
+      "${swap_profile_max}|${swap_profile_warning}|${swap_profile_critical}"
+    }
+    $swap_free_profiles_spec = join($swap_free_profile_specs, ',')
+    $swap_free_profiles_spec_shell = stdlib::shell_escape($swap_free_profiles_spec)
+
+    # Resolve MGLRU to the default min_ttl_ms, a custom min_ttl_ms, or disabled.
+    $mglru_min_ttl_ms_correct = $mglru_enable ? {
+      true    => 1000,
+      false   => 0,
+      default => $mglru_enable,
+    }
+    $mglru_active = $mglru_enable ? {
+      false   => false,
+      default => true,
+    }
+
+    # Resolve kernel lockdown to the default, an explicit value, or none for opt-out.
+    $security_lockdown_default = 'integrity'
+    $security_lockdown_requested = $security_lockdown ? {
+      true    => $security_lockdown_default,
+      false   => 'none',
+      default => $security_lockdown,
+    }
+
+    # Set monitoring variables
+    $monitoring_enable = defined(Class['basic_settings::monitoring'])
+    if ($monitoring_enable) {
+      # Route unit failures through the configured monitoring notification service.
+      $unit_failure = {
+        'OnFailure' => 'notify-failed@%i.service',
+      }
     } else {
-      # Preserve the explicit hardware-passthrough setting for this guest.
-      $hardware_passthrough_correct = $hardware_passthrough
+      # Leave unit failure hooks empty when monitoring is unavailable.
+      $unit_failure = {}
     }
-  } else {
-    # Allow direct hardware access on physical hosts without a guest-agent package.
-    $hardware_passthrough_correct = true
-    $guest_agent_package = undef
-  }
 
-  # When efi, the minimal lockdown state is integrity
-  if (!$facts['secure_boot_enabled']) {
-    # Override some settings when we have antivirus or we are virtual machine
-    case $antivirus_package {
-      'eset': {
-        # Relax kernel lockdown for the selected ESET integration.
-        $security_lockdown_correct = 'none'
-      }
-      default: {
-        # Relax lockdown for an enabled guest agent that needs the selected platform integration.
-        if ($guest_agent_enable and $guest_agent_package != undef) {
-          # Relax kernel lockdown for the enabled guest-agent integration.
-          $security_lockdown_correct = 'none'
-        } else {
-          # Retain the requested lockdown mode when no compatibility override is needed.
-          $security_lockdown_correct = $security_lockdown_requested
+    # Try to get some settings
+    if ($facts['is_virtual']) {
+      case $facts['virtual'] {
+        'vmware': {
+          # Select the guest integration package for VMware.
+          $guest_agent_package = 'open-vm-tools'
+        }
+        default: {
+          # Select the guest integration package for QEMU-compatible virtualization.
+          $guest_agent_package = 'qemu-guest-agent'
         }
       }
+
+      # Check if we need extra tools for hardware passthrough
+      if ($hardware_passthrough == undef) {
+        # Keep hardware passthrough disabled by default in a virtual machine.
+        $hardware_passthrough_correct = false
+      } else {
+        # Preserve the explicit hardware-passthrough setting for this guest.
+        $hardware_passthrough_correct = $hardware_passthrough
+      }
+    } else {
+      # Allow direct hardware access on physical hosts without a guest-agent package.
+      $hardware_passthrough_correct = true
+      $guest_agent_package = undef
     }
-  } elsif ($security_lockdown_requested != 'none') {
-    # Retain the requested lockdown mode when no compatibility override is needed.
-    $security_lockdown_correct = $security_lockdown_requested
-  } else {
-    # Keep integrity lockdown when Secure Boot prevents disabling it.
-    $security_lockdown_correct = 'integrity'
-  }
 
-  # Get IP versions
-  case $ip_version {
-    '4': {
-      # Limit generated network settings to IPv4.
-      $ip_version_v4 = true
-      $ip_version_v6 = false
+    # When efi, the minimal lockdown state is integrity
+    if (!$facts['secure_boot_enabled']) {
+      # Override some settings when we have antivirus or we are virtual machine
+      case $antivirus_package {
+        'eset': {
+          # Relax kernel lockdown for the selected ESET integration.
+          $security_lockdown_correct = 'none'
+        }
+        default: {
+          # Relax lockdown for an enabled guest agent that needs the selected platform integration.
+          if ($guest_agent_enable and $guest_agent_package != undef) {
+            # Relax kernel lockdown for the enabled guest-agent integration.
+            $security_lockdown_correct = 'none'
+          } else {
+            # Retain the requested lockdown mode when no compatibility override is needed.
+            $security_lockdown_correct = $security_lockdown_requested
+          }
+        }
+      }
+    } elsif ($security_lockdown_requested != 'none') {
+      # Retain the requested lockdown mode when no compatibility override is needed.
+      $security_lockdown_correct = $security_lockdown_requested
+    } else {
+      # Keep integrity lockdown when Secure Boot prevents disabling it.
+      $security_lockdown_correct = 'integrity'
     }
-    default: {
-      # Generate settings for both IPv4 and IPv6.
-      $ip_version_v4 = true
-      $ip_version_v6 = true
+
+    # Get IP versions
+    case $ip_version {
+      '4': {
+        # Limit generated network settings to IPv4.
+        $ip_version_v4 = true
+        $ip_version_v6 = false
+      }
+      default: {
+        # Generate settings for both IPv4 and IPv6.
+        $ip_version_v4 = true
+        $ip_version_v6 = true
+      }
     }
-  }
 
-  # Supply the interpreters and tools used by kernel commands and their guards.
-  $kernel_command_packages = ['bash', 'coreutils', 'dash', 'grep', 'procps', 'sed', 'util-linux']
-  ensure_packages($kernel_command_packages, {
-    'ensure'          => 'installed',
-    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
-  })
+    # Use the same forwarding value for global settings and new interfaces; ip_version controls family availability.
+    $ip_forwarding_value = bool2str($ip_forwarding, '1', '0')
 
-  # Retain the other kernel inspection tools without coupling them to command execution.
-  ensure_packages(['findutils', 'lsb-release', 'lsof', 'kmod', 'usbutils'], {
-    'ensure'          => 'installed',
-    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
-  })
+    # Supply the interpreters and tools used by kernel commands and their guards.
+    $kernel_command_packages = ['bash', 'coreutils', 'dash', 'grep', 'procps', 'sed', 'util-linux']
+    ensure_packages($kernel_command_packages, {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
 
-  $kernel_systemd_packages = concat($kernel_command_packages, ['systemd'])
+    # Retain the other kernel inspection tools without coupling them to command execution.
+    ensure_packages(['findutils', 'lsb-release', 'lsof', 'kmod', 'usbutils'], {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
 
-  # Guards run before their command, so the same runtime ordering applies to every kernel exec.
-  Exec {
-    require => Package[$kernel_command_packages],
-  }
+    $kernel_systemd_packages = concat($kernel_command_packages, ['systemd'])
 
-  # Install extra packages when Ubuntu
-  case $kernel_type {
-    'generic': {
-      # Install generic kernel
-      package { 'linux-generic':
+    # Guards run before their command, so the same runtime ordering applies to every kernel exec.
+    Exec {
+      require => Package[$kernel_command_packages],
+    }
+
+    # Install extra packages when Ubuntu
+    case $kernel_type {
+      'generic': {
+        # Install generic kernel
+        package { 'linux-generic':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+
+        # Remove raspi kernel
+        package { ['linux-raspi', 'linux-image-raspi', 'linux-headers-raspi']:
+          ensure  => purged,
+          require => Package['linux-generic'],
+        }
+
+        # Install generic HWE kernel
+        if ($os_name == 'Ubuntu' and $os_version != '26.04') {
+          package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
+            ensure          => installed,
+            install_options => ['--no-install-recommends', '--no-install-suggests'],
+          }
+        }
+      }
+      'raspi': {
+        # Install raspi kernel
+        package { 'linux-raspi':
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+
+        # Remove generic kernel
+        package { ['linux-generic', 'linux-image-generic', 'linux-headers-generic']:
+          ensure          => purged,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+          require         => Package['linux-raspi'],
+        }
+      }
+      'nvidia': {
+        # Install the NVIDIA kernel and tools while retaining existing generic kernels for recovery.
+        package { [
+            'linux-nvidia-hwe-24.04',
+            'linux-tools-nvidia-hwe-24.04',
+          ]:
+            ensure          => installed,
+            install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+        }
+      }
+      default: {
+        # Other kernel selections do not require a specialized kernel package.
+      }
+    }
+
+    # Create group for hugetlb only when hugepages is given
+    if ($systemd_enable and $hugepages > 0) {
+      # Set variable
+      $hugepages_shm_group = 7000
+
+      # Install libhugetlbfs package
+      package { 'libhugetlbfs-bin':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
 
-      # Remove raspi kernel
-      package { ['linux-raspi', 'linux-image-raspi', 'linux-headers-raspi']:
-        ensure  => purged,
-        require => Package['linux-generic'],
+      # Remove group
+      group { 'hugetlb':
+        ensure  => present,
+        gid     => $hugepages_shm_group,
+        require => Package['libhugetlbfs-bin'],
       }
 
-      # Install generic HWE kernel
-      if ($os_name == 'Ubuntu' and $os_version != '26.04') {
-        package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
+      # Create drop in for dev-hugepages mount
+      basic_settings::systemd_drop_in { 'hugetlb_hugepages':
+        target_unit => 'dev-hugepages.mount',
+        mount       => {
+          'Options' => "mode=1770,gid=${hugepages_shm_group}",
+        },
+        require     => Group['hugetlb'],
+      }
+
+      # Create systemd service. Keep /dev visible because hugeadm may inspect the hugetlbfs mount at /dev/hugepages.
+      basic_settings::systemd_service { 'dev-hugepages-shmmax':
+        description => 'Hugespages recommended shmmax service',
+        service     => {
+          'ExecStart'               => '/usr/bin/hugeadm --set-recommended-shmmax',
+          'LockPersonality'         => 'true',
+          'MemoryDenyWriteExecute'  => 'true',
+          'NoNewPrivileges'         => 'true',
+          'PrivateTmp'              => 'true',
+          'ProtectClock'            => 'true',
+          'ProtectHome'             => 'true',
+          'ProtectHostname'         => 'true',
+          'ProtectKernelLogs'       => 'true',
+          'ProtectSystem'           => 'full',
+          'RestrictSUIDSGID'        => 'true',
+          'SystemCallArchitectures' => 'native',
+          'Type'                    => 'oneshot',
+          'UMask'                   => '0077',
+        },
+        unit        => stdlib::merge($unit_failure, {
+            'Requires' => 'dev-hugepages.mount',
+            'After'    => 'dev-hugepages.mount',
+        }),
+        install     => {
+          'WantedBy' => 'dev-hugepages.mount',
+        },
+      }
+
+      # Reload sysctl deamon
+      exec { 'kernel_sysctl_reload':
+        command     => '/usr/bin/bash -c "/usr/bin/systemctl start dev-hugepages-shmmax.service && /usr/sbin/sysctl --system"',
+        refreshonly => true,
+        require     => Package[$kernel_systemd_packages],
+      }
+    } else {
+      # Set variable
+      $hugepages_shm_group = 0
+
+      # Install libhugetlbfs package
+      package { 'libhugetlbfs-bin':
+        ensure => purged,
+      }
+
+      # Remove group
+      group { 'hugetlb':
+        ensure  => absent,
+        require => Package['libhugetlbfs-bin'],
+      }
+
+      # Remove drop in for dev-hugepages mount
+      if (defined(Package['systemd'])) {
+        basic_settings::systemd_drop_in { 'hugetlb_hugepages':
+          ensure      => absent,
+          target_unit => 'dev-hugepages.mount',
+          require     => Group['hugetlb'],
+        }
+      }
+
+      # Reload sysctl deamon
+      exec { 'kernel_sysctl_reload':
+        command     => '/usr/sbin/sysctl --system',
+        refreshonly => true,
+      }
+    }
+
+    # Keep the existing package cleanup outside the NVIDIA tool dependency.
+    $unnecessary_packages = [
+      'apport',
+      'installation-report',
+      'pemmican-common',
+      'plymouth',
+      'thermald',
+      'upower',
+    ]
+
+    # NVIDIA kernel tools require linux-tools-common.
+    $unnecessary_kernel_tools = $kernel_type ? {
+      'nvidia' => [],
+      default  => ['linux-tools-common'],
+    }
+    $packages_to_purge = concat($unnecessary_packages, $unnecessary_kernel_tools)
+
+    # Purge the selected cleanup packages without removing NVIDIA tool dependencies.
+    package { $packages_to_purge:
+      ensure => purged,
+    }
+
+    # Create sysctl config
+    file { '/etc/sysctl.conf':
+      ensure  => file,
+      content => template('basic_settings/kernel/sysctl.conf'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      notify  => Exec['kernel_sysctl_reload'],
+    }
+
+    # Create sysctl config
+    file { '/etc/sysctl.d':
+      ensure  => directory,
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      force   => true,
+      purge   => true,
+      recurse => true,
+      notify  => Exec['kernel_sysctl_reload'],
+    }
+
+    # Create sysctl network config
+    file { '/etc/sysctl.d/90-network.conf':
+      ensure  => file,
+      content => template('basic_settings/kernel/sysctl/network.conf'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      notify  => Exec['kernel_sysctl_reload'],
+    }
+
+    # Create sysctl memory config
+    file { '/etc/sysctl.d/90-memory.conf':
+      ensure  => file,
+      content => template('basic_settings/kernel/sysctl/memory.conf'),
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      notify  => Exec['kernel_sysctl_reload'],
+    }
+
+    # Create symlink
+    file { '/etc/sysctl.d/99-sysctl.conf':
+      ensure => 'link',
+      owner  => 'root',
+      group  => 'root',
+      target => '/etc/sysctl.conf',
+      force  => true,
+      notify => Exec['kernel_sysctl_reload'],
+    }
+
+    # Set apparmor state
+    if (defined(Package['apparmor'])) {
+      # Enable AppArmor in the kernel command line when its package is declared.
+      $apparmor_enable = true
+    } else {
+      # Disable AppArmor in the kernel command line when its package is not declared.
+      $apparmor_enable = false
+    }
+
+    # Get CPU processor
+    if (empty($facts['processors']['models'])) {
+      # Use an empty CPU description when the model fact is unavailable.
+      $cpu_processor = ''
+    } else {
+      # Use the first processor model to identify the CPU family.
+      $cpu_processor = $facts['processors']['models'][0]
+    }
+
+    # Set CPU manufacturer
+    if ($cpu_processor =~ 'AMD') {
+      # Select AMD-specific CPU tuning.
+      $cpu_manufacturer = 'amd'
+    } elsif ($cpu_processor =~ 'Intel') {
+      # Select Intel-specific CPU tuning.
+      $cpu_manufacturer = 'intel'
+    } else {
+      # Leave the CPU family unset when no known vendor matches.
+      $cpu_manufacturer = undef
+    }
+
+    # Set CPU settings
+    if (!$facts['is_virtual']) {
+      # Get settings
+      $cpu_governor_correct = $cpu_governor
+      case $cpu_governor_correct {
+        'performance': {
+          case $cpu_manufacturer {
+            'amd', 'intel': {
+              # Apply the physical-host performance profile for supported AMD and Intel CPUs.
+              $cpu_boost = 1
+              $cpu_idle_max_cstate = 1
+              $cpu_pstate = 'passive'
+            }
+            default: {
+              # Leave performance overrides unset for an unrecognized CPU family.
+              $cpu_boost = undef
+              $cpu_idle_max_cstate = undef
+              $cpu_pstate = undef
+            }
+          }
+        }
+        default: {
+          # Leave performance-specific overrides unset for the other CPU governors.
+          $cpu_boost = undef
+          $cpu_idle_max_cstate = undef
+          $cpu_pstate = undef
+        }
+      }
+
+      # Check if boot value is given
+      if ($cpu_boost != undef) {
+        # Escape the CPU boost value before embedding it in the guard script.
+        $cpu_boost_shell = stdlib::shell_escape($cpu_boost)
+        $cpu_boost_check_script = "if [ ! -f /sys/devices/system/cpu/cpufreq/boost ]; then exit 1; fi; if [ \$(cat /sys/devices/system/cpu/cpufreq/boost) -eq ${cpu_boost_shell} ]; then exit 1; else exit 0; fi" # lint:ignore:140chars
+
+        # Escape the complete guard script before passing it to bash -c.
+        $cpu_boost_check_script_shell = stdlib::shell_escape($cpu_boost_check_script)
+        exec { 'kernel_cpu_boost':
+          command => "/usr/bin/bash -c 'echo \"1\" > /sys/devices/system/cpu/cpufreq/boost'",
+          onlyif  => "/usr/bin/bash -c ${cpu_boost_check_script_shell}",
+        }
+      }
+    } else {
+      # Set some settings
+      $cpu_governor_corect = undef
+      $cpu_boost = undef
+      $cpu_idle_max_cstate = undef
+      $cpu_pstate = undef
+    }
+
+    # Check if we have hardware that is passthrough
+    if ($hardware_passthrough_correct) {
+      # Install firmware packages
+      if ($facts['secure_boot_enabled']) {
+        package { ['fwupd', 'fwupd-signed']:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
+      } else {
+        package { 'fwupd':
           ensure          => installed,
           install_options => ['--no-install-recommends', '--no-install-suggests'],
         }
       }
-    }
-    'raspi': {
-      # Install raspi kernel
-      package { 'linux-raspi':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-      }
 
-      # Remove generic kernel
-      package { ['linux-generic', 'linux-image-generic', 'linux-headers-generic']:
-        ensure          => purged,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Package['linux-raspi'],
-      }
-    }
-    'nvidia': {
-      # Accept Facter's aarch64 and APT's arm64 naming for Ubuntu 24.04 ARM64 only.
-      if $os_name != 'Ubuntu' or $os_version != '24.04' or !($facts['os']['architecture'] in ['aarch64', 'arm64']) {
-        fail('NVIDIA DGX Spark kernel requires Ubuntu 24.04 ARM64')
-      }
-
-      # Install the NVIDIA kernel and tools while retaining existing generic kernels for recovery.
-      package { [
-          'linux-nvidia-hwe-24.04',
-          'linux-tools-nvidia-hwe-24.04',
-        ]:
-          ensure          => installed,
-          install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
-      }
-    }
-    default: {
-      # Other kernel selections do not require a specialized kernel package.
-    }
-  }
-
-  # Create group for hugetlb only when hugepages is given
-  if ($systemd_enable and $hugepages > 0) {
-    # Set variable 
-    $hugepages_shm_group = 7000
-
-    # Install libhugetlbfs package
-    package { 'libhugetlbfs-bin':
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
-    }
-
-    # Remove group 
-    group { 'hugetlb':
-      ensure  => present,
-      gid     => $hugepages_shm_group,
-      require => Package['libhugetlbfs-bin'],
-    }
-
-    # Create drop in for dev-hugepages mount
-    basic_settings::systemd_drop_in { 'hugetlb_hugepages':
-      target_unit => 'dev-hugepages.mount',
-      mount       => {
-        'Options' => "mode=1770,gid=${hugepages_shm_group}",
-      },
-      require     => Group['hugetlb'],
-    }
-
-    # Create systemd service. Keep /dev visible because hugeadm may inspect the hugetlbfs mount at /dev/hugepages.
-    basic_settings::systemd_service { 'dev-hugepages-shmmax':
-      description => 'Hugespages recommended shmmax service',
-      service     => {
-        'ExecStart'               => '/usr/bin/hugeadm --set-recommended-shmmax',
-        'LockPersonality'         => 'true',
-        'MemoryDenyWriteExecute'  => 'true',
-        'NoNewPrivileges'         => 'true',
-        'PrivateTmp'              => 'true',
-        'ProtectClock'            => 'true',
-        'ProtectHome'             => 'true',
-        'ProtectHostname'         => 'true',
-        'ProtectKernelLogs'       => 'true',
-        'ProtectSystem'           => 'full',
-        'RestrictSUIDSGID'        => 'true',
-        'SystemCallArchitectures' => 'native',
-        'Type'                    => 'oneshot',
-        'UMask'                   => '0077',
-      },
-      unit        => stdlib::merge($unit_failure, {
-          'Requires' => 'dev-hugepages.mount',
-          'After'    => 'dev-hugepages.mount',
-      }),
-      install     => {
-        'WantedBy' => 'dev-hugepages.mount',
-      },
-    }
-
-    # Reload sysctl deamon
-    exec { 'kernel_sysctl_reload':
-      command     => '/usr/bin/bash -c "/usr/bin/systemctl start dev-hugepages-shmmax.service && /usr/sbin/sysctl --system"',
-      refreshonly => true,
-      require     => Package[$kernel_systemd_packages],
-    }
-  } else {
-    # Set variable
-    $hugepages_shm_group = 0
-
-    # Install libhugetlbfs package
-    package { 'libhugetlbfs-bin':
-      ensure => purged,
-    }
-
-    # Remove group 
-    group { 'hugetlb':
-      ensure  => absent,
-      require => Package['libhugetlbfs-bin'],
-    }
-
-    # Remove drop in for dev-hugepages mount
-    if (defined(Package['systemd'])) {
-      basic_settings::systemd_drop_in { 'hugetlb_hugepages':
-        ensure      => absent,
-        target_unit => 'dev-hugepages.mount',
-        require     => Group['hugetlb'],
-      }
-    }
-
-    # Reload sysctl deamon
-    exec { 'kernel_sysctl_reload':
-      command     => '/usr/sbin/sysctl --system',
-      refreshonly => true,
-    }
-  }
-
-  # Keep the existing package cleanup outside the NVIDIA tool dependency.
-  $unnecessary_packages = [
-    'apport',
-    'installation-report',
-    'pemmican-common',
-    'plymouth',
-    'thermald',
-    'upower',
-  ]
-
-  # NVIDIA kernel tools require linux-tools-common.
-  $unnecessary_kernel_tools = $kernel_type ? {
-    'nvidia' => [],
-    default  => ['linux-tools-common'],
-  }
-  $packages_to_purge = concat($unnecessary_packages, $unnecessary_kernel_tools)
-
-  # Purge the selected cleanup packages without removing NVIDIA tool dependencies.
-  package { $packages_to_purge:
-    ensure => purged,
-  }
-
-  # Create sysctl config
-  file { '/etc/sysctl.conf':
-    ensure  => file,
-    content => template('basic_settings/kernel/sysctl.conf'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    notify  => Exec['kernel_sysctl_reload'],
-  }
-
-  # Create sysctl config
-  file { '/etc/sysctl.d':
-    ensure  => directory,
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    force   => true,
-    purge   => true,
-    recurse => true,
-    notify  => Exec['kernel_sysctl_reload'],
-  }
-
-  # Create sysctl network config
-  file { '/etc/sysctl.d/90-network.conf':
-    ensure  => file,
-    content => template('basic_settings/kernel/sysctl/network.conf'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    notify  => Exec['kernel_sysctl_reload'],
-  }
-
-  # Create sysctl memory config
-  file { '/etc/sysctl.d/90-memory.conf':
-    ensure  => file,
-    content => template('basic_settings/kernel/sysctl/memory.conf'),
-    owner   => 'root',
-    group   => 'root',
-    mode    => '0600',
-    notify  => Exec['kernel_sysctl_reload'],
-  }
-
-  # Create symlink
-  file { '/etc/sysctl.d/99-sysctl.conf':
-    ensure => 'link',
-    owner  => 'root',
-    group  => 'root',
-    target => '/etc/sysctl.conf',
-    force  => true,
-    notify => Exec['kernel_sysctl_reload'],
-  }
-
-  # Set apparmor state
-  if (defined(Package['apparmor'])) {
-    # Enable AppArmor in the kernel command line when its package is declared.
-    $apparmor_enable = true
-  } else {
-    # Disable AppArmor in the kernel command line when its package is not declared.
-    $apparmor_enable = false
-  }
-
-  # Get CPU processor
-  if (empty($facts['processors']['models'])) {
-    # Use an empty CPU description when the model fact is unavailable.
-    $cpu_processor = ''
-  } else {
-    # Use the first processor model to identify the CPU family.
-    $cpu_processor = $facts['processors']['models'][0]
-  }
-
-  # Set CPU manufacturer
-  if ($cpu_processor =~ 'AMD') {
-    # Select AMD-specific CPU tuning.
-    $cpu_manufacturer = 'amd'
-  } elsif ($cpu_processor =~ 'Intel') {
-    # Select Intel-specific CPU tuning.
-    $cpu_manufacturer = 'intel'
-  } else {
-    # Leave the CPU family unset when no known vendor matches.
-    $cpu_manufacturer = undef
-  }
-
-  # Set CPU settings
-  if (!$facts['is_virtual']) {
-    # Get settings
-    $cpu_governor_correct = $cpu_governor
-    case $cpu_governor_correct {
-      'performance': {
-        case $cpu_manufacturer {
-          'amd', 'intel': {
-            # Apply the physical-host performance profile for supported AMD and Intel CPUs.
-            $cpu_boost = 1
-            $cpu_idle_max_cstate = 1
-            $cpu_pstate = 'passive'
-          }
-          default: {
-            # Leave performance overrides unset for an unrecognized CPU family.
-            $cpu_boost = undef
-            $cpu_idle_max_cstate = undef
-            $cpu_pstate = undef
-          }
-        }
-      }
-      default: {
-        # Leave performance-specific overrides unset for the other CPU governors.
-        $cpu_boost = undef
-        $cpu_idle_max_cstate = undef
-        $cpu_pstate = undef
-      }
-    }
-
-    # Check if boot value is given
-    if ($cpu_boost != undef) {
-      # Escape the CPU boost value before embedding it in the guard script.
-      $cpu_boost_shell = stdlib::shell_escape($cpu_boost)
-      $cpu_boost_check_script = "if [ ! -f /sys/devices/system/cpu/cpufreq/boost ]; then exit 1; fi; if [ \$(cat /sys/devices/system/cpu/cpufreq/boost) -eq ${cpu_boost_shell} ]; then exit 1; else exit 0; fi" # lint:ignore:140chars
-
-      # Escape the complete guard script before passing it to bash -c.
-      $cpu_boost_check_script_shell = stdlib::shell_escape($cpu_boost_check_script)
-      exec { 'kernel_cpu_boost':
-        command => "/usr/bin/bash -c 'echo \"1\" > /sys/devices/system/cpu/cpufreq/boost'",
-        onlyif  => "/usr/bin/bash -c ${cpu_boost_check_script_shell}",
-      }
-    }
-  } else {
-    # Set some settings
-    $cpu_governor_corect = undef
-    $cpu_boost = undef
-    $cpu_idle_max_cstate = undef
-    $cpu_pstate = undef
-  }
-
-  # Check if we have hardware that is passthrough
-  if ($hardware_passthrough_correct) {
-    # Install firmware packages
-    if ($facts['secure_boot_enabled']) {
-      package { ['fwupd', 'fwupd-signed']:
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      # Set fwupd-refresh
+      service { 'fwupd-refresh.timer':
+        ensure  => true,
+        enable  => true,
+        require => Package['fwupd'],
       }
     } else {
-      package { 'fwupd':
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
+      # Remove firmware packages
+      package { ['fwupd', 'fwupd-signed', 'rpi-eeprom-update']:
+        ensure => purged,
       }
     }
 
-    # Set fwupd-refresh 
-    service { 'fwupd-refresh.timer':
-      ensure  => true,
-      enable  => true,
-      require => Package['fwupd'],
-    }
-  } else {
-    # Remove firmware packages
-    package { ['fwupd', 'fwupd-signed', 'rpi-eeprom-update']:
-      ensure => purged,
-    }
-  }
+    # Share the dracut package set between installation, rebuild ordering and removal.
+    $dracut_packages = ['dracut', 'dracut-core']
 
-  # Share the dracut package set between installation, rebuild ordering and removal.
-  $dracut_packages = ['dracut', 'dracut-core']
+    # Install ram disk package
+    case $ram_disk_package {
+      'dracut': {
+        # Install packages
+        $ram_disk_require = $dracut_packages
+        package { $dracut_packages:
+          ensure          => installed,
+          install_options => ['--no-install-recommends', '--no-install-suggests'],
+        }
 
-  # Install ram disk package
-  case $ram_disk_package {
-    'dracut': {
-      # Install packages
-      $ram_disk_require = $dracut_packages
-      package { $dracut_packages:
-        ensure          => installed,
-        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        # Remove unused packages
+        package {['initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']:
+          ensure  => purged,
+          require => Package['dracut-core'],
+        }
       }
-
-      # Remove unused packages
-      package {['initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']:
-        ensure  => purged,
-        require => Package['dracut-core'],
-      }
-    }
-    'initramfs': {
-      # Install packages 
-      if ($os_name == 'Ubuntu') {
-        # Use the Ubuntu 24.04 initramfs dependency set for that release.
-        if ($os_version == '24.04') {
-          # Include the split initramfs binary package in Ubuntu 24.04 rebuild ordering.
-          $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']
-          package { $ram_disk_require:
-            ensure          => installed,
-            install_options => ['--no-install-recommends', '--no-install-suggests'],
+      'initramfs': {
+        # Install packages
+        if ($os_name == 'Ubuntu') {
+          # Use the Ubuntu 24.04 initramfs dependency set for that release.
+          if ($os_version == '24.04') {
+            # Include the split initramfs binary package in Ubuntu 24.04 rebuild ordering.
+            $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']
+            package { $ram_disk_require:
+              ensure          => installed,
+              install_options => ['--no-install-recommends', '--no-install-suggests'],
+            }
+          } else {
+            # Order initramfs rebuilds after the DHCP helper and core initramfs packages.
+            $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']
+            package { $ram_disk_require:
+              ensure          => installed,
+              install_options => ['--no-install-recommends', '--no-install-suggests'],
+            }
           }
         } else {
           # Order initramfs rebuilds after the DHCP helper and core initramfs packages.
@@ -712,294 +733,289 @@ class basic_settings::kernel (
             install_options => ['--no-install-recommends', '--no-install-suggests'],
           }
         }
-      } else {
-        # Order initramfs rebuilds after the DHCP helper and core initramfs packages.
-        $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-core']
-        package { $ram_disk_require:
-          ensure          => installed,
-          install_options => ['--no-install-recommends', '--no-install-suggests'],
+
+        # Remove unused packages
+        package { $dracut_packages:
+          ensure  => purged,
+          require => Package['initramfs-tools-core'],
         }
       }
-
-      # Remove unused packages
-      package { $dracut_packages:
-        ensure  => purged,
-        require => Package['initramfs-tools-core'],
+      default: {
+        # The public enum restricts this selector to the supported initramfs implementations.
       }
     }
-    default: {
-      # The public enum restricts this selector to the supported initramfs implementations.
-    }
-  }
 
-  # Set boot options
-  case $kernel_type {
-    'raspi': {
-      file { '/boot/firmware/config.txt':
-        ensure  => file,
-        content => template('basic_settings/kernel/boot.txt'),
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0755', # Important
-        require => Package[$ram_disk_require],
-      }
-
-      # Kernel params
-      $ip_version_v6_disable = bool2str($ip_version_v6, '0', '1')
-      file { '/boot/firmware/cmdline.txt':
-        ensure  => file,
-        content => template('basic_settings/kernel/cmdline.txt'),
-        owner   => 'root',
-        group   => 'root',
-        mode    => '0755', # Important
-        require => Package[$ram_disk_require],
-      }
-
-      # Purge bootloaders
-      package { ['grub2-common', 'systemd-boot']:
-        ensure => purged,
-      }
-
-      # No bootloader
-      $bootloader_packages = []
-    }
-    default: {
-      # Setup bootloader
-      case $bootloader {
-        'grub': {
-          # Set boot loader packages
-          $bootloader_packages = ['/usr/sbin/update-grub']
-          $grub_command_packages = concat($kernel_command_packages, ['grub2-common'])
-
-          # Install package
-          package { 'grub2-common':
-            ensure          => installed,
-            install_options => ['--no-install-recommends', '--no-install-suggests'],
-            require         => Package['initramfs-tools-core'],
-          }
-
-          # Remove unnecessary packages
-          package { 'systemd-boot':
-            ensure  => purged,
-            require => Package['grub2-common'],
-          }
-
-          # Reload sysctl deamon
-          exec { 'kernel_grub_update':
-            command     => '/usr/sbin/update-grub',
-            refreshonly => true,
-            require     => Package[$grub_command_packages],
-          }
-
-          # Create custom grub config
-          file { '/etc/default/grub':
-            ensure  => file,
-            content => template('basic_settings/kernel/grub'),
-            owner   => 'root',
-            group   => 'root',
-            mode    => '0600',
-            notify  => Exec['kernel_grub_update'],
-          }
+    # Set boot options
+    case $kernel_type {
+      'raspi': {
+        file { '/boot/firmware/config.txt':
+          ensure  => file,
+          content => template('basic_settings/kernel/boot.txt'),
+          owner   => 'root',
+          group   => 'root',
+          mode    => '0755', # Important
+          require => Package[$ram_disk_require],
         }
-        default: {
-          # Avoid bootloader package dependencies when no supported bootloader is selected.
-          $bootloader_packages = []
+
+        # Kernel params
+        $ip_version_v6_disable = bool2str($ip_version_v6, '0', '1')
+        file { '/boot/firmware/cmdline.txt':
+          ensure  => file,
+          content => template('basic_settings/kernel/cmdline.txt'),
+          owner   => 'root',
+          group   => 'root',
+          mode    => '0755', # Important
+          require => Package[$ram_disk_require],
+        }
+
+        # Purge bootloaders
+        package { ['grub2-common', 'systemd-boot']:
+          ensure => purged,
+        }
+
+        # No bootloader
+        $bootloader_packages = []
+      }
+      default: {
+        # Setup bootloader
+        case $bootloader {
+          'grub': {
+            # Set boot loader packages
+            $bootloader_packages = ['/usr/sbin/update-grub']
+            $grub_command_packages = concat($kernel_command_packages, ['grub2-common'])
+
+            # Install package
+            package { 'grub2-common':
+              ensure          => installed,
+              install_options => ['--no-install-recommends', '--no-install-suggests'],
+              require         => Package['initramfs-tools-core'],
+            }
+
+            # Remove unnecessary packages
+            package { 'systemd-boot':
+              ensure  => purged,
+              require => Package['grub2-common'],
+            }
+
+            # Reload sysctl deamon
+            exec { 'kernel_grub_update':
+              command     => '/usr/sbin/update-grub',
+              refreshonly => true,
+              require     => Package[$grub_command_packages],
+            }
+
+            # Create custom grub config
+            file { '/etc/default/grub':
+              ensure  => file,
+              content => template('basic_settings/kernel/grub'),
+              owner   => 'root',
+              group   => 'root',
+              mode    => '0600',
+              notify  => Exec['kernel_grub_update'],
+            }
+          }
+          default: {
+            # Avoid bootloader package dependencies when no supported bootloader is selected.
+            $bootloader_packages = []
+          }
         }
       }
     }
-  }
 
-  # Create list of packages that is suspicious
-  $suspicious_packages = flatten($bootloader_packages, [
-    '/bin/su',
-    '/usr/bin/depmod',
-    '/usr/bin/kmod',
-    '/usr/bin/lsmod',
-    '/usr/bin/lsusb',
-    '/usr/bin/usb-devices',
-    '/usr/bin/usbhid-dump',
-    '/usr/bin/usbreset',
-    '/usr/sbin/insmod',
-    '/usr/sbin/lsmod',
-    '/usr/sbin/modinfo',
-    '/usr/sbin/modprobe',
-    '/usr/sbin/rmmod',
-  ])
-  $suspicious_packages_root = [
-    '/usr/bin/kmod',
-  ]
+    # Create list of packages that is suspicious
+    $suspicious_packages = flatten($bootloader_packages, [
+      '/bin/su',
+      '/usr/bin/depmod',
+      '/usr/bin/kmod',
+      '/usr/bin/lsmod',
+      '/usr/bin/lsusb',
+      '/usr/bin/usb-devices',
+      '/usr/bin/usbhid-dump',
+      '/usr/bin/usbreset',
+      '/usr/sbin/insmod',
+      '/usr/sbin/lsmod',
+      '/usr/sbin/modinfo',
+      '/usr/sbin/modprobe',
+      '/usr/sbin/rmmod',
+    ])
+    $suspicious_packages_root = [
+      '/usr/bin/kmod',
+    ]
 
-  # Setup TCP
-  case $tcp_congestion_control {
-    'bbr': {
-      exec { 'tcp_congestion_control':
-        command => '/usr/bin/printf "net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr" > /etc/sysctl.d/20-tcp_congestion_control.conf; chmod 600 /etc/sysctl.d/20-tcp_congestion_control.conf; sysctl -p /etc/sysctl.d/20-tcp_congestion_control.conf', # lint:ignore:140chars
-        onlyif  => ['test ! -f /etc/sysctl.d/20-tcp_congestion_control.conf', 'test 4 -eq $(cat /boot/config-$(uname -r) | grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')'], # lint:ignore:140chars
+    # Setup TCP
+    case $tcp_congestion_control {
+      'bbr': {
+        exec { 'tcp_congestion_control':
+          command => '/usr/bin/printf "net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr" > /etc/sysctl.d/20-tcp_congestion_control.conf; chmod 600 /etc/sysctl.d/20-tcp_congestion_control.conf; sysctl -p /etc/sysctl.d/20-tcp_congestion_control.conf', # lint:ignore:140chars
+          onlyif  => ['test ! -f /etc/sysctl.d/20-tcp_congestion_control.conf', 'test 4 -eq $(cat /boot/config-$(uname -r) | grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')'], # lint:ignore:140chars
+        }
+      }
+      default: {
+        exec { 'tcp_congestion_control':
+          command => '/usr/bin/rm /etc/sysctl.d/20-tcp_congestion_control.conf',
+          onlyif  => '[ -e /etc/sysctl.d/20-tcp_congestion_control.conf ]',
+          notify  => Exec['kernel_sysctl_reload'],
+        }
       }
     }
-    default: {
-      exec { 'tcp_congestion_control':
-        command => '/usr/bin/rm /etc/sysctl.d/20-tcp_congestion_control.conf',
-        onlyif  => '[ -e /etc/sysctl.d/20-tcp_congestion_control.conf ]',
-        notify  => Exec['kernel_sysctl_reload'],
-      }
+
+    # Improve kernel I/O without storing root-exec state in a predictable /tmp path.
+    $kernel_io_device_script = 'dev=$(/usr/bin/lsblk -oMOUNTPOINT,PKNAME -P -M | /usr/bin/sed -n "s/^MOUNTPOINT=\"\/\" PKNAME=\"\([^\"]*\)\".*/\1/p" | /usr/bin/sed "s/[0-9]*$//" | /usr/bin/sed -n "1p")' # lint:ignore:140chars
+    $kernel_io_command_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 0; [ -w \"/sys/block/\${dev}/queue/scheduler\" ] || exit 0; /usr/bin/printf %s none > \"/sys/block/\${dev}/queue/scheduler\"" # lint:ignore:140chars
+    $kernel_io_check_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 1; [ -r \"/sys/block/\${dev}/queue/scheduler\" ] || exit 1; if /usr/bin/grep -q '\\[none\\]' \"/sys/block/\${dev}/queue/scheduler\"; then exit 1; fi; exit 0" # lint:ignore:140chars
+
+    # Escape the complete scripts once before passing them to bash -c.
+    $kernel_io_command_shell = stdlib::shell_escape($kernel_io_command_script)
+    $kernel_io_check_shell = stdlib::shell_escape($kernel_io_check_script)
+    exec { 'kernel_io':
+      command => "/usr/bin/bash -c ${kernel_io_command_shell}",
+      onlyif  => "/usr/bin/bash -c ${kernel_io_check_shell}",
     }
-  }
 
-  # Improve kernel I/O without storing root-exec state in a predictable /tmp path.
-  $kernel_io_device_script = 'dev=$(/usr/bin/lsblk -oMOUNTPOINT,PKNAME -P -M | /usr/bin/sed -n "s/^MOUNTPOINT=\"\/\" PKNAME=\"\([^\"]*\)\".*/\1/p" | /usr/bin/sed "s/[0-9]*$//" | /usr/bin/sed -n "1p")' # lint:ignore:140chars
-  $kernel_io_command_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 0; [ -w \"/sys/block/\${dev}/queue/scheduler\" ] || exit 0; /usr/bin/printf %s none > \"/sys/block/\${dev}/queue/scheduler\"" # lint:ignore:140chars
-  $kernel_io_check_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 1; [ -r \"/sys/block/\${dev}/queue/scheduler\" ] || exit 1; if /usr/bin/grep -q '\\[none\\]' \"/sys/block/\${dev}/queue/scheduler\"; then exit 1; fi; exit 0" # lint:ignore:140chars
-
-  # Escape the complete scripts once before passing them to bash -c.
-  $kernel_io_command_shell = stdlib::shell_escape($kernel_io_command_script)
-  $kernel_io_check_shell = stdlib::shell_escape($kernel_io_check_script)
-  exec { 'kernel_io':
-    command => "/usr/bin/bash -c ${kernel_io_command_shell}",
-    onlyif  => "/usr/bin/bash -c ${kernel_io_check_shell}",
-  }
-
-  # Activate transparent hugepage modus
-  exec { 'kernel_transparent_hugepage':
-    command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/enabled'",
-    onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/enabled) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
-  }
-
-  # Activate transparent hugepage defrag
-  exec { 'kernel_transparent_hugepage_defrag':
-    command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/defrag'",
-    onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/defrag) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
-  }
-
-  # Kernel Multi-Gen LRU
-  if ($mglru_active) {
-    exec { 'kernel_mglru':
-      command => "/usr/bin/bash -c 'echo \"y\" > /sys/kernel/mm/lru_gen/enabled'",
-      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
+    # Activate transparent hugepage modus
+    exec { 'kernel_transparent_hugepage':
+      command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/enabled'",
+      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/enabled) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
     }
-  } else {
-    exec { 'kernel_mglru':
-      command => "/usr/bin/bash -c 'echo \"n\" > /sys/kernel/mm/lru_gen/enabled'",
-      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0000\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
+
+    # Activate transparent hugepage defrag
+    exec { 'kernel_transparent_hugepage_defrag':
+      command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/defrag'",
+      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/defrag) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
     }
-  }
 
-  # Kernel Multi-Gen LRU thrashing prevention
-  # Escape the MGLRU value before writing it and checking the current kernel state.
-  $mglru_min_ttl_ms_shell = stdlib::shell_escape($mglru_min_ttl_ms_correct)
-  $mglru_min_ttl_ms_check_script = "if [ \$(grep -c ${mglru_min_ttl_ms_shell} /sys/kernel/mm/lru_gen/min_ttl_ms) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
-
-  # Escape the complete guard script before passing it to bash -c.
-  $mglru_min_ttl_ms_check_script_shell = stdlib::shell_escape($mglru_min_ttl_ms_check_script)
-  exec { 'kernel_mglru_min_ttl_ms':
-    command => "/usr/bin/printf %s ${mglru_min_ttl_ms_shell} > /sys/kernel/mm/lru_gen/min_ttl_ms",
-    onlyif  => "/usr/bin/bash -c ${mglru_min_ttl_ms_check_script_shell}",
-    require => [Package[$kernel_command_packages], Exec['kernel_mglru']],
-  }
-
-  # Kernel security lockdown
-  # Escape lockdown values before writing them and checking the current kernel state.
-  $security_lockdown_correct_shell = stdlib::shell_escape($security_lockdown_correct)
-  $security_lockdown_pattern_shell = stdlib::shell_escape("\\[${security_lockdown_correct}\\]")
-  $security_lockdown_check_script = "if [ \$(grep -c ${security_lockdown_pattern_shell} /sys/kernel/security/lockdown) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
-
-  # Escape the complete guard script before passing it to bash -c.
-  $security_lockdown_check_script_shell = stdlib::shell_escape($security_lockdown_check_script)
-  exec { 'kernel_security_lockdown':
-    command => "/usr/bin/printf %s ${security_lockdown_correct_shell} > /sys/kernel/security/lockdown",
-    onlyif  => "/usr/bin/bash -c ${security_lockdown_check_script_shell}",
-  }
-
-  # Guest agent
-  if ($guest_agent_package != undef) {
-    # Install or remove the available guest agent according to the requested state.
-    if ($guest_agent_enable) {
-      # Keep policy flags last even when caller options contain duplicate or conflicting flags.
-      package { $guest_agent_package:
-        ensure          => installed,
-        install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+    # Kernel Multi-Gen LRU
+    if ($mglru_active) {
+      exec { 'kernel_mglru':
+        command => "/usr/bin/bash -c 'echo \"y\" > /sys/kernel/mm/lru_gen/enabled'",
+        onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
       }
     } else {
-      package { $guest_agent_package:
-        ensure => purged,
+      exec { 'kernel_mglru':
+        command => "/usr/bin/bash -c 'echo \"n\" > /sys/kernel/mm/lru_gen/enabled'",
+        onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0000\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
       }
     }
-  }
 
-  # Setup monitoring
-  if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-    # Both checks use awk; coreutils and sed are installed with the kernel tools above.
-    $monitoring_packages = ['mawk']
-    $monitoring_required_packages = concat(['coreutils', 'dash'], $monitoring_packages, ['sed'])
+    # Kernel Multi-Gen LRU thrashing prevention
+    # Escape the MGLRU value before writing it and checking the current kernel state.
+    $mglru_min_ttl_ms_shell = stdlib::shell_escape($mglru_min_ttl_ms_correct)
+    $mglru_min_ttl_ms_check_script = "if [ \$(grep -c ${mglru_min_ttl_ms_shell} /sys/kernel/mm/lru_gen/min_ttl_ms) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
 
-    ensure_packages($monitoring_packages, {
-      'ensure'          => 'installed',
-      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
-    })
-
-    # Register memory pressure monitoring next to kernel memory tuning.
-    basic_settings::monitoring_custom { 'memory_pressure':
-      friendly => 'Memory pressure',
-      content  => template('basic_settings/monitoring/check_memory_pressure'),
-      require  => Package[$monitoring_required_packages],
+    # Escape the complete guard script before passing it to bash -c.
+    $mglru_min_ttl_ms_check_script_shell = stdlib::shell_escape($mglru_min_ttl_ms_check_script)
+    exec { 'kernel_mglru_min_ttl_ms':
+      command => "/usr/bin/printf %s ${mglru_min_ttl_ms_shell} > /sys/kernel/mm/lru_gen/min_ttl_ms",
+      onlyif  => "/usr/bin/bash -c ${mglru_min_ttl_ms_check_script_shell}",
+      require => [Package[$kernel_command_packages], Exec['kernel_mglru']],
     }
 
-    # Reegister USB monitoring
-    basic_settings::monitoring_custom { 'usb':
-      friendly => 'USB',
-      content  => template('basic_settings/monitoring/check_usb'),
-      require  => Package[$monitoring_required_packages],
-    }
-  }
+    # Kernel security lockdown
+    # Escape lockdown values before writing them and checking the current kernel state.
+    $security_lockdown_correct_shell = stdlib::shell_escape($security_lockdown_correct)
+    $security_lockdown_pattern_shell = stdlib::shell_escape("\\[${security_lockdown_correct}\\]")
+    $security_lockdown_check_script = "if [ \$(grep -c ${security_lockdown_pattern_shell} /sys/kernel/security/lockdown) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
 
-  # Create kernel rules
-  if (defined(Package['auditd'])) {
-    # Exclude executables already covered by the root audit rules.
-    $suspicious_filter = $suspicious_packages - $suspicious_packages_root
-    basic_settings::security_audit { 'kernel':
-      rules                    => [
-        '# Injection',
-        '# These rules watch for code injection by the ptrace facility.',
-        '# This could indicate someone trying to do something bad or just debugging',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
-        '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
-        '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
-        '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
-        '# Kernel parameters',
-        '-a always,exit -F arch=b32 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
-        '-a always,exit -F arch=b64 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
-        '-a always,exit -F arch=b32 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
-        '-a always,exit -F arch=b64 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
-        '-a always,exit -F arch=b32 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
-        '-a always,exit -F arch=b64 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
-        '# Kernel modules',
-        '-a always,exit -F arch=b32 -S init_module -S delete_module -F key=kernel_modules',
-        '-a always,exit -F arch=b64 -S init_module -S delete_module -F key=kernel_modules',
-        '# Modprobe configuration',
-        '-a always,exit -F arch=b32 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
-        '-a always,exit -F arch=b64 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
-        '-a always,exit -F arch=b32 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
-        '-a always,exit -F arch=b64 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
-      ],
-      rule_suspicious_packages => $suspicious_filter,
-      order                    => 15,
+    # Escape the complete guard script before passing it to bash -c.
+    $security_lockdown_check_script_shell = stdlib::shell_escape($security_lockdown_check_script)
+    exec { 'kernel_security_lockdown':
+      command => "/usr/bin/printf %s ${security_lockdown_correct_shell} > /sys/kernel/security/lockdown",
+      onlyif  => "/usr/bin/bash -c ${security_lockdown_check_script_shell}",
     }
 
-    # Retain login attribution when auditing privileged kernel tools.
-    basic_settings::security_audit { 'kernel-root':
-      rule_suspicious_packages => $suspicious_packages_root,
-      rule_options             => ['-F auid!=unset'],
-      order                    => 10,
+    # Guest agent
+    if ($guest_agent_package != undef) {
+      # Install or remove the available guest agent according to the requested state.
+      if ($guest_agent_enable) {
+        # Keep policy flags last even when caller options contain duplicate or conflicting flags.
+        package { $guest_agent_package:
+          ensure          => installed,
+          install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+        }
+      } else {
+        package { $guest_agent_package:
+          ensure => purged,
+        }
+      }
     }
 
-    # Ignore current working directory records
-    basic_settings::security_audit { 'kernel-cwd':
-      rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
-      order => 1,
+    # Setup monitoring
+    if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
+      # Both checks use awk; coreutils and sed are installed with the kernel tools above.
+      $monitoring_packages = ['mawk']
+      $monitoring_required_packages = concat(['coreutils', 'dash'], $monitoring_packages, ['sed'])
+
+      ensure_packages($monitoring_packages, {
+        'ensure'          => 'installed',
+        'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+      })
+
+      # Register memory pressure monitoring next to kernel memory tuning.
+      basic_settings::monitoring_custom { 'memory_pressure':
+        friendly => 'Memory pressure',
+        content  => template('basic_settings/monitoring/check_memory_pressure'),
+        require  => Package[$monitoring_required_packages],
+      }
+
+      # Reegister USB monitoring
+      basic_settings::monitoring_custom { 'usb':
+        friendly => 'USB',
+        content  => template('basic_settings/monitoring/check_usb'),
+        require  => Package[$monitoring_required_packages],
+      }
     }
+
+    # Create kernel rules
+    if (defined(Package['auditd'])) {
+      # Exclude executables already covered by the root audit rules.
+      $suspicious_filter = $suspicious_packages - $suspicious_packages_root
+      basic_settings::security_audit { 'kernel':
+        rules                    => [
+          '# Injection',
+          '# These rules watch for code injection by the ptrace facility.',
+          '# This could indicate someone trying to do something bad or just debugging',
+          '-a always,exit -F arch=b32 -S ptrace -F a0=0x4 -F key=code_injection',
+          '-a always,exit -F arch=b64 -S ptrace -F a0=0x4 -F key=code_injection',
+          '-a always,exit -F arch=b32 -S ptrace -F a0=0x5 -F key=data_injection',
+          '-a always,exit -F arch=b64 -S ptrace -F a0=0x5 -F key=data_injection',
+          '-a always,exit -F arch=b32 -S ptrace -F a0=0x6 -F key=register_injection',
+          '-a always,exit -F arch=b64 -S ptrace -F a0=0x6 -F key=register_injection',
+          '-a always,exit -F arch=b32 -S ptrace -F key=tracing',
+          '-a always,exit -F arch=b64 -S ptrace -F key=tracing',
+          '# Kernel parameters',
+          '-a always,exit -F arch=b32 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
+          '-a always,exit -F arch=b64 -F path=/usr/sbin/sysctl -F perm=x -F key=sysctl',
+          '-a always,exit -F arch=b32 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
+          '-a always,exit -F arch=b64 -F path=/etc/sysctl.conf -F perm=wa -F key=sysctl',
+          '-a always,exit -F arch=b32 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
+          '-a always,exit -F arch=b64 -F path=/etc/sysctl.d -F perm=wa -F key=sysctl',
+          '# Kernel modules',
+          '-a always,exit -F arch=b32 -S init_module -S delete_module -F key=kernel_modules',
+          '-a always,exit -F arch=b64 -S init_module -S delete_module -F key=kernel_modules',
+          '# Modprobe configuration',
+          '-a always,exit -F arch=b32 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
+          '-a always,exit -F arch=b64 -F path=/etc/modprobe.conf -F perm=wa -F key=modprobe',
+          '-a always,exit -F arch=b32 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
+          '-a always,exit -F arch=b64 -F path=/etc/modprobe.d -F perm=wa -F key=modprobe',
+        ],
+        rule_suspicious_packages => $suspicious_filter,
+        order                    => 15,
+      }
+
+      # Retain login attribution when auditing privileged kernel tools.
+      basic_settings::security_audit { 'kernel-root':
+        rule_suspicious_packages => $suspicious_packages_root,
+        rule_options             => ['-F auid!=unset'],
+        order                    => 10,
+      }
+
+      # Ignore current working directory records
+      basic_settings::security_audit { 'kernel-cwd':
+        rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
+        order => 1,
+      }
+    }
+  } else {
+    fail('NVIDIA DGX Spark kernel requires Ubuntu 24.04 ARM64')
   }
 }

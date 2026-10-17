@@ -1,9 +1,12 @@
+# Docker scenarios require Engine >= 29.0.0 without Swarm and a consumer-managed forward filter loaded before forwarding.
+# Arrange firewall activation and boot ordering as described in README; ip_version selects the forwarding families.
 # Docker-focused examples for Compose stacks, reverse proxies, bundled apps, Nextcloud AIO, and GitLab Runner.
 # Replace hostnames, paths, checksums, and secrets with environment data.
 
 node 'container-basic.example.org' {
   class { 'basic_settings':
     docker_enable              => true,
+    ip_forwarding              => true,
     monitoring_package         => 'openitcockpit',
     monitoring_package_install => true,
   }
@@ -58,6 +61,7 @@ node 'container-cleanup.example.org' {
 node 'container-proxy.example.org' {
   class { 'basic_settings':
     docker_enable              => true,
+    ip_forwarding              => true,
     monitoring_package         => 'openitcockpit',
     monitoring_package_install => true,
     nginx_enable               => true,
@@ -121,6 +125,7 @@ node 'container-proxy.example.org' {
 node 'authentik.example.org' {
   class { 'basic_settings':
     docker_enable => true,
+    ip_forwarding => true,
     nginx_enable  => true,
   }
 
@@ -184,6 +189,7 @@ node 'authentik.example.org' {
 node 'twenty.example.org' {
   class { 'basic_settings':
     docker_enable => true,
+    ip_forwarding => true,
     nginx_enable  => true,
   }
 
@@ -237,10 +243,11 @@ node 'twenty.example.org' {
 # AIO requires one installation per Docker daemon; the Compose title does not isolate its fixed container names.
 node 'nextcloud.example.org' {
   class { 'basic_settings':
-    docker_enable       => true,
-    nginx_enable        => true,
+    docker_enable        => true,
+    ip_forwarding        => true,
+    nginx_enable         => true,
     openitcockpit_enable => true,
-    smtp_server         => 'smtp.example.org',
+    smtp_server          => 'smtp.example.org',
   }
 
   # Prepare the runtime and systemd integration used by the AIO mastercontainer.
@@ -305,6 +312,7 @@ node 'nextcloud.example.org' {
 node 'gitlab-runner.example.org' {
   class { 'basic_settings':
     docker_enable => true,
+    ip_forwarding => true,
   }
 
   # Install Docker after basic_settings prepares its APT source and systemd targets.

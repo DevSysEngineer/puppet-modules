@@ -19,6 +19,10 @@
 #   Docker daemon options recursively merged over the built-in defaults; default {} keeps those defaults.
 #   Nested hashes retain unspecified defaults; other values replace them. Use Docker JSON option names and types.
 #   The result replaces the complete daemon.json, including on hosts without nvidia; local edits are not imported.
+#   ip6tables and ipv6 default to true for ip_version all and false for 4, independently of the firewall backend.
+#   IP policy comes from an already declared basic_settings::network, otherwise basic_settings::kernel, otherwise all.
+#   ipv6 enables the default bridge; user-defined networks still select IPv6 separately.
+#   Both options remain overridable.
 #   A declared nvidia class adds runtimes.nvidia with its managed path and arguments after applying these overrides.
 #   Do not supply that entry yourself when using automatic integration.
 #   Other runtimes and default-runtime are preserved.
@@ -29,12 +33,13 @@
 # @param firewall_package
 #   Firewall selection: iptables, nftables or firewalld. The default undef inherits firewall_package from an already
 #   declared basic_settings::network class; without that class it uses iptables. An explicit value takes precedence.
-#   The selected value sets the iptables default to true only for iptables, and false otherwise.
-#   nftables also defaults firewall-backend to nftables; other selections do not add that daemon option.
-#   Docker Engine 29 or newer is required for the nftables backend. Setting iptables to false also prevents most
-#   automatic nftables rules; the deployment must supply the required networking rules. No firewall package is
-#   installed.
-#   daemon_config can override these derived defaults, including iptables and firewall-backend.
+#   nftables defaults firewall-backend to nftables. iptables defaults to true for every firewall selection,
+#   retaining Docker-managed IPv4 rules; ip6tables follows the inherited IP policy.
+#   Other selections do not add firewall-backend. No firewall package or host forwarding is managed here.
+#   The native nftables backend requires Engine >= 29.0.0, is experimental and is not supported in Swarm mode;
+#   verify these conditions against the deployed Engine version. ip6tables does not enable IPv6 container networks.
+#   The consumer must enable the required host forwarding and load its own forward filter before migration.
+#   daemon_config overrides these defaults, including false for iptables/ip6tables with replacement firewall management.
 #
 # @api public
 class docker (
@@ -71,6 +76,9 @@ class docker (
       $ip_version = $basic_settings::network::ip_version
     }
 
+    # Keep IPv6 networking and firewall management aligned with the inherited IP policy.
+    $ipv6_enable = $ip_version == 'all'
+
     # An omitted firewall choice follows the declared network policy, or the standalone iptables default.
     if ($firewall_package == undef) {
       # Read central policy only when its class has already been declared.
@@ -86,15 +94,19 @@ class docker (
       $firewall_package_correct = $firewall_package
     }
 
-    # Only nftables needs an explicit backend; daemon_config retains its existing override precedence.
+    # Select the native nftables backend; firewall management defaults are shared below.
     $firewall_config = $firewall_package_correct ? {
-      'nftables' => { 'firewall-backend' => 'nftables' },
+      'nftables' => {
+        'firewall-backend' => 'nftables',
+      },
       default   => {},
     }
 
     # Keep the production daemon baseline under Docker's ownership on every host.
     $daemon_defaults = {
-      'iptables'           => $firewall_package_correct == 'iptables',
+      'iptables'           => true,
+      'ip6tables'          => $ipv6_enable,
+      'ipv6'               => $ipv6_enable,
       'icc'                => true,
       'live-restore'       => true,
       'userland-proxy'     => false,

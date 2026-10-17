@@ -1,3 +1,5 @@
+# Docker scenarios require Engine >= 29.0.0 without Swarm and a consumer-managed forward filter loaded before forwarding.
+# Arrange firewall activation and boot ordering as described in README; ip_version selects the forwarding families.
 # Example profile-style usage for the first-party modules in this repository.
 # Replace hostnames, secrets, package choices, and paths with environment data.
 
@@ -70,6 +72,7 @@ node 'web01.example.org' {
 node 'container01.example.org' {
   class { 'basic_settings':
     docker_enable              => true,
+    ip_forwarding              => true,
     monitoring_package         => 'openitcockpit',
     monitoring_package_install => true,
   }

@@ -79,6 +79,11 @@
 # @param ip_dhcp_enable
 #   Enables DHCP client configuration through the network class.
 #
+# @param ip_forwarding
+#   Enables host unicast forwarding through basic_settings::kernel; false (default) keeps it disabled.
+#   With true, ip_version => 'all' forwards both families and ip_version => '4' forwards only IPv4, with IPv6 disabled.
+#   The consumer owns firewall rules and activation ordering. docker_enable does not select forwarding.
+#
 # @param ip_ra_enable
 #   Enables IPv6 router advertisement handling when DHCP and IP version settings allow it.
 #
@@ -314,6 +319,7 @@ class basic_settings (
   Array[String[1]]                           $hosts_localhost_aliases                  = [],
   Enum['none', 'netplan.io']                 $ip_configurator_package                  = 'none',
   Boolean                                    $ip_dhcp_enable                           = true,
+  Boolean                                    $ip_forwarding                            = false,
   Boolean                                    $ip_ra_enable                             = true,
   Boolean                                    $ip_ra_learn_prefix                       = true,
   Enum['all', '4']                           $ip_version                               = 'all',
@@ -955,6 +961,7 @@ class basic_settings (
     guest_agent_enable        => $guest_agent_enable,
     hugepages                 => $kernel_hugepages,
     install_options           => $backports_install_options,
+    ip_forwarding             => $ip_forwarding,
     ip_version                => $ip_version,
     ip_ra_enable              => $ip_ra_enable_correct,
     ip_ra_learn_prefix        => $ip_ra_learn_prefix,

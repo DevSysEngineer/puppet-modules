@@ -1,3 +1,5 @@
+# Docker scenarios require Engine >= 29.0.0 without Swarm and a consumer-managed forward filter loaded before forwarding.
+# Arrange firewall activation and boot ordering as described in README; ip_version selects the forwarding families.
 # Example: headless NVIDIA DGX Spark / ASUS Ascent GX10 with Ubuntu 24.04 ARM64.
 # Declare each class once, in this evaluation order; require relationships alone do not enable Docker's class detection.
 # Installs the open headless driver and Container Toolkit; CUDA applications belong in containers.
@@ -7,6 +9,7 @@
 node 'dgx-spark.example.org' {
   class { 'basic_settings':
     docker_enable     => true,
+    ip_forwarding     => true,
     kernel_flavor     => 'nvidia',
     nvidia_dgx_enable => true,
   }
