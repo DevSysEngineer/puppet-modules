@@ -26,10 +26,21 @@
 # @param edition
 #   Docker edition to install. The only supported value is `ce`, which installs the `docker-ce` package.
 #
+# @param firewall_package
+#   Firewall selection: iptables, nftables or firewalld. The default undef inherits firewall_package from an already
+#   declared basic_settings::network class; without that class it uses iptables. An explicit value takes precedence.
+#   The selected value sets the iptables default to true only for iptables, and false otherwise.
+#   nftables also defaults firewall-backend to nftables; other selections do not add that daemon option.
+#   Docker Engine 29 or newer is required for the nftables backend. Setting iptables to false also prevents most
+#   automatic nftables rules; the deployment must supply the required networking rules. No firewall package is
+#   installed.
+#   daemon_config can override these derived defaults, including iptables and firewall-backend.
+#
 # @api public
 class docker (
-  Hash[String, Data] $daemon_config = {},
-  Enum['ce']         $edition       = 'ce',
+  Hash[String, Data]                                  $daemon_config    = {},
+  Enum['ce']                                          $edition          = 'ce',
+  Optional[Enum['iptables', 'nftables', 'firewalld']] $firewall_package = undef,
 ) {
   # Install the package only for the supported Docker edition.
   if ($edition == 'ce') {
@@ -42,8 +53,11 @@ class docker (
     # Only an already declared class activates GPU integration; module availability alone does not.
     $nvidia_available = defined(Class['nvidia'])
 
+    # Reuse the network class availability for IP policy and firewall defaults.
+    $network_available = defined(Class['basic_settings::network'])
+
     # Check if we have network class
-    if (!defined(Class['basic_settings::network'])) {
+    if (!$network_available) {
       # Inherit IP policy from the kernel class when no central network class owns it.
       if (defined(Class['basic_settings::kernel'])) {
         # Keep Docker networks aligned with the kernel's IP policy.
@@ -57,9 +71,30 @@ class docker (
       $ip_version = $basic_settings::network::ip_version
     }
 
+    # An omitted firewall choice follows the declared network policy, or the standalone iptables default.
+    if ($firewall_package == undef) {
+      # Read central policy only when its class has already been declared.
+      if ($network_available) {
+        # Keep the daemon firewall choice aligned with the host network policy.
+        $firewall_package_correct = $basic_settings::network::firewall_package
+      } else {
+        # Standalone Docker retains its existing iptables behavior.
+        $firewall_package_correct = 'iptables'
+      }
+    } else {
+      # An explicit Docker choice takes precedence over central network policy.
+      $firewall_package_correct = $firewall_package
+    }
+
+    # Only nftables needs an explicit backend; daemon_config retains its existing override precedence.
+    $firewall_config = $firewall_package_correct ? {
+      'nftables' => { 'firewall-backend' => 'nftables' },
+      default   => {},
+    }
+
     # Keep the production daemon baseline under Docker's ownership on every host.
     $daemon_defaults = {
-      'iptables'           => true,
+      'iptables'           => $firewall_package_correct == 'iptables',
       'icc'                => true,
       'live-restore'       => true,
       'userland-proxy'     => false,
@@ -78,7 +113,7 @@ class docker (
         },
       },
     }
-    $daemon_settings = deep_merge($daemon_defaults, $daemon_config)
+    $daemon_settings = deep_merge($daemon_defaults, $firewall_config, $daemon_config)
 
     # GPU hosts install Docker after the driver; ordinary hosts need no NVIDIA dependency.
     $package_require = $nvidia_available ? {
