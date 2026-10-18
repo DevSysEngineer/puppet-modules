@@ -14,6 +14,7 @@ class GuideContractTest < Minitest::Test
             'Meldingen en severity', 'Autofix', 'Autofixvoorwaarden', 'Toegestane uitzonderingen',
             'Suppressions', 'Onjuist voorbeeld', 'Correct voorbeeld', 'Grensgevallen',
             'Handmatige review', 'Verificatie'].freeze
+  MANUAL_FIELDS = ['Norm', 'Herkomst', 'Toepassingsgebied', 'Handmatige review', 'Verificatie'].freeze
   PROFILE_QUERY = <<~RUBY
     require 'project_lint'
     require 'json'
@@ -23,12 +24,8 @@ class GuideContractTest < Minitest::Test
     end)
   RUBY
 
-  def guide
-    File.read(GUIDE)
-  end
-
   def registry
-    table = guide.match(/^<!-- BEGIN PROJECT CHECK REGISTRY -->\n(.*?)^<!-- END PROJECT CHECK REGISTRY -->/m)
+    table = File.read(GUIDE).match(/^<!-- BEGIN PROJECT CHECK REGISTRY -->\n(.*?)^<!-- END PROJECT CHECK REGISTRY -->/m)
     refute_nil table, 'Missing bounded project check registry'
     table[1].lines.grep(/^\| `project_/).map { |line| line.split('|')[1..].map(&:strip) }
   end
@@ -70,10 +67,8 @@ class GuideContractTest < Minitest::Test
     refute_empty links, "Missing rule links for #{check}"
     links.each do |link|
       path, anchor = link.split('#', 2)
-      allowed = RULES
-      assert_includes allowed, path, check
-      target = path.empty? ? GUIDE : File.join(File.dirname(GUIDE), path)
-      assert_path_exists target
+      assert_includes RULES, path, check
+      target = File.join(File.dirname(GUIDE), path)
       assert_includes anchors(File.read(target)), anchor, check
     end
   end
@@ -90,16 +85,37 @@ class GuideContractTest < Minitest::Test
 
   def test_rules_have_unique_authoritative_headings
     headings = rule_blocks.map { |block| block.lines.first.sub(/^\#+ /, '').strip }
-    duplicates = headings.tally.select { |_heading, count| count > 1 }
-    assert_empty duplicates, 'Rules duplicated across authoritative documents'
+    assert_empty headings.tally.select { |_heading, count| count > 1 }, 'Duplicate authoritative rules'
   end
 
-  def test_each_rule_has_all_nonempty_fields_in_order
+  def assert_rule_fields(block)
+    values = block.scan(/^\*\*([^*\n]+)\*\*\s*\n?(.*?)(?=^\*\*|\z)/m)
+    names = values.map(&:first)
+    assert_empty required_fields(values.to_h) - names
+    assert_equal FIELDS.select { |name| names.include?(name) }, names
+    values.each { |name, value| refute_empty value.strip, "#{block.lines.first}: #{name}" }
+  end
+
+  def required_fields(values)
+    automatic = values.fetch('Automatische controle', '')
+    automatic.empty? || automatic.start_with?('Geen automatische controle') ? MANUAL_FIELDS : FIELDS
+  end
+
+  def test_each_rule_has_the_information_needed_for_its_control
     refute_empty rule_blocks
-    rule_blocks.each do |block|
-      values = block.scan(/^\*\*([^*\n]+)\*\*\s*\n?(.*?)(?=^\*\*|\z)/m)
-      assert_equal FIELDS, values.map(&:first), block.lines.first
-      values.each { |name, value| refute_empty value.strip, "#{block.lines.first}: #{name}" }
+    rule_blocks.each { |block| assert_rule_fields(block) }
+    controls = rule_blocks.filter_map { |block| block[/^\*\*Automatische controle\*\*\s*\n(.*?)(?=^\*\*|\z)/m, 1] }
+    assert_empty registry.map(&:first) - controls.join.scan(/`project_[a-z_]+`/)
+  end
+
+  def test_contract_rejects_missing_or_empty_fields_for_both_rule_kinds
+    [MANUAL_FIELDS, FIELDS].each do |fields|
+      block = fields.map { |name| "**#{name}**\n\nConcrete criterion.\n\n" }.join
+      assert_rule_fields(block)
+      name = (fields & %w[Verificatie Autofixvoorwaarden]).first
+      incomplete = block.sub("**#{name}**\n\nConcrete criterion.\n\n", '')
+      assert_raises(Minitest::Assertion) { assert_rule_fields(incomplete) }
+      assert_raises(Minitest::Assertion) { assert_rule_fields(block.sub('Concrete criterion.', '')) }
     end
   end
 end

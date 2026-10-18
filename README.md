@@ -97,7 +97,7 @@ Deze modules gebruiken bewust strengere beveiligingsinstellingen dan veel standa
 | Auditlogging en monitoring | Extra events en checks kunnen opslag, rechten en meldingsvolume beïnvloeden. | Auditregels, logrotatie, checktimeouts en monitoringontvangers. | Schakel alleen de controles in die je nodig hebt en pas waar nodig intervallen en limieten aan. |
 
 > [!WARNING]
-> `basic_settings` kan `/etc/hosts`, sudoers-inhoud, APT-bronnen, netwerkconfiguratie en andere belangrijke serverinstellingen beheren. Schakel een onderdeel uit wanneer die configuratie al ergens anders wordt beheerd. Gebruik bij een bestaande sudo-configuratie in eerste instantie `sudoers_dir_enable => false`.
+> `basic_settings` kan `/etc/hosts`, sudoers-inhoud, APT-bronnen, netwerkconfiguratie en andere belangrijke serverinstellingen beheren. Controleer vóór ingebruikname welke onderdelen elders worden beheerd en wat uitschakelen doet: sommige opties verwijderen dan juist bestaande configuratie. Zie de [voorwaarden voor de serverbasis](#basic_settings). Gebruik bij een bestaande sudo-configuratie in eerste instantie `sudoers_dir_enable => false`.
 
 Bij Secure Boot blijft `integrity` de minimale waarde voor kernel-lockdown, ook met `kernel_security_lockdown => false`. Zie de [kernelinstellingen](basic_settings/manifests/kernel.pp) voor de beschikbare keuzes.
 
@@ -200,23 +200,21 @@ Vervang de hostnaam, beheerder en API-key. Compileer eerst de catalogus en pas d
 
 Voorbeelden gebruiken `example.org`, IP-adressen die voor documentatie zijn gereserveerd en waarden die met `replace-with-...` beginnen. Vervang deze waarden door gegevens uit je eigen profielen of Hiera. Gebruik `Sensitive(...)` waar dat wordt ondersteund en bewaar wachtwoorden voor oudere String-parameters versleuteld in Hiera.
 
-De README geeft per module één eenvoudig voorbeeld. In [`examples/`](examples/) staan grotere configuraties waarin je ook ziet hoe classes en resources met elkaar samenwerken. De comments direct boven een Puppet-class of defined type bevatten de volledige lijst met parameters, datatypes, standaardwaarden, aangemaakte bestanden, afhankelijkheden en de betekenis van `true`, `false` en `undef`.
+Deze README geeft per module een basisvoorbeeld en gerichte links naar de publieke interface en [uitgebreide scenario’s](#uitgebreide-voorbeelden). Puppet Strings direct boven de publieke class, het defined type of de functie beschrijven parameterbetekenis, voorwaarden en gevolgen. De declaratie geeft type en standaardwaarde; bij berekende defaults legt de toelichting de keuze uit. Wat parameterhulp hiervan toont hangt af van de editor. De bron blijft rechtstreeks leesbaar.
 
 ## Modules
 
 ### `basic_settings`
 
-#### Doel
+<a id="doel"></a>
 
 `basic_settings` bouwt de gedeelde serverbasis voor Debian en Ubuntu. De class beheert onder meer APT-bronnen, minimale pakketten, standaardinstellingen voor kernel en netwerk, taal, tijdzone, gebruikers, inloggen, beveiliging, Puppet en de systemd-targets waarop andere modules kunnen aansluiten.
 
 Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is handig wanneer je bijvoorbeeld alleen gebruikers, `/etc/hosts`, een systemd-service, logrotate of een monitoringcheck wilt beheren.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen"></a>
 
-- Beheert basispakketten en optionele APT-bronnen voor de andere modules.
 - Maakt gedeelde systemd-targets en hulpmiddelen voor services, timers, netwerken en drop-ins.
-- Beheert instellingen voor de kernel, het netwerk, inloggen, beveiliging, taal, opslag en Puppet.
 - Kan OpenITCOCKPIT-monitoring, auditregels, logrotate en meldingen bij mislukte services instellen.
 - Beheert optioneel `/etc/hosts` met vaste localhostrecords en aanvullende entries.
 - Ondersteunt Puppet- en OpenVox-pakketbronnen en serverinrichting.
@@ -225,15 +223,11 @@ Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is ha
 
 De class kan belangrijke serverconfiguratie en conflicterende pakketten vervangen. Controleer vooral sudoers, firewall, netwerk, bootloader, APT-bronnen, automatische updates en de gekozen bron voor Puppet Server.
 
-Hostforwarding staat standaard uit (`ip_forwarding => false`). Zet voor een router of Docker-host expliciet `ip_forwarding => true`. `ip_version` bepaalt dan de families: `'all'` schakelt IPv4- en IPv6-forwarding in; `'4'` schakelt alleen IPv4-forwarding in en houdt IPv6 uitgeschakeld. De keuze staat los van `docker_enable`, dat alleen de pakketbron voorbereidt. De los gebruikte kernelclass heeft dezelfde boolean `basic_settings::kernel::ip_forwarding`; de [kernel-Strings](basic_settings/manifests/kernel.pp) beschrijven de bestaande sysctl-route. Laad eerst je eigen firewallbeleid en volg bij Docker de [migratievoorwaarden](#docker).
+Hostforwarding staat standaard uit. Zet voor een router of Docker-host expliciet `ip_forwarding => true`, laad eerst je eigen firewallbeleid en volg bij Docker de [migratievoorwaarden](#docker). De families en gevolgen staan bij de publieke parameter in [`basic_settings`](basic_settings/manifests/init.pp).
 
-Niet ieder pakket is voor iedere Linux-versie en architectuur beschikbaar; de meeste helpers schakelen een niet-ondersteunde pakketbron daarom uit. NVIDIA DGX is strikter: `nvidia_dgx_enable => true` vereist Ubuntu 24.04 (`noble`) met APT-architectuur `arm64` en geeft op andere platforms een fout. Deze optie beheert uitsluitend de DGX- en CUDA-pakketbronnen en hun openbare ondertekeningssleutels; zij installeert geen NVIDIA-softwarestack.
+Uitgeschakelde of niet-ondersteunde repositoryopties laten bestaande configuratie niet ongemoeid: zij verwijderen hun bronbestanden en, afhankelijk van de helper, sleutels of pakketten. Vooral `mongodb_enable => false` en `nodejs_enable => false` verwijderen ook de beheerde server- respectievelijk runtimepackage. Controleer vóór invoering de betreffende publieke `*_enable`-parameter in de [serverbasis](basic_settings/manifests/init.pp). Bewaar onafhankelijke APT-bronnen onder andere bestandsnamen.
 
-Alle `package_*`-repositoryhelpers verwijderen de alternatieve bronvariant: bij deb822 verdwijnt hun `.list`-bestand en bij het klassieke formaat hun `.sources`-bestand. Bij uitschakelen verwijderen ze beide varianten. Dit geldt uitsluitend voor de vaste bronbestandsnamen van de betreffende helper, waaronder beide RabbitMQ-bronnen; andere APT-bronnen blijven behouden. Een opruiming ververst ook de APT-index wanneer de gekozen bron al aanwezig is. Bewaar eigen aanvullende bronnen daarom onder andere bestandsnamen.
-
-De standaard `nvidia_dgx_enable => false` verwijdert `dgx.list`, `dgx.sources`, `cuda-compute-repo.list` en `cuda-compute-repo.sources` uit `/etc/apt/sources.list.d`, plus `cuda_debian_prod.gpg` en `dgx_debian_prod.gpg` uit `/usr/share/keyrings`. Zet de parameter vóór invoering expliciet op `true` op hosts waar deze bronnen moeten blijven. Controleer vooraf of aanvullende APT-bronnen dezelfde sleutelpaden gebruiken: die werken niet meer wanneer de helper de sleutels verwijdert. Andere NVIDIA-configuratie en geïnstalleerde pakketten blijven buiten deze helper.
-
-Ontbreekt één sleutel of is die leeg, dan haalt Puppet beide sleutels opnieuw uit het NVIDIA-archief. Niet-lege sleutelinhoud wordt niet vergeleken en sleutelrotatie gebeurt niet automatisch; plan die afzonderlijk. Broninhoud, eigenaar en rechten worden wel hersteld. Zie het [helpercontract](basic_settings/manifests/package_nvidia_dgx.pp) voor beide ondersteunde bronformaten en de beheergrens.
+De standaard `nvidia_dgx_enable => false` verwijdert beide DGX/CUDA-bronnen en beide ondertekeningssleutels. Zet de optie vóór uitrol op `true` wanneer die moeten blijven en controleer of andere bronnen dezelfde sleutelpaden gebruiken. Activeren vereist Ubuntu 24.04 ARM64; niet-lege sleutels worden niet automatisch geroteerd. De [publieke parameter](basic_settings/manifests/init.pp) benoemt alle beheerde paden en grenzen; het [Spark-scenario](examples/nvidia_dgx_spark.pp) combineert bronnen, kernel en driver.
 
 Interactieve Bash-shells sluiten na 15 minuten zonder invoer aan de prompt in `production`, en na 30 minuten in andere serveromgevingen. Hiervoor telt `basic_settings::environment`, niet de Puppet-codeomgeving. Open na een wijziging een nieuwe login-shell en controleer de werking bij afwijkende shells of profielen. Gestarte scripts kunnen deze timeout via `TMOUT` erven; de [login-documentatie](basic_settings/manifests/login.pp) beschrijft hoe je daarmee omgaat.
 
@@ -241,12 +235,11 @@ Puppet stopt standaard de ontdekte tekst- en seriële consoles; kioskmodus houdt
 
 #### Basisvoorbeeld
 
-Dit voorbeeld activeert ook de NVIDIA-bronnen en vereist daarom Ubuntu 24.04 (`noble`) op `arm64`. Voeg `nvidia_dgx_enable` toe aan je bestaande `basic_settings`-declaratie; declareer de class niet opnieuw. Laat de optie voor andere platforms op `false`.
+Dit voorbeeld configureert de algemene serverbasis met een hostnaam en een extra NTP-pool. Neem de waarden op in je bestaande classdeclaratie wanneer je `basic_settings` al gebruikt.
 
 ```puppet
 class { 'basic_settings':
   hosts_enable            => true,
-  nvidia_dgx_enable       => true,
   server_fdqn             => 'server01.example.org',
   systemd_ntp_extra_pools => ['ntp.example.org'],
 }
@@ -258,22 +251,13 @@ Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site
 
 Gebruik `kernel_flavor => 'nvidia'` voor een NVIDIA DGX Spark of ASUS Ascent GX10 met Ubuntu 24.04 (`noble`) op ARM64. De keuze geldt ook wanneer de host vóór de eerste herstart nog een `-generic`-kernel draait. Andere besturingssystemen, Ubuntu-versies en architecturen geven bij deze expliciete keuze een compilatiefout. Controleer op de doelhost `facter os.architecture` en `dpkg --print-architecture`: Facter mag `aarch64` of `arm64` melden, APT gebruikt `arm64`. Beide factwaarden worden ook door de DGX-repositoryhelper geaccepteerd.
 
-De parameter is beschikbaar in `basic_settings` en bij los gebruik in `basic_settings::kernel`:
-
-| `kernel_flavor` | Keuze |
-| --- | --- |
-| `auto` (standaard) | Behoudt het bestaande gedrag: `-generic` kiest generic, `-raspi` kiest raspi en andere suffixen selecteren geen kernelpakketten. Ook `-nvidia` blijft onder deze terugval vallen. |
-| `generic` | Kiest expliciet de bestaande generic-tak, onafhankelijk van de draaiende kernel. |
-| `raspi` | Kiest expliciet de bestaande raspi-tak, inclusief het bestaande pakket- en bootbeheer. |
-| `nvidia` | Installeert `linux-nvidia-hwe-24.04` en `linux-tools-nvidia-hwe-24.04` op Ubuntu 24.04 ARM64. |
-
-Het NVIDIA-profiel behoudt `linux-tools-common` voor de kerneltools en laat bestaande generieke kernelpakketten beschikbaar als terugvalmogelijkheid. Het gebruikt geen `-nvidia-64k`-kernellijn en legt geen kernelbuild vast. De metapakketten komen uit de Ubuntu-pakketbronnen; `kernel_flavor` vereist daarom geen NVIDIA-repositories. Zie de Ubuntu-pakketbeschrijvingen voor [de kernel en headers](https://packages.ubuntu.com/linux-nvidia-hwe-24.04) en [de kerneltools](https://packages.ubuntu.com/linux-tools-nvidia-hwe-24.04), en NVIDIA's [release notes voor de Spark-kernelflavor](https://docs.nvidia.com/dgx/dgx-os-7-user-guide/release_notes.html).
-
-Het [headless DGX Spark-voorbeeld](examples/nvidia_dgx_spark.pp) combineert deze kernelkeuze met `nvidia_dgx_enable => true` voor de afzonderlijke repository- en keyringintegratie. Het vereist beide interfaces; bij een checkout zonder `nvidia_dgx_enable` laat je die optie weg of neem je eerst de afzonderlijke repositorywijziging over. `basic_settings` beheert daarnaast de gewone serverbasis, waaronder netwerk, beveiliging en bestaande kernelinstellingen. Het voorbeeld declareert daarna de [headless driver](#nvidia) en Docker, zodat de Container Toolkit en NVIDIA-runtime automatisch worden ingericht. CUDA-applicaties blijven in containers; DGX-systempakketten en een desktop worden niet aangevraagd.
+De [publieke `kernel_flavor`-parameter](basic_settings/manifests/init.pp) beschrijft de profielen, pakketkeuze en gevolgen; bij los gebruik geldt het [kernelcontract](basic_settings/manifests/kernel.pp). Het NVIDIA-profiel behoudt generieke kernels voor herstel en gebruikt Ubuntu-pakketbronnen. Het [headless Spark-voorbeeld](examples/nvidia_dgx_spark.pp) combineert dit met de afzonderlijke NVIDIA-bronnen, [driver](#nvidia) en Docker. De gewone serverbasis blijft actief; CUDA-applicaties draaien in containers. Het scenario vraagt geen desktop of volledige DGX-platformstack aan.
 
 Controleer vóór installatie de beschikbare pakketten en voer op de testhost `sudo apt-get --simulate install linux-nvidia-hwe-24.04 linux-tools-nvidia-hwe-24.04` uit. Ga niet verder bij onverwachte verwijderingen van kernel-, firmware- of bootpakketten. Controleer na installatie de APT-uitvoer, beschikbare kernels en bootconfiguratie en plan zelf een gecontroleerde herstart; dit kernelprofiel triggert geen reboot en kiest geen bootentry. Bevestig daarna met `uname -r` het suffix `-nvidia`, controleer met `dpkg-query -W linux-nvidia-hwe-24.04 linux-tools-nvidia-hwe-24.04 linux-tools-common` de pakketten en controleer dat een tweede Puppet-run geen nieuwe pakketacties voor dit profiel uitvoert.
 
 #### Puppet Server controleren
+
+##### Inrichten en controleren
 
 Met `server_enable => true` in `basic_settings::puppet` en ingeschakelde monitoring wordt `check_puppet_server` aanvullend geregistreerd. De bestaande agent- en servicechecks blijven actief. De nieuwe check inspecteert lokaal de daemon, CA-keten, volledige CRL, server- en agentcertificaten en opgeslagen reports. Zij draait iedere 600 seconden met een executortimeout van 90 seconden. De check zelf reserveert standaard maximaal 80 seconden voor inspectie.
 
@@ -285,17 +269,21 @@ De gebruikelijke OpenITCOCKPIT-agent draait als root. Dat is hier nodig voor de 
 
 Een check-in betekent een door de `store`-processor opgeslagen report, niet iedere verbinding of catalogusaanvraag. De nieuwste `mtime` van een regulier, niet-leeg report met de door `store` gebruikte naam `YYYYMMDDHHMM.yaml` benadert het ontvangsttijdstip. De check deserialiseert geen YAML en beoordeelt geen reportinhoud; kopiëren of herstellen kan de gemeten tijd beïnvloeden. Alleen agents met een uitgegeven, niet-ingetrokken certificaat tellen mee. Het eigen servercertificaat en CA-certificaten vallen erbuiten; pending aanvragen zijn nog geen agents. Een verlopen agent blijft meetellen, een ingetrokken of uit de CA opgeschoond certificaat verdwijnt uit de actieve scope.
 
+##### Historie behouden en verplaatsen
+
 De snapshot `/etc/openitcockpit-agent/state/puppet_server/last_seen` bewaart uitsluitend eerder waargenomen reporttijden. `basic_settings::monitoring_custom` beheert de statemap met modus `0700` voordat de check wordt geregistreerd. De snapshot heeft modus `0600`; beide zijn van root. Een lock voorkomt overlappende updates en vervanging gebeurt atomisch. Bestaande dagelijkse report-cleanup verwijdert deze administratie niet. Alleen na een volledige CA- en reportinspectie verdwijnen records van niet meer actieve agents. Bij eerste ingebruikname is gewiste historie niet terug te halen: zonder waargenomen report verschijnt `never reported`. Dit bewijst niet dat de agent vóór installatie nooit heeft gerapporteerd. Oude agents krijgen geen nieuwe inregelperiode; uitsluitend certificaten met een `notBefore` binnen de laatste 24 uur krijgen respijt. Die geldigheidsstart is een benadering van uitgifte, geen gegarandeerd uitgiftetijdstip.
 
 Bij het verplaatsen van een bestaande snapshot moeten alle aanroepen voor die state gestopt zijn. Maak de nieuwe statemap aan als root met modus `0700` en neem de bestaande `last_seen` met zijn eigenaar en rechten mee voordat de check daar draait; anders begint hij zonder eerder waargenomen historie. Dit geldt ook bij een overstap vanaf de eerdere ontwikkellocatie `/var/cache/check_puppetserver` of bij een expliciete `STATE_DIR`/`-S`-wijziging.
 
-Eén agent met een report ouder dan het stale-venster geeft WARNING; precies op de grens nog niet. Langere inactiviteit geeft op zichzelf geen CRITICAL. De standaardcertificaatdrempels zijn 30 dagen voor WARNING en 14 dagen voor CRITICAL, voor CA, server en actieve agents. Ongeldige of ingetrokken servercertificaten, verlopen actieve certificaten, ongeldige CA/CRL en een gestopte daemon geven CRITICAL. De CRL heeft een eigen waarschuwingsvenster van één dag vóór `nextUpdate`; stem dit bij een andere CA-vernieuwingscyclus expliciet af. De check beoordeelt één root, eventuele intermediates en precies één volledige CRL per CA, inclusief intrekking van intermediates. Een infrastructure-only CRL is geen vervanging voor `cacrl`; delta-CRLs en indirecte of beperkte CRLs geven UNKNOWN.
+##### Meldingen beoordelen
+
+Eén agent met een report ouder dan het stale-venster geeft WARNING; precies op de grens nog niet. Langere inactiviteit geeft op zichzelf geen CRITICAL. Certificaatdrempels gelden voor CA, server en actieve agents; de [checkhulp](basic_settings/templates/monitoring/puppet/check_server) beheert de opties en defaults. Ongeldige of ingetrokken servercertificaten, verlopen actieve certificaten, ongeldige CA/CRL en een gestopte daemon geven CRITICAL. De CRL heeft een onafhankelijk waarschuwingsvenster vóór `nextUpdate`; stem dit op de CA-vernieuwingscyclus af. De check beoordeelt één root, eventuele intermediates en precies één volledige CRL per CA, inclusief intrekking van intermediates. Een infrastructure-only CRL is geen vervanging voor `cacrl`; delta-CRLs en indirecte of beperkte CRLs geven UNKNOWN.
 
 De ondersteunde agentidentiteit is een subject `CN=<certname>`, gelijk aan de naam in de signed-directory en reportdirectory. Certnames bevatten uitsluitend letters, cijfers, punten, underscores en koppeltekens; paden daarnaast slashes. Afwijkende identiteiten of paden geven UNKNOWN. Dit voorkomt dat onduidelijke identiteitskoppelingen als betrouwbare agenttotalen worden gepubliceerd.
 
-Pas zo nodig de optionele `monitoring_server_*`-parameters aan op de bestaande classdeclaratie of via Hiera. De [Puppet Strings](basic_settings/manifests/puppet.pp) beschrijven de overrides; `undef` laat de scriptdefault intact. Bij los gebruik toont `check_puppet_server -h` alle CLI-opties, omgevingsvariabelen en defaults. CLI-invoer gaat vóór environment, de laatste herhaalde optie wint. Iedere registratie die hetzelfde executable zelfstandig aanroept moet bij een andere server ook diens eigen paden en statedirectory gebruiken.
+Pas zo nodig de optionele `monitoring_server_*`-parameters aan op de bestaande classdeclaratie of via Hiera. De [Puppet Strings](basic_settings/manifests/puppet.pp) beschrijven de overrides; `undef` laat de scriptdefault intact. Bij los gebruik toont `check_puppet_server -h` alle CLI-opties, omgevingsvariabelen en defaults. Iedere registratie die hetzelfde executable zelfstandig aanroept moet bij een andere server ook diens eigen paden en statedirectory gebruiken.
 
-De uitvoer blijft standaard binnen 3500 bytes, met de hoofdoorzaak vooraan en `Interpretation:` als laatste sectie. Afwijkende agents staan op oudste check-in gesorteerd; bij ruimtegebrek verschijnt een melding dat volledige records zijn weggelaten. CRITICAL gaat vóór UNKNOWN, UNKNOWN vóór WARNING. Ontbrekende rechten, reporting, onleesbare bestanden, een onvolledige snapshot of een uitgeput tijdbudget blijven herkenbaar; niet betrouwbaar gemeten perfdata worden weggelaten.
+De uitvoer is begrensd, met de hoofdoorzaak vooraan en `Interpretation:` als laatste sectie. Afwijkende agents staan op oudste check-in gesorteerd; bij ruimtegebrek verschijnt een melding dat volledige records zijn weggelaten. CRITICAL gaat vóór UNKNOWN, UNKNOWN vóór WARNING. Ontbrekende rechten, reporting, onleesbare bestanden, een onvolledige snapshot of een uitgeput tijdbudget blijven herkenbaar; niet betrouwbaar gemeten perfdata worden weggelaten.
 
 | Perfdata | Betekenis |
 | --- | --- |
@@ -305,31 +293,7 @@ De uitvoer blijft standaard binnen 3500 bytes, met de hoofdoorzaak vooraan en `I
 | `certs_expiring` | Actieve agentcertificaten binnen de waarschuwingstermijn die nog niet verlopen zijn. |
 | `ca_days_left` | Resterende hele dagen van het eerst aflopende certificaat in de CA-keten. |
 
-Deze waarden zijn gauges zonder `c`-eenheid. Een echte nul blijft nul; ontbrekende metingen verschijnen niet als nul. Onderstaand verkort, fictief voorbeeld heeft exitcode 1; de feitelijke uitvoer bevat ook de certificaatidentiteiten, fingerprints en geldigheidsdatums:
-
-```text
-Puppet Server: agent.example.org is missing a recent stored report; check agent scheduling and connectivity | nodes_total=1 nodes_today=0 nodes_stale=1 certs_expiring=0 ca_days_left=400
-Server findings:
-- agent.example.org is missing a recent stored report; check agent scheduling and connectivity
-
-Puppet Server:
-- Service: puppetserver.service; source: systemd; state: active
-
-CA and CRL:
-- Certificate chain and full CRL signatures verified.
-
-Certificates:
-- Active agents: 1; expired: 0; expiring: 0; revoked and excluded: 0
-
-Agents missing reports:
-- agent.example.org: last report 2026-10-09 10:00:00 CEST (+0200); age 25h 0m; stale; check the agent run
-
-Agent overview:
-- Total: 1; today: 0; stale: 1; never seen: 0
-
-Interpretation:
-- Check-in means a stored report (mtime), not every connection. Pre-installation history cannot be recovered.
-```
+Deze waarden zijn gauges zonder `c`-eenheid. Een echte nul blijft nul; ontbrekende metingen verschijnen niet als nul. Lees de hoofdoorzaak en de afsluitende `Interpretation:` samen met de exitcode.
 
 #### Tijdzone en NTP
 
@@ -375,13 +339,12 @@ De laatste opdracht moet geen bestanden of gitlink meer tonen. Laat de bewaarde 
 
 ### `docker`
 
-#### Doel
+<a id="doel-1"></a>
 
 `docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose_proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO en GitLab Runner zijn er kant-en-klare configuraties.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-1"></a>
 
-- Installeert Docker CE en beheert de centrale daemonconfiguratie; de officiële APT-bron kan via `basic_settings` worden beheerd.
 - Accepteert Compose-bronnen via `puppet:///`, `file:///` of HTTPS en ondersteunt SHA256-controle voor downloads.
 - Beheert per stack een eigen projectmap, `.env`, mappen voor bind mounts en een systemd-service.
 - Kan containerstatus, healthchecks, toegestane eenmalige containers, orphans en databaseback-ups monitoren.
@@ -398,7 +361,7 @@ Voor GPU-toegang declareer je eerst `basic_settings`, daarna [`nvidia`](#nvidia)
 
 Docker beheert het volledige `/etc/docker/daemon.json` via één template en file-resource. Met `daemon_config` overschrijf je de standaardinstellingen; geneste hashes worden samengevoegd, zodat bijvoorbeeld een andere `log-opts.max-size` de standaard `max-file` behoudt. Neem vóór ingebruikname alle bestaande afwijkende instellingen in deze hash over: lokale bestandsinhoud wordt vervangen. De [Docker Strings](docker/manifests/init.pp) beschrijven het configuratiecontract.
 
-Docker neemt standaard de firewallkeuze over van een eerder gedeclareerde `basic_settings::network`; zonder die class blijft het iptables gebruiken. Bij `nftables` zet de module `firewall-backend` op `nftables`. De gedeelde daemondefaults zetten `iptables` voor iedere firewallkeuze op `true`, zodat Docker zijn IPv4-regels voor bridges, NAT, poortpublicatie en isolatie beheert. Voor elke firewallkeuze volgen `ip6tables` en `ipv6` de bestaande `ip_version`: beide zijn `true` bij `'all'` en `false` bij `'4'`. Docker neemt die IP-keuze over van de eerder gedeclareerde netwerkclass, anders van de kernelclass, en gebruikt zonder beide `'all'`. `ipv6` schakelt IPv6 in op de standaardbridge; zelf aangemaakte netwerken en Compose-netwerken kiezen IPv6 afzonderlijk. De module kiest geen IPv6-subnet; geef desgewenst `fixed-cidr-v6` mee via `daemon_config`. Expliciete daemoninstellingen gaan voor, ook `false` bij bewust vervangend firewallbeheer. Zie de [Docker-firewalldocumentatie](https://docs.docker.com/engine/network/packet-filtering-firewalls/), de [IPv6-bridgeopties](https://docs.docker.com/engine/network/drivers/bridge/#use-ipv6-with-the-default-bridge-network) en het [parametercontract](docker/manifests/init.pp).
+Docker erft de firewallkeuze van een eerder gedeclareerde netwerkclass en beheert standaard zelf zijn containerregels. De geërfde IP-keuze bepaalt ook IPv6 op de standaardbridge; eigen netwerken kiezen dat afzonderlijk. Expliciete `daemon_config`-waarden gaan voor. Controleer vóór ingebruikname het [publieke configuratiecontract](docker/manifests/init.pp), vooral bij vervangend firewallbeheer of bestaande IPv6-instellingen.
 
 De native nftables-backend is volgens de [Docker-documentatie](https://docs.docker.com/engine/network/firewall-nftables/) beschikbaar vanaf Engine 29.0.0, experimenteel en niet ondersteund in Swarm-modus. Controleer deze voorwaarden voor de werkelijk geïnstalleerde Engine-versie. De backend schakelt hostforwarding niet zelf in. Stel expliciet `ip_forwarding => true` in; bij `ip_version => 'all'` forwarden beide families en bij `'4'` alleen IPv4. Dit geeft geen algemene toestemming voor verkeer: het consumerproject blijft eigenaar van zijn forward-filter. Bij zelfstandig Docker-gebruik moet de consumer ook de host-sysctls verzorgen.
 
@@ -569,11 +532,11 @@ Pauzeer de runner in GitLab en laat jobs afronden vóór onderhoud of verwijderi
 
 ### `gitlab`
 
-#### Doel
+<a id="doel-2"></a>
 
 `gitlab` installeert GitLab EE en koppelt de omnibusservice aan lokale systemd-, monitoring- en auditvoorzieningen. `gitlab::config` beheert `/etc/gitlab/gitlab.rb` en voert `gitlab-ctl reconfigure` uit wanneer de configuratie wijzigt.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-2"></a>
 
 - Installeert GitLab EE met een initiële rootgebruiker.
 - Kan `/opt/gitlab` naar een afzonderlijke installatielocatie verplaatsen.
@@ -616,11 +579,11 @@ Het [GitLab-profiel](examples/site.pp#L150) combineert GitLab met de serverbasis
 
 ### `letsencrypt`
 
-#### Doel
+<a id="doel-3"></a>
 
 `letsencrypt` installeert Certbot en beheert de algemene Certbot-instellingen. Met `letsencrypt::certificate` vraag je één certificaat voor één of meer domeinen aan via een gekozen Certbot-plugin.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-3"></a>
 
 - Beheert `/etc/letsencrypt/cli.ini`, dat alleen door root kan worden gelezen, met het e-mailadres en de loginstellingen.
 - Stelt de systemd-prioriteit in en kan een melding sturen wanneer Certbot mislukt.
@@ -658,14 +621,13 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 
 ### `mysql`
 
-#### Doel
+<a id="doel-4"></a>
 
 `mysql` installeert en configureert de MySQL-server en maakt automatisch lokale back-ups. Met defined types beheer je databases, gebruikers en rechten. De module kan samenwerken met PHP-FPM, monitoring, systemd, logrotate en auditd.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-4"></a>
 
 - Beheert MySQL-serverinstellingen boven op een geharde standaardset.
-- Levert defined types voor databases, gebruikers en rechten.
 - Configureert `automysqlbackup` met een systemd-service en timer.
 - Maakt gecomprimeerde, versleutelde back-ups.
 - Registreert een MySQL-check wanneer monitoring actief is.
@@ -716,15 +678,14 @@ Databases, gebruikers, grants en back-upinstellingen staan in [`examples/data-se
 
 ### `naemon`
 
-#### Doel
+<a id="doel-5"></a>
 
 `naemon` installeert de OpenITCOCKPIT-variant van Naemon en beheert hosts en hostgroepen. De module is bedoeld als onderdeel van een OpenITCOCKPIT-server en niet als algemene zelfstandige Naemon-module.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-5"></a>
 
 - Installeert `openitcockpit-naemon` nadat het OpenITCOCKPIT-pakket beschikbaar is.
 - Beheert de directory met Naemon-configuratiefragmenten.
-- Levert defined types voor hosts en hostgroepen.
 - Koppelt de service aan het gedeelde helpers-target en kan een melding sturen wanneer de service mislukt.
 - Past systemd-hardening toe en maakt waar nodig de koppeling `nagios.service` voor software die die oude servicenaam verwacht.
 
@@ -749,16 +710,15 @@ De [serveropbouw](examples/monitoring.pp#L80) staat in `examples/monitoring.pp`.
 
 ### `netplanio`
 
-#### Doel
+<a id="doel-6"></a>
 
 `netplanio` installeert Netplan en maakt netwerkconfiguratie voor ethernet en WiFi. De module gebruikt de DHCP- en IPv6-instellingen van `basic_settings::network` wanneer die class aanwezig is.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-6"></a>
 
 - Installeert `netplan.io` en beheert de module-eigen configuratiebestanden.
 - Ondersteunt DHCP, statische adressen, nameservers en routes per ethernetinterface.
 - Ondersteunt WiFi-accesspoints en optionele interface-instellingen.
-- Kan standaardinstellingen van `basic_settings::network` overnemen.
 - Past wijzigingen met Netplan toe nadat Puppet de benodigde bestanden en pakketten heeft klaargezet.
 
 #### Belangrijke aandachtspunten
@@ -786,14 +746,13 @@ Het [netwerkprofiel](examples/site.pp#L138) staat in `examples/site.pp`. De Pupp
 
 ### `nginx`
 
-#### Doel
+<a id="doel-7"></a>
 
 `nginx` installeert en configureert de Nginx-service. `nginx::server` beheert een website of reverse proxy met TLS, security headers, locations en optionele PHP-FPM-koppeling.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-7"></a>
 
 - Beheert algemene Nginx-, events- en HTTP-instellingen en gebruikt strenge TLS-instellingen.
-- Levert vhosts voor statische sites, PHP-applicaties en reverse proxies.
 - Ondersteunt HTTP/2, HTTP/3, HTTPS-forcering en certificate chains.
 - Beheert security headers en de gegevens in `security.txt`.
 - Werkt samen met Certbot, PHP-FPM, monitoring, auditd, logrotate en de gedeelde systemd-targets.
@@ -838,15 +797,13 @@ Multipath TCP vereist Nginx 1.29.7 of nieuwer met die ondersteuning en Linux 5.6
 
 ### `nvidia`
 
-#### Doel
+<a id="doel-8"></a>
 
 `nvidia` installeert een expliciet gepinde open headless GPU-driver voor Ubuntu 24.04 ARM64 op een DGX Spark. De module beheert de driverselectie; `basic_settings` blijft eigenaar van pakketbronnen, kernel en headers. Docker installeert zijn Container Toolkit automatisch wanneer de driverclass vóór Docker is gedeclareerd.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-8"></a>
 
-- Gebruikt een positief geheel branchnummer voor zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-open`.
 - Installeert de headless DKMS-driver en `nvidia-modprobe`, zonder aanbevolen of voorgestelde pakketten.
-- Controleert oude pins rechtstreeks in de class en verwijdert hun configuratie via APT vóór driverinstallatie.
 - Laat verplichte dependencies van de gekozen driverbranch intact.
 - Installeert geen host-CUDA-toolkit, desktop, volledige DGX-platformstack of applicatieframework.
 
@@ -854,7 +811,7 @@ Multipath TCP vereist Nginx 1.29.7 of nieuwer met die ondersteuning en Linux 5.6
 
 Gebruik een headless Ubuntu 24.04-basis met ARM64, de NVIDIA-pakketbron en de geselecteerde kernel inclusief headers. Dit is een selectieve installatie, geen volledige DGX OS-inrichting of claim dat iedere Spark-workload is gevalideerd. Bestaande desktop- en CUDA-pakketten worden niet opgeschoond. De pakketbron moet voor de gekozen branch zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-open` aanbieden.
 
-Geef `pinning` op als een positief geheel getal, bijvoorbeeld `580`, zonder quotes of versiesuffix. Dit nummer bepaalt zowel het pinningpakket als het headless-driverpakket. Een ontbrekend pakket geeft een installatiefout. Binnen de gekozen branch worden bestaande driverpakketten niet automatisch bijgewerkt; een ander branchnummer selecteert een ander driverpakket. Beoordeel bij een branchwissel het APT-pakketplan en plan DKMS-controle voor de bedoelde bootkernel en zo nodig een handmatige herstart. Secure Boot blijft ongewijzigd.
+Kies de driverbranch volgens de [publieke `pinning`-parameter](nvidia/manifests/init.pp). Binnen een branch worden bestaande drivers niet automatisch bijgewerkt. Beoordeel bij een branchwissel het APT-plan, controleer DKMS voor de bedoelde bootkernel en plan zo nodig een handmatige herstart. Secure Boot blijft ongewijzigd.
 
 Controleer vóór de driverinstallatie op de doelhost het APT-pakketplan nadat de gekozen pin daadwerkelijk is geïnstalleerd. NVIDIA's [pakketindex](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/) toont de beschikbare pakketten. Controleer na installatie de driver en de benodigde utilities zoals beschreven bij [GPU-toegang controleren](#gpu-toegang-controleren).
 
@@ -890,11 +847,11 @@ Gebruik bij Compose `runtime: nvidia` en een GPU-reservering met `driver: nvidia
 
 ### `openitcockpit`
 
-#### Doel
+<a id="doel-9"></a>
 
 Met `openitcockpit::agent` installeer en configureer je de OpenITCOCKPIT-agent; `openitcockpit::server` richt de monitoringsserver in. Alleen `include openitcockpit` installeert geen onderdelen.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-9"></a>
 
 - Beheert een agent in pull- of push-mode met selecteerbare ingebouwde metrics.
 - Gebruikt standaard `127.0.0.1` als agentadres, uitgeschakelde Prometheus-export en servercertificaatcontrole in push-mode.
@@ -932,15 +889,14 @@ Pull-, push-, server- en maatwerkcheckscenario's staan in [`examples/monitoring.
 
 ### `php8`
 
-#### Doel
+<a id="doel-10"></a>
 
 `php8` installeert een gekozen PHP 8 minorversie en extensies. `php8::cli` beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm_pool` beheren de FPM-service en afzonderlijke applicatiepools.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-10"></a>
 
 - Installeert alleen de PHP-extensies die je zelf inschakelt.
 - Beheert module-eigen INI-bestanden voor CLI en FPM.
-- Ondersteunt Composer voor CLI-workloads.
 - Levert meerdere FPM-pools met eigen gebruiker, socket en process-managerinstellingen.
 - Koppelt FPM aan Nginx, monitoring, systemd en de ingestelde tijdzone.
 - Voorkomt dat instellingen die de module zelf beheert via een vrije INI-hash worden overschreven.
@@ -983,11 +939,11 @@ Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](e
 
 ### `proxmox`
 
-#### Doel
+<a id="doel-11"></a>
 
 `proxmox` installeert Proxmox VE op een host waarvan `basic_settings` de platformcontext heeft bepaald. De class beheert ook de overgang naar de Proxmox-kernel en verwijdert conflicterende generieke kernelpakketten.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-11"></a>
 
 - Installeert de Proxmox VE- en iSCSI-pakketten.
 - Installeert op het ondersteunde platform de verwachte PVE-kernel.
@@ -1016,16 +972,15 @@ De plaats van Proxmox in een [serverprofiel](examples/site.pp#L170) staat in `ex
 
 ### `rabbitmq`
 
-#### Doel
+<a id="doel-12"></a>
 
 `rabbitmq` installeert en configureert RabbitMQ Server. Aanvullende classes en defined types beheren AMQP/TLS-listeners, de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en permissies.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-12"></a>
 
 - Installeert Erlang en RabbitMQ en koppelt de service aan de gedeelde systemd-targets.
 - Beheert het maximale aantal open bestanden, de procesprioriteit en toegestane verouderde RabbitMQ-functies.
 - Ondersteunt TLS-listeners en kan plain AMQP uitschakelen zodra certificaten compleet zijn.
-- Beheert de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en rechten met Puppet.
 - Slaat gevoelige lokale gegevens op in configuratiebestanden die alleen root of de RabbitMQ-gebruiker kan lezen.
 - Registreert een RabbitMQ-check met queue- en brokerdiagnose.
 
@@ -1064,18 +1019,17 @@ Vhosts, exchanges, queues, bindings en gebruikers staan in het [RabbitMQ-scenari
 
 ### `ssh`
 
-#### Doel
+<a id="doel-13"></a>
 
 `ssh` installeert en beheert een geharde OpenSSH-server. De class schrijft de loginbanner en SSH-configuratie, ondersteunt een tweede poort en kan auditregels en een SSH-controle instellen.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-13"></a>
 
 - Beheert toegestane gebruikers, rootlogin en gebruikersspecifieke wachtwoordauthenticatie.
 - Genereert ontbrekende hostkeys lokaal op basis van `host_key_algorithms`, met een eigen sleutel per ECDSA-curve.
 - Behoudt bestaande private sleutels, herstelt ontbrekende publieke sleutels en configureert idle timeouts.
 - Ondersteunt een alternatieve poort met een afzonderlijke gebruikerslijst.
 - Houdt rekening met socket activation op Ubuntu-versies die dit gebruiken.
-- Registreert auditregels en een check die configuratie en sessiegedrag beoordeelt.
 - Beheert `/etc/ssh/sshd_config.d` als module-eigen configuratieboom.
 
 #### Belangrijke aandachtspunten
@@ -1122,11 +1076,11 @@ Vergelijk de fingerprints per actief sleuteltype op twee afzonderlijk ingerichte
 
 ### `vnstat`
 
-#### Doel
+<a id="doel-14"></a>
 
 `vnstat` installeert vnStat voor lokale verkeersregistratie en capaciteitsmonitoring. Met `vnstat::ethernet` stel je per netwerkinterface de bandbreedte en drempels voor het 95e percentiel in.
 
-#### Belangrijkste eigenschappen
+<a id="belangrijkste-eigenschappen-14"></a>
 
 - Beheert vnStatconfiguratie en laat nieuwe interfaces standaard automatisch ontdekken.
 - Ondersteunt één technische maximumsnelheid voor alle interfaces en een afwijkende waarde per interface.

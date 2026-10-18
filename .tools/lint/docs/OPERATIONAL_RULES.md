@@ -115,33 +115,13 @@ Projectregel
 
 Alle door Puppet beheerde bestandsinhoud, inclusief inline content, templates, statische bronnen en concatenatiefragmenten.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Geen check inspecteert de header in alle inhoudsbronnen of gerenderde bestanden. `project_files` controleert andere bestandsattributen.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Alleen een header die het bestandsformaat ongeldig maakt mag worden weggelaten, met lokale onderbouwing.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -177,33 +157,13 @@ Projectregel
 
 Nieuwe of gewijzigde interne beheerscripts en ondersteunende bestanden.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Geen check bepaalt of een bestand een interne beheerhelper is of controleert alle aanroepen en ondersteunende bestanden.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Service-eigen configuratie, data en monitoringplugins blijven op hun gevestigde locaties; ongewijzigde helpers vallen buiten een migratieplicht.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -612,25 +572,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom zonder uitvoerbare bestanden mag recursief 0600 gebruiken; Puppet voegt zoekrechten aan mappen toe.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom zonder uitvoerbare bestanden mag recursief 0600 gebruiken; Puppet voegt zoekrechten aan mappen toe.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -639,10 +583,6 @@ Handmatig reviewscenario: Een gemengde applicatieboom geeft alle gewone bestande
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beheer mappen en bestanden apart, met de genoemde uitgangspunten 0750 en 0640. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom zonder uitvoerbare bestanden mag recursief 0600 gebruiken; Puppet voegt zoekrechten aan mappen toe.
 
 **Handmatige review**
 
@@ -676,25 +616,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace => false.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace => false.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -703,10 +627,6 @@ Handmatig reviewscenario: Purge verwijdert inhoud die door de deployment wordt b
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beperk recursieve bewerkingen tot volledig module-eigendom en houd replace => false voor installer- of eenmalig geïnitialiseerde inhoud. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace => false.
 
 **Handmatige review**
 
@@ -886,25 +806,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nodig om gevoelige rapportinhoud te beschermen.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nodig om gevoelige rapportinhoud te beschermen.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -913,10 +817,6 @@ Handmatig reviewscenario: Een correct gechmod bestand is via een helper toch onl
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Controleer toegang vanuit de uitvoerende gebruiker en pas Sensitive toe waar gevoelige inhoud of commando’s anders worden gerapporteerd. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nodig om gevoelige rapportinhoud te beschermen.
 
 **Handmatige review**
 
@@ -948,25 +848,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone bestanden krijgen alleen benodigde uitvoerrechten.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone bestanden krijgen alleen benodigde uitvoerrechten.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -975,10 +859,6 @@ Handmatig reviewscenario: Een via HTTP gepubliceerd bestand is zonder noodzaak o
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Geef lokaal alleen de benodigde toegang en licht wereldleesbare of groepsschrijfbare rechten toe. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone bestanden krijgen alleen benodigde uitvoerrechten.
 
 **Handmatige review**
 
@@ -1087,25 +967,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; dat is geen toestemming om willekeurige invoer te decoderen.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; dat is geen toestemming om willekeurige invoer te decoderen.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1114,10 +978,6 @@ Handmatig reviewscenario: Willekeurige runtime-inhoud wordt met printf %b geïnt
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik bij voorkeur printf %s voor dynamische tekst; decodeer alleen bewust voorbereide regeleinden met %b. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; dat is geen toestemming om willekeurige invoer te decoderen.
 
 **Handmatige review**
 
@@ -1149,25 +1009,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen provider voor wanneer die behoefte ontbreekt.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen provider voor wanneer die behoefte ontbreekt.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1176,10 +1020,6 @@ Handmatig reviewscenario: Een SQL-string mist de puntkomma of wordt in losse she
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Escape de volledige SQL-string, behoud de puntkomma en gebruik provider => shell wanneer scheiding of guards dat vereisen. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen provider voor wanneer die behoefte ontbreekt.
 
 **Handmatige review**
 
@@ -1211,25 +1051,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde laag wordt niet tweemaal ge-escapet.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde laag wordt niet tweemaal ge-escapet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1238,10 +1062,6 @@ Handmatig reviewscenario: Veilig voorbereide woorden krijgen tweemaal escaping v
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Quote het samengestelde script nog eenmaal voor de buitenste -c-laag; behoud de afzonderlijke woordescaping. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde laag wordt niet tweemaal ge-escapet.
 
 **Handmatige review**
 
@@ -1273,25 +1093,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben verschillende eigenaars van interpolatie.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben verschillende eigenaars van interpolatie.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1300,10 +1104,6 @@ Handmatig reviewscenario: Puppet interpreteert een bedoeld shellargument $1 of e
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Escape de shellsyntaxis op de Puppet-laag zoals in de norm. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben verschillende eigenaars van interpolatie.
 
 **Handmatige review**
 
@@ -1331,33 +1131,13 @@ Projectregel
 
 Runtime-Puppet-moduledependencies van de eigen modules. Dit is geen beperking van Ruby-gemdependencies of een algemene lijst toegestane executables.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Dependency- en lintcontroles stellen de inhoudelijke keuze voor een externe module niet vast.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige dependencybeslissing.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de keuze vereist beoordeling van de concrete eis en lokale interfaces.
-
 **Toegestane uitzonderingen**
 
 Een externe module is alleen toegestaan wanneer de concrete eis aantoonbaar niet voldoende door de lokale implementatie kan worden vervuld.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft de handmatige review niet op.
 
 **Onjuist voorbeeld**
 
@@ -1393,33 +1173,13 @@ Projectregel
 
 Nieuwe of gewijzigde auditfilters en naburige uitzonderingen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; beoordeel ook die combinatie.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; beoordeel ook die combinatie.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1428,10 +1188,6 @@ Handmatig reviewscenario: Een filter sluit gebeurtenissen uit zonder te verklare
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beschrijf legitiem gedrag, verdwenen events en toepassingsgebied en controleer overlap met naburige filters. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; beoordeel ook die combinatie.
 
 **Handmatige review**
 
@@ -1455,33 +1211,13 @@ Projectregel
 
 Reverse proxies en verbindingen tussen services in alle eigen operationele integraties, inclusief lokale en self-signed upstreams, ongeacht de configuratietaal.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonder TLS; lokaal of self-signed rechtvaardigt op zichzelf geen uitschakeling.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonder TLS; lokaal of self-signed rechtvaardigt op zichzelf geen uitschakeling.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1490,10 +1226,6 @@ Handmatig reviewscenario: Een certificaatfout wordt opgelost door TLS uit te sch
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Herstel vertrouwen of verificatie en behoud versleuteling. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonder TLS; lokaal of self-signed rechtvaardigt op zichzelf geen uitschakeling.
 
 **Handmatige review**
 
@@ -1507,7 +1239,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Licht een minder streng vertrouwens-, rechten- of sandboxmodel bij de code toe. Als beheerders die keuze vooraf moeten kennen, hoort de uitleg ook in de project-README. Deze afwegingen vragen een inhoudelijke beveiligingsreview; de lintscan kan ze niet bewijzen.
+Onderbouw een minder streng vertrouwens-, rechten- of sandboxmodel met een inhoudelijke beveiligingsreview; de lintscan kan die niet bewijzen. Plaats de technische reden en de voor beheerders noodzakelijke waarschuwing volgens de [centrale informatieplaatsing](DOCUMENTATION_RULES.md#informatieplaatsing).
 
 **Herkomst**
 
@@ -1517,33 +1249,13 @@ Projectregel
 
 Trust, rechten en sandboxkeuzes met een minder strenge instelling.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor voorafgaande beheerderkennis bepaalt dat.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor voorafgaande beheerderkennis bepaalt dat.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1552,10 +1264,6 @@ Handmatig reviewscenario: Een sandboxbeperking wordt verwijderd zonder lokale re
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Leg de noodzakelijke afwijking bij de code vast en ook in de project-README wanneer beheerders haar vooraf moeten kennen. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor voorafgaande beheerderkennis bepaalt dat.
 
 **Handmatige review**
 
@@ -1583,33 +1291,13 @@ Projectregel
 
 Deployment-eigen firewallconfiguratie en structurele firewallmonitoring vanuit de gedeelde modules.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 De deployment kiest zelf haar aanlevermethode; een structureel geslaagde check vervangt geen benodigde bereikbaarheidstest.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -1649,33 +1337,13 @@ Projectregel; deze handmatige verplichtingen maken deel uit van de bestaande cod
 
 Puppet-integraties met de bestaande serverbasis en gedeelde wrappers van basic_settings.
 
-**Automatische controle**
-
-Geen automatische controle voor dit inhoudelijke contract. De opmaakchecks en andere gedeeltelijke controles die in de norm worden genoemd vervangen deze review niet.
-
 **Detectiegrenzen**
 
 Puppet-lint voert geen catalogus of hostactie uit en inspecteert het beschreven runtimegedrag niet. Een groene lintscan bevestigt dit contract daarom niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of lintseverity voor dit inhoudelijke contract; de reviewer keurt de beschreven overtreding af.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit contract vereist inhoudelijke beoordeling en heeft geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een wrapper hoort alleen bij zijn eigen taak. Het noemen van een gedeelde bouwsteen bewijst nog niet dat de prerequisite op het uitvoerpad aanwezig is.
-
-**Suppressions**
-
-Suppressie niet toegestaan: lintmarkeringen kunnen dit handmatige reviewcriterium niet opheffen.
 
 **Onjuist voorbeeld**
 
@@ -1826,25 +1494,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1896,25 +1548,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm beperkt de review niet.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm beperkt de review niet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1923,10 +1559,6 @@ Handmatig reviewscenario: De review kijkt alleen naar de template en mist een ve
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beoordeel alle lagen van de uiteindelijke unit en vermeld de unitnamen alfabetisch. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm beperkt de review niet.
 
 **Handmatige review**
 
@@ -1958,25 +1590,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaarden blijven behouden.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaarden blijven behouden.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1985,10 +1601,6 @@ Handmatig reviewscenario: Een geïntegreerde service houdt vendor-enablement en 
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik de gedeelde drop-in-wrapper en het passende target, behoud de beschreven targetvolgorde en schakel vendor-enablement uit. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaarden blijven behouden.
 
 **Handmatige review**
 
@@ -2016,33 +1628,13 @@ Projectregel
 
 Services die direct of via timers, sockets of paths worden gestart.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of timesyncd zijn geen vervanging voor de service-instelling.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of timesyncd zijn geen vervanging voor de service-instelling.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2051,10 +1643,6 @@ Handmatig reviewscenario: NoNewPrivileges wordt op de timer gezet en als bescher
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beoordeel en plaats de uitvoeringsoptie op de concrete .service. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of timesyncd zijn geen vervanging voor de service-instelling.
 
 **Handmatige review**
 
@@ -2080,33 +1668,13 @@ Projectregel
 
 Alle Exec-fasen, procesidentiteiten, rechten, paden, netwerkgedrag en runtimes van de uiteindelijke unit.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiensten hebben verschillende behoeften; de voorbeelden in de norm zijn geen automatische vrijstelling.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiensten hebben verschillende behoeften; de voorbeelden in de norm zijn geen automatische vrijstelling.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2115,10 +1683,6 @@ Handmatig reviewscenario: Een gedeelde hardeningkeuze blokkeert een hook met sud
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Inventariseer alle Exec-fasen en hun gebruikers, groepen, privilegeovergangen en toegang voordat je de beperking kiest. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiensten hebben verschillende behoeften; de voorbeelden in de norm zijn geen automatische vrijstelling.
 
 **Handmatige review**
 
@@ -2162,33 +1726,13 @@ Projectregel
 
 Iedere overwogen hardeningoptie uit de effectentabel bij deze norm.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te activeren. Nog te onderzoeken keuzes blijven zichtbaar.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te activeren. Nog te onderzoeken keuzes blijven zichtbaar.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2197,10 +1741,6 @@ Handmatig reviewscenario: MemoryDenyWriteExecute wordt voor een onbekende JIT-ru
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Leg toepassen, weglaten of verder onderzoek met reden vast en kies een gerichte uitzondering wanneer noodzakelijk gedrag blokkeert. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te activeren. Nog te onderzoeken keuzes blijven zichtbaar.
 
 **Handmatige review**
 
@@ -2224,33 +1764,13 @@ Projectregel
 
 Private en gedeelde bestanden die services aanmaken.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld masker zoals 0027 vereist een lokale toelichting.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld masker zoals 0027 vereist een lokale toelichting.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2259,10 +1779,6 @@ Handmatig reviewscenario: Een private service vertrouwt op een verborgen generie
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Zet voor private uitvoer UMask=0077 in de servicespecifieke sandboxhash; volg de aparte regels voor 0022 en andere gedeelde maskers. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld masker zoals 0027 vereist een lokale toelichting.
 
 **Handmatige review**
 
@@ -2286,33 +1802,13 @@ Projectregel
 
 Generieke servicewrappers en al hun bekende afnemers.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde uitschakelmogelijkheid toe; verberg de keuze niet in de wrapper.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde uitschakelmogelijkheid toe; verberg de keuze niet in de wrapper.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2321,10 +1817,6 @@ Handmatig reviewscenario: Een wrapper krijgt stilzwijgend een restrictieve umask
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beoordeel en valideer alle bekende afnemers of bied per service een gedocumenteerde uitschakelmogelijkheid voor de beperking. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde uitschakelmogelijkheid toe; verberg de keuze niet in de wrapper.
 
 **Handmatige review**
 
@@ -2352,33 +1844,13 @@ Projectregel
 
 Alle eigen POSIX- en Bash-code, inclusief extensionless scripts, templates en inline fragmenten.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die gegenereerde shell niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die gegenereerde shell niet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2387,10 +1859,6 @@ Handmatig reviewscenario: Een shelltemplate wordt alleen met Puppet-lint gecontr
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beoordeel bron en gerenderde uitvoer met de genoemde shellconventies en shellvalidatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die gegenereerde shell niet.
 
 **Handmatige review**
 
@@ -2416,33 +1884,13 @@ Projectregel
 
 Interpreterkeuze en compatibiliteit van eigen shellbron, templates en inline shell.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Bash is toegestaan wanneer benodigde functionaliteit dat vereist en die behoefte naast de implementatie is gedocumenteerd.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2478,33 +1926,13 @@ Projectregel
 
 De volgorde van onderdelen en functies in eigen shellscripts.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Onderdelen die het script niet nodig heeft worden weggelaten; de structuur vereist geen extra functionaliteit.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2540,33 +1968,13 @@ Projectregel
 
 Commandodetectie en aanroepen van externe executables en builtins in eigen shellcode.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Builtins worden rechtstreeks gebruikt; zij vereisen geen externe commandodetectie.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2606,33 +2014,13 @@ Projectregel
 
 Inspringing, naamgeving, blokopmaak en dataquoting in shellbron en gegenereerde shell.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Letterlijke witruimte in heredocs en meerregelige gequote data blijft behouden; eenmalige verwerking hoeft geen aparte helper te krijgen.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2676,33 +2064,13 @@ Projectregel
 
 Bestaande en gewijzigde shellinterfaces met CLI-argumenten, omgevingsvariabelen of defaults.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 De bronvolgorde geldt alleen voor ondersteunde bronnen. Positionele interfaces, gedocumenteerde optionele lege waarden en bestaande publieke contracten blijven behouden; hulp en resetopties worden niet zonder behoefte toegevoegd.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2744,33 +2112,13 @@ Projectregel
 
 Nieuwe en gewijzigde helperfuncties, gedeelde shelltemplatefragmenten en hun aanroepers.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een korte helper is toegestaan wanneer hij een afzonderlijke taak benoemt of validatie of opmaak deelt; omvang alleen is geen criterium.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2810,33 +2158,13 @@ Projectregel
 
 Gebufferde shellgegevens en tijdelijke bestanden.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een commandocontract dat een bestand vereist of data die te groot of onveilig is voor variabelen rechtvaardigt `mktemp`.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2874,33 +2202,13 @@ Projectregel
 
 Tekstbuffers, lijstscheiding en gestructureerde metadata via command substitution.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint controleert geen shellsyntaxis, scriptopbouw of gerenderd shellgedrag. De Puppet-check voor exec-escaping bewijst dit shellcontract niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Betekenisvolle witruimte in letterlijke data blijft intact; deze opbouwregel rechtvaardigt geen wijziging van het dataformaat.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -2942,33 +2250,13 @@ Projectregel
 
 Toevoegen, vervangen en verwijderen van shelltools en bijbehorende pakketten.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige controles is geen verbod op een noodzakelijke parser.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige controles is geen verbod op een noodzakelijke parser.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -2977,10 +2265,6 @@ Handmatig reviewscenario: Een noodzakelijke gestructureerde parser wordt verwijd
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik native uitvoer voor eenvoudige controles en behoud een parser voor complexe gestructureerde gegevens; controleer alle packageafnemers. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige controles is geen verbod op een noodzakelijke parser.
 
 **Handmatige review**
 
@@ -3006,33 +2290,13 @@ Projectregel
 
 Puppet-voorbereiding en ERB-shelltemplates met beheerde configuratiewaarden.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer dat is gevraagd of al gebruikelijk is.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer dat is gevraagd of al gebruikelijk is.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3041,10 +2305,6 @@ Handmatig reviewscenario: Een nieuwe parser en configuratielaag worden toegevoeg
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik ERB met directe shelltoekenningen en selecteer een gedeeld fragment uitsluitend met de door Puppet aangeleverde keuze. Bij expliciete uitschakeling bevat de uitvoer alleen de toepasselijke alternatieve implementatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer dat is gevraagd of al gebruikelijk is.
 
 **Handmatige review**
 
@@ -3068,33 +2328,13 @@ Projectregel
 
 Bestaande daemonconfiguratie en credentialinterfaces van shellhelpers.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeeld vnstat --showconfig introduceert geen verplichte tool voor andere daemons.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeeld vnstat --showconfig introduceert geen verplichte tool voor andere daemons.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3103,10 +2343,6 @@ Handmatig reviewscenario: Een script dupliceert daemoninstellingen via nieuwe CL
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Behoud de bestaande invoerroute en lees waar mogelijk de effectieve daemonconfiguratie. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeeld vnstat --showconfig introduceert geen verplichte tool voor andere daemons.
 
 **Handmatige review**
 
@@ -3132,33 +2368,13 @@ Projectregel; deze handmatige verplichtingen maken deel uit van de bestaande cod
 
 Gedeelde checkexecutables, targetregistraties en de shell-/Nagios-uitvoerinterface.
 
-**Automatische controle**
-
-Geen automatische controle voor dit inhoudelijke contract. De opmaakchecks en andere gedeeltelijke controles die in de norm worden genoemd vervangen deze review niet.
-
 **Detectiegrenzen**
 
 Puppet-lint voert geen catalogus of hostactie uit en inspecteert het beschreven runtimegedrag niet. Een groene lintscan bevestigt dit contract daarom niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of lintseverity voor dit inhoudelijke contract; de reviewer keurt de beschreven overtreding af.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit contract vereist inhoudelijke beoordeling en heeft geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een schakelaar voor lange uitvoer wordt alleen op verzoek toegevoegd; lange uitvoer staat standaard aan.
-
-**Suppressions**
-
-Suppressie niet toegestaan: lintmarkeringen kunnen dit handmatige reviewcriterium niet opheffen.
 
 **Onjuist voorbeeld**
 
@@ -3196,33 +2412,13 @@ Projectregel
 
 Nieuwe en gewijzigde checkimplementaties, executabletemplates en targetregistraties.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een bestaande configuratie-interface is toegestaan naast runtimeargumenten; executabletemplating is beperkt tot hostbreed gedeelde waarden.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -3258,33 +2454,13 @@ Projectregel
 
 Monitoring van taken en hun uitvoer of opgeslagen status.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakrunner vereisen.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -3346,33 +2522,13 @@ Projectregel
 
 Bronkeuze en runtimeafhankelijkheden bij nieuwe of gewijzigde checks van actuele hosttoestand.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Puppet-lint beoordeelt niet of kernelgegevens de gevraagde toestand dekken, welke gegevens een host beschikbaar stelt of welke leesrechten de uitvoerder heeft.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: bronkeuze en behoud van meetbetekenis vragen inhoudelijke beoordeling.
-
 **Toegestane uitzonderingen**
 
 Een andere bron is toegestaan voor informatie die kernelinterfaces onvoldoende leveren, zoals historische gebeurtenissen, effectieve daemonconfiguratie of applicatiestatus. Leg die noodzaak en de runtimevoorwaarden bij de check vast.
-
-**Suppressions**
-
-Een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -3416,33 +2572,13 @@ Projectregel
 
 Statusbepaling en diagnose bij geverifieerde afwijkingen en mislukte of onvolledige inspecties.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een onbeschikbare inspectietool levert UNKNOWN; een geverifieerd ontbrekend vereist onderdeel levert CRITICAL. Bij samenloop blijft de gedocumenteerde prioriteit zichtbaar.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -3486,33 +2622,13 @@ Projectregel
 
 Optionele runtime-instellingen in Puppet-registraties, wrappers en ERB.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwerking; dit is geen opdracht om ongeraakte interfaces te veranderen.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwerking; dit is geen opdracht om ongeraakte interfaces te veranderen.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3521,10 +2637,6 @@ Handmatig reviewscenario: Een registratie geeft een tweede default als CLI-argum
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik Optional met default undef en laat bij undef zowel optie als argument weg. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwerking; dit is geen opdracht om ongeraakte interfaces te veranderen.
 
 **Handmatige review**
 
@@ -3550,33 +2662,13 @@ Projectregel
 
 CLI-, environment- en standaardwaarden van monitoringchecks en Puppet-drempelvergelijkingen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie van effectieve scriptwaarden niet naar Puppet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie van effectieve scriptwaarden niet naar Puppet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3585,10 +2677,6 @@ Handmatig reviewscenario: Puppet vult een ontbrekende scriptdefault in om twee d
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Laat de check de effectieve waarden verwerken en valideren; vergelijk in Puppet hoogstens twee expliciet opgegeven drempels. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie van effectieve scriptwaarden niet naar Puppet.
 
 **Handmatige review**
 
@@ -3612,33 +2700,13 @@ Projectregel
 
 Registratie-interval en executor-timeout naast runtime-opties van het script.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een scriptoptie of environmentvariabele verandert de agentplanning niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een scriptoptie of environmentvariabele verandert de agentplanning niet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3647,10 +2715,6 @@ Handmatig reviewscenario: Een langere script-timeout wordt ingesteld terwijl de 
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Stem interval en agent-timeout afzonderlijk af volgens de executorafspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een scriptoptie of environmentvariabele verandert de agentplanning niet.
 
 **Handmatige review**
 
@@ -3678,33 +2742,13 @@ Projectregel
 
 Eerste uitvoerregel bij gezond, fout en onbekend resultaat.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt normaal functioneren.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt normaal functioneren.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3713,10 +2757,6 @@ Handmatig reviewscenario: Een foutmelding noemt geen geraakt object of directe o
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Noem het gecontroleerde onderdeel, belangrijkste object, oorzaak en benodigde escalatie; meld bij gezond resultaat normaal functioneren. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt normaal functioneren.
 
 **Handmatige review**
 
@@ -3740,33 +2780,13 @@ Projectregel
 
 Samenvatting en oorzakenlabels naast Nagios-exitcode en perfdata.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun plaats.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun plaats.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3775,10 +2795,6 @@ Handmatig reviewscenario: De tekst begint met CRITICAL en bevat nulcategorieën 
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Laat de exitcode de status dragen en verplaats tellers naar perfdata of lange uitvoer. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun plaats.
 
 **Handmatige review**
 
@@ -3802,33 +2818,13 @@ Projectregel
 
 Configuratiefouten, runtimefouten, contextuele waarschuwingen en onbekende toestand.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daarbuiten mag de status niet wijzigen.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daarbuiten mag de status niet wijzigen.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3837,10 +2833,6 @@ Handmatig reviewscenario: Een check met beperkte reikwijdte wijzigt zijn exitcod
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Vermeld de grens en baseer de exitcode op informatie binnen het vastgestelde bereik. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daarbuiten mag de status niet wijzigen.
 
 **Handmatige review**
 
@@ -3864,33 +2856,13 @@ Projectregel
 
 Volgorde en inhoud van lange diagnoses.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3899,10 +2871,6 @@ Handmatig reviewscenario: De directe oorzaak staat onder details en drempelwaard
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Begin met onderdeel, waarneming, waarschijnlijke oorzaak en vervolgstap of escalatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
 
 **Handmatige review**
 
@@ -3916,7 +2884,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Sluit niet-triviale lange uitvoer af met `Interpretation:`, met direct daaronder korte `- `-opsommingspunten volgens de [uitvoernorm](#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken). Geef alleen uitleg die relevant is voor de getoonde metingen, reikwijdte, beperkingen en eerste vervolgstap. Herhaal geen perfdata. Verplaats algemene handleidingtekst naar de README; de actuele uitvoer moet zelfstandig begrijpelijk blijven.
+Sluit niet-triviale lange uitvoer af met `Interpretation:`, met direct daaronder korte `- `-opsommingspunten volgens de [uitvoernorm](#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken). Geef alleen uitleg die relevant is voor de getoonde metingen, reikwijdte, beperkingen en eerste vervolgstap. Herhaal geen perfdata. Onderhoud algemene gebruiks- en beheeruitleg volgens de [informatieplaatsing](DOCUMENTATION_RULES.md#informatieplaatsing); de actuele uitvoer moet zelfstandig begrijpelijk blijven.
 
 **Herkomst**
 
@@ -3926,33 +2894,13 @@ Projectregel
 
 Niet-triviale lange uitvoer en de afsluitende Interpretation-sectie.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt geen opvulsectie.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt geen opvulsectie.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3961,10 +2909,6 @@ Handmatig reviewscenario: Een lange diagnose eindigt met losse tellers zonder ui
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Sluit af met Interpretation: en leg uit hoe gegevens, reikwijdte en context gelezen moeten worden. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt geen opvulsectie.
 
 **Handmatige review**
 
@@ -3992,33 +2936,13 @@ Projectregel
 
 Vaste tekst, runtimegegevens, externe data en bewuste uitvoerscheidingen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normalisatie vereisen.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normalisatie vereisen.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4027,10 +2951,6 @@ Handmatig reviewscenario: Vaste veilige tekst krijgt een extra normalisatiepijpl
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Volg de data naar de uitvoer en normaliseer wanneer onveilige pipes of ongewenste lege regels kunnen ontstaan. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normalisatie vereisen.
 
 **Handmatige review**
 
@@ -4063,33 +2983,13 @@ Projectregel
 
 Dynamische data op alle regels van lange Nagios-uitvoer.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het volledige lange uitvoerkanaal.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het volledige lange uitvoerkanaal.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4113,10 +3013,6 @@ Interpretation:
 - Current connections and the historical peak are evaluated separately.
 ```
 
-**Grensgevallen**
-
-Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het volledige lange uitvoerkanaal.
-
 **Handmatige review**
 
 Controleer alle normale, afwijkende, onvolledige en vroege foutpaden, inclusief gedeelde helpers en gegenereerde scripts. Controleer dynamische pipes, regelovergangen, behoud van records en exacte witruimte. Beoordeel de letterlijke uitvoer ook in de gebruikte monitoringinterface; automatische Markdown-weergave is geen uitgangspunt. Controleer dat nieuwe plugins de gedeelde formatter gebruiken.
@@ -4139,33 +3035,13 @@ Projectregel
 
 Configureerbare item-, regel-, blok- en tekenlimieten op diagnoseverzamelingen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde gegevens afkapt.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde gegevens afkapt.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4174,10 +3050,6 @@ Handmatig reviewscenario: Dezelfde verzameling wordt na elkaar door een itemlimi
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Kies per diagnoseblok één configureerbare afkapmethode. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde gegevens afkapt.
 
 **Handmatige review**
 
@@ -4201,33 +3073,13 @@ Projectregel
 
 Totale tekenlimiet van lange uitvoer boven Interpretation.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen willekeurige extra limieten op dezelfde verzameling.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen willekeurige extra limieten op dezelfde verzameling.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4236,10 +3088,6 @@ Handmatig reviewscenario: Een UI-limiet kapt de interpretatie en vervolgstap af.
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Begrens de tekst boven Interpretation: en zet de afkapmelding vóór die laatste uitleg. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen willekeurige extra limieten op dezelfde verzameling.
 
 **Handmatige review**
 
@@ -4263,33 +3111,13 @@ Projectregel
 
 APT-ophaal-, groeps- en tijdslimieten, journalvensters en afkappen van verzamelde diagnose.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heeft; maak dat doel expliciet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heeft; maak dat doel expliciet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4298,10 +3126,6 @@ Handmatig reviewscenario: Een journalvenster wordt beschreven alsof het de lengt
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Documenteer afzonderlijk welk extern werk wordt begrensd en welke uitvoer wordt ingekort. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heeft; maak dat doel expliciet.
 
 **Handmatige review**
 
@@ -4329,33 +3153,13 @@ Projectregel
 
 Labels, UOM en optionele velden van Nagios-perfdata.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden weggelaten.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden weggelaten.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4364,10 +3168,6 @@ Handmatig reviewscenario: Een label heet DiskBytes en bevat de eenheid; lege opt
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik een stabiel snake_case-label met kleine beginletter, zet B in UOM en eindig bij het laatste gevulde optionele veld. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden weggelaten.
 
 **Handmatige review**
 
@@ -4391,33 +3191,13 @@ Projectregel
 
 Perfdatavelden met UOM c.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen zijn geen monotone counters.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen zijn geen monotone counters.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4426,10 +3206,6 @@ Handmatig reviewscenario: Een gauge met huidig geheugengebruik krijgt c. De besc
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik c alleen voor een teller die oploopt tot een reset; kies voor een gauge de passende gewone eenheid. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen zijn geen monotone counters.
 
 **Handmatige review**
 
@@ -4453,33 +3229,13 @@ Projectregel
 
 Exitcodes, samenvatting, perfdata, opties, gegenereerde paden en registratienamen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een expliciete opdracht mag de afspraak veranderen; de operationele reden en validatie blijven vereist.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een expliciete opdracht mag de afspraak veranderen; de operationele reden en validatie blijven vereist.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -4488,10 +3244,6 @@ Handmatig reviewscenario: Een interne refactor verandert zonder opdracht een per
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Behoud de interface; documenteer bij een expliciet gevraagde wijziging de operationele reden. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een expliciete opdracht mag de afspraak veranderen; de operationele reden en validatie blijven vereist.
 
 **Handmatige review**
 

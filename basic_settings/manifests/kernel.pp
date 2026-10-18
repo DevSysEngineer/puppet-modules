@@ -66,13 +66,16 @@
 #   Selects IPv4-only (`4`) or dual-stack (`all`) behavior for kernel and network templates.
 #
 # @param kernel_flavor
-#   Selects `auto` (default), `generic`, `raspi`, or `nvidia`. Automatic selection retains the running kernel suffix
-#   detection: `-generic` and `-raspi` select their profiles; all other suffixes leave kernel packages unmanaged.
-#   Explicit selections work before reboot. `nvidia` requires Ubuntu 24.04 ARM64 (`arm64` or `aarch64` in Facter).
-#   It installs linux-nvidia-hwe-24.04
-#   and linux-tools-nvidia-hwe-24.04, retaining linux-tools-common and existing generic kernels. Ubuntu APT sources
-#   must provide these packages; NVIDIA repositories are not required. No GPU drivers, CUDA or reboot are managed
-#   by this selection. Other kernel-class settings still apply. Verify boot configuration and reboot manually.
+#   Selects auto, generic, raspi or nvidia. Auto follows the running suffix: -generic and -raspi select their
+#   profiles; every other suffix, including -nvidia, leaves kernel packages unselected. Other kernel-class settings
+#   still apply. Explicit choices work before reboot.
+#   Generic installs linux-generic and removes raspi metapackages; on Ubuntu other than 26.04 it also installs
+#   release-specific generic HWE image and headers. Raspi installs linux-raspi and removes generic metapackages.
+#   Nvidia requires Ubuntu 24.04 with Facter architecture arm64 or aarch64; unsupported selection fails compilation.
+#   It installs linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources, retaining
+#   linux-tools-common and existing generic kernels. It neither selects -nvidia-64k nor pins a build. No NVIDIA
+#   repository, GPU driver, CUDA, boot-entry selection or reboot is supplied by this choice. Verify boot
+#   configuration and reboot manually after checking the package plan.
 #
 # @param memory_available_profiles
 #   Optional MemAvailable threshold profiles for memory-pressure monitoring.
@@ -91,8 +94,9 @@
 #   Selects the initramfs implementation to install and retain. Valid values are `initramfs` and `dracut`.
 #
 # @param security_lockdown
-#   Controls kernel lockdown. `true` resolves to `integrity`, `false` resolves to `none`, and a string is written as the
-#   explicit requested mode. Secure Boot enforces at least `integrity`.
+#   Requests kernel lockdown: true selects integrity, false selects none and a string supplies an explicit mode.
+#   Secure Boot raises none to integrity. Without Secure Boot, ESET or an enabled detected VM guest agent overrides
+#   the request to none. Verify the chosen mode against the host boot and compatibility requirements.
 #
 # @param swap_free_profiles
 #   Optional SwapFree threshold profiles for memory-pressure monitoring. `undef` resolves to the built-in swap profile

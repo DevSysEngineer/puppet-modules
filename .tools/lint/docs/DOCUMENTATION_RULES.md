@@ -79,11 +79,13 @@ Voeg alleen een ADR toe wanneer gevraagd of al gebruikelijk. Dit ontslaat je nie
 
 #### Informatieplaatsing
 
+Ieder onderwerp heeft één volledige, onderhouden uitleg. Andere locaties mogen een korte samenvatting en een gerichte verwijzing geven; de samenvatting maakt de relevantie of het gevolg zelfstandig duidelijk. De bestandsextensie bepaalt niet hoeveel detail nuttig is: een beheerhandleiding of normdocument mag uitgebreid zijn wanneer de lezer dat voor zijn taak nodig heeft.
+
 Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan de hand van de beslissing die de norm regelt, niet van het bestand waar het probleem is gevonden. Splits gemengde passages vóór toewijzing en gebruik voor toolprocedures de specifieke eigenaar hieronder.
 
 | Bron | Verantwoordelijkheid |
 | --- | --- |
-| Root-`README.md` | Centrale gebruikershandleiding voor modulegebruik en operationele keuzes, met een vindbare ontwikkelaarsingang. |
+| Root-`README.md` | Doel, installatie, algemene voorwaarden, beginnen en ingangen naar modules, voorbeelden en procedures, met een vindbare ontwikkelaarsingang. |
 | [CONTRIBUTING.md](../../../CONTRIBUTING.md) | Gezamenlijke voorbereiding, scope, ontwikkelworkflow, impact- en beveiligingsreview, Git-beleid, versiebeleid en oplevering. |
 | [TESTS.md](../../../TESTS.md) | Repositorybreed testbeleid, toepasselijkheid en volgorde van verplichte controles, scenarioselectie, aanvullende validatie en bewijsvoering. |
 | Root- en lokale `AGENTS.md` | Verplichte agentleesroutes, instructiehiërarchie en werkelijk agentspecifieke aanwijzingen. |
@@ -93,9 +95,11 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 | [CODE_RULES.md](CODE_RULES.md) | Algemene codeprincipes voor alle eigen talen en componenten, inclusief tooling; herkenbaar afgebakende taalregels, voorwaarden, uitzonderingen, handmatige reviewcriteria, detectie- en autofixgrenzen en voorbeelden. Puppet-syntax en resourceregels gelden alleen voor Puppet. |
 | Dit document | Algemene documentatienormen en aanvullende codecommentaar-, Puppet Strings- en interfaceafspraken, met toepasselijke uitzonderingen, detectie- en autofixgrenzen en voorbeelden. |
 | [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md) | Operationele implementatie en reviewcriteria voor beheerde bestanden, rechten, beveiliging, systemd, shell, runtimeafhankelijkheden en monitoring, met algemene normen en specifieke uitwerkingen, uitzonderingen, detectie- en autofixgrenzen en voorbeelden. |
-| Puppet Strings | Concrete publieke Puppet-interfaces, volledige parameterbeschrijvingen, defaults en fallbackketens. |
-| Scripts en templates | Lokale, niet-zichtbare technische redenen en beperkingen, intern gedrag en uitvoercontracten per check. |
-| `examples/` | Uitgebreide configuratiescenario's. |
+| Puppet Strings | Betekenis, invoerbeperkingen en gevolgen van publieke class-, defined-type- en functieparameters, direct boven die interface. De declaratie beheert type en default. |
+| Implementatiecomments | Redenen voor technische keuzes, volgorde en uitzonderingen bij de betrokken code. Scripts onderhouden hun opties in de bestaande usage- of hulptekst. |
+| `examples/` | Samenhangende configuratiescenario's met meerdere onderdelen. |
+| Bestaande passende procedure | Samenhangende beheer-, herstel- of migratiestappen, met voorwaarden, volgorde en verwachte resultaten. |
+| Gegenereerde parameterreferentie | Eventueel een reeds gebruikte leesbare referentie buiten de editor; onderhoud via de codebron en het bestaande generatieproces. |
 | Tooltests | Toolgedrag, regressies, grenzen, fouten en automatisch verifieerbare toolcontracten. |
 | Projectdocumentatie | Systeemstructuur, gegevensstromen, componentrelaties en -doel, installatie, deployment, beheer en probleemoplossing. |
 | Feature- of implementatiedocumentatie | Featurespecifieke interfaces, implementatiestappen, tijdelijke migraties en acceptatiescenario's buiten projectbreed beleid. |
@@ -108,7 +112,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 - Houd codestijl, layout, naamgeving en implementatieconventies bij het passende regelsdocument, niet in agentinstructies. Lintarchitectuur hoort bij de lint-README, gedeelde packagearchitectuur en installatie bij de tooling-README.
 - Eigenaarschap hangt niet af van automatisering. De regelsdocumenten zijn de centrale code- en implementatiestandaard, ook voor gedeeltelijke detectie, uitsluitend detectie en volledig handmatige normen. Een ontbrekende check of onveilige autofix verplaatst de norm niet naar `AGENTS.md` en maakt haar niet optioneel.
 - Classificeer een nieuwe algemene afspraak vóór bewerken, ook als de vraag haar een agentregel noemt of `AGENTS.md` noemt. Voeg daar alleen de verwijzing toe die agents nodig hebben om de gezamenlijke bron te vinden. Pas dit eigenaarschap ook toe op onderhoud van bestaande normen en verwijzingen.
-- De twee rootdocumenten CONTRIBUTING en TESTS bestaan naast de vier centrale lintdocumenten; zij vormen geen vijfde lintregelsdocument. Behoud de [lintdocumentgrenzen](../README.md#grenzen-van-de-lintdocumentatie), inclusief omvangslimiet en het enige checkregister, en maak geen extra regelsbestand per klein onderwerp.
+- De twee rootdocumenten CONTRIBUTING en TESTS bestaan naast de vier centrale lintdocumenten; zij vormen geen vijfde lintregelsdocument. Behoud de [lintdocumentgrenzen](../README.md#grenzen-van-de-lintdocumentatie), inclusief het enige checkregister, en maak geen extra regelsbestand per klein onderwerp.
 
 ### Duurzame documentatie
 
@@ -180,7 +184,7 @@ Een technische controle bewijst nooit dat uitleg duidelijk, prettig leesbaar of 
 - Schrijf als een ervaren collega voor een technisch vaardige lezer die het project nog niet kent. Gebruik representatief root-README-proza als referentie voor een directe, praktische infrastructuurtoon, niet als template of kwaliteitsbewijs. Kopieer onnatuurlijke of te samengeperste tekst niet omwille van consistentie.
 - Schrijf gewoon, toegankelijk Nederlands rond exacte identifiers. Kies vertrouwde Nederlandse woorden boven onnodig Engels of abstract toolingjargon en spreek de lezer direct aan. Behoud natuurlijke verbindingen zonder boilerplate, stockovergangen, ongebruikelijke synoniemen, reclame of geforceerde informaliteit.
 - Organiseer gebruiksuitleg rond de lezerstaak, niet de implementatievolgorde of reviewvereisten. Geef iedere alinea één samenhangend onderwerp; scheid onafhankelijke aanwijzingen in plaats van ze voor beknoptheid samen te persen. Beschrijf concrete acties, voorwaarden en gevolgen en verklaar niet-vanzelfsprekende keuzes wanneer dat handelen helpt.
-- Gebruik headings, lijsten en tabellen waar navigatie of vergelijking dat vraagt, behalve waar de aandachtspunten proza vereisen. Behoud nuttige lijsten zoals eigenschappen en installatiestappen. Voeg geen vulling toe om secties uniform te maken. Verplichte velden uit het lintdocumentatiecontract zijn geen vulling: vul ze in of onderbouw niet-toepasselijkheid zonder ontbrekend bewijs te verhullen.
+- Gebruik headings, lijsten en tabellen waar navigatie of vergelijking dat vraagt. Behoud nuttige lijsten zoals eigenschappen en installatiestappen. Voeg geen vulling toe om secties uniform te maken; het lintdocumentatiecontract onderscheidt automatische controles van handmatige normen.
 - Behoud noodzakelijke technische termen en exacte identifiers; leg projectbegrippen vóór gebruik uit. Begin README-prozalijstitems met een hoofdletter, met behoud van case van identifiers, module- en classnamen, paden en literals. Behoud bedoelde auteursstandpunten en relevante projectcontext bij herindeling.
 - Behoud noodzakelijke technische eisen, waarschuwingen, uitzonderingen, waarborgen en operationele kennis bij hun eigenaar; volg voor lint de [documentgrenzen](../README.md#grenzen-van-de-lintdocumentatie). Voeg geen extra documentlaag toe om omvang te reduceren. Verwijder duplicaten en aantoonbaar verouderde informatie pas na redactionele review.
 
@@ -192,14 +196,16 @@ Een technische controle bewijst nooit dat uitleg duidelijk, prettig leesbaar of 
 
 ### Modulesecties
 
-Behoud de bestaande modulevolgorde. Presenteer doel, standaardgebruik, eigenschappen, relevante aandachtspunten, compact voorbeeld en daarna uitgebreide voorbeelden of Strings in die volgorde. Voeg niet voor iedere module nieuwe vaste subheadings toe. Noem maximaal acht belangrijkste eigenschappen, minder als dat volstaat. Geef één compact basisvoorbeeld, link naar een relevant scenario in `examples/` en verwijs naar Strings voor de publieke interface.
+Behoud de bestaande modulevolgorde. Help de lezer begrijpen wat het onderdeel doet, voor wie het bruikbaar is, wat nodig is en hoe hij begint. Gebruik een algemeen basisvoorbeeld dat past bij het onderdeel; specifieke platform- en toepassingsscenario's krijgen een herkenbare ingang naar hun bestaande voorbeeld of procedure. Het voorbeeld toont alleen de daarvoor benodigde parameters en voorwaarden.
+
+Kies de indeling op de taak. Herhaal dezelfde eigenschappen niet onder doel, mogelijkheden en eigenschappen. Gebruik geen vaste aantallen koppen of eigenschappen. Een root-README beschrijft het project en de ingang naar onderdelen; een tool-README behandelt het gebruik en onderhoud van die tool. Behoud belangrijke gevolgen en afwijkende standaardinstellingen bij de ingang, met een gerichte link naar de uitwerking. Link naar de concrete publieke class, functie, het defined type of de procedure wanneer die bekend is; alleen “de code” of een grote map is onvoldoende. Onderhoud geen volledige handmatige parametertabel naast de broncodedocumentatie.
 
 #### Belangrijke aandachtspunten
 
 - Beperk deze sectie tot modulespecifieke voorwaarden, risico's, beperkingen en niet-vanzelfsprekende keuzes voor correct gebruik, een relevante keuze of het voorkomen van een concrete fout, onveiligheid of onverwachte wijziging.
 - Sluit volledige parameterbeschrijvingen, interne uitvoeringsvolgorde, testresultaten, ontwikkelgeschiedenis en algemeen beheeradvies zonder concrete gebruiksnoodzaak uit. Neem bestandsnamen, rechten, defaults en ander technisch detail alleen op als het een gebruikerskeuze of -actie beïnvloedt.
 - Beoordeel ernst naast frequentie. Verwijder waarschuwingen voor gegevensverlies, verlies van beheertoegang, overschreven configuratie, beveiliging of incompatibiliteit nooit alleen wegens zeldzaamheid of tekstlengte.
-- Maak toepasselijke voorwaarde, gevolg en vereiste actie duidelijk zonder vast zinsjabloon. Schrijf natuurlijke doorlopende tekst, met een alinea per zelfstandig onderwerp. Gebruik geen bullets, nummering of tabellen en vervang lijsten niet door één lange komma- of puntkommazin. Laat de heading weg wanneer geen relevante aandachtspunten overblijven.
+- Maak toepasselijke voorwaarde, gevolg en vereiste actie duidelijk zonder vast zinsjabloon. Gebruik proza voor samenhangende uitleg, een lijst voor afzonderlijke voorwaarden en nummering voor uit te voeren stappen. Laat de heading weg wanneer geen relevante aandachtspunten overblijven. Behoud complete beheer-, herstel- en migratieprocedures; laat de lezer de volgorde niet uit losse parametercomments reconstrueren.
 
 ## Afspraken onderhouden
 
@@ -247,6 +253,8 @@ Deze criteria gelden voor duurzame gezamenlijke afspraken en agentroutes. Kies d
 ## Commentaar en documentatie
 
 <!-- lint-rule-group -->
+
+Gebruik implementatiecomments voor redenen, betekenisvolle samenhang en niet-vanzelfsprekende beperkingen, bij de betrokken code. Herhaal niet alleen de volgende regel of een duidelijke variabelenaam. Behoud nuttige technische onderbouwing; verzamel haar niet in één groot commentblok bovenaan het bestand.
 
 De onderstaande regels gelden voor Puppet, tenzij het toepassingsgebied expliciet alle eigen code noemt. In die algemene gevallen blijven Puppet Strings-tags, Puppet-opmaak en de lintdetectie beperkt tot hun beschreven Puppet-uitwerking.
 
@@ -435,25 +443,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of overbodig is; noodzakelijke lokale redenen blijven staan.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of overbodig is; noodzakelijke lokale redenen blijven staan.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -462,10 +454,6 @@ Handmatig reviewscenario: Commentaar beschrijft een verwijderde fallback en dupl
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Verwijder verouderde of overbodige uitleg en behoud lokale redenen en gevolgen; laat beleid in de documentatie. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of overbodig is; noodzakelijke lokale redenen blijven staan.
 
 **Handmatige review**
 
@@ -497,25 +485,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op keuzes en gevolgen die niet direct zichtbaar zijn.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op keuzes en gevolgen die niet direct zichtbaar zijn.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -524,10 +496,6 @@ Handmatig reviewscenario: Een complexe escaping- of terugvalstap heeft geen uitl
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Beschrijf de reden en de relevante invoer, uitvoer of exitgevolgen wanneer die niet vanzelf spreken. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op keuzes en gevolgen die niet direct zichtbaar zijn.
 
 **Handmatige review**
 
@@ -559,25 +527,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heeft afgebroken tekst volgens de aparte opmaak.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heeft afgebroken tekst volgens de aparte opmaak.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -586,10 +538,6 @@ Handmatig reviewscenario: Een Engelse zin wordt willekeurig over meerdere fysiek
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Houd iedere zin op één fysieke regel en leg de reden, beperking of relevante gevolgen uit. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heeft afgebroken tekst volgens de aparte opmaak.
 
 **Handmatige review**
 
@@ -992,7 +940,7 @@ Projectspecificatie van upstream; [Puppet Strings-stijlgids](https://help.puppet
 
 **Toepassingsgebied**
 
-Puppet Strings direct boven classes en defined types. API-markering van nieuwe functies blijft handmatig waar die niet wordt geanalyseerd.
+Puppet Strings direct boven publieke classes, defined types en functies. De automatische analyse van classes en defined types bewijst geen functiedocumentatie; beoordeel die handmatig.
 
 **Automatische controle**
 
@@ -1150,7 +1098,13 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 **Norm**
 
-Beschrijf iedere parameter eenmaal met `@param`, in dezelfde volgorde als de declaratie. Leg uit wat de waarde betekent, hoe de default tot stand komt en wat bijzondere waarden zoals `undef`, `true` en `false` doen. Neem ook relevante beperkingen, dependencies, gegenereerde resources, terugvalgedrag en gevolgen voor beveiliging of compatibiliteit op.
+Beschrijf iedere parameter eenmaal met `@param`, in dezelfde volgorde als de declaratie, boven de publieke class, het defined type of de functie die de gebruiker aanroept. Gebruik de bestaande `@summary` en relevante `@example`-blokken. De publieke parameter is zelfstandig begrijpelijk; een verwijzing naar een interne helper vervangt de uitleg niet.
+
+Leid het contract af uit de actuele implementatie. Beschrijf waar relevant het waarneembare effect, de betekenis van `true`, `false`, `undef`, weglaten en lege waarden, eenheden, invoerbeperkingen en toegestane keuzes. Leg afhankelijkheden en voorrang ten opzichte van andere parameters uit, inclusief gevolgen voor bestaande configuratie, verwijderen, behoud en serviceherstarts. Neem niet aan dat `false` altijd ongemoeid laten of `undef` altijd hetzelfde betekent.
+
+De declaratie blijft leidend voor type en standaardwaarde. Onderhoud die gegevens niet opnieuw in handmatige overzichten; vermeld ze kort wanneer dat de werking verduidelijkt of de gebruikte parameterhulp ze onvoldoende zichtbaar maakt. Beschrijf bij een berekende default de relevante keuzeregel. Korte parameters krijgen korte uitleg; neem meer ruimte wanneer de waarde anders niet verantwoord te kiezen is. Houd volledige beheerprocedures en interne uitvoeringsbeschrijvingen buiten dit blok.
+
+Controleer waar mogelijk de daadwerkelijk getoonde parameterhulp in de gebruikte editor, ook vanuit een consumerproject met `global-modules`. Veronderstel niet dat iedere editor beschrijving, type en default samen toont. Houd de bron rechtstreeks leesbaar en vermeld een niet-uitgevoerde editorcontrole in de review.
 
 **Herkomst**
 
@@ -1158,7 +1112,7 @@ Projectspecificatie van upstream; [Puppet Strings-stijlgids](https://help.puppet
 
 **Toepassingsgebied**
 
-Puppet Strings direct boven classes en defined types. API-markering van nieuwe functies blijft handmatig waar die niet wordt geanalyseerd.
+Puppet Strings direct boven publieke classes, defined types en functies. De automatische analyse van classes en defined types bewijst geen functiedocumentatie; beoordeel die handmatig.
 
 **Automatische controle**
 
@@ -1326,8 +1280,7 @@ Voor dit fragment wordt uitsluitend `project_documentation, project_documentatio
 ```puppet
 # @summary Manages local console configuration.
 #
-# This class manages console packages and configuration, using the host defaults
-# when no explicit override is supplied.
+# This class manages console packages and configuration when keyboard management is enabled.
 #
 # @example Enable keyboard configuration
 #   class { 'example':
@@ -1336,7 +1289,7 @@ Voor dit fragment wordt uitsluitend `project_documentation, project_documentatio
 #
 # @param keyboard_enable
 #   Controls keyboard package and configuration management.
-#   `undef` uses the host default; `true` enables management and `false` disables it.
+#   `true` enables management and `false` disables it; omission uses the declared default.
 #
 # @api public
 ```
@@ -1712,7 +1665,15 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 **Norm**
 
-Werk bij iedere interfacewijziging de bronbeschrijving en geraakte voorbeelden mee bij. Voor Puppet betekent dit Puppet Strings; vergelijk defaults, relaties en gegenereerde configuratie met het manifest. Als monitoringgedrag voor beheerders verandert, kijk dan ook naar het checkoverzicht in de project-README.
+Beoordeel bij iedere wijziging de geraakte informatie bij haar eigenaar:
+
+- Een nieuwe of gewijzigde parameter: de uitleg bij die parameter.
+- Een gewijzigde interne keuze: de reden in het commentaar bij de betrokken implementatie.
+- Een verandering in doel, starten, gebruik, voorwaarden of belangrijke gevolgen: de passende README.
+- Een geraakt configuratiescenario of gewijzigde beheerhandeling: het voorbeeld of de volledige procedure.
+- Een gegenereerde referentie: haar bron en het bestaande generatieproces.
+
+Pas de uitleg aan wanneer de beoordeling daar aanleiding toe geeft en vergelijk haar met de actuele implementatie. Een nieuwe feature verplicht niet tot een nieuw Markdown-bestand of een uitgebreide root-README-sectie. Voor monitoring kan de gewijzigde ingang het bestaande checkoverzicht zijn.
 
 **Herkomst**
 
@@ -1722,33 +1683,13 @@ Projectregel
 
 Bronbeschrijvingen en voorbeelden van alle eigen publieke interfaces; Puppet Strings en het beheerdergerichte checkoverzicht zijn de specifieke Puppet- en monitoringuitwerkingen.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedrag verandert.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedrag verandert.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1757,10 +1698,6 @@ Handmatig reviewscenario: Een parameterdefault verandert, maar Strings en het vo
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Werk Strings en geraakte voorbeelden bij en pas bij gewijzigd monitoringgedrag het checkoverzicht aan. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedrag verandert.
 
 **Handmatige review**
 
@@ -1774,7 +1711,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 **Norm**
 
-Onderhoud parametercontracten in Puppet Strings bij de code. Maak geen handmatige `REFERENCE.md` of `docs/`-boom voor informatie die Puppet Strings kan genereren. Gebruik voor algemene informatieplaatsing en ADR’s de [repositorydocumentatie-indeling](#taal-en-informatieplaatsing).
+Onderhoud parametercontracten in Puppet Strings bij de code. Onderhoud geen tweede handmatige parameterreferentie. Een bestaande gegenereerde referentie wordt via haar bron bijgewerkt. Gerichte procedures blijven op een passende bestaande documentatieplek staan; hun samenhang hoort niet in losse parametercomments. Gebruik voor algemene informatieplaatsing en ADR’s de [repositorydocumentatie-indeling](#taal-en-informatieplaatsing).
 
 **Herkomst**
 
@@ -1784,33 +1721,13 @@ Projectregel
 
 Puppet-parametercontracten en handmatige duplicaten van genereerbare API-documentatie.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt het parametercontract bij de code niet.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt het parametercontract bij de code niet.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1819,10 +1736,6 @@ Handmatig reviewscenario: Een handmatig REFERENCE.md dupliceert de door Puppet S
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Behoud parametercontracten bij de code en gebruik Puppet Strings als bron voor eventuele gegenereerde API-documentatie; beoordeel de overige informatieplaatsing volgens de gekoppelde repositoryafspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt het parametercontract bij de code niet.
 
 **Handmatige review**
 
@@ -1846,33 +1759,13 @@ Projectregel
 
 Nieuwe en bijgewerkte gebruiksvoorbeelden bij publieke interfaces.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder de vermelde voorwaarden en de beveiligingsafspraken blijven verplicht.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder de vermelde voorwaarden en de beveiligingsafspraken blijven verplicht.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -1881,10 +1774,6 @@ Handmatig reviewscenario: Een voorbeeld mist een verplicht argument en presentee
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Breid bij voorkeur het bestaande scenario uit, vermeld voorwaarden en vereiste argumenten en volg de beschreven Sensitive- en Hiera-afspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder de vermelde voorwaarden en de beveiligingsafspraken blijven verplicht.
 
 **Handmatige review**
 

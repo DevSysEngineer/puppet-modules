@@ -8,9 +8,6 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
 
 - [Inhoudsopgave](#inhoudsopgave)
 - [Pakketten en commando’s](#pakketten-en-commandos)
-- [Verantwoordelijkheden gescheiden houden](#verantwoordelijkheden-gescheiden-houden)
-  - [CLI en rapportage](#cli-en-rapportage)
-  - [Joblogs](#joblogs)
 - [Snelstart in deze repository](#snelstart-in-deze-repository)
 - [Installatie en compatibiliteit](#installatie-en-compatibiliteit)
   - [Benodigde omgeving](#benodigde-omgeving)
@@ -32,6 +29,9 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
   - [Git-dependency uit de monorepo](#git-dependency-uit-de-monorepo)
   - [Gebouwd gempakket installeren](#gebouwd-gempakket-installeren)
   - [Migreren naar afzonderlijke toolpakketten](#migreren-naar-afzonderlijke-toolpakketten)
+- [Verantwoordelijkheden gescheiden houden](#verantwoordelijkheden-gescheiden-houden)
+  - [CLI en rapportage](#cli-en-rapportage)
+  - [Joblogs](#joblogs)
 - [Gedeeld toolingonderhoud](#gedeeld-toolingonderhoud)
   - [Verantwoordelijkheden en integratie reviewen](#verantwoordelijkheden-en-integratie-reviewen)
   - [Toolteststructuur onderhouden](#toolteststructuur-onderhouden)
@@ -62,52 +62,6 @@ De pakketlinks verwijzen naar de gemspecs die de pakketversies en dependencygren
 De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. De algemene secretcontrole gebruikt shared, JSON en Psych en heeft geen Puppet-runtime nodig. Voor de Puppet-gate en voorbereiding van `.pp`-bestanden is OpenVox 8 wel vereist. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository-checks/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
 
 De secrets-gem levert één executable: `project-tools-secrets`. De subcommando's `prepare`, `write`, `run`, `diff` en `close` bedienen de analysewerkwijze. De [taakindeling en migratie](secrets/README.md#taakingangen-en-migratie) beschrijven ook markerregistratie, diagnostiek, afsluiten en herstel. Gebruik voor bewerkingen met beschermde waarden de [voorbereide analysebestanden](secrets/README.md#ontwikkelen-met-een-analysewerkboom), met eigen lokale selectie, Hiera-context en private ID-koppelingen. Scanner, voorbereiding, writer, diagnostiek en gecontroleerde vergelijking delen hetzelfde pakket en werken zonder Git-repository of agentlauncher. De [gezamenlijke Git-afspraken](../CONTRIBUTING.md#git-inspectie) verplichten tot voorcontrole; de [praktische Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) beschrijft hoe je volledige versies lokaal aanbiedt. Ruim eerder ingerichte koppelingen op volgens de [migratie-instructies](secrets/README.md#oude-integraties-opruimen).
-
-## Verantwoordelijkheden gescheiden houden
-
-De [algemene ontwerpregels](lint/docs/CODE_RULES.md#algemene-ontwerpregels) gelden ook voor alle code onder `.tools/`. Hieronder staat hoe de bestaande toolpakketten die verantwoordelijkheden verdelen.
-
-Een tool met een eigen CLI biedt één executable met expliciete subcommando's voor haar verschillende taken. De executable draagt de verwerking over aan de library van de betreffende tool. De commandolaag verwerkt de CLI-aanroep en vertaalt het resultaat naar uitvoer en exitstatus. De toollibrary bevat de taakverwerking; `project-tools-shared` levert de gedeelde technische voorzieningen.
-
-Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependencies, configuratie, correcties, rapport en gedragstests. Puppet-lint corrigeert Puppet-invoer; metadatawijzigingen vereisen het metadatacommando. Ruby-lint gebruikt de native RuboCop-CLI en formatter. Een gezamenlijke bundle of CI-setup maakt deze tools niet afhankelijk van elkaar.
-
-Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) regelen review en onderhoud over deze grenzen heen.
-
-### CLI en rapportage
-
-Een controle of herstelhandeling moet lokaal uitvoerbaar zijn met console-uitvoer en een passende exitstatus, zonder verplicht rapportbestand. Geef een zelfstandig controlecommando een naam die zijn taak beschrijft. Gebruik bij onze eigen controle-CLI’s `--junit REPORT.xml` voor optionele JUnit-uitvoer. Zonder deze optie worden geen rapporten of rapportmappen aangemaakt of bijgewerkt; een bestaande rapportmap is geen vereiste voor controle of herstel. CI vraagt het rapport expliciet aan.
-
-Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapportage niet impliciet inschakelen of een rapportpad invullen. Voor Minitest vraagt de aanroeper rapportage aan via de bestaande instelling `MINITEST_REPORTERS_REPORTS_DIR`. Een gewone `rake test`, gerichte testtaak of standaardtaak behoudt zonder die instelling uitsluitend console-uitvoer en de teststatus.
-
-Gebruik bestaande native commando’s en hun uitvoeropties wanneer die de controle al aanbieden. Puppet-lint en RuboCop hebben hun eigen CLI en correctieopties; `puppet parser validate` biedt syntaxvalidatie zonder rapport. Voeg daarvoor geen gelijknamige projectwrapper of uniforme set opties toe. Een aparte converter of rapportagevariant mag een uitvoerformaat in zijn naam en een verplicht rapportpad hebben: `puppet-lint-junit` zet bestaande JSON-uitvoer om, terwijl `validate-junit` native parserresultaten per manifest verzamelt. Documenteer bij zo’n variant ook het gewone commando zonder rapport.
-
-Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) bepalen welke gedragstests en integratiecontroles dit contract bij wijzigingen bewaken.
-
-### Joblogs
-
-Nieuwe en gewijzigde CI-aanroepen volgen één leesvolgorde: start en bereik, beperkte voortgang, bevindingen en een zelfstandig leesbaar eindresultaat. Dit geldt ook voor installatie, rapportpublicatie en de checkoutcontrole. Houd de bestaande jobs, selecties, waarschuwingdrempels en exitcodes aan. Laat dezelfde controle maar eenmaal uitvoeren en wijs één laag aan die haar primaire eindresultaat schrijft.
-
-Eigen Ruby-reporters gebruiken de [gedeelde console](shared/README.md#runtimecontracten). Zij tonen gewone, direct geflushte regels. Bij langer werk verschijnt ongeveer iedere vijftien seconden een voortgangsregel. Alleen afgeronde onderdelen verhogen de teller; zonder nieuwe resultaten verschijnt `Still running` met de verstreken tijd. Die melding toont activiteit en bewijst geen inhoudelijke voortgang. Korte controles hebben aan start en eindresultaat voldoende. Succesregels per bestand vervallen; waarschuwingen, correcties, beperkingen en native diagnostiek blijven zichtbaar.
-
-| Afsluiting | Betekenis |
-| --- | --- |
-| `PASSED` | Voldoet volgens het bestaande toolbeleid; waarschuwingen kunnen aanwezig zijn. |
-| `FAILED` | Inhoudelijke afkeuring volgens dat beleid. |
-| `ERROR` | Uitvoering of noodzakelijke afronding is niet betrouwbaar voltooid. |
-| `SKIPPED` | Bewust overgeslagen volgens bestaande configuratie of beleid. |
-| `Result not classified` | De aanroeplaag kent alleen de oorspronkelijke processtatus; de diagnose blijft zichtbaar. |
-
-Volledigheid staat afzonderlijk bij `Execution`: `complete`, `incomplete`, `not executed` of `unknown`. Een bevinding blijft ook bij een latere uitvoerfout zichtbaar. Niet-afgeronde onderdelen tellen niet als geslaagd of bewust overgeslagen. Een lege selectie volgt het bestaande toolbeleid. Tellingen benoemen hun eenheid: bronnen, manifests, modules, testgevallen en bevindingen zijn verschillende aantallen. Een onbekende telling wordt weggelaten of als onbekend aangeduid, nooit als nul. De [toolhandleidingen](#pakketten-en-commandos) leggen hun concrete tellingen vast.
-
-Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, voorspelbaar gesorteerd op bron en positie waar die beschikbaar zijn. Native omvangrijke diagnoses mogen boven het compacte einde blijven staan, mits het einde daar expliciet naar verwijst. Kort geen bevindingen stilzwijgend af. Een rapportverwijzing verschijnt pas na een geslaagde schrijfhandeling voor deze uitvoering; een bestaand oud bestand is geen bewijs. Zonder rapportverzoek blijven bestaande rapporten ongemoeid. Een latere verplichte upload of checkoutcontrole kan de job alsnog laten falen.
-
-JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en behoudt de bestaande prioriteit van `pipefail`: de laatste niet-nul status. Een conversiefout en scanstatus blijven dus beide zichtbaar.
-
-Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. De EXIT-afhandeling laat een onverwachte fout ongeclassificeerd en bewaart haar code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
-
-`details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
-
-De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Alleen een Ruby-lintinstallatie heeft nog steeds geen shared-gem of Puppet-runtime nodig.
 
 ## Snelstart in deze repository
 
@@ -788,7 +742,7 @@ De Ruby-job gebruikt de [.rubocop.yml van je project](ruby-lint/README.md#ruby-c
 
 #### Rapporten tonen in GitLab
 
-Vereis voor de doelbranch een geslaagde pipeline en behoud de eerste secrets-stage uit dit voorbeeld. Lokale Git-hooks voorkomen dat herkende waarden überhaupt worden verzonden; de pipeline vervangt die voorcontrole niet. Installeer hooks en private herstelstate niet als CI-artifact.
+Vereis voor de doelbranch een geslaagde pipeline en behoud de eerste secrets-stage uit dit voorbeeld. De [lokale inspectie vóór openbaarmaking](../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) voorkomt dat ongecontroleerde inhoud wordt gedeeld; de pipeline vervangt die voorcontrole niet. Bewaar private herstelstate nooit als CI-artifact.
 
 De [GitLab-testweergave](https://docs.gitlab.com/ci/testing/unit_test_reports/) leest JUnit XML via `artifacts:reports:junit`. Een bestand onder alleen `artifacts:paths` is downloadbaar, maar verschijnt daarmee niet in het testoverzicht. Gebruik in je bestaande GitLab-jobs dezelfde installatie, configuratie en rapportcommando's als hierboven; de Puppet-pipe vereist Bash met `set -eo pipefail`.
 
@@ -1246,6 +1200,52 @@ Voeg `project-tools-module-dependencies` en zijn afzonderlijke CI-job toe wannee
 De gedeelde console voor [joblogs](#joblogs) is beschikbaar vanaf `project-tools-shared 0.1.1`. Werk bij een update van de afnemende tools ook shared en de eigen lockfile bij volgens hun gemspecs. Mensgerichte tekst is geen parser-API; gebruik voor automatische verwerking de bestaande JSON- en XML-formaten.
 
 Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en aanpassing van de parseraanroep. `puppet-lint-junit` blijft een converter: geldige conversie kan status 0 geven terwijl de XML failures bevat; de lintpipe blijft `pipefail` vereisen. `validate-junit` blijft ieder geselecteerd manifest native valideren. De nieuwe dependencytool gebruikt zijn eigen [exitcodes en rapportlevenscyclus](module-dependencies/README.md#exitcodes-en-rapporten).
+
+## Verantwoordelijkheden gescheiden houden
+
+De [algemene ontwerpregels](lint/docs/CODE_RULES.md#algemene-ontwerpregels) gelden ook voor alle code onder `.tools/`. Hieronder staat hoe de bestaande toolpakketten die verantwoordelijkheden verdelen.
+
+Een tool met een eigen CLI biedt één executable met expliciete subcommando's voor haar verschillende taken. De executable draagt de verwerking over aan de library van de betreffende tool. De commandolaag verwerkt de CLI-aanroep en vertaalt het resultaat naar uitvoer en exitstatus. De toollibrary bevat de taakverwerking; `project-tools-shared` levert de gedeelde technische voorzieningen.
+
+Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependencies, configuratie, correcties, rapport en gedragstests. Puppet-lint corrigeert Puppet-invoer; metadatawijzigingen vereisen het metadatacommando. Ruby-lint gebruikt de native RuboCop-CLI en formatter. Een gezamenlijke bundle of CI-setup maakt deze tools niet afhankelijk van elkaar.
+
+Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository-checks/README.md) bewaakt. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) regelen review en onderhoud over deze grenzen heen.
+
+### CLI en rapportage
+
+Een controle of herstelhandeling moet lokaal uitvoerbaar zijn met console-uitvoer en een passende exitstatus, zonder verplicht rapportbestand. Geef een zelfstandig controlecommando een naam die zijn taak beschrijft. Gebruik bij onze eigen controle-CLI’s `--junit REPORT.xml` voor optionele JUnit-uitvoer. Zonder deze optie worden geen rapporten of rapportmappen aangemaakt of bijgewerkt; een bestaande rapportmap is geen vereiste voor controle of herstel. CI vraagt het rapport expliciet aan.
+
+Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapportage niet impliciet inschakelen of een rapportpad invullen. Voor Minitest vraagt de aanroeper rapportage aan via de bestaande instelling `MINITEST_REPORTERS_REPORTS_DIR`. Een gewone `rake test`, gerichte testtaak of standaardtaak behoudt zonder die instelling uitsluitend console-uitvoer en de teststatus.
+
+Gebruik bestaande native commando’s en hun uitvoeropties wanneer die de controle al aanbieden. Puppet-lint en RuboCop hebben hun eigen CLI en correctieopties; `puppet parser validate` biedt syntaxvalidatie zonder rapport. Voeg daarvoor geen gelijknamige projectwrapper of uniforme set opties toe. Een aparte converter of rapportagevariant mag een uitvoerformaat in zijn naam en een verplicht rapportpad hebben: `puppet-lint-junit` zet bestaande JSON-uitvoer om, terwijl `validate-junit` native parserresultaten per manifest verzamelt. Documenteer bij zo’n variant ook het gewone commando zonder rapport.
+
+Controle en rapportage gebruiken dezelfde bevindingen. Het aanvragen van een rapport verandert het oordeel niet; een fout bij het schrijven van een gevraagd rapport blijft wel een uitvoerfout. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) bepalen welke gedragstests en integratiecontroles dit contract bij wijzigingen bewaken.
+
+### Joblogs
+
+Nieuwe en gewijzigde CI-aanroepen volgen één leesvolgorde: start en bereik, beperkte voortgang, bevindingen en een zelfstandig leesbaar eindresultaat. Dit geldt ook voor installatie, rapportpublicatie en de checkoutcontrole. Houd de bestaande jobs, selecties, waarschuwingdrempels en exitcodes aan. Laat dezelfde controle maar eenmaal uitvoeren en wijs één laag aan die haar primaire eindresultaat schrijft.
+
+Eigen Ruby-reporters gebruiken de [gedeelde console](shared/README.md#runtimecontracten). Zij tonen gewone, direct geflushte regels. Bij langer werk verschijnt ongeveer iedere vijftien seconden een voortgangsregel. Alleen afgeronde onderdelen verhogen de teller; zonder nieuwe resultaten verschijnt `Still running` met de verstreken tijd. Die melding toont activiteit en bewijst geen inhoudelijke voortgang. Korte controles hebben aan start en eindresultaat voldoende. Succesregels per bestand vervallen; waarschuwingen, correcties, beperkingen en native diagnostiek blijven zichtbaar.
+
+| Afsluiting | Betekenis |
+| --- | --- |
+| `PASSED` | Voldoet volgens het bestaande toolbeleid; waarschuwingen kunnen aanwezig zijn. |
+| `FAILED` | Inhoudelijke afkeuring volgens dat beleid. |
+| `ERROR` | Uitvoering of noodzakelijke afronding is niet betrouwbaar voltooid. |
+| `SKIPPED` | Bewust overgeslagen volgens bestaande configuratie of beleid. |
+| `Result not classified` | De aanroeplaag kent alleen de oorspronkelijke processtatus; de diagnose blijft zichtbaar. |
+
+Volledigheid staat afzonderlijk bij `Execution`: `complete`, `incomplete`, `not executed` of `unknown`. Een bevinding blijft ook bij een latere uitvoerfout zichtbaar. Niet-afgeronde onderdelen tellen niet als geslaagd of bewust overgeslagen. Een lege selectie volgt het bestaande toolbeleid. Tellingen benoemen hun eenheid: bronnen, manifests, modules, testgevallen en bevindingen zijn verschillende aantallen. Een onbekende telling wordt weggelaten of als onbekend aangeduid, nooit als nul. De [toolhandleidingen](#pakketten-en-commandos) leggen hun concrete tellingen vast.
+
+Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, voorspelbaar gesorteerd op bron en positie waar die beschikbaar zijn. Native omvangrijke diagnoses mogen boven het compacte einde blijven staan, mits het einde daar expliciet naar verwijst. Kort geen bevindingen stilzwijgend af. Een rapportverwijzing verschijnt pas na een geslaagde schrijfhandeling voor deze uitvoering; een bestaand oud bestand is geen bewijs. Zonder rapportverzoek blijven bestaande rapporten ongemoeid. Een latere verplichte upload of checkoutcontrole kan de job alsnog laten falen.
+
+JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en behoudt de bestaande prioriteit van `pipefail`: de laatste niet-nul status. Een conversiefout en scanstatus blijven dus beide zichtbaar.
+
+Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. De EXIT-afhandeling laat een onverwachte fout ongeclassificeerd en bewaart haar code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
+
+`details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
+
+De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Alleen een Ruby-lintinstallatie heeft nog steeds geen shared-gem of Puppet-runtime nodig.
 
 ## Gedeeld toolingonderhoud
 

@@ -35,7 +35,11 @@
 #   DNSSEC mode passed to systemd-resolved configuration.
 #
 # @param docker_enable
-#   Enables management of the Docker upstream APT repository when supported.
+#   Enables the Docker APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes docker.list and docker.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/docker.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling.
 #
 # @param docs_enable
 #   Enables local documentation packages through `basic_settings::locale`.
@@ -52,14 +56,24 @@
 #   Allows the network class to purge competing firewall packages when `true`.
 #
 # @param getty_enable
-#   Controls console getty state through `basic_settings::login`.
+#   Keeps discovered, non-reserved text and serial consoles running when true and stops them on each Puppet run when
+#   false. Kiosk mode forces them on; getty_reserved_units takes precedence. Boot links remain unchanged and systemd
+#   or boot may activate consoles between runs. Requires the console_gettys agent fact; discovery failures stop
+#   compilation. Verify console recovery access before rollout.
 #
 # @param getty_reserved_units
-#   Concrete getty instances passed unchanged to `basic_settings::login` for exclusion from console management.
-#   Defaults to `[]`. See `basic_settings::login::getty_reserved_units` for accepted names, precedence, and ownership.
+#   Concrete getty@<instance>.service or serial-getty@<instance>.service names excluded from console management, for
+#   example getty@tty2.service or serial-getty@ttyAMA0.service. Wildcards and templates are invalid. An empty array
+#   reserves none. Reservations override getty_enable and kiosk mode; Puppet does not start, stop, enable, disable
+#   or mask reserved consoles. Arrange their ownership and activation separately. A reserved instance need not be
+#   discovered; discovery errors still fail compilation.
 #
 # @param gitlab_enable
-#   Enables management of the GitLab upstream APT repository when supported.
+#   Enables the GitLab APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes gitlab.list and gitlab.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/gitlab.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling.
 #
 # @param guest_agent_enable
 #   Enables detected VM guest-agent packages through `basic_settings::kernel`.
@@ -97,11 +111,17 @@
 #   Connection backlog limit passed to kernel templates and consumers.
 #
 # @param kernel_flavor
-#   Kernel profile passed to basic_settings::kernel: `auto` (default), `generic`, `raspi`, or `nvidia`.
-#   `auto` preserves existing suffix detection, including no kernel package selection for a running `-nvidia` kernel.
-#   Explicit profiles do not depend on the running kernel. `nvidia` requires Ubuntu 24.04 ARM64, installs the NVIDIA
-#   kernel and tools from Ubuntu, and retains generic kernels and linux-tools-common. It does not require
-#   nvidia_dgx_enable, install GPU drivers or CUDA, or trigger a reboot. Other baseline settings remain active.
+#   Selects the kernel package profile. Auto uses the running kernel suffix: -generic selects generic, -raspi
+#   selects raspi, and every other suffix (including -nvidia) selects no kernel packages. Other kernel hardening
+#   remains active. Explicit profiles ignore the running suffix.
+#   Generic installs linux-generic, removes the raspi metapackages and, on Ubuntu releases other than 26.04,
+#   installs the release-specific generic HWE image and headers. Raspi installs linux-raspi and removes generic
+#   kernel metapackages.
+#   Nvidia requires Ubuntu 24.04 ARM64 (arm64 or aarch64), otherwise compilation fails. It installs
+#   linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources, retaining existing generic kernels
+#   and linux-tools-common. It does not select the -nvidia-64k line or pin a build, require nvidia_dgx_enable,
+#   install GPU drivers or CUDA, choose a boot entry or trigger a reboot. Verify the package plan and boot
+#   configuration before a manual reboot; the README contains the complete Spark procedure.
 #
 # @param kernel_hugepages
 #   Hugepage count passed to the kernel class.
@@ -120,8 +140,9 @@
 #   Initramfs implementation selected for the kernel class.
 #
 # @param kernel_security_lockdown
-#   Kernel lockdown setting. `true` maps to `integrity`, `false` maps to `none`, and a string is treated as an explicit
-#   lockdown mode.
+#   Requests kernel lockdown: true selects integrity, false selects none and a string supplies an explicit mode.
+#   With Secure Boot, none becomes integrity. Without Secure Boot, ESET or an enabled detected VM guest agent
+#   overrides the request to none. This affects kernel boot configuration; verify compatibility before changing it.
 #
 # @param kernel_swap_free_profiles
 #   Optional SwapFree threshold profiles passed to `basic_settings::kernel`.
@@ -146,7 +167,12 @@
 #   Mail transport installed for monitoring and systemd failure notifications.
 #
 # @param mongodb_enable
-#   Enables management of the MongoDB upstream APT repository when supported.
+#   Enables the MongoDB APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes mongodb.list and mongodb.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/mongodb.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling. Also purges mongodb-org-server when disabled or unsupported; plan database
+#   backup and retirement first.
 #
 # @param mongodb_version
 #   MongoDB version used when the MongoDB repository is enabled.
@@ -159,10 +185,19 @@
 #   Installs the monitoring agent package when the selected backend supports it.
 #
 # @param mozilla_enable
-#   Enables management of the Mozilla APT repository when supported.
+#   Enables the Mozilla APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes mozilla.list and mozilla.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/mozilla.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling.
 #
 # @param mysql_enable
-#   Enables management of the MySQL upstream APT repository when supported.
+#   Enables the MySQL APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes mysql.list and mysql.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/mysql.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling. Cleanup also removes /etc/apt/preferences.d/90-mysql and
+#   /usr/share/keyrings/mysql.key.
 #
 # @param mysql_version
 #   MySQL version used when the MySQL repository is enabled.
@@ -171,10 +206,19 @@
 #   Interface patterns passed to network and systemd-networkd helpers.
 #
 # @param nginx_enable
-#   Enables management of the official Nginx APT repository when supported.
+#   Enables the Nginx APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes nginx.list and nginx.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/nginx-archive-keyring.gpg; this is active cleanup, not leaving
+#   existing configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths
+#   and check shared key use before disabling.
 #
 # @param nodejs_enable
-#   Enables management of the NodeSource APT repository when supported.
+#   Enables the NodeSource APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes nodesource.list and nodesource.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/nodesource.gpg; this is active cleanup, not leaving existing
+#   configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths and check
+#   shared key use before disabling. Also purges nodejs and removes the module-owned npm permission helper when
+#   disabled or unsupported.
 #
 # @param nodejs_version
 #   Node.js major version used by the NodeSource repository helper.
@@ -183,14 +227,24 @@
 #   Optional repository flag reserved for platform source templates.
 #
 # @param nvidia_dgx_enable
-#   Manages the NVIDIA DGX and CUDA repositories only on Ubuntu 24.04 (noble) arm64; unsupported activation fails.
-#   The default `false` removes this helper's source files and both signing keys. Set `true` before rollout to retain
-#   them.
-#   Check other sources for shared key paths first. Non-empty keys are not automatically rotated; see the private
-#   helper.
+#   Manages only the NVIDIA DGX and CUDA APT sources and public signing keys, not NVIDIA packages. True requires
+#   Ubuntu 24.04 (noble), with Facter architecture arm64 or aarch64; unsupported activation fails compilation. The
+#   selected source format replaces the alternative format.
+#   False, including omission, removes dgx.list, dgx.sources, cuda-compute-repo.list and cuda-compute-repo.sources
+#   from /etc/apt/sources.list.d and cuda_debian_prod.gpg and dgx_debian_prod.gpg from /usr/share/keyrings, even on
+#   unsupported platforms. Set true before rollout if these sources must remain, and check other sources for shared
+#   key paths. Installed software and other NVIDIA configuration remain untouched.
+#   When either key is missing or empty, both keys are bootstrapped again. Non-empty key contents are not compared
+#   or rotated automatically; plan key rotation separately. Source contents, owner and permissions converge on every
+#   run, and source/key changes refresh APT.
 #
 # @param openitcockpit_enable
-#   Enables management of the OpenITCOCKPIT APT repository when supported.
+#   Enables the OpenITCOCKPIT APT repository on supported platforms. The unused source format is removed. With false
+#   (including omission), or when the platform disallows it, removes openitcockpit.list and openitcockpit.sources
+#   from /etc/apt/sources.list.d and /usr/share/keyrings/openitcockpit.gpg; this is active cleanup, not leaving
+#   existing configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths
+#   and check shared key use before disabling. Cleanup also removes /etc/apt/auth.conf.d/openitcockpit.conf.
+#   Selecting a monitoring backend does not force this repository on.
 #
 # @param openitcockpit_license
 #   Optional OpenITCOCKPIT repository license token written to root-only APT auth.
@@ -214,7 +268,10 @@
 #   Enables Ubuntu Pro monitoring packages when Pro support is active.
 #
 # @param proxmox_enable
-#   Enables management of the Proxmox APT repository when supported.
+#   Requests the Proxmox APT repository. The current platform mapping disallows it on every platform, so both true
+#   and false remove proxmox.list and proxmox.sources from /etc/apt/sources.list.d and
+#   /usr/share/keyrings/proxmox.gpg. Removal refreshes APT. A Proxmox deployment must supply its own repository
+#   under different paths; this option does not install Proxmox.
 #
 # @param proxy_http
 #   Optional HTTP proxy rendered into APT configuration.
@@ -223,8 +280,10 @@
 #   Optional HTTPS proxy rendered into APT configuration.
 #
 # @param puppet_repo
-#   Optional override for Puppet package layout. `undef` lets the class choose `remote` when Vox Pupuli is enabled and
-#   supported, otherwise `distro`.
+#   Selects the effective Puppet package layout. With undef or omission, selects remote only when Vox Pupuli is both
+#   enabled and supported, otherwise distro. In the current implementation either explicit value, including remote,
+#   selects distro. To obtain automatic remote selection, leave this parameter unset and enable the supported Vox
+#   Pupuli source; do not rely on an explicit remote override.
 #
 # @param puppetserver_enable
 #   Enables Puppet Server/OpenVox Server package and service integration.
@@ -236,7 +295,11 @@
 #   Selects Perforce Puppet packages or Vox Pupuli/OpenVox naming.
 #
 # @param rabbitmq_enable
-#   Enables management of RabbitMQ upstream APT repositories when supported.
+#   Enables the Erlang and RabbitMQ APT repositories on supported platforms. Removes the unused source format. With
+#   false (including omission), or on unsupported platforms, removes rabbitmq-erlang.list/.sources and
+#   rabbitmq-server.list/.sources from /etc/apt/sources.list.d, plus rabbitmq-erlang.gpg and rabbitmq-server.gpg
+#   from /usr/share/keyrings. Source cleanup refreshes APT; it does not purge the broker package. Keep independent
+#   sources on other paths and check shared key use before disabling.
 #
 # @param server_fdqn
 #   Fully qualified host name passed to monitoring, security, package, and network templates. The default comes from
@@ -256,7 +319,11 @@
 #   sudoers snippets.
 #
 # @param sury_enable
-#   Enables management of the Sury/Ondrej PHP APT repository when supported.
+#   Enables the Sury/Ondrej PHP APT repository on supported platforms and removes its unused source format. With
+#   false (including omission), or when unsupported, removes sury_php.list and sury_php.sources from
+#   /etc/apt/sources.list.d and refreshes APT. On Ubuntu it also removes /usr/share/keyrings/sury.gpg; the Debian
+#   keyring package is not removed by this branch. Keep independent sources on other paths and check shared key use
+#   before disabling.
 #
 # @param systemd_default_target
 #   Target suffix selected as the default target in `basic_settings::systemd`.
@@ -286,7 +353,11 @@
 #   USB monitoring entries allowed without raising an unauthorized-device alert.
 #
 # @param voxpupuli_enable
-#   Enables management of the Vox Pupuli/OpenVox APT repository when supported.
+#   Enables the Vox Pupuli/OpenVox APT repository on supported platforms. The unused source format is removed. With
+#   false (including omission), or when the platform disallows it, removes voxpupuli.list and voxpupuli.sources from
+#   /etc/apt/sources.list.d and /usr/share/keyrings/openvox-keyring.gpg; this is active cleanup, not leaving
+#   existing configuration alone. Source removal refreshes APT. Keep independently managed sources on other paths
+#   and check shared key use before disabling.
 #
 # @param vulnerabilities_package
 #   Optional vulnerability scanner integration passed to login policy.
@@ -1246,7 +1317,7 @@ class basic_settings (
       $puppet_repo_correct = 'distro'
     }
   } else {
-    # Fall back to packages provided by the distribution.
+    # Explicit values currently select distro as well; see the public parameter contract before relying on remote.
     $puppet_repo_correct = 'distro'
   }
 

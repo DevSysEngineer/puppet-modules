@@ -13,20 +13,7 @@ Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie ve
 
 `project-tools-ruby-lint` levert [Ruby-lint](../ruby-lint/README.md), `project-tools-metadata` levert [metadatacontrole](../metadata/README.md) en `project-tools-validate` levert [parservalidatie](../validate/README.md). Kies deze tools afzonderlijk in de [ontwikkelbundle](../README.md). De [tooltests](#tests-uitvoeren-en-uitbreiden) controleren lintchecks, correcties en installatie.
 
-De lintnormen en gebruiksdocumentatie staan in vier centrale documenten: deze toolinghandleiding en de drie regelsbestanden [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). Iedere bron heeft een eigen verantwoordelijkheid:
-
-| Bron | Verantwoordelijkheid |
-| --- | --- |
-| [`CONTRIBUTING.md`](../../CONTRIBUTING.md) en [`TESTS.md`](../../TESTS.md) | Gezamenlijke ontwikkeling en validatie, naast de vier lintdocumenten. Agentinstructies geven uitsluitend de verplichte leesroute en agentspecifieke aanwijzingen. |
-| Deze [README](#inhoudsopgave) | Gebruik, installatie, configuratie, checks, CLI, CI, imports en onderhoud van de linttooling. |
-| [`docs/CODE_RULES.md`](docs/CODE_RULES.md) | Algemene codeprincipes voor alle eigen code, inclusief tooling, en aanvullende Puppet-regels; per regel het toepassingsgebied, uitzonderingen en handmatige reviewcriteria. |
-| [`docs/DOCUMENTATION_RULES.md`](docs/DOCUMENTATION_RULES.md) | Algemene documentatienormen, Markdown, README en redactionele review, plus afgebakende codecommentaar-, Puppet Strings- en interfaceafspraken. |
-| [`docs/OPERATIONAL_RULES.md`](docs/OPERATIONAL_RULES.md) | Operationele normen voor eigen scripts, services en integraties, met aanvullende Puppet-, shell-, systemd- en monitoringvoorwaarden. |
-| [`.puppet-lint.rc`](../../.puppet-lint.rc) en [gedeelde configuratie](config/) | Actieve lintconfiguratie. |
-| [Projectchecks](lib/project_lint/checks/) | Feitelijk detectie- en autofixgedrag. |
-| [Tooltests](tests) | Automatisch geverifieerde scenario's en regressies; uitsluitend bewijs voor de uitgevoerde scenario's. |
-
-De drie regelsbestanden vormen de centrale code- en implementatiestandaard, ook voor regels zonder automatische check. De [informatieplaatsing](docs/DOCUMENTATION_RULES.md#informatieplaatsing) bepaalt de plaatsing van nieuwe afspraken.
+Gebruik de [leeswijzer](#leeswijzer) om de toepasselijke normen te kiezen. De [centrale informatieplaatsing](docs/DOCUMENTATION_RULES.md#informatieplaatsing) bepaalt hun eigenaar; de [profielen](#configuratie-bestandsselectie-en-modulepad) en het [checkregister](#checkregister) verbinden die normen met de actieve controles.
 
 Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of correct runtimegedrag. Bij ontbrekende automatische dekking blijft de norm gelden en is handmatige review vereist. Bij strijdigheid beschrijf je norm en waargenomen gedrag afzonderlijk en registreer je het conflict in de oplevering; pas de norm of implementatie niet aan als redactionele oplossing. Corrigeer een feitelijk onjuiste CLI-beschrijving alleen met uitvoerbewijs. Behoud onduidelijke normen letterlijk en markeer de precieze onzekerheid. Een niet-uitgevoerde verplichte controle of onopgelost normconflict verhindert de eindstatus `Afgerond`.
 
@@ -37,17 +24,6 @@ Gebruik je de tooling voor het eerst, begin dan bij de snelstart voor [deze repo
 Volg bij iedere codewijziging de [algemene ontwerpregels](docs/CODE_RULES.md#algemene-ontwerpregels), ook voor Ruby, scripts en tooling. Voor Puppet gelden daarnaast de toepasselijke syntax-, parameter- en resourceregels in datzelfde bestand. Raakt de wijziging documentatie of codecommentaar, inclusief Puppet Strings en interfacebeschrijvingen, lees en volg dan daarnaast de relevante regels uit [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md).
 
 Raakt de wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan ook de relevante regels uit [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn. Ze vervangen de algemene coderegels nooit.
-
-Gebruik deze beslisstructuur om de toepasselijke documenten te kiezen. De onderwerpentabel eronder verwijst naar de relevante secties binnen die documenten.
-
-| Je wijziging | Toepasselijke regelsbestanden |
-| --- | --- |
-| Codeontwerp, hergebruik of componentgrenzen in modules, scripts, bibliotheken of tooling | [Algemene ontwerpregels](docs/CODE_RULES.md#algemene-ontwerpregels). |
-| Algemene documentatie, Markdown of een README | [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md#algemene-documentatienormen). |
-| Algemene Puppet-code, zoals een parameterwijziging | [CODE_RULES.md](docs/CODE_RULES.md). |
-| Commentaar, Puppet Strings of Puppet-interface-documentatie, zoals gewijzigde Strings bij een class | [CODE_RULES.md](docs/CODE_RULES.md) + [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md). |
-| Bestanden, beveiliging, systemd, shell of monitoring, zoals een nieuwe systemd-service | [CODE_RULES.md](docs/CODE_RULES.md) + [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). |
-| Operationele Puppet-code met gewijzigde documentatie, zoals een monitoring-define met Puppet Strings | [CODE_RULES.md](docs/CODE_RULES.md) + [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) + [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). |
 
 | Je taak | Lees hierbij |
 | --- | --- |
@@ -1163,11 +1139,11 @@ Zie de [gezamenlijke toolinghandleiding](../README.md#junit-rapportage-instellen
 - Houd lintnormen en publieke lintprocedures in precies vier centrale Nederlandse documenten: deze README voor gebruik, dagelijkse lintworkflow, onderhoud en het checkregister; CODE_RULES voor algemene codeprincipes en afgebakende taalregels; DOCUMENTATION_RULES voor algemene documentatienormen en aanvullende codecommentaar-, Strings- en interfaceafspraken; OPERATIONAL_RULES voor operationele normen en specifieke uitwerkingen. Volg de [gezamenlijke informatieplaatsing](docs/DOCUMENTATION_RULES.md#informatieplaatsing).
 - CONTRIBUTING en TESTS zijn afzonderlijke rootdocumenten voor gezamenlijke ontwikkeling en testbeleid, naast deze vier lintdocumenten. `AGENTS.md` bevat de agentleesroute, geen vijfde normverzameling of tweede register. Maak geen afzonderlijke lintdocumenten per check, regel, kleine regelgroep, autofix, consumer, CI-platform of testonderwerp. Een extra centraal lintdocument vereist een afzonderlijke expliciete architectuurwijziging; bestandsgrootte rechtvaardigt die niet automatisch.
 - Houd algemene coderegels onder CODE_RULES; voeg geen STYLE_RULES toe omdat deze afspraken ook interfaces, parameters, dependencies en resources omvatten. Gebruik REFERENCE niet voor lintnormen; module-REFERENCE-bestanden behouden hun Strings/API-functie.
-- Houd ieder van de vier lintdocumenten strikt onder 300 KiB (307200 bytes), bewaakt door de documentatiecontracttest. Review bij overschrijding eerst de plaatsing binnen hun verantwoordelijkheden. Verwijder of verkort geen noodzakelijke inhoud, combineer geen onafhankelijke regels voor ruimte en splits niet automatisch; een noodzakelijke vijfde bron vraagt een afzonderlijk expliciet beoordeelde architectuurwijziging.
+- Beoordeel omvang op de taak van de lezer volgens de [README-richtlijnen](docs/DOCUMENTATION_RULES.md#readme-richtlijnen). Verplaats geen noodzakelijke inhoud uitsluitend vanwege bestandsgrootte; houd gebruik, technische naslag en onderhoud via gerichte links bereikbaar.
 - Behoud bij herindeling alle eisen, uitzonderingen, waarschuwingen, detectiebeperkingen, autofixvoorwaarden, gebruiksroutes en handmatige reviewcriteria. Consolidatie behoudt iedere unieke voorwaarde en verplichting.
 - Houd de README-inhoudsopgave taakgericht op lintgebruik en tooling. Link duidelijk naar alle drie regelsdocumenten en tussen relevante secties volgens de [Markdownnorm](docs/DOCUMENTATION_RULES.md#markdown); benoem cumulatieve toepasselijkheid in de leeswijzer.
 - Houd repository- en consumersnelstart vóór de gedetailleerde lintreferentie en link gedeelde setup aan `../README.md`. Het enige checkregister en de maintaineruitleg blijven hier. Link vanuit het register rechtstreeks naar de normeigenaar zonder regels of register te dupliceren.
-- Algemene README-beknoptheid, selectief detail en presentatie mogen geen vereiste velden of informatie uit de lintreferentie verwijderen. Het onderstaande documentatiecontract blijft gelden.
+- Het onderstaande contract bewaakt de technische volledigheid van de lintreferentie. Gebruik voor uitsluitend handmatige normen de compacte uitleg; herhaal geen velden over niet-bestaande meldingen of fixes.
 
 ### Lintdocumentatie onderhouden
 
@@ -1177,18 +1153,18 @@ Verifieer inkomende links, ankers, inventarissen en uitvoeringscontracten met de
 
 #### Documentatiewijzigingen verifiëren
 
-- Pas het schema toe op regeluitleg, registerrijen en gebruiksprocedures. Behoud iedere onafhankelijke coderegel bij één heading, alle vereiste velden in exacte volgorde en exacte registerkolommen. Laat velden niet weg, hernoem of combineer ze niet zonder expliciete schemaopdracht van de eigenaar; voeg geen tweede regelnummering toe.
+- Pas het onderstaande contract toe op regeluitleg, registerrijen en gebruiksprocedures. Behoud iedere onafhankelijke coderegel bij één heading en de technische informatie die voor haar controle nodig is. Handmatige normen hoeven geen automatische meldingen of fixes te beschrijven. Voeg geen tweede regelnummering toe.
 - Verifieer precies één registerrij per geregistreerde projectcheck; toets ontbrekende, onbekende en dubbele namen afzonderlijk. Verifieer runtimeregistratie, beide profielactivaties, diagnostische dekking en normlinks als afzonderlijke eigenschappen. Classificeer autofix per meldingsvariant, niet enkel op aanwezigheid van een fixmethode.
 - Werk bij gewijzigde checks, diagnostiek, severity, defaults, autofix, suppressions, configuratie, dependencies, reporters of consumerinterfaces de geraakte normvelden, registerrijen, procedures, implementatie en tooltests samen bij. Onderbouw geen-documentatie-impact met de werkelijk beoordeelde interfaces. Verifieer versieclaims tegen constraints en opgeloste dependencies; onderscheid verklaarde compatibiliteit, geïnstalleerde versies, geteste combinaties en ontwikkelbeleid.
 - Verifieer gewijzigde configuratie-instructies tegen geïnstalleerde CLI, loader en tests. Bepaal voorrang per optietype; neem niet aan dat iedere latere waarde wint. Test gewijzigde downstreamprocedures in een onafhankelijk consumerproject met eigen Gemfile, lockfile, configuratie en manifestselectie. Valideer iedere beschreven installatieroute afzonderlijk, ook gebouwde pakketten bij distributie; pathinstallatie bewijst geen Git- of packageinstallatie. Controleer succesvolle en falende opdrachten, numerieke status en rapportproductie; geslaagde conversie mag falende lint of validatie nooit verbergen.
-- Controleer juiste en onjuiste voorbeelden, iedere uitzondering en grenscategorie, exacte fixes, herscannen en ongewijzigde tweede fixrun. Volledige voorbeelden moeten onder het hele benoemde profiel slagen; handmatige normen benoemen concrete stappen en criteria. Behoud voorbeeldlabels en procedurecontextvelden, definieer variabelen en vervangpaden vóór gebruik en start een nieuw contextblok bij andere context.
+- Controleer juiste en onjuiste voorbeelden, iedere uitzondering en grenscategorie, exacte fixes, herscannen en ongewijzigde tweede fixrun. Volledige voorbeelden moeten onder het hele benoemde profiel slagen; handmatige normen benoemen concrete stappen en criteria. Behoud voorbeeldlabels en benodigde procedurecontext, definieer variabelen en vervangpaden vóór gebruik en licht een veranderde context opnieuw toe.
 - Behoud headingankers zonder dubbele ID's en werk inkomende links bij verplaatsing bij. Noteer verplaatste, samengebrachte en gecorrigeerde verplichtingen, uitzonderingen, waarschuwingen en gebruiksroutes met oude en nieuwe plaatsen en bewijs in de review. Verander geen lintgedrag of norm alleen om een documentatieverschil op te lossen; houd norm en waargenomen gedrag gescheiden totdat de bedoelde correctie vaststaat.
 
 ### Schema voor regels en procedures
 
-Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md#markdown). Het onderstaande schema bepaalt welke informatie iedere coderegel daarnaast moet bevatten, inclusief algemene ontwerpregels zonder automatische taalcontrole. De algemene documentatie-, Markdown-, README- en redactionele normen in DOCUMENTATION_RULES houden hun onderwerpstructuur; zij zijn geen extra lintcoderegels. Het bestaande schema blijft onverkort gelden voor alle code- en operationele regelblokken en de aanvullende coderegels vanaf Commentaar en documentatie.
+Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md#markdown). Het onderstaande contract onderscheidt regels met automatische detectie van normen die inhoudelijke review vragen. De algemene documentatie-, Markdown-, README- en redactionele normen in DOCUMENTATION_RULES houden hun onderwerpstructuur; zij zijn geen extra lintcoderegels. Dit onderscheid geldt ook voor de aanvullende coderegels vanaf Commentaar en documentatie.
 
-Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Het schema bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](#documentatiewijzigingen-verifiëren) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
+Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Een automatisch gecontroleerde regel bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](#documentatiewijzigingen-verifiëren) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
 
 ```markdown
 **Norm**
@@ -1208,7 +1184,9 @@ Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTAT
 **Verificatie**
 ```
 
-Koppen die uitsluitend regels groeperen dragen `<!-- lint-rule-group -->`; zij bevatten zelf geen tweede norm. De structuurtest controleert ieder overig regelblok op het volledige schema, ook wanneer een veld geheel ontbreekt.
+Een uitsluitend handmatige norm behoudt `Norm`, `Herkomst`, `Toepassingsgebied`, `Handmatige review` en `Verificatie`. Behoud daarnaast concrete uitzonderingen, grenzen en nuttige reviewscenario's wanneer zij iets toevoegen. Vermeld ondersteunende checks met hun beperkte betekenis wanneer relevant. Voor deze normen zijn er geen eigen lintmelding, severity of autofix; een lintmarkering heft de reviewverplichting nooit op. Deze gemeenschappelijke grens hoeft niet bij iedere norm te worden herhaald.
+
+Koppen die uitsluitend regels groeperen dragen `<!-- lint-rule-group -->`; zij bevatten zelf geen tweede norm. De contracttest controleert de vereiste informatie per soort regel en wijst lege velden af. De redactionele review beoordeelt of de gekozen structuur de lezer helpt.
 
 Formuleer toepasselijkheid en vereiste actie rechtstreeks. Behoud of bestaand beleid verplicht, verboden, aanbevolen of toegestaan is. Houd voorwaarden, toegestane uitzonderingen, analysegrenzen en weigeringen van autofix bij de betreffende norm.
 
@@ -1222,9 +1200,9 @@ Label voorbeelden als `Fragment`, `Volledig uitvoerbaar voorbeeld` of `Handmatig
 
 Het centrale projectcheckregister staat uitsluitend in deze README, tussen `<!-- BEGIN PROJECT CHECK REGISTRY -->` en `<!-- END PROJECT CHECK REGISTRY -->`. Gebruik exact de kolommen `Check`, `Actief in repositoryprofiel`, `Actief in gedeeld profiel`, `Meldingsvarianten`, `Autofix` en `Regeluitleg`. Iedere geregistreerde projectcheck heeft één rij. Fixdekking beschrijft de afzonderlijke meldingsvarianten. Gemengde fixdekking heet `Per meldingsvariant` en verwijst naar de uitwerking in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md`. Regelverwijzingen uit het register wijzen rechtstreeks naar de betreffende autoritatieve headings. Maak geen tweede register in een regelsbestand.
 
-Vóór ieder procedureblok staan `Werkmap`, `Shell`, `Vereisten`, `Invoer`, `Wijzigt bestanden` en `Verwacht resultaat`. Variabelen en vervangbare paden zijn vooraf gedefinieerd; een gewijzigde context heeft een nieuw contextblok.
+Maak vóór uitvoering duidelijk waar en met welke shell een procedure werkt, welke voorbereiding en invoer nodig zijn, wat zij wijzigt en welk resultaat verwacht wordt. Gebruik de bestaande contextvelden waar ze helpen; onderhoud gedeelde context eenmaal en licht afwijkingen bij de betrokken stap toe. Definieer variabelen en vervangbare paden vooraf.
 
-De [inventaristest](tests/guide_inventory_test.rb) bewaakt de vier centrale documenten en de afzonderlijke lokale ontwikkelinstructie. De [structuurtest](tests/guide_structure_test.rb) controleert unieke normeigenaars, navigatie en de documentlimieten uit de [lokale onderhoudsafspraken](#grenzen-van-de-lintdocumentatie). De [documentatiecontracttest](tests/guide_contract_test.rb) controleert daarnaast registratie, regelverwijzingen en verplichte velden. Deze tests beoordelen het contract zonder documentatie te wijzigen. De [onderhoudsinstructies](#documentatiewijzigingen-verifiëren) verbinden wijzigingen aan documentatie, implementatie, profielen en regressietests.
+De [inventaristest](tests/guide_inventory_test.rb) bewaakt de vier centrale documenten en de afzonderlijke lokale ontwikkelinstructie. De [structuurtest](tests/guide_structure_test.rb) controleert unieke normeigenaars, navigatie en de documentverantwoordelijkheden uit de [lokale onderhoudsafspraken](#grenzen-van-de-lintdocumentatie). De [documentatiecontracttest](tests/guide_contract_test.rb) controleert daarnaast registratie, regelverwijzingen en verplichte velden. Deze tests beoordelen het contract zonder documentatie te wijzigen. De [onderhoudsinstructies](#documentatiewijzigingen-verifiëren) verbinden wijzigingen aan documentatie, implementatie, profielen en regressietests.
 
 ## Problemen oplossen
 

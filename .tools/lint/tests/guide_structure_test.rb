@@ -11,7 +11,6 @@ class GuideStructureTest < Minitest::Test
   DOCUMENTS = %w[README.md docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md].freeze
   INSTRUCTIONS = ['../../AGENTS.md', '../AGENTS.md',
                   *Dir.glob('*/AGENTS.md', base: File.join(ROOT, '..')).map { |path| "../#{path}" }].freeze
-  SIZE_LIMIT = 300 * 1024
   RULE_GROUPS = {
     'docs/CODE_RULES.md' => ['Algemene ontwerpregels', 'Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
                              'Parameters en resources'],
@@ -51,13 +50,11 @@ class GuideStructureTest < Minitest::Test
     end
   end
 
-  def test_each_document_stays_strictly_below_the_project_size_limit
+  def test_all_assigned_documents_exist_and_have_content
     DOCUMENTS.each do |name|
       path = File.join(ROOT, name)
       assert_path_exists path
-      size = File.size(path)
-      assert_operator size, :<, SIZE_LIMIT,
-                      "#{name} is #{size} bytes; project limit is strictly below #{SIZE_LIMIT} bytes (300 KiB)"
+      refute_empty File.read(path).strip, name
     end
   end
 

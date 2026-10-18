@@ -177,7 +177,6 @@ Gebruik `project-tools-metadata --fix` om metadata te herstellen. De selectie om
 export PROJECT_METADATA_MODULES_PATH=.
 bundle exec project-tools-metadata --fix
 bundle exec project-tools-metadata
-git diff
 ```
 
 In een ander project voeg je `--fix` toe aan de [metadata-aanroep](#gebruik-in-een-ander-project), vanuit de eigen projectroot en met de eigen modulelocatie en naamprefix. De optie `--fix` is expliciet; het commando leest geen `.puppet-lint.rc` of persoonlijke lintopties.
@@ -197,6 +196,8 @@ In een ander project voeg je `--fix` toe aan de [metadata-aanroep](#gebruik-in-e
 | Geen bekende velden of onbetrouwbare modulelocatie | Geen leeg basisobject of gegokte bestemming aanmaken | De concreet genoemde versiebron, eigenaar of modulelocatie instellen |
 
 Een onbekende dependencylijst wordt niet vertaald naar `[]`. Ontbrekende inhoud blijft bij de hercontrole een fout, ook na een gedeeltelijke correctie en in een volgende run. De fixrun controleert de herstelde metadata opnieuw op veldniveau; opgeloste versie- en bestandsmeldingen verdwijnen uit de actieve fouten. Een tweede `--fix` schrijft niets zolang geen nieuwe informatie of wijziging is aangeleverd. De [CLI-regressies](tests/metadata_autofix_test.rb) en de [pakkettest](tests/external_metadata_test.rb) controleren deze route buiten de repository met synthetische projecten.
+
+Beoordeel de gewijzigde metadata via de [gecontroleerde Git-inspectie](../../CONTRIBUTING.md#git-inspectie) voordat je haar overneemt.
 
 ## Aanvullende validatie
 

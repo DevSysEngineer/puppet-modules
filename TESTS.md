@@ -13,6 +13,7 @@ Dit document bepaalt welke controles bij een wijziging verplicht zijn, welke sce
   - [Interfaces, dependencies en gegenereerde inhoud](#interfaces-dependencies-en-gegenereerde-inhoud)
   - [Shellvalidatie](#shellvalidatie)
   - [Monitoringvalidatie](#monitoringvalidatie)
+  - [Documentatievalidatie](#documentatievalidatie)
 - [Isolatie en bewijsvoering](#isolatie-en-bewijsvoering)
 
 ## Soorten bewijs
@@ -94,6 +95,10 @@ Bij toolinterfaces gelden bovendien de [gedeelde integratie- en CI-review](.tool
 - Controleer voor iedere nieuwe of gewijzigde plugin alle uitvoerpaden en de gerenderde Puppet-integratie tegen de [centrale uitvoernorm](.tools/lint/docs/OPERATIONAL_RULES.md#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken). Vergelijk representatieve gezonde, afwijkende en onvolledige resultaten op behoud van status en perfdata; meld ontbrekende monitoringinterfacevalidatie expliciet.
 - Valideer voor iedere gewijzigde check registraties met minstens twee targets die hetzelfde executable met eigen instellingen aanroepen. Verifieer dat het verwijderen van één target het gedeelde executable en de andere registraties behoudt.
 - Beoordeel executorplanning afzonderlijk van scriptopties volgens het [agentplanningscontract](.tools/lint/docs/OPERATIONAL_RULES.md#agentplanning-afzonderlijk-afstemmen). Rapporteer gewijzigde operationele risico's en verifieer het geraakte monitoringgedrag.
+
+### Documentatievalidatie
+
+Bij gewijzigde Puppet-voorbeelden in Markdown of Strings controleer je de codeblokken afzonderlijk met de bestaande lint- en parserroute. Een gewone manifestscan vindt ze niet. Plaats fragmenten zo nodig in hun bedoelde geldige context in een tijdelijk manifest buiten de repository; voeg daarvoor geen algemene extractievoorziening toe. Controleer ook de redactionele samenhang en gerichte links volgens de [documentatienorm](.tools/lint/docs/DOCUMENTATION_RULES.md#redactionele-review). Leg vast of parameterhulp in de gebruikte editor en een consumer met `global-modules` daadwerkelijk is bekeken.
 
 ## Isolatie en bewijsvoering
 

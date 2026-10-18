@@ -67,6 +67,8 @@ Deze review geldt bij features en substantiële wijzigingen aan alle eigen code,
 
 ## Impact en inhoudelijke review
 
+Bepaal bij iedere wijziging welke parameteruitleg, implementatiecomments, README-ingang, voorbeelden, procedures en eventuele gegenereerde referentie geraakt zijn. Volg daarvoor [interfacebeschrijvingen synchroniseren](.tools/lint/docs/DOCUMENTATION_RULES.md#interfacebeschrijvingen-synchroniseren) en de [informatieplaatsing](.tools/lint/docs/DOCUMENTATION_RULES.md#informatieplaatsing); leg in de review vast wat is bijgewerkt of waarom de bestaande uitleg volstaat.
+
 - Pas de normen en hun handmatige reviewcriteria toe, ook als lint slaagt. De [lintconfiguratie](.puppet-lint.rc), gedeelde profielen en [checks](.tools/lint/lib/project_lint/checks/) bepalen automatische detectie en correctie; tooltests bewijzen alleen hun uitgevoerde scenario's. Houd verschillen tussen norm, configuratie, implementatie en testbewijs zichtbaar en wijzig geen bron stilzwijgend zonder bewijs of expliciete projectbeslissing.
 - Neem bij wijzigingen aan Puppet-conventies hun tests en alle geraakte eigen code in dezelfde wijziging mee.
 - Beoordeel gevolgen voor conventies, Puppet-abstracties en herbruikbare wrappers. Onderzoek bij een concreet voorbeeld of hetzelfde principe geldt voor andere resourcetypen, consumers of integraties binnen het geraakte gebied. Pas gedeeld gedrag consistent toe, behoud typespecifieke betekenis en noteer bereik en bewuste beperkingen.

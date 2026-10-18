@@ -82,8 +82,6 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 
 <a id="naslag"></a>
 
-De afspraken hieronder verbinden algemene codeprincipes met hun uitwerking voor Puppet. Aanvullende regels staan bij [documentatienormen](DOCUMENTATION_RULES.md) en [operationele wijzigingen](OPERATIONAL_RULES.md). Voor Puppet bepalen [`.puppet-lint.rc`](../../../.puppet-lint.rc) en de [projectchecks](../lib/project_lint/checks/) de actieve controles en hun feitelijke detectie en autofix; de [linthandleiding](../README.md#puppet-code-lintcontroles-en-hergebruik) beschrijft het autoriteitsmodel en de behandeling van conflicten. Gebruik het overzicht om vanuit een ontwerpbeslissing of lintmelding naar de betreffende afspraak te gaan. Een geslaagde scan bewijst geen correct functioneel gedrag, volledige documentatie of veilige serviceconfiguratie.
-
 ## Algemene ontwerpregels
 
 <!-- lint-rule-group -->
@@ -104,33 +102,13 @@ Projectregel
 
 Alle eigen code, waaronder modules, scripts, bibliotheken, tools en integratiecode. De regel geldt binnen een component en tussen componenten die hetzelfde gedrag nodig hebben.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Een syntactische overeenkomst bewijst geen gelijk contract. Bestaande taalcontroles bewaken hun eigen constructies, niet de betekenis of het gedrag van alle aanroepers.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze algemene ontwerpnorm.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de keuze van een gedeelde implementatie vereist kennis van de contracten en betrokken aanroepers.
-
 **Toegestane uitzonderingen**
 
 Afzonderlijke implementaties zijn toegestaan wanneer hun verantwoordelijkheden of contracten verschillen. Een verschil in beveiliging of levenscyclus mag niet verdwijnen om code te kunnen delen.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -170,33 +148,13 @@ Projectregel
 
 Alle eigen code, waaronder modules, scripts, bibliotheken, tools en integratiecode; zowel taakgebonden ingangen als gedeelde verwerking en hun aanroepers.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Namen, bestandslocaties en aantallen aanroepers bewijzen niet wie een verantwoordelijkheid hoort te dragen. Een taal- of dependencycontrole stelt de juiste componentgrens niet vast.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze algemene ontwerpnorm.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: verplaatsing vereist inhoudelijke kennis van eigenaarschap, interfaces en afhankelijkheden.
-
 **Toegestane uitzonderingen**
 
 Verschillende domeinbesluiten blijven bij hun eigenaren, ook wanneer zij dezelfde technische verwerking gebruiken. Gebruik binnen één component vereist geen gedeelde bibliotheek voor andere componenten.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -612,33 +570,13 @@ Projectregel
 
 Resources en gegenereerde configuratie met evaluatie- of runtimeafhankelijkheden.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Opmaak bewijst geen catalogusrelatie of runtimevolgorde. Zie [Volgorde en meldingen](#volgorde-en-meldingen) voor de plaatsingscriteria.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor functionele volgorde; dit vereist inhoudelijke review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: deze norm heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 De concrete plaatsingsuitzonderingen staan bij [Resources bij hun voorziening plaatsen](#resources-bij-hun-voorziening-plaatsen).
-
-**Suppressions**
-
-Suppressie niet toegestaan voor deze check. Een gemiste detectie is geen uitzondering op de norm.
 
 **Onjuist voorbeeld**
 
@@ -1103,33 +1041,13 @@ Projectregel
 
 Classes en defined types die afzonderlijk en gecombineerd worden gebruikt.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Type- en aanroepchecks bewijzen geen bruikbaarheid van een modulecombinatie.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor zelfstandige en gecombineerde bruikbaarheid.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: deze ontwerpnorm vereist inhoudelijke review.
-
 **Toegestane uitzonderingen**
 
 Geen uitzondering gedocumenteerd; verklaar noodzakelijke prerequisites in de interface.
-
-**Suppressions**
-
-Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en bronuitzonderingen veranderen deze regel niet.
 
 **Onjuist voorbeeld**
 
@@ -1165,33 +1083,13 @@ Projectregel
 
 Herhaalde orkestratie van Puppet-resources en migratie van de betrokken aanroepers.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 Geen check bewijst semantisch gedeelde resourceorkestratie of equivalentie van alle aanroepers. Opmaak-, aanroep- en dependencychecks dekken uitsluitend hun eigen contracten.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity: deze norm vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: voor deze norm bestaat geen automatische correctie.
-
 **Toegestane uitzonderingen**
 
 Een aanroeper behoudt zijn eigen instellingen en voorwaarden; gedeeld gedrag rechtvaardigt geen wijziging daarvan.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft deze handmatige norm niet op.
 
 **Onjuist voorbeeld**
 
@@ -1482,25 +1380,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/value-parameters.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/value-parameters.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1509,10 +1391,6 @@ Handmatig reviewscenario: Drie nieuwe parameters modelleren enable, default en c
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik één passende Variant; bereken eenmaal de *_correct-waarde en gebruik die in de template. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/value-parameters.
 
 **Handmatige review**
 
@@ -1544,25 +1422,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1571,10 +1433,6 @@ Handmatig reviewscenario: Een parameter heet maxBandwidth. Keur dit af tegen de 
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik een snake_case-naam die met het onderwerp begint, zoals bandwidth_max. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
 **Handmatige review**
 
@@ -1769,25 +1627,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende inhoud.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende inhoud.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1796,10 +1638,6 @@ Handmatig reviewscenario: Een directive wordt met de ruwe undef-parameter gevuld
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Gebruik de ruwe parameter uitsluitend om te beslissen of de regel nodig is, en de berekende waarde voor haar inhoud. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende inhoud.
 
 **Handmatige review**
 
@@ -1831,25 +1669,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of waarden is geen toegestane structuur.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of waarden is geen toegestane structuur.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -1858,10 +1680,6 @@ Handmatig reviewscenario: Een ongebruikte optionele undef-waarde veroorzaakt een
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Valideer alleen gebruikte waarden, bewaar één korte foutmelding of undef en plaats resources in de geldige tak. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of waarden is geen toegestane structuur.
 
 **Handmatige review**
 
@@ -1975,25 +1793,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalueerd was.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalueerd was.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -2002,10 +1804,6 @@ Handmatig reviewscenario: Een define leest een parentvariabele voordat de aanwez
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Controleer defined(Class[...]), plaats afhankelijke code in de geldige tak en geef bij ontbreken een duidelijke fout. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalueerd was.
 
 **Handmatige review**
 
@@ -2187,25 +1985,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparameters alsnog worden toegevoegd.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparameters alsnog worden toegevoegd.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -2214,10 +1996,6 @@ Handmatig reviewscenario: Een afnemer bouwt een servicetitel opnieuw op met onge
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Lees de waarde via de geaccepteerde resource, alias, servicetitel of API. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparameters alsnog worden toegevoegd.
 
 **Handmatige review**
 
@@ -2249,25 +2027,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is geen bewijs voor vroegere defined-uitkomsten.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is geen bewijs voor vroegere defined-uitkomsten.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -2276,10 +2038,6 @@ Handmatig reviewscenario: Een require wordt gekoppeld op basis van een pas later
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Controleer eerst directe resource, dan wrapper en parentwrapper; koppel na succes aan een geaccepteerde resource of anker. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is geen bewijs voor vroegere defined-uitkomsten.
 
 **Handmatige review**
 
@@ -2313,25 +2071,9 @@ Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De
 
 De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen runtimebeschikbaarheid.
 
-**Meldingen en severity**
-
-Geen afzonderlijke lintmelding of severity voor deze norm; de overtreding vraagt de hieronder beschreven handmatige afkeur.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: de concrete inhoudelijke correctie kan niet door een opmaakfix worden bewezen.
-
 **Toegestane uitzonderingen**
 
 Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen runtimebeschikbaarheid.
-
-**Suppressions**
-
-Suppressie niet toegestaan: de handmatige norm blijft gelden, ook bij een groene scan.
 
 **Onjuist voorbeeld**
 
@@ -2340,10 +2082,6 @@ Handmatig reviewscenario: Een operatie zonder beschikbare tool blijft actief omd
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Lever de vereiste prerequisite of het gedocumenteerde gedrag voor afwezigheid en beoordeel ordering afzonderlijk. Beoordeel de genoemde voorwaarden afzonderlijk.
-
-**Grensgevallen**
-
-Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen runtimebeschikbaarheid.
 
 **Handmatige review**
 
@@ -2371,33 +2109,13 @@ Projectregel
 
 Custom facts en hun Puppet-afnemers die bestaande host- of applicatietoestand nodig hebben.
 
-**Automatische controle**
-
-Geen automatische controle
-
 **Detectiegrenzen**
 
 De linter beoordeelt geen Ruby-facts, runtimebeschikbaarheid, herbruikbaarheid of het moment waarop objecten ontstaan.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity; deze ontwerpkeuze vereist handmatige review.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: het verplaatsen van discovery vereist een inhoudelijke beoordeling van eigenaarschap en timing.
-
 **Toegestane uitzonderingen**
 
 Discovery tijdens catalogustoepassing blijft mogelijk wanneer informatie pas dan beschikbaar of bruikbaar is. Facter heeft de voorkeur voor het beschreven inventarisatiemodel, maar is geen algemene vervanging voor iedere `exec`.
-
-**Suppressions**
-
-Niet van toepassing op automatische detectie; een lintmarkering heft de handmatige review niet op.
 
 **Onjuist voorbeeld**
 
@@ -3413,33 +3131,13 @@ Projectregel
 
 Nieuwe en verplaatste resources en defined-type-aanroepen binnen hun geldige uitvoerpad.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats voor een gerelateerde aanroep vereist de lokale technische toelichting en validatie uit de norm.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats voor een gerelateerde aanroep vereist de lokale technische toelichting en validatie uit de norm.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3448,10 +3146,6 @@ Handmatig reviewscenario: Een monitoringregistratie staat vóór de serviceconfi
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Plaats de registratie bij de aanvullende voorzieningen na de configuratie en service; behoud haar inschakelvoorwaarde. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats voor een gerelateerde aanroep vereist de lokale technische toelichting en validatie uit de norm.
 
 **Handmatige review**
 
@@ -3477,33 +3171,13 @@ Projectregel
 
 Ordering, notificaties en containment bij afhankelijkheidscycli en te brede classrelaties.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een kleinere stabiele resource mag de te brede classordering vervangen; de noodzakelijke notify blijft behouden.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Een kleinere stabiele resource mag de te brede classordering vervangen; de noodzakelijke notify blijft behouden.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
@@ -3512,10 +3186,6 @@ Handmatig reviewscenario: Een cyclus wordt omzeild met een los reloadcommando en
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Herstel de veroorzakende relatie of containment; behoud de service-notificatie, zo nodig met een kleinere stabiele orderingresource. Dit voldoet aan de norm onder de genoemde voorwaarden.
-
-**Grensgevallen**
-
-Een kleinere stabiele resource mag de te brede classordering vervangen; de noodzakelijke notify blijft behouden.
 
 **Handmatige review**
 
@@ -3549,33 +3219,13 @@ Projectregel
 
 Daemonconfiguratie, instellingen van aanvullende voorzieningen en gegevensoverdracht tussen callers, classes, defined types en hun templates.
 
-**Automatische controle**
-
-Geen automatische controle. Eventuele ondersteunende checks die in de norm worden genoemd bewijzen dit inhoudelijke contract niet.
-
 **Detectiegrenzen**
 
 De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. Ook variabelereferenties, AST-expressies, functie-whitelists en aantallen lezingen bewijzen niet welke component een waarde hoort af te leiden. Deze architectuurafspraak wordt inhoudelijk beoordeeld en heeft geen generieke detectiecheck. De sectiechecks beoordelen alleen opmaak en toelichting.
 
-**Meldingen en severity**
-
-Geen lintmelding of severity voor deze handmatige norm; de reviewer beoordeelt de overtreding op de hieronder genoemde criteria.
-
-**Autofix**
-
-Geen
-
-**Autofixvoorwaarden**
-
-Niet van toepassing: dit inhoudelijke contract heeft geen autofix.
-
 **Toegestane uitzonderingen**
 
 Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. De sectiechecks beoordelen alleen opmaak en toelichting.
-
-**Suppressions**
-
-Suppressie niet toegestaan: een lintmarkering heft deze reviewverplichting niet op.
 
 **Onjuist voorbeeld**
 
