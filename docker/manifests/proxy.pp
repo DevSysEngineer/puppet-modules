@@ -1,4 +1,4 @@
-# @summary Publishes one Docker application endpoint through the shared Nginx proxy configuration.
+# @summary Publishes Docker application routes through the shared Nginx proxy configuration.
 #
 # Declare docker and nginx first. This defined type owns only the vhost; callers own the Compose deployment and
 # order this endpoint after it with require. Multiple endpoints can therefore share one Compose stack.
@@ -18,9 +18,6 @@
 #     ssl_certificate     => '/etc/letsencrypt/live/admin.example.org/fullchain.pem',
 #     ssl_certificate_key => '/etc/letsencrypt/live/admin.example.org/privkey.pem',
 #   }
-#
-# @param proxy_port
-#   Local upstream port used by Nginx for `proxy_pass`.
 #
 # @param server_name
 #   Public Nginx `server_name` value for the generated vhost.
@@ -65,8 +62,18 @@
 # @param proxy_host
 #   Local upstream host used by Nginx for `proxy_pass`. The default is `127.0.0.1`.
 #
+# @param proxy_port
+#   Optional upstream port for location /. Undef returns 404 there. A present proxy needs this or proxy_routes.
+#
 # @param proxy_read_timeout
 #   Nginx proxy read timeout for long-lived requests and websocket sessions.
+#
+# @param proxy_routes
+#   Additional literal path prefixes mapped to { port => Integer, uri => Optional path }. Default {} adds none.
+#   Keys start with / and exclude the root path; use proxy_port for /. Paths accept letters, digits, /, _, ., ~ and -.
+#   Omit uri to preserve the request URI; set it to replace the matched prefix, including trailing-slash semantics.
+#   All routes share proxy_host, proxy_scheme, TLS verification, headers, timeouts and proxy_extra_directives.
+#   No regex locations or variable expansion are supported. Server access rules also cover every route.
 #
 # @param proxy_scheme
 #   Upstream scheme used by Nginx. The default is `https` so local proxy traffic is encrypted unless the caller
@@ -119,136 +126,161 @@
 #
 # @api public
 define docker::proxy (
-  Integer[1, 65535]        $proxy_port,
-  String                   $server_name,
-  Integer                  $backlog                       = -1,
-  Optional[String]         $client_max_body_size          = undef,
-  Variant[Boolean, String] $content_security_policy       = true,
-  Boolean                  $deferred                      = false,
-  Array[String]            $directives                    = [],
-  Boolean                  $http2_enable                  = true,
-  Boolean                  $http3_enable                  = true,
-  Boolean                  $http_enable                   = true,
-  Boolean                  $https_force                   = true,
-  Boolean                  $multipath                     = false,
-  Array[String]            $proxy_extra_directives        = [],
-  Pattern[/\A[^\r\n]+\z/]  $proxy_host                    = '127.0.0.1',
-  Pattern[/\A[^\r\n]+\z/]  $proxy_read_timeout            = '86400',
-  Enum['http', 'https']    $proxy_scheme                  = 'https',
-  Optional[String]         $proxy_ssl_trusted_certificate = undef,
-  Boolean                  $proxy_ssl_verify              = false,
-  Boolean                  $proxy_websocket               = true,
-  Variant[Boolean, String] $referrer_policy               = true,
-  Boolean                  $reuseport                     = false,
-  Optional[String]         $so_keepalive                  = undef,
-  Optional[String]         $ssl_certificate               = undef,
-  Optional[String]         $ssl_certificate_key           = undef,
-  Optional[String]         $ssl_certificate_trusted       = undef,
-  String                   $ssl_session_cache             = 'shared:SSL:10m',
-  String                   $ssl_session_timeout           = '10m',
-  Variant[Boolean, String] $strict_transport_security     = true,
-  Variant[Boolean, String] $x_content_type_options        = true,
-  Variant[Boolean, String] $x_frame_options               = true,
+  String                      $server_name,
+  Integer                     $backlog                       = -1,
+  Optional[String]            $client_max_body_size          = undef,
+  Variant[Boolean, String]    $content_security_policy       = true,
+  Boolean                     $deferred                      = false,
+  Array[String]               $directives                    = [],
+  Boolean                     $http2_enable                  = true,
+  Boolean                     $http3_enable                  = true,
+  Boolean                     $http_enable                   = true,
+  Boolean                     $https_force                   = true,
+  Boolean                     $multipath                     = false,
+  Array[String]               $proxy_extra_directives        = [],
+  Pattern[/\A[^\r\n]+\z/]     $proxy_host                    = '127.0.0.1',
+  Optional[Integer[1, 65535]] $proxy_port                    = undef,
+  Pattern[/\A[^\r\n]+\z/]     $proxy_read_timeout            = '86400',
+  Docker::ProxyRoutes         $proxy_routes                  = {},
+  Enum['http', 'https']       $proxy_scheme                  = 'https',
+  Optional[String]            $proxy_ssl_trusted_certificate = undef,
+  Boolean                     $proxy_ssl_verify              = false,
+  Boolean                     $proxy_websocket               = true,
+  Variant[Boolean, String]    $referrer_policy               = true,
+  Boolean                     $reuseport                     = false,
+  Optional[String]            $so_keepalive                  = undef,
+  Optional[String]            $ssl_certificate               = undef,
+  Optional[String]            $ssl_certificate_key           = undef,
+  Optional[String]            $ssl_certificate_trusted       = undef,
+  String                      $ssl_session_cache             = 'shared:SSL:10m',
+  String                      $ssl_session_timeout           = '10m',
+  Variant[Boolean, String]    $strict_transport_security     = true,
+  Variant[Boolean, String]    $x_content_type_options        = true,
+  Variant[Boolean, String]    $x_frame_options               = true,
 ) {
   # Endpoint configuration needs the same parent classes as the Compose proxy wrapper.
   if (defined(Class['nginx']) and defined(Class['docker'])) {
-    # Construct the proxy upstream URL for use in the generated Nginx configuration.
-    $proxy_upstream = "${proxy_scheme}://${proxy_host}:${proxy_port}"
+    # A proxy must publish at least one backend; route-only vhosts intentionally omit the root backend.
+    if ($proxy_port != undef or !$proxy_routes.empty) {
+      # Determine correct https_force value based on whether SSL is configured for the public vhost.
+      $ssl_enable = ($ssl_certificate != undef and $ssl_certificate_key != undef)
+      $https_force_correct = $ssl_enable ? {
+        true    => $https_force,
+        default => false,
+      }
 
-    # Determine correct https_force value based on whether SSL is configured for the public vhost.
-    $ssl_enable = ($ssl_certificate != undef and $ssl_certificate_key != undef)
-    $https_force_correct = $ssl_enable ? {
-      true    => $https_force,
-      default => false,
-    }
+      # Determine the correct proxy_ssl_verify directive value based on the boolean parameter.
+      $proxy_ssl_verify_value = $proxy_ssl_verify ? {
+        true    => 'on',
+        default => 'off',
+      }
+      $proxy_ssl_verify_directives = $proxy_scheme ? {
+        'https' => ["proxy_ssl_verify ${proxy_ssl_verify_value};"],
+        default => [],
+      }
 
-    # Determine the correct proxy_ssl_verify directive value based on the boolean parameter.
-    $proxy_ssl_verify_value = $proxy_ssl_verify ? {
-      true    => 'on',
-      default => 'off',
-    }
-    $proxy_ssl_verify_directives = $proxy_scheme ? {
-      'https' => ["proxy_ssl_verify ${proxy_ssl_verify_value};"],
-      default => [],
-    }
+      # Determine the correct proxy_ssl_trusted_certificate directive based on the presence of the parameter and the upstream scheme.
+      if ($proxy_scheme == 'https' and $proxy_ssl_trusted_certificate != undef) {
+        # Pass the supplied trust store to Nginx for HTTPS upstream verification.
+        $proxy_ssl_trusted_directives = [
+          "proxy_ssl_trusted_certificate ${proxy_ssl_trusted_certificate};",
+        ]
+      } else {
+        # Omit upstream trust-store directives when no HTTPS trust store is selected.
+        $proxy_ssl_trusted_directives = []
+      }
 
-    # Determine the correct proxy_ssl_trusted_certificate directive based on the presence of the parameter and the upstream scheme.
-    if ($proxy_scheme == 'https' and $proxy_ssl_trusted_certificate != undef) {
-      # Pass the supplied trust store to Nginx for HTTPS upstream verification.
-      $proxy_ssl_trusted_directives = [
-        "proxy_ssl_trusted_certificate ${proxy_ssl_trusted_certificate};",
+      # Determine websocket directives based on the boolean parameter.
+      $proxy_websocket_directives = $proxy_websocket ? {
+        true    => [
+          'proxy_http_version 1.1;',
+          'proxy_set_header Upgrade $http_upgrade;',
+          'proxy_set_header Connection $connection_upgrade;',
+        ],
+        default => [],
+      }
+
+      # Base proxy directives are always included; SSL and websocket directives are conditional.
+      $location_directives_base = [
+        'proxy_set_header Host $host;',
+        'proxy_set_header X-Real-IP $remote_addr;',
+        'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
+        'proxy_set_header X-Forwarded-Host $host;',
+        'proxy_set_header X-Forwarded-Proto $scheme;',
+        "proxy_read_timeout ${proxy_read_timeout};",
       ]
+
+      # Append optional proxy directives in their effective Nginx order.
+      $shared_proxy_directives = concat(
+        $location_directives_base,
+        $proxy_ssl_verify_directives,
+        $proxy_ssl_trusted_directives,
+        $proxy_websocket_directives,
+        $proxy_extra_directives,
+      )
+
+      # Render root and additional routes through the same upstream and header implementation.
+      $root_route = $proxy_port ? {
+        undef   => {},
+        default => { '/' => { 'port' => $proxy_port } },
+      }
+      $upstream_routes = stdlib::merge($root_route, $proxy_routes)
+      $rendered_routes = Hash($upstream_routes.map |$path, $route| {
+        # An absent URI preserves the complete request path; a supplied URI replaces the matched prefix.
+        $upstream_uri = $route['uri'] ? { undef => '', default => $route['uri'] }
+        $upstream_url = "${proxy_scheme}://${proxy_host}:${route['port']}${upstream_uri}"
+        [$path, concat(["proxy_pass ${upstream_url};"], $shared_proxy_directives)]
+      })
+
+      # Keep unmatched application paths closed when no root backend is selected.
+      $location_directives = $proxy_port ? {
+        undef   => ['return 404;'],
+        default => $rendered_routes['/'],
+      }
+      $locations = $rendered_routes.filter |$path, $route_directives| { $path != '/' }.map |$path, $route_directives| {
+        { 'path' => $path, 'location_directives' => $route_directives }
+      }
+
+      # Keep access and error diagnostics in separate logs for this proxy.
+      $proxy_access_log = "/var/log/nginx/docker_compose_${name}_access.log combined buffer=32k flush=1m"
+      $proxy_error_log = "/var/log/nginx/docker_compose_${name}_error.log"
+
+      # Publish the Compose stack with the prepared proxy settings.
+      nginx::server { "docker_compose_${name}":
+        access_log                => $proxy_access_log,
+        backlog                   => $backlog,
+        client_max_body_size      => $client_max_body_size,
+        content_security_policy   => $content_security_policy,
+        deferred                  => $deferred,
+        directives                => $directives,
+        docroot                   => undef,
+        error_log                 => $proxy_error_log,
+        http2_enable              => $http2_enable,
+        http3_enable              => $http3_enable,
+        http_enable               => $http_enable,
+        https_enable              => $ssl_enable,
+        https_force               => $https_force_correct,
+        location_directives       => $location_directives,
+        locations                 => $locations,
+        multipath                 => $multipath,
+        php_fpm_enable            => false,
+        referrer_policy           => $referrer_policy,
+        reuseport                 => $reuseport,
+        server_name               => $server_name,
+        so_keepalive              => $so_keepalive,
+        ssl_certificate           => $ssl_certificate,
+        ssl_certificate_key       => $ssl_certificate_key,
+        ssl_certificate_trusted   => $ssl_certificate_trusted,
+        ssl_ocsp                  => $ssl_enable,
+        ssl_session_cache         => $ssl_session_cache,
+        ssl_session_timeout       => $ssl_session_timeout,
+        strict_transport_security => $strict_transport_security,
+        try_files                 => false,
+        x_content_type_options    => $x_content_type_options,
+        x_frame_options           => $x_frame_options,
+      }
     } else {
-      # Omit upstream trust-store directives when no HTTPS trust store is selected.
-      $proxy_ssl_trusted_directives = []
-    }
-
-    # Determine websocket directives based on the boolean parameter.
-    $proxy_websocket_directives = $proxy_websocket ? {
-      true    => [
-        'proxy_http_version 1.1;',
-        'proxy_set_header Upgrade $http_upgrade;',
-        'proxy_set_header Connection $connection_upgrade;',
-      ],
-      default => [],
-    }
-
-    # Base proxy directives are always included; SSL and websocket directives are conditional.
-    $location_directives_base = [
-      "proxy_pass ${proxy_upstream};",
-      'proxy_set_header Host $host;',
-      'proxy_set_header X-Real-IP $remote_addr;',
-      'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
-      'proxy_set_header X-Forwarded-Host $host;',
-      'proxy_set_header X-Forwarded-Proto $scheme;',
-      "proxy_read_timeout ${proxy_read_timeout};",
-    ]
-
-    # Append optional proxy directives in their effective Nginx order.
-    $location_directives = concat(
-      $location_directives_base,
-      $proxy_ssl_verify_directives,
-      $proxy_ssl_trusted_directives,
-      $proxy_websocket_directives,
-      $proxy_extra_directives,
-    )
-
-    # Keep access and error diagnostics in separate logs for this proxy.
-    $proxy_access_log = "/var/log/nginx/docker_compose_${name}_access.log combined buffer=32k flush=1m"
-    $proxy_error_log = "/var/log/nginx/docker_compose_${name}_error.log"
-
-    # Publish the Compose stack with the prepared proxy settings.
-    nginx::server { "docker_compose_${name}":
-      access_log                => $proxy_access_log,
-      backlog                   => $backlog,
-      client_max_body_size      => $client_max_body_size,
-      content_security_policy   => $content_security_policy,
-      deferred                  => $deferred,
-      directives                => $directives,
-      docroot                   => undef,
-      error_log                 => $proxy_error_log,
-      http2_enable              => $http2_enable,
-      http3_enable              => $http3_enable,
-      http_enable               => $http_enable,
-      https_enable              => $ssl_enable,
-      https_force               => $https_force_correct,
-      location_directives       => $location_directives,
-      multipath                 => $multipath,
-      php_fpm_enable            => false,
-      referrer_policy           => $referrer_policy,
-      reuseport                 => $reuseport,
-      server_name               => $server_name,
-      so_keepalive              => $so_keepalive,
-      ssl_certificate           => $ssl_certificate,
-      ssl_certificate_key       => $ssl_certificate_key,
-      ssl_certificate_trusted   => $ssl_certificate_trusted,
-      ssl_ocsp                  => $ssl_enable,
-      ssl_session_cache         => $ssl_session_cache,
-      ssl_session_timeout       => $ssl_session_timeout,
-      strict_transport_security => $strict_transport_security,
-      try_files                 => false,
-      x_content_type_options    => $x_content_type_options,
-      x_frame_options           => $x_frame_options,
+      fail('docker::proxy requires proxy_port or at least one proxy_routes entry.')
     }
   } else {
     fail('docker::proxy requires the docker and nginx classes before creating a reverse proxy vhost.')

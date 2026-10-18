@@ -124,6 +124,17 @@
 #   Uses the same syntax, execution context and prerequisite contract as start_post_commands. A command failure
 #   skips the remaining ExecStop commands, including Compose; failures are not ignored.
 #
+# @param systemd_service
+#   Overrides for the generated [Service] section, merged over Compose defaults. Empty preserves existing behavior.
+#   Each supplied directive replaces its complete default value, including arrays. Use strings for scalar values.
+#   Keep the Compose commands, oneshot lifecycle, working directory and required privileges when overriding them.
+#   Unit files are world-readable; do not include secrets. Changes reload systemd and take effect on the next start.
+#
+# @param systemd_unit
+#   Overrides for the generated [Unit] section, merged over Compose defaults. Empty preserves existing behavior.
+#   Replacing After, Requires, Wants or OnFailure replaces the complete value; retain required dependencies and
+#   monitoring hooks. The separate target binding remains managed by target. Requires basic_settings::systemd.
+#
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated Compose service. The default is
 #   `services`.
@@ -157,6 +168,8 @@ define docker::compose (
   Enum['always', 'missing', 'never']           $pull                           = 'missing',
   Array[Pattern[/\A[^\r\n]+\z/]]               $start_post_commands            = [],
   Array[Pattern[/\A[^\r\n]+\z/]]               $stop_pre_commands              = [],
+  Hash                                         $systemd_service                = {},
+  Hash                                         $systemd_unit                   = {},
   String                                       $target                         = 'services',
 ) {
   # Validate the compose name to avoid issues with file paths and systemd unit names.
@@ -360,12 +373,12 @@ define docker::compose (
                   'UMask'                   => '0077',
                   'User'                    => 'root',
                   'WorkingDirectory'        => $project_directory,
-                }),
+                }, $systemd_service),
                 unit               => stdlib::merge($unit_failure, {
                     'After'    => ['docker.service', 'network-online.target'],
                     'Requires' => 'docker.service',
                     'Wants'    => 'network-online.target',
-                }),
+                }, $systemd_unit),
                 daemon_reload      => $daemon_reload,
                 enable             => false,
                 require            => $service_require,

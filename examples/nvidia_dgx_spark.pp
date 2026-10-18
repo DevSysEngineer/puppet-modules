@@ -10,13 +10,14 @@ node 'dgx-spark.example.org' {
   class { 'basic_settings':
     docker_enable     => true,
     ip_forwarding     => true,
+    nginx_enable      => true,
     kernel_flavor     => 'nvidia',
     nvidia_dgx_enable => true,
   }
 
   # Pin selection precedes driver installation and waits for the NVIDIA sources, APT refresh and selected kernel headers.
   class { 'nvidia':
-    pinning => 580,
+    pinning => lookup('profile::nextcloud_ai::driver_branch', Integer[1]),
     require => [
       Class['basic_settings::kernel', 'basic_settings::package_nvidia_dgx'],
       Exec['basic_settings_source_reload'],
@@ -27,4 +28,49 @@ node 'dgx-spark.example.org' {
   class { 'docker':
     require => Class['basic_settings'],
   }
+
+  # Terminate TLS on the host; these vLLM listeners expose HTTP only on loopback.
+  class { 'nginx':
+    securitytxt_contacts => ['mailto:security@example.org'],
+    require              => Class['basic_settings'],
+  }
+
+  # Pin image digests and model commits in deployment data after verifying the driver/image combination on this host.
+  # Replace the allowed documentation address with the Nextcloud source address observed by Nginx.
+  # NVIDIA's 26.09-py3 image supplies vllm serve; memory and audio limits below require a real recording acceptance test.
+  docker::vllm { 'nextcloud-ai':
+    api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
+    llm_image             => lookup('profile::nextcloud_ai::llm_image', String[1]),
+    llm_model             => 'Qwen/Qwen3-14B',
+    llm_served_model_name => 'nextcloud-verslag',
+    stt_image             => lookup('profile::nextcloud_ai::stt_image', String[1]),
+    stt_model             => 'openai/whisper-large-v3-turbo',
+    stt_served_model_name => 'whisper-1',
+    server_name           => 'ai.example.org',
+    ssl_certificate       => '/etc/letsencrypt/live/ai.example.org/fullchain.pem',
+    ssl_certificate_key   => '/etc/letsencrypt/live/ai.example.org/privkey.pem',
+    whitelist_ips         => ['192.0.2.10'],
+    llm_arguments         => [
+      '--revision', lookup('profile::nextcloud_ai::llm_revision', String[1]),
+      '--dtype', 'bfloat16',
+      '--max-model-len', '32768',
+      '--max-num-seqs', '1',
+      '--gpu-memory-utilization', '0.45',
+      '--reasoning-parser', 'qwen3',
+    ],
+    stt_arguments         => [
+      '--revision', lookup('profile::nextcloud_ai::stt_revision', String[1]),
+      '--dtype', 'float16',
+      '--max-model-len', '448',
+      '--max-num-seqs', '1',
+      '--gpu-memory-utilization', '0.10',
+    ],
+    stt_environment       => {
+      'VLLM_MAX_AUDIO_CLIP_FILESIZE_MB'   => '1024',
+      'VLLM_MAX_AUDIO_DECODE_DURATION_S'  => '7200',
+      'VLLM_MAX_AUDIO_DECODE_BYTES'       => '2147483648',
+      'VLLM_MAX_AUDIO_PREPROCESS_WORKERS' => '1',
+    },
+  }
+
 }

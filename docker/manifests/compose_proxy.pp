@@ -17,8 +17,19 @@
 #     server_name    => 'example.org',
 #   }
 #
-# @param proxy_port
-#   Local upstream port used by Nginx for `proxy_pass`.
+# @example Publish two API routes without a root backend; declare docker and nginx first
+#   docker::compose_proxy { 'model-api':
+#     compose_source      => 'puppet:///modules/profile/model-api/compose.yaml',
+#     server_name         => 'ai.example.org',
+#     http_enable         => false,
+#     proxy_routes        => {
+#       '/llm/v1/' => { 'port' => 8000, 'uri' => '/v1/' },
+#       '/stt/v1/' => { 'port' => 8001, 'uri' => '/v1/' },
+#     },
+#     proxy_scheme        => 'http',
+#     ssl_certificate     => '/etc/letsencrypt/live/ai.example.org/fullchain.pem',
+#     ssl_certificate_key => '/etc/letsencrypt/live/ai.example.org/privkey.pem',
+#   }
 #
 # @param server_name
 #   Public Nginx `server_name` value for the generated vhost.
@@ -126,8 +137,18 @@
 # @param proxy_host
 #   Local upstream host used by Nginx for `proxy_pass`. The default is `127.0.0.1`.
 #
+# @param proxy_port
+#   Optional upstream port for location /. Undef returns 404 there. A present proxy needs this or proxy_routes.
+#
 # @param proxy_read_timeout
 #   Nginx proxy read timeout for long-lived requests and websocket sessions.
+#
+# @param proxy_routes
+#   Additional literal path prefixes mapped to { port => Integer, uri => Optional path }. Default {} adds none.
+#   Keys start with / and exclude the root path; use proxy_port for /. Paths accept letters, digits, /, _, ., ~ and -.
+#   Omit uri to preserve the request URI; set it to replace the matched prefix, including trailing-slash semantics.
+#   All routes share proxy_host, proxy_scheme, TLS verification, headers, timeouts and proxy_extra_directives.
+#   No regex locations or variable expansion are supported. Server access rules also cover every route.
 #
 # @param proxy_scheme
 #   Upstream scheme used by Nginx. The default is `https` so local proxy traffic is encrypted unless the caller
@@ -184,6 +205,17 @@
 # @param strict_transport_security
 #   HSTS header value passed to `nginx::server`.
 #
+# @param systemd_service
+#   Overrides for the generated [Service] section, merged over Compose defaults. Empty preserves existing behavior.
+#   Each supplied directive replaces its complete default value, including arrays. Use strings for scalar values.
+#   Keep the Compose commands, oneshot lifecycle, working directory and required privileges when overriding them.
+#   Unit files are world-readable; do not include secrets. Changes reload systemd and take effect on the next start.
+#
+# @param systemd_unit
+#   Overrides for the generated [Unit] section, merged over Compose defaults. Empty preserves existing behavior.
+#   Replacing After, Requires, Wants or OnFailure replaces the complete value; retain required dependencies and
+#   monitoring hooks. The separate target binding remains managed by target. Requires basic_settings::systemd.
+#
 # @param target
 #   `basic_settings::systemd` target suffix for the generated Compose service.
 #
@@ -195,7 +227,6 @@
 #
 # @api public
 define docker::compose_proxy (
-  Integer[1, 65535]                            $proxy_port,
   String                                       $server_name,
   Integer                                      $backlog                        = -1,
   Optional[Pattern[/\A[^\r\n]+\z/]]            $backup_database_on_calendar    = undef,
@@ -233,7 +264,9 @@ define docker::compose_proxy (
   }]]                                          $project_directories            = {},
   Array[String]                                $proxy_extra_directives         = [],
   Pattern[/\A[^\r\n]+\z/]                      $proxy_host                     = '127.0.0.1',
+  Optional[Integer[1, 65535]]                  $proxy_port                     = undef,
   Pattern[/\A[^\r\n]+\z/]                      $proxy_read_timeout             = '86400',
+  Docker::ProxyRoutes                          $proxy_routes                   = {},
   Enum['http', 'https']                        $proxy_scheme                   = 'https',
   Optional[String]                             $proxy_ssl_trusted_certificate  = undef,
   Boolean                                      $proxy_ssl_verify               = false,
@@ -250,6 +283,8 @@ define docker::compose_proxy (
   Array[Pattern[/\A[^\r\n]+\z/]]               $start_post_commands            = [],
   Array[Pattern[/\A[^\r\n]+\z/]]               $stop_pre_commands              = [],
   Variant[Boolean, String]                     $strict_transport_security      = true,
+  Hash                                         $systemd_service                = {},
+  Hash                                         $systemd_unit                   = {},
   String                                       $target                         = 'services',
   Variant[Boolean, String]                     $x_content_type_options         = true,
   Variant[Boolean, String]                     $x_frame_options                = true,
@@ -281,6 +316,8 @@ define docker::compose_proxy (
       pull                           => $pull,
       start_post_commands            => $start_post_commands,
       stop_pre_commands              => $stop_pre_commands,
+      systemd_service                => $systemd_service,
+      systemd_unit                   => $systemd_unit,
       target                         => $target,
       require                        => Class['docker'],
     }
@@ -288,7 +325,6 @@ define docker::compose_proxy (
     # Create the public proxy only for deployed stacks.
     if ($ensure == present) {
       docker::proxy { $name:
-        proxy_port                    => $proxy_port,
         server_name                   => $server_name,
         backlog                       => $backlog,
         client_max_body_size          => $client_max_body_size,
@@ -302,7 +338,9 @@ define docker::compose_proxy (
         multipath                     => $multipath,
         proxy_extra_directives        => $proxy_extra_directives,
         proxy_host                    => $proxy_host,
+        proxy_port                    => $proxy_port,
         proxy_read_timeout            => $proxy_read_timeout,
+        proxy_routes                  => $proxy_routes,
         proxy_scheme                  => $proxy_scheme,
         proxy_ssl_trusted_certificate => $proxy_ssl_trusted_certificate,
         proxy_ssl_verify              => $proxy_ssl_verify,

@@ -1,0 +1,65 @@
+# Managed by puppet
+services:
+# <% if @llm_enabled %>
+  llm:
+    image: <%= @llm_image.to_json.gsub('$', '$$') %>
+    platform: linux/arm64
+    runtime: nvidia
+    command: <%= ['vllm', 'serve', @llm_model, '--host', '0.0.0.0', '--port', '8000', '--served-model-name', @llm_served_model_name, *@llm_arguments].to_json.gsub('$', '$$') %>
+    ports:
+      - "127.0.0.1:<%= @llm_port %>:8000"
+    environment:
+      VLLM_API_KEY: ${VLLM_API_KEY}
+      VLLM_ENGINE_READY_TIMEOUT_S: "<%= @engine_ready_timeout %>"
+    volumes:
+      - ./hf-cache:/root/.cache/huggingface
+      - ./llm-cache:/root/.cache/vllm
+    restart: unless-stopped
+    shm_size: <%= @shm_size.to_json.gsub('$', '$$') %>
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: [CMD, python3, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=5)']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: "<%= @startup_timeout %>s"
+# <% end %>
+# <% if @stt_enabled %>
+  stt:
+    image: <%= @stt_image.to_json.gsub('$', '$$') %>
+    platform: linux/arm64
+    runtime: nvidia
+    command: <%= ['vllm', 'serve', @stt_model, '--host', '0.0.0.0', '--port', '8000', '--served-model-name', @stt_served_model_name, *@stt_arguments].to_json.gsub('$', '$$') %>
+    ports:
+      - "127.0.0.1:<%= @stt_port %>:8000"
+    environment: <%= @stt_environment.transform_values { |value| value.gsub('$', '$$') }.merge({ 'VLLM_API_KEY' => '${VLLM_API_KEY}', 'VLLM_ENGINE_READY_TIMEOUT_S' => @engine_ready_timeout.to_s }).to_json %>
+    volumes:
+      - ./hf-cache:/root/.cache/huggingface
+      - ./stt-cache:/root/.cache/vllm
+    restart: unless-stopped
+    shm_size: <%= @shm_size.to_json.gsub('$', '$$') %>
+# <% if @llm_enabled %>
+    depends_on:
+      llm:
+        condition: service_healthy
+# <% end %>
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: [CMD, python3, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=5)']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: "<%= @startup_timeout %>s"
+# <% end %>

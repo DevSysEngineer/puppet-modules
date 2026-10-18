@@ -33,6 +33,7 @@ node 'container-basic.example.org' {
     monitoring_profiles        => ['production'],
     monitoring_starting_grace  => 600,
     monitoring_timeout         => 90,
+    systemd_service            => { 'TimeoutStartSec' => '600' },
     target                     => 'services',
     require                    => Class['docker'],
   }
@@ -284,6 +285,100 @@ node 'nextcloud.example.org' {
     allow_multiple_user_backends => false,
   }
 
+  # Nextcloud 35 / Talk 35 with integration_openai 5.0.0 and a working AIO Talk recording server.
+  # Deploy and test the Spark APIs first; cross-host readiness cannot be expressed with catalog dependencies.
+  # AIO supplies taskprocessing-worker; do not create a second host worker.
+  $completion_parameter = '0'
+  $completion_limit = '4096'
+  $ai_settings = {
+    'url'                             => 'https://ai.example.org/llm/v1',
+    'service_name'                    => 'Spark verslag',
+    'default_completion_model_id'     => 'nextcloud-verslag',
+    'stt_url'                         => 'https://ai.example.org/stt/v1',
+    'stt_service_name'                => 'Spark transcriptie',
+    'default_stt_model_id'            => 'whisper-1',
+    'llm_provider_enabled'            => '1',
+    'stt_provider_enabled'            => '1',
+    'chat_endpoint_enabled'           => '1',
+    'use_max_completion_tokens_param' => $completion_parameter,
+    'max_tokens'                      => $completion_limit,
+    'request_timeout'                 => '3600',
+    'stt_request_timeout'             => '3600',
+    'use_basic_auth'                  => '0',
+    'stt_use_basic_auth'              => '0',
+    'llm_extra_params'                => '{"chat_template_kwargs":{"enable_thinking":false},"temperature":0.2}',
+  }
+  $ai_setting_descriptors = $ai_settings.reduce({}) |$result, $entry| {
+    $result + { $entry[0] => { 'type' => 'string', 'value' => $entry[1] } }
+  }
+
+  # Additional apps use the shared app lifecycle; the AIO-owned spreed app is already installed.
+  docker::nextcloud_app { 'assistant':
+    ensure       => true,
+    compose_name => 'nextcloud-aio',
+  }
+
+  # Keep provider configuration separate from the two native sensitive app values below.
+  docker::nextcloud_app { 'integration_openai':
+    ensure       => true,
+    compose_name => 'nextcloud-aio',
+    settings     => $ai_setting_descriptors,
+  }
+
+  # The same secret lookup is used on Spark; protect both the OCC argument and the decrypted details comparison.
+  $ai_api_key = lookup('profile::nextcloud_ai::api_key', Sensitive[String])
+  $api_value = $ai_api_key.unwrap
+  $value_argument = "--value=${api_value}"
+  $ai_api_key_argument = Sensitive($value_argument)
+  ['api_key', 'stt_api_key'].each |$config_key| {
+    # Correct an equal existing value when its storage type or native lazy/sensitive flags differ.
+    $details_json = stdlib::to_json({
+      'app'       => 'integration_openai',
+      'key'       => $config_key,
+      'value'     => $api_value,
+      'type'      => 'string',
+      'lazy'      => true,
+      'sensitive' => true,
+    })
+    $expected_details = Sensitive($details_json)
+    docker::nextcloud_occ { "nextcloud_ai_${config_key}":
+      compose_name => 'nextcloud-aio',
+      command      => [
+        'config:app:set', 'integration_openai', $config_key,
+        '--type=string', '--sensitive', '--lazy', $ai_api_key_argument,
+      ],
+      unless       => ['config:app:get', 'integration_openai', $config_key, '--details'],
+      unless_json  => $expected_details,
+      require      => Docker::Nextcloud_app['integration_openai'],
+    }
+  }
+
+  # Keep the language and reporting instruction in consumer data; the README supplies a suggested Dutch prompt.
+  $talk_summary_prompt = lookup('profile::nextcloud_ai::talk_summary_prompt', String[1])
+  $talk_settings = {
+    'call_recording_transcription'  => 'yes',
+    'call_recording_summary'        => 'yes',
+    'call_recording_summary_prompt' => $talk_summary_prompt,
+  }
+  $talk_settings.each |$config_key, $config_value| {
+    docker::nextcloud_occ { "nextcloud_ai_talk_${config_key}":
+      compose_name => 'nextcloud-aio',
+      command      => [
+        'config:app:set', 'spreed', $config_key,
+        '--type=string', "--value=${config_value}",
+      ],
+      unless       => ['config:app:get', 'spreed', $config_key],
+      unless_json  => stdlib::to_json($config_value),
+      require      => [
+        Docker::Nextcloud_app['integration_openai'],
+        Docker::Nextcloud_occ['nextcloud_ai_api_key', 'nextcloud_ai_stt_api_key'],
+      ],
+    }
+  }
+
+  # In AI administration select integration_openai-audio2text for core:audio2text and integration_openai-text2text for core:text2text.
+  # Preserve other provider preferences; enable a previously disabled task type explicitly instead of replacing preference JSON.
+
   # Register a path-style endpoint, preserving an explicit false option and fractional connection timeout.
   # Opt in to read-only HeadBucket monitoring; provision its permission and a host curl with certificate output.
   docker::nextcloud_s3 { 'server1':
@@ -341,4 +436,30 @@ node 'gitlab-runner.example.org' {
   # Before relying on the runner, test checkout, a job with an explicit image and artifact upload on an isolated Linux host.
   # Verify actual manager/job/helper mounts, TLS and cache separately, then repeat Puppet, noop, replacement and reboot checks.
   # Pause and drain jobs before maintenance; follow docker::gitlab_runner's recovery and removal guidance before deleting state.
+}
+
+# Minimal vLLM declaration; use nvidia_dgx_spark.pp for the complete host, model tuning and TLS routing scenario.
+# Supply Docker and NVIDIA APT sources and matching kernel headers before applying this Ubuntu 24.04 ARM64 node.
+node 'vllm.example.org' {
+  include basic_settings::systemd
+
+  class { 'nvidia':
+    pinning => lookup('profile::nextcloud_ai::driver_branch', Integer[1]),
+  }
+
+  # Declare the driver first so Docker installs and registers the NVIDIA Container Toolkit.
+  class { 'docker': }
+
+  # Supply model commits and memory settings as argv arrays in the consumer's deployment data.
+  docker::vllm { 'nextcloud-ai':
+    api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
+    llm_image             => lookup('profile::nextcloud_ai::llm_image', String[1]),
+    llm_model             => 'Qwen/Qwen3-14B',
+    llm_served_model_name => 'nextcloud-verslag',
+    stt_image             => lookup('profile::nextcloud_ai::stt_image', String[1]),
+    stt_model             => 'openai/whisper-large-v3-turbo',
+    stt_served_model_name => 'whisper-1',
+    llm_arguments         => lookup('profile::nextcloud_ai::llm_arguments', Array[String[1]]),
+    stt_arguments         => lookup('profile::nextcloud_ai::stt_arguments', Array[String[1]]),
+  }
 }

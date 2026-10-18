@@ -315,7 +315,7 @@ Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de 
 
 <a id="doel-1"></a>
 
-`docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose_proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO en GitLab Runner zijn er kant-en-klare configuraties.
+`docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose_proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO, vLLM en GitLab Runner zijn er kant-en-klare configuraties.
 
 <a id="belangrijkste-eigenschappen-1"></a>
 
@@ -325,6 +325,7 @@ Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de 
 - Publiceert applicaties desgewenst via een Nginx reverse proxy, standaard met HTTPS naar de applicatie.
 - Levert Authentik en Twenty met `Sensitive` geheimen en dagelijkse PostgreSQL-back-ups.
 - Beheert Nextcloud AIO met optionele beheerproxy, SMTP en benoemde S3-objectstores.
+- Levert afzonderlijke vLLM-servers voor tekst en transcriptie op ARM64 met de NVIDIA-runtime.
 - Levert GitLab Runner met optionele eenmalige registratie en behoud van de actieve runnerconfiguratie.
 
 #### Belangrijke aandachtspunten
@@ -355,7 +356,7 @@ Geef `.env`-inhoud met geheimen door als `Sensitive(...)` en gebruik voor gedown
 
 Declareer voor `docker::compose_proxy` ook `nginx`; kies alleen HTTP naar de achterliggende applicatie als die geen TLS ondersteunt.
 
-`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L125), of zet `akadmin_remove => false` om het account te behouden.
+`docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L126), of zet `akadmin_remove => false` om het account te behouden.
 
 Authentik en Nextcloud nemen zonder eigen relay de SMTP-relay over uit de gedeclareerde `basic_settings`. Controleer de transportbeveiliging: standaard gebruikt Authentik geen TLS en Nextcloud alleen STARTTLS als de relay dat aanbiedt. Verplichte versleuteling vraagt dus een expliciete keuze; zie de SMTP-contracten bij [Authentik](docker/manifests/authentik.pp) en [Nextcloud](docker/manifests/nextcloud.pp).
 
@@ -389,7 +390,23 @@ docker::compose { 'example':
 
 Start de stack na de eerste inrichting met `sudo systemctl start docker-compose-example.service`. Bij het opstarten van de server verzorgt het gekoppelde systemd-target de start. Puppet laat een gestopte stack gestopt; wijzigingen aan het Compose-bestand of `.env` herstarten alleen een al actieve service. Dit geldt ook voor de applicatiewrappers.
 
-Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L6), [Nginx-proxy](examples/docker.pp#L61), [Authentik met eigen beheerder](examples/docker.pp#L125) en [Twenty met S3-opslag](examples/docker.pp#L189). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
+Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L6), [Nginx-proxy](examples/docker.pp#L62), [Authentik met eigen beheerder](examples/docker.pp#L126) en [Twenty met S3-opslag](examples/docker.pp#L190). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
+
+Met `systemd_service` en `systemd_unit` kun je via `docker::compose` en `docker::compose_proxy` de gegenereerde systemd-secties aanpassen. Bijvoorbeeld `systemd_service => { 'TimeoutStartSec' => '3600' }`. De opgegeven directives vervangen hun volledige standaardwaarde; overige instellingen blijven behouden. Behoud de benodigde Compose-commando’s, afhankelijkheden en hardening, en plaats geen geheimen in de publiek leesbare unit. Wijzigingen laden systemd opnieuw; de nieuwe instellingen gelden bij de volgende start. Zie de [Compose Strings](docker/manifests/compose.pp) voor het contract.
+
+Met `proxy_routes` kunnen [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en [`docker::proxy`](docker/manifests/proxy.pp) meerdere URL-paden naar verschillende poorten sturen. Elke route bevat een `port` en optioneel een `uri` die het gematchte padvoorvoegsel vervangt. Zonder `uri` blijft het verzoekpad behouden; afsluitende slashes bepalen de vervanging volgens [Nginx `proxy_pass`](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass). Host, protocol, headers, timeouts en TLS-verificatie gelden voor alle routes. `proxy_port` blijft de backend voor `/`; zonder die parameter retourneert de rootlocatie 404. Geef voor een aanwezige proxy minstens één backend op. Het routevoorbeeld staat in de [Compose-proxy Strings](docker/manifests/compose_proxy.pp).
+
+#### vLLM op DGX Spark gebruiken
+
+Met [`docker::vllm`](docker/manifests/vllm.pp) beheer je tekstgeneratie, transcriptie of beide in één Compose-project. `llm_image => undef` schakelt tekstgeneratie uit; `stt_image => undef` schakelt transcriptie uit. Beide zijn standaard uitgeschakeld. Geef voor iedere ingeschakelde service ook het model en de API-modelnaam op; een aanwezige stack moet minstens één service hebben. De Strings bevatten voorbeelden met alleen LLM of alleen STT. Het [Spark-voorbeeld](examples/nvidia_dgx_spark.pp) combineert beide services met hostbeheer en HTTPS-toegang. Lever geteste ARM64-image-digests, modelcommits en de bijbehorende driverbranch vanuit je deploymentdata. De images moeten `vllm serve` ondersteunen; de [NVIDIA-releasebeschrijving](https://docs.nvidia.com/deeplearning/frameworks/vllm-release-notes/rel-26-09.html) beschrijft het vertrekpunt voor dit scenario. Controleer naast apparaattoegang ook een GPU-berekening in de gekozen image.
+
+Lever één willekeurig token van 64 hextekens als `Sensitive[String]` via `profile::nextcloud_ai::api_key`. De ingeschakelde API's gebruiken dit token en zijn op de host alleen via loopback bereikbaar. Met `server_name`, `ssl_certificate`, `ssl_certificate_key` en `whitelist_ips` gebruikt de wrapper `docker::compose_proxy`, die de vhost via `docker::proxy` beheert; declareer daarvoor eerst `nginx`. Alleen ingeschakelde services krijgen een route: `/llm/v1/` of `/stt/v1/`. De proxy behoudt de Authorization-header en weigert standaard alle bronadressen totdat je de whitelist invult. De vhost en logs volgen de gedeelde naam `docker_compose_<project>`. Zonder `server_name` wordt geen proxy ingericht. De consumer beheert DNS, certificaatbestanden en firewalltoegang.
+
+vLLM haalt ontbrekende modellen zelf op. De bestanden blijven onder `/opt/docker/nextcloud-ai/hf-cache` bewaard wanneer je containers vervangt; iedere ingeschakelde service krijgt daarnaast een eigen enginecache. Uitschakelen van een service laat zijn bestaande cache staan. Zorg voor voldoende schijfruimte en uitgaande downloadtoegang. Start na provisioning met `sudo systemctl start docker-compose-nextcloud-ai.service` en wacht totdat alle ingeschakelde services healthy zijn. De eerste download kan veel langer duren dan een start vanuit cache; kies daarvoor passende timeouts volgens de [Strings](docker/manifests/vllm.pp). Bij verwijdering verdwijnen ook deze caches: volg eerst de Compose-stop- en verwijderprocedure hierboven.
+
+vLLM geeft zijn `startup_timeout` rechtstreeks aan de Compose-unit door; een aparte timeout-drop-in is niet nodig. Via dezelfde `systemd_service`- en `systemd_unit`-parameters kun je dit aanpassen. Een eigen `TimeoutStartSec` verandert de healthcheck- en monitoringgrace niet.
+
+De geheugen- en audiolimieten in het voorbeeld zijn startwaarden. Test de ingeschakelde modellen en herhaal dit na een reboot en Docker-herstart. Alleen als beide services actief zijn, wacht STT bij de eerste Compose-start op een healthy LLM; deze volgorde geldt niet voor iedere zelfstandige containerherstart. Compose-monitoring bewaakt uitsluitend de ingeschakelde services met de ingestelde opstartgrace. Een geslaagde healthcheck bewijst nog geen geslaagde transcriptie of voldoende modelcontext.
 
 #### Databaseback-ups en herstel
 
@@ -481,6 +498,24 @@ OCC voert wijzigingen alleen uit wanneer Nextcloud is geïnstalleerd. Aanwezige 
 
 Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/login?direct=1` kun je de normale loginpagina bereiken zolang die route beschikbaar blijft, zoals beschreven in de [user_oidc-documentatie](https://github.com/nextcloud/user_oidc#disable-other-login-methods). Deze instelling bepaalt het inloggedrag en maakt niet alle alternatieve authenticatiemethoden technisch onmogelijk.
 
+##### Talk-opnamen transcriberen en samenvatten
+
+Het [Nextcloud-scenario](examples/docker.pp) koppelt Nextcloud 35 en Talk 35 met `integration_openai` 5.0.0 aan de twee Spark-API's. Gebruik een werkende AIO Talk-opnameserver en test eerst beide HTTPS-routes vanuit de Nextcloud-container. Controleer de versies bij een update; oudere Talk-versies gebruiken een ander taaktype voor samenvattingen. De wrapper werkt apps niet automatisch bij.
+
+Neem de app- en OCC-declaraties op bij je bestaande AIO-deployment en gebruik dezelfde secretlookup als op Spark. Het voorbeeld configureert beide endpoints en modelnamen, bewaart de twee API-sleutels met Nextclouds native sensitive- en lazy-vlaggen en activeert transcriptie en samenvatting. Een bestaande persoonlijke integratiesleutel kan de beheerderssleutel voor tekstaanvragen vervangen; controleer die bij gebruikersgebonden authenticatiefouten. Voor deze integratie hoef je `allow_local_remote_servers` niet globaal in te schakelen.
+
+Lever de Nederlandse verslaginstructie als `profile::nextcloud_ai::talk_summary_prompt`. Een bruikbaar vertrekpunt is:
+
+> Maak een Nederlands vergaderverslag op basis van uitsluitend het transcript. Gebruik de koppen Samenvatting, Besluiten, Actiepunten en Openstaande vragen. Vermeld bij een actiepunt alleen een eigenaar of deadline als die expliciet uit het transcript blijkt. Schrijf anders “niet genoemd”. Verzin geen namen, besluiten of afspraken. Markeer onduidelijke passages als onzeker. Houd het verslag beknopt en behoud belangrijke nuances.
+
+Controleer in AI-beheer dat `core:audio2text` de provider `integration_openai-audio2text` gebruikt en `core:text2text` de provider `integration_openai-text2text`. Bij één geschikte provider is doorgaans geen keuze nodig. Activeer eerder uitgeschakelde taaktypen gericht; vervang geen volledige voorkeuren-JSON. Alleen `core:text2text:summary` configureren volstaat niet voor deze Talk-versie.
+
+AIO beheert de ingebouwde `taskprocessing-worker` naast cron. Voeg geen extra hostworker toe. Controleer bij een AIO-image met dinit de dienst met `docker exec nextcloud-aio-nextcloud dinitctl --system status taskprocessing-worker`. Controleer voor grote opnamen ook de effectieve CLI-PHP-geheugenlimiet: de integratie leest het opnamebestand volledig in. Pas bij een aangetoond tekort de bestaande AIO-instelling `NEXTCLOUD_MEMORY_LIMIT` aan; een aparte worker met andere PHP-vlaggen is daarvoor niet nodig.
+
+Test de volledige keten met een echte Talk-MP4: de integratie verstuurt die als multipart-bestand `file.mp3`, met model `whisper-1` en `response_format=verbose_json`. Controleer eerst audio-imports en MP4-decodering in de STT-image, daarna het transcript en het Nederlandse verslag bij de opname-eigenaar. Test zowel een opname langer dan tien minuten en groter dan 25 MiB als de langste gebruikelijke vergadering. Uploadlimiet, PHP-geheugen, decodebuffer, verwerkingstimeout en LLM-context moeten allemaal passen; Talk geeft het volledige transcript als één teksttaak door. Kijk het verslag inhoudelijk na en controleer daarna een tweede Puppet-run, noop en normale herstarts.
+
+Zet voor terugzetten de twee automatiseringsvlaggen in het voorbeeld op `'no'` en laat bestaande AI-taken afronden vóór je de backend terugzet. Laat de gedeelde AIO-worker actief. Alleen de appresource weglaten herstelt eerdere instellingen niet; `ensure => false` verwijdert de app en kan appdata verwijderen.
+
 ##### AIO-back-ups
 
 Puppet maakt `/opt/docker/<naam>/backup` aan met eigenaar `root:root` en rechten `0700`. Dit activeert nog geen back-ups. Vul het volledige hostpad eenmalig in bij **Local backup location** in de AIO-interface, zonder afsluitende slash of `/borg`. Voor het voorbeeld is dat `/opt/docker/nextcloud-aio/backup`; AIO plaatst de Borg-repository daaronder in `borg`. Je kunt ook een hostpad buiten de projectmap of een externe Borg-repository kiezen.
@@ -505,7 +540,7 @@ Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en g
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L316) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L411) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
@@ -1186,12 +1221,12 @@ Interpretation:
 De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specifieke waarden in profielen of Hiera en neem voorbeeldgeheimen nooit letterlijk over.
 
 - [`examples/site.pp`](examples/site.pp): Gecombineerde basisinstellingen, webserver, PHP, SSH, Docker, MySQL en profielopbouw.
-- [`examples/docker.pp`](examples/docker.pp): Compose, monitoring, Nginx-proxy, Authentik, Twenty, Nextcloud AIO met meerdere S3-objectstores en een aparte GitLab Runner-host met eenmalige registratie.
+- [`examples/docker.pp`](examples/docker.pp): Compose, monitoring, Nginx-proxy, Authentik, Twenty, vLLM, Nextcloud AIO met Talk-AI en meerdere S3-objectstores en een aparte GitLab Runner-host met eenmalige registratie.
 - [`examples/web.pp`](examples/web.pp): Nginx, PHP-FPM, Let's Encrypt, TLS, security headers en reverse proxies.
 - [`examples/data-services.pp`](examples/data-services.pp): MySQL, RabbitMQ en vnStat.
 - [`examples/monitoring.pp`](examples/monitoring.pp): OpenITCOCKPIT-agent, eigen checks en monitoringinstellingen.
 - [`examples/hosts.pp`](examples/hosts.pp): Beheer van `/etc/hosts` via de hoofdclass, networkclass en losse entries.
-- [`examples/nvidia_dgx_spark.pp`](examples/nvidia_dgx_spark.pp): Headless DGX Spark / ASUS Ascent GX10 met Ubuntu 24.04 ARM64, NVIDIA-pakketbronnen en kernel, gepinde GPU-driver en automatische Docker-GPU-integratie.
+- [`examples/nvidia_dgx_spark.pp`](examples/nvidia_dgx_spark.pp): Headless DGX Spark / ASUS Ascent GX10 met Ubuntu 24.04 ARM64, NVIDIA-pakketbronnen en kernel, gepinde GPU-driver, automatische Docker-GPU-integratie en vLLM met twee HTTPS-routes.
 
 ## Contributie
 
