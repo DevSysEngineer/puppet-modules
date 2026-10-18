@@ -8,14 +8,27 @@ require 'timeout'
 class CiLogsTest < Minitest::Test
   include CiLogSupport
 
-  def test_local_exit_trap_preserves_an_unclassified_failure
+  def test_local_exit_trap_explains_an_unfinished_step_and_preserves_its_status
     output, errors, status = shell('source "$1"; ci_begin "Synthetic check"; printf "native diagnostic\n" >&2; exit 7')
     assert_equal 7, status.exitstatus
-    assert_includes output, '[Result not classified] Synthetic check'
+    assert_includes output, '[ERROR] Synthetic check'
+    assert_includes output, 'Execution: incomplete'
+    assert_includes output, 'Reason: The step ended before a result was confirmed'
+    refute_includes output, 'unknown'
     assert_includes output, 'Original exit status: 7'
     assert_includes errors, 'native diagnostic'
     refute_includes output, '::group::'
     refute_includes output, 'section_start:'
+  end
+
+  def test_explicit_failure_reason_is_part_of_the_single_summary
+    script = 'source "$1"; ci_begin Synthetic; ci_end 1 FAILED complete "$SYNTHETIC_REASON"'
+    output, _errors, status = shell(script, 'SYNTHETIC_REASON' => "Warnings rejected\n::error::synthetic")
+    assert_equal 1, status.exitstatus
+    assert_equal 1, output.scan('[FAILED]').size
+    assert_includes output, 'Reason: Warnings rejected ::error::synthetic'
+    refute_match(/^::error::/, output)
+    refute_includes output, 'Diagnostic: native output above'
   end
 
   def test_setup_failure_closes_platform_group_before_the_error_summary

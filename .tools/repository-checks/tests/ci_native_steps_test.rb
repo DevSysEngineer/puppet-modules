@@ -8,25 +8,44 @@ require 'yaml'
 class CiNativeStepsTest < Minitest::Test
   include CiLogSupport
 
-  def workflow_steps(job)
-    YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml')).fetch('jobs').fetch(job).fetch('steps')
-  end
-
   def test_pipeline_retains_scan_and_converter_status_and_rightmost_failure_priority
-    step = workflow_steps('puppet_lint').find { |item| item.fetch('run', '').include?('PIPESTATUS') }
-    script = step.fetch('run').sub('source .github/actions/setup-tooling/log.sh', 'source "$1"')
-    [[0, 0, 0], [1, 0, 1], [0, 3, 3], [7, 3, 3]].each do |scan, converter, expected|
-      assert_pipeline(script, scan, converter, expected)
+    puppet_scripts.each do |script|
+      [[0, 0, 0, 'PASSED'], [1, 10, 1, 'FAILED'], [0, 10, 0, 'PASSED'],
+       [1, 0, 1, 'ERROR'], [7, 10, 7, 'ERROR'], [1, 1, 1, 'ERROR'],
+       [0, 3, 3, 'ERROR'], [7, 3, 3, 'ERROR']].each do |scan, converter, expected, outcome|
+        assert_pipeline(script, scan, converter, expected, outcome)
+      end
     end
   end
 
-  def assert_pipeline(script, scan, converter, expected)
+  def puppet_scripts
+    github = guide_configuration('jobs').dig('jobs', 'puppet_lint', 'steps')
+    gitlab = guide_configuration('.check_setup').dig('puppet_lint', 'script')
+    scripts = [puppet_script(workflow_steps('puppet_lint')), puppet_script(github)]
+    scripts << gitlab.find { |script| script.include?('PIPESTATUS') }
+    scripts.map { |script| "source \"$1\"\nci_begin 'Puppet lint'\nset +e\n#{script.split("set +e\n", 2).last}" }
+  end
+
+  def puppet_script(steps)
+    steps.find { |item| item.fetch('run', '').include?('PIPESTATUS') }.fetch('run')
+  end
+
+  def assert_pipeline(script, scan, converter, expected, outcome)
     output, errors, status = shell(fake_pipeline + script, 'SCAN_STATUS' => scan.to_s,
                                                            'CONVERTER_STATUS' => converter.to_s)
     assert_equal expected, status.exitstatus, output + errors
-    assert_includes output, "Native scan exit status: #{scan} | Converter exit status: #{converter}"
+    conversion_status = converter == 10 ? 0 : converter
+    assert_includes output, "Native scan exit status: #{scan} | Converter exit status: #{conversion_status}"
+    assert_pipeline_outcome(output, outcome)
     assert_includes errors, 'native warning'
-    refute_includes output, '[PASSED]' unless expected.zero?
+  end
+
+  def assert_pipeline_outcome(output, outcome)
+    assert_includes output, "[#{outcome}] Puppet lint"
+    assert_includes output, 'Execution: incomplete' if outcome == 'ERROR'
+    assert_includes output, '--fail-on-warnings also rejects warnings' if outcome == 'FAILED'
+    refute_includes output, 'unknown'
+    refute_includes output, '[PASSED]' unless outcome == 'PASSED'
   end
 
   def fake_pipeline
@@ -68,16 +87,5 @@ class CiNativeStepsTest < Minitest::Test
   def bundler_step
     action = YAML.load_file(File.join(ROOT, '.github/actions/setup-tooling/action.yml'))
     action.dig('runs', 'steps').find { |item| item.fetch('run', '').include?('gem install bundler') }.fetch('run')
-  end
-
-  def test_rubocop_offenses_and_runtime_errors_keep_distinct_outcomes
-    step = workflow_steps('ruby_lint').find { |item| item.fetch('run', '').include?('bundle exec rubocop') }
-    script = step.fetch('run').sub('source .github/actions/setup-tooling/log.sh', 'source "$1"')
-    { 0 => 'PASSED', 1 => 'FAILED', 2 => 'ERROR' }.each do |code, outcome|
-      output, errors, status = shell("bundle() { printf 'native diagnostic\n' >&2; return #{code}; }\n#{script}")
-      assert_equal code, status.exitstatus
-      assert_includes output, "[#{outcome}] Ruby lint"
-      assert_includes errors, 'native diagnostic'
-    end
   end
 end

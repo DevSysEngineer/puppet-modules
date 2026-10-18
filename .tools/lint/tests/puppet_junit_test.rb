@@ -94,7 +94,7 @@ class PuppetJunitTest < Minitest::Test
   end
 
   def test_missing_or_extra_output_arguments_fail_with_usage
-    [[], %w[first.xml second.xml]].each do |arguments|
+    [[], %w[first.xml second.xml], ['--result-status'], %w[--result-status first.xml second.xml]].each do |arguments|
       assert_equal 1, run_report(arguments, '[[]]')
       assert_includes @errors.string, 'Usage:'
     end

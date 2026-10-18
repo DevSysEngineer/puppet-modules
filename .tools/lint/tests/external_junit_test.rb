@@ -37,11 +37,24 @@ class ExternalJunitTest < Minitest::Test
     assert_includes read('puppet.xml'), '<error type="ReportError">'
   end
 
-  def junit_pipeline
+  def junit_pipeline(result_status: false)
+    converter = result_status ? 'puppet-lint-junit --result-status' : 'puppet-lint-junit'
     script = 'bundle exec puppet-lint --no-config --load "$1/lib/project_lint.rb" ' \
              '--config "$1/config/puppet-lint.rc" --config .puppet-lint.rc --json manifests ' \
-             '| bundle exec puppet-lint-junit puppet.xml'
+             "| bundle exec #{converter} puppet.xml"
     command('bash', '-o', 'pipefail', '-c', script, 'junit-test', @installed)
+  end
+
+  def test_installed_converter_exposes_findings_separately_from_conversion_errors
+    write('manifests/site.pp', "$values = [1] + [2]\n")
+    junit_pipeline(result_status: true)
+    assert_equal 10, @status.exitstatus, @output + @errors
+    assert_includes read('puppet.xml'), '<failure'
+
+    write('.puppet-lint.rc', "--invalid-consumer-option\n")
+    junit_pipeline(result_status: true)
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_includes read('puppet.xml'), '<error type="ReportError">'
   end
 
   def test_converter_failure_remains_a_pipeline_failure

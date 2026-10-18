@@ -377,9 +377,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload metadata report
@@ -436,9 +436,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet dependency report
@@ -501,9 +501,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet validation report
@@ -556,14 +556,20 @@ jobs:
           lint_gem="$(bundle info --path lint-project)"
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE/global-modules:$GITHUB_WORKSPACE/modules"
           set +e
-          bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+          bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
           LINT_STATUS=("${PIPESTATUS[@]}")
+          LINT_RESULT_STATUS=${LINT_STATUS[1]}
+          if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
           set -e
           printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
           if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[1]}" ERROR incomplete
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
           elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+              if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
+                  ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
+              else
+                  ci_end "${LINT_STATUS[0]}" ERROR incomplete 'Puppet-lint did not return a confirmed lint outcome; inspect the native diagnostic above.'
+              fi
           else
               ci_end 0 PASSED complete
           fi
@@ -576,9 +582,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet lint report
@@ -633,13 +639,19 @@ jobs:
           else
               RUBY_STATUS=$?
           fi
-          if [ "$RUBY_STATUS" -le 1 ] && [ -f "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+          if [ "$RUBY_STATUS" -le 1 ] && [ -s "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
               printf 'JUnit written: %s\n' "$PROJECT_REPORT_DIR/rubocop-report.xml"
           fi
           case "$RUBY_STATUS" in
               0) ci_end 0 PASSED complete ;;
-              1) ci_end 1 FAILED complete ;;
-              *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+              1)
+                  if [ -s "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+                      ci_end 1 FAILED complete 'RuboCop offenses exceed the configured failure threshold.'
+                  else
+                      ci_end 1 ERROR incomplete 'RuboCop exited without a new, non-empty report; inspect the native diagnostic above.'
+                  fi
+                  ;;
+              *) ci_end "$RUBY_STATUS" ERROR incomplete 'RuboCop could not complete the scan or its report; inspect the native diagnostic above.' ;;
           esac
       - name: Check for changes
         run: |
@@ -650,9 +662,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Ruby lint report
@@ -713,9 +725,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload test results
@@ -803,9 +815,9 @@ metadata:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -828,9 +840,9 @@ puppet_dependencies:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -852,9 +864,9 @@ validate:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -876,14 +888,20 @@ puppet_lint:
     - export PROJECT_TOOLS_MODULEPATH="$CI_PROJECT_DIR/global-modules:$CI_PROJECT_DIR/modules"
     - |
       set +e
-      bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+      bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
       LINT_STATUS=("${PIPESTATUS[@]}")
+      LINT_RESULT_STATUS=${LINT_STATUS[1]}
+      if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
       set -e
       printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
       if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-          ci_end "${LINT_STATUS[1]}" ERROR incomplete
+          ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
       elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
-          ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+          if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
+              ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
+          else
+              ci_end "${LINT_STATUS[0]}" ERROR incomplete 'Puppet-lint did not return a confirmed lint outcome; inspect the native diagnostic above.'
+          fi
       else
           ci_end 0 PASSED complete
       fi
@@ -894,9 +912,9 @@ puppet_lint:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -920,13 +938,19 @@ ruby_lint:
       else
           RUBY_STATUS=$?
       fi
-      if [ "$RUBY_STATUS" -le 1 ] && [ -f "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+      if [ "$RUBY_STATUS" -le 1 ] && [ -s "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
           printf 'JUnit written: %s\n' "$PROJECT_REPORT_DIR/rubocop-report.xml"
       fi
       case "$RUBY_STATUS" in
           0) ci_end 0 PASSED complete ;;
-          1) ci_end 1 FAILED complete ;;
-          *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+          1)
+              if [ -s "$PROJECT_REPORT_DIR/rubocop-report.xml" ]; then
+                  ci_end 1 FAILED complete 'RuboCop offenses exceed the configured failure threshold.'
+              else
+                  ci_end 1 ERROR incomplete 'RuboCop exited without a new, non-empty report; inspect the native diagnostic above.'
+              fi
+              ;;
+          *) ci_end "$RUBY_STATUS" ERROR incomplete 'RuboCop could not complete the scan or its report; inspect the native diagnostic above.' ;;
       esac
     - |
       ci_begin 'Checkout changes'
@@ -935,9 +959,9 @@ ruby_lint:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -962,9 +986,9 @@ tool_tests:
       else
           CHECKOUT_STATUS=$?
           if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-              ci_end "$CHECKOUT_STATUS" FAILED complete
+              ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
           else
-              ci_end "$CHECKOUT_STATUS" ERROR incomplete
+              ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
           fi
       fi
   artifacts:
@@ -1233,15 +1257,14 @@ Eigen Ruby-reporters gebruiken de [gedeelde console](shared/README.md#runtimecon
 | `FAILED` | Inhoudelijke afkeuring volgens dat beleid. |
 | `ERROR` | Uitvoering of noodzakelijke afronding is niet betrouwbaar voltooid. |
 | `SKIPPED` | Bewust overgeslagen volgens bestaande configuratie of beleid. |
-| `Result not classified` | De aanroeplaag kent alleen de oorspronkelijke processtatus; de diagnose blijft zichtbaar. |
 
 Volledigheid staat afzonderlijk bij `Execution`: `complete`, `incomplete`, `not executed` of `unknown`. Een bevinding blijft ook bij een latere uitvoerfout zichtbaar. Niet-afgeronde onderdelen tellen niet als geslaagd of bewust overgeslagen. Een lege selectie volgt het bestaande toolbeleid. Tellingen benoemen hun eenheid: bronnen, manifests, modules, testgevallen en bevindingen zijn verschillende aantallen. Een onbekende telling wordt weggelaten of als onbekend aangeduid, nooit als nul. De [toolhandleidingen](#pakketten-en-commandos) leggen hun concrete tellingen vast.
 
 Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, voorspelbaar gesorteerd op bron en positie waar die beschikbaar zijn. Native omvangrijke diagnoses mogen boven het compacte einde blijven staan, mits het einde daar expliciet naar verwijst. Kort geen bevindingen stilzwijgend af. Een rapportverwijzing verschijnt pas na een geslaagde schrijfhandeling voor deze uitvoering; een bestaand oud bestand is geen bewijs. Zonder rapportverzoek blijven bestaande rapporten ongemoeid. Een latere verplichte upload of checkoutcontrole kan de job alsnog laten falen.
 
-JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en behoudt de bestaande prioriteit van `pipefail`: de laatste niet-nul status. Een conversiefout en scanstatus blijven dus beide zichtbaar.
+JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De CI-aanroep vraagt met `--result-status` een afzonderlijk signaal voor actieve bevindingen na geslaagde conversie. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en normaliseert uitsluitend dat bevindingensignaal naar conversiestatus 0. Native lintstatus 1 met dat signaal geeft `FAILED`, met de ingestelde warningdrempel als reden. Een andere niet-nul lintstatus, lintstatus 1 zonder bevestigde bevindingen of een conversiefout geeft `ERROR`. De oorspronkelijke processtatussen en de prioriteit van de laatste niet-nul status blijven behouden; een converterbevinding maakt een native nulstatus niet alsnog afkeurend. De [converterinterface](lint/README.md#exitcodes-van-puppet-lint-junit) beschrijft de codes en het verschil met gewone conversie.
 
-Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. De EXIT-afhandeling laat een onverwachte fout ongeclassificeerd en bewaart haar code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
+Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS [REASON]` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. Een opgegeven `REASON` staat bij het eindresultaat en legt uit waarom de controle faalt. De EXIT-afhandeling meldt een onverwachte fout als `ERROR` met `Execution: incomplete`, benoemt dat geen resultaat kon worden bevestigd en bewaart de oorspronkelijke code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
 
 `details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
 

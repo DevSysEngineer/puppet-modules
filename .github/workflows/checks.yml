@@ -60,9 +60,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload metadata report
@@ -99,9 +99,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet dependency report
@@ -143,9 +143,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet validation report
@@ -174,14 +174,20 @@ jobs:
           ci_begin 'Puppet lint'
           mkdir -p .tools/lint/results
           set +e
-          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit .tools/lint/results/puppet-lint-report.xml
+          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit --result-status .tools/lint/results/puppet-lint-report.xml
           LINT_STATUS=("${PIPESTATUS[@]}")
+          LINT_RESULT_STATUS=${LINT_STATUS[1]}
+          if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
           set -e
           printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
           if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[1]}" ERROR incomplete
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
           elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[0]}" 'Result not classified' unknown
+              if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
+                  ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
+              else
+                  ci_end "${LINT_STATUS[0]}" ERROR incomplete 'Puppet-lint did not return a confirmed lint outcome; inspect the native diagnostic above.'
+              fi
           else
               ci_end 0 PASSED complete
           fi
@@ -194,9 +200,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Puppet lint report
@@ -230,13 +236,19 @@ jobs:
           else
               RUBY_STATUS=$?
           fi
-          if [ "$RUBY_STATUS" -le 1 ] && [ -f .tools/ruby-lint/results/rubocop-report.xml ]; then
+          if [ "$RUBY_STATUS" -le 1 ] && [ -s .tools/ruby-lint/results/rubocop-report.xml ]; then
               printf 'JUnit written: %s\n' .tools/ruby-lint/results/rubocop-report.xml
           fi
           case "$RUBY_STATUS" in
               0) ci_end 0 PASSED complete ;;
-              1) ci_end 1 FAILED complete ;;
-              *) ci_end "$RUBY_STATUS" ERROR incomplete ;;
+              1)
+                  if [ -s .tools/ruby-lint/results/rubocop-report.xml ]; then
+                      ci_end 1 FAILED complete 'RuboCop offenses exceed the configured failure threshold.'
+                  else
+                      ci_end 1 ERROR incomplete 'RuboCop exited without a new, non-empty report; inspect the native diagnostic above.'
+                  fi
+                  ;;
+              *) ci_end "$RUBY_STATUS" ERROR incomplete 'RuboCop could not complete the scan or its report; inspect the native diagnostic above.' ;;
           esac
       - name: Check for changes
         run: |
@@ -247,9 +259,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload Ruby lint report
@@ -285,9 +297,9 @@ jobs:
           else
               CHECKOUT_STATUS=$?
               if [ "$CHECKOUT_STATUS" -eq 1 ]; then
-                  ci_end "$CHECKOUT_STATUS" FAILED complete
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
               else
-                  ci_end "$CHECKOUT_STATUS" ERROR incomplete
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
       - name: Upload test results

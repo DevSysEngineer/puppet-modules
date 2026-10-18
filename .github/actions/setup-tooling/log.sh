@@ -1,6 +1,6 @@
 # Source from the existing Bash CI step; commands still run directly in that step.
-# ci_begin NAME [details|native] starts presentation; ci_end CODE STATUS COMPLETENESS closes it.
-# Without an explicit outcome, EXIT preserves the code and leaves failures unclassified.
+# ci_begin NAME [details|native] starts presentation; ci_end CODE STATUS COMPLETENESS [REASON] closes it.
+# Without an explicit outcome, EXIT preserves the code and reports an unfinished step.
 
 ci_activity() {
     local sleep_pid=
@@ -32,6 +32,7 @@ ci_end() {
     local original_status="$1"
     local result="$2"
     local completeness="$3"
+    local reason="${4:-}"
     trap - EXIT INT TERM
     if [ -n "$CI_ACTIVITY_PID" ] && kill "$CI_ACTIVITY_PID" 2>/dev/null; then
         if wait "$CI_ACTIVITY_PID" 2>/dev/null; then :; fi
@@ -41,11 +42,15 @@ ci_end() {
     elif [ "$CI_LOG_GROUP" = gitlab ]; then
         printf '\033[0Ksection_end:%s:project_details\r\033[0K\n' "$($CI_DATE +%s)"
     fi
-    printf '\n[%s] %s\nExecution: %s\nOriginal exit status: %s\nDuration: %s s\n' \
-        "$result" "$CI_LOG_NAME" "$completeness" "$original_status" "$((SECONDS - CI_LOG_STARTED))"
-    if [ "$original_status" -ne 0 ]; then
+    printf '\n[%s] %s\nExecution: %s\n' "$result" "$CI_LOG_NAME" "$completeness"
+    if [ -n "$reason" ]; then
+        reason="${reason//$'\n'/ }"
+        reason="${reason//$'\r'/ }"
+        printf 'Reason: %s\n' "$reason"
+    elif [ "$original_status" -ne 0 ]; then
         printf 'Diagnostic: native output above; status preserved by this step.\n'
     fi
+    printf 'Original exit status: %s\nDuration: %s s\n' "$original_status" "$((SECONDS - CI_LOG_STARTED))"
     return "$original_status"
 }
 
@@ -54,7 +59,7 @@ ci_exit() {
     if [ "$original_status" -eq 0 ]; then
         ci_end "$original_status" PASSED complete
     else
-        ci_end "$original_status" 'Result not classified' unknown
+        ci_end "$original_status" ERROR incomplete 'The step ended before a result was confirmed; inspect the native diagnostic above.'
     fi
     exit "$original_status"
 }
@@ -90,6 +95,6 @@ ci_begin() {
         CI_ACTIVITY_PID=$!
     fi
     trap 'ci_exit "$?"' EXIT
-    trap 'ci_end 130 ERROR incomplete; exit 130' INT
-    trap 'ci_end 143 ERROR incomplete; exit 143' TERM
+    trap 'ci_end 130 ERROR incomplete "The step was interrupted (INT)."; exit 130' INT
+    trap 'ci_end 143 ERROR incomplete "The step was terminated (TERM)."; exit 143' TERM
 }

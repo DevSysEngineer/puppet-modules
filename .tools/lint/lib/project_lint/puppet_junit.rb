@@ -7,6 +7,9 @@ require 'project_tools/shared/console'
 module ProjectLint
   # Converts native Puppet-lint JSON; detection, selection and exit status remain with the native CLI.
   class PuppetJunit
+    # Distinguish findings from converter/startup failures without changing the native lint policy.
+    FINDINGS_STATUS = 10
+
     def initialize(input)
       groups = JSON.parse(input)
       raise ArgumentError, 'Expected native Puppet-lint JSON arrays' unless groups.is_a?(Array) && groups.all?(Array)
@@ -70,22 +73,27 @@ module ProjectLint
     end
 
     def self.run(arguments, input: $stdin, console: $stdout, errors: $stderr)
+      arguments = arguments.dup
+      result_status = arguments.first == '--result-status'
+      arguments.shift if result_status
       unless arguments.length == 1
-        errors.puts 'Usage: puppet-lint --json ... | puppet-lint-junit REPORT.xml'
+        errors.puts 'Usage: puppet-lint --json ... | puppet-lint-junit [--result-status] REPORT.xml'
         return 1
       end
 
-      report(arguments.first, input, console, errors)
+      report(arguments.first, input, console, errors, finding_status: result_status ? FINDINGS_STATUS : 0)
     end
 
-    def self.report(path, input, console, errors)
+    def self.report(path, input, console, errors, finding_status: 0)
       # Read and show available diagnostics even when the requested report cannot be opened.
       converter, message = read(input)
       converter&.present(console)
       ProjectTools::Shared::Console.diagnostic(message, output: errors) if message
       File.open(path, 'w') { |output| converter ? converter.write_findings(output) : write_error(output, message) }
       console.puts "JUnit written: #{ProjectTools::Shared::Console.safe(path)}"
-      message ? 1 : 0
+      return 1 if message
+
+      converter.active.any? ? finding_status : 0
     rescue SystemCallError, IOError => e
       errors.puts "Cannot write Puppet-lint JUnit report: #{e.message}"
       1

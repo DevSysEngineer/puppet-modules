@@ -460,7 +460,7 @@ De native parser bouwt check-specifieke schakelaars vóór `--load` wordt uitgev
 
 | Executable | Argumenten en invoer | Default en padbasis | Rapport en foutgedrag |
 | --- | --- | --- | --- |
-| `puppet-lint-junit` | Exact één rapportpad; native JSON-array via stdin | Geen default; relatief aan werkmap | Extensie wordt niet gecontroleerd. Bovenliggende map moet bestaan. Overschrijft het rapport; geldige warnings/errors worden XML-failures maar de converter zelf retourneert 0. |
+| `puppet-lint-junit` | Optioneel `--result-status`, daarna exact één rapportpad; native JSON-array via stdin | Geen default; relatief aan werkmap | Extensie wordt niet gecontroleerd. Bovenliggende map moet bestaan. Overschrijft het rapport; Geldige warnings/errors worden XML-failures; gewone conversie retourneert 0. Met `--result-status` geeft geslaagde conversie met actieve bevindingen 10. |
 | `rubocop` | `--config`, `--format progress --format junit --out FILE` | Eigen RuboCop-configuratie en expliciet rapportpad | Native formatter, geen afzonderlijke converter; zie [Ruby-controles](#ruby-code-controleren). |
 | `rake test` / Minitest | `TEST=...`, `TESTOPTS=...` | Recursieve selectie van tooltests | Zie [testselectie](#testselectie-en-uitvoeropties) en [JUnit-initialisatie](#junit-rapportage-instellen). |
 
@@ -528,6 +528,8 @@ Een ontbrekend configbestand is een vastgestelde native beperking. Daarom contro
 
 ### Exitcodes van puppet-lint-junit
 
+Deze tabel beschrijft de gewone conversie zonder `--result-status`.
+
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |
 | --- | --- | --- | --- | --- |
 | Geldige JSON zonder actieve meldingen | 0 | `Puppet lint: no active findings.` | Leeg | Eén geslaagde testcase |
@@ -540,7 +542,9 @@ Een ontbrekend configbestand is een vastgestelde native beperking. Daarom contro
 | Laden gem/executable mislukt | 1 bij de gecontroleerde LoadError | Geen converteruitvoer | Ruby-/Bundlerfout | Geen nieuw rapport |
 | Rapportpad onschrijfbaar of bovenliggende map ontbreekt | 1 | Geen complete conversie | `Cannot write Puppet-lint JUnit report: {fout}` | Geen bruikbaar nieuw rapport; oud bestand kan blijven bestaan als openen faalt |
 
-De converter heeft geen lintconfiguratie, manifestselectie of warningbeleid: zulke combinaties zijn niet van toepassing omdat hij alleen stdin omzet. Exitcode 0 betekent geslaagde conversie, ook bij XML-failures. Bewaar de lintstatus met Bash `pipefail`; alleen het bestaan van XML is onvoldoende.
+Met `--result-status` vóór het rapportpad retourneert de converter 10 wanneer de native JSON geldig en niet leeg is, actieve warnings of errors bevat en het JUnit-bestand succesvol is geschreven en gesloten. Zonder actieve bevindingen blijft de code 0; fixed en ignored tellen niet als actieve bevindingen. Conversie- en schrijffouten blijven 1, ook als er al bevindingen zijn getoond. Deze optionele code is een bevindingensignaal, geen native lintstatus. De [CI-aanroepen](../README.md#controle-in-ci) verwerken het signaal en behouden de oorspronkelijke lint- en conversiefoutstatus; gebruik deze optie niet als vervanging van gewone `pipefail` zonder die afhandeling.
+
+De converter heeft geen lintconfiguratie, manifestselectie of warningbeleid: zulke combinaties zijn niet van toepassing omdat hij alleen stdin omzet. Zonder `--result-status` betekent exitcode 0 geslaagde conversie, ook bij XML-failures. Bewaar de lintstatus met Bash `pipefail`; alleen het bestaan van XML is onvoldoende.
 
 ### Exitcodes van validate-junit
 
