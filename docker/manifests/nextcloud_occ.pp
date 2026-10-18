@@ -11,7 +11,7 @@
 # Providing unless_json without unless reuses command as the read-only guard, including during noop.
 # A read-only onlyif guard requires successful OCC status JSON with installed set to boolean true. A missing/stopped
 # container, incomplete installation or unreadable status skips the mutation; each Puppet run checks again.
-# Installation and unless guards also run during noop, without executing the mutation.
+# Installation, optional onlyif and unless guards also run during noop, without executing the mutation.
 # No OCC helper scripts or request files are installed.
 # Commands and guards are Sensitive and output logging is disabled. Arguments remain visible through host/container
 # process inspection. OCC config:system:set has no --sensitive option.
@@ -55,8 +55,15 @@
 #   Accepted OCC exit codes before JSON comparison, default [0]. A matching JSON value is also required; accepting
 #   a nonzero exit code alone never reports a change. Does not alter the installation or native OCC guards.
 #
+# @param onlyif
+#   Optional read-only OCC command using native exit codes. Both the installation check and this guard must succeed
+#   before command can run. Exit 0 allows execution; any other exit code skips it, without proving removal or health.
+#   Undef preserves the installation check alone. Uses the same container, user and argument protection as command;
+#   also runs during noop. JSON comparison options do not apply to this guard.
+#
 # @param refreshonly
-#   Defaults to false. True executes only on a refresh event, still subject to the installation and unless guards.
+#   Defaults to false. True executes only on a refresh event, still subject to the installation, onlyif and unless
+#   guards.
 #   Multiple notifications in one transaction are combined by Puppet.
 #
 # @param timeout
@@ -78,6 +85,7 @@ define docker::nextcloud_occ (
   Optional[Variant[String, Sensitive[String]]]           $command_json = undef,
   Optional[Array[String[1], 1]]                          $json_path    = undef,
   Array[Integer[0, 255], 1]                              $json_returns = [0],
+  Optional[Array[Variant[String, Sensitive[String]], 1]] $onlyif       = undef,
   Boolean                                                $refreshonly  = false,
   Integer[1]                                             $timeout      = 120,
   Optional[Array[Variant[String, Sensitive[String]], 1]] $unless       = undef,
@@ -119,6 +127,7 @@ define docker::nextcloud_occ (
       # Model installation, execution and the application guard identically, with independent comparison settings.
       $operations = {
         'onlyif'  => { 'arguments' => ['status'], 'json' => 'true', 'path' => ['installed'], 'returns' => [0] },
+        'extra_onlyif' => { 'arguments' => $onlyif, 'json' => undef },
         'command' => { 'arguments' => $command, 'json' => $command_json, 'path' => $json_path, 'returns' => $json_returns },
         'unless'  => { 'arguments' => $unless_correct, 'json' => $unless_json, 'path' => $json_path, 'returns' => $json_returns },
       }
@@ -200,12 +209,31 @@ define docker::nextcloud_occ (
         $result + { $kind => $invocation }
       }
 
+      # Compose accepts one guard command; short-circuit both OCC conditions inside the same container and identity.
+      if ($onlyif != undef) {
+        # Escape each invocation as arguments, including the existing installation comparison's shell body.
+        $onlyif_shell = [$commands_correct['onlyif'], $commands_correct['extra_onlyif']].map |$invocation| {
+          $invocation.map |$argument| {
+            # Unwrap only while preparing the protected combined guard.
+            $argument_correct = $argument ? {
+              Sensitive => $argument.unwrap,
+              default   => $argument,
+            }
+            stdlib::shell_escape($argument_correct)
+          }.join(' ')
+        }.join(' && ')
+        $onlyif_correct = ['/bin/sh', '-c', Sensitive($onlyif_shell)]
+      } else {
+        # Existing callers keep their installation guard unchanged.
+        $onlyif_correct = $commands_correct['onlyif']
+      }
+
       # All OCC execution, including refresh events and read-only detectors, retains the installation guard.
       docker::compose_exec { "docker_nextcloud_occ_${title}":
         command        => $commands_correct['command'],
         compose_name   => $compose_name,
         container_name => 'nextcloud-aio-nextcloud',
-        onlyif         => $commands_correct['onlyif'],
+        onlyif         => $onlyif_correct,
         refreshonly    => $refreshonly,
         timeout        => $timeout,
         unless         => $commands_correct['unless'],

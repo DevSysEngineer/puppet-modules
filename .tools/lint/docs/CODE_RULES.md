@@ -3211,6 +3211,8 @@ Maak onderscheid tussen de unieke titel van een Puppet-registratie en de interne
 
 Beoordeel deze indeling bij de review van het hele omliggende blok. De [sectiechecks](DOCUMENTATION_RULES.md#toelichtingen-bij-code) controleren opmaak en toelichtingen; een geslaagde lintscan bewijst niet dat aanroepen inhoudelijk op de juiste plek staan. Verplaats ze niet automatisch op basis van hun naam, type of afstand tot een variabele: hun functie, voorwaarden en evaluatievolgorde bepalen welke plek klopt.
 
+Aanvullende Nextcloud-apps gebruiken `docker::nextcloud_app` voor installatie, verwijdering, activatiestatus en gewone appconfiguratie. Appspecifieke gebruikersparameters en omzettingen horen in een wrapper zoals `docker::nextcloud_user_oidc`. Voeg opties van zulke apps niet toe aan `docker::nextcloud` of de generieke OCC-uitvoering. Bepaal bij iedere nieuwe optie of AIO, Nextcloud-core/Talk of een aanvullende app haar gebruikt en welke opslagroute de officiële appinterface biedt. Houd generieke uitvoering en appkennis gescheiden.
+
 **Herkomst**
 
 Projectregel
@@ -3254,6 +3256,14 @@ Een pad van een bestand dat de caller beheert kan geldige broninvoer zijn. Een i
 Stel per instelling vast welk onderdeel zij configureert; beoordeel functie, voorwaarden en evaluatievolgorde in het complete blok. Volg de broninvoer via de component tot de gerenderde configuratie en verwijder overbodige afgeleide parameters. Controleer bij gedeelde objecten unieke registratietitels, één eigenaar per interne identiteit, behoud van opties en conflictdetectie, en alle geraakte callers en relaties.
 
 Controleer bij doorgegeven keuzes dat de bestaande eigenaar leidend blijft en dat expliciete uitschakeling niet dezelfde betekenis krijgt als een ontbrekende waarde. Vergelijk selectie, gegenereerde code en toetsing van de werkelijke toestand afzonderlijk.
+
+Beoordeel bij Nextcloud-opties ook de volgende vragen:
+
+1. Welk onderdeel is eigenaar van deze optie?
+2. Gebruikt een aanvullende app `docker::nextcloud_app` voor haar levenscyclus en gewone appconfiguratie?
+3. Staan appnamen, specifieke sleutels en bijzondere conversies in de appwrapper, behalve bij rechtstreeks gebruikersbeheer via de generieke resource?
+4. Past de opslagroute bij de officiële appinterface?
+5. Is bestaande uitvoering hergebruikt en is de vervangen implementatie volledig verwijderd?
 
 **Verificatie**
 

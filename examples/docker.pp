@@ -265,19 +265,23 @@ node 'nextcloud.example.org' {
   # Configure backups separately in the AIO interface.
   # SMTP uses basic_settings::smtp_server above; no mail settings are needed on this resource.
   # Prepare migration before selecting primary storage on an existing installation; these settings do not move files.
-  # Optionally redirect login: first enable user_oidc and configure one working OIDC provider.
-  # Keep administrative access through /login?direct=1 while available; omit the option to leave it unmanaged.
   docker::nextcloud { 'nextcloud-aio':
-    admin_server_name                      => 'cloud-admin.example.org',
-    admin_whitelist_ips                    => ['192.0.2.10', '2001:db8::/32'],
-    appstore_link_shown                    => false,
-    objectstore_default                    => 'server2',
-    objectstore_root                       => 'server1',
-    server_name                            => 'cloud.example.org',
-    ssl_certificate                        => '/etc/letsencrypt/live/cloud.example.org/fullchain.pem',
-    ssl_certificate_key                    => '/etc/letsencrypt/live/cloud.example.org/privkey.pem',
-    user_oidc_allow_multiple_user_backends => false,
-    require                                => [Class['docker'], Package['nginx']],
+    admin_server_name   => 'cloud-admin.example.org',
+    admin_whitelist_ips => ['192.0.2.10', '2001:db8::/32'],
+    appstore_link_shown => false,
+    objectstore_default => 'server2',
+    objectstore_root    => 'server1',
+    server_name         => 'cloud.example.org',
+    ssl_certificate     => '/etc/letsencrypt/live/cloud.example.org/fullchain.pem',
+    ssl_certificate_key => '/etc/letsencrypt/live/cloud.example.org/privkey.pem',
+    require             => [Class['docker'], Package['nginx']],
+  }
+
+  # Install and enable OIDC; configure one working provider separately before requesting login redirection.
+  # Keep administrative access through /login?direct=1 while available; omit the option to leave it unmanaged.
+  class { 'docker::nextcloud_user_oidc':
+    compose_name                 => 'nextcloud-aio',
+    allow_multiple_user_backends => false,
   }
 
   # Register a path-style endpoint, preserving an explicit false option and fractional connection timeout.

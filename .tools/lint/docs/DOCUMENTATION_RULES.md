@@ -89,7 +89,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 | [CONTRIBUTING.md](../../../CONTRIBUTING.md) | Gezamenlijke voorbereiding, scope, ontwikkelworkflow, impact- en beveiligingsreview, Git-beleid, versiebeleid en oplevering. |
 | [TESTS.md](../../../TESTS.md) | Repositorybreed testbeleid, toepasselijkheid en volgorde van verplichte controles, scenarioselectie, aanvullende validatie en bewijsvoering. |
 | Root- en lokale `AGENTS.md` | Verplichte agentleesroutes, instructiehiërarchie en werkelijk agentspecifieke aanwijzingen. |
-| [Gedeelde tooling-README](../../README.md) | Installatie, pakketkeuze, modulepad, commando-overzicht, CI, rapporten, consumermigratie, distributie, gezamenlijke tooltests en gedeeld toolingonderhoud. |
+| [Gedeelde tooling-README](../../README.md) | Installatie, pakketkeuze, modulepad, commando-overzicht, CI, rapporten, consumerintegratie, distributie, gezamenlijke tooltests en gedeeld toolingonderhoud. |
 | Tool-README's | Publieke interfaces, architectuur, ondersteund gebruik, componentonderhoud, verificatie en concrete testaanroepen; vind de eigenaar via het [tooloverzicht](../../README.md#pakketten-en-commandos). |
 | [Lint-README](../README.md) | Lintgebruik, dagelijkse correctiewerkwijze, het enige checkregister, configuratie, autofixgedrag, architectuur, lintonderhoud en linttestaanroepen. |
 | [CODE_RULES.md](CODE_RULES.md) | Algemene codeprincipes voor alle eigen talen en componenten, inclusief tooling; herkenbaar afgebakende taalregels, voorwaarden, uitzonderingen, handmatige reviewcriteria, detectie- en autofixgrenzen en voorbeelden. Puppet-syntax en resourceregels gelden alleen voor Puppet. |
@@ -98,13 +98,14 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 | Puppet Strings | Betekenis, invoerbeperkingen en gevolgen van publieke class-, defined-type- en functieparameters, direct boven die interface. De declaratie beheert type en default. |
 | Implementatiecomments | Redenen voor technische keuzes, volgorde en uitzonderingen bij de betrokken code. Scripts onderhouden hun opties in de bestaande usage- of hulptekst. |
 | `examples/` | Samenhangende configuratiescenario's met meerdere onderdelen. |
-| Bestaande passende procedure | Samenhangende beheer-, herstel- of migratiestappen, met voorwaarden, volgorde en verwachte resultaten. |
+| Bestaande passende procedure | Herbruikbare beheer-, herstel- en datamigratieprocedures, met voorwaarden, volgorde en verwachte resultaten. |
 | Gegenereerde parameterreferentie | Eventueel een reeds gebruikte leesbare referentie buiten de editor; onderhoud via de codebron en het bestaande generatieproces. |
 | Tooltests | Toolgedrag, regressies, grenzen, fouten en automatisch verifieerbare toolcontracten. |
 | Projectdocumentatie | Systeemstructuur, gegevensstromen, componentrelaties en -doel, installatie, deployment, beheer en probleemoplossing. |
-| Feature- of implementatiedocumentatie | Featurespecifieke interfaces, implementatiestappen, tijdelijke migraties en acceptatiescenario's buiten projectbreed beleid. |
+| Feature- of implementatiedocumentatie | Featurespecifieke interfaces, implementatiestappen en acceptatiescenario's buiten projectbreed beleid. |
 | Configuratiereferentie | Volledige configuratievariabelen, operationele defaults en exacte start- of deploymentcommando's buiten Puppet Strings. |
 | ADR's | Architectuurbesluiten, alternatieven, afwegingen en onderbouwing. |
+| Release notes of changelog | Wijzigingen per release, breaking changes en concrete overstapstappen vanaf eerdere interfaces, defaults of configuratie. |
 | Wijzigingsreviews en uitvoeringsrapporten | Wijzigingsspecifieke beslissingen, compatibiliteitsafwegingen, voortgang, validatiecommando's en resultaten, dekking en open bevindingen. |
 
 - Kies de kleinste toepasselijke eigenaar en splits gemengde scope eerst. Algemene ontwikkelworkflow hoort in CONTRIBUTING, testbeleid in TESTS, gedeeld toolonderhoud in de tooling-README en componentonderhoud in de eigen README. Houd algemene workflow uit de regelsdocumenten; zij bezitten de inhoudelijke normen en hun specifieke reviewcriteria.
@@ -117,6 +118,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 ### Duurzame documentatie
 
 - Beschrijf ondersteund gedrag, verantwoordelijkheden, voorwaarden en herbruikbare procedures rechtstreeks in de tegenwoordige tijd. Leg een blijvende keuze uit wanneer de reden een beperking begrijpelijk maakt of correct handelen ondersteunt. Werk bij veranderd gedrag de bestaande uitleg bij in plaats van taakgeschiedenis toe te voegen.
+- Plaats wijzigingsgebonden migratie-instructies, oude-naar-nieuwe parametermappings en vergelijkingen met eerdere interfaces of defaults uitsluitend in release notes of een changelog. README's, gebruikshandleidingen, voorbeelden en parameterdocumentatie beschrijven het huidige ondersteunde gebruik. Bewaar input voor nog niet voorbereide release notes bij de wijzigingsreview; voeg die niet tijdelijk aan gebruiksdocumentatie toe. Behoud blijvende voorwaarden, risico's en herbruikbare beheer- of datamigratieprocedures bij de actuele handeling, zonder versiegeschiedenis.
 - Houd voortgang, voltooiingsclaims, afzonderlijke validatieresultaten en wijzigingsspecifieke oordelen in de review of een passend uitvoeringsrapport. Een instructie om een reviewuitkomst vast te leggen of te onderbouwen bedoelt die bestemming tenzij zij een andere noemt. Blijvende interface-eisen en noodzakelijke lokale implementatieredenen horen bij hun gezaghebbende documentatie of code. Maak geen permanent Markdown-document per bevinding.
 - Onderhoud ieder technisch feit op één plaats. Verwijs voor veranderlijke waarden naar de configuratie, implementatie, het register of de referentie; leg zo nodig een bestaande opvraagopdracht uit. Behoud alleen een korte samenvatting voor een eigen lezersbehoefte, met voorwaarden en volledig detail bij de eigenaar. Een link moet de benodigde informatie leveren en mag ontbrekende uitleg niet verhullen.
 - Vermijd onnodige kopieën van versies, aantallen, namen, omgevingen, status en voorbeelduitvoer. Gebruik herkenbare placeholders voor eigen invoer en leg de herkomst uit. Behoud letterlijke waarden die nodig zijn voor geldige commando's, defaults, eenheden, limieten, compatibiliteit, migratiegrenzen, waarschuwingen en exacte contracten. Label illustratieve uitvoer; wijzig dependency-pins of runtimegedrag niet om waarden niet te hoeven documenteren.
@@ -152,6 +154,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 #### Na bewerken
 
 - Herlees de volledige geraakte secties en leesroute, inclusief de hele geraakte root-README-modulesectie, niet alleen de diff. Controleer samenhang, plaatsing en of de gebruikersgids geen tweede parameterreferentie of implementatiehandleiding is geworden. Een nieuwe lezer moet prerequisites, volgende actie en verwachte uitkomst kunnen vinden zonder ontbrekende context te reconstrueren.
+- Controleer volgens [duurzame documentatie](#duurzame-documentatie) dat geraakte gebruiksuitleg geen wijzigingsgebonden migratietekst bevat, dat release-informatie op haar bestemming is vastgelegd en dat actuele voorwaarden en waarschuwingen behouden zijn. Beoordeel de betekenis; alleen zoeken naar migratiewoorden bewijst dit niet.
 - Herlees bij projectbrede review volledige gewijzigde documenten en sluit de eindinventaris aan op de oorspronkelijke lijst, met toevoegingen, verplaatsingen en verwijderingen. Geef ieder bestand een afgerond oordeel of expliciet open punt. Controleer dat centrale en lokale instructies overeenstemmen en naar unieke normeigenaars verwijzen. Bewaar dit bewijs bij de wijziging, buiten permanente projectinstructies.
 
 ### Technisch bewijs en links

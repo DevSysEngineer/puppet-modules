@@ -223,7 +223,7 @@ Onderliggende classes en defined types kunnen ook los worden gebruikt. Dat is ha
 
 De class kan belangrijke serverconfiguratie en conflicterende pakketten vervangen. Controleer vooral sudoers, firewall, netwerk, bootloader, APT-bronnen, automatische updates en de gekozen bron voor Puppet Server.
 
-Hostforwarding staat standaard uit. Zet voor een router of Docker-host expliciet `ip_forwarding => true`, laad eerst je eigen firewallbeleid en volg bij Docker de [migratievoorwaarden](#docker). De families en gevolgen staan bij de publieke parameter in [`basic_settings`](basic_settings/manifests/init.pp).
+Hostforwarding staat standaard uit. Zet voor een router of Docker-host expliciet `ip_forwarding => true`, laad eerst je eigen firewallbeleid en volg bij Docker de [firewallvoorwaarden](#docker). De families en gevolgen staan bij de publieke parameter in [`basic_settings`](basic_settings/manifests/init.pp).
 
 Uitgeschakelde of niet-ondersteunde repositoryopties laten bestaande configuratie niet ongemoeid: zij verwijderen hun bronbestanden en, afhankelijk van de helper, sleutels of pakketten. Vooral `mongodb_enable => false` en `nodejs_enable => false` verwijderen ook de beheerde server- respectievelijk runtimepackage. Controleer vóór invoering de betreffende publieke `*_enable`-parameter in de [serverbasis](basic_settings/manifests/init.pp). Bewaar onafhankelijke APT-bronnen onder andere bestandsnamen.
 
@@ -263,7 +263,7 @@ Met `server_enable => true` in `basic_settings::puppet` en ingeschakelde monitor
 
 Deze controle vereist een lokale Puppet Server- of OpenVox Server-CA, `reports = store` (eventueel naast andere processors) op de server en ingeschakelde reporting op de agents. De check verandert die instellingen niet. Controleer vóór ingebruikname de effectieve serverconfiguratie en laat agents reports insturen. De legacyvariant `puppet-master`, ontbrekende lokale CA-bestanden en niet-ondersteunde ketens geven UNKNOWN. Een externe CA zonder betrouwbare lokale inventaris is hiermee niet te controleren.
 
-De paden komen uit `puppet config print cacert cacrl signeddir hostcert certname reportdir reports report --section server`, met de configuratie- en serverdatamap van de module expliciet als `--confdir` en `--vardir`. Bij `repo => 'distro'` gebruikt de registratie `/usr/bin/puppet`, `/etc/puppet` en `/var/lib/<server_dirname>`; bij `remote` zijn dat `/opt/puppetlabs/bin/puppet`, `/etc/puppetlabs/puppet` en `/opt/puppetlabs/server/data/<server_dirname>`. De reportdirectory volgt de effectieve `reportdir`, inclusief de bestaande symlink. Houd afwijkende JRuby `server-conf-dir`/`server-var-dir` (voorheen `master-*`) consistent met deze inrichting; de agent-CLI leest geen HOCON-overrides. De [Puppet-uitleg over serverinstellingen](https://help.puppet.com/core/current/Content/PuppetCore/server/puppet_conf_setting_diffs.htm) beschrijft die scheiding.
+De paden komen uit `puppet config print cacert cacrl signeddir hostcert certname reportdir reports report --section server`, met de configuratie- en serverdatamap van de module expliciet als `--confdir` en `--vardir`. Bij `repo => 'distro'` gebruikt de registratie `/usr/bin/puppet`, `/etc/puppet` en `/var/lib/<server_dirname>`; bij `remote` zijn dat `/opt/puppetlabs/bin/puppet`, `/etc/puppetlabs/puppet` en `/opt/puppetlabs/server/data/<server_dirname>`. De reportdirectory volgt de effectieve `reportdir`, inclusief de bestaande symlink. Houd afwijkende JRuby `server-conf-dir`/`server-var-dir` consistent met deze inrichting; de agent-CLI leest geen HOCON-overrides. De [Puppet-uitleg over serverinstellingen](https://help.puppet.com/core/current/Content/PuppetCore/server/puppet_conf_setting_diffs.htm) beschrijft die scheiding.
 
 De gebruikelijke OpenITCOCKPIT-agent draait als root. Dat is hier nodig voor de afgeschermde CA- en reportmappen en de eigen state. Controleer op de doelhost de effectieve servicegebruiker en voer de geregistreerde opdracht ook onder die identiteit uit. Een aangepaste, onprivileged agent voldoet niet aan dit contract; de check verruimt geen rechten en voegt geen sudo-regel toe. Er worden geen netwerkverzoeken gedaan, privésleutels gelezen of Puppet-taken gestart. De check gebruikt systemd alleen als de manager werkelijk actief is en anders `ps`; een gestopte systemd-service blijft een fout.
 
@@ -273,7 +273,7 @@ Een check-in betekent een door de `store`-processor opgeslagen report, niet iede
 
 De snapshot `/etc/openitcockpit-agent/state/puppet_server/last_seen` bewaart uitsluitend eerder waargenomen reporttijden. `basic_settings::monitoring_custom` beheert de statemap met modus `0700` voordat de check wordt geregistreerd. De snapshot heeft modus `0600`; beide zijn van root. Een lock voorkomt overlappende updates en vervanging gebeurt atomisch. Bestaande dagelijkse report-cleanup verwijdert deze administratie niet. Alleen na een volledige CA- en reportinspectie verdwijnen records van niet meer actieve agents. Bij eerste ingebruikname is gewiste historie niet terug te halen: zonder waargenomen report verschijnt `never reported`. Dit bewijst niet dat de agent vóór installatie nooit heeft gerapporteerd. Oude agents krijgen geen nieuwe inregelperiode; uitsluitend certificaten met een `notBefore` binnen de laatste 24 uur krijgen respijt. Die geldigheidsstart is een benadering van uitgifte, geen gegarandeerd uitgiftetijdstip.
 
-Bij het verplaatsen van een bestaande snapshot moeten alle aanroepen voor die state gestopt zijn. Maak de nieuwe statemap aan als root met modus `0700` en neem de bestaande `last_seen` met zijn eigenaar en rechten mee voordat de check daar draait; anders begint hij zonder eerder waargenomen historie. Dit geldt ook bij een overstap vanaf de eerdere ontwikkellocatie `/var/cache/check_puppetserver` of bij een expliciete `STATE_DIR`/`-S`-wijziging.
+Bij het verplaatsen van een bestaande snapshot moeten alle aanroepen voor die state gestopt zijn. Maak de nieuwe statemap aan als root met modus `0700` en neem de bestaande `last_seen` met zijn eigenaar en rechten mee voordat de check daar draait; anders begint hij zonder eerder waargenomen historie. Dit geldt ook bij een expliciete `STATE_DIR`/`-S`-wijziging.
 
 ##### Meldingen beoordelen
 
@@ -311,32 +311,6 @@ Tijdzonebeheer werkt onafhankelijk van NTP. Wanneer `Package['systemd']` vóór 
 
 Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de gebruikte release, inclusief het behoud van de tijdzone en het uitblijven van configuratievragen. Distributies kunnen `/etc/timezone` opruimen. Een noop installeert geen ontbrekende tijdzonedata en bewijst daarom niet dat de controle na installatie zal slagen.
 
-#### Migreren van de externe timezone-module
-
-Vanaf projectversie `3.0.0` is de zelfstandige class `timezone` verwijderd. Volg bij migratie vanuit versie 2.x de onderstaande stappen wanneer je die class rechtstreeks gebruikt. Gebruik via `basic_settings::server_timezone` behoudt de default `UTC` en de koppeling met PHP.
-
-Vervang rechtstreekse declaraties van `timezone` door `basic_settings::timezone` met een expliciete `timezone`. Geef `Etc/UTC` mee wanneer je op de oude zelfstandige default vertrouwde. Gebruik bij de volledige serverbasis uitsluitend `basic_settings::server_timezone`; declareer de onderliggende class dan niet apart. Pas verwijzingen naar `Class['timezone']` aan naar `Class['basic_settings::timezone']`. Houd bij los gebruik rekening met het hierboven beschreven NTP-beheer.
-
-Verplaats `timezone::timezone` in Hiera naar `basic_settings::server_timezone` voor de volledige serverbasis, of naar `basic_settings::timezone::timezone` bij los gebruik. Verwijder upstreamparameters zoals `ensure`, `hwutc`, `autoupgrade`, `notify_services`, `package`, `zoneinfo_dir`, `localtime_file`, `timezone_file`, `timezone_file_template`, `timezone_file_supports_comment` en `timezone_update`. Ook upstreaminstellingen zoals `timezone::use_debconf`, klokcommando’s en `lookup_options` voor verwijderde parameters vervallen. Richt benodigd hardwareklokbeheer, afwijkende paden of aanvullende serviceherstarts expliciet in je eigen profiel in.
-
-Verwijder `saz-timezone` uit consumerdependencies en de oude module uit de actieve modulepath. Declareer voor rechtstreeks gebruik van `basic_settings::timezone` de dependency `puppetmodules-basic_settings` met bereik `>= 3.0.0 < 4.0.0`, tenzij die dependency al aanwezig is. De gebruikelijke modulepath met `global-modules` verandert niet.
-
-Werk een bestaande checkout bij terwijl de oude submodule nog geregistreerd is. Controleer eerst de werkboom en bewaar lokale wijzigingen én de gekozen upstreamcommit buiten `global-modules`, bijvoorbeeld met een kopie van de checkout en een Git-bundle. Ga pas verder wanneer de werkboom schoon is en het werk veilig is bewaard. De deinit-opdracht gebruikt bewust geen force.
-
-**Werkmap:** Consumerroot met de oude `global-modules`-checkout. **Vereisten:** Een schone, veilig bewaarde timezone-submodule en een opgehaalde nieuwe projectrevisie. **Wijzigt:** Submodulewerkboom en gekozen global-modules-revisie. **Verwacht resultaat:** Tijdzonebeheer in basic_settings zonder timezone-gitlink of losse module.
-
-```sh
-git -C global-modules/timezone status --short
-git -C global-modules/timezone rev-parse HEAD
-git -C global-modules submodule deinit -- timezone
-git -C global-modules checkout '<gekozen-revisie>'
-git -C global-modules submodule sync --recursive
-git -C global-modules submodule update --init --recursive
-git -C global-modules ls-files --stage -- timezone
-```
-
-De laatste opdracht moet geen bestanden of gitlink meer tonen. Laat de bewaarde Git-objecten onder de bovenliggende `.git/modules` staan totdat de migratie is gecontroleerd. Een verse checkout volgt de gewone [installatie](#installatie). Compileer daarna de consumercatalogus en test de toepassing en herhaalde toepassing op wegwerphosts, inclusief NTP, PHP, audit en pakketonderhoud.
-
 ### `docker`
 
 <a id="doel-1"></a>
@@ -365,7 +339,7 @@ Docker erft de firewallkeuze van een eerder gedeclareerde netwerkclass en beheer
 
 De native nftables-backend is volgens de [Docker-documentatie](https://docs.docker.com/engine/network/firewall-nftables/) beschikbaar vanaf Engine 29.0.0, experimenteel en niet ondersteund in Swarm-modus. Controleer deze voorwaarden voor de werkelijk geïnstalleerde Engine-versie. De backend schakelt hostforwarding niet zelf in. Stel expliciet `ip_forwarding => true` in; bij `ip_version => 'all'` forwarden beide families en bij `'4'` alleen IPv4. Dit geeft geen algemene toestemming voor verkeer: het consumerproject blijft eigenaar van zijn forward-filter. Bij zelfstandig Docker-gebruik moet de consumer ook de host-sysctls verzorgen.
 
-De geplande moduleset `3.0.0` bevat deze forwardingparameter, nftables-defaults en IP-afhankelijke IPv6-defaults; gebruik een revisie waarin deze wijziging is opgenomen. Een checkout met de eerdere ontwikkeldefault `iptables => false` voor nftables of firewalld gaat bij de update Docker-regels aanmaken. Bij `ip_version => 'all'` wordt nu ook IPv6 op de standaardbridge ingeschakeld, inclusief bij zelfstandig Docker-gebruik. Behoud zo nodig de eerdere IPv6-keuze met expliciete `daemon_config`-waarden. Behoud zo nodig je bestaande vervangende firewallbeheer met expliciete `daemon_config`-waarden en beoordeel die combinatie vóór omschakeling. Migreer eventuele `DOCKER-USER`-regels en controleer achtergebleven iptables-`FORWARD`-policies; die kunnen verkeer blijven blokkeren. Beheer eigen nftables-regels in aparte tabellen en behoud Docker-tabellen bij het herladen van je firewall.
+Verwerk bij gebruik van de nftables-backend eventuele `DOCKER-USER`-regels in je eigen firewallbeleid. Controleer achtergebleven iptables-`FORWARD`-policies; die kunnen verkeer blijven blokkeren. Beheer eigen nftables-regels in aparte tabellen en behoud Docker-tabellen bij het herladen van je firewall.
 
 Laad bij de eerste omschakeling het eigen forward-filter vóór `Exec['kernel_sysctl_reload']` en vóór activering van de Docker-configuratie. `File['/etc/sysctl.d/90-network.conf']` meldt wijzigingen aan deze refresh-only exec, die `sysctl --system` uitvoert; bij hugepages gaat de bestaande hugepage-service daaraan vooraf. `File['/etc/docker/daemon.json']` valideert de volledige kandidaat met `dockerd --validate` en meldt wijzigingen aan `Service['docker']`. Borg in je consumer de volgorde firewall laden, sysctls toepassen, Docker omschakelen, en de overeenkomstige systemd-opstartvolgorde. Alleen de pakket- of servicedeclaratie van nftables bewijst niet dat je eigen filter geladen is. Een forwardingwijziging op zichzelf meldt geen Docker-herstart.
 
@@ -488,11 +462,22 @@ Puppet controleert de ingestelde bitrates tijdens iedere run en corrigeert afwij
 
 De herstart van `signaling` kan actieve gesprekken verstoren. Voer de eerste integratietest daarom buiten actieve gesprekken uit. Controleer daarna ook een ongewijzigde Puppet-run, `--noop` en herstel na een containerstart.
 
-##### Inloggen via OIDC
+##### Aanvullende apps en OIDC beheren
 
-Wil je gebruikers rechtstreeks naar je OIDC-provider sturen, installeer en activeer dan eerst `user_oidc` en richt één werkende provider in. Geef daarna optioneel `user_oidc_allow_multiple_user_backends => false` mee aan `docker::nextcloud`, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L244). Met `true` sta je meerdere inlogmethoden toe. De standaard `undef` laat de bestaande instelling ongemoeid; ook het weglaten van een eerder opgegeven waarde verwijdert of herstelt niets. De [Puppet Strings](docker/manifests/nextcloud.pp) beschrijven het volledige parametercontract.
+Gebruik [`docker::nextcloud_app`](docker/manifests/nextcloud_app.pp) om een aanvullende app te installeren, haar activatiestatus te beheren en opgegeven appinstellingen bij te houden. De app-id is de resourcenaam. Puppet werkt geïnstalleerde apps niet automatisch bij. Een weggelaten instelling blijft behouden; een weggelaten resource laat de app ongemoeid. Met `disable => true` blijft de app geïnstalleerd en uitgeschakeld. Met `ensure => false` verwijdert OCC de app indien aanwezig; daarbij kan appdata verloren gaan.
 
-Puppet beheert alleen deze applicatie-instelling via de bestaande OCC-voorziening, zodra Nextcloud geïnstalleerd is en zonder containerherstart. Na de installatiecontrole toetst een afzonderlijke, alleen-lezen OCC-controle of de `user_oidc`-commando’s beschikbaar zijn. Ontbreken ze, bijvoorbeeld doordat de app ontbreekt of uitgeschakeld is, dan faalt die controle en wordt de instelling niet geschreven. Een werkende providerconfiguratie blijft je eigen verantwoordelijkheid. De parameter installeert geen app en verandert geen providers, gebruikers of authenticatiegegevens; mislukte OCC-schrijfopdrachten blijven fouten.
+Voor OIDC gebruik je de afzonderlijke [`docker::nextcloud_user_oidc`](docker/manifests/nextcloud_user_oidc.pp)-class bij je bestaande AIO-deployment, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L244). De class installeert `user_oidc` indien nodig en houdt de app standaard globaal actief. Declareer daarnaast niet zelf dezelfde `docker::nextcloud_app`-resource. Richt de provider afzonderlijk in en controleer de werking voordat je login laat doorsturen:
+
+```puppet
+class { 'docker::nextcloud_user_oidc':
+  compose_name                 => 'nextcloud-aio',
+  allow_multiple_user_backends => false,
+}
+```
+
+Met `allow_multiple_user_backends => true` sta je meerdere inlogmethoden toe. Zonder deze optie blijft de bestaande logininstelling behouden.
+
+OCC voert wijzigingen alleen uit wanneer Nextcloud is geïnstalleerd. Aanwezige appbestanden zonder registratiesleutel geven een fout en blokkeren verdere configuratie. Er is geen containerherstart nodig. De [Puppet Strings](docker/manifests/nextcloud_app.pp) beschrijven de voorwaarden, instellingstypen en verwijdergevolgen.
 
 Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/login?direct=1` kun je de normale loginpagina bereiken zolang die route beschikbaar blijft, zoals beschreven in de [user_oidc-documentatie](https://github.com/nextcloud/user_oidc#disable-other-login-methods). Deze instelling bepaalt het inloggedrag en maakt niet alle alternatieve authenticatiemethoden technisch onmogelijk.
 
@@ -520,7 +505,7 @@ Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en g
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L312) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L316) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 
@@ -635,13 +620,13 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 
 #### Belangrijke aandachtspunten
 
-`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Voeg bij een overstap vanaf versie 2.0.0 deze parameter toe aan bestaande `mysql`-declaraties en lever het back-upwachtwoord als `Sensitive(...)` uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder die aanpassing kan Puppet de catalogus niet compileren.
+`automysqlbackup_password` is verplicht en heeft het type `Sensitive[String]`. Lever het back-upwachtwoord uit beveiligde configuratie, zoals in het basisvoorbeeld. Zonder deze parameter kan Puppet de catalogus niet compileren.
 
 `root_password` accepteert `Optional[Sensitive[String]]`; de parameter `password` van `mysql::user` gebruikt `Sensitive[String]` voor wachtwoordauthenticatie. Lever deze waarden vanuit afgeschermde Hiera-data met de juiste typeconversie en geef ze zonder `.unwrap` door. `Sensitive` schermt waarden af in Puppet-uitvoer, maar versleutelt de Hiera-data niet.
 
 Met `root_authentication => 'auth_socket'` beheer je `root@localhost` via de lokale Unix-socket als OS-gebruiker root. De plugin moet al geladen zijn. `root_password` wordt dan genegeerd en de beheerde clientconfiguraties en account-SQL bevatten geen rootwachtwoord. De `.cnf`-bestanden blijven nodig voor de gebruikersnaam, socket en serverinstellingen.
 
-Voor expliciete wachtwoordauthenticatie kies je `root_authentication => 'caching_sha2_password'` en lever je `root_password` als `Sensitive[String]`. Beide expliciete keuzes ondersteunen MySQL 8.0 en 8.4. Zonder de nieuwe optie blijft de bestaande versieafhankelijke wachtwoordkeuze gelden; zonder beide rootparameters blijft root onbeheerd.
+Voor expliciete wachtwoordauthenticatie kies je `root_authentication => 'caching_sha2_password'` en lever je `root_password` als `Sensitive[String]`. Beide expliciete keuzes ondersteunen MySQL 8.0 en 8.4. Zonder deze optie geldt de versieafhankelijke wachtwoordkeuze; zonder beide rootparameters blijft root onbeheerd.
 
 Een overstap vereist werkende bestaande beheertoegang of een al werkende login met de gewenste methode. Puppet controleert de accountidentiteit en plugin, past de authenticatie aan en publiceert daarna de beheerconfiguratie. Pas externe rootclients aan bij een overstap; `auth_socket` biedt geen rootlogin via TCP of als een andere OS-gebruiker. De lokale back-upservice draait als root en gebruikt dezelfde beheerconfiguratie.
 
@@ -1139,7 +1124,9 @@ Bij `package => 'openitcockpit'` zijn de locaties onder `/etc/openitcockpit-agen
 | Docker Compose | `docker_compose_<registratienaam>/docker_compose_<registratienaam>.state` |
 | Puppet Server | `puppet_server/last_seen` |
 
-Onderbreek bij de overstap alle betrokken checkaanroepen en pas Puppet toe om de nieuwe mappen te laten aanmaken. Verplaats daarna bestaande `mirth_queue_state.txt` en `docker_compose_<registratienaam>.state` uit de gedeelde statemap naar de bijbehorende submappen, met root als eigenaar en modus `0600`, voordat de checks worden hervat. Zo blijven de wachtrijduur en eerdere restarttellers behouden. De Puppet-snapshot blijft op dezelfde locatie; voor een oudere ontwikkellocatie staat de migratie bij [Puppet Server-monitoring](#puppet-server-controleren). De APT-cache onder `/var/cache/check_apt/changelogs` of de eerdere ontwikkellocatie `state/apt/changelogs` wordt niet meer gebruikt. Ontbrekende changelogs worden bij een volgende controle van security-updates opnieuw opgehaald; deze aanvullende diagnose verandert de statusberekening niet.
+Onderbreek bij het verplaatsen van bestaande statusbestanden alle betrokken checkaanroepen. Maak de doelmappen aan en behoud root als eigenaar en modus `0600` voor de bestanden voordat de checks worden hervat. Zo blijven de wachtrijduur en restarttellers behouden. Voor de Puppet-snapshot gelden de voorwaarden bij [Puppet Server-monitoring](#puppet-server-controleren).
+
+Ontbrekende APT-changelogs worden bij een volgende controle van security-updates opgehaald; deze aanvullende diagnose verandert de statusberekening niet.
 
 Algemene Linux-metingen gebruiken waar mogelijk de actieve kernelstatus. Specifieke checks behouden hun toepassingsgebied: APT beoordeelt APT-updates, audit gebruikt de actieve auditregels en de beschikbare historie, en de Nginx-certificaatcheck beoordeelt lokale bestanden. Systemd-checks vereisen een aantoonbaar actieve systemd-manager. Zonder geschikte meetbron of bij een niet-toepasbare controle volgt UNKNOWN (exitcode 3) met de reden; ontbrekende aanvullende diagnosegegevens bewijzen geen storing. Dit verbreedt de platformondersteuning van de Puppet-modules zelf niet.
 

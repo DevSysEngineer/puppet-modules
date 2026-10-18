@@ -32,7 +32,7 @@
 # `default_language`, `default_locale`, `default_phone_region`, `default_app`, `files_max_chunk_size`,
 # `skeleton_directory`) through
 # `docker::nextcloud_occ`. Puppet only writes on an actual difference. These settings are always managed, with
-# configurable values. App Store link visibility, SMTP, OIDC login behavior and objectstore selections are optional; use
+# configurable values. App Store link visibility, SMTP and objectstore selections are optional; use
 # `docker::nextcloud_occ` for other settings.
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
@@ -259,59 +259,48 @@
 #   `basic_settings::systemd` target suffix that should bind to the generated Compose service. The default is
 #   `services`.
 #
-# @param user_oidc_allow_multiple_user_backends
-#   Optional login behavior for an already available and enabled user_oidc app. False stores the string "0" in
-#   allow_multiple_user_backends to redirect login to a single configured, working OIDC provider. True stores "1"
-#   to allow multiple login methods. Defaults to undef: no OCC resource is declared and the stored value is neither
-#   removed nor reset, including when a previously managed value is omitted. Applies only with ensure present,
-#   after Nextcloud installation, through docker::nextcloud_occ without restarting containers. A read-only check
-#   fails if the user_oidc command namespace is unavailable. This does not install or enable the app, configure
-#   providers, create users or change credentials. Keep working administrative access
-#   through /login?direct=1 while that route remains available; this setting is not a complete authentication lockout.
-#
 # @api public
 define docker::nextcloud (
-  Integer[1, 65535]                     $admin_port                             = 8080,
-  Optional[String[1]]                   $admin_server_name                      = undef,
-  Array[Stdlib::IP::Address]            $admin_whitelist_ips                    = [],
-  Boolean                               $allow_local_remote_servers             = false,
-  Optional[Boolean]                     $appstore_link_shown                    = undef,
-  String[1]                             $default_app                            = 'files',
-  String[1]                             $default_language                       = 'nl',
-  String[1]                             $default_locale                         = 'nl_NL',
-  String[1]                             $default_phone_region                   = 'NL',
-  String[1]                             $default_quota                          = '10 GB',
-  Enum['present', 'absent']             $ensure                                 = present,
-  Integer[0]                            $files_max_chunk_size                   = 10485760,
-  Pattern[/\A[^\r\n]+\z/]               $image_tag                              = 'latest',
-  Integer                               $monitoring_detail_limit                = 6000,
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_expected_exited             = [],
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_health_required             = [],
-  Integer                               $monitoring_interval                    = 300,
-  Boolean                               $monitoring_orphan_critical             = false,
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_profiles                    = [],
-  Integer                               $monitoring_starting_grace              = 300,
-  Integer                               $monitoring_timeout                     = 60,
-  Optional[String[1]]                   $objectstore_default                    = undef,
-  Optional[String[1]]                   $objectstore_root                       = undef,
-  Integer[1, 65535]                     $port                                   = 11000,
-  Optional[String[1]]                   $server_name                            = undef,
-  String                                $skeleton_directory                     = '',
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_from                              = undef,
-  Optional[Sensitive[String]]           $smtp_password                          = undef,
-  Optional[Integer[1, 65535]]           $smtp_port                              = undef,
-  Enum['none', 'tls', 'ssl']            $smtp_security                          = 'none',
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_server                            = undef,
-  Optional[Integer[1]]                  $smtp_timeout                           = undef,
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_username                          = undef,
-  Optional[String]                      $ssl_certificate                        = undef,
-  Optional[String]                      $ssl_certificate_key                    = undef,
-  Optional[String]                      $ssl_certificate_trusted                = undef,
-  Boolean                               $ssl_verify                             = false,
-  Optional[Integer[1]]                  $talk_max_screen_bitrate                = undef,
-  Optional[Integer[1]]                  $talk_max_stream_bitrate                = undef,
-  String                                $target                                 = 'services',
-  Optional[Boolean]                     $user_oidc_allow_multiple_user_backends = undef,
+  Integer[1, 65535]                     $admin_port                 = 8080,
+  Optional[String[1]]                   $admin_server_name          = undef,
+  Array[Stdlib::IP::Address]            $admin_whitelist_ips        = [],
+  Boolean                               $allow_local_remote_servers = false,
+  Optional[Boolean]                     $appstore_link_shown        = undef,
+  String[1]                             $default_app                = 'files',
+  String[1]                             $default_language           = 'nl',
+  String[1]                             $default_locale             = 'nl_NL',
+  String[1]                             $default_phone_region       = 'NL',
+  String[1]                             $default_quota              = '10 GB',
+  Enum['present', 'absent']             $ensure                     = present,
+  Integer[0]                            $files_max_chunk_size       = 10485760,
+  Pattern[/\A[^\r\n]+\z/]               $image_tag                  = 'latest',
+  Integer                               $monitoring_detail_limit    = 6000,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_expected_exited = [],
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_health_required = [],
+  Integer                               $monitoring_interval        = 300,
+  Boolean                               $monitoring_orphan_critical = false,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_profiles        = [],
+  Integer                               $monitoring_starting_grace  = 300,
+  Integer                               $monitoring_timeout         = 60,
+  Optional[String[1]]                   $objectstore_default        = undef,
+  Optional[String[1]]                   $objectstore_root           = undef,
+  Integer[1, 65535]                     $port                       = 11000,
+  Optional[String[1]]                   $server_name                = undef,
+  String                                $skeleton_directory         = '',
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_from                  = undef,
+  Optional[Sensitive[String]]           $smtp_password              = undef,
+  Optional[Integer[1, 65535]]           $smtp_port                  = undef,
+  Enum['none', 'tls', 'ssl']            $smtp_security              = 'none',
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_server                = undef,
+  Optional[Integer[1]]                  $smtp_timeout               = undef,
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_username              = undef,
+  Optional[String]                      $ssl_certificate            = undef,
+  Optional[String]                      $ssl_certificate_key        = undef,
+  Optional[String]                      $ssl_certificate_trusted    = undef,
+  Boolean                               $ssl_verify                 = false,
+  Optional[Integer[1]]                  $talk_max_screen_bitrate    = undef,
+  Optional[Integer[1]]                  $talk_max_stream_bitrate    = undef,
+  String                                $target                     = 'services',
 ) {
   # Nginx is only required when at least one of the two AIO endpoints is published.
   $nginx_required = ($ensure == present and ($server_name != undef or $admin_server_name != undef))
@@ -618,37 +607,6 @@ define docker::nextcloud (
               compose_name => $name,
               unless       => ['config:app:get', 'core', 'appstore_link_shown'],
               unless_json  => stdlib::to_json($appstore_link_shown_value),
-            }
-          }
-
-          # Manage OIDC login behavior only when explicitly requested; omission preserves the stored value.
-          if ($user_oidc_allow_multiple_user_backends != undef) {
-            # The app expects string values, including when the requested boolean is false.
-            $oidc_value = $user_oidc_allow_multiple_user_backends ? {
-              true  => '1',
-              false => '0',
-            }
-
-            # Generic config:app:set can succeed without the app; require its enabled OCC command namespace first.
-            docker::nextcloud_occ { "${name}_user_oidc_available":
-              command      => ['list', 'user_oidc', '--raw'],
-              compose_name => $name,
-              unless       => ['list', 'user_oidc', '--raw'],
-            }
-
-            # Reuse installation checks and typed JSON comparison without changing the container lifecycle.
-            docker::nextcloud_occ { "${name}_user_oidc_allow_multiple_user_backends":
-              command      => [
-                'config:app:set',
-                'user_oidc',
-                'allow_multiple_user_backends',
-                '--type=string',
-                "--value=${oidc_value}",
-              ],
-              compose_name => $name,
-              unless       => ['config:app:get', 'user_oidc', 'allow_multiple_user_backends'],
-              unless_json  => stdlib::to_json($oidc_value),
-              require      => Docker::Nextcloud_occ["${name}_user_oidc_available"],
             }
           }
 
