@@ -1,10 +1,12 @@
-# @summary Deploys text and/or speech-to-text vLLM servers in one ARM64 Compose project, with optional HTTPS access.
+# @summary Deploys text and/or speech-to-text vLLM servers in one Compose project, with optional HTTPS access.
 #
-# Declare docker and basic_settings::systemd first. The host owns its NVIDIA driver and Container Toolkit;
-# this resource requires a working NVIDIA runtime and images supporting `vllm serve` on linux/arm64.
-# An image enables its service; undef disables it. Present stacks need at least one enabled service and its model
+# Declare docker and basic_settings::systemd first. Docker owns NVIDIA integration: declare nvidia before docker
+# for GPU hosts. This resource reuses that choice for official CUDA or CPU images and never declares nvidia itself.
+# Select tested tags whose image entrypoint is `vllm serve`, with the host architecture and required model dependencies.
+# A tag enables its service; undef disables it. Present stacks need at least one enabled service and its model
 # settings.
-# APIs listen only on host loopback. Set server_name, TLS certificates and whitelist_ips to publish the enabled APIs.
+# APIs listen only on host loopback. Set server_name and TLS certificates to publish the enabled APIs; whitelist_ips
+# optionally restricts clients.
 # The proxy uses docker::compose_proxy. Declare nginx before selecting it.
 # DNS, certificates and host firewall rules remain consumer responsibilities.
 # Containers run as root to use their image's default caches, without privileged mode or the Docker socket.
@@ -12,27 +14,26 @@
 # Existing caches survive disabling a service and container replacement. Plan storage and download access separately.
 # No Nextcloud configuration, model download exec, host worker or driver installation is managed here.
 #
-# @example Deploy only a text model on a host with Docker, systemd targets and the NVIDIA runtime already configured
+# @example Deploy only a text model after preparing Docker and systemd targets
 #   docker::vllm { 'text-ai':
 #     api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
-#     llm_image             => lookup('profile::nextcloud_ai::llm_image', String[1]),
-#     llm_model             => 'Qwen/Qwen3-14B',
+#     llm_image_tag         => lookup('profile::nextcloud_ai::llm_image_tag', String[1]),
+#     llm_model             => 'Qwen/Qwen3-0.6B',
 #     llm_served_model_name => 'nextcloud-verslag',
-#     llm_arguments         => ['--gpu-memory-utilization', '0.45'],
 #   }
 #
 # @example Deploy only transcription with the same host prerequisites
 #   docker::vllm { 'speech-ai':
 #     api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
-#     stt_image             => lookup('profile::nextcloud_ai::stt_image', String[1]),
+#     stt_image_tag         => lookup('profile::nextcloud_ai::stt_image_tag', String[1]),
 #     stt_model             => 'openai/whisper-large-v3-turbo',
 #     stt_served_model_name => 'whisper-1',
-#     stt_arguments         => ['--gpu-memory-utilization', '0.10'],
 #   }
 #
 # @param api_key
 #   Shared Bearer token for enabled APIs, supplied as Sensitive from the consumer's secret store.
-#   Must contain exactly 64 hexadecimal characters. Written only to the private Compose environment file.
+#   Required for present stacks, with exactly 64 hexadecimal characters; absent needs no key.
+#   Written only to the private Compose environment file.
 #
 # @param client_max_body_size
 #   Nginx upload limit when server_name is set. Default 1100m allows the example's audio uploads.
@@ -47,18 +48,22 @@
 #
 # @param llm_arguments
 #   Additional text-server argv elements, including revision, dtype, context and memory settings. Ignored without
-#   llm_image.
-#   Do not include secrets or redefine host, port, model, served-model-name or api-key, including abbreviations.
+#   llm_image_tag.
+#   Do not include secrets or redefine host, port, uds, model, served-model-name or api-key, including abbreviations or
+#   dotted options.
 #   Configuration-file options are reserved because they can replace authentication settings.
 #   Cache-location overrides change persistent-cache behavior and remain the consumer's responsibility.
 #
-# @param llm_image Text server image reference. Undef disables LLM. Pin a tested ARM64 image digest in deployment data.
+# @param llm_image_tag
+#   Docker tag for the official text-server image; undef disables LLM. Supply a tested release tag from deployment data.
+#   Only tag syntax is accepted, not a repository, URL or digest. Tags are used verbatim, without added suffixes.
+#   Docker NVIDIA integration selects vllm/vllm-openai; otherwise vllm/vllm-openai-cpu is used. No AMD GPU support.
 #
-# @param llm_model Hugging Face text model ID. Required with llm_image; vLLM downloads missing files itself.
+# @param llm_model Hugging Face text model ID. Required with llm_image_tag; vLLM downloads missing files itself.
 #
 # @param llm_port Loopback host port for text. Must differ from stt_port when both services are enabled.
 #
-# @param llm_served_model_name Stable text API model name. Required with llm_image; ignored when LLM is disabled.
+# @param llm_served_model_name Stable text API model name. Required with llm_image_tag; ignored when LLM is disabled.
 #
 # @param proxy_timeout Nginx read and send timeout in seconds when server_name is set. Default 3600.
 #
@@ -82,22 +87,25 @@
 #   periods.
 #
 # @param stt_arguments
-#   Additional transcription argv elements, under the same restrictions as llm_arguments. Ignored without stt_image.
+#   Additional transcription argv elements, under the same restrictions as llm_arguments. Ignored without stt_image_tag.
 #
 # @param stt_environment
 #   Additional non-secret transcription environment strings, for example audio upload and decode limits.
-#   Empty adds none; ignored without stt_image. VLLM_API_KEY and VLLM_ENGINE_READY_TIMEOUT_S are reserved.
+#   Empty adds none; ignored without stt_image_tag. VLLM_API_KEY and VLLM_ENGINE_READY_TIMEOUT_S are reserved.
 #   HF_HOME and HF_HUB_CACHE overrides change persistent-cache behavior.
 #
-# @param stt_image
-#   Transcription image reference. Undef disables STT. The image must support the chosen audio input formats.
+# @param stt_image_tag
+#   Docker tag for the official transcription image, using the same repository choice and syntax as llm_image_tag.
+#   Undef disables STT. Validate model loading and actual audio requests with the exact tag and backend.
+#   Audio dependencies and supported formats differ by release; no dependencies are installed at container startup.
 #
-# @param stt_model Hugging Face transcription model ID. Required with stt_image; vLLM downloads missing files itself.
+# @param stt_model
+#   Hugging Face transcription model ID. Required with stt_image_tag; vLLM downloads missing files itself.
 #
 # @param stt_port Loopback host port for transcription. Must differ from llm_port when both services are enabled.
 #
 # @param stt_served_model_name
-#   Stable transcription API model name. Required with stt_image; ignored when STT is disabled.
+#   Stable transcription API model name. Required with stt_image_tag; ignored when STT is disabled.
 #
 # @param systemd_service
 #   [Service] overrides passed to docker::compose, merged over the startup_timeout-derived TimeoutStartSec.
@@ -107,44 +115,53 @@
 #   [Unit] overrides passed unchanged to docker::compose; empty preserves its ordering and monitoring hooks.
 #
 # @param whitelist_ips
-#   Client addresses or CIDR ranges allowed by the optional Nginx proxy. Default [] denies all remote clients.
+#   Client addresses or CIDR ranges allowed by the optional Nginx proxy. Undef emits no resource-managed access rules.
+#   An empty array denies all API clients; a populated array allows those addresses, then denies other clients.
+#   Other Nginx or firewall policies still apply.
 #   Use the source address seen by Nginx. API-token authentication is still required for requests.
 #
 # @api public
 define docker::vllm (
-  Sensitive[String]                  $api_key,
-  String[1]                          $client_max_body_size  = '1100m',
-  Integer[1]                         $engine_ready_timeout  = 1800,
-  Enum['present', 'absent']          $ensure                = 'present',
-  Array[String[1]]                   $llm_arguments         = [],
-  Optional[String[1]]                $llm_image             = undef,
-  Optional[String[1]]                $llm_model             = undef,
-  Integer[1, 65535]                  $llm_port              = 8000,
-  Optional[String[1]]                $llm_served_model_name = undef,
-  Integer[1]                         $proxy_timeout         = 3600,
-  Enum['always', 'missing', 'never'] $pull                  = 'missing',
-  Optional[String[1]]                $server_name           = undef,
-  String[1]                          $shm_size              = '8gb',
-  Optional[String[1]]                $ssl_certificate       = undef,
-  Optional[String[1]]                $ssl_certificate_key   = undef,
-  Integer[1]                         $startup_timeout       = 3600,
-  Array[String[1]]                   $stt_arguments         = [],
-  Hash[String[1], String]            $stt_environment       = {},
-  Optional[String[1]]                $stt_image             = undef,
-  Optional[String[1]]                $stt_model             = undef,
-  Integer[1, 65535]                  $stt_port              = 8001,
-  Optional[String[1]]                $stt_served_model_name = undef,
-  Hash                               $systemd_service       = {},
-  Hash                               $systemd_unit          = {},
-  Array[String[1]]                   $whitelist_ips         = [],
+  Optional[Sensitive[String]]                                $api_key               = undef,
+  String[1]                                                  $client_max_body_size  = '1100m',
+  Integer[1]                                                 $engine_ready_timeout  = 1800,
+  Enum['present', 'absent']                                  $ensure                = 'present',
+  Array[String[1]]                                           $llm_arguments         = [],
+  Optional[Pattern[/\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\z/]] $llm_image_tag         = undef,
+  Optional[String[1]]                                        $llm_model             = undef,
+  Integer[1, 65535]                                          $llm_port              = 8000,
+  Optional[String[1]]                                        $llm_served_model_name = undef,
+  Integer[1]                                                 $proxy_timeout         = 3600,
+  Enum['always', 'missing', 'never']                         $pull                  = 'missing',
+  Optional[String[1]]                                        $server_name           = undef,
+  String[1]                                                  $shm_size              = '8gb',
+  Optional[String[1]]                                        $ssl_certificate       = undef,
+  Optional[String[1]]                                        $ssl_certificate_key   = undef,
+  Integer[1]                                                 $startup_timeout       = 3600,
+  Array[String[1]]                                           $stt_arguments         = [],
+  Hash[String[1], String]                                    $stt_environment       = {},
+  Optional[Pattern[/\A[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}\z/]] $stt_image_tag         = undef,
+  Optional[String[1]]                                        $stt_model             = undef,
+  Integer[1, 65535]                                          $stt_port              = 8001,
+  Optional[String[1]]                                        $stt_served_model_name = undef,
+  Hash                                                       $systemd_service       = {},
+  Hash                                                       $systemd_unit          = {},
+  Optional[Array[String[1]]]                                 $whitelist_ips         = undef,
 ) {
   # Docker owns shared prerequisites; a present stack also needs the target ladder and Compose daemon reload.
   if (defined(Class['docker'])) {
     # Removal follows Compose without requiring a retired credential, enabled models or proxy prerequisites.
     if ($ensure == 'present' and defined(Class['basic_settings::systemd'])) {
+      # Reuse Docker's evaluation-time decision so declaration order cannot select a different backend here.
+      $nvidia_available = $docker::nvidia_available
+      $image_repository = $nvidia_available ? {
+        true    => 'vllm/vllm-openai',
+        default => 'vllm/vllm-openai-cpu',
+      }
+
       # Image selection drives container rendering, monitoring, cache management and proxy routes together.
-      $llm_enabled = $llm_image != undef
-      $stt_enabled = $stt_image != undef
+      $llm_enabled = $llm_image_tag != undef
+      $stt_enabled = $stt_image_tag != undef
       $enabled_services = { 'llm' => $llm_enabled, 'stt' => $stt_enabled }.filter |$service, $enabled| { $enabled }.keys
       $model_settings_valid = (!$llm_enabled or ($llm_model != undef and $llm_served_model_name != undef))
         and (!$stt_enabled or ($stt_model != undef and $stt_served_model_name != undef))
@@ -154,17 +171,23 @@ define docker::vllm (
         # Validate only arguments of enabled services; unused service settings do not prevent switching modes.
         $active_arguments = concat($llm_enabled ? { true => $llm_arguments, default => [] },
           $stt_enabled ? { true => $stt_arguments, default => [] })
-        $managed_options = ['--host', '--port', '--model', '--served-model-name', '--api-key', '--config']
+        $managed_options = ['--host', '--port', '--uds', '--model', '--served-model-name', '--api-key', '--config']
         $reserved_arguments = $active_arguments.filter |$argument| {
-          # vLLM accepts underscores and argparse abbreviations, as well as option=value syntax.
-          $option_name = regsubst(split($argument, '=')[0], '_', '-', 'G')
-          $managed_options.any |$managed_option| {
-            $option_name != '--' and $managed_option[0, $option_name.length] == $option_name
-          } or $argument =~ /\A-(?:p|c)(?:=|[^-]|\z)/
+          # Normalize long options only, so relative paths and other argument values keep their literal meaning.
+          if ($argument =~ /\A--/) {
+            # vLLM expands dotted options before parsing; protect the base name and its abbreviations too.
+            $option_name = regsubst(split(split($argument, '=')[0], '[.]')[0], '_', '-', 'G')
+            $managed_options.any |$managed_option| {
+              $option_name != '--' and $managed_option[0, $option_name.length] == $option_name
+            }
+          } else {
+            # Preserve short listener and configuration-file option checks, including attached values.
+            $argument =~ /\A-(?:p|c)(?:=|[^-]|\z)/
+          }
         }
 
         # Authentication remains required for every enabled API, including when no reverse proxy is selected.
-        if ($api_key.unwrap =~ /\A[0-9a-fA-F]{64}\z/) {
+        if ($api_key != undef and $api_key.unwrap =~ /\A[0-9a-fA-F]{64}\z/) {
           # A single-service deployment may reuse either host port; only simultaneous listeners need distinct ports.
           if ((!$llm_enabled or !$stt_enabled or $llm_port != $stt_port) and $startup_timeout > $engine_ready_timeout) {
             # Keep listener identity and authentication under their dedicated parameters.
@@ -201,8 +224,14 @@ define docker::vllm (
                     ["/${service}/v1/", { 'port' => $service_ports[$service], 'uri' => '/v1/' }]
                   })
 
-                  # Apply the consumer allowlist before the final deny rule, including non-API locations.
-                  $access_directives = $whitelist_ips.map |$address| { "allow ${address};" }
+                  # Undef adds no resource ACL; an explicit array always ends in deny, even when empty.
+                  if ($whitelist_ips != undef) {
+                    # Preserve Nginx rule order so the listed clients are allowed before the final deny.
+                    $access_directives = concat($whitelist_ips.map |$address| { "allow ${address};" }, ['deny all;'])
+                  } else {
+                    # Leave any centrally managed access policy in effect without adding allow all.
+                    $access_directives = []
+                  }
 
                   # Forward authentication and streamed requests through the common proxy implementation.
                   docker::compose_proxy { $name:
@@ -213,7 +242,7 @@ define docker::vllm (
                     ssl_certificate        => $ssl_certificate,
                     ssl_certificate_key    => $ssl_certificate_key,
                     client_max_body_size   => $client_max_body_size,
-                    directives             => concat($access_directives, ['deny all;']),
+                    directives             => $access_directives,
                     proxy_routes           => $api_routes,
                     proxy_scheme           => 'http',
                     proxy_read_timeout     => "${proxy_timeout}s",
@@ -245,10 +274,10 @@ define docker::vllm (
             fail('docker::vllm requires distinct ports for simultaneous services and startup_timeout greater than engine_ready_timeout.')
           }
         } else {
-          fail('docker::vllm api_key must contain exactly 64 hexadecimal characters.')
+          fail('docker::vllm api_key is required for present stacks and must contain exactly 64 hexadecimal characters.')
         }
       } else {
-        fail('docker::vllm requires at least one image and both model and served_model_name for each enabled service.')
+        fail('docker::vllm requires at least one image tag and both model and served_model_name for each enabled service.')
       }
     } elsif ($ensure == 'absent') {
       docker::compose { $name:

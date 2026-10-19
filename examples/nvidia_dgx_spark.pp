@@ -35,15 +35,16 @@ node 'dgx-spark.example.org' {
     require              => Class['basic_settings'],
   }
 
-  # Pin image digests and model commits in deployment data after verifying the driver/image combination on this host.
+  # Supply official vllm/vllm-openai release tags and model commits after verifying them with this host and driver.
   # Replace the allowed documentation address with the Nextcloud source address observed by Nginx.
-  # NVIDIA's 26.09-py3 image supplies vllm serve; memory and audio limits below require a real recording acceptance test.
+  # Verify the image entrypoint is vllm serve and its manifest supports ARM64; tags are passed without suffix changes.
+  # Test WAV, MP3 and Talk MP4 directly and via HTTPS; the memory and audio settings below are GPU examples, not CPU defaults.
   docker::vllm { 'nextcloud-ai':
     api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
-    llm_image             => lookup('profile::nextcloud_ai::llm_image', String[1]),
+    llm_image_tag         => lookup('profile::nextcloud_ai::llm_image_tag', String[1]),
     llm_model             => 'Qwen/Qwen3-14B',
     llm_served_model_name => 'nextcloud-verslag',
-    stt_image             => lookup('profile::nextcloud_ai::stt_image', String[1]),
+    stt_image_tag         => lookup('profile::nextcloud_ai::stt_image_tag', String[1]),
     stt_model             => 'openai/whisper-large-v3-turbo',
     stt_served_model_name => 'whisper-1',
     server_name           => 'ai.example.org',

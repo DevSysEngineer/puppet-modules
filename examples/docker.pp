@@ -450,13 +450,14 @@ node 'vllm.example.org' {
   # Declare the driver first so Docker installs and registers the NVIDIA Container Toolkit.
   class { 'docker': }
 
-  # Supply model commits and memory settings as argv arrays in the consumer's deployment data.
+  # Supply tested official vllm/vllm-openai tags, model commits and GPU arguments from deployment data.
+  # Verify ARM64 availability, the vllm serve entrypoint and real text/audio requests before deployment.
   docker::vllm { 'nextcloud-ai':
     api_key               => lookup('profile::nextcloud_ai::api_key', Sensitive[String]),
-    llm_image             => lookup('profile::nextcloud_ai::llm_image', String[1]),
+    llm_image_tag         => lookup('profile::nextcloud_ai::llm_image_tag', String[1]),
     llm_model             => 'Qwen/Qwen3-14B',
     llm_served_model_name => 'nextcloud-verslag',
-    stt_image             => lookup('profile::nextcloud_ai::stt_image', String[1]),
+    stt_image_tag         => lookup('profile::nextcloud_ai::stt_image_tag', String[1]),
     stt_model             => 'openai/whisper-large-v3-turbo',
     stt_served_model_name => 'whisper-1',
     llm_arguments         => lookup('profile::nextcloud_ai::llm_arguments', Array[String[1]]),
