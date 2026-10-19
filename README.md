@@ -508,9 +508,11 @@ Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/log
 
 Het [Nextcloud-scenario](examples/docker.pp) koppelt Nextcloud 35 en Talk 35 met `integration_openai` 5.0.0 aan de twee Spark-API's. Gebruik een werkende AIO Talk-opnameserver en test eerst beide HTTPS-routes vanuit de Nextcloud-container. Controleer de versies bij een update; oudere Talk-versies gebruiken een ander taaktype voor samenvattingen. De wrapper werkt apps niet automatisch bij.
 
-Neem de app- en OCC-declaraties op bij je bestaande AIO-deployment en gebruik dezelfde secretlookup als op Spark. Het voorbeeld configureert beide endpoints en modelnamen, bewaart de twee API-sleutels met Nextclouds native sensitive- en lazy-vlaggen en activeert transcriptie en samenvatting. Een bestaande persoonlijke integratiesleutel kan de beheerderssleutel voor tekstaanvragen vervangen; controleer die bij gebruikersgebonden authenticatiefouten. Voor deze integratie hoef je `allow_local_remote_servers` niet globaal in te schakelen.
+Neem de app- en OCC-declaraties op bij je bestaande AIO-deployment en gebruik dezelfde secretlookup als op Spark. Het voorbeeld configureert beide endpoints en modelnamen en bewaart de twee API-sleutels met Nextclouds native sensitive- en lazy-vlaggen. Een bestaande persoonlijke integratiesleutel kan de beheerderssleutel voor tekstaanvragen vervangen; controleer die bij gebruikersgebonden authenticatiefouten. Voor deze integratie hoef je `allow_local_remote_servers` niet globaal in te schakelen.
 
-Lever de Nederlandse verslaginstructie als `profile::nextcloud_ai::talk_summary_prompt`. Een bruikbaar vertrekpunt is:
+Activeer transcriptie en samenvatting met `talk_call_recording_transcription => true` en `talk_call_recording_summary => true` in je `docker::nextcloud`-declaratie. Met `undef` blijven de bestaande Talk-instellingen behouden; de [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de voorwaarden.
+
+Geef de Nederlandse verslaginstructie door met `talk_call_recording_summary_prompt`; het voorbeeld leest die uit `profile::nextcloud_ai::talk_summary_prompt`. Een bruikbaar vertrekpunt is:
 
 > Maak een Nederlands vergaderverslag op basis van uitsluitend het transcript. Gebruik de koppen Samenvatting, Besluiten, Actiepunten en Openstaande vragen. Vermeld bij een actiepunt alleen een eigenaar of deadline als die expliciet uit het transcript blijkt. Schrijf anders “niet genoemd”. Verzin geen namen, besluiten of afspraken. Markeer onduidelijke passages als onzeker. Houd het verslag beknopt en behoud belangrijke nuances.
 
@@ -520,7 +522,7 @@ AIO beheert de ingebouwde `taskprocessing-worker` naast cron. Voeg geen extra ho
 
 Test de volledige keten met een echte Talk-MP4: de integratie verstuurt die als multipart-bestand `file.mp3`, met model `whisper-1` en `response_format=verbose_json`. Controleer eerst audio-imports en MP4-decodering in de STT-image, daarna het transcript en het Nederlandse verslag bij de opname-eigenaar. Test zowel een opname langer dan tien minuten en groter dan 25 MiB als de langste gebruikelijke vergadering. Uploadlimiet, PHP-geheugen, decodebuffer, verwerkingstimeout en LLM-context moeten allemaal passen; Talk geeft het volledige transcript als één teksttaak door. Kijk het verslag inhoudelijk na en controleer daarna een tweede Puppet-run, noop en normale herstarts.
 
-Zet voor terugzetten de twee automatiseringsvlaggen in het voorbeeld op `'no'` en laat bestaande AI-taken afronden vóór je de backend terugzet. Laat de gedeelde AIO-worker actief. Alleen de appresource weglaten herstelt eerdere instellingen niet; `ensure => false` verwijdert de app en kan appdata verwijderen.
+Zet voor terugzetten `talk_call_recording_transcription` en `talk_call_recording_summary` op `false` en laat bestaande AI-taken afronden vóór je de backend terugzet. Laat de gedeelde AIO-worker actief. Alleen de appresource weglaten herstelt eerdere instellingen niet; `ensure => false` verwijdert de app en kan appdata verwijderen.
 
 ##### AIO-back-ups
 
@@ -546,7 +548,7 @@ Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en g
 
 #### GitLab Runner
 
-Gebruik het [Runner-scenario](examples/docker.pp#L411) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
+Gebruik het [Runner-scenario](examples/docker.pp#L400) op een aparte host of VM voor vertrouwde builds. De manager heeft via de Docker-socket vergaande hosttoegang. Nieuwe automatische registraties geven jobs geen socket of runnerconfiguratie en activeren geen privileged mode. Controleer bij bestaande registraties zelf de executorinstellingen: Puppet beheert de inhoud van `config.toml` niet.
 
 Beperk welke projecten de runner mogen gebruiken. De vaste jobpolicy `if-not-present` kan gecachte private images zonder nieuwe registry-autorisatie hergebruiken en houdt veranderlijke tags niet vanzelf actueel.
 

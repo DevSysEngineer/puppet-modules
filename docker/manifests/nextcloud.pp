@@ -32,8 +32,8 @@
 # `default_language`, `default_locale`, `default_phone_region`, `default_app`, `files_max_chunk_size`,
 # `skeleton_directory`) through
 # `docker::nextcloud_occ`. Puppet only writes on an actual difference. These settings are always managed, with
-# configurable values. App Store link visibility, SMTP and objectstore selections are optional; use
-# `docker::nextcloud_occ` for other settings.
+# configurable values. App Store link visibility, Talk recording settings, SMTP and objectstore selections are optional;
+# use `docker::nextcloud_occ` for other settings.
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
 #
@@ -57,6 +57,10 @@
 # Restarting signaling can disrupt active calls; perform the first integration test outside active calls.
 # The container image supplies sh, awk, sed with -i support, and dinitctl. No additional packages or scripts are
 # installed.
+#
+# Optional Talk recording settings manage spreed app configuration through the guarded OCC path, without restarting
+# containers. AIO owns the Talk app; configure a working recording server and suitable task-processing providers
+# separately before enabling transcription or summaries. This wrapper does not install or configure AI providers.
 #
 # SMTP shares docker::authentik's parameter names, relay fallback and Sensitive password contract. A resolved relay
 # manages mail_smtpmode, mail_smtphost, mail_smtpsecure and boolean mail_smtpauth. Port, timeout, sender and credentials
@@ -245,6 +249,24 @@
 #   after domain setup. True requires a matching proxy_ssl_name and proxy_ssl_trusted_certificate configured through
 #   nginx http_directives. The application upstream uses HTTP and does not consume this setting.
 #
+# @param talk_call_recording_summary
+#   Optional automatic summaries of Talk call recordings. True writes yes and false writes no to spreed
+#   call_recording_summary with --type=string. Requires working transcription and a text-processing provider.
+#   Undef leaves the stored value unmanaged, including when a previously supplied value is omitted.
+#   Applies only with ensure present after Nextcloud installation, without restarting containers.
+#
+# @param talk_call_recording_summary_prompt
+#   Optional nonempty instruction for Talk recording summaries, stored as spreed call_recording_summary_prompt.
+#   Supply the desired language and reporting instructions from consumer data; no prompt is imposed by this wrapper.
+#   Undef preserves the stored prompt, including when a previously supplied value is omitted.
+#   Applies only with ensure present after Nextcloud installation, without enabling summaries or restarting containers.
+#
+# @param talk_call_recording_transcription
+#   Optional automatic transcription of Talk call recordings. True writes yes and false writes no to spreed
+#   call_recording_transcription with --type=string. Requires a working recording server and audio-to-text provider.
+#   Undef leaves the stored value unmanaged, including when a previously supplied value is omitted.
+#   Applies only with ensure present after Nextcloud installation, without restarting containers.
+#
 # @param talk_max_screen_bitrate
 #   Optional maximum screen-sharing bitrate in bit/s, as a positive integer. Defaults to undef: leave both stored
 #   maxscreenbitrate values untouched, including when a previously managed value is omitted. Only ensure present
@@ -253,7 +275,7 @@
 # @param talk_max_stream_bitrate
 #   Optional maximum camera bitrate in bit/s, as a positive integer; 10485760 is approximately 10.5 Mbit/s.
 #   Defaults to undef: leave both stored maxstreambitrate values untouched, including when a previously managed
-#   value is omitted. Only ensure present enables management. With both bitrates undef, no Talk actions are declared.
+#   value is omitted. Only ensure present enables management. With both bitrates undef, no bitrate actions are declared.
 #
 # @param target
 #   `basic_settings::systemd` target suffix that should bind to the generated Compose service. The default is
@@ -261,46 +283,49 @@
 #
 # @api public
 define docker::nextcloud (
-  Integer[1, 65535]                     $admin_port                 = 8080,
-  Optional[String[1]]                   $admin_server_name          = undef,
-  Array[Stdlib::IP::Address]            $admin_whitelist_ips        = [],
-  Boolean                               $allow_local_remote_servers = false,
-  Optional[Boolean]                     $appstore_link_shown        = undef,
-  String[1]                             $default_app                = 'files',
-  String[1]                             $default_language           = 'nl',
-  String[1]                             $default_locale             = 'nl_NL',
-  String[1]                             $default_phone_region       = 'NL',
-  String[1]                             $default_quota              = '10 GB',
-  Enum['present', 'absent']             $ensure                     = present,
-  Integer[0]                            $files_max_chunk_size       = 10485760,
-  Pattern[/\A[^\r\n]+\z/]               $image_tag                  = 'latest',
-  Integer                               $monitoring_detail_limit    = 6000,
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_expected_exited = [],
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_health_required = [],
-  Integer                               $monitoring_interval        = 300,
-  Boolean                               $monitoring_orphan_critical = false,
-  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_profiles        = [],
-  Integer                               $monitoring_starting_grace  = 300,
-  Integer                               $monitoring_timeout         = 60,
-  Optional[String[1]]                   $objectstore_default        = undef,
-  Optional[String[1]]                   $objectstore_root           = undef,
-  Integer[1, 65535]                     $port                       = 11000,
-  Optional[String[1]]                   $server_name                = undef,
-  String                                $skeleton_directory         = '',
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_from                  = undef,
-  Optional[Sensitive[String]]           $smtp_password              = undef,
-  Optional[Integer[1, 65535]]           $smtp_port                  = undef,
-  Enum['none', 'tls', 'ssl']            $smtp_security              = 'none',
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_server                = undef,
-  Optional[Integer[1]]                  $smtp_timeout               = undef,
-  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_username              = undef,
-  Optional[String]                      $ssl_certificate            = undef,
-  Optional[String]                      $ssl_certificate_key        = undef,
-  Optional[String]                      $ssl_certificate_trusted    = undef,
-  Boolean                               $ssl_verify                 = false,
-  Optional[Integer[1]]                  $talk_max_screen_bitrate    = undef,
-  Optional[Integer[1]]                  $talk_max_stream_bitrate    = undef,
-  String                                $target                     = 'services',
+  Integer[1, 65535]                     $admin_port                         = 8080,
+  Optional[String[1]]                   $admin_server_name                  = undef,
+  Array[Stdlib::IP::Address]            $admin_whitelist_ips                = [],
+  Boolean                               $allow_local_remote_servers         = false,
+  Optional[Boolean]                     $appstore_link_shown                = undef,
+  String[1]                             $default_app                        = 'files',
+  String[1]                             $default_language                   = 'nl',
+  String[1]                             $default_locale                     = 'nl_NL',
+  String[1]                             $default_phone_region               = 'NL',
+  String[1]                             $default_quota                      = '10 GB',
+  Enum['present', 'absent']             $ensure                             = present,
+  Integer[0]                            $files_max_chunk_size               = 10485760,
+  Pattern[/\A[^\r\n]+\z/]               $image_tag                          = 'latest',
+  Integer                               $monitoring_detail_limit            = 6000,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_expected_exited         = [],
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_health_required         = [],
+  Integer                               $monitoring_interval                = 300,
+  Boolean                               $monitoring_orphan_critical         = false,
+  Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]] $monitoring_profiles                = [],
+  Integer                               $monitoring_starting_grace          = 300,
+  Integer                               $monitoring_timeout                 = 60,
+  Optional[String[1]]                   $objectstore_default                = undef,
+  Optional[String[1]]                   $objectstore_root                   = undef,
+  Integer[1, 65535]                     $port                               = 11000,
+  Optional[String[1]]                   $server_name                        = undef,
+  String                                $skeleton_directory                 = '',
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_from                          = undef,
+  Optional[Sensitive[String]]           $smtp_password                      = undef,
+  Optional[Integer[1, 65535]]           $smtp_port                          = undef,
+  Enum['none', 'tls', 'ssl']            $smtp_security                      = 'none',
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_server                        = undef,
+  Optional[Integer[1]]                  $smtp_timeout                       = undef,
+  Optional[Pattern[/\A[^\r\n]*\z/]]     $smtp_username                      = undef,
+  Optional[String]                      $ssl_certificate                    = undef,
+  Optional[String]                      $ssl_certificate_key                = undef,
+  Optional[String]                      $ssl_certificate_trusted            = undef,
+  Boolean                               $ssl_verify                         = false,
+  Optional[Boolean]                     $talk_call_recording_summary        = undef,
+  Optional[String[1]]                   $talk_call_recording_summary_prompt = undef,
+  Optional[Boolean]                     $talk_call_recording_transcription  = undef,
+  Optional[Integer[1]]                  $talk_max_screen_bitrate            = undef,
+  Optional[Integer[1]]                  $talk_max_stream_bitrate            = undef,
+  String                                $target                             = 'services',
 ) {
   # Nginx is only required when at least one of the two AIO endpoints is published.
   $nginx_required = ($ensure == present and ($server_name != undef or $admin_server_name != undef))
@@ -556,6 +581,31 @@ define docker::nextcloud (
               container_name => 'nextcloud-aio-talk',
               onlyif         => ['/bin/true'],
               refreshonly    => true,
+            }
+          }
+
+          # Omitted Talk recording options preserve their stored values; AIO owns the spreed app lifecycle.
+          $talk_settings = {
+            'call_recording_transcription'  => $talk_call_recording_transcription,
+            'call_recording_summary'        => $talk_call_recording_summary,
+            'call_recording_summary_prompt' => $talk_call_recording_summary_prompt,
+          }.filter |$config_key, $config_value| { $config_value != undef }
+
+          # Compare the stored strings so unchanged settings do not trigger another OCC write.
+          $talk_settings.each |$config_key, $config_value| {
+            # Talk stores automation flags as yes/no strings; keep the supplied prompt unchanged.
+            $talk_value = $config_value ? {
+              true    => 'yes',
+              false   => 'no',
+              default => $config_value,
+            }
+
+            # The shared OCC resource preserves argument boundaries and skips an uninitialized Nextcloud instance.
+            docker::nextcloud_occ { "${name}_talk_${config_key}":
+              command      => ['config:app:set', 'spreed', $config_key, '--type=string', "--value=${talk_value}"],
+              compose_name => $name,
+              unless       => ['config:app:get', 'spreed', $config_key],
+              unless_json  => stdlib::to_json($talk_value),
             }
           }
 

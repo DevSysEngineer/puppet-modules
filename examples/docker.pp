@@ -266,16 +266,20 @@ node 'nextcloud.example.org' {
   # Configure backups separately in the AIO interface.
   # SMTP uses basic_settings::smtp_server above; no mail settings are needed on this resource.
   # Prepare migration before selecting primary storage on an existing installation; these settings do not move files.
+  # Keep the summary instruction in consumer data; the README supplies a suggested Dutch prompt.
   docker::nextcloud { 'nextcloud-aio':
-    admin_server_name   => 'cloud-admin.example.org',
-    admin_whitelist_ips => ['192.0.2.10', '2001:db8::/32'],
-    appstore_link_shown => false,
-    objectstore_default => 'server2',
-    objectstore_root    => 'server1',
-    server_name         => 'cloud.example.org',
-    ssl_certificate     => '/etc/letsencrypt/live/cloud.example.org/fullchain.pem',
-    ssl_certificate_key => '/etc/letsencrypt/live/cloud.example.org/privkey.pem',
-    require             => [Class['docker'], Package['nginx']],
+    admin_server_name                  => 'cloud-admin.example.org',
+    admin_whitelist_ips                => ['192.0.2.10', '2001:db8::/32'],
+    appstore_link_shown                => false,
+    objectstore_default                => 'server2',
+    objectstore_root                   => 'server1',
+    server_name                        => 'cloud.example.org',
+    ssl_certificate                    => '/etc/letsencrypt/live/cloud.example.org/fullchain.pem',
+    ssl_certificate_key                => '/etc/letsencrypt/live/cloud.example.org/privkey.pem',
+    talk_call_recording_summary        => true,
+    talk_call_recording_summary_prompt => lookup('profile::nextcloud_ai::talk_summary_prompt', String[1]),
+    talk_call_recording_transcription  => true,
+    require                            => [Class['docker'], Package['nginx']],
   }
 
   # Install and enable OIDC; configure one working provider separately before requesting login redirection.
@@ -353,28 +357,13 @@ node 'nextcloud.example.org' {
     }
   }
 
-  # Keep the language and reporting instruction in consumer data; the README supplies a suggested Dutch prompt.
-  $talk_summary_prompt = lookup('profile::nextcloud_ai::talk_summary_prompt', String[1])
-  $talk_settings = {
-    'call_recording_transcription'  => 'yes',
-    'call_recording_summary'        => 'yes',
-    'call_recording_summary_prompt' => $talk_summary_prompt,
-  }
-  $talk_settings.each |$config_key, $config_value| {
-    docker::nextcloud_occ { "nextcloud_ai_talk_${config_key}":
-      compose_name => 'nextcloud-aio',
-      command      => [
-        'config:app:set', 'spreed', $config_key,
-        '--type=string', "--value=${config_value}",
-      ],
-      unless       => ['config:app:get', 'spreed', $config_key],
-      unless_json  => stdlib::to_json($config_value),
-      require      => [
-        Docker::Nextcloud_app['integration_openai'],
-        Docker::Nextcloud_occ['nextcloud_ai_api_key', 'nextcloud_ai_stt_api_key'],
-      ],
-    }
-  }
+  # Configure this deployment's AI provider and credentials before applying its Talk recording settings.
+  Docker::Nextcloud_occ['nextcloud_ai_api_key', 'nextcloud_ai_stt_api_key']
+    -> Docker::Nextcloud_occ[
+      'nextcloud-aio_talk_call_recording_summary',
+      'nextcloud-aio_talk_call_recording_summary_prompt',
+      'nextcloud-aio_talk_call_recording_transcription',
+    ]
 
   # In AI administration select integration_openai-audio2text for core:audio2text and integration_openai-text2text for core:text2text.
   # Preserve other provider preferences; enable a previously disabled task type explicitly instead of replacing preference JSON.
