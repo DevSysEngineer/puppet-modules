@@ -3,7 +3,7 @@ services:
 # <% if @llm_enabled %>
   llm:
     image: <%= ("#{@image_repository}:#{@llm_image_tag}").to_json.gsub('$', '$$') %>
-# <% if @nvidia_available %>
+# <% if @gpu_hardware == 'nvidia' %>
     runtime: nvidia
 # <% end %>
     command: <%= [@llm_model, '--host', '0.0.0.0', '--port', '8000', '--served-model-name', @llm_served_model_name, *@llm_arguments].to_json.gsub('$', '$$') %>
@@ -17,7 +17,7 @@ services:
       - ./llm-cache:/root/.cache/vllm
     restart: unless-stopped
     shm_size: <%= @shm_size.to_json.gsub('$', '$$') %>
-# <% if @nvidia_available %>
+# <% if @gpu_hardware == 'nvidia' %>
     deploy:
       resources:
         reservations:
@@ -36,7 +36,7 @@ services:
 # <% if @stt_enabled %>
   stt:
     image: <%= ("#{@image_repository}:#{@stt_image_tag}").to_json.gsub('$', '$$') %>
-# <% if @nvidia_available %>
+# <% if @gpu_hardware == 'nvidia' %>
     runtime: nvidia
 # <% end %>
     command: <%= [@stt_model, '--host', '0.0.0.0', '--port', '8000', '--served-model-name', @stt_served_model_name, *@stt_arguments].to_json.gsub('$', '$$') %>
@@ -53,7 +53,7 @@ services:
       llm:
         condition: service_healthy
 # <% end %>
-# <% if @nvidia_available %>
+# <% if @gpu_hardware == 'nvidia' %>
     deploy:
       resources:
         reservations:

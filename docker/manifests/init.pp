@@ -5,6 +5,7 @@
 # All docker::compose* definitions require this parent class, including when retiring a project.
 # Repository setup is expected to be handled separately, commonly through `basic_settings` with `docker_enable => true`.
 # Declare nvidia before docker to install the Container Toolkit and register its runtime automatically.
+# gpu_hardware records the configured GPU integration for consumers: 'nvidia' or undef without GPU integration.
 # Docker owns the complete /etc/docker/daemon.json; migrate existing settings into daemon_config before applying.
 # The complete candidate is validated with dockerd before activation. An active daemon restarts on a change;
 # a stopped daemon remains stopped. Do not also manage this file with nvidia-ctk or another configuration owner.
@@ -56,7 +57,10 @@ class docker (
     $monitoring_enable = defined(Class['basic_settings::monitoring'])
 
     # Only an already declared class activates GPU integration; module availability alone does not.
-    $nvidia_available = defined(Class['nvidia'])
+    $gpu_hardware = defined(Class['nvidia']) ? {
+      true    => 'nvidia',
+      default => undef,
+    }
 
     # Reuse the network class availability for IP policy and firewall defaults.
     $network_available = defined(Class['basic_settings::network'])
@@ -128,9 +132,9 @@ class docker (
     $daemon_settings = deep_merge($daemon_defaults, $firewall_config, $daemon_config)
 
     # GPU hosts install Docker after the driver; ordinary hosts need no NVIDIA dependency.
-    $package_require = $nvidia_available ? {
-      true    => Class['nvidia'],
-      default => undef,
+    $package_require = $gpu_hardware ? {
+      'nvidia' => Class['nvidia'],
+      default  => undef,
     }
 
     # Install Docker from the separately managed repository.
@@ -142,7 +146,7 @@ class docker (
     }
 
     # The toolkit's strict dependencies install its base runtime and both libnvidia-container packages together.
-    if ($nvidia_available) {
+    if ($gpu_hardware == 'nvidia') {
       package { 'nvidia-container-toolkit':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],

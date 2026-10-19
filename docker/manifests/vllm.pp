@@ -1,7 +1,7 @@
 # @summary Deploys text and/or speech-to-text vLLM servers in one Compose project, with optional HTTPS access.
 #
 # Declare docker and basic_settings::systemd first. Docker owns NVIDIA integration: declare nvidia before docker
-# for GPU hosts. This resource reuses that choice for official CUDA or CPU images and never declares nvidia itself.
+# for GPU hosts. This resource reuses docker::gpu_hardware for official CUDA or CPU images and never declares nvidia.
 # Select tested tags whose image entrypoint is `vllm serve`, with the host architecture and required model dependencies.
 # A tag enables its service; undef disables it. Present stacks need at least one enabled service and its model
 # settings.
@@ -67,8 +67,6 @@
 #
 # @param proxy_timeout Nginx read and send timeout in seconds when server_name is set. Default 3600.
 #
-# @param pull Stack-wide image pull policy passed unchanged to docker::compose.
-#
 # @param server_name
 #   Optional server name passed to docker::compose_proxy. Undef creates no proxy and requires no nginx class.
 #   When set, requires nginx and both TLS paths; publishes only enabled /llm/v1/ and /stt/v1/ routes over HTTPS.
@@ -81,10 +79,9 @@
 # @param ssl_certificate_key Private-key path used by Nginx; required with server_name. Provision the file separately.
 #
 # @param startup_timeout
-#   Default systemd startup timeout, including image pulls and waiting for LLM health when both services are enabled.
+#   Systemd startup timeout, including image pulls and waiting for LLM health when both services are enabled.
 #   Also sets healthcheck start periods and Compose monitoring startup grace. Must exceed engine_ready_timeout.
-#   Size for downloads and cold starts. systemd_service can override TimeoutStartSec without changing those grace
-#   periods.
+#   Size for downloads and cold starts.
 #
 # @param stt_arguments
 #   Additional transcription argv elements, under the same restrictions as llm_arguments. Ignored without stt_image_tag.
@@ -107,13 +104,6 @@
 # @param stt_served_model_name
 #   Stable transcription API model name. Required with stt_image_tag; ignored when STT is disabled.
 #
-# @param systemd_service
-#   [Service] overrides passed to docker::compose, merged over the startup_timeout-derived TimeoutStartSec.
-#   Other Compose defaults remain unchanged. Review lifecycle, hardening and complete directive replacements there.
-#
-# @param systemd_unit
-#   [Unit] overrides passed unchanged to docker::compose; empty preserves its ordering and monitoring hooks.
-#
 # @param whitelist_ips
 #   Client addresses or CIDR ranges allowed by the optional Nginx proxy. Undef emits no resource-managed access rules.
 #   An empty array denies all API clients; a populated array allows those addresses, then denies other clients.
@@ -132,7 +122,6 @@ define docker::vllm (
   Integer[1, 65535]                                          $llm_port              = 8000,
   Optional[String[1]]                                        $llm_served_model_name = undef,
   Integer[1]                                                 $proxy_timeout         = 3600,
-  Enum['always', 'missing', 'never']                         $pull                  = 'missing',
   Optional[String[1]]                                        $server_name           = undef,
   String[1]                                                  $shm_size              = '8gb',
   Optional[String[1]]                                        $ssl_certificate       = undef,
@@ -144,8 +133,6 @@ define docker::vllm (
   Optional[String[1]]                                        $stt_model             = undef,
   Integer[1, 65535]                                          $stt_port              = 8001,
   Optional[String[1]]                                        $stt_served_model_name = undef,
-  Hash                                                       $systemd_service       = {},
-  Hash                                                       $systemd_unit          = {},
   Optional[Array[String[1]]]                                 $whitelist_ips         = undef,
 ) {
   # Docker owns shared prerequisites; a present stack also needs the target ladder and Compose daemon reload.
@@ -153,10 +140,10 @@ define docker::vllm (
     # Removal follows Compose without requiring a retired credential, enabled models or proxy prerequisites.
     if ($ensure == 'present' and defined(Class['basic_settings::systemd'])) {
       # Reuse Docker's evaluation-time decision so declaration order cannot select a different backend here.
-      $nvidia_available = $docker::nvidia_available
-      $image_repository = $nvidia_available ? {
-        true    => 'vllm/vllm-openai',
-        default => 'vllm/vllm-openai-cpu',
+      $gpu_hardware = $docker::gpu_hardware
+      $image_repository = $gpu_hardware ? {
+        'nvidia' => 'vllm/vllm-openai',
+        default  => 'vllm/vllm-openai-cpu',
       }
 
       # Image selection drives container rendering, monitoring, cache management and proxy routes together.
@@ -211,9 +198,7 @@ define docker::vllm (
                   'monitoring_health_required' => $enabled_services,
                   'monitoring_starting_grace'  => $startup_timeout,
                   'project_directories'        => $cache_directories,
-                  'pull'                       => $pull,
-                  'systemd_service'            => stdlib::merge({ 'TimeoutStartSec' => $startup_timeout_string }, $systemd_service),
-                  'systemd_unit'               => $systemd_unit,
+                  'systemd_service'            => { 'TimeoutStartSec' => $startup_timeout_string },
                 }
 
                 # Use the shared Compose proxy for remote access, with only the selected API routes.
