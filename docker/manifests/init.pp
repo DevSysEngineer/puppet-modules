@@ -228,7 +228,7 @@ class docker (
       owner   => 'root',
       group   => 'root',
       mode    => '0700',
-      source  => 'puppet:///modules/docker/compose_container',
+      source  => 'puppet:///modules/docker/compose/compose_container',
       require => [File['/usr/local/lib/puppet'], Package['dash', 'docker']],
     }
 
@@ -238,7 +238,7 @@ class docker (
       owner   => 'root',
       group   => 'root',
       mode    => '0700',
-      source  => 'puppet:///modules/docker/compose_backup',
+      source  => 'puppet:///modules/docker/compose/compose_backup',
       require => File['/usr/local/lib/puppet'],
     }
 
@@ -260,14 +260,14 @@ class docker (
 
       # The parent owns one shared check; project definitions only register their arguments.
       basic_settings::monitoring_custom { 'docker_compose':
-        template => 'docker/check_compose',
+        template => 'docker/compose/check_compose',
         register => false,
         require  => Package[$monitoring_required_packages],
       }
 
       # Store registrations share the executable and never own its lifetime or credential files.
       basic_settings::monitoring_custom { 'nextcloud_s3':
-        template => 'docker/check_nextcloud_s3',
+        template => 'docker/nextcloud/check_nextcloud_s3',
         register => false,
         require  => Package[$monitoring_required_packages],
       }

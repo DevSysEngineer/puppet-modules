@@ -1,6 +1,6 @@
 # @summary Deploys the bundled Twenty Docker Compose stack.
 #
-# This defined type deploys the module-shipped `docker/files/twenty.yaml` Compose file.
+# This defined type deploys the module-shipped `docker/files/twenty/twenty.yaml` Compose file.
 # Declare `docker` before using it.
 # The resource title becomes the Compose project name, so multiple Twenty stacks can be managed on the same host when
 # ports and public names do not conflict.
@@ -210,7 +210,7 @@ define docker::twenty (
       }
 
       # Generate .env content for the Compose stack based on the provided parameters.
-      $env_content = Sensitive.new(template('docker/twenty.env'))
+      $env_content = Sensitive.new(template('docker/twenty/twenty.env'))
 
       # Select stack-wide refresh for the exact latest tag and the missing-image policy for other tags.
       $compose_pull = $image_tag ? {
@@ -238,7 +238,7 @@ define docker::twenty (
           backup_database_type       => 'postgresql',
           backup_service             => 'db',
           env_content                => $env_content,
-          compose_source             => 'puppet:///modules/docker/twenty.yaml',
+          compose_source             => 'puppet:///modules/docker/twenty/twenty.yaml',
           content_security_policy    => $content_security_policy,
           monitoring_detail_limit    => $monitoring_detail_limit,
           monitoring_expected_exited => $monitoring_expected_exited,
@@ -266,7 +266,7 @@ define docker::twenty (
           ensure                     => $ensure,
           backup_database_type       => 'postgresql',
           backup_service             => 'db',
-          compose_source             => 'puppet:///modules/docker/twenty.yaml',
+          compose_source             => 'puppet:///modules/docker/twenty/twenty.yaml',
           env_content                => $env_content,
           monitoring_detail_limit    => $monitoring_detail_limit,
           monitoring_expected_exited => $monitoring_expected_exited,

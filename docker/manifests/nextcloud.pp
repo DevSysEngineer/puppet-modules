@@ -328,7 +328,7 @@ define docker::nextcloud (
           $ip_version = $docker::ip_version
 
           # Both the Compose listeners and Nginx upstreams receive their ports from this interface.
-          $env_content = Sensitive.new(template('docker/nextcloud.env'))
+          $env_content = Sensitive.new(template('docker/nextcloud/nextcloud.env'))
 
           # AIO owns its sibling containers; use its lifecycle entry point without enabling daily backups.
           $nextcloud_start_post_commands = [
@@ -344,7 +344,7 @@ define docker::nextcloud (
               ensure                     => $ensure,
               backlog                    => 0,
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
-              compose_content            => template('docker/nextcloud.yaml'),
+              compose_content            => template('docker/nextcloud/nextcloud.yaml'),
               compose_stop_action        => 'stop',
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
               deferred                   => true,
@@ -465,7 +465,7 @@ define docker::nextcloud (
           } else {
             docker::compose { $name:
               ensure                     => $ensure,
-              compose_content            => template('docker/nextcloud.yaml'),
+              compose_content            => template('docker/nextcloud/nextcloud.yaml'),
               compose_stop_action        => 'stop',
               env_content                => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,

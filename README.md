@@ -540,7 +540,7 @@ Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en
 
 Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L244). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
 
-Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
+Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/nextcloud/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
 
 Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud_s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
 
@@ -1179,7 +1179,7 @@ Monitoringtemplates delen de systemd-inspectie via een tijdens compilatie ingevo
 
 Alle onderstaande eigen checks gebruiken ook de tijdens compilatie ingevoegde [presentatiehelper](basic_settings/templates/monitoring/_output). De [centrale uitvoernorm](.tools/lint/docs/OPERATIONAL_RULES.md#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken) beschrijft de onderwerpblokken, records, witruimte en veilige dynamische tekst. Nieuwe of aangepaste plugins nemen deze helper op; metingen, prioriteiten, exitcodes en perfdata blijven in de check.
 
-De eerder statisch uitgerolde checks worden nu vanuit `templates/` gerenderd. Registraties, CLI-opties en paden op de host blijven gelijk. Eigen profielen die een hieronder genoemde check rechtstreeks met `source => 'puppet:///modules/…'` uitrolden, moeten `template => 'module/checknaam'` bij `monitoring_custom` gebruiken, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`. Kopieer geen ongerenderde template naar een host. `basic_settings` moet op het modulepath staan; de helper voegt geen runtimebestand of Ruby-/Python-afhankelijkheid toe.
+De eerder statisch uitgerolde checks worden nu vanuit `templates/` gerenderd. Registraties, CLI-opties en paden op de host blijven gelijk. Eigen profielen die een hieronder genoemde check rechtstreeks met `source => 'puppet:///modules/…'` uitrolden, moeten `template => 'module/checknaam'` bij `monitoring_custom` gebruiken, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`. Voor de Docker-checks gebruik je `docker/compose/check_compose` en `docker/nextcloud/check_nextcloud_s3`. Kopieer geen ongerenderde template naar een host. `basic_settings` moet op het modulepath staan; de helper voegt geen runtimebestand of Ruby-/Python-afhankelijkheid toe.
 
 Dit vereenvoudigde voorbeeld toont letterlijke long output; de waarden zijn illustratief:
 
@@ -1200,14 +1200,14 @@ Interpretation:
 
 - [`check_apt`](basic_settings/templates/monitoring/check_apt)
 - [`check_audit`](basic_settings/templates/monitoring/check_audit)
-- [`check_compose`](docker/templates/check_compose)
+- [`check_compose`](docker/templates/compose/check_compose)
 - [`check_eset`](basic_settings/templates/monitoring/check_eset)
 - [`check_gitlab`](gitlab/templates/check_gitlab)
 - [`check_memory_pressure`](basic_settings/templates/monitoring/check_memory_pressure)
 - [`check_mirth_connect`](openitcockpit/templates/agent/check_mirth_connect)
 - [`check_mysql`](mysql/templates/check_mysql)
 - [`check_network`](basic_settings/templates/monitoring/check_network)
-- [`check_nextcloud_s3`](docker/templates/check_nextcloud_s3)
+- [`check_nextcloud_s3`](docker/templates/nextcloud/check_nextcloud_s3)
 - [`check_nginx_cert`](nginx/templates/check_nginx_cert)
 - [`check_nftables`](basic_settings/templates/monitoring/check_nftables)
 - [`check_npm_audit`](basic_settings/templates/monitoring/check_npm_audit)

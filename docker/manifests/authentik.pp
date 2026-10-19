@@ -1,7 +1,8 @@
 # @summary Deploys the bundled Authentik Docker Compose stack.
 #
-# This defined type deploys the module-shipped `docker/files/authentik.yaml` Compose file. Declare `docker` before using
-# it. The resource title becomes the Compose project name, so multiple Authentik stacks can be managed on the same host
+# This defined type deploys the module-shipped `docker/files/authentik/authentik.yaml` Compose file.
+# Declare `docker` before using it. The resource title becomes the Compose project name,
+# so multiple Authentik stacks can be managed on the same host
 # when ports and public names do not conflict. When `server_name` is set, declare `nginx` as well so
 # `docker::compose_proxy` can add the reverse proxy; otherwise the defined type declares `docker::compose` directly. By
 # default, the bundled bootstrap `akadmin` user is removed after the stack is managed.
@@ -268,7 +269,7 @@ define docker::authentik (
       if ($smtp_credentials_fail_text == undef
         and ($smtp_server_correct != undef or ($smtp_options.empty and $smtp_security == 'none'))) {
         # Generate .env content for the Compose stack based on the provided parameters.
-        $env_content = Sensitive.new(template('docker/authentik.env'))
+        $env_content = Sensitive.new(template('docker/authentik/authentik.env'))
 
         # Use the proxy wrapper only when a public Nginx vhost is requested.
         if ($server_name != undef) {
@@ -287,7 +288,7 @@ define docker::authentik (
             backup_database_type       => 'postgresql',
             backup_service             => 'postgresql',
             env_content                => $env_content,
-            compose_source             => 'puppet:///modules/docker/authentik.yaml',
+            compose_source             => 'puppet:///modules/docker/authentik/authentik.yaml',
             content_security_policy    => "default-src 'self'; img-src ${content_security_policy_img_src}: data:; object-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';", # lint:ignore:140chars
             monitoring_detail_limit    => $monitoring_detail_limit,
             monitoring_expected_exited => $monitoring_expected_exited,
@@ -319,7 +320,7 @@ define docker::authentik (
             ensure                     => $ensure,
             backup_database_type       => 'postgresql',
             backup_service             => 'postgresql',
-            compose_source             => 'puppet:///modules/docker/authentik.yaml',
+            compose_source             => 'puppet:///modules/docker/authentik/authentik.yaml',
             env_content                => $env_content,
             monitoring_detail_limit    => $monitoring_detail_limit,
             monitoring_expected_exited => $monitoring_expected_exited,
