@@ -42,6 +42,7 @@ module ProjectTools
 
       def replace_all
         @data['journal'].each { |entry| replace(entry) }
+        verify_replacements(@data['journal'])
       end
 
       def operation(path, bytes)
@@ -60,10 +61,6 @@ module ProjectTools
         return 'renamed' if target['metadata_source']
 
         old ? 'written' : 'added'
-      end
-
-      def source(entry)
-        Paths.inside(@data['root'], entry['source'])
       end
 
       def save

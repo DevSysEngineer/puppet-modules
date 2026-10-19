@@ -9,7 +9,7 @@ module ProjectTools
       def stage(entry)
         path = source(entry)
         FileUtils.mkdir_p(File.dirname(path), mode: 0o700)
-        entry['staging'] = File.join(File.dirname(path), ".secrets-#{SecureRandom.hex(16)}")
+        entry['staging'] = File.join(File.dirname(path), "._secrets-#{SecureRandom.hex(16)}")
         save
         Paths.private_directory(entry['staging'])
         backup(entry, path) if entry['before']
@@ -51,6 +51,17 @@ module ProjectTools
 
       def owned_after?(entry, path)
         entry['after'].nil? || (entry['after_identity'] && SourceVersions.identity(path) == entry['after_identity'])
+      end
+
+      def verify_replacements(entries)
+        entries.each do |entry|
+          path = source(entry)
+          raise Failure, 'source_conflict' unless current(path) == entry['after'] && owned_after?(entry, path)
+        end
+      end
+
+      def source(entry)
+        Paths.inside(@data['root'], entry['source'])
       end
 
       def stage_new(entry, target)

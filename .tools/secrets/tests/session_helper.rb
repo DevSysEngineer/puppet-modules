@@ -50,6 +50,11 @@ class SecretsSessionTestCase < SecretsTest
     assert_equal 'applied', @result['status'], @result.inspect
   end
 
+  def transaction
+    store = ProjectTools::Secrets::Store.new(@state)
+    ProjectTools::Secrets::Transaction.new(store, @session, store.load(@session))
+  end
+
   def assert_source(path, expected)
     assert File.binread(path) == expected, 'Source bytes differ from the expected local content'
   end
