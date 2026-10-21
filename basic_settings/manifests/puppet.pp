@@ -4,6 +4,8 @@
 # for distro or remote packages, installs cleanup services and timers for filebucket and server reports, adds monitoring
 # where available, and audits Puppet SSL and code directories. Server mode changes service ordering and creates
 # Puppet-owned directories.
+# Remote paths are selected only when basic_settings::package_voxpupuli has already been declared with enable => true;
+# otherwise distribution paths are used. Declare the repository class first; resource ordering alone is insufficient.
 # The additional server check requires a local CA and the store report processor, and runs as the monitoring agent's
 # root identity. monitoring_custom manages private state under /etc/openitcockpit-agent/state/puppet_server without
 # changing report cleanup.
@@ -43,10 +45,6 @@
 #   `undef` leaves the check default. New certificates use a separate fixed 24-hour first-report grace based on
 #   notBefore.
 #
-# @param repo
-#   Package layout to use. `distro` uses distribution paths and `remote` uses Puppet Labs/OpenVox-style
-#   `/opt/puppetlabs` paths.
-#
 # @param server_dirname
 #   Directory name used for server configuration and state paths. The default is `puppetserver`.
 #
@@ -65,7 +63,6 @@ class basic_settings::puppet (
   Optional[Integer[0]]        $monitoring_server_crl_warning_seconds = undef,
   Optional[Integer[2000]]     $monitoring_server_output_limit        = undef,
   Optional[Integer[1]]        $monitoring_server_stale_seconds       = undef,
-  Enum['distro', 'remote']    $repo                                  = 'distro',
   String                      $server_dirname                        = 'puppetserver',
   Boolean                     $server_enable                         = false,
   Enum[
@@ -107,7 +104,13 @@ class basic_settings::puppet (
   # Share auxiliary packages between bundled and distribution agent layouts.
   $agent_auxiliary_packages = ['augeas-tools', 'facter']
 
-  # Do some things based on server repo
+  # Select remote paths only when the previously declared Vox Pupuli repository is enabled.
+  $repo = (defined(Class['basic_settings::package_voxpupuli']) and $basic_settings::package_voxpupuli::enable) ? {
+    true    => 'remote',
+    default => 'distro',
+  }
+
+  # Configure paths and auxiliary packages for the selected layout.
   case $repo {
     'remote': {
       # Resolve the packaged agent's executable and configuration directories.

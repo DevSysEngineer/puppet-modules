@@ -279,12 +279,6 @@
 # @param proxy_https
 #   Optional HTTPS proxy rendered into APT configuration.
 #
-# @param puppet_repo
-#   Selects the effective Puppet package layout. With undef or omission, selects remote only when Vox Pupuli is both
-#   enabled and supported, otherwise distro. In the current implementation either explicit value, including remote,
-#   selects distro. To obtain automatic remote selection, leave this parameter unset and enable the supported Vox
-#   Pupuli source; do not rely on an explicit remote override.
-#
 # @param puppetserver_enable
 #   Enables Puppet Server/OpenVox Server package and service integration.
 #
@@ -434,7 +428,6 @@ class basic_settings (
   Boolean                                    $proxmox_enable                           = false,
   Optional[String]                           $proxy_http                               = undef,
   Optional[String]                           $proxy_https                              = undef,
-  Optional[Enum['distro', 'remote']]         $puppet_repo                              = undef,
   Boolean                                    $puppetserver_enable                      = false,
   Enum['512mb', '1gb', '2gb']                $puppetserver_jvm_memory                  = '2gb',
   Enum['openvox', 'perforce']                $puppetserver_source                      = 'perforce',
@@ -1307,21 +1300,6 @@ class basic_settings (
     }
   }
 
-  # Try to get puppet repo
-  if ($puppet_repo == undef) {
-    # Select the remote OpenVox repository only when it is enabled and supported.
-    if ($voxpupuli_enable and $voxpupuli_allow) {
-      # Select the enabled external OpenVox repository.
-      $puppet_repo_correct = 'remote'
-    } else {
-      # Fall back to packages provided by the distribution.
-      $puppet_repo_correct = 'distro'
-    }
-  } else {
-    # Explicit values currently select distro as well; see the public parameter contract before relying on remote.
-    $puppet_repo_correct = 'distro'
-  }
-
   # Remove Java when no enabled feature needs it, retaining GUI dependencies according to the selected mode.
   if (!(($puppetserver_enable and $puppetserver_jdk) or ($openjdk_enable and $openjdk_allow))) {
     # Remove openjdk package
@@ -1421,7 +1399,6 @@ class basic_settings (
   # Setup Puppet
   class { 'basic_settings::puppet':
     jvm_memory      => $puppetserver_jvm_memory,
-    repo            => $puppet_repo_correct,
     server_dirname  => $puppetserver_dirname,
     server_enable   => $puppetserver_enable,
     server_package  => $puppetserver_package,
