@@ -319,11 +319,12 @@
 #   sudoers snippets.
 #
 # @param sury_enable
-#   Enables the Sury/Ondrej PHP APT repository on supported platforms and removes its unused source format. With
+#   Enables https://packages.sury.org/php/ on supported Debian and Ubuntu platforms using the
+#   debsuryorg-archive-keyring package. Updates existing source content and removes its unused source format. With
 #   false (including omission), or when unsupported, removes sury_php.list and sury_php.sources from
-#   /etc/apt/sources.list.d and refreshes APT. On Ubuntu it also removes /usr/share/keyrings/sury.gpg; the Debian
-#   keyring package is not removed by this branch. Keep independent sources on other paths and check shared key use
-#   before disabling.
+#   /etc/apt/sources.list.d and refreshes APT. On Ubuntu it also removes the legacy /usr/share/keyrings/sury.gpg; the
+#   archive keyring package is not removed by this branch. Keep independent sources on other paths and check shared
+#   key use before disabling.
 #
 # @param systemd_default_target
 #   Target suffix selected as the default target in `basic_settings::systemd`.

@@ -1,8 +1,7 @@
 # @summary Manages the Sury/Ondrej PHP APT repository.
 #
-# This private helper writes or removes the PHP package source and signing key.
-# Ubuntu systems use the Ondrej PPA key path; Debian systems install the Sury archive keyring package through a
-# root-only temporary file.
+# This private helper writes or removes the PHP package source. Debian and Ubuntu systems install the Sury archive
+# keyring package through a root-only temporary file. Existing sources are updated when their content differs.
 # Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
 #
 # @example Internal use from basic_settings
@@ -23,7 +22,7 @@
 #   Distribution codename used in the repository suite.
 #
 # @param os_parent
-#   Distribution family used to select the repository URL.
+#   Distribution family used to remove the legacy Ubuntu PPA key when disabled.
 #
 # @api private
 class basic_settings::package_sury (
@@ -62,7 +61,7 @@ class basic_settings::package_sury (
   Exec['package_sury_source'] -> Exec['basic_settings_source_reload']
 
   # Set keyrings file
-  $key = '/usr/share/keyrings/sury.gpg'
+  $key = '/usr/share/keyrings/debsuryorg-archive-keyring.gpg'
 
   # Escape repository paths before using them in exec commands and guards.
   $file_shell = stdlib::shell_escape($file)
@@ -71,24 +70,15 @@ class basic_settings::package_sury (
   # Check if enabled
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'bash', 'ca-certificates', 'curl', 'dpkg', 'gnupg']
+    $repository_packages = ['apt-transport-https', 'bash', 'ca-certificates', 'curl', 'diffutils', 'dpkg']
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
     $repository_required_packages = concat($source_packages, $repository_packages)
 
-    # Get variables
-    case $os_parent {
-      'ubuntu': {
-        # Use the PHP Ubuntu PPA for this distribution path.
-        $url = 'https://ppa.launchpadcontent.net/ondrej/php/ubuntu'
-      }
-      default: {
-        # Use the Sury PHP repository for this distribution path.
-        $url = 'https://packages.sury.org/php'
-      }
-    }
+    # Debian and Ubuntu use the same Sury repository and archive keyring.
+    $url = 'https://packages.sury.org/php/'
 
     # Get source
     if ($deb_version == '822') {
@@ -102,28 +92,16 @@ class basic_settings::package_sury (
     # Escape generated repo content as literal newline sequences before the shell writes it.
     $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
 
-    # Add sury PHP repo
-    case $os_parent {
-      'ubuntu': {
-        # Write the repo definition and import the signing key directly for Ubuntu systems.
-        exec { 'package_sury_source':
-          command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xB8DC7E53946656EFBCE4C1DD71DAEAAB4AD4CAB6' | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-          unless  => "/usr/bin/test -e ${file_shell}",
-          require => Package[$repository_required_packages],
-        }
-      }
-      default: {
-        # Install the archive keyring through a root-only tempfile and always clean it up on exit.
-        $source_install_script = "set -e; umask 077; tmpfile=\$(/usr/bin/mktemp /root/debsuryorg-archive-keyring.XXXXXX.deb) || exit 1; trap \"rm -f \\\"\$tmpfile\\\"\" EXIT; /usr/bin/curl -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o \"\$tmpfile\"; dpkg -i \"\$tmpfile\"; /usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/apt-get update" # lint:ignore:140chars
+    # Install the archive keyring through a root-only tempfile and always clean it up on exit.
+    $source_install_script = "set -e; umask 077; tmpfile=\$(/usr/bin/mktemp /root/debsuryorg-archive-keyring.XXXXXX.deb) || exit 1; trap \"rm -f \\\"\$tmpfile\\\"\" EXIT; /usr/bin/curl -fsSL https://packages.sury.org/debsuryorg-archive-keyring.deb -o \"\$tmpfile\"; dpkg -i \"\$tmpfile\"; /usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/apt-get update" # lint:ignore:140chars
 
-        # Escape the complete bash script before passing it to bash -c.
-        $source_install_script_shell = stdlib::shell_escape($source_install_script)
-        exec { 'package_sury_source':
-          command => "/usr/bin/bash -c ${source_install_script_shell}",
-          unless  => "/usr/bin/test -e ${file_shell}",
-          require => Package[$repository_required_packages],
-        }
-      }
+    # Reuse the Debian installation for both platforms and migrate existing source content before refreshing APT.
+    $source_install_script_shell = stdlib::shell_escape($source_install_script)
+    exec { 'package_sury_source':
+      provider => shell,
+      command  => "/usr/bin/bash -c ${source_install_script_shell}",
+      unless   => "/usr/bin/test -s ${key_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      require  => Package[$repository_required_packages],
     }
   } else {
     # Remove sury php repo
@@ -133,11 +111,11 @@ class basic_settings::package_sury (
       require => Package[$source_packages],
     }
 
-    # Remove sury key
+    # Remove the legacy Ubuntu PPA key, retaining the package-managed archive keyring.
     if ($os_parent == 'ubuntu') {
       file { 'package_sury_key':
         ensure => absent,
-        path   => $key,
+        path   => '/usr/share/keyrings/sury.gpg',
       }
     }
   }
