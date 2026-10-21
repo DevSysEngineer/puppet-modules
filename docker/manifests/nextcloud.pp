@@ -369,7 +369,7 @@ define docker::nextcloud (
               ensure                     => $ensure,
               backlog                    => 0,
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
-              compose_content            => template('docker/nextcloud/nextcloud.yaml'),
+              compose                    => template('docker/nextcloud/nextcloud.yaml'),
               compose_stop_action        => 'stop',
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
               deferred                   => true,
@@ -378,7 +378,7 @@ define docker::nextcloud (
                 'aio threads;',
                 'aio_write on;',
               ],
-              env_content                => $env_content,
+              env                        => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
               monitoring_health_required => $monitoring_health_required,
@@ -490,9 +490,9 @@ define docker::nextcloud (
           } else {
             docker::compose { $name:
               ensure                     => $ensure,
-              compose_content            => template('docker/nextcloud/nextcloud.yaml'),
+              compose                    => template('docker/nextcloud/nextcloud.yaml'),
               compose_stop_action        => 'stop',
-              env_content                => $env_content,
+              env                        => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
               monitoring_health_required => $monitoring_health_required,

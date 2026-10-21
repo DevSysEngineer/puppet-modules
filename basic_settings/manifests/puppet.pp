@@ -226,7 +226,7 @@ class basic_settings::puppet (
 
       # Register the check after its runtime packages.
       basic_settings::monitoring_custom { 'puppet_agent':
-        content  => template('basic_settings/monitoring/puppet/check_agent'),
+        check    => template('basic_settings/monitoring/puppet/check_agent'),
         friendly => 'Puppet Agent',
         timeout  => 60,
         interval => 600,

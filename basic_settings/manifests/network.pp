@@ -415,7 +415,7 @@ class basic_settings::network (
 
           # Register the check after its runtime packages.
           basic_settings::monitoring_custom { 'firewall':
-            content => template("basic_settings/monitoring/check_${firewall_package}"),
+            check   => template("basic_settings/monitoring/check_${firewall_package}"),
             require => Package[$firewall_monitoring_required_packages],
           }
         } else {
@@ -707,7 +707,7 @@ class basic_settings::network (
     $service_str_shell = stdlib::shell_escape($service_str)
     $interfaces_str_shell = stdlib::shell_escape($interfaces_str)
     basic_settings::monitoring_custom { 'network':
-      content  => template('basic_settings/monitoring/check_network'),
+      check    => template('basic_settings/monitoring/check_network'),
       interval => 600, # 10 minutes
       require  => Package[$network_monitoring_packages],
     }

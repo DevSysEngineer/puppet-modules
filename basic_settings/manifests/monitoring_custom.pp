@@ -12,11 +12,14 @@
 #     interval => 300,
 #   }
 #
+# @param check
+#   Plugin executable as inline text, rendered template output, or an https://, file:///, or puppet:/// source.
+#   URI schemes are case-insensitive; other URI schemes are rejected. Local files use an absolute file:/// URL.
+#   Source files and inline scripts include their own shebang and management comment. Mutually exclusive with
+#   template and shared-script references. Undef leaves content unspecified, including during removal.
+#
 # @param cmd
 #   Optional arguments appended after the managed script path in the generated command.
-#
-# @param content
-#   Optional inline script content. Mutually exclusive with `source` and `template`.
 #
 # @param ensure
 #   Controls whether the plugin script and registration are present or absent. `absent` also removes an old script with
@@ -42,11 +45,8 @@
 # @param script
 #   Title of another monitoring_custom resource that owns the shared script; only letters, digits, underscores, dots and
 #   hyphens are accepted. `undef` manages this check own script. With a title, this resource only registers arguments
-#   and never creates or removes the shared file; source, content and template must remain undef. The owner supplies
+#   and never creates or removes the shared file; check and template must remain undef. The owner supplies
 #   its backend path and file dependency through this type.
-#
-# @param source
-#   Optional file source for the plugin script. Must start with `puppet:///`, `file:///`, or `https://`.
 #
 # @param state
 #   Manages a root-owned 0700 directory per registration under the agent state directory when true. The resource title
@@ -55,7 +55,7 @@
 #   retains state.
 #
 # @param template
-#   Optional module-relative ERB template name, rendered in this type's scope. Mutually exclusive with source/content
+#   Optional module-relative ERB template name, rendered in this type's scope. Mutually exclusive with check
 #   and unavailable for shared-script references. Use @state_dir for the managed directory and @template_data for
 #   caller-owned inputs. Rendering occurs only while deploying an active backend's executable.
 #
@@ -68,8 +68,8 @@
 #
 # @api public
 define basic_settings::monitoring_custom (
+  Optional[String]          $check         = undef,
   Optional[String]          $cmd           = undef,
-  Optional[String]          $content       = undef,
   Enum['present', 'absent'] $ensure        = present,
   Optional[String]          $friendly      = undef,
   Integer                   $interval      = 300,
@@ -77,16 +77,25 @@ define basic_settings::monitoring_custom (
   Boolean                   $register      = true,
   Boolean                   $root_required = true,
   Optional[String[1]]       $script        = undef,
-  Optional[String]          $source        = undef,
   Boolean                   $state         = false,
   Optional[String[1]]       $template      = undef,
   Hash[String, Any]         $template_data = {},
   Integer                   $timeout       = 30,
 ) {
+  # Resolve a source URL without interpreting the contents of ordinary or caller-rendered scripts.
+  if ($check != undef and $check =~ /(?i:\A[a-z][a-z0-9+.-]*:\/\/)/) {
+    # Sources are fetched by the agent when applying the catalog.
+    $source = $check
+    $content = undef
+  } else {
+    # Caller-rendered and literal scripts are already available during compilation.
+    $source = undef
+    $content = $check
+  }
+
   # Keep valid input on the main path so validation failures stay exceptional.
-  if (($source == undef or $content == undef)
-    and ($template == undef or ($source == undef and $content == undef))
-    and ($script == undef or ($source == undef and $content == undef and $template == undef))) {
+  if (($check == undef or $template == undef)
+    and ($script == undef or ($check == undef and $template == undef))) {
     # Validate the executable source and shared-script identifier before registering the check.
     if (($source == undef or $source =~ /(?i:\A(?:puppet:\/\/\/|file:\/\/\/|https:\/\/))/)
       and ($script == undef or $script =~ /\A[A-Za-z0-9_.-]+\z/)
@@ -215,15 +224,15 @@ define basic_settings::monitoring_custom (
           # Render only after the backend-derived template variables are known.
           $script_content = template($template)
         } else {
-          # Preserve the existing content interface and avoid template reads during retirement.
+          # Use inline check content and avoid template reads during retirement.
           $script_content = $content
         }
 
-        # Create script
+        # Keep sourced and rendered executables mutually exclusive.
         file { $script_path:
           ensure  => $file_ensure,
-          source  => $source,
           content => $script_content,
+          source  => $source,
           owner   => $uid,
           group   => $gid,
           mode    => '0700',
@@ -253,6 +262,6 @@ define basic_settings::monitoring_custom (
       fail('basic_settings::monitoring_custom requires an approved source URL and safe shared-script/state titles containing only letters, digits, dots, underscores or hyphens.') # lint:ignore:140chars
     }
   } else {
-    fail('basic_settings::monitoring_custom accepts only one of source, content or template; shared scripts accept none.')
+    fail('basic_settings::monitoring_custom accepts only one of check or template; shared scripts accept neither.')
   }
 }

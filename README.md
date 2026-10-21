@@ -382,9 +382,9 @@ class { 'docker':
 
 # Deploy the application with its managed Compose definition and environment.
 docker::compose { 'example':
-  compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
-  env_content    => lookup('profile::example::environment', Sensitive[String]),
-  require        => Class['docker'],
+  compose => 'puppet:///modules/profile/example/docker-compose.yml',
+  env     => lookup('profile::example::environment', Sensitive[String]),
+  require => Class['docker'],
 }
 ```
 
@@ -1145,11 +1145,11 @@ Meerdere interfaces en verschillende capaciteiten staan in het [vnStat-scenario]
 
 De checks worden automatisch door relevante modules geregistreerd wanneer OpenITCOCKPIT-monitoring actief is. Je kunt ze ook los vanuit een Nagios-compatibele executor gebruiken. De script- en templatecomments zijn de technische bron voor argumenten, commandodependencies, drempels, exitcodes, perfdata en diagnose-uitvoer.
 
-Eigen status en caches worden beheerd via [`basic_settings::monitoring_custom`](basic_settings/manifests/monitoring_custom.pp), volgens de [opslagafspraak van het centrale agentmodel](.tools/lint/docs/OPERATIONAL_RULES.md#monitoring-via-het-centrale-agentmodel-registreren). Vraag met `state => true` een privémap per registratie aan. Puppet maakt deze root-owned aan met modus `0700`. Templates krijgen de locatie tijdens het renderen; bij `source`, `content` en registraties van een gedeeld script via `script` krijgt de opdracht haar als `STATE_DIR` mee.
+Eigen status en caches worden beheerd via [`basic_settings::monitoring_custom`](basic_settings/manifests/monitoring_custom.pp), volgens de [opslagafspraak van het centrale agentmodel](.tools/lint/docs/OPERATIONAL_RULES.md#monitoring-via-het-centrale-agentmodel-registreren). Vraag met `state => true` een privémap per registratie aan. Puppet maakt deze root-owned aan met modus `0700`. Templates krijgen de locatie tijdens het renderen; bij `check` en registraties van een gedeeld script via `script` krijgt de opdracht haar als `STATE_DIR` mee.
 
 De centrale monitoringclass kiest de basislocatie bij de ingestelde `package`: `/etc/openitcockpit-agent/state` voor `openitcockpit` en `/var/cache` in de defaulttak. Met `package => 'none'` blijven registratie en aanmaak van checkmappen uitgeschakeld; `/var/cache` wordt dan niet door monitoring beheerd.
 
-Met `template` laat je het type zelf een ERB-template laden. Daarin is de afgeleide map beschikbaar als `@state_dir`; overige invoer geef je expliciet mee via `template_data`, beschikbaar als `@template_data`. Gebruik precies één van `source`, `content` of `template` voor het executable. Een registratie die via `script` een bestaand executable hergebruikt geeft geen van deze drie mee.
+Met `template` laat je het type zelf een ERB-template laden. Daarin is de afgeleide map beschikbaar als `@state_dir`; overige invoer geef je expliciet mee via `template_data`, beschikbaar als `@template_data`. Geef met `check` een bron-URL (`puppet:///`, `file:///` of HTTPS) of de scriptinhoud door, eventueel als resultaat van `template()` of `epp()`. Gebruik `check` of `template` voor het executable. Een registratie die via `script` een bestaand executable hergebruikt geeft geen van beide mee.
 
 ```puppet
 basic_settings::monitoring_custom { 'application_health':
@@ -1184,7 +1184,7 @@ Monitoringtemplates delen de systemd-inspectie via een tijdens compilatie ingevo
 
 Alle onderstaande eigen checks gebruiken ook de tijdens compilatie ingevoegde [presentatiehelper](basic_settings/templates/monitoring/_output). De [centrale uitvoernorm](.tools/lint/docs/OPERATIONAL_RULES.md#pipes-en-lege-regels-in-lange-uitvoer-veilig-maken) beschrijft de onderwerpblokken, records, witruimte en veilige dynamische tekst. Nieuwe of aangepaste plugins nemen deze helper op; metingen, prioriteiten, exitcodes en perfdata blijven in de check.
 
-De eerder statisch uitgerolde checks worden nu vanuit `templates/` gerenderd. Registraties, CLI-opties en paden op de host blijven gelijk. Eigen profielen die een hieronder genoemde check rechtstreeks met `source => 'puppet:///modules/…'` uitrolden, moeten `template => 'module/checknaam'` bij `monitoring_custom` gebruiken, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`. Voor de Docker-checks gebruik je `docker/compose/check_compose` en `docker/nextcloud/check_nextcloud_s3`. Kopieer geen ongerenderde template naar een host. `basic_settings` moet op het modulepath staan; de helper voegt geen runtimebestand of Ruby-/Python-afhankelijkheid toe.
+De eerder statisch uitgerolde checks worden nu vanuit `templates/` gerenderd. Registraties, CLI-opties en paden op de host blijven gelijk. Eigen profielen die een hieronder genoemde check rechtstreeks vanuit `puppet:///modules/…` uitrollen, moeten `template => 'module/checknaam'` bij `monitoring_custom` gebruiken, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`. Voor de Docker-checks gebruik je `docker/compose/check_compose` en `docker/nextcloud/check_nextcloud_s3`. Kopieer geen ongerenderde template naar een host. `basic_settings` moet op het modulepath staan; de helper voegt geen runtimebestand of Ruby-/Python-afhankelijkheid toe.
 
 Dit vereenvoudigde voorbeeld toont letterlijke long output; de waarden zijn illustratief:
 

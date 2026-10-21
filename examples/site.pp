@@ -84,8 +84,8 @@ node 'container01.example.org' {
 
   # Deploy the stack and require healthy web and database services.
   docker::compose { 'example':
-    compose_source             => 'puppet:///modules/profile/example/docker-compose.yml',
-    env_content                => lookup('examples::site::env_content', Sensitive[String]),
+    compose                    => 'puppet:///modules/profile/example/docker-compose.yml',
+    env                        => lookup('examples::site::env_content', Sensitive[String]),
     monitoring_health_required => ['web', 'db'],
     require                    => Class['docker'],
   }

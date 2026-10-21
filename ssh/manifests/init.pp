@@ -331,7 +331,7 @@ class ssh (
 
     # Register the check after its runtime packages.
     basic_settings::monitoring_custom { 'ssh':
-      content  => template('ssh/check_ssh'),
+      check    => template('ssh/check_ssh'),
       friendly => 'SSH',
       timeout  => 60,
       require  => Package[$monitoring_required_packages],

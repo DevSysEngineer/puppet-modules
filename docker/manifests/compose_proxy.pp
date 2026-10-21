@@ -12,14 +12,14 @@
 #
 #   # Connect the Compose application to its public Nginx endpoint.
 #   docker::compose_proxy { 'example':
-#     compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
-#     proxy_port     => 9443,
-#     server_name    => 'example.org',
+#     compose     => 'puppet:///modules/profile/example/docker-compose.yml',
+#     proxy_port  => 9443,
+#     server_name => 'example.org',
 #   }
 #
 # @example Publish two API routes without a root backend; declare docker and nginx first
 #   docker::compose_proxy { 'model-api':
-#     compose_source      => 'puppet:///modules/profile/model-api/compose.yaml',
+#     compose             => 'puppet:///modules/profile/model-api/compose.yaml',
 #     server_name         => 'ai.example.org',
 #     http_enable         => false,
 #     proxy_routes        => {
@@ -53,16 +53,15 @@
 # @param client_max_body_size
 #   Optional `client_max_body_size` value for the generated Nginx vhost.
 #
+# @param compose
+#   Compose document as inline text, including the result of template() or epp(), or a file source starting with
+#   https://, file:///, or puppet:///. URI schemes are case-insensitive; other URI schemes are rejected.
+#   Local files use file:/// with an absolute agent-side path. Supply this parameter for a present stack.
+#   Source files and inline documents must include their own management comment.
+#
 # @param compose_checksum
-#   Optional SHA256 checksum for compose_source, unavailable with compose_content. Defaults to undef.
-#
-# @param compose_content
-#   Optional rendered Compose content passed to docker::compose; defaults to undef. Supply exactly one of
-#   compose_content and compose_source for a present stack.
-#
-# @param compose_source
-#   Optional Compose file source passed to docker::compose; defaults to undef. Must start with https://, file:///,
-#   or puppet:///; excludes compose_content.
+#   Optional SHA256 checksum for a Compose file source. Unavailable with inline or rendered content.
+#   This is most useful for HTTPS sources where unexpected upstream changes should fail the Puppet run.
 #
 # @param compose_stop_action
 #   Stop action passed unchanged to docker::compose. Defaults to down; stop retains containers and networks.
@@ -81,11 +80,12 @@
 #   Controls the Compose project state. The Nginx vhost is declared when this is `present`; when this is `absent`, only
 #   the Compose project removal is delegated.
 #
-# @param env_content
-#   Optional `.env` content passed to `docker::compose`.
-#
-# @param env_source
-#   Optional `.env` source passed to `docker::compose`.
+# @param env
+#   Optional .env input as inline text, rendered template output, Sensitive[String], or an https://, file:///, or
+#   puppet:/// source. URI schemes are case-insensitive; other URI schemes are rejected. Local files use file:///.
+#   Plain inline strings are wrapped in Sensitive; Sensitive values always remain inline content without unwrapping.
+#   An empty string manages an empty file; undef leaves the environment file unmanaged. Include a management comment
+#   in supplied content and source files.
 #
 # @param http2_enable
 #   Enables HTTP/2 for the public HTTPS listener when certificates are present.
@@ -234,16 +234,14 @@ define docker::compose_proxy (
   Optional[Enum['postgresql']]                 $backup_database_type           = undef,
   Optional[Pattern[/\A[A-Za-z0-9_.-]+\z/]]     $backup_service                 = undef,
   Optional[String]                             $client_max_body_size           = undef,
+  Optional[String]                             $compose                        = undef,
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]     $compose_checksum               = undef,
-  Optional[String]                             $compose_content                = undef,
-  Optional[String]                             $compose_source                 = undef,
   Enum['down', 'stop']                         $compose_stop_action            = 'down',
   Variant[Boolean, String]                     $content_security_policy        = true,
   Boolean                                      $deferred                       = false,
   Array[String]                                $directives                     = [],
   Enum['present', 'absent']                    $ensure                         = present,
-  Optional[Variant[String, Sensitive[String]]] $env_content                    = undef,
-  Optional[String]                             $env_source                     = undef,
+  Optional[Variant[String, Sensitive[String]]] $env                            = undef,
   Boolean                                      $http2_enable                   = true,
   Boolean                                      $http3_enable                   = true,
   Boolean                                      $http_enable                    = true,
@@ -299,11 +297,9 @@ define docker::compose_proxy (
       backup_database_type           => $backup_database_type,
       backup_service                 => $backup_service,
       compose_checksum               => $compose_checksum,
-      compose_content                => $compose_content,
-      compose_source                 => $compose_source,
+      compose                        => $compose,
       compose_stop_action            => $compose_stop_action,
-      env_content                    => $env_content,
-      env_source                     => $env_source,
+      env                            => $env,
       monitoring_detail_limit        => $monitoring_detail_limit,
       monitoring_expected_exited     => $monitoring_expected_exited,
       monitoring_health_required     => $monitoring_health_required,

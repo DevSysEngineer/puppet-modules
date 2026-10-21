@@ -276,7 +276,7 @@ class nginx (
   # Own one executable for all certificate registrations and remove it when monitoring is disabled.
   basic_settings::monitoring_custom { 'nginx_cert':
     ensure   => $monitoring_cert_ensure,
-    content  => $monitoring_cert_content,
+    check    => $monitoring_cert_content,
     register => false,
     require  => $monitoring_cert_require,
   }

@@ -81,7 +81,7 @@ class basic_settings::security (
 
     # Register the check after its runtime packages.
     basic_settings::monitoring_custom { 'audit':
-      content  => template('basic_settings/monitoring/check_audit'),
+      check    => template('basic_settings/monitoring/check_audit'),
       timeout  => 300,
       interval => 600,
       require  => Package[$audit_required_packages],
@@ -106,7 +106,7 @@ class basic_settings::security (
         # Register the check after its runtime packages.
         basic_settings::monitoring_custom { 'antivirus':
           friendly => 'ESET Server Security',
-          content  => template('basic_settings/monitoring/check_eset'),
+          check    => template('basic_settings/monitoring/check_eset'),
           timeout  => 60,
           require  => Package[$monitoring_packages],
         }

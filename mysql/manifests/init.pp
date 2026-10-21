@@ -277,7 +277,7 @@ class mysql (
 
       # Register the check after its runtime packages.
       basic_settings::monitoring_custom { 'mysql':
-        content => template('mysql/check_mysql'),
+        check   => template('mysql/check_mysql'),
         require => Package[$monitoring_required_packages],
       }
     }

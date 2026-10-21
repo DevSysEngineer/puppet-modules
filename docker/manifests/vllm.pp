@@ -193,8 +193,8 @@ define docker::vllm (
 
                 # Both deployment paths share Compose content, monitoring, caches and systemd settings.
                 $compose_parameters = {
-                  'compose_content'            => template('docker/vllm/vllm.yaml'),
-                  'env_content'                => Sensitive(template('docker/vllm/vllm.env')),
+                  'compose'                    => template('docker/vllm/vllm.yaml'),
+                  'env'                        => Sensitive(template('docker/vllm/vllm.env')),
                   'monitoring_health_required' => $enabled_services,
                   'monitoring_starting_grace'  => $startup_timeout,
                   'project_directories'        => $cache_directories,

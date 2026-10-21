@@ -235,7 +235,7 @@ class rabbitmq::management (
       # Register the check after its runtime packages.
       basic_settings::monitoring_custom { 'rabbitmq':
         ensure   => present,
-        content  => template('rabbitmq/check_rabbitmq'),
+        check    => template('rabbitmq/check_rabbitmq'),
         friendly => 'RabbitMQ',
         require  => concat(
           Package[$monitoring_required_packages],

@@ -197,8 +197,8 @@ define docker::gitlab_runner (
           # Delegate files, lifecycle, targets and monitoring to the existing Compose implementation.
           docker::compose { $name:
             ensure                     => $ensure,
-            compose_content            => template('docker/gitlab_runner/gitlab_runner.yaml'),
-            env_content                => template('docker/gitlab_runner/gitlab_runner.env'),
+            compose                    => template('docker/gitlab_runner/gitlab_runner.yaml'),
+            env                        => template('docker/gitlab_runner/gitlab_runner.env'),
             monitoring_detail_limit    => $monitoring_detail_limit,
             monitoring_expected_exited => $monitoring_expected_exited,
             monitoring_health_required => $monitoring_health_required,

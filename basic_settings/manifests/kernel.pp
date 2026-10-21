@@ -957,14 +957,14 @@ class basic_settings::kernel (
       # Register memory pressure monitoring next to kernel memory tuning.
       basic_settings::monitoring_custom { 'memory_pressure':
         friendly => 'Memory pressure',
-        content  => template('basic_settings/monitoring/check_memory_pressure'),
+        check    => template('basic_settings/monitoring/check_memory_pressure'),
         require  => Package[$monitoring_required_packages],
       }
 
       # Reegister USB monitoring
       basic_settings::monitoring_custom { 'usb':
         friendly => 'USB',
-        content  => template('basic_settings/monitoring/check_usb'),
+        check    => template('basic_settings/monitoring/check_usb'),
         require  => Package[$monitoring_required_packages],
       }
     }

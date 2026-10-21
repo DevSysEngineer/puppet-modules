@@ -13,13 +13,13 @@
 #
 # @example Deploy a Compose stack from a Puppet file source
 #   docker::compose { 'example':
-#     compose_source => 'puppet:///modules/profile/example/docker-compose.yml',
+#     compose => 'puppet:///modules/profile/example/docker-compose.yml',
 #   }
 #
 # @example Deploy a stack with sensitive environment content
 #   docker::compose { 'example':
-#     compose_source => 'file:///srv/puppet/example/docker-compose.yml',
-#     env_content    => Sensitive("COMPOSE_PROJECT_NAME=example\n"),
+#     compose => 'file:///srv/puppet/example/docker-compose.yml',
+#     env     => lookup('profile::example::environment', Sensitive[String]),
 #   }
 #
 # @param backup_database_on_calendar
@@ -46,17 +46,15 @@
 #   Initialization variables do not update existing database contents or roles; apply identity and password changes
 #   to PostgreSQL itself as well.
 #
+# @param compose
+#   Compose document as inline text, including the result of template() or epp(), or a file source starting with
+#   https://, file:///, or puppet:///. URI schemes are case-insensitive; other URI schemes are rejected.
+#   Local files use file:/// with an absolute agent-side path. Supply this parameter for a present stack.
+#   Source files and inline documents must include their own management comment.
+#
 # @param compose_checksum
-#   Optional SHA256 checksum for compose_source, unavailable with compose_content. This is most useful for HTTPS sources
-#   where unexpected upstream changes should fail the Puppet run.
-#
-# @param compose_content
-#   Optional rendered Compose content, default undef. Supply exactly one of compose_content and compose_source for a
-#   present stack.
-#
-# @param compose_source
-#   Optional Compose file source, default undef. Must start with `https://`, `file:///`, or `puppet:///`; excludes
-#   compose_content.
+#   Optional SHA256 checksum for a Compose file source. Unavailable with inline or rendered content.
+#   This is most useful for HTTPS sources where unexpected upstream changes should fail the Puppet run.
 #
 # @param compose_stop_action
 #   Compose action after stop_pre_commands. Defaults to down, which runs `down --remove-orphans`; stop retains
@@ -68,13 +66,12 @@
 #   It does not stop application containers. Central directory management owns undeclared systemd files;
 #   Docker named volumes remain. Back up required data, stop the stack and reload systemd when retiring its units.
 #
-# @param env_content
-#   Optional `.env` file content. Strings are wrapped in `Sensitive`; explicit `Sensitive[String]` values are passed
-#   through.
-#
-# @param env_source
-#   Optional Puppet-compatible source for the `.env` file. When set, it takes precedence over `env_content` and must
-#   start with `https://`, `file:///`, or `puppet:///`.
+# @param env
+#   Optional .env input as inline text, rendered template output, Sensitive[String], or an https://, file:///, or
+#   puppet:/// source. URI schemes are case-insensitive; other URI schemes are rejected. Local files use file:///.
+#   Plain inline strings are wrapped in Sensitive; Sensitive values always remain inline content without unwrapping.
+#   An empty string manages an empty file; undef leaves the environment file unmanaged. Include a management comment
+#   in supplied content and source files.
 #
 # @param monitoring_detail_limit
 #   Optional diagnostic character limit. `undef` omits -l and uses the environment value or script default.
@@ -145,13 +142,11 @@ define docker::compose (
   Integer[1]                                   $backup_database_retention_days = 7,
   Optional[Enum['postgresql']]                 $backup_database_type           = undef,
   Optional[Pattern[/\A[A-Za-z0-9_.-]+\z/]]     $backup_service                 = undef,
+  Optional[String]                             $compose                        = undef,
   Optional[Pattern[/\A[0-9a-fA-F]{64}\z/]]     $compose_checksum               = undef,
-  Optional[String]                             $compose_content                = undef,
-  Optional[String]                             $compose_source                 = undef,
   Enum['down', 'stop']                         $compose_stop_action            = 'down',
   Enum['present', 'absent']                    $ensure                         = present,
-  Optional[Variant[String, Sensitive[String]]] $env_content                    = undef,
-  Optional[String]                             $env_source                     = undef,
+  Optional[Variant[String, Sensitive[String]]] $env                            = undef,
   Optional[Integer[1]]                         $monitoring_detail_limit        = undef,
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]        $monitoring_expected_exited     = [],
   Array[Pattern[/\A[A-Za-z0-9_.-]+\z/]]        $monitoring_health_required     = [],
@@ -187,7 +182,44 @@ define docker::compose (
     # Check if ensure is present to determine if the compose stack should be deployed or removed.
     if ($ensure == present) {
       # Deployment needs one Compose source or rendered document.
-      if ($compose_source != undef or $compose_content != undef) {
+      if ($compose != undef) {
+        # Treat URI-shaped input as a source so unsupported transports cannot become literal file content.
+        if ($compose =~ /(?i:\A[a-z][a-z0-9+.-]*:\/\/)/) {
+          # A source supplies the complete Compose document.
+          $compose_source = $compose
+          $compose_content = undef
+        } else {
+          # Rendered or literal content is already available at compilation.
+          $compose_source = undef
+          $compose_content = $compose
+        }
+
+        # Only plain strings can select a source; Sensitive environment values remain opaque.
+        if ($env =~ String and $env =~ /(?i:\A[a-z][a-z0-9+.-]*:\/\/)/) {
+          # Preserve a source URL for transport validation below.
+          $env_source = $env
+        } else {
+          # Ordinary text and Sensitive values supply inline content.
+          $env_source = undef
+        }
+
+        # Keep inline content undefined whenever a source was selected.
+        if ($env_source == undef) {
+          case $env {
+            String: {
+              # Hide plain environment content in ordinary Puppet reports.
+              $env_file_content = Sensitive.new($env)
+            }
+            default: {
+              # Preserve Sensitive content and an omitted environment unchanged.
+              $env_file_content = $env
+            }
+          }
+        } else {
+          # A file source owns the complete environment file.
+          $env_file_content = undef
+        }
+
         # Accept either rendered content or a trusted source; downloaded checksums apply only to sources.
         if (($compose_source == undef and $compose_content != undef and $compose_checksum == undef)
           or ($compose_content == undef and $compose_source =~ /(?i:\A(?:https:\/\/|file:\/\/\/|puppet:\/\/\/))/)) {
@@ -224,31 +256,15 @@ define docker::compose (
               File[$managed_directory]
             }
 
-            # Determine the content of the environment file based on the provided parameters.
-            if ($env_source == undef) {
-              case $env_content {
-                String: {
-                  # Wrap plain environment content to keep it out of ordinary Puppet reports.
-                  $env_file_content = Sensitive.new($env_content)
-                }
-                default: {
-                  # Preserve environment content that is already marked Sensitive.
-                  $env_file_content = $env_content
-                }
-              }
-            } else {
-              # Use the validated external environment source without inline file content.
-              $env_file_content = undef
-            }
-
             # Manage the environment file for the compose stack if either a source or content is provided.
-            if ($env_source != undef or $env_content != undef) {
+            if ($env != undef) {
+              # Source detection keeps inline content and file sources mutually exclusive.
               file { $env_file:
                 ensure  => file,
                 path    => $env_file,
                 alias   => $env_file_alias,
-                source  => $env_source,
                 content => $env_file_content,
+                source  => $env_source,
                 owner   => 'root',
                 group   => 'root',
                 mode    => '0600',
@@ -325,7 +341,7 @@ define docker::compose (
               }
 
               # Subscribe to the managed project files using the array required by the shared service wrapper.
-              if ($env_source == undef and $env_content == undef) {
+              if ($env == undef) {
                 # Refresh an active stack when its Compose file changes and no environment file is configured.
                 $service_require_base = [Package[$service_packages], File[$compose_file]]
                 $service_subscribe = [File[$compose_file]]
@@ -434,13 +450,13 @@ define docker::compose (
               }
             }
           } else {
-            fail('docker::compose env_source must start with https://, file:///, or puppet:///')
+            fail('docker::compose env sources must start with https://, file:///, or puppet:///')
           }
         } else {
-          fail('docker::compose requires either compose_content without a checksum, or compose_source starting with https://, file:///, or puppet:///') # lint:ignore:140chars
+          fail('docker::compose requires inline compose without a checksum, or a source starting with https://, file:///, or puppet:///') # lint:ignore:140chars
         }
       } else {
-        fail('docker::compose requires compose_source or compose_content when ensure is present.')
+        fail('docker::compose requires compose when ensure is present.')
       }
     } else {
       # The operator stops containers and backup units before removing all project-local data.
