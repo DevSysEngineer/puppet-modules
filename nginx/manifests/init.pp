@@ -2,8 +2,8 @@
 #
 # This class installs Nginx, removes Apache, optionally installs the Certbot Nginx plugin, disables vendor service
 # enablement under systemd, binds Nginx into the shared target ladder, applies service hardening, manages global Nginx
-# configuration and owned config directories, prepares secure SSL/security fallback directories, and adds monitoring and
-# logrotate integration.
+# configuration and owned config directories, prepares secure SSL/security fallback directories and a static
+# unavailable page, and adds monitoring and logrotate integration.
 #
 # @example Install Nginx with default security.txt fallback settings
 #   include nginx
@@ -33,7 +33,7 @@
 #   Nginx package flavor to install. `nginx` purges `nginx-full`; `nginx-full` installs both package names.
 #
 # @param run_group
-#   Runtime group used for writable/cache paths and group-readable security.txt fallback files.
+#   Runtime group used for writable/cache paths and group-readable static fallback files.
 #
 # @param run_user
 #   Runtime user used for Nginx log and cache directories.
@@ -371,6 +371,34 @@ class nginx (
     group   => $run_group,
     mode    => '0710',
     require => Package['nginx'],
+  }
+
+  # Keep shared error pages readable by workers without granting them write access.
+  file { '/etc/nginx/errors':
+    ensure  => directory,
+    owner   => 'root',
+    group   => $run_group,
+    mode    => '0710',
+    require => Package['nginx'],
+  }
+
+  # Remove the former standalone stylesheet after installing the self-contained page.
+  file { 'nginx_unavailable_css':
+    ensure  => absent,
+    path    => '/etc/nginx/errors/unavailable.css',
+    require => File['nginx_unavailable'],
+  }
+
+  # Install both languages and their styling as one static HTML file.
+  file { 'nginx_unavailable':
+    ensure  => file,
+    path    => '/etc/nginx/errors/unavailable.html',
+    source  => 'puppet:///modules/nginx/unavailable.html',
+    owner   => 'root',
+    group   => $run_group,
+    mode    => '0640',
+    require => File['/etc/nginx/errors'],
+    before  => Service['nginx'],
   }
 
   # Create ssl directory

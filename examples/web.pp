@@ -127,6 +127,7 @@ node 'web-example.example.org' {
 
   # Main and redirect TLS registrations share check_nginx_cert; certificate paths are read from Nginx at runtime.
   # The monitoring helper warns below 30 days and reports critical below 14 days.
+  # Deploy errors/unavailable.html below this vhost's docroot as a static file readable by the Nginx worker.
   nginx::server { 'app.example.org':
     client_max_body_size      => '32m',
     content_security_policy   => "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
@@ -148,6 +149,7 @@ node 'web-example.example.org' {
     ssl_certificate_trusted   => '/etc/letsencrypt/live/app.example.org/chain.pem',
     strict_transport_security => 'max-age=31536000; includeSubDomains',
     try_files                 => '$uri $uri/ /index.php?$query_string',
+    unavailable_page          => 'errors/unavailable.html',
     x_content_type_options    => 'nosniff',
     x_frame_options           => 'SAMEORIGIN',
     require                   => [Package['nginx'], Class['php8::fpm']],
@@ -159,7 +161,7 @@ node 'proxy-example.example.org' {
     securitytxt_contacts => ['mailto:security@example.org'],
   }
 
-  # Proxy HTTPS and WebSocket traffic to the local application backend.
+  # Proxy HTTPS and WebSocket traffic; backend outages use the shared Puppet-managed unavailable page.
   nginx::server { 'app-proxy.example.org':
     access_log          => '/var/log/nginx/app_proxy_access.log combined buffer=32k flush=1m',
     docroot             => undef,

@@ -784,6 +784,7 @@ Het [netwerkprofiel](examples/site.pp#L138) staat in `examples/site.pp`. De Pupp
 - Ondersteunt HTTP/2, HTTP/3, HTTPS-forcering en certificate chains.
 - Beheert security headers en de gegevens in `security.txt`.
 - Werkt samen met Certbot, PHP-FPM, monitoring, auditd, logrotate en de gedeelde systemd-targets.
+- Toont een vormgegeven storingspagina in het Nederlands en Engels wanneer PHP-FPM of een proxybackend niet bereikbaar is, met een eigen pagina per website als optie.
 - Controleert bij actieve OpenITCOCKPIT-monitoring de lokale certificaatketen, DNS-namen, sleutel en geldigheid van geconfigureerde HTTPS-vhosts.
 
 #### Belangrijke aandachtspunten
@@ -795,6 +796,8 @@ De module verwijdert Apache en neemt de Nginx-configuratie over. Controleer best
 Bij HTTPS met TLS 1.3 activeert de module standaard HTTP/3. Controleer daarvoor de [netwerkondersteuning](#netwerkondersteuning-controleren); zet `http3_enable => false` als de host niet aan die voorwaarden voldoet.
 
 Gebruik voor reverse proxies bij voorkeur HTTPS naar de achterliggende applicatie. Schakel certificaatcontrole alleen uit voor een lokale of self-signed verbinding waarvoor dat echt nodig is. Gebruik HTTP alleen als de achterliggende applicatie geen TLS ondersteunt.
+
+Bij een verbindingsfout of timeout toont Nginx de beheerde pagina uit `/etc/nginx/errors/unavailable.html` met HTTP-status 503. Voor een eigen pagina accepteert `unavailable_page` bij `nginx::server` een absoluut pad of een pad relatief aan de `docroot`, zoals in het [webvoorbeeld](examples/web.pp). Dezelfde stringparameter accepteert een `puppet://`-bron, HTML of de uitvoer van `template()` of `epp()`. HTML wordt herkend aan `<` als eerste teken na eventuele witruimte. Puppet beheert een bron of HTML als een statisch bestand per website. Zorg dat de pagina en haar opmaak zonder PHP of backend werken. De [Puppet Strings](nginx/manifests/server.pp) bevatten voorbeelden, bestandsrechten, locatie-overrides en de grenzen van deze foutafhandeling.
 
 Gebruik voor WebSockets het [proxyvoorbeeld](examples/web.pp#L156). Puppet levert daarbij automatisch de benodigde `$connection_upgrade`-map. Gebruik vanuit externe include-bestanden vraagt aanvullende inrichting volgens de [Puppet Strings](nginx/manifests/server.pp).
 

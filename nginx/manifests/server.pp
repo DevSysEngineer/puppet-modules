@@ -49,6 +49,34 @@
 #     ],
 #   }
 #
+# @example Unavailable page supplied as HTML content
+#   $unavailable_html = @("HTML")
+#     <!doctype html>
+#     <html lang="en">
+#       <head><meta charset="utf-8"><title>Temporarily unavailable</title></head>
+#       <body><h1>Temporarily unavailable</h1><p>Please try again in a few minutes.</p></body>
+#     </html>
+#     | HTML
+#   # Install the HTML as a static page before the vhost configuration.
+#   nginx::server { 'content.example.org':
+#     php_fpm_enable   => false,
+#     unavailable_page => $unavailable_html,
+#   }
+#
+# @example Unavailable page rendered by a caller-owned ERB template
+#   # Requires profile/templates/unavailable.html.erb in the caller's modulepath.
+#   nginx::server { 'template.example.org':
+#     php_fpm_enable   => false,
+#     unavailable_page => template('profile/unavailable.html.erb'),
+#   }
+#
+# @example Unavailable page copied from a Puppet module
+#   # Requires profile/files/unavailable.html with an HTML management comment.
+#   nginx::server { 'source.example.org':
+#     php_fpm_enable   => false,
+#     unavailable_page => 'puppet:///modules/profile/unavailable.html',
+#   }
+#
 # @param access_log
 #   Optional access log directive value. `undef` lets the template use its default behavior.
 #
@@ -84,8 +112,8 @@
 #   Document root for static/PHP locations. `undef` is common for pure reverse proxy vhosts.
 #
 # @param ensure
-#   `present` manages the vhost; `absent` removes its configuration, security.txt fallback and both certificate checks
-#   before deletion.
+#   `present` manages the vhost; `absent` removes its configuration, managed unavailable page, security.txt fallback
+#   and both certificate checks before deletion.
 #
 # @param error_log
 #   Optional error log directive value.
@@ -292,6 +320,32 @@
 #   Root-location `try_files` behavior. `true` uses `$uri $uri/ =404`, a string supplies custom arguments, and `false`
 #   omits the directive.
 #
+# @param unavailable_page
+#   Static HTML served with status 503 when Nginx generates a 502 or 504 for an unavailable backend. Omission uses
+#   the shared, styled Dutch/English page. A single string selects one of three inputs:
+#   - `puppet:///modules/<module>/<file>` or `puppet:///files/<file>` supplies a Puppet file source; an explicit
+#     server name is also accepted. The files mount must be configured on that server. Source files must include
+#     an HTML management comment and be available to the agent during its Puppet run.
+#   - A first non-whitespace character of `<` identifies HTML, including the rendered result of `template()` or
+#     `epp()`. Puppet adds an HTML management comment after a leading DOCTYPE, or at the start otherwise.
+#   - Other strings select an existing local file: absolute paths are used directly; relative paths, including a
+#     single filename, are resolved against this vhost's explicit absolute `docroot`. Pure proxies without a
+#     document root must use an absolute path, Puppet source or HTML. Paths are literal, may contain spaces and
+#     cannot contain control characters or Nginx variables. Deployment-owned files must exist and be readable by
+#     the Nginx worker; missing custom files do not fall back to the shared page.
+#   Source and HTML inputs install a root-owned, worker-readable file per vhost under /etc/nginx/errors. Templates
+#   are evaluated by the caller during catalog compilation; their output must begin with HTML markup. File content
+#   updates need no service restart. Switching back to a local path or removing the vhost deletes its managed file;
+#   the private generated path is reserved for source and HTML inputs.
+#   Every page and its assets must work without PHP or the upstream application. The internal URI
+#   /_nginx_unavailable.html is reserved. The shared page embeds its CSS. When managed CSP is enabled, this page
+#   receives a dedicated policy allowing only its exact style hash; application responses retain the vhost policy.
+#   Changes to the shared CSS update that hash in the vhost configuration and require a reload. Custom pages use
+#   the vhost's configured CSP, which must permit their styles and assets. The shared messages remain readable
+#   without CSS.
+#   Application error responses are not intercepted automatically. An error_page in a location replaces inherited
+#   error mappings, including this one; the separate security.txt fallback keeps its own error handling.
+#
 # @param x_content_type_options
 #   X-Content-Type-Options header value. `true` uses `nosniff`, a string sets a vhost value, and `false` disables the
 #   managed header.
@@ -402,6 +456,7 @@ define nginx::server (
   Optional[String]          $ssl_session_timeout             = undef,
   Variant[Boolean, String]  $strict_transport_security       = true,
   Variant[Boolean, String]  $try_files                       = true,
+  String[1]                 $unavailable_page                = '/etc/nginx/errors/unavailable.html',
   Variant[Boolean, String]  $x_content_type_options          = true,
   Variant[Boolean, String]  $x_frame_options                 = true,
 ) {
@@ -409,6 +464,10 @@ define nginx::server (
   if (defined(Class['nginx'])) {
     # Share the owning resource path with the check instead of rebuilding it in a monitoring helper.
     $config_file = "${nginx::config}/${name}.conf"
+
+    # Give each vhost a stable, filesystem-safe identity for private content and Nginx variables.
+    $vhost_hash = stdlib::sha256($name)
+    $unavailable_page_managed_file = "/etc/nginx/errors/vhost-${vhost_hash}.html"
 
     # Create security.txt file path
     $security_dir = "/etc/nginx/security/${name}"
@@ -560,7 +619,7 @@ define nginx::server (
     $securitytxt_location_name = regsubst($name, '[^A-Za-z0-9_]', '_', 'G')
 
     # Nginx map destination variables are global to http; use a short vhost hash to avoid variables_hash_bucket_size failures.
-    $security_headers_variable_name = "sh_${regsubst(stdlib::sha256($name), '^(.{12}).*$', '\1')}"
+    $security_headers_variable_name = "sh_${regsubst($vhost_hash, '^(.{12}).*$', '\1')}"
 
     # Resolve Content-Security-Policy to the default, a vhost override, or false for opt-out.
     $content_security_policy_default = "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'"
@@ -751,6 +810,51 @@ define nginx::server (
 
     # Configure shared dependencies, listeners and certificate checks only for present vhosts.
     if ($ensure == present) {
+      # Resolve the string before rendering so outage responses never require a running application backend.
+      case $unavailable_page {
+        /\A\s*</: {
+          # Preserve a leading DOCTYPE while marking supplied or rendered HTML as Puppet-managed.
+          $unavailable_page_content = regsubst(
+            $unavailable_page,
+            '\A(\s*<!DOCTYPE[^>]*>[ \t]*(?:\r?\n)?)?',
+            "\\1<!-- Managed by puppet -->\n",
+            'I',
+          )
+          $unavailable_page_source = undef
+          $unavailable_page_file = $unavailable_page_managed_file
+          $unavailable_page_ensure = file
+        }
+        /\Apuppet:\/\//: {
+          # Accept only supported Puppet fileserver mounts and keep source mutually exclusive with content.
+          $unavailable_page_source = assert_type(
+            Pattern[/\Apuppet:\/\/[^\/\s\x00-\x1f\x7f]*\/(?:modules|files)\/[^\s\x00-\x1f\x7f]+\z/],
+            $unavailable_page,
+          )
+          $unavailable_page_content = undef
+          $unavailable_page_file = $unavailable_page_managed_file
+          $unavailable_page_ensure = file
+        }
+        default: {
+          # Paths are literal; Nginx variables and control characters cannot name a static outage file.
+          $unavailable_page_path = assert_type(Pattern[/\A[^$\x00-\x1f\x7f]+\z/], $unavailable_page)
+
+          # Absolute paths also support pure reverse proxies without a document root.
+          if ($unavailable_page_path !~ /\A\//) {
+            # A relative filename needs an explicit literal document root on the Nginx host.
+            $unavailable_page_root = assert_type(Pattern[/\A\/[^$\x00-\x1f\x7f]*\z/], $docroot)
+            $unavailable_page_file = "${regsubst($unavailable_page_root, '/+\z', '')}/${unavailable_page_path}"
+          } else {
+            # Preserve the deployment's absolute file location.
+            $unavailable_page_file = $unavailable_page_path
+          }
+
+          # Local paths leave the deployment file untouched and remove obsolete private content.
+          $unavailable_page_content = undef
+          $unavailable_page_source = undef
+          $unavailable_page_ensure = absent
+        }
+      }
+
       # Inspect only directive lists rendered by the vhost template, including enabled PHP-FPM locations.
       $connection_upgrade_directives = flatten(concat(
         $directives,
@@ -949,8 +1053,34 @@ define nginx::server (
         }
       }
     } else {
-      # File removal does not need content or shared socket registrations.
+      # Removal needs neither page resolution nor shared socket registrations.
       $config_content = undef
+      $unavailable_page_content = undef
+      $unavailable_page_source = undef
+      $unavailable_page_ensure = absent
+    }
+
+    # Keep file source and content exclusive; page updates do not notify the service.
+    if ($unavailable_page_source != undef) {
+      file { $unavailable_page_managed_file:
+        ensure  => $unavailable_page_ensure,
+        source  => $unavailable_page_source,
+        owner   => 'root',
+        group   => $nginx::run_group,
+        mode    => '0640',
+        require => File['/etc/nginx/errors'],
+        before  => File[$config_file],
+      }
+    } else {
+      file { $unavailable_page_managed_file:
+        ensure  => $unavailable_page_ensure,
+        content => $unavailable_page_content,
+        owner   => 'root',
+        group   => $nginx::run_group,
+        mode    => '0640',
+        require => File['/etc/nginx/errors'],
+        before  => File[$config_file],
+      }
     }
 
     # Share one File declaration for present and absent vhosts and their monitoring/cleanup dependencies.
@@ -961,7 +1091,7 @@ define nginx::server (
       group   => 'root',
       mode    => '0600',
       notify  => $config_notify,
-      require => [Package['nginx'], File[$nginx::config]],
+      require => [Package['nginx'], File[$nginx::config, 'nginx_unavailable']],
     }
 
     # Rebuild security.txt after the vhost config changes by removing the stale fallback first.

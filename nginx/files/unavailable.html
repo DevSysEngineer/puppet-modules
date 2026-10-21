@@ -1,0 +1,196 @@
+<!doctype html>
+<!-- Managed by puppet -->
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>Tijdelijk niet beschikbaar · Temporarily unavailable</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #172b45;
+        background: #f3f6fa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: grid;
+        min-height: 100vh;
+        margin: 0;
+        padding: clamp(1rem, 4vw, 3rem);
+        place-items: center;
+        background: radial-gradient(ellipse at top left, #e4edf9, transparent 60%);
+        line-height: 1.65;
+      }
+
+      .notice {
+        width: 100%;
+        max-width: 62rem;
+        overflow-wrap: break-word;
+        padding: clamp(1.5rem, 5vw, 3.5rem);
+        border: 1px solid #dce4ee;
+        border-top: 4px solid #315fbb;
+        border-radius: 1.5rem;
+        background: #fff;
+        box-shadow: 0 1.5rem 4rem #172b4510;
+      }
+
+      .notice-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2.5rem;
+      }
+
+      .status-icon {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.9rem;
+        background: #edf3fc;
+      }
+
+      .status-icon span {
+        width: 0.3rem;
+        height: 1.1rem;
+        border-radius: 0.15rem;
+        background: #315fbb;
+      }
+
+      .status-code,
+      .language {
+        margin: 0;
+        font-size: 0.8rem;
+        font-weight: 650;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .status-code {
+        color: #48617e;
+      }
+
+      .messages {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 2.5rem;
+      }
+
+      .message + .message {
+        padding-left: 2.5rem;
+        border-left: 1px solid #e1e7ef;
+      }
+
+      .language {
+        color: #315fbb;
+      }
+
+      h1,
+      h2 {
+        margin: 0.75rem 0 1.25rem;
+        font-size: clamp(1.75rem, 3vw, 2.25rem);
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.2;
+      }
+
+      .message > p:not(.language) {
+        margin: 0 0 1rem;
+        color: #43546b;
+      }
+
+      .message > p.help {
+        margin-bottom: 0;
+        font-size: 0.9rem;
+      }
+
+      .notice-footer {
+        display: flex;
+        margin-top: 2.5rem;
+        padding-top: 1.75rem;
+        border-top: 1px solid #e1e7ef;
+      }
+
+      .retry {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4em;
+        min-height: 2.75rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 0.65rem;
+        background: #244f9f;
+        color: #fff;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .retry:hover {
+        background: #193b7b;
+      }
+
+      .retry:focus-visible {
+        outline: 3px solid #315fbb;
+        outline-offset: 4px;
+      }
+
+      @media (max-width: 42rem) {
+        .notice-header {
+          margin-bottom: 2rem;
+        }
+
+        .messages {
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+
+        .message + .message {
+          padding-top: 2rem;
+          padding-left: 0;
+          border-top: 1px solid #e1e7ef;
+          border-left: 0;
+        }
+
+        .retry {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="notice">
+      <header class="notice-header">
+        <div class="status-icon" aria-hidden="true"><span></span><span></span></div>
+        <p class="status-code" lang="en">503 · Service unavailable</p>
+      </header>
+      <div class="messages">
+        <section class="message" lang="nl" aria-labelledby="heading-nl">
+          <p class="language">Nederlands</p>
+          <h1 id="heading-nl">Tijdelijk niet beschikbaar</h1>
+          <p>Deze website is op dit moment niet bereikbaar. Probeer het over enkele minuten opnieuw.</p>
+          <p class="help">Blijft het probleem bestaan? Neem dan contact op met de beheerder van deze website.</p>
+        </section>
+        <section class="message" lang="en" aria-labelledby="heading-en">
+          <p class="language">English</p>
+          <h2 id="heading-en">Temporarily unavailable</h2>
+          <p>This website is currently unavailable. Please try again in a few minutes.</p>
+          <p class="help">If the problem persists, please contact the website administrator.</p>
+        </section>
+      </div>
+      <footer class="notice-footer">
+        <a class="retry" href="">Probeer opnieuw <span aria-hidden="true">/</span> <span lang="en">Try again</span></a>
+      </footer>
+    </main>
+  </body>
+</html>
