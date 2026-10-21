@@ -81,7 +81,7 @@ class basic_settings::package_mysql (
   # Install the MySQL repository when enabled and remove its managed source otherwise.
   if ($enable) {
     # Install the HTTPS transport and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'gnupg']
+    $repository_packages = ['apt-transport-https', 'ca-certificates', 'diffutils', 'gnupg']
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -142,16 +142,18 @@ class basic_settings::package_mysql (
 
     # Set source
     exec { 'package_mysql_source':
-      command => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
-      unless  => "/usr/bin/test -e ${source_file_shell}",
-      require => [Package[$repository_required_packages], File['package_mysql_key_filename']],
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
+      unless   => "/usr/bin/test -e ${source_file_shell} && /usr/bin/printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
+      require  => [Package[$repository_required_packages], File['package_mysql_key_filename']],
     }
 
     # Set preference
     exec { 'package_mysql_preference':
-      command => "/usr/bin/printf %b ${preference_content_shell} > ${file_preference_shell}; chmod 644 ${file_preference_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless  => "/usr/bin/test -e ${file_preference_shell}",
-      require => Exec['package_mysql_source'],
+      provider => shell,
+      command  => "/usr/bin/printf %b ${preference_content_shell} > ${file_preference_shell}; chmod 644 ${file_preference_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_preference_shell} && /usr/bin/printf %b ${preference_content_shell} | /usr/bin/cmp -s - ${file_preference_shell}", # lint:ignore:140chars
+      require  => Exec['package_mysql_source'],
     }
   } else {
     # Remove mysql repo

@@ -78,7 +78,7 @@ class basic_settings::package_rabbitmq (
   # Install the RabbitMQ and Erlang repositories or remove their managed sources when disabled.
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'gnupg']
+    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'diffutils', 'gnupg']
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -102,16 +102,18 @@ class basic_settings::package_rabbitmq (
 
     # Install Rabbitmq erlang repo
     exec { 'package_rabbitmq_erlang_source':
-      command => "/usr/bin/printf %b ${source_erlang_shell} > ${file_erlang_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_erlang_shell} >/dev/null; chmod 644 ${key_erlang_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless  => "/usr/bin/test -e ${file_erlang_shell}",
-      require => Package[$repository_required_packages],
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_erlang_shell} > ${file_erlang_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_erlang_shell} >/dev/null; chmod 644 ${key_erlang_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_erlang_shell} && /usr/bin/printf %b ${source_erlang_shell} | /usr/bin/cmp -s - ${file_erlang_shell}", # lint:ignore:140chars
+      require  => Package[$repository_required_packages],
     }
 
     # Install Rabbitmq server repo
     exec { 'package_rabbitmq_server_source':
-      command => "/usr/bin/printf %b ${source_server_shell} > ${file_server_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server_shell} >/dev/null; chmod 644 ${key_server_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless  => "/usr/bin/test -e ${file_server_shell}",
-      require => Package[$repository_required_packages],
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_server_shell} > ${file_server_shell}; /usr/bin/curl -fsSL https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA | gpg --dearmor | tee ${key_server_shell} >/dev/null; chmod 644 ${key_server_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_server_shell} && /usr/bin/printf %b ${source_server_shell} | /usr/bin/cmp -s - ${file_server_shell}", # lint:ignore:140chars
+      require  => Package[$repository_required_packages],
     }
   } else {
     # Remove Rabbitmq erlang repo

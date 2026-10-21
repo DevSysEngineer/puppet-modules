@@ -75,7 +75,7 @@ class basic_settings::package_mongodb (
   # Install the MongoDB repository when enabled and remove its managed source otherwise.
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'gnupg']
+    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'diffutils', 'gnupg']
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -97,9 +97,10 @@ class basic_settings::package_mongodb (
 
     # Install mongodb repo
     exec { 'package_mongodb_source':
-      command => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL ${key_url_shell} | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless  => "/usr/bin/test -e ${file_shell}",
-      require => Package[$repository_required_packages],
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL ${key_url_shell} | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      require  => Package[$repository_required_packages],
     }
 
     # Install mongodb-org-server package
