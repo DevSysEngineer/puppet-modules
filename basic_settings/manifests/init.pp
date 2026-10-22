@@ -45,8 +45,9 @@
 #   Enables local documentation packages through `basic_settings::locale`.
 #
 # @param environment
-#   Server environment passed to login policy and network templates, independent of the Puppet code environment;
-#   defaults to `production`.
+#   Server environment passed to login policy and network templates, and to `[agent] environment` when
+#   puppet_conf_enable is true and puppetserver_enable is false. Defaults to `production`; this is explicit
+#   configuration, not the current Puppet code environment or a fact.
 #   See `basic_settings::login` for the environment-dependent shell idle timeout.
 #
 # @param firewall_package
@@ -279,11 +280,27 @@
 # @param proxy_https
 #   Optional HTTPS proxy rendered into APT configuration.
 #
+# @param puppet_conf_enable
+#   Manages the complete puppet.conf from a template when true (the default) and puppetserver_enable is false.
+#   The template contains `[main] certname` and server_list, and `[agent] environment`; other settings are replaced.
+#   False leaves puppet.conf and its metadata untouched, including previously managed settings; it does not stop
+#   the agent service. The Boolean is passed explicitly to basic_settings::puppet, including false.
+#
+# @param puppet_version
+#   Selects the OpenVox APT component: `8` or `9`. Undef uses major 8 in the repository helper.
+#   Does not enable the repository, pin packages, or request an installed agent upgrade or downgrade.
+#
 # @param puppetserver_enable
-#   Enables Puppet Server/OpenVox Server package and service integration.
+#   Enables Puppet Server/OpenVox Server package and service integration. True excludes all agent puppet.conf
+#   management, regardless of puppet_conf_enable, and preserves previously written settings.
 #
 # @param puppetserver_jvm_memory
 #   JVM heap size passed to `basic_settings::puppet`.
+#
+# @param puppetserver_names
+#   Non-empty server names for agent configuration. All names are written as a comma-separated server_list,
+#   preserving their order and optional ports. Use puppet_conf_enable to disable management, not undef.
+#   Names remain subject to the parameter type when management is disabled.
 #
 # @param puppetserver_source
 #   Selects Perforce Puppet packages or Vox Pupuli/OpenVox naming.
@@ -296,8 +313,8 @@
 #   sources on other paths and check shared key use before disabling.
 #
 # @param server_fdqn
-#   Fully qualified host name passed to monitoring, security, package, and network templates. The default comes from
-#   Facter.
+#   Fully qualified host name passed to monitoring, security, package, and network templates, and to the managed
+#   agent configuration as `[main] certname`. Defaults to Facter; must match the enrolled agent certificate.
 #
 # @param server_timezone
 #   Timezone passed to `basic_settings::timezone`. The default is `UTC`.
@@ -428,8 +445,11 @@ class basic_settings (
   Boolean                                    $proxmox_enable                           = false,
   Optional[String]                           $proxy_http                               = undef,
   Optional[String]                           $proxy_https                              = undef,
+  Boolean                                    $puppet_conf_enable                       = true,
+  Optional[Enum['8', '9']]                   $puppet_version                           = undef,
   Boolean                                    $puppetserver_enable                      = false,
   Enum['512mb', '1gb', '2gb']                $puppetserver_jvm_memory                  = '2gb',
+  Array[String[1], 1]                        $puppetserver_names                       = ['puppet'],
   Enum['openvox', 'perforce']                $puppetserver_source                      = 'perforce',
   Boolean                                    $rabbitmq_enable                          = false,
   String                                     $server_fdqn                              = $facts['networking']['fqdn'],
@@ -1283,20 +1303,22 @@ class basic_settings (
     }
   }
 
-  # Check if variable sury is true; if true, install new source list and key
+  # Configure the selected OpenVox source only when enabled and supported by the platform.
   if ($voxpupuli_enable and $voxpupuli_allow) {
     class { 'basic_settings::package_voxpupuli':
-      deb_version => $deb_version,
-      enable      => true,
-      os_parent   => $os_parent,
-      os_version  => $facts['os']['release']['major'],
+      deb_version    => $deb_version,
+      enable         => true,
+      os_parent      => $os_parent,
+      os_version     => $facts['os']['release']['major'],
+      puppet_version => $puppet_version,
     }
   } else {
     class { 'basic_settings::package_voxpupuli':
-      deb_version => $deb_version,
-      enable      => false,
-      os_parent   => $os_parent,
-      os_version  => $facts['os']['release']['major'],
+      deb_version    => $deb_version,
+      enable         => false,
+      os_parent      => $os_parent,
+      os_version     => $facts['os']['release']['major'],
+      puppet_version => $puppet_version,
     }
   }
 
@@ -1398,10 +1420,14 @@ class basic_settings (
 
   # Setup Puppet
   class { 'basic_settings::puppet':
-    jvm_memory      => $puppetserver_jvm_memory,
-    server_dirname  => $puppetserver_dirname,
-    server_enable   => $puppetserver_enable,
-    server_package  => $puppetserver_package,
+    environment        => $environment,
+    jvm_memory         => $puppetserver_jvm_memory,
+    puppet_conf_enable => $puppet_conf_enable,
+    puppetserver_names => $puppetserver_names,
+    server_dirname     => $puppetserver_dirname,
+    server_enable      => $puppetserver_enable,
+    server_fdqn        => $server_fdqn,
+    server_package     => $puppetserver_package,
   }
 
   # Setup login

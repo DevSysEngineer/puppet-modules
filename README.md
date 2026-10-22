@@ -68,7 +68,7 @@ De [rootmetadata](metadata.json) beschrijven de projectbrede platformselectie; d
 
 De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` werkt ook op andere 64-bits architecturen, maar pakketbronnen voor bijvoorbeeld MySQL en RabbitMQ worden daar niet altijd ingeschakeld. Test daarom iedere gewenste combinatie zelf wanneer je geen `amd64` gebruikt.
 
-De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 die nog in individuele modulemetadata staat: `concat` 10 vereist Puppet 8 en `debconf` 8 vermeldt OpenVox vanaf 8.19 binnen majorversie 8. De rootmetadata volgen deze dependencygrenzen. `basic_settings` kan de pakketbron en pakketten voor OpenVox 8 beheren. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
+De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 die nog in individuele modulemetadata staat: `concat` 10 vereist Puppet 8 en `debconf` 8 vermeldt OpenVox vanaf 8.19 binnen majorversie 8. De rootmetadata volgen deze dependencygrenzen. `basic_settings` kan de OpenVox-pakketbron voor major 8 of expliciet major 9 kiezen. Deze bronkeuze is geen automatische package-upgrade en bewijst geen compatibiliteit van de volledige moduleset met OpenVox 9. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
 
 Dit project gebruikt `concat`, `debconf`, `reboot` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald. Het tijdzonebeheer is onderdeel van `basic_settings`; het pakket- en toetsenbordbeheer gebruikt de debconf-module.
 
@@ -227,19 +227,24 @@ Hostforwarding staat standaard uit. Zet voor een router of Docker-host expliciet
 
 Uitgeschakelde of niet-ondersteunde repositoryopties laten bestaande configuratie niet ongemoeid: zij verwijderen hun bronbestanden en, afhankelijk van de helper, sleutels of pakketten. Vooral `mongodb_enable => false` en `nodejs_enable => false` verwijderen ook de beheerde server- respectievelijk runtimepackage. Controleer vóór invoering de betreffende publieke `*_enable`-parameter in de [serverbasis](basic_settings/manifests/init.pp). Bewaar onafhankelijke APT-bronnen onder andere bestandsnamen.
 
+Op agentnodes beheert `basic_settings` standaard het volledige `puppet.conf` vanuit het [agenttemplate](basic_settings/templates/puppet/agent.conf), met `[main] certname` en `server_list`, en `[agent] environment`. `certname` volgt `server_fdqn` (standaard de FQDN uit Facter) en moet overeenkomen met het bestaande agentcertificaat. De defaults voor de serverlijst en environment zijn `puppet` en `production`; alle namen uit `puppetserver_names` komen in dezelfde volgorde kommagescheiden in `server_list`, inclusief eventuele poorten, bijvoorbeeld `server_list = puppet01.example.org:8141,puppet02.example.org`. De array wordt zonder blokhaken geschreven, volgens de [OpenVox-configuratiesyntax](https://docs.openvoxproject.org/openvox/9.x/config_file_main.html#lists-of-words). Stel vóór uitrol de bereikbare server en de gewenste environment in: actief beheer vervangt de volledige bestandsinhoud; overige handmatige instellingen en secties verdwijnen. Met `puppet_conf_enable => false` blijft het hele bestand inclusief metadata ongemoeid, ook na eerder actief beheer. Met `puppetserver_enable => true` blijft dit agentconfiguratiebeheer altijd uit. De schakelaar verandert het bestaande servicebeheer niet. Zie de [Puppet Strings](basic_settings/manifests/puppet.pp) voor het contract bij zelfstandig gebruik.
+
+Voor een nieuwe agent moet de eerste serververbinding al werken voordat hij deze catalogus kan ontvangen. OpenVox 9 vereist een expliciete serverlocatie of een ondersteunde alternatieve vindmethode; zie de [upgradehandleiding](https://docs.openvoxproject.org/openvox/latest/upgrade_major.html). Het [OpenVox-voorbeeld](examples/site.pp) toont een expliciete bronkeuze voor major 9 en afzonderlijk het buiten beheer laten van agentconfiguratie. Zonder versieoverride blijft een ingeschakelde Vox Pupuli-bron major 8 gebruiken.
+
 De standaard `nvidia_dgx_enable => false` verwijdert beide DGX/CUDA-bronnen en beide ondertekeningssleutels. Zet de optie vóór uitrol op `true` wanneer die moeten blijven en controleer of andere bronnen dezelfde sleutelpaden gebruiken. Activeren vereist Ubuntu 24.04 ARM64; niet-lege sleutels worden niet automatisch geroteerd. De [publieke parameter](basic_settings/manifests/init.pp) benoemt alle beheerde paden en grenzen; het [Spark-scenario](examples/nvidia_dgx_spark.pp) combineert bronnen, kernel en driver.
 
-Interactieve Bash-shells sluiten na 15 minuten zonder invoer aan de prompt in `production`, en na 30 minuten in andere serveromgevingen. Hiervoor telt `basic_settings::environment`, niet de Puppet-codeomgeving. Open na een wijziging een nieuwe login-shell en controleer de werking bij afwijkende shells of profielen. Gestarte scripts kunnen deze timeout via `TMOUT` erven; de [login-documentatie](basic_settings/manifests/login.pp) beschrijft hoe je daarmee omgaat.
+Interactieve Bash-shells sluiten na 15 minuten zonder invoer aan de prompt in `production`, en na 30 minuten in andere serveromgevingen. Hiervoor telt `basic_settings::environment`; bij actief agentconfiguratiebeheer wordt dezelfde waarde als de gevraagde Puppet-agentomgeving geschreven. De waarde wordt niet afgeleid van de Puppet-codeomgeving waarin deze catalogus wordt gecompileerd. Open na een wijziging een nieuwe login-shell en controleer de werking bij afwijkende shells of profielen. Gestarte scripts kunnen deze timeout via `TMOUT` erven; de [login-documentatie](basic_settings/manifests/login.pp) beschrijft hoe je daarmee omgaat.
 
 Puppet stopt standaard de ontdekte tekst- en seriële consoles; kioskmodus houdt ze aan. Controleer vóór de uitrol of je hersteltoegang behouden blijft. Dit beleid blokkeert heractivering door systemd of een herstart niet. Reserveer consoles die een andere toepassing beheert volgens de [getty-instellingen](basic_settings/manifests/login.pp); een reservering stopt of maskeert de console zelf niet.
 
 #### Basisvoorbeeld
 
-Dit voorbeeld configureert de algemene serverbasis met een hostnaam en een extra NTP-pool. Neem de waarden op in je bestaande classdeclaratie wanneer je `basic_settings` al gebruikt.
+Dit voorbeeld configureert de algemene serverbasis met een hostnaam, de te gebruiken Puppet-server en een extra NTP-pool. Neem de waarden op in je bestaande classdeclaratie wanneer je `basic_settings` al gebruikt.
 
 ```puppet
 class { 'basic_settings':
   hosts_enable            => true,
+  puppetserver_names      => ['puppet01.example.org'],
   server_fdqn             => 'server01.example.org',
   systemd_ntp_extra_pools => ['ntp.example.org'],
 }

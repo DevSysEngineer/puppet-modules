@@ -24,13 +24,24 @@
 # @param os_version
 #   Distribution major version appended to the repository suite.
 #
+# @param puppet_version
+#   OpenVox APT component major, `8` or `9`; undef selects 8. This does not enable the source, pin packages,
+#   or request an installed agent upgrade or downgrade.
+#
 # @api private
 class basic_settings::package_voxpupuli (
-  Enum['list', '822'] $deb_version,
-  Boolean             $enable,
-  String              $os_parent,
-  String              $os_version,
+  Enum['list', '822']      $deb_version,
+  Boolean                  $enable,
+  String                   $os_parent,
+  String                   $os_version,
+  Optional[Enum['8', '9']] $puppet_version = undef,
 ) {
+  # Keep the effective repository default here for direct and parent-class use.
+  $puppet_version_effective = $puppet_version ? {
+    undef   => '8',
+    default => $puppet_version,
+  }
+
   # Provide the shell and source-list tools on both installation and removal paths.
   $source_packages = ['apt', 'coreutils', 'dash']
   ensure_packages($source_packages, {
@@ -83,10 +94,10 @@ class basic_settings::package_voxpupuli (
     # Get source
     if ($deb_version == '822') {
       # Render the selected repository and signing key in deb822 format.
-      $source  = "Types: deb\\nURIs: ${url}\\nSuites: ${os_parent}${os_version}\\nComponents: openvox8\\nSigned-By:${key}\\n"
+      $source  = "Types: deb\\nURIs: ${url}\\nSuites: ${os_parent}${os_version}\\nComponents: openvox${puppet_version_effective}\\nSigned-By:${key}\\n" # lint:ignore:140chars Keep the literal source format intact.
     } else {
       # Render the selected repository and signing key in one-line APT format.
-      $source = "deb [signed-by=${key}] ${url} ${os_parent}${os_version} openvox8\\n"
+      $source = "deb [signed-by=${key}] ${url} ${os_parent}${os_version} openvox${puppet_version_effective}\\n"
     }
 
     # Escape generated repo content as literal newline sequences before the shell writes it.

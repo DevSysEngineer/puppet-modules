@@ -174,3 +174,20 @@ node 'proxmox01.example.org' {
     require => Class['basic_settings'],
   }
 }
+
+# Choose OpenVox 9 explicitly and configure the agent after bootstrap connectivity is already available.
+node 'agent09.example.org' {
+  class { 'basic_settings':
+    environment        => 'acceptance',
+    puppet_version     => '9',
+    puppetserver_names => ['puppet01.example.org:8141', 'puppet02.example.org'],
+    voxpupuli_enable   => true,
+  }
+}
+
+# Keep externally maintained agent configuration intact while retaining the other baseline functions.
+node 'external-agent.example.org' {
+  class { 'basic_settings':
+    puppet_conf_enable => false,
+  }
+}

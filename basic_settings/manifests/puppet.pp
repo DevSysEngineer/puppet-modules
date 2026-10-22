@@ -3,7 +3,10 @@
 # This class disables vendor service enablement, configures Puppet agent and optional Puppet Server/OpenVox Server paths
 # for distro or remote packages, installs cleanup services and timers for filebucket and server reports, adds monitoring
 # where available, and audits Puppet SSL and code directories. Server mode changes service ordering and creates
-# Puppet-owned directories.
+# Puppet-owned directories. Agent mode manages the complete puppet.conf from a template when puppet_conf_enable
+# is true, containing [main] certname and server_list, and [agent] environment. Other existing settings are replaced.
+# Disabling this management or enabling server mode preserves the file, including its metadata.
+# No agent package is installed and no service restart is requested by this configuration management.
 # Remote paths are selected only when basic_settings::package_voxpupuli has already been declared with enable => true;
 # otherwise distribution paths are used. Declare the repository class first; resource ordering alone is insufficient.
 # The additional server check requires a local CA and the store report processor, and runs as the monitoring agent's
@@ -20,6 +23,10 @@
 #     jvm_memory    => '1gb',
 #     server_enable => true,
 #   }
+#
+# @param environment
+#   Requested Puppet agent environment, written explicitly in [agent] only when agent configuration is managed.
+#   Independent of the compiling Puppet environment; basic_settings passes its existing environment setting.
 #
 # @param jvm_memory
 #   JVM heap size rendered for Puppet Server/OpenVox Server. Valid values are `512mb`, `1gb`, and `2gb`.
@@ -45,26 +52,46 @@
 #   `undef` leaves the check default. New certificates use a separate fixed 24-hour first-report grace based on
 #   notBefore.
 #
+# @param puppet_conf_enable
+#   Manages the complete agent puppet.conf from a template by default, only when server_enable is false.
+#   Active management replaces other settings. False declares no configuration resources and leaves content,
+#   metadata and previously managed values untouched.
+#   This switch does not stop the agent service; existing independent class behavior remains active.
+#
+# @param puppetserver_names
+#   Non-empty list of non-empty server names, joined with commas in [main] server_list in the supplied order.
+#   Optional ports are preserved.
+#   Undef is not an opt-out; use puppet_conf_enable. Parameter types also apply when management is disabled.
+#
 # @param server_dirname
 #   Directory name used for server configuration and state paths. The default is `puppetserver`.
 #
 # @param server_enable
 #   Installs and configures the selected Puppet server package when `true`.
-#   `false` manages only agent-side behavior.
+#   `false` manages only agent-side behavior; true always excludes puppet.conf management.
+#   Switching to true retains previously managed agent settings.
+#
+# @param server_fdqn
+#   Agent certificate name written as [main] certname. Defaults to the networking FQDN fact.
+#   Must match the enrolled certificate; basic_settings passes its existing host name setting.
 #
 # @param server_package
 #   Puppet server package to install when server mode is enabled. The value also controls the service name mapping.
 #
 # @api public
 class basic_settings::puppet (
+  String                      $environment                           = 'production',
   Enum['512mb', '1gb', '2gb'] $jvm_memory                            = '2gb',
   Optional[Integer[0]]        $monitoring_server_cert_critical_days  = undef,
   Optional[Integer[0]]        $monitoring_server_cert_warning_days   = undef,
   Optional[Integer[0]]        $monitoring_server_crl_warning_seconds = undef,
   Optional[Integer[2000]]     $monitoring_server_output_limit        = undef,
   Optional[Integer[1]]        $monitoring_server_stale_seconds       = undef,
+  Boolean                     $puppet_conf_enable                    = true,
+  Array[String[1], 1]         $puppetserver_names                    = ['puppet'],
   String                      $server_dirname                        = 'puppetserver',
   Boolean                     $server_enable                         = false,
+  String                      $server_fdqn                           = $facts['networking']['fqdn'],
   Enum[
     'openvox-server',
     'puppet-master',
@@ -177,6 +204,27 @@ class basic_settings::puppet (
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
+    }
+  }
+
+  # Manage the complete agent configuration only when explicitly allowed by the node role and switch.
+  if (!$server_enable and $puppet_conf_enable) {
+    # The root-run agent owns its private configuration directory.
+    file { $agent_etc_dir:
+      ensure => directory,
+      mode   => '0700',
+      owner  => 'root',
+      group  => 'root',
+    }
+
+    # Replace the complete agent configuration with its certificate name, servers and environment.
+    file { "${agent_etc_dir}/puppet.conf":
+      ensure  => file,
+      mode    => '0600',
+      owner   => 'root',
+      group   => 'root',
+      content => template('basic_settings/puppet/agent.conf'),
+      require => File[$agent_etc_dir],
     }
   }
 
