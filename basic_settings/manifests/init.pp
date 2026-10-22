@@ -260,7 +260,8 @@
 #   Installs OpenJDK packages independently of Puppet Server requirements when supported.
 #
 # @param openjdk_version
-#   OpenJDK major version to install, or `default` for the OS default JDK.
+#   OpenJDK major version for independent Java consumers, or `default` for the OS default JDK.
+#   An enabled JVM Puppet server selects its required Java version and /usr/bin/java alternative instead.
 #
 # @param pro_enable
 #   Enables Ubuntu Pro client handling through `basic_settings::pro`.
@@ -293,6 +294,8 @@
 # @param puppetserver_enable
 #   Enables Puppet Server/OpenVox Server package and service integration. True excludes all agent puppet.conf
 #   management, regardless of puppet_conf_enable, and preserves previously written settings.
+#   The effective Vox Pupuli source selects upstream packages; otherwise the child uses an explicit distro route.
+#   Server package availability is not checked during compilation; source changes do not migrate CA or server data.
 #
 # @param puppetserver_jvm_memory
 #   JVM heap size passed to `basic_settings::puppet`.
@@ -301,9 +304,6 @@
 #   Non-empty server names for agent configuration. All names are written as a comma-separated server_list,
 #   preserving their order and optional ports. Use puppet_conf_enable to disable management, not undef.
 #   Names remain subject to the parameter type when management is disabled.
-#
-# @param puppetserver_source
-#   Selects Perforce Puppet packages or Vox Pupuli/OpenVox naming.
 #
 # @param rabbitmq_enable
 #   Enables the Erlang and RabbitMQ APT repositories on supported platforms. Removes the unused source format. With
@@ -450,7 +450,6 @@ class basic_settings (
   Boolean                                    $puppetserver_enable                      = false,
   Enum['512mb', '1gb', '2gb']                $puppetserver_jvm_memory                  = '2gb',
   Array[String[1], 1]                        $puppetserver_names                       = ['puppet'],
-  Enum['openvox', 'perforce']                $puppetserver_source                      = 'perforce',
   Boolean                                    $rabbitmq_enable                          = false,
   String                                     $server_fdqn                              = $facts['networking']['fqdn'],
   String                                     $server_timezone                          = 'UTC',
@@ -472,23 +471,6 @@ class basic_settings (
   Optional[String]                           $vulnerabilities_user                     = undef,
   Boolean                                    $wireless_enable                          = false,
 ) {
-  # Get puppet prefix
-  case $puppetserver_source {
-    'perforce': {
-      # Use the Puppet package family and its server package name.
-      $puppetserver_prefix = 'puppet'
-      $puppetserver_master = 'puppet-master'
-    }
-    'openvox': {
-      # Use the OpenVox package family and its server package name.
-      $puppetserver_prefix = 'openvox-'
-      $puppetserver_master = 'openvox-server'
-    }
-    default: {
-      # The public enum restricts this selector to the supported package families.
-    }
-  }
-
   # Get OS name
   case $facts['os']['name'] {
     'Ubuntu': {
@@ -535,9 +517,7 @@ class basic_settings (
         $os_name = 'resolute'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
         $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '24.04') { # LTS
@@ -567,9 +547,7 @@ class basic_settings (
         $os_name = 'noble'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
         $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '23.04') { # Stable
@@ -599,9 +577,7 @@ class basic_settings (
         $os_name = 'lunar'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = false
         $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '22.04') { # LTS
@@ -631,9 +607,7 @@ class basic_settings (
         $os_name = 'jammy'
         $ram_disk_package = 'initramfs'
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = $puppetserver_master
         $sury_allow = true
         $voxpupuli_allow = true
       } else {
@@ -654,9 +628,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = false
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = $puppetserver_master
         $sury_allow = false
         $voxpupuli_allow = false
       }
@@ -695,9 +667,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = true
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
         $voxpupuli_allow = true
       } elsif ($facts['os']['release']['major'] == '12') {
@@ -726,9 +696,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = true
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppetserver'
         $puppetserver_jdk = true
-        $puppetserver_package = "${puppetserver_prefix}server"
         $sury_allow = true
         $voxpupuli_allow = true
       } else {
@@ -749,9 +717,7 @@ class basic_settings (
         $ram_disk_package = 'initramfs'
         $rabbitmq_allow = false
         $proxmox_allow = false
-        $puppetserver_dirname = 'puppet'
         $puppetserver_jdk = false
-        $puppetserver_package = $puppetserver_master
         $sury_allow = false
         $voxpupuli_allow = false
       }
@@ -774,9 +740,7 @@ class basic_settings (
       $ram_disk_package = 'initramfs'
       $rabbitmq_allow = false
       $proxmox_allow = false
-      $puppetserver_dirname = 'puppet'
       $puppetserver_jdk = false
-      $puppetserver_package = $puppetserver_master
       $sury_allow = false
     }
   }
@@ -1323,7 +1287,8 @@ class basic_settings (
   }
 
   # Remove Java when no enabled feature needs it, retaining GUI dependencies according to the selected mode.
-  if (!(($puppetserver_enable and $puppetserver_jdk) or ($openjdk_enable and $openjdk_allow))) {
+  $puppetserver_java_enable = $puppetserver_enable and ($basic_settings::package_voxpupuli::enable or $puppetserver_jdk)
+  if (!($puppetserver_java_enable or ($openjdk_enable and $openjdk_allow))) {
     # Remove openjdk package
     package { 'openjdk':
       ensure => purged,
@@ -1424,10 +1389,8 @@ class basic_settings (
     jvm_memory         => $puppetserver_jvm_memory,
     puppet_conf_enable => $puppet_conf_enable,
     puppetserver_names => $puppetserver_names,
-    server_dirname     => $puppetserver_dirname,
     server_enable      => $puppetserver_enable,
     server_fdqn        => $server_fdqn,
-    server_package     => $puppetserver_package,
   }
 
   # Setup login

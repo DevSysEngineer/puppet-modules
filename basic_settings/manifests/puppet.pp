@@ -9,6 +9,11 @@
 # No agent package is installed and no service restart is requested by this configuration management.
 # Remote paths are selected only when basic_settings::package_voxpupuli has already been declared with enable => true;
 # otherwise distribution paths are used. Declare the repository class first; resource ordering alone is insufficient.
+# Distro servers use puppetserver, except Debian 11 and Ubuntu 22.04 which retain puppet-master.
+# This class does not validate server availability or platform/major compatibility before selecting a package.
+# Source changes do not migrate an existing CA or server data. No agent package is managed by this class.
+# Standalone JVM server callers must provide /usr/bin/java with a package-compatible runtime before installation;
+# basic_settings manages this centrally (Java 17 on older routes, Java 21 on newer routes and upstream 9).
 # The additional server check requires a local CA and the store report processor, and runs as the monitoring agent's
 # root identity. monitoring_custom manages private state under /etc/openitcockpit-agent/state/puppet_server without
 # changing report cleanup.
@@ -63,9 +68,6 @@
 #   Optional ports are preserved.
 #   Undef is not an opt-out; use puppet_conf_enable. Parameter types also apply when management is disabled.
 #
-# @param server_dirname
-#   Directory name used for server configuration and state paths. The default is `puppetserver`.
-#
 # @param server_enable
 #   Installs and configures the selected Puppet server package when `true`.
 #   `false` manages only agent-side behavior; true always excludes puppet.conf management.
@@ -74,9 +76,6 @@
 # @param server_fdqn
 #   Agent certificate name written as [main] certname. Defaults to the networking FQDN fact.
 #   Must match the enrolled certificate; basic_settings passes its existing host name setting.
-#
-# @param server_package
-#   Puppet server package to install when server mode is enabled. The value also controls the service name mapping.
 #
 # @api public
 class basic_settings::puppet (
@@ -89,14 +88,8 @@ class basic_settings::puppet (
   Optional[Integer[1]]        $monitoring_server_stale_seconds       = undef,
   Boolean                     $puppet_conf_enable                    = true,
   Array[String[1], 1]         $puppetserver_names                    = ['puppet'],
-  String                      $server_dirname                        = 'puppetserver',
   Boolean                     $server_enable                         = false,
   String                      $server_fdqn                           = $facts['networking']['fqdn'],
-  Enum[
-    'openvox-server',
-    'puppet-master',
-    'puppetserver'
-  ]                           $server_package                        = 'puppetserver',
 ) {
   # Set some values
   $basic_settings_enable = defined(Class['basic_settings'])
@@ -116,18 +109,6 @@ class basic_settings::puppet (
     $unit_failure = {}
   }
 
-  # Get puppet service name
-  case $server_package {
-    'openvox-server': {
-      # Map the OpenVox server package to its puppetserver service name.
-      $server_service = 'puppetserver'
-    }
-    default: {
-      # Use the server package name as the service name for the remaining package paths.
-      $server_service = $server_package
-    }
-  }
-
   # Share auxiliary packages between bundled and distribution agent layouts.
   $agent_auxiliary_packages = ['augeas-tools', 'facter']
 
@@ -137,69 +118,37 @@ class basic_settings::puppet (
     default => 'distro',
   }
 
-  # Configure paths and auxiliary packages for the selected layout.
+  # Retain only known legacy distro layouts; other distributions use the JVM server layout.
+  $distro_server_route = "${facts['os']['name']}-${facts['os']['release']['major']}" ? {
+    /^(Debian-11|Ubuntu-22\.04)$/ => 'legacy',
+    default                    => 'modern',
+  }
+
+  # Configure agent paths and auxiliary packages independently of the optional server.
   case $repo {
     'remote': {
-      # Resolve the packaged agent's executable and configuration directories.
-      $package_etc_dir = '/etc/puppetlabs'
+      # Use the upstream agent layout, including its bundled Ruby and cache.
       $agent_bin_dir = '/opt/puppetlabs/bin'
-      $agent_etc_dir = "${package_etc_dir}/puppet"
-
-      # Resolve bundled Ruby and the server's configuration, log and runtime directories.
+      $agent_etc_dir = '/etc/puppetlabs/puppet'
       $ruby_bin = '/opt/puppetlabs/puppet/bin/ruby'
-      $server_dir = '/opt/puppetlabs/server'
-      $server_etc_dir = "${package_etc_dir}/${server_dirname}"
-      $server_report_dir = "/var/log/puppetlabs/${server_dirname}/reports"
-      $server_var_dir = "${server_dir}/data/${server_dirname}"
-
-      # Set auxiliary server data and agent cache paths.
-      $server_var_extra = "/var/lib/puppetlabs/${server_dirname}"
       $cache_dir = '/opt/puppetlabs/puppet/cache'
 
-      # Set list
-      $require_dirs = [
-        $server_report_dir,
-        '/var/lib/puppetlabs',
-        $server_var_extra,
-        "${server_var_extra}/temp",
-      ]
-
-      # Install some puppet packages
+      # The upstream agent bundles these tools.
       package { $agent_auxiliary_packages:
         ensure => purged,
       }
     }
     default: {
-      # Resolve the distribution agent's executable and configuration directories.
-      $package_etc_dir = '/etc'
+      # Debian's OpenVox agent retains these distribution paths, including on Forky.
       $agent_bin_dir = '/usr/bin'
-      $agent_etc_dir = "${package_etc_dir}/puppet"
-
-      # Resolve system Ruby and the distribution server directories.
+      $agent_etc_dir = '/etc/puppet'
       $ruby_bin = '/usr/bin/ruby'
-      $server_dir = "/var/lib/${server_dirname}"
-      $server_etc_dir = "${package_etc_dir}/${server_dirname}"
-      $server_report_dir = "/var/log/${server_dirname}/reports"
-      $server_var_dir = $server_dir
-      $server_var_extra = $server_var_dir
-
-      # Get clean filebucket dir
-      if ($server_enable) {
-        # Keep server caches under the selected server implementation's directory.
-        $cache_dir = "/var/cache/${server_dirname}"
-      } else {
-        # Use the agent cache directory when no server is enabled.
-        $cache_dir = '/var/cache/puppet'
+      $cache_dir = ($server_enable and $distro_server_route == 'modern') ? {
+        true    => '/var/cache/puppetserver',
+        default => '/var/cache/puppet',
       }
 
-      # Set list
-      $require_dirs = [
-        $server_report_dir,
-        $server_var_extra,
-        "${server_var_extra}/temp",
-      ]
-
-      # Install some puppet packages
+      # Distribution agents use the separately packaged tools.
       package { $agent_auxiliary_packages:
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
@@ -376,10 +325,71 @@ class basic_settings::puppet (
 
   # Do only the next steps when we are puppet server
   if ($server_enable) {
+    # Keep each packaged server layout concrete, including module-specific reports and temporary data.
+    case $repo {
+      'remote': {
+        # Both upstream majors retain Puppet service and directory names.
+        $server_package = 'openvox-server'
+        $server_service = 'puppetserver'
+        $server_jvm = true
+        $server_app_dir = '/opt/puppetlabs/server/apps/puppetserver'
+        $server_etc_dir = '/etc/puppetlabs/puppetserver'
+        $server_var_dir = '/opt/puppetlabs/server/data/puppetserver'
+        $server_code_dir = '/etc/puppetlabs/code'
+        $server_bootstrap_config = '/etc/puppetlabs/puppetserver/services.d/,/opt/puppetlabs/server/apps/puppetserver/config/services.d/'
+        $server_report_dir = '/var/log/puppetlabs/puppetserver/reports'
+        $server_var_extra = '/var/lib/puppetlabs/puppetserver'
+        $server_parent_dirs = ['/var/lib/puppetlabs']
+      }
+      default: {
+        # Modern distro packages separate the application from mutable server state.
+        if ($distro_server_route == 'modern') {
+          # Debian and Ubuntu JVM packages share this layout.
+          $server_package = 'puppetserver'
+          $server_service = 'puppetserver'
+          $server_jvm = true
+          $server_app_dir = '/usr/share/puppetserver'
+          $server_etc_dir = '/etc/puppet/puppetserver'
+          $server_var_dir = '/var/lib/puppetserver'
+          $server_code_dir = '/etc/puppet/code'
+          $server_bootstrap_config = '/etc/puppet/puppetserver/services.d'
+          $server_report_dir = '/var/log/puppetserver/reports'
+          $server_var_extra = '/var/lib/puppetserver'
+        } else {
+          # Retain the Ruby master layout without inventing JVM application or bootstrap paths.
+          $server_package = 'puppet-master'
+          $server_service = 'puppet-master'
+          $server_jvm = false
+          $server_var_dir = '/var/lib/puppet'
+          $server_code_dir = '/etc/puppet/code'
+          $server_report_dir = '/var/log/puppet/reports'
+          $server_var_extra = '/var/lib/puppet'
+        }
+        $server_parent_dirs = []
+      }
+    }
+
+    # Report links and cleanup share these module-managed private directories.
+    $require_dirs = concat($server_parent_dirs, [
+      $server_report_dir,
+      $server_var_extra,
+      "${server_var_extra}/temp",
+    ])
+
     # Install package
     package { $server_package:
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+
+    # An active upstream source must be installed before APT can resolve the server package.
+    if ($repo == 'remote') {
+      Class['basic_settings::package_voxpupuli'] -> Package[$server_package]
+    }
+
+    # Root-managed source cleanup and refresh must also finish before server installation.
+    if (defined(Exec['basic_settings_source_reload'])) {
+      Exec['basic_settings_source_reload'] -> Package[$server_package]
     }
 
     # Remove other package
@@ -454,14 +464,17 @@ class basic_settings::puppet (
 
     # Check if we have systemd
     if (defined(Package['systemd'])) {
-      # Create env file
-      file { '/etc/default/puppetserver':
-        ensure  => file,
-        mode    => '0600',
-        owner   => 'puppet',
-        group   => 'puppet',
-        content => template('basic_settings/puppet/environment'),
-        notify  => Service[$server_service],
+      # Only JVM servers consume this environment; legacy puppet-master has no bootstrap configuration.
+      if ($server_jvm) {
+        file { '/etc/default/puppetserver':
+          ensure  => file,
+          mode    => '0600',
+          owner   => 'puppet',
+          group   => 'puppet',
+          content => template('basic_settings/puppet/environment'),
+          require => Package[$server_package],
+          notify  => Service[$server_service],
+        }
       }
 
       # Create drop in for puppet x service
@@ -596,10 +609,10 @@ class basic_settings::puppet (
         rules => [
           "-a always,exit -F arch=b32 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
           "-a always,exit -F arch=b64 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
-          "-a always,exit -F arch=b32 -F dir=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
-          "-a always,exit -F arch=b64 -F dir=${package_etc_dir}/code -F perm=r -F auid!=unset -F key=puppet_code",
-          "-a always,exit -F arch=b32 -F dir=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
-          "-a always,exit -F arch=b64 -F dir=${package_etc_dir}/code -F perm=wa -F key=puppet_code",
+          "-a always,exit -F arch=b32 -F dir=${server_code_dir} -F perm=r -F auid!=unset -F key=puppet_code",
+          "-a always,exit -F arch=b64 -F dir=${server_code_dir} -F perm=r -F auid!=unset -F key=puppet_code",
+          "-a always,exit -F arch=b32 -F dir=${server_code_dir} -F perm=wa -F key=puppet_code",
+          "-a always,exit -F arch=b64 -F dir=${server_code_dir} -F perm=wa -F key=puppet_code",
         ],
       }
     }

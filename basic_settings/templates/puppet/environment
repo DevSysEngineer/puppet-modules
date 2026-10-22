@@ -1,8 +1,7 @@
-###########################################
+# Managed by puppet
 # Init settings for puppetserver
-###########################################
 
-# Location of your Java binary (version 8)
+# The shared Java owner selects a runtime compatible with the chosen server package.
 JAVA_BIN="/usr/bin/java"
 
 # Modify this if you'd like to change the memory allocation, enable JMX, etc
@@ -26,11 +25,11 @@ TK_ARGS=""
 # These normally shouldn't need to be edited if using OS packages
 USER="puppet"
 GROUP="puppet"
-INSTALL_DIR="<%= @server_dir %>/apps/puppetserver"
+INSTALL_DIR="<%= @server_app_dir %>"
 CONFIG="<%= @server_etc_dir %>/conf.d"
 
 # Bootstrap path
-BOOTSTRAP_CONFIG="<%= @server_etc_dir %>/services.d/,<%= @server_dir %>/apps/puppetserver/config/services.d/"
+BOOTSTRAP_CONFIG="<%= @server_bootstrap_config %>"
 
 # SERVICE_STOP_RETRIES can be set here to alter the default stop timeout in
 # seconds.  For systemd, the shorter of this setting or 'TimeoutStopSec' in
