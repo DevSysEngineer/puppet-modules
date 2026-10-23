@@ -14,7 +14,7 @@
 #
 # @param ini_settings
 #   Hash of INI settings rendered into the FPM custom settings file. Must not include module-managed PHP INI settings
-#   such as `expose_php`.
+#   such as `expose_php`. Changes to this file restart FPM when the service is running; a stopped service stays stopped.
 #
 # @param pidfile
 #   Optional FPM PID file path. `undef` uses the versioned default under `/run`.
@@ -180,13 +180,15 @@ class php8::fpm (
         recurse => true,
       }
 
-      # Create PHP custom settings
+      # Apply custom INI settings after package installation and refresh the running FPM service when they change.
       file { "/etc/php/8.${minor_version}/fpm/conf.d/99-custom-settings.ini":
         ensure  => file,
         content => template('php8/settings-template.ini'),
         owner   => 'root',
         group   => 'root',
         mode    => '0600',
+        notify  => Service["php8.${minor_version}-fpm"],
+        require => Package["php8.${minor_version}-fpm"],
       }
 
       # Check if logrotate package exists
