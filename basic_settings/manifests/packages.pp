@@ -389,7 +389,18 @@ class basic_settings::packages (
     }
 
     # Keep NCSC collection and evaluation in one check with backend-managed private state.
-    $ncsc_required_packages = ['apt', 'ca-certificates', 'coreutils', 'curl', 'dash', 'dpkg', 'jq', 'mawk', 'util-linux', 'xmlstarlet']
+    $ncsc_required_packages = [
+      'apt',
+      'ca-certificates',
+      'coreutils',
+      'curl',
+      'dash',
+      'dpkg',
+      'jq',
+      'mawk',
+      'python3',
+      'util-linux',
+    ]
     ensure_packages($ncsc_required_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],

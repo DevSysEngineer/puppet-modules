@@ -12,7 +12,7 @@ die() {
 # Runtime packages are guaranteed by the registration, including parsers and locking.
 AWK=$(command -v awk 2>/dev/null) || die 'awk not available'
 JQ=$(command -v jq 2>/dev/null) || die 'jq not available'
-XML=$(command -v xmlstarlet 2>/dev/null) || die 'xmlstarlet not available'
+PYTHON=$(command -v python3 2>/dev/null) || die 'python3 not available'
 CURL=$(command -v curl 2>/dev/null) || die 'curl not available'
 TIMEOUT=$(command -v timeout 2>/dev/null) || die 'timeout not available'
 DATE=$(command -v date 2>/dev/null) || die 'date not available'
@@ -26,7 +26,6 @@ MKTEMP=$(command -v mktemp 2>/dev/null) || die 'mktemp not available'
 MV=$(command -v mv 2>/dev/null) || die 'mv not available'
 RM=$(command -v rm 2>/dev/null) || die 'rm not available'
 STAT=$(command -v stat 2>/dev/null) || die 'stat not available'
-OD=$(command -v od 2>/dev/null) || die 'od not available'
 
 # Use the managed state directory and executable defaults unless overridden at runtime.
 STATE_DIR=${STATE_DIR:-<%= @state_dir %>}
@@ -172,18 +171,64 @@ parse_csaf() {
     ' "$1" 2>/dev/null
 }
 
+# Validate and extract RSS locally with the Python standard library within the work budget.
+read_ncsc_news() {
+    bounded "$PYTHON" - "$1" "$2" <<'PY_NCSC_NEWS'
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+MAX_BYTES = 2097152
+XML_SPACE = " \t\r\n"
+
+def field(item, name):
+    element = item.find(name)
+    value = "" if element is None else "".join(element.itertext())
+    return re.sub(r"[ \t\r\n]+", " ", value).strip(XML_SPACE)
+
+try:
+    if len(sys.argv) != 3 or sys.argv[1] not in ("validate", "json"):
+        raise ValueError("invalid parser invocation")
+    mode, filename = sys.argv[1:]
+    with open(filename, "rb") as source:
+        data = source.read(MAX_BYTES + 1)
+    if not data or len(data) > MAX_BYTES:
+        raise ValueError("empty or oversized XML")
+    # Preserve the existing ASCII-compatible XML input boundary, including UTF-8 BOM.
+    if data[0] not in (9, 10, 13, 32, 60, 239) or b"\x00" in data[:4]:
+        raise ValueError("unsupported XML encoding")
+    # Reject DTDs and entity declarations before parsing, as in the existing check.
+    if b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+        raise ValueError("DTD/entity declarations are not allowed")
+    root = ET.fromstring(data)
+    channels = root.findall("channel")
+    if root.tag != "rss" or len(channels) != 1:
+        raise ValueError("invalid RSS root/channel")
+    if mode == "json":
+        records = []
+        for item in channels[0].findall("item"):
+            record = {
+                "guid": field(item, "guid"),
+                "title": field(item, "title"),
+                "text": field(item, "description"),
+                "date": field(item, "pubDate"),
+            }
+            if not record["guid"] or not record["title"]:
+                raise ValueError("incomplete RSS item")
+            records.append(record)
+        sys.stdout.write(json.dumps(records, ensure_ascii=False) + "\n")
+except (OSError, ET.ParseError, ValueError, UnicodeError, LookupError):
+    sys.stderr.write("NCSC news XML validation or extraction failed\n")
+    sys.exit(1)
+PY_NCSC_NEWS
+}
+
 # Validate complete documents before atomic replacement; never expand XML entities.
 validate_download() {
     case "$1" in
         news)
-            # Only ASCII-compatible XML is accepted; UTF-16/32 could conceal a DTD from the lexical guard.
-            bounded "$OD" -An -tx1 -N4 "$2" > "$WORK/xml-prefix" || return 1
-            bounded "$AWK" 'NR==1 && $1 !~ /^(09|0a|0d|20|3c|ef)$/ { bad=1 }
-                { for (i=1;i<=NF;i++) if ($i=="00") bad=1 }
-                END { exit bad }' "$WORK/xml-prefix" || return 1
-            bounded "$AWK" '/<!DOCTYPE|<!ENTITY/ { bad=1 } END { exit bad }' "$2" || return 1
-            bounded "$XML" val -w "$2" >/dev/null 2>&1 || return 1
-            [ "$(bounded "$XML" sel -t -v 'count(/rss/channel)' "$2" 2>/dev/null)" = 1 ]
+            read_ncsc_news validate "$2" 2>/dev/null
             ;;
         changes)
             bounded "$JQ" -Rse "$JQ_COMMON"'
@@ -482,21 +527,11 @@ else
     COVERAGE_COMPLETE=false
 fi
 
-# XMLStarlet handles each RSS item separately; normalize-space protects field boundaries.
+# Preserve RSS item order and field values in the JSON consumed by the existing state update.
 parse_news() {
-    if [ "$(bounded "$XML" sel -t -v 'count(/rss/channel/item)' "$STATE_DIR/news" 2>/dev/null)" = 0 ]; then
-        : > "$WORK/news.tsv"
-        return 0
-    fi
-    bounded "$XML" sel -T -t -m '/rss/channel/item' \
-        -v 'normalize-space(guid)' -o "$(printf '\t')" -v 'normalize-space(title)' -o "$(printf '\t')" \
-        -v 'normalize-space(description)' -o "$(printf '\t')" -v 'normalize-space(pubDate)' -n \
-        "$STATE_DIR/news" > "$WORK/news.tsv" 2>/dev/null
+    read_ncsc_news json "$STATE_DIR/news" > "$WORK/news.json" 2>/dev/null
 }
-if fetch_source news 'https://feeds.ncsc.nl/nieuws.rss' 2097152 && parse_news &&
-    bounded "$JQ" -Rse 'split("\n") | map(select(length>0) | split("\t") |
-        if length!=4 or .[0]=="" or .[1]=="" then error("incomplete RSS item")
-        else {guid:.[0],title:.[1],text:.[2],date:.[3]} end)' "$WORK/news.tsv" > "$WORK/news.json" 2>/dev/null; then
+if fetch_source news 'https://feeds.ncsc.nl/nieuws.rss' 2097152 && parse_news; then
     update_state --slurpfile news "$WORK/news.json" --argjson time "$FETCH_TIME" '
         ($news[0]|map(.guid)) as $current |
         .news=($news[0]+[.news[]|. as $old|select(($current|index($old.guid))==null)|
