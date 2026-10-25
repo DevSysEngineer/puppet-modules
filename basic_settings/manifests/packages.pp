@@ -3,6 +3,7 @@
 # This class installs core package-management tooling, removes desktop/update helpers that are not wanted on the target
 # server profile, manages APT, apt-listchanges, needrestart, and unattended-upgrades configuration, optionally removes
 # snapd, wires apt timers into systemd monitoring, and adds audit rules for package-management commands.
+# When monitoring is active, it registers APT and NCSC advisory checks.
 #
 # @example Manage default package policy
 #   include basic_settings::packages
@@ -385,6 +386,23 @@ class basic_settings::packages (
       friendly      => 'APT',
       interval      => 3600, # 1 hour
       require       => Package[$monitoring_required_packages],
+    }
+
+    # Keep NCSC collection and evaluation in one check with backend-managed private state.
+    $ncsc_required_packages = ['apt', 'ca-certificates', 'coreutils', 'curl', 'dash', 'dpkg', 'jq', 'mawk', 'util-linux', 'xmlstarlet']
+    ensure_packages($ncsc_required_packages, {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
+
+    # Register the advisory check after all collection and parser prerequisites.
+    basic_settings::monitoring_custom { 'ncsc_advisories':
+      state    => true,
+      template => 'basic_settings/monitoring/check_ncsc_advisories',
+      friendly => 'NCSC advisories',
+      interval => 300,
+      timeout  => 60,
+      require  => Package[$ncsc_required_packages],
     }
   }
 

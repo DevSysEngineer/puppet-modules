@@ -2098,6 +2098,8 @@ Beoordeel de onjuiste en correcte scenario’s tegen de norm en voer bij gewijzi
 
 Voeg een helper toe wanneer die een afzonderlijke taak benoemt, validatie of opmaak deelt of aanzienlijke duplicatie wegneemt. Verpak zonder zo’n reden geen enkele toekenning, append of `printf` in een helper.
 
+Onderscheid lokale functies binnen een check van gedeelde templatefragmenten. Een lokale functie mag een afgebakende checktaak benoemen. Een los ingevoegd hulpfragment wordt daadwerkelijk door minstens twee verschillende checks gebruikt en heeft een bestandsnaam die begint met `_`. Volledige checktemplates behouden hun checknaam.
+
 Geef gedeelde helperfuncties de voorkeur voor dezelfde detectie, inspectie of statusverwerking in meerdere scripts. Hergebruik een bestaande passende helper en pas gedeeld gedrag bij alle relevante aanroepers toe. Houd de verantwoordelijkheid beperkt: een helper voor een service manager inspecteert die manager; applicatiespecifieke procesherkenning en de bijbehorende fallback blijven bij de check. Voeg geen algemeen framework of extra wrapper toe zonder een concrete gedeelde taak.
 
 Maak argumenten, retourstatussen, uitvoer en eventuele gewijzigde variabelen expliciet. Een inspectiefunctie geeft een resultaat en context terug, zodat de aanroeper de bestaande statusprioriteit, uitvoer en aanvullende metingen kan behouden. Laat haar niet voortijdig het hele script beëindigen. Een afzonderlijke checkfunctie mag het resultaat naar de uiteindelijke monitoringstatus vertalen wanneer dat haar afgesproken taak is. Initialiseer resultaatvariabelen per aanroep en behoud de argumenten en instellingen van de aanroeper; een eerdere inspectie mag een latere niet beïnvloeden.
@@ -2124,11 +2126,15 @@ Een korte helper is toegestaan wanneer hij een afzonderlijke taak benoemt of val
 
 Handmatig reviewscenario: Een helper verbergt uitsluitend één toekenning zonder gedeelde taak of validatie. Keur dit af.
 
+Handmatig reviewscenario: Eén check verplaatst haar eigen parser naar een los fragment zonder tweede check als afnemer. Keur dit af; houd de parser als lokale functie in het volledige checkbestand.
+
 Handmatig reviewscenario: Meerdere checks kopiëren dezelfde managerinspectie, terwijl een bestaande helper slechts door één check wordt gebruikt. Of die helper bevat procesnamen van afzonderlijke applicaties en beëindigt bij de eerste fout de gehele check. Keur dit af: gedeelde inspectie en lokale beoordeling lopen uiteen of raken vermengd.
 
 **Correct voorbeeld**
 
 Handmatig reviewscenario: Een helper benoemt een afzonderlijke verwerking of deelt bestaande validatie tussen echte aanroepers.
+
+Handmatig reviewscenario: Checkspecifieke functies blijven in het checkbestand; twee verschillende checks voegen hetzelfde `_output`-fragment in voor gedeelde presentatie.
 
 Handmatig reviewscenario: Een gedeeld fragment levert managerinspectie aan alle toepasselijke templates. Iedere check gebruikt het resultaat voor haar eigen beoordeling en houdt de procescontrole voor haar daemon lokaal. Het fragment kan renderen met de module beschikbaar zonder de hoofdclass te declareren.
 
@@ -2404,6 +2410,8 @@ Deploy bij een nieuwe of gewijzigde monitoringcheck één executable per checkim
 
 Beheer het gedeelde executable onafhankelijk van individuele registraties, zodat het verwijderen of uitschakelen van één target de checks voor andere targets behoudt.
 
+Houd iedere checkimplementatie in één volledig checkbestand, inclusief checkspecifieke functies en parsers. Splits haar niet op in eigen runtimehelpers, parserbestanden of aparte cachecollectors. Een gedeeld fragment is alleen gerechtvaardigd bij daadwerkelijk gebruik door minstens twee verschillende checks; volg de [helperafbakening](#shellhelpers-op-een-herkenbare-taak-afbakenen).
+
 **Herkomst**
 
 Projectregel
@@ -2434,7 +2442,7 @@ Een bestaande configuratie-interface is toegestaan naast runtimeargumenten; exec
 
 **Handmatige review**
 
-Volg iedere registratie naar hetzelfde executable en controleer gedeelde templatewaarden, targetargumenten en eigenaarschap bij verwijderen of uitschakelen.
+Volg iedere registratie naar hetzelfde executable en controleer gedeelde templatewaarden, targetargumenten en eigenaarschap bij verwijderen of uitschakelen. Controleer dat checkspecifieke functies en parsers bijeenblijven en ieder gedeeld fragment minstens twee verschillende checks als afnemer heeft.
 
 **Verificatie**
 
@@ -2445,6 +2453,8 @@ Valideer minstens twee targets met eigen instellingen en verwijder of deactiveer
 **Norm**
 
 Houd monitoring onafhankelijk van de taak die zij observeert: inspecteer resultaten of status zonder de taakrunner aan te roepen, te sourcen of ervan afhankelijk te zijn.
+
+Een check mag noodzakelijke brondata voor haar meting zelf ophalen en vervallen cache vernieuwen, met begrensde opdrachten en hergebruik van geldige data. Richt daarvoor niet uitsluitend een aparte systemd-dienst of collector in. Dit staat geen uitvoering van de bewaakte applicatietaak, pakketupgrades of herstelacties toe. Een begrensde pakketlijstrefresh voor de NCSC-check is dataverzameling.
 
 **Herkomst**
 
@@ -2470,13 +2480,15 @@ Handmatig reviewscenario: Een check start de taakrunner om te bepalen of diens l
 
 Handmatig reviewscenario: Lees het bestaande resultaat of de status zonder de taak uit te voeren.
 
+Handmatig reviewscenario: Een adviescheck vernieuwt vervallen brondata binnen haar runbudget en hergebruikt geldige cache. Zij mag hiervoor pakketlijsten ophalen, maar voert geen pakketupgrade uit en start geen bewaakte jobrunner.
+
 **Grensgevallen**
 
 Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakrunner vereisen. De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
 
 **Handmatige review**
 
-Volg commandopaden en afhankelijkheden van de check; controleer dat inspectie de waargenomen taak niet uitvoert.
+Volg commandopaden en afhankelijkheden van de check; controleer dat inspectie de waargenomen taak niet uitvoert. Onderscheid noodzakelijke dataverzameling van herstelacties en controleer cachehergebruik, opdrachtlimieten en het totale runbudget.
 
 **Verificatie**
 

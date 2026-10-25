@@ -1175,6 +1175,7 @@ Bij `package => 'openitcockpit'` zijn de locaties onder `/etc/openitcockpit-agen
 | Check | Eigen status of cache |
 | --- | --- |
 | APT | `apt/<source>_<version>.txt` |
+| NCSC-adviezen | `ncsc_advisories/state.json` en NCSC-broncache |
 | Mirth Connect | `mirth_connect/mirth_queue_state.txt` |
 | Docker Compose | `docker_compose_<registratienaam>/docker_compose_<registratienaam>.state` |
 | Puppet Server | `puppet_server/last_seen` |
@@ -1182,6 +1183,8 @@ Bij `package => 'openitcockpit'` zijn de locaties onder `/etc/openitcockpit-agen
 Onderbreek bij het verplaatsen van bestaande statusbestanden alle betrokken checkaanroepen. Maak de doelmappen aan en behoud root als eigenaar en modus `0600` voor de bestanden voordat de checks worden hervat. Zo blijven de wachtrijduur en restarttellers behouden. Voor de Puppet-snapshot gelden de voorwaarden bij [Puppet Server-monitoring](#puppet-server-controleren).
 
 Ontbrekende APT-changelogs worden bij een volgende controle van security-updates opgehaald; deze aanvullende diagnose verandert de statusberekening niet.
+
+De [NCSC-check](basic_settings/templates/monitoring/check_ncsc_advisories) koppelt nieuws en CSAF-adviezen aan geïnstalleerde dpkg-pakketten en relevant APT-aanbod. Zij begint met de laatste 90 dagen, bewaart bevindingen en episode-/duurtellers in de eigen statemap en kan begrensd pakketlijsten verversen. `apt_current` betekent operationeel afgehandeld volgens de NCSC/APT-policy; een CVE-reparatie is daarmee niet onafhankelijk bewezen. `basic_settings::packages` registreert de check automatisch wanneer monitoring actief is, met de standaardwaarden van het script. De hoofdclass declareert `packages` al. Controleer bij uitrol ook de bestaande ontvangers, herhaalintervallen en acknowledgements: een nieuwe CVE kan dezelfde exitcode houden. Voor de uitvoeringsafspraken zie [monitoring en dataverzameling](.tools/lint/docs/OPERATIONAL_RULES.md#monitoring-onafhankelijk-van-de-waargenomen-taak-houden).
 
 Algemene Linux-metingen gebruiken waar mogelijk de actieve kernelstatus. Specifieke checks behouden hun toepassingsgebied: APT beoordeelt APT-updates, audit gebruikt de actieve auditregels en de beschikbare historie, en de Nginx-certificaatcheck beoordeelt lokale bestanden. Systemd-checks vereisen een aantoonbaar actieve systemd-manager. Zonder geschikte meetbron of bij een niet-toepasbare controle volgt UNKNOWN (exitcode 3) met de reden; ontbrekende aanvullende diagnosegegevens bewijzen geen storing. Dit verbreedt de platformondersteuning van de Puppet-modules zelf niet.
 
