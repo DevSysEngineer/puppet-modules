@@ -146,10 +146,10 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 #### Tijdens bewerken
 
 - Integreer wijzigingen in de bestaande uitleg en verbind omringende tekst volgens de Markdownregels. Beschrijf actueel gebruik als een samenhangend geheel volgens taal en informatieplaatsing.
-- Beoordeel iedere toegevoegde, gewijzigde, verplaatste of verwijderde passage op lezersbehoefte, document- en headingscope, nuttige informatie en consistentie. Technische juistheid alleen bewijst geen relevantie.
+- Vraag bij iedere toevoeging, herschrijving, verplaatsing en voorgenomen verwijdering: welke keuze, voorbereiding, handeling of interpretatie van de bedoelde lezer ondersteunt deze informatie? Beoordeel de volledige passage en de omringende uitleg op document- en headingscope, nuttige informatie en consistentie. Pas voor gebruikersbeschrijvingen de [README-richtlijn voor scope en configuratie](#scope-en-configuratie) toe.
 - Behoud bij consolidatie samenvattingen, opvallende waarschuwingen en prerequisites die een eigen beslissing of ingang bedienen. Herhaling alleen rechtvaardigt geen verwijdering.
 - Controleer of een passage onjuist zou worden door een incidentele waarde- of statuswijziging. Pas duurzame documentatie toe op betekenis en doel, niet door alleen een getal, datum of woord te schrappen.
-- Verwijder passages zonder taak voor de lezer in plaats van ze onder een andere heading of een voorbeeld te verplaatsen. Verwijder overbodige parameteruitleg die een gelinkt contract herhaalt en heroverweeg de subheading; behoud uitsluitend een lokaal gerechtvaardigde samenvatting of waarschuwing.
+- Verwijder passages zonder taak voor de lezer; verplaats ze niet automatisch naar een andere heading, een commentaarblok, voorbeeld of nieuw document. Geef noodzakelijke ontwikkelaarskennis alleen een andere bestemming wanneer zij duurzaam nuttig is en een passende bestaande plek heeft. Controleer die bestemming en behoud een gerichte verwijzing als de gebruiker die nodig heeft. Verwijder overbodige parameteruitleg die een gelinkt contract herhaalt en heroverweeg de subheading; behoud lokaal gerechtvaardigde samenvattingen, waarschuwingen en beperkingen, ook als zij veel tekst vragen.
 
 #### Na bewerken
 
@@ -175,12 +175,15 @@ Een technische controle bewijst nooit dat uitleg duidelijk, prettig leesbaar of 
 
 ### Scope en configuratie
 
-- Pas inhoud aan doel en doelgroep aan; leg moduleoverzichten en toolinghandleidingen niet dezelfde outline op. Gebruik vóór, tijdens en na root-README-wijzigingen de redactionele review.
+- Pas inhoud aan doel en doelgroep aan; leg moduleoverzichten en toolinghandleidingen niet dezelfde outline op. De root-README helpt technisch vaardige beheerders het project te begrijpen, gebruiken en beheren; exacte parameters, paden, voorwaarden en statusnamen kunnen daarvoor noodzakelijk zijn. Gebruik vóór, tijdens en na root-README-wijzigingen de redactionele review.
 - Voeg detail aan de root-README uitsluitend toe wanneer gebruikers het vóór gebruik of tijdens de beschreven handeling nodig hebben, het een beveiligings- of compatibiliteitskeuze verandert of het basisvoorbeeld het vereist.
+- Neem programmeertalen, interne bibliotheken, parsingmethoden, hulpprogramma's en automatisch beheerde afhankelijkheden alleen op in gebruikersbeschrijvingen wanneer zij nodig zijn voor een concrete gebruikerskeuze, installatievoorwaarde, beheerhandeling of interpretatie van een resultaat. Maak het gevolg voor de gebruiker duidelijk. Technische juistheid of belang tijdens de ontwikkeling is op zichzelf onvoldoende. Laat opsommingen van niet-gebruikte technieken of pakketten zonder concrete gebruiksnoodzaak weg.
+- Behoud een zelf te installeren afhankelijkheid, relevante platformbeperking of concrete herstelstap op de passende bestaande plek. Ook een automatisch geïnstalleerde afhankelijkheid kan een ondersteund platform of installatievoorwaarde bepalen; beschrijf dan die voorwaarde. Onderscheid uitrol via Puppet van ondersteund zelfstandig scriptgebruik: houd de vereisten voor dat laatste bij de bestaande scriptheader, hulptekst of gebruiksinstructie en controleer of ze daar werkelijk staan voordat een noodzakelijke verwijzing verdwijnt.
 - Kies gebruikersinformatie afzonderlijk van parametercontracten en implementatiekennis. Parameter-voor-parameterinstructies, volledige contracten en ontwikkelaarsspecifieke implementatiekennis blijven buiten de rootgebruikersgids bij hun eigenaar. Een codewijziging of nieuwe parameter rechtvaardigt niet vanzelf een README-aanvulling; onderzoek eerst of bestaande uitleg correctie nodig heeft.
 - Gebruik een gerichte link naar Strings of een bestaand voorbeeld wanneer die volstaat. Onderbouw extra proza met wat de lezer anders niet correct en veilig kan kiezen, doen of begrijpen. Werk standaard bestaande uitleg bij, overal in de root-README en niet alleen onder aandachtspunten. Voeg een passage of subsection alleen toe voor een aparte relevante taak of noodzakelijke uitleg; een featurenaam of parametergroep is op zichzelf geen taak.
 - Hergebruik documentatie voor uitgebreide varianten en parameterdetails; maak geen document per detail en kopieer geen volledige contracten tussen lagen.
 - Verifieer vóór voorgeschreven configuratie wat defaults, overerving en gedeclareerde componenten al leveren. Beschrijf dat effectieve gedrag eerst. Leg aanvullende configuratie alleen uit als de lezer een keuze of handeling nodig heeft; presenteer optionele overrides niet als verplichte inrichting.
+- Houd actuele, blijvende gebruiksvoorwaarden bij de betrokken handeling; plaats wijzigingsgebonden overstapstappen volgens [duurzame documentatie](#duurzame-documentatie) bij release notes of changelog.
 
 ### Stijl en uitleg
 
@@ -1676,7 +1679,7 @@ Beoordeel bij iedere wijziging de geraakte informatie bij haar eigenaar:
 - Een geraakt configuratiescenario of gewijzigde beheerhandeling: het voorbeeld of de volledige procedure.
 - Een gegenereerde referentie: haar bron en het bestaande generatieproces.
 
-Pas de uitleg aan wanneer de beoordeling daar aanleiding toe geeft en vergelijk haar met de actuele implementatie. Een nieuwe feature verplicht niet tot een nieuw Markdown-bestand of een uitgebreide root-README-sectie. Voor monitoring kan de gewijzigde ingang het bestaande checkoverzicht zijn.
+Pas de uitleg aan wanneer de beoordeling daar aanleiding toe geeft en vergelijk haar met de actuele implementatie. Behoud bestaande README-tekst wanneer zij inhoudelijk correct blijft en de lezerstaak al ondersteunt; leg die reviewuitkomst vast. Een nieuwe feature verplicht niet tot een nieuw Markdown-bestand of een uitgebreide root-README-sectie. Voor monitoring kan de gewijzigde ingang het bestaande checkoverzicht zijn.
 
 **Herkomst**
 
@@ -1705,6 +1708,14 @@ Handmatig reviewscenario: Werk Strings en geraakte voorbeelden bij en pas bij ge
 **Handmatige review**
 
 Vergelijk het gewijzigde interfacecontract en voorbeelden met de implementatie en gebruikers. Controleer bij Puppet defaults, relaties en gegenereerde configuratie afzonderlijk tegen het manifest.
+
+Beoordeel deze handmatige scenario's met de [README-richtlijn](#scope-en-configuratie):
+
+| Situatie | Beoordeling |
+| --- | --- |
+| Een interne XML-parser wordt vervangen. Gebruik, gebruiksvoorwaarden en betekenis van resultaten blijven gelijk. De README krijgt een alinea over de nieuwe bibliotheek en de pakketten die niet meer nodig zijn. | Afkeuren: de toevoeging verantwoordt de implementatie zonder een taak voor de gebruiker te ondersteunen. |
+| Dezelfde parserwijziging wordt uitgevoerd. Noodzakelijke implementatiecomments en eventueel geraakte vereisten voor zelfstandig scriptgebruik worden bijgewerkt. De bestaande gebruikersbeschrijving blijft inhoudelijk correct en wordt behouden. | Goedkeuren: de geraakte documentatie is beoordeeld en op haar passende plek bijgewerkt. |
+| Een wijziging vereist een nieuwe handeling van de gebruiker of verandert de betekenis van een status. | Werk de bestaande gebruiksinstructie of statusuitleg bij en maak het concrete gevolg duidelijk. |
 
 **Verificatie**
 

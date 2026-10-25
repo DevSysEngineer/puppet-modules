@@ -1,6 +1,9 @@
 #!/bin/sh
 # Managed by puppet
 
+# Standalone use requires the rendered script on Debian or Ubuntu with APT/dpkg, curl and CA certificates, jq, Python 3 with its standard library, awk, GNU coreutils and flock.
+# Provide a writable private state directory with mode 0700 through STATE_DIR or -S, and permission to refresh APT package lists.
+
 <%= scope.function_template(['basic_settings/monitoring/_output']) %>
 
 # Early failures preserve the previous state and never imply an empty inventory.
