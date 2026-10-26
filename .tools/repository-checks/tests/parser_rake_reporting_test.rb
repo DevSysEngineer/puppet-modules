@@ -53,11 +53,13 @@ class ParserRakeReportingTest < Minitest::Test
   def test_success_and_manifest_selection_match_with_and_without_reports
     excluded_directories.each { |path| write("#{path}/invalid.pp", "class {\n") }
     write('examples/path with spaces.pp', "notice('synthetic example')\n")
+    write('modules/profile/tests/manifests/default.pp', "include profile\n")
     [nil, 'reports with spaces/syntax.xml'].each do |report|
       run_parser(report)
       assert @status.success?, @output + @errors
     end
-    assert_report_selection('examples/path with spaces.pp', 'modules/profile/manifests/init.pp')
+    assert_report_selection('examples/path with spaces.pp', 'modules/profile/manifests/init.pp',
+                            'modules/profile/tests/manifests/default.pp')
     assert_equal '0', suite.attributes['failures']
   end
 

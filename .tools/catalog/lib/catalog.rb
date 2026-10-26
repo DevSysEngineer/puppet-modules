@@ -5,26 +5,18 @@ require 'open3'
 require 'rbconfig'
 require 'project_tools/shared/console'
 require 'project_tools/shared/junit_report'
+require 'project_tools/shared/modulepath'
+require_relative 'discovery'
 
 module ProjectTools
-  # Compile each fixed scenario in its own Puppet process, retaining all outcomes.
+  # Discover module-owned scenarios and compile each in an isolated Puppet process.
   class Catalog
     ROOT = File.expand_path('../../..', __dir__)
-    DIRECTORY = File.expand_path('..', __dir__)
-    FACTS = %w[debian-13 ubuntu-noble].freeze
-    MANIFESTS = %w[default monitoring].freeze
-
-    def self.scenarios
-      FACTS.product(MANIFESTS).map do |facts, manifest|
-        { name: "#{facts}/#{manifest}", facts: File.join(DIRECTORY, 'facts', "#{facts}.json"),
-          manifest: File.join(DIRECTORY, 'manifests', "#{manifest}.pp") }
-      end
-    end
-
-    def initialize(root: ROOT, scenarios: self.class.scenarios, console: $stdout, errors: $stderr)
-      @root = root
+    def initialize(root: ROOT, modulepath: ENV.fetch('PROJECT_TOOLS_MODULEPATH', root), scenarios: nil,
+                   console: $stdout, errors: $stderr)
+      @modulepath_input = modulepath
       @scenarios = scenarios
-      @console = Shared::Console.new('Puppet catalogs', output: console, scope: "#{scenarios.size} scenarios selected")
+      @console = Shared::Console.new('Puppet catalogs', output: console, scope: 'Module catalog scenarios')
       @errors = errors
       @results = []
     end
@@ -40,10 +32,24 @@ module ProjectTools
     def execute(report)
       return invalid_report if report && !report.end_with?('.xml')
 
+      select_scenarios
       compile_all
       write_report(report) if report
       finish(report: report)
       @results.any? { |result| result[:kind] } ? 1 : 0
+    end
+
+    def select_scenarios
+      @modulepath = Shared::Modulepath.parse(@modulepath_input)
+      return if @scenarios
+
+      discovery = Discovery.new(@modulepath)
+      @scenarios = discovery.scenarios
+      @results.concat(discovery.errors)
+      @skipped = discovery.skipped
+    rescue ArgumentError, SystemCallError => e
+      @scenarios = []
+      @results << { name: 'Scenario selection', kind: :error, message: e.message }
     end
 
     def invalid_report
@@ -52,7 +58,7 @@ module ProjectTools
     end
 
     def compile_all
-      if @scenarios.empty?
+      if @scenarios.empty? && @results.empty?
         @results << { name: 'Scenario selection', kind: :error, message: 'No catalog scenarios selected.' }
       end
       @scenarios.each do |scenario|
@@ -65,7 +71,8 @@ module ProjectTools
 
     def compile(scenario)
       output, status = Open3.capture2e(RbConfig.ruby, File.join(__dir__, 'worker.rb'),
-                                       @root, scenario.fetch(:manifest), scenario.fetch(:facts))
+                                       @modulepath.join(File::PATH_SEPARATOR),
+                                       scenario.fetch(:manifest), scenario.fetch(:facts))
       kind = status.success? ? nil : :error
       kind = :failure if status.exitstatus == 1
       output = "Compiler process ended: #{status}" if output.empty? && kind
@@ -87,8 +94,10 @@ module ProjectTools
     end
 
     def facts
-      ["Scenarios: #{@scenarios.size} selected | #{counts[:tests] - counts[:errors]} checked",
-       "Results: #{counts[:failures]} failures | #{counts[:errors]} errors"]
+      details = ["Scenarios: #{@scenarios.size} selected | #{counts[:tests] - counts[:errors]} checked",
+                 "Results: #{counts[:failures]} failures | #{counts[:errors]} errors"]
+      details << "Modules without tests: #{@skipped.size} skipped" if @skipped
+      details
     end
 
     def diagnostics

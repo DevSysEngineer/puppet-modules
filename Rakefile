@@ -30,8 +30,7 @@ namespace :secrets do
   desc 'Reject hardcoded secrets in first-party Puppet manifests'
   task :puppet do
     abort 'No Puppet manifests selected.' if project_manifests.empty?
-    sh 'bundle', 'exec', 'project-tools-secrets', '--puppet', *project_manifests,
-       *FileList['.tools/catalog/manifests/*.pp'], verbose: false do |ok, status|
+    sh 'bundle', 'exec', 'project-tools-secrets', '--puppet', *project_manifests, verbose: false do |ok, status|
       raise SignalException, status.termsig if status.signaled?
 
       exit status.exitstatus unless ok
@@ -69,7 +68,7 @@ namespace :syntax do
 end
 
 namespace :catalog do
-  desc 'Compile the basic_settings catalog matrix, optionally writing JUnit to the supplied path'
+  desc 'Compile discovered module catalog scenarios, optionally writing JUnit to the supplied path'
   task :compile, [:junit] do |_task, args|
     require_relative '.tools/catalog/lib/catalog'
     runner = ProjectTools::Catalog.new

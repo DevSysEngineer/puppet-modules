@@ -3,11 +3,12 @@
 require 'json'
 require 'tmpdir'
 require 'puppet'
+require 'project_tools/shared/modulepath'
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
 begin
-  root, manifest, facts_path = ARGV
-  raise ArgumentError, 'Expected an existing module directory.' unless root && File.directory?(root)
+  modulepath, manifest, facts_path = ARGV
+  paths = ProjectTools::Shared::Modulepath.parse(modulepath)
 
   code = File.read(manifest)
   facts = JSON.parse(File.read(facts_path))
@@ -19,7 +20,8 @@ begin
     Puppet[:hiera_config] = File.join(directory, 'hiera.yaml')
     Puppet[:node_terminus] = 'plain'
     Puppet[:code] = code
-    environment = Puppet::Node::Environment.create(:catalog_check, [File.expand_path(root)])
+    ENV.delete('PUPPETLIB')
+    environment = Puppet::Node::Environment.create(:catalog_check, paths)
     node = Puppet::Node.new('node.example.test', environment: environment)
     node.fact_merge(Puppet::Node::Facts.new(node.name, facts))
     catalog = Puppet::Parser::Compiler.compile(node)

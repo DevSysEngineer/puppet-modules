@@ -168,7 +168,7 @@ jobs:
           persist-credentials: false
       - name: Set up project tooling
         uses: ./.github/actions/setup-tooling
-      - name: Compile basic_settings catalogs
+      - name: Compile module catalogs
         run: bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]'
       - name: Check for changes
         run: |

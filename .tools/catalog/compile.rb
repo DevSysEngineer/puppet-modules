@@ -7,6 +7,7 @@ report = nil
 options = OptionParser.new do |parser|
   parser.banner = 'Usage: bundle exec ruby .tools/catalog/compile.rb [--junit REPORT.xml]'
   parser.on('--junit PATH', 'Write the catalog results as JUnit XML') { |path| report = path }
+  parser.separator 'Modulepath: PROJECT_TOOLS_MODULEPATH, or this checkout when unset.'
   parser.on('-h', '--help', 'Show usage') do
     puts parser
     exit 0

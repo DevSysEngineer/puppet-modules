@@ -27,10 +27,20 @@ module CatalogTestSupport
   end
 
   def run_catalogs(scenarios, report: nil)
-    ProjectTools::Catalog.new(root: @root, scenarios: scenarios, console: @console, errors: @errors).run(report: report)
+    ProjectTools::Catalog.new(modulepath: @root, scenarios: scenarios, console: @console,
+                              errors: @errors).run(report: report)
   end
 
   def report_suite
     REXML::Document.new(File.read(File.join(@root, 'reports', 'catalog.xml'))).root.elements['testsuite']
+  end
+
+  def module_inputs(name, base: @root, code: "notify { '#{name}': }")
+    directory = File.join(base, name)
+    FileUtils.mkdir_p(File.join(directory, 'manifests'))
+    %w[facts manifests].each { |part| FileUtils.mkdir_p(File.join(directory, 'tests', part)) }
+    FileUtils.cp(@facts, File.join(directory, 'tests', 'facts', 'debian.json'))
+    File.write(File.join(directory, 'tests', 'manifests', 'default.pp'), code)
+    directory
   end
 end

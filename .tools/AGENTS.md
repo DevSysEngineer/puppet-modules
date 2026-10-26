@@ -8,7 +8,7 @@ Open each affected component's local instructions below and read its README. For
 
 | Component | Responsibility | Development instructions |
 | --- | --- | --- |
-| `catalog` | Fixed catalog compilation scenarios and runner | [Catalog](catalog/AGENTS.md) |
+| `catalog` | Module catalog discovery and compilation runner | [Catalog](catalog/AGENTS.md) |
 | `lint` | Puppet-lint checks, profiles, detection, autofix and lint documentation | [Lint](lint/AGENTS.md) |
 | `metadata` | Own-metadata selection, validation and safe synchronization | [Metadata](metadata/AGENTS.md) |
 | `module-dependencies` | Native module selection and declared dependency analysis | [Module dependencies](module-dependencies/AGENTS.md) |
