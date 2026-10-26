@@ -1,20 +1,20 @@
 class example (
   Array[String] $defaults = [
-    'default',
+    'default_with_a_name_long_enough_to_require_multiline_array_layout',
   ],
 ) {
   $nested = wrap(join([
     [
-      'nested',
+      'nested_with_a_name_long_enough_to_require_multiline_array_layout',
     ],
     { 'key' => [
-      'value',
+      'value_with_a_name_long_enough_to_require_multiline_array_layout',
     ] },
   ], ' '))
   notify { 'example':
     message => join(
       [
-        'message',
+        'message_with_a_name_long_enough_to_require_multiline_array_layout',
       ],
       ' ',
     ),

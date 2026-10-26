@@ -264,8 +264,13 @@ define docker::authentik (
       }
 
       # Additional SMTP options require a relay; do not silently configure credentials without a destination.
-      $smtp_options = [$smtp_from, $smtp_port, $smtp_timeout,
-        $smtp_username_correct, $smtp_password_correct].filter |$value| { $value != undef and $value != '' }
+      $smtp_options = [
+        $smtp_from,
+        $smtp_port,
+        $smtp_timeout,
+        $smtp_username_correct,
+        $smtp_password_correct,
+      ].filter |$value| { $value != undef and $value != '' }
       if ($smtp_credentials_fail_text == undef
         and ($smtp_server_correct != undef or ($smtp_options.empty and $smtp_security == 'none'))) {
         # Generate .env content for the Compose stack based on the provided parameters.

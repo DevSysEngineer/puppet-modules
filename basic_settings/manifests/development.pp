@@ -32,13 +32,24 @@ class basic_settings::development (
   }
 
   # Install default development packages
-  package { ['build-essential', 'python-is-python3', 'python3', 'nano', 'ruby']:
+  package { [
+      'build-essential',
+      'python-is-python3',
+      'python3',
+      'nano',
+      'ruby',
+    ]:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
   # Set default rules
-  $default_rules = ['/usr/bin/gcc', '/usr/bin/git', '/usr/bin/gmake', '/usr/bin/make']
+  $default_rules = [
+    '/usr/bin/gcc',
+    '/usr/bin/git',
+    '/usr/bin/gmake',
+    '/usr/bin/make',
+  ]
 
   # Install a selected GCC version and retire known alternatives, or use the distribution default.
   if ($gcc_version != undef) {

@@ -549,7 +549,10 @@ class basic_settings::network (
       owner   => 'root',
       group   => 'root',
       mode    => '0755', # High important,
-      require => [Package['networkd-dispatcher'], File['/usr/local/sbin/rxbuffer']],
+      require => [
+        Package['networkd-dispatcher'],
+        File['/usr/local/sbin/rxbuffer'],
+      ],
     }
 
     # Check if systemd resolved package exists
@@ -583,7 +586,11 @@ class basic_settings::network (
     }
 
     # Manage the same services for both resolver package layouts.
-    $networkd_services = ['systemd-networkd.service', 'systemd-resolved.service', 'networkd-dispatcher.service']
+    $networkd_services = [
+      'systemd-networkd.service',
+      'systemd-resolved.service',
+      'networkd-dispatcher.service',
+    ]
 
     # Check if we need to install a systemd resolved package or if it's all built-in
     if ($systemd_resolved_package) {
@@ -624,7 +631,10 @@ class basic_settings::network (
         owner   => 'root',
         group   => 'root',
         target  => '/usr/share/dns/root.ds',
-        require => [Package['dns-root-data'], File['/etc/dnssec-trust-anchors.d']],
+        require => [
+          Package['dns-root-data'],
+          File['/etc/dnssec-trust-anchors.d'],
+        ],
         notify  => Service['systemd-resolved.service'],
       }
     } else {
@@ -647,10 +657,21 @@ class basic_settings::network (
     # Get service list
     if ($dhcp_state) {
       # Include the DHCP client in the services required for automatic network configuration.
-      $services = ['dhcpcd', 'lldpd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher']
+      $services = [
+        'dhcpcd',
+        'lldpd',
+        'systemd-networkd',
+        'systemd-resolved',
+        'networkd-dispatcher',
+      ]
     } else {
       # Monitor network services without a DHCP client for static configuration.
-      $services = ['lldpd', 'systemd-networkd', 'systemd-resolved', 'networkd-dispatcher']
+      $services = [
+        'lldpd',
+        'systemd-networkd',
+        'systemd-resolved',
+        'networkd-dispatcher',
+      ]
     }
 
     # Create symlink to network service

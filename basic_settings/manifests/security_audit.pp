@@ -6,7 +6,9 @@
 #
 # @example Add a custom audit rule
 #   basic_settings::security_audit { 'example':
-#     rules => ['-a always,exit -F arch=b64 -F path=/etc/example.conf -F perm=wa -F key=example'],
+#     rules => [
+#       '-a always,exit -F arch=b64 -F path=/etc/example.conf -F perm=wa -F key=example',
+#     ],
 #   }
 #
 # @param ensure

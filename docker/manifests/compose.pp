@@ -302,7 +302,10 @@ define docker::compose (
               owner          => 'root',
               group          => 'root',
               mode           => '0600',
-              require        => [$compose_require, Package['docker-compose-plugin']],
+              require        => [
+                $compose_require,
+                Package['docker-compose-plugin'],
+              ],
             }
 
             # The Compose service and backup timer share this project's daemon-reload exec.
@@ -343,11 +346,19 @@ define docker::compose (
               # Subscribe to the managed project files using the array required by the shared service wrapper.
               if ($env == undef) {
                 # Refresh an active stack when its Compose file changes and no environment file is configured.
-                $service_require_base = [Package[$service_packages], File[$compose_file]]
-                $service_subscribe = [File[$compose_file]]
+                $service_require_base = [
+                  Package[$service_packages],
+                  File[$compose_file],
+                ]
+                $service_subscribe = [
+                  File[$compose_file],
+                ]
               } else {
                 # Refresh an active stack only after both Compose and environment files are managed.
-                $service_require_base = [Package[$service_packages], File[$env_file, $compose_file]]
+                $service_require_base = [
+                  Package[$service_packages],
+                  File[$env_file, $compose_file],
+                ]
                 $service_subscribe = File[$env_file, $compose_file]
               }
               $service_require = concat($service_require_base, $project_directory_resources)

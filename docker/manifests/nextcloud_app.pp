@@ -124,7 +124,13 @@ define docker::nextcloud_app (
             Sensitive => Sensitive($value_json),
             default   => $value_json,
           }
-          $setter = ['config:app:set', $name, $key, "--type=${setting_type}", $value_argument_correct]
+          $setter = [
+            'config:app:set',
+            $name,
+            $key,
+            "--type=${setting_type}",
+            $value_argument_correct,
+          ]
 
           # Both guards read the same key, with details added only for the type comparison.
           $getter = ['config:app:get', $name, $key]

@@ -26,7 +26,7 @@ class ExternalResourceListReuseTest < Minitest::Test
     lint(relative)
     refute @status.success?, @output + @errors
     assert_includes @output, 'project_resource_dependencies'
-    assert_consumer_fix(relative, fixture('resource_dependencies/after'))
+    assert_consumer_fix(relative, fixture('resource_dependencies/after_layout'))
   end
 
   def assert_consumer_fix(relative, expected = documented_pair(shared_pair))

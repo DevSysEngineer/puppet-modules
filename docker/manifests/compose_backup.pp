@@ -75,7 +75,10 @@ define docker::compose_backup (
         'LockPersonality'         => 'true',
         'SystemCallArchitectures' => 'native',
       },
-      require       => [Class['docker'], File["${project_directory}/backup"]],
+      require       => [
+        Class['docker'],
+        File["${project_directory}/backup"],
+      ],
     }
 
     # Only the timer is monitored: an idle oneshot service is healthy between runs.

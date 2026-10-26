@@ -105,11 +105,16 @@ class gitlab (
     }
 
     # Set requirements
-    $requirements = [File['/opt/gitlab'], Package[$installer_packages]]
+    $requirements = [
+      File['/opt/gitlab'],
+      Package[$installer_packages],
+    ]
   } else {
     # Set requirements
     $install_dir_correct = '/opt/gitlab'
-    $requirements = [Package[$installer_packages]]
+    $requirements = [
+      Package[$installer_packages],
+    ]
   }
 
   # Escape install environment values before they are embedded in the shell command.
@@ -213,7 +218,10 @@ class gitlab (
       friendly => 'GitLab',
       timeout  => 300,
       interval => 600,
-      require  => [Exec['gitlab_install'], Package[$monitoring_packages]],
+      require  => [
+        Exec['gitlab_install'],
+        Package[$monitoring_packages],
+      ],
     }
   }
 

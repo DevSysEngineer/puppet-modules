@@ -247,7 +247,14 @@ class nginx (
     basic_settings::monitoring_service { 'nginx': }
 
     # One executable serves all vhost registrations; only the main daemon configuration is templated.
-    $monitoring_cert_packages = ['ca-certificates', 'dash', 'diffutils', 'grep', 'mawk', 'openssl']
+    $monitoring_cert_packages = [
+      'ca-certificates',
+      'dash',
+      'diffutils',
+      'grep',
+      'mawk',
+      'openssl',
+    ]
 
     ensure_packages($monitoring_cert_packages, {
       'ensure'          => 'installed',
@@ -312,7 +319,10 @@ class nginx (
 
   # Reload systemd as well as Nginx when retiring the shared QUIC configuration.
   $quic_notify = $systemd_enable ? {
-    true    => [Exec['nginx_systemd_daemon_reload'], Service['nginx']],
+    true    => [
+      Exec['nginx_systemd_daemon_reload'],
+      Service['nginx'],
+    ],
     default => Service['nginx'],
   }
 
@@ -435,7 +445,11 @@ class nginx (
   }
 
   # Remove wrong FastCGI config
-  file { ['/etc/nginx/fastcgi.conf', '/etc/nginx/snippets/fastcgi-php.conf', '/etc/nginx/snippets/fastcgi_params-php']:
+  file { [
+      '/etc/nginx/fastcgi.conf',
+      '/etc/nginx/snippets/fastcgi-php.conf',
+      '/etc/nginx/snippets/fastcgi_params-php',
+    ]:
     ensure  => absent,
     require => File['nginx_snippets'],
   }

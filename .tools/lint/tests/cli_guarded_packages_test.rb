@@ -13,9 +13,9 @@ class CliGuardedPackagesTest < Minitest::Test
     assert_cli_failure(@file)
     assert_equal fixture('guarded_packages/before'), source
     capture_cli('--fix', @file)
-    assert_equal fixture('guarded_packages/after'), source, @output + @errors
+    assert_equal fixture('guarded_packages/after_layout'), source, @output + @errors
     assert_equal 1, diagnostics(@output, 'project_guarded_packages').length
-    assert_cli_stable(fixture('guarded_packages/after'))
+    assert_cli_stable(fixture('guarded_packages/after_layout'))
   end
 
   def test_only_check_fix_is_successful_and_idempotent
@@ -30,8 +30,8 @@ class CliGuardedPackagesTest < Minitest::Test
     code = fixture('guarded_packages/before').gsub(/^  /, "\t").gsub("}\n", "}  \n")
     write_source(code, path: 'example/manifests/init.pp')
     capture_cli('--fix', @file)
-    assert_equal fixture('guarded_packages/after'), source, @output + @errors
-    assert_cli_stable(fixture('guarded_packages/after'))
+    assert_equal fixture('guarded_packages/after_layout'), source, @output + @errors
+    assert_cli_stable(fixture('guarded_packages/after_layout'))
   end
 
   def test_unsafe_group_and_suppression_preserve_the_file

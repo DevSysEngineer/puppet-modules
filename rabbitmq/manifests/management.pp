@@ -190,7 +190,10 @@ class rabbitmq::management (
       exec { 'rabbitmq_management_admin_cli':
         command => "/usr/bin/curl -fsSL ${admin_cli_url_shell} -o /usr/sbin/rabbitmqadmin && chmod +x /usr/sbin/rabbitmqadmin",
         unless  => '[ -e /usr/sbin/rabbitmqadmin ]',
-        require => [Package[$admin_packages], File['rabbitmq_management_admin_config']],
+        require => [
+          Package[$admin_packages],
+          File['rabbitmq_management_admin_config'],
+        ],
       }
 
       # Create list of packages that is suspicious
@@ -209,7 +212,10 @@ class rabbitmq::management (
     if ($rabbitmq::monitoring_enable and $basic_settings::monitoring::package != 'none') {
       # Order optional management inspection after the CLI installation.
       $monitoring_admin_require = $admin_enable ? {
-        true    => [Exec['rabbitmq_management_admin_cli'], Package['python3']],
+        true    => [
+          Exec['rabbitmq_management_admin_cli'],
+          Package['python3'],
+        ],
         default => [],
       }
 

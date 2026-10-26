@@ -37,7 +37,9 @@ define mysql::database (
     # Wait for managed root rotation before reading the administrative defaults file.
     if ($mysql::root_managed) {
       # The stable file resource avoids depending on the root user from its own grant.
-      $config_require = [File['mysql_debian_cnf']]
+      $config_require = [
+        File['mysql_debian_cnf'],
+      ]
     } else {
       # External root authentication retains its existing configuration lifecycle.
       $config_require = []
@@ -45,7 +47,10 @@ define mysql::database (
 
     # Keep database operations ordered after their helper, service and managed credentials.
     Exec {
-      require => concat([Service[$mysql::package_name], File[$mysql::script_path]], $config_require),
+      require => concat([
+        Service[$mysql::package_name],
+        File[$mysql::script_path],
+      ], $config_require),
     }
 
     # Escape MySQL command arguments before using them in exec commands and guards.

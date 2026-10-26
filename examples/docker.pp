@@ -98,9 +98,7 @@ node 'container-proxy.example.org' {
     monitoring_profiles           => ['production'],
     monitoring_starting_grace     => 600,
     monitoring_timeout            => 90,
-    proxy_extra_directives        => [
-      'proxy_buffering off;',
-    ],
+    proxy_extra_directives        => ['proxy_buffering off;'],
     proxy_host                    => '127.0.0.1',
     proxy_port                    => 9443,
     proxy_read_timeout            => '86400',
@@ -119,7 +117,10 @@ node 'container-proxy.example.org' {
     target                        => 'services',
     x_content_type_options        => 'nosniff',
     x_frame_options               => 'DENY',
-    require                       => [Class['docker'], Package['nginx']],
+    require                       => [
+      Class['docker'],
+      Package['nginx'],
+    ],
   }
 }
 
@@ -168,7 +169,10 @@ node 'authentik.example.org' {
     ssl_certificate_trusted    => '/etc/letsencrypt/live/auth.example.org/chain.pem',
     ssl_verify                 => false,
     target                     => 'services',
-    require                    => [Class['docker'], Package['nginx']],
+    require                    => [
+      Class['docker'],
+      Package['nginx'],
+    ],
   }
 
   # Create the named administrator after deploying the identity service.
@@ -236,7 +240,10 @@ node 'twenty.example.org' {
     storage_type                 => 's3',
     image_tag                    => 'latest',
     target                       => 'services',
-    require                      => [Class['docker'], Package['nginx']],
+    require                      => [
+      Class['docker'],
+      Package['nginx'],
+    ],
   }
 }
 
@@ -279,7 +286,10 @@ node 'nextcloud.example.org' {
     talk_call_recording_summary        => true,
     talk_call_recording_summary_prompt => lookup('profile::nextcloud_ai::talk_summary_prompt', String[1]),
     talk_call_recording_transcription  => true,
-    require                            => [Class['docker'], Package['nginx']],
+    require                            => [
+      Class['docker'],
+      Package['nginx'],
+    ],
   }
 
   # Install and enable OIDC; configure one working provider separately before requesting login redirection.

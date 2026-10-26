@@ -894,7 +894,10 @@ class basic_settings (
       group   => 'root',
       content => template("basic_settings/source/${os_parent}.sources"),
       notify  => Exec['basic_settings_source_reload'],
-      require => [Package['apt'], File['/etc/apt/sources.list']],
+      require => [
+        Package['apt'],
+        File['/etc/apt/sources.list'],
+      ],
     }
 
     # Check if we need backports
@@ -1000,7 +1003,10 @@ class basic_settings (
     timezone        => $server_timezone,
     ntp_extra_pools => $systemd_ntp_extra_pools,
     install_options => $backports_install_options,
-    require         => [File['basic_settings_source'], Class['basic_settings::monitoring']],
+    require         => [
+      File['basic_settings_source'],
+      Class['basic_settings::monitoring'],
+    ],
   }
 
   # Setup kernel
@@ -1049,7 +1055,10 @@ class basic_settings (
     interfaces              => $network_interfaces,
     server_fdqn             => $server_fdqn,
     wireless_enable         => $wireless_enable,
-    require                 => [File['basic_settings_source'], Class['basic_settings::monitoring']],
+    require                 => [
+      File['basic_settings_source'],
+      Class['basic_settings::monitoring'],
+    ],
   }
 
   # Set timezone
@@ -1369,7 +1378,11 @@ class basic_settings (
     }
 
     # Install java extensions
-    package { ['adwaita-icon-theme', 'ca-certificates-java', 'dconf-service']:
+    package { [
+        'adwaita-icon-theme',
+        'ca-certificates-java',
+        'dconf-service',
+      ]:
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
       require         => Package['openjdk'],

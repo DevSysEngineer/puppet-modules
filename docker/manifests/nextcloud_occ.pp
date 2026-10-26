@@ -193,12 +193,16 @@ define docker::nextcloud_occ (
             $status_shell = stdlib::shell_escape(String($status))
             "[ \"\$STATUS\" -eq ${status_shell} ]"
           }.join(' || ')
-          $invocation = ['/bin/sh', '-c', Sensitive(join([
-            "CURRENT=\$(${read_shell})",
-            'STATUS=$?',
-            "${status_tests_shell} || exit 1",
-            "printf '%s' \"\$CURRENT\" | ${compare_shell}",
-          ], "\n"))]
+          $invocation = [
+            '/bin/sh',
+            '-c',
+            Sensitive(join([
+              "CURRENT=\$(${read_shell})",
+              'STATUS=$?',
+              "${status_tests_shell} || exit 1",
+              "printf '%s' \"\$CURRENT\" | ${compare_shell}",
+            ], "\n")),
+          ]
         } else {
           # Default callers keep the same OCC prefix and native exit-code semantics.
           $invocation = $arguments ? {
@@ -212,7 +216,10 @@ define docker::nextcloud_occ (
       # Compose accepts one guard command; short-circuit both OCC conditions inside the same container and identity.
       if ($onlyif != undef) {
         # Escape each invocation as arguments, including the existing installation comparison's shell body.
-        $onlyif_shell = [$commands_correct['onlyif'], $commands_correct['extra_onlyif']].map |$invocation| {
+        $onlyif_shell = [
+          $commands_correct['onlyif'],
+          $commands_correct['extra_onlyif'],
+        ].map |$invocation| {
           $invocation.map |$argument| {
             # Unwrap only while preparing the protected combined guard.
             $argument_correct = $argument ? {
@@ -222,7 +229,11 @@ define docker::nextcloud_occ (
             stdlib::shell_escape($argument_correct)
           }.join(' ')
         }.join(' && ')
-        $onlyif_correct = ['/bin/sh', '-c', Sensitive($onlyif_shell)]
+        $onlyif_correct = [
+          '/bin/sh',
+          '-c',
+          Sensitive($onlyif_shell),
+        ]
       } else {
         # Existing callers keep their installation guard unchanged.
         $onlyif_correct = $commands_correct['onlyif']

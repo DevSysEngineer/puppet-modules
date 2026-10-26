@@ -45,6 +45,6 @@ class CliResourceListReuseTest < Minitest::Test
     write_source(fixture('resource_dependencies/before'), path: 'example/manifests/init.pp')
     assert_cli_failure(@file)
     assert_cli_success('--fix', @file)
-    assert_cli_stable(fixture('resource_dependencies/after'))
+    assert_cli_stable(fixture('resource_dependencies/after_layout'))
   end
 end

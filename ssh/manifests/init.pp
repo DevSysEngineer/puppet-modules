@@ -232,7 +232,10 @@ class ssh (
     owner   => 'root',
     group   => 'root',
     content => template('ssh/custom.conf'),
-    require => [File['/etc/ssh/sshd_config.d'], Ssh::Host_key[$host_key_paths]],
+    require => [
+      File['/etc/ssh/sshd_config.d'],
+      Ssh::Host_key[$host_key_paths],
+    ],
   }
 
   # Replace distribution or local settings only after the managed drop-in is available.
@@ -298,7 +301,10 @@ class ssh (
     service { 'ssh.socket':
       ensure  => running,
       enable  => true,
-      require => [Package['openssh-server'], File['/etc/ssh/sshd_config']],
+      require => [
+        Package['openssh-server'],
+        File['/etc/ssh/sshd_config'],
+      ],
     }
 
     # Set service name
@@ -351,9 +357,7 @@ class ssh (
         '-a always,exit -F arch=b32 -F dir=/etc/ssh/sshd_config.d -F perm=wa -F key=sshd',
         '-a always,exit -F arch=b64 -F dir=/etc/ssh/sshd_config.d -F perm=wa -F key=sshd',
       ],
-      rule_suspicious_packages => [
-        '/usr/bin/ssh',
-      ],
+      rule_suspicious_packages => ['/usr/bin/ssh'],
     }
   }
 }

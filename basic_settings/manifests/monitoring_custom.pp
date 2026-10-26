@@ -165,7 +165,10 @@ define basic_settings::monitoring_custom (
               require => File['monitoring_location_state'],
             }
             $registration_require = $template ? {
-              undef   => [File[$script_path, $state_dir], Package['coreutils']],
+              undef   => [
+                File[$script_path, $state_dir],
+                Package['coreutils'],
+              ],
               default => File[$script_path, $state_dir],
             }
           } else {

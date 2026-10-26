@@ -1,7 +1,7 @@
 PATH
   remote: .tools/lint
   specs:
-    lint-project (0.3.0)
+    lint-project (0.4.0)
       json (< 3)
       openvox (~> 8.29)
       project-tools-shared (>= 0.1.1, < 0.2.0)

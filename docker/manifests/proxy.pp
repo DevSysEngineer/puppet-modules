@@ -229,7 +229,10 @@ define docker::proxy (
         # An absent URI preserves the complete request path; a supplied URI replaces the matched prefix.
         $upstream_uri = $route['uri'] ? { undef => '', default => $route['uri'] }
         $upstream_url = "${proxy_scheme}://${proxy_host}:${route['port']}${upstream_uri}"
-        [$path, concat(["proxy_pass ${upstream_url};"], $shared_proxy_directives)]
+        [
+          $path,
+          concat(["proxy_pass ${upstream_url};"], $shared_proxy_directives),
+        ]
       })
 
       # Keep unmatched application paths closed when no root backend is selected.

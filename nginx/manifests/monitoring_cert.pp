@@ -113,13 +113,12 @@ define nginx::monitoring_cert (
         }
 
         # Combine the target and limits into this registration's arguments.
-        $check_cmd = join(concat([
-          "-n ${server_name_shell} -f ${config_file_shell}",
-        ], $check_overrides), ' ')
+        $check_cmd = join(concat(["-n ${server_name_shell} -f ${config_file_shell}"], $check_overrides), ' ')
 
         # A File is the normal contract; standalone callers can order their owner wrapper before this helper.
         $check_require = [
-          File[$config_file], Basic_settings::Monitoring_custom['nginx_cert'],
+          File[$config_file],
+          Basic_settings::Monitoring_custom['nginx_cert'],
         ]
       } else {
         # Remove inactive registration without a command or certificate-file dependency.

@@ -12,7 +12,7 @@ class CliReferenceFixesTest < Minitest::Test
     assert_cli_failure(@file)
     assert_equal 2, diagnostics(@output, 'project_resource_references').length
     assert_cli_success('--fix', @file)
-    expected = "Notify['target'] -> [Package['alpha', 'zulu'], Service['apache2', 'nginx']]\n"
+    expected = "Notify['target'] -> [\n  Package['alpha', 'zulu'],\n  Service['apache2', 'nginx'],\n]\n"
     assert_equal expected, source
     ProjectLint::Ast.new(source)
     assert_reference_rescan(expected)

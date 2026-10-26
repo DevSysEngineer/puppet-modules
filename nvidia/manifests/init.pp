@@ -69,14 +69,21 @@ class nvidia (
       command  => "${old_pin_query} | /usr/bin/xargs --no-run-if-empty /usr/bin/apt-get --yes purge --",
       onlyif   => "${old_pin_query} | /usr/bin/mawk 'END { exit (NR == 0) }'",
       provider => shell,
-      require  => [Package[$cleanup_packages], $kernel_require],
+      require  => [
+        Package[$cleanup_packages],
+        $kernel_require,
+      ],
     }
 
     # --purge also covers a conflicting pin installed after the cleanup.
     package { $pin_package:
       ensure          => installed,
       provider        => apt,
-      install_options => concat($install_options, ['--purge', '--no-install-recommends', '--no-install-suggests']),
+      install_options => concat($install_options, [
+        '--purge',
+        '--no-install-recommends',
+        '--no-install-suggests',
+      ]),
       require         => Exec['nvidia_pinning_cleanup'],
     }
 

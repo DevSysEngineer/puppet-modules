@@ -44,14 +44,20 @@ define rabbitmq::management_vhost (
         exec { "rabbitmq_management_vhost_${exec_name}":
           command => "/usr/sbin/rabbitmqctl add_vhost ${name_shell} --default-queue-type ${type_shell}",
           unless  => $find,
-          require => [Package['grep'], Rabbitmq::Plugin['rabbitmq_management']],
+          require => [
+            Package['grep'],
+            Rabbitmq::Plugin['rabbitmq_management'],
+          ],
         }
 
         # Check if type of the vhost is the same
         exec { "rabbitmq_management_vhost_${exec_name}_type":
           command => "/usr/sbin/rabbitmqctl update_vhost_metadata ${name_shell} --default-queue-type ${type_shell}",
           unless  => "/usr/sbin/rabbitmqctl --quiet list_vhosts --no-table-headers name default_queue_type | /usr/bin/grep ${name_shell} | /usr/bin/tr '[:blank:]' '|' | /usr/bin/grep ${name_type_pattern_shell}", # lint:ignore:140chars
-          require => [Package['coreutils', 'grep'], Exec["rabbitmq_management_vhost_${exec_name}"]],
+          require => [
+            Package['coreutils', 'grep'],
+            Exec["rabbitmq_management_vhost_${exec_name}"],
+          ],
         }
       }
       'absent': {
@@ -59,7 +65,10 @@ define rabbitmq::management_vhost (
         exec { "rabbitmq_management_vhost_${exec_name}":
           onlyif  => $find,
           command => "/usr/sbin/rabbitmqctl --quiet delete_vhost ${name_shell}",
-          require => [Package['grep'], Rabbitmq::Plugin['rabbitmq_management']],
+          require => [
+            Package['grep'],
+            Rabbitmq::Plugin['rabbitmq_management'],
+          ],
         }
       }
       default: {

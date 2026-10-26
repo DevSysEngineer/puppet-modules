@@ -48,7 +48,10 @@ node 'web01.example.org' {
     server_name         => 'app.example.org',
     ssl_certificate     => '/etc/letsencrypt/live/app.example.org/fullchain.pem',
     ssl_certificate_key => '/etc/letsencrypt/live/app.example.org/privkey.pem',
-    require             => [Package['nginx'], Class['php8::fpm']],
+    require             => [
+      Package['nginx'],
+      Class['php8::fpm'],
+    ],
   }
 
   # Restrict SSH access to administration and deployment accounts using keys.
@@ -130,7 +133,10 @@ node 'database01.example.org' {
     ensure   => present,
     database => 'app',
     username => 'app',
-    require  => [Mysql::Database['app'], Mysql::User['app']],
+    require  => [
+      Mysql::Database['app'],
+      Mysql::User['app'],
+    ],
   }
 }
 

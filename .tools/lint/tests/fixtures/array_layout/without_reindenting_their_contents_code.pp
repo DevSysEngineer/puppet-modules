@@ -1,5 +1,6 @@
 $values = [
-  'first', 'second', # Several values may share a line.
+  'first',
+  'second', # Keep this explanation with its element.
   -1,
   (2 + 3),
   {

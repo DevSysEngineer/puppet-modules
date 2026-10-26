@@ -81,7 +81,12 @@ class basic_settings::package_mysql (
   # Install the MySQL repository when enabled and remove its managed source otherwise.
   if ($enable) {
     # Install the HTTPS transport and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'diffutils', 'gnupg']
+    $repository_packages = [
+      'apt-transport-https',
+      'ca-certificates',
+      'diffutils',
+      'gnupg',
+    ]
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -125,7 +130,10 @@ class basic_settings::package_mysql (
       command     => $key_rebuild,
       onlyif      => "/usr/bin/test -e ${key_file_shell}",
       refreshonly => true,
-      require     => [File[$alternative], Package[$repository_required_packages]],
+      require     => [
+        File[$alternative],
+        Package[$repository_required_packages],
+      ],
       before      => Exec['basic_settings_source_reload'],
     }
 
@@ -145,7 +153,10 @@ class basic_settings::package_mysql (
       provider => shell,
       command  => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
       unless   => "/usr/bin/test -e ${source_file_shell} && /usr/bin/printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
-      require  => [Package[$repository_required_packages], File['package_mysql_key_filename']],
+      require  => [
+        Package[$repository_required_packages],
+        File['package_mysql_key_filename'],
+      ],
     }
 
     # Set preference

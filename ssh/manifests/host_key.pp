@@ -48,7 +48,10 @@ define ssh::host_key (
     exec { "ssh_host_key_generate_${path}":
       command => $generate_command,
       creates => $path,
-      require => [File[$ssh::host_key_dir], Package['openssh-client', 'openssh-server']],
+      require => [
+        File[$ssh::host_key_dir],
+        Package['openssh-client', 'openssh-server'],
+      ],
     }
 
     # Restore only a missing public key after its private identity is available.

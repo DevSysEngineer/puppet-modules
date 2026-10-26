@@ -100,7 +100,11 @@ class php8 (
   Boolean $zip                = false,
 ) {
   # Install common php packages,
-  package { ["php8.${minor_version}", "php8.${minor_version}-common", "php8.${minor_version}-opcache"]:
+  package { [
+      "php8.${minor_version}",
+      "php8.${minor_version}-common",
+      "php8.${minor_version}-opcache",
+    ]:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }

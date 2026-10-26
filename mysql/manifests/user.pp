@@ -54,7 +54,9 @@ define mysql::user (
     $root_account = $username == 'root' and $hostname == 'localhost' and $mysql::root_managed
     if ($mysql::root_managed and !$root_account) {
       # Ordinary accounts use the completed root rotation, including recovery from an interrupted run.
-      $config_require = [File['mysql_debian_cnf']]
+      $config_require = [
+        File['mysql_debian_cnf'],
+      ]
     } else {
       # Root itself and unmanaged-root installations retain their existing administrative input.
       $config_require = []
@@ -128,7 +130,10 @@ define mysql::user (
     $account_shell = stdlib::shell_escape("${username}@${hostname}")
     $ensure_shell = stdlib::shell_escape($ensure)
     $helper_arguments = join([
-      $defaults_shell, '"$tmpdir/account"', $authentication_shell, $root_shell,
+      $defaults_shell,
+      '"$tmpdir/account"',
+      $authentication_shell,
+      $root_shell,
       $account_shell,
     ], ' ')
 
@@ -138,7 +143,10 @@ define mysql::user (
       unless    => Sensitive.new("${setup_script}\n${script_shell} check-${ensure_shell} ${helper_arguments}"),
       command   => Sensitive.new("${setup_script}\n${script_shell} ${ensure_shell} ${helper_arguments}"),
       logoutput => false,
-      require   => concat([Service[$mysql::package_name], File[$mysql::user_script_path]], $config_require),
+      require   => concat([
+        Service[$mysql::package_name],
+        File[$mysql::user_script_path],
+      ], $config_require),
     }
   } else {
     fail('Class mysql is not defined, but is required for mysql::user')

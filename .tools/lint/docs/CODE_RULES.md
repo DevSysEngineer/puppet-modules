@@ -260,7 +260,7 @@ De gemarkeerde voorbeeldparen worden uitgevoerd door [guide_examples_test.rb](..
 
 **Norm**
 
-Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `[` en `(` mag ook de eerste regel leeg zijn. Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
+Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
 
 **Herkomst**
 
@@ -268,7 +268,7 @@ Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontb
 
 **Toepassingsgebied**
 
-Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `[` en `(` mag ook de eerste regel leeg zijn. Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
+Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
 
 **Automatische controle**
 
@@ -276,7 +276,7 @@ Na een openende `{` begint de inhoud direct op de volgende regel, ook als er ach
 
 **Detectiegrenzen**
 
-Na [ of ( mag de eerste regel leeg zijn. Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden. De inhoudelijke juistheid van de uitleg blijft review.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden. De inhoudelijke juistheid van de uitleg blijft review.
 
 **Meldingen en severity**
 
@@ -292,7 +292,7 @@ Verwijdert uitsluitend lege tokens na een echte openingsaccolade; comments op de
 
 **Toegestane uitzonderingen**
 
-Na [ of ( mag de eerste regel leeg zijn. Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
 
 **Suppressions**
 
@@ -323,7 +323,7 @@ if $active {
 
 **Grensgevallen**
 
-Na [ of ( mag de eerste regel leeg zijn. Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
 
 **Handmatige review**
 
@@ -608,15 +608,19 @@ De [profielbeschrijving](../README.md#eigen-lintconfiguratie) beschrijft de acti
 
 **Norm**
 
-Bij een array over meerdere regels bepaalt de regel met `[` de inspringing. De elementen staan twee spaties verder naar rechts; een afsluitende `]` aan het begin van een regel staat op hetzelfde niveau als de openingsregel. Dat geldt ook als de array in een functieaanroep staat:
+Schrijf een eenvoudige array compact als haar canonieke bronvorm hoogstens 60 Unicode-tekens telt én de volledige fysieke regel hoogstens 140 tekens telt. Beide grenzen zijn inclusief. Tel vanaf `[` tot en met `]`, inclusief quotes, escapes, interpolatiebron, komma's en spaties. De canonieke vorm is `[eerste, tweede]`: geen spaties direct binnen de haken, precies één spatie na iedere scheidingskomma en geen afsluitende komma. Een lege array zonder commentaar is altijd `[]`.
+
+Eenvoudige elementen zijn strings zonder fysieke regeleinden, inclusief geïnterpoleerde strings, integers, floats, booleans, `undef`, variabelen en kale namen. Een direct negatief getal is eveneens eenvoudig. Arrays met functieaanroepen, hashes, selectors, resource references, indexeringen of andere expressies zijn complex en staan over meerdere regels. Een buitenste array met geneste arrays is altijd meerregelig; iedere binnenste array krijgt zelfstandig haar passende vorm.
+
+Een meerregelige array heeft één direct element per regel, een komma na ieder element, en aparte openings- en sluitregels. De openingsregel mag de toekenning of functieprefix bevatten; na de sluithaak mogen komma's, sluithaakjes en overige suffixtekst blijven staan. Elementen staan twee spaties verder dan de leidende inspringing van de openingsregel; de sluitregel staat op datzelfde basisniveau. Functiehaakjes voegen geen inspringniveau toe. Bij een resourcetitel direct na `file { [` staan elementen vier spaties verder dan `file` en de sluithaak twee spaties.
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel voor arrayopmaak. De algemene [regelbreedte](#lange-regels) blijft afzonderlijk gelden.
 
 **Toepassingsgebied**
 
-Meerregelige arrayliterals in toekenningen, functieargumenten, geneste arrays en resourcetitels.
+Alle letterlijke Puppet-arrays in eigen code en voorbeelden, inclusief toekenningen, defaults, functieargumenten, hashwaarden, resourcetitels en geneste arrays. `project_arrays` blijft uitsluitend verantwoordelijk voor [combineren met concat](#arrays-met-concat-combineren).
 
 **Automatische controle**
 
@@ -624,79 +628,96 @@ Meerregelige arrayliterals in toekenningen, functieargumenten, geneste arrays en
 
 **Detectiegrenzen**
 
-Datatypeparameters en indexeringen zijn geen arrays. Alleen elementen en sluitende haken aan het begin van een fysieke regel worden uitgelijnd; string-, heredoc- en commentaarinhoud blijft intact.
+Datatypeparameters, resource-referencehaken en indexeringen zijn geen arrayliterals. De volledige bron van een geïnterpoleerde string is één ondoorzichtig element: arrays binnen die interpolatie worden niet afzonderlijk opgemaakt. De eenvoudige AST-vormen zijn `LiteralString`, `ConcatenatedString`, `LiteralInteger`, `LiteralFloat`, `LiteralBoolean`, `LiteralUndef`, `VariableExpression` en `QualifiedName`, plus `UnaryMinusExpression` met rechtstreeks een numerieke literal. De parserstructuur, niet de geschreven tokennaam, bepaalt de categorie.
+
+Commentaar, heredocs en strings met fysieke regeleinden beschermen de volledige omvattende arrayregio. Die arrays worden nooit samengevouwen of automatisch herschreven. Alleen aantoonbare afwijkingen aan elementposities, grenzen of komma's worden gemeld. Meerregelige complexe expressies waarvan de inhoud niet veilig verplaatst kan worden vragen eveneens handmatige correctie. Geen melding betekent bij onzekere bronankers geen bewijs van volledige normnaleving.
 
 **Meldingen en severity**
 
-`Use {aantal} leading spaces for the array element` en `Use {aantal} leading spaces for the closing array bracket`: `warning` bij afwijkende inspringing; `{aantal}` is variabel.
+Iedere afwijkende array krijgt één `warning` op haar openingshaak, met de toepasselijke tekst:
+
+- `Use compact array layout: the array fits within 60 characters and the line within 140 characters`.
+- `Use multiline array layout: the compact array exceeds 60 characters`.
+- `Use multiline array layout: the array contains complex elements`.
+- `Use multiline array layout: required by the 140-character line layout`.
+- `Use one array element per line with separate opening and closing boundary lines`.
+
+Een bewezen afwijking zonder veilige fix krijgt `; manual correction required [review]`. `[review]` is een tekstlabel; de severity blijft `warning`.
 
 **Autofix**
 
-Voorwaardelijk
+Voorwaardelijk: samenvouwen, uitvouwen en canonieke arraywitruimte en scheidingskomma's herstellen.
 
 **Autofixvoorwaarden**
 
-Corrigeert alleen witruimte vóór arraytokens. Geneste arrays worden als groep behandeld; een genegeerd bereik of niet meer veilig vindbaar tokenanker verhindert correctie.
+De fix bewaart elementvolgorde, nesting, expressietokens, stringinhoud, quotes, escapes, heredocs en commentaar. Alleen arraygrenzen, scheidingskomma's en de bijbehorende witruimte veranderen. Een beschermde of genegeerde regio wordt als geheel overgeslagen. Onzekere elementgrenzen, syntaxfouten of onveilig verplaatsbare meerregelige expressies krijgen geen automatische herschrijving. Onafhankelijke veilige arrays in hetzelfde bestand kunnen wel worden gecorrigeerd.
+
+De definitieve arrayfase parseert de actuele bron nadat andere native fixes zijn toegepast. Daardoor telt bijvoorbeeld een gewijzigde variabelestring of factexpressie in dezelfde run mee, ook als aanvankelijk geen arraymelding bestond. De fase draait alleen met `--fix` en ingeschakeld `project_layout`; resterende meldingen worden tegen de uiteindelijke bron gecontroleerd.
 
 **Toegestane uitzonderingen**
 
-Meerdere elementen op één regel zijn toegestaan. Een resourcetitel direct na `file { [` krijgt het hieronder beschreven extra niveau.
+Beschermde inhoud verhindert automatische correctie, maar heft aantoonbare opmaakafwijkingen niet op. Een onbreekbare lange literal of prefix blijft een afzonderlijke regelbreedtekwestie; de linter splitst geen inhoudelijke waarde. De bijzondere inspringing voor resourcetitels hierboven blijft gelden.
 
 **Suppressions**
 
-Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en bronuitzonderingen veranderen deze regel niet.
+Suppressie van `project_layout` is niet toegestaan. Technisch genegeerde bereiken worden niet herschreven. Een toegestane lengte- of URL-uitzondering maakt een array boven de 60-tekengrens niet compact.
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_layout` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment; alleen `project_layout`; verwacht een warning omdat de korte eenvoudige array compact moet zijn.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
-$values = [
-      'first',
+$ports = [
+  22,
+  80,
+  443,
+  8443,
 ]
 ```
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_layout` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment; alleen `project_layout`; verwacht geen melding.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
-$values = [
-  'first',
-]
+$ports = [22, 80, 443, 8443]
 ```
 
 **Grensgevallen**
 
-Meerdere elementen op één regel zijn toegestaan. Een resourcetitel direct na `file { [` krijgt het hieronder beschreven extra niveau. Datatypeparameters en indexeringen zijn geen arrays. Alleen elementen en sluitende haken aan het begin van een fysieke regel worden uitgelijnd; string-, heredoc- en commentaarinhoud blijft intact. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Inspringing](#verdieping-bij-inspringing).
+59 en 60 tekens passen compact; 61 niet. Voor de hele regel passen 139 en 140 tekens; 141 niet. Leidende inspringing, prefix, suffix en naastgelegen arrays tellen mee. Het gezamenlijke plan begint met alle geschikte arrays compact. Op de eerste te lange regel wordt de meest rechtse niet-lege compacte array meerregelig. Daarna wordt opnieuw gerenderd; een uitgevouwen array wordt binnen dit plan niet teruggevouwen. Bestaande regeleinden buiten arraygrenzen blijven behouden. Zo bepalen nesting en naastgelegen arrays gezamenlijk een begrensd, deterministisch en idempotent resultaat.
 
 **Handmatige review**
 
-Vergelijk de inhoud en volgorde van de elementen en de resourcetitels vóór en na correctie; beoordeel de inhoudelijke plaats van comments afzonderlijk.
+Vergelijk elementinhoud, volgorde, datatypen, nesting en resourcetitels vóór en na correctie. Behoud de binding van commentaar en de exacte inhoud van strings en heredocs. Beoordeel resterende `[review]`-meldingen en lange regels afzonderlijk; verplaats geen commentaar of inhoudelijke expressie alleen om autofix mogelijk te maken.
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [array_layout_test.rb](../tests/array_layout_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+[guide_examples_test.rb](../tests/guide_examples_test.rb) controleert de gemarkeerde voorbeelden. [array_layout_contract_test.rb](../tests/array_layout_contract_test.rb), [array_layout_expressions_test.rb](../tests/array_layout_expressions_test.rb) en [array_layout_protection_test.rb](../tests/array_layout_protection_test.rb) controleren grenzen, gezamenlijke planning, nesting, bronbehoud en semantische AST-gelijkheid. [array_layout_interaction_test.rb](../tests/array_layout_interaction_test.rb) en [cli_layout_test.rb](../tests/cli_layout_test.rb) controleren de native fixroute en interacties. Correcties worden geparseerd, hercontroleerd en opnieuw gefixt; de tweede run blijft ongewijzigd. Dit bewijst geen catalogus- of hostgedrag.
 
 #### Verdieping bij Inspringing
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
-
-Voor dit fragment wordt uitsluitend `project_layout` gecontroleerd.
+Fragment; alleen `project_layout`; de lange eenvoudige array blijft meerregelig. Het functiehaakje verandert de basisinspringing niet.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
 $label = join([
-  'first',
-  'second',
+  '/etc/example/application/production/main.conf',
+  '/etc/example/application/production/fallback.conf',
 ], ' ')
 ```
 
-Extra functiehaakjes, bijvoorbeeld in `Sensitive.new(join([]))`, voegen geen inspringniveau toe. De array volgt het omliggende codeblok. Alleen een array die als resourcetitel direct achter de accolade begint, zoals `file { [`, krijgt een extra niveau: de elementen staan vier spaties verder dan `file` en de afsluitende `]` twee spaties.
+Een korte binnenste array blijft compact, terwijl de complexe buitenste array haar lagen behoudt:
 
-`project_layout` controleert het begin van array-elementen op een nieuwe regel en de afsluitende `]`. Meerdere elementen op één regel zijn toegestaan. Met `--fix` herstelt de check de inspringing, inclusief die van geneste arrays. Stringinhoud, heredocs en commentaar blijven behouden. Vierkante haken in datatypeparameters of indexeringen worden niet als arrays behandeld.
+<!-- lint-example: project_layout clean -->
+```puppet
+$groups = [
+  ['curl', 'wget'],
+  ['git', 'rsync'],
+]
+```
 
 ## Komma's
 
@@ -706,7 +727,7 @@ Extra functiehaakjes, bijvoorbeeld in `Sensitive.new(join([]))`, voegen geen ins
 
 **Norm**
 
-Zet één spatie na een komma wanneer het volgende element op dezelfde regel staat.
+Zet één spatie na een komma wanneer het volgende element op dezelfde regel staat. Binnen letterlijke arrays beheert de [arrayopmaak](#inspringing) de scheidingskomma’s: compact zonder afsluitende komma, meerregelig met een komma na ieder element.
 
 **Herkomst**
 

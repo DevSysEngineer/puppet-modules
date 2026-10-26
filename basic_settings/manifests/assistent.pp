@@ -94,7 +94,9 @@ class basic_settings::assistent (
     }
 
     # Preseed before installation, and write the managed configuration after package installation has completed.
-    $keyboard_package_require = [Package[$keyboard_packages]]
+    $keyboard_package_require = [
+      Package[$keyboard_packages],
+    ]
 
     # Preseed only when an explicit debconf package dependency is available in the catalog.
     if (defined(Package['debconf'])) {

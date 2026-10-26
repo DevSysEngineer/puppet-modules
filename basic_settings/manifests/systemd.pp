@@ -39,7 +39,14 @@ class basic_settings::systemd (
 
   # Install packages
   # Keep policy flags last even when caller options contain duplicate or conflicting flags.
-  package { ['dbus', 'dbus-user-session', 'systemd', 'systemd-cron', 'systemd-sysv', 'libpam-systemd']:
+  package { [
+      'dbus',
+      'dbus-user-session',
+      'systemd',
+      'systemd-cron',
+      'systemd-sysv',
+      'libpam-systemd',
+    ]:
     ensure          => installed,
     install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
   }
@@ -105,6 +112,9 @@ class basic_settings::systemd (
   exec { 'set_default_target':
     command => "/bin/systemctl set-default ${default_target_unit_shell}",
     unless  => "/usr/bin/test \"\$(/bin/systemctl get-default)\" = ${default_target_unit_shell}",
-    require => [Package[$required_packages], File["/etc/systemd/system/${cluster_id}-${default_target}.target"]],
+    require => [
+      Package[$required_packages],
+      File["/etc/systemd/system/${cluster_id}-${default_target}.target"],
+    ],
   }
 }

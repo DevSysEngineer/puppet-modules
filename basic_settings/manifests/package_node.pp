@@ -116,7 +116,10 @@ class basic_settings::package_node (
     package { 'nodejs':
       ensure          => installed,
       install_options => ['--no-install-recommends', '--no-install-suggests'],
-      require         => [File['package_node_source'], Exec['package_node_key', 'package_node_source_reload']],
+      require         => [
+        File['package_node_source'],
+        Exec['package_node_key', 'package_node_source_reload'],
+      ],
     }
 
     # Ensure the shared Puppet helper directory exists before installing the npm permission helper.
@@ -144,14 +147,21 @@ class basic_settings::package_node (
       owner   => 'root',
       group   => 'root',
       mode    => '0700',
-      require => [File['/usr/local/lib/puppet'], Package[$permission_required_packages]],
+      require => [
+        File['/usr/local/lib/puppet'],
+        Package[$permission_required_packages],
+      ],
     }
 
     # Keep the npm package tree root-owned while granting the nodejs group only read and execute access needed by npm and npx.
     exec { 'package_node_npm_permissions':
       command => $npm_permission_helper_path_shell,
       unless  => "${npm_permission_helper_path_shell} --check",
-      require => [Group['nodejs'], Package['nodejs'], File[$npm_permission_helper_path]],
+      require => [
+        Group['nodejs'],
+        Package['nodejs'],
+        File[$npm_permission_helper_path],
+      ],
     }
 
     # Create list of packages that is suspicious

@@ -1,4 +1,1 @@
-$values = [
-  'één',
-  'twee',
-]
+$values = ['één', 'twee']

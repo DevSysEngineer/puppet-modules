@@ -373,11 +373,7 @@ define docker::nextcloud (
               compose_stop_action        => 'stop',
               content_security_policy    => false, # Nextcloud ships its own CSP; avoid a conflicting proxy-level policy.
               deferred                   => true,
-              directives                 => [
-                'sendfile on;',
-                'aio threads;',
-                'aio_write on;',
-              ],
+              directives                 => ['sendfile on;', 'aio threads;', 'aio_write on;'],
               env                        => $env_content,
               monitoring_detail_limit    => $monitoring_detail_limit,
               monitoring_expected_exited => $monitoring_expected_exited,
@@ -484,7 +480,10 @@ define docker::nextcloud (
                 provider => shell,
                 unless   => $host_mapping_unless,
                 user     => 'root',
-                require  => [Class['docker'], Docker::Compose_proxy[$name]],
+                require  => [
+                  Class['docker'],
+                  Docker::Compose_proxy[$name],
+                ],
               }
             }
           } else {
@@ -566,11 +565,25 @@ define docker::nextcloud (
 
             # A trivial container guard skips unavailable Talk containers without hiding configuration read/write failures.
             docker::compose_exec { "${name}_talk_bitrates":
-              command        => ['/bin/sh', '-c', $talk_bitrate_write, 'puppet-talk-bitrate', $talk_stream_value, $talk_screen_value],
+              command        => [
+                '/bin/sh',
+                '-c',
+                $talk_bitrate_write,
+                'puppet-talk-bitrate',
+                $talk_stream_value,
+                $talk_screen_value,
+              ],
               compose_name   => $name,
               container_name => 'nextcloud-aio-talk',
               onlyif         => ['/bin/true'],
-              unless         => ['/bin/sh', '-c', $talk_bitrate_unless, 'puppet-talk-bitrate', $talk_stream_value, $talk_screen_value],
+              unless         => [
+                '/bin/sh',
+                '-c',
+                $talk_bitrate_unless,
+                'puppet-talk-bitrate',
+                $talk_stream_value,
+                $talk_screen_value,
+              ],
               notify         => Docker::Compose_exec["${name}_talk_signaling_restart"],
             }
 
@@ -602,7 +615,13 @@ define docker::nextcloud (
 
             # The shared OCC resource preserves argument boundaries and skips an uninitialized Nextcloud instance.
             docker::nextcloud_occ { "${name}_talk_${config_key}":
-              command      => ['config:app:set', 'spreed', $config_key, '--type=string', "--value=${talk_value}"],
+              command      => [
+                'config:app:set',
+                'spreed',
+                $config_key,
+                '--type=string',
+                "--value=${talk_value}",
+              ],
               compose_name => $name,
               unless       => ['config:app:get', 'spreed', $config_key],
               unless_json  => stdlib::to_json($talk_value),
@@ -631,7 +650,13 @@ define docker::nextcloud (
 
           # The OCC wrapper orders guarded updates after the stack; installation must finish in AIO first.
           docker::nextcloud_occ { "${name}_default_quota":
-            command      => ['config:app:set', 'files', 'default_quota', '--value', $default_quota],
+            command      => [
+              'config:app:set',
+              'files',
+              'default_quota',
+              '--value',
+              $default_quota,
+            ],
             compose_name => $name,
             unless       => ['config:app:get', 'files', 'default_quota'],
             unless_json  => stdlib::to_json($default_quota),
@@ -676,7 +701,13 @@ define docker::nextcloud (
           # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
           $files_max_chunk_size_string = String($files_max_chunk_size)
           docker::nextcloud_occ { "${name}_files_max_chunk_size":
-            command      => ['config:app:set', 'files', 'max_chunk_size', '--value', $files_max_chunk_size_string],
+            command      => [
+              'config:app:set',
+              'files',
+              'max_chunk_size',
+              '--value',
+              $files_max_chunk_size_string,
+            ],
             compose_name => $name,
             unless       => ['config:app:get', 'files', 'max_chunk_size'],
             unless_json  => stdlib::to_json($files_max_chunk_size_string),
@@ -684,7 +715,12 @@ define docker::nextcloud (
 
           # Set the default UI language for new sessions.
           docker::nextcloud_occ { "${name}_default_language":
-            command      => ['config:system:set', 'default_language', '--value', $default_language],
+            command      => [
+              'config:system:set',
+              'default_language',
+              '--value',
+              $default_language,
+            ],
             compose_name => $name,
             unless       => ['config:system:get', 'default_language'],
             unless_json  => stdlib::to_json($default_language),
@@ -692,7 +728,12 @@ define docker::nextcloud (
 
           # Set the default locale for number, date and currency formatting.
           docker::nextcloud_occ { "${name}_default_locale":
-            command      => ['config:system:set', 'default_locale', '--value', $default_locale],
+            command      => [
+              'config:system:set',
+              'default_locale',
+              '--value',
+              $default_locale,
+            ],
             compose_name => $name,
             unless       => ['config:system:get', 'default_locale'],
             unless_json  => stdlib::to_json($default_locale),
@@ -700,7 +741,12 @@ define docker::nextcloud (
 
           # Set the default region for phone numbers entered without a country prefix.
           docker::nextcloud_occ { "${name}_default_phone_region":
-            command      => ['config:system:set', 'default_phone_region', '--value', $default_phone_region],
+            command      => [
+              'config:system:set',
+              'default_phone_region',
+              '--value',
+              $default_phone_region,
+            ],
             compose_name => $name,
             unless       => ['config:system:get', 'default_phone_region'],
             unless_json  => stdlib::to_json($default_phone_region),
@@ -716,7 +762,12 @@ define docker::nextcloud (
 
           # Control the sample content copied into new users' file lists; empty disables it.
           docker::nextcloud_occ { "${name}_skeletondirectory":
-            command      => ['config:system:set', 'skeletondirectory', '--value', $skeleton_directory],
+            command      => [
+              'config:system:set',
+              'skeletondirectory',
+              '--value',
+              $skeleton_directory,
+            ],
             compose_name => $name,
             unless       => ['config:system:get', 'skeletondirectory'],
             unless_json  => stdlib::to_json($skeleton_directory),
@@ -731,7 +782,13 @@ define docker::nextcloud (
           # Each selection changes only its own key and retains the named stores and existing user mappings.
           $objectstore_selections.each |$selection, $store| {
             docker::nextcloud_occ { "${name}_objectstore_${selection}":
-              command      => ['config:system:set', 'objectstore', $selection, '--value', $store],
+              command      => [
+                'config:system:set',
+                'objectstore',
+                $selection,
+                '--value',
+                $store,
+              ],
               compose_name => $name,
               unless       => ['config:system:get', 'objectstore', $selection],
               unless_json  => stdlib::to_json($store),
@@ -868,7 +925,12 @@ define docker::nextcloud (
 
                     # Typed JSON comparison prevents repeated writes, including for empty strings and false.
                     docker::nextcloud_occ { "${name}_${setting}":
-                      command      => ['config:system:set', $setting, '--type=json', Sensitive("--value=${value_json}")],
+                      command      => [
+                        'config:system:set',
+                        $setting,
+                        '--type=json',
+                        Sensitive("--value=${value_json}"),
+                      ],
                       compose_name => $name,
                       unless       => ['config:system:get', $setting],
                       unless_json  => Sensitive($value_json),

@@ -430,7 +430,8 @@ define nginx::server (
     'ECDHE-ECDSA-CHACHA20-POLY1305',
     'ECDHE-RSA-CHACHA20-POLY1305',
     'DHE-RSA-AES128-GCM-SHA256',
-    'DHE-RSA-AES256-GCM-SHA384', 'DHE-RSA-CHACHA20-POLY1305',
+    'DHE-RSA-AES256-GCM-SHA384',
+    'DHE-RSA-CHACHA20-POLY1305',
   ],
   Hash                      $ssl_conf_command                = {
     'Ciphersuites' => [
@@ -903,12 +904,22 @@ define nginx::server (
       # Default-server selection remains specific to each vhost and transport.
       $listen_default_flags = $default_server ? { true => ['default'], default => [] }
       $listen_https_flags = $http3_active ? {
-        true    => [concat(['quic'], $listen_default_flags), ['ssl']],
-        default => [concat(['ssl'], $listen_default_flags)],
+        true    => [
+          concat(['quic'], $listen_default_flags),
+          ['ssl'],
+        ],
+        default => [
+          concat(['ssl'], $listen_default_flags),
+        ],
       }
 
       # Redirects share protocol settings without claiming the default-server role.
-      $listen_redirect_https_flags = $http3_active ? { true => [['quic'], ['ssl']], default => [['ssl']] }
+      $listen_redirect_https_flags = $http3_active ? { true => [
+        ['quic'],
+        ['ssl'],
+      ], default => [
+        ['ssl'],
+      ] }
 
       # Keep the existing primary and redirect listener enablement, addresses and ports together.
       $listen_groups = {
@@ -928,7 +939,9 @@ define nginx::server (
           'enable' => $redirect_from != undef,
           'ipv6_enable' => $http_ipv6_correct,
           'ip' => $redirect_ip_correct, 'ipv6' => $redirect_ipv6_correct, 'port' => $redirect_http_port_correct,
-          'flags' => [[]],
+          'flags' => [
+            [],
+          ],
         },
         'redirect_https' => {
           'enable' => $redirect_from != undef and $https_enable,
@@ -943,10 +956,14 @@ define nginx::server (
           # An explicit IPv6 address selects IPv6 only; otherwise IPv6 enablement retains the IPv4 wildcard too.
           if ($listener['ipv6_enable']) {
             # Match the template's existing dual-stack selection.
-            $addresses = $listener['ipv6'] ? { undef => ['[::]', undef], default => [$listener['ipv6']] }
+            $addresses = $listener['ipv6'] ? { undef => ['[::]', undef], default => [
+              $listener['ipv6'],
+            ] }
           } else {
             # Use the configured IPv4 address or its wildcard default.
-            $addresses = [$listener['ip']]
+            $addresses = [
+              $listener['ip'],
+            ]
           }
 
           # Prepare every directive here so the vhost template only renders the resulting text.
@@ -971,7 +988,10 @@ define nginx::server (
                   owner   => 'root',
                   group   => 'root',
                   mode    => '0600',
-                  require => [Package['nginx'], File[$nginx::config]],
+                  require => [
+                    Package['nginx'],
+                    File[$nginx::config],
+                  ],
                 }
 
                 # Keep the managed header and listener flags before the independently collected socket options.
@@ -1023,7 +1043,10 @@ define nginx::server (
           })
           [$group, $directives]
         } else {
-          [$group, []]
+          [
+            $group,
+            [],
+          ]
         }
       })
 
@@ -1091,7 +1114,10 @@ define nginx::server (
       group   => 'root',
       mode    => '0600',
       notify  => $config_notify,
-      require => [Package['nginx'], File[$nginx::config, 'nginx_unavailable']],
+      require => [
+        Package['nginx'],
+        File[$nginx::config, 'nginx_unavailable'],
+      ],
     }
 
     # Rebuild security.txt after the vhost config changes by removing the stale fallback first.
@@ -1122,7 +1148,10 @@ define nginx::server (
         mode    => '0640',
         content => template('nginx/security.txt'),
         replace => false,
-        require => [File[$security_dir], Exec["nginx_securitytxt_remove_${name}"]],
+        require => [
+          File[$security_dir],
+          Exec["nginx_securitytxt_remove_${name}"],
+        ],
       }
     } else {
       # Remove the security.txt file and directory

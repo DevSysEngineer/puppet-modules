@@ -6,8 +6,10 @@ node 'monitored-host.example.org' {
   # Match these input and forwarding base-chains to the rules installed by the consuming deployment.
   class { 'basic_settings':
     firewall_check_args        => [
-      '-b', 'inet/filter/input/filter/input/drop',
-      '-b', 'inet/filter/forward/filter/forward/drop',
+      '-b',
+      'inet/filter/input/filter/input/drop',
+      '-b',
+      'inet/filter/forward/filter/forward/drop',
     ],
     monitoring_package         => 'openitcockpit',
     monitoring_package_install => true,
@@ -100,7 +102,10 @@ node 'monitoring.example.org' {
 
   # Connect PHP-FPM to the prepared webserver and PHP runtime.
   class { 'php8::fpm':
-    require => [Package['nginx'], Class['php8']],
+    require => [
+      Package['nginx'],
+      Class['php8'],
+    ],
   }
 
   include openitcockpit
@@ -108,7 +113,10 @@ node 'monitoring.example.org' {
   class { 'openitcockpit::server':
     grafana_password => lookup('examples::monitoring::grafana_password', Sensitive[String]),
     server_fdqn      => 'monitoring.example.org',
-    require          => [Class['basic_settings'], Package['nginx', 'php8.3-fpm']],
+    require          => [
+      Class['basic_settings'],
+      Package['nginx', 'php8.3-fpm'],
+    ],
   }
 
   # Add the monitoring engine after the server components are available.

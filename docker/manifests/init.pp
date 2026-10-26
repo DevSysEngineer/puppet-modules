@@ -150,7 +150,10 @@ class docker (
       package { 'nvidia-container-toolkit':
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => [Class['nvidia'], Package['docker']],
+        require         => [
+          Class['nvidia'],
+          Package['docker'],
+        ],
       }
 
       # The runtime must exist before Docker can validate and activate its registration.
@@ -187,7 +190,10 @@ class docker (
       content      => template('docker/daemon.json'),
       show_diff    => false,
       validate_cmd => '/usr/bin/dockerd --validate --config-file %',
-      require      => [File['/etc/docker'], $daemon_config_require],
+      require      => [
+        File['/etc/docker'],
+        $daemon_config_require,
+      ],
       notify       => Service['docker'],
     }
 
@@ -199,7 +205,14 @@ class docker (
     }
 
     # Compose deployment, host-side container mappings, backups and monitoring share these dependencies.
-    ensure_packages(['coreutils', 'dash', 'docker-compose-plugin', 'gzip', 'mawk', 'util-linux'], {
+    ensure_packages([
+      'coreutils',
+      'dash',
+      'docker-compose-plugin',
+      'gzip',
+      'mawk',
+      'util-linux',
+    ], {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
@@ -229,7 +242,10 @@ class docker (
       group   => 'root',
       mode    => '0700',
       source  => 'puppet:///modules/docker/compose/compose_container',
-      require => [File['/usr/local/lib/puppet'], Package['dash', 'docker']],
+      require => [
+        File['/usr/local/lib/puppet'],
+        Package['dash', 'docker'],
+      ],
     }
 
     # Keep the runner available when one project is retired while others still use it.
@@ -245,7 +261,14 @@ class docker (
     # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
       # Install the check's shell, text tools, JSON parser and Docker CLI.
-      $monitoring_packages = ['ca-certificates', 'curl', 'docker-ce-cli', 'jq', 'openssl', 'sed']
+      $monitoring_packages = [
+        'ca-certificates',
+        'curl',
+        'docker-ce-cli',
+        'jq',
+        'openssl',
+        'sed',
+      ]
 
       ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',

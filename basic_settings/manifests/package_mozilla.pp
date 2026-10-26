@@ -71,7 +71,13 @@ class basic_settings::package_mozilla (
   # Check if enabled
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'diffutils', 'gnupg']
+    $repository_packages = [
+      'apt-transport-https',
+      'ca-certificates',
+      'curl',
+      'diffutils',
+      'gnupg',
+    ]
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],

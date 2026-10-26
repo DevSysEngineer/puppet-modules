@@ -533,10 +533,7 @@ Voor dit fragment wordt uitsluitend `project_guarded_packages` gecontroleerd.
 ```puppet
 # Install system tools with consistent package settings.
 ensure_packages(
-  [
-    'coreutils',
-    'findutils',
-  ],
+  ['coreutils', 'findutils'],
   {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],

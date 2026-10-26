@@ -43,7 +43,10 @@ class basic_settings::package_nvidia_dgx (
     })
 
     # Limit ownership to these repository definitions and signing keys.
-    $keys = ['/usr/share/keyrings/cuda_debian_prod.gpg', '/usr/share/keyrings/dgx_debian_prod.gpg']
+    $keys = [
+      '/usr/share/keyrings/cuda_debian_prod.gpg',
+      '/usr/share/keyrings/dgx_debian_prod.gpg',
+    ]
     $source_files = [
       '/etc/apt/sources.list.d/cuda-compute-repo.list',
       '/etc/apt/sources.list.d/cuda-compute-repo.sources',
@@ -54,7 +57,15 @@ class basic_settings::package_nvidia_dgx (
     # Enable only the mapped platform; false always removes this helper's files.
     if ($enable and $nvidia_dgx_allow) {
       # Supply every external command used by the bootstrap, including tar's gzip subprocess and the POSIX shell.
-      $repository_packages = ['apt', 'ca-certificates', 'coreutils', 'curl', 'dash', 'gzip', 'tar']
+      $repository_packages = [
+        'apt',
+        'ca-certificates',
+        'coreutils',
+        'curl',
+        'dash',
+        'gzip',
+        'tar',
+      ]
       ensure_packages($repository_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -110,7 +121,10 @@ class basic_settings::package_nvidia_dgx (
         command  => "/bin/dash -c ${bootstrap_shell}",
         unless   => '/bin/dash -c "test -s /usr/share/keyrings/cuda_debian_prod.gpg && test -s /usr/share/keyrings/dgx_debian_prod.gpg"',
         path     => ['/usr/bin', '/bin'],
-        require  => [Package[$repository_packages], File['/usr/share/keyrings']],
+        require  => [
+          Package[$repository_packages],
+          File['/usr/share/keyrings'],
+        ],
         notify   => Exec['basic_settings_source_reload'],
       }
 
@@ -145,7 +159,10 @@ class basic_settings::package_nvidia_dgx (
       }
 
       # Every source change waits for both keys; every source resource precedes the shared refresh.
-      file { ["/etc/apt/sources.list.d/cuda-compute-repo.${alternative}", "/etc/apt/sources.list.d/dgx.${alternative}"]:
+      file { [
+          "/etc/apt/sources.list.d/cuda-compute-repo.${alternative}",
+          "/etc/apt/sources.list.d/dgx.${alternative}",
+        ]:
         ensure  => absent,
         require => File[$keys],
         notify  => Exec['basic_settings_source_reload'],

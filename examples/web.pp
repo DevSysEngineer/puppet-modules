@@ -105,7 +105,10 @@ node 'web-example.example.org' {
       'upload_max_filesize'        => '32M',
     },
     pidfile      => '/run/php/php8.3-fpm.pid',
-    require      => [Package['nginx'], Class['php8']],
+    require      => [
+      Package['nginx'],
+      Class['php8'],
+    ],
   }
 
   # Create the application pool and socket used by its Nginx vhost.
@@ -152,7 +155,10 @@ node 'web-example.example.org' {
     unavailable_page          => 'errors/unavailable.html',
     x_content_type_options    => 'nosniff',
     x_frame_options           => 'SAMEORIGIN',
-    require                   => [Package['nginx'], Class['php8::fpm']],
+    require                   => [
+      Package['nginx'],
+      Class['php8::fpm'],
+    ],
   }
 }
 

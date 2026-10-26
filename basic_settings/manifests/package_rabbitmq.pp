@@ -43,16 +43,25 @@ class basic_settings::package_rabbitmq (
     # Use separate deb822 source files for Erlang and RabbitMQ.
     $file_erlang = '/etc/apt/sources.list.d/rabbitmq-erlang.sources'
     $file_server = '/etc/apt/sources.list.d/rabbitmq-server.sources'
-    $alternative = ['/etc/apt/sources.list.d/rabbitmq-erlang.list', '/etc/apt/sources.list.d/rabbitmq-server.list']
+    $alternative = [
+      '/etc/apt/sources.list.d/rabbitmq-erlang.list',
+      '/etc/apt/sources.list.d/rabbitmq-server.list',
+    ]
   } else {
     # Use separate one-line APT source files for Erlang and RabbitMQ.
     $file_erlang = '/etc/apt/sources.list.d/rabbitmq-erlang.list'
     $file_server = '/etc/apt/sources.list.d/rabbitmq-server.list'
-    $alternative = ['/etc/apt/sources.list.d/rabbitmq-erlang.sources', '/etc/apt/sources.list.d/rabbitmq-server.sources']
+    $alternative = [
+      '/etc/apt/sources.list.d/rabbitmq-erlang.sources',
+      '/etc/apt/sources.list.d/rabbitmq-server.sources',
+    ]
   }
 
   # Keep every source-related exec behind alternative-format cleanup.
-  $source_execs = ['package_rabbitmq_erlang_source', 'package_rabbitmq_server_source']
+  $source_execs = [
+    'package_rabbitmq_erlang_source',
+    'package_rabbitmq_server_source',
+  ]
 
   # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
   file { $alternative:
@@ -78,7 +87,13 @@ class basic_settings::package_rabbitmq (
   # Install the RabbitMQ and Erlang repositories or remove their managed sources when disabled.
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
-    $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'diffutils', 'gnupg']
+    $repository_packages = [
+      'apt-transport-https',
+      'ca-certificates',
+      'curl',
+      'diffutils',
+      'gnupg',
+    ]
     ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],

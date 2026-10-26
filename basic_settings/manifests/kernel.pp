@@ -346,7 +346,15 @@ class basic_settings::kernel (
     $ip_forwarding_value = bool2str($ip_forwarding, '1', '0')
 
     # Supply the interpreters and tools used by kernel commands and their guards.
-    $kernel_command_packages = ['bash', 'coreutils', 'dash', 'grep', 'procps', 'sed', 'util-linux']
+    $kernel_command_packages = [
+      'bash',
+      'coreutils',
+      'dash',
+      'grep',
+      'procps',
+      'sed',
+      'util-linux',
+    ]
     ensure_packages($kernel_command_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -382,7 +390,10 @@ class basic_settings::kernel (
 
         # Install generic HWE kernel
         if ($os_name == 'Ubuntu' and $os_version != '26.04') {
-          package { ["linux-image-generic-hwe-${os_version}", "linux-headers-generic-hwe-${os_version}"]:
+          package { [
+              "linux-image-generic-hwe-${os_version}",
+              "linux-headers-generic-hwe-${os_version}",
+            ]:
             ensure          => installed,
             install_options => ['--no-install-recommends', '--no-install-suggests'],
           }
@@ -396,7 +407,11 @@ class basic_settings::kernel (
         }
 
         # Remove generic kernel
-        package { ['linux-generic', 'linux-image-generic', 'linux-headers-generic']:
+        package { [
+            'linux-generic',
+            'linux-image-generic',
+            'linux-headers-generic',
+          ]:
           ensure          => purged,
           install_options => ['--no-install-recommends', '--no-install-suggests'],
           require         => Package['linux-raspi'],
@@ -404,10 +419,7 @@ class basic_settings::kernel (
       }
       'nvidia': {
         # Install the NVIDIA kernel and tools while retaining existing generic kernels for recovery.
-        package { [
-            'linux-nvidia-hwe-24.04',
-            'linux-tools-nvidia-hwe-24.04',
-          ]:
+        package { ['linux-nvidia-hwe-24.04', 'linux-tools-nvidia-hwe-24.04']:
             ensure          => installed,
             install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
         }
@@ -705,7 +717,11 @@ class basic_settings::kernel (
         }
 
         # Remove unused packages
-        package {['initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']:
+        package {[
+            'initramfs-tools',
+            'initramfs-tools-bin',
+            'initramfs-tools-core',
+          ]:
           ensure  => purged,
           require => Package['dracut-core'],
         }
@@ -716,7 +732,12 @@ class basic_settings::kernel (
           # Use the Ubuntu 24.04 initramfs dependency set for that release.
           if ($os_version == '24.04') {
             # Include the split initramfs binary package in Ubuntu 24.04 rebuild ordering.
-            $ram_disk_require = ['dhcpcd-base', 'initramfs-tools', 'initramfs-tools-bin', 'initramfs-tools-core']
+            $ram_disk_require = [
+              'dhcpcd-base',
+              'initramfs-tools',
+              'initramfs-tools-bin',
+              'initramfs-tools-core',
+            ]
             package { $ram_disk_require:
               ensure          => installed,
               install_options => ['--no-install-recommends', '--no-install-suggests'],
@@ -842,16 +863,17 @@ class basic_settings::kernel (
       '/usr/sbin/modprobe',
       '/usr/sbin/rmmod',
     ])
-    $suspicious_packages_root = [
-      '/usr/bin/kmod',
-    ]
+    $suspicious_packages_root = ['/usr/bin/kmod']
 
     # Setup TCP
     case $tcp_congestion_control {
       'bbr': {
         exec { 'tcp_congestion_control':
           command => '/usr/bin/printf "net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr" > /etc/sysctl.d/20-tcp_congestion_control.conf; chmod 600 /etc/sysctl.d/20-tcp_congestion_control.conf; sysctl -p /etc/sysctl.d/20-tcp_congestion_control.conf', # lint:ignore:140chars
-          onlyif  => ['test ! -f /etc/sysctl.d/20-tcp_congestion_control.conf', 'test 4 -eq $(cat /boot/config-$(uname -r) | grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')'], # lint:ignore:140chars
+          onlyif  => [
+            'test ! -f /etc/sysctl.d/20-tcp_congestion_control.conf',
+            'test 4 -eq $(cat /boot/config-$(uname -r) | grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')',
+          ], # lint:ignore:140chars
         }
       }
       default: {
@@ -911,7 +933,10 @@ class basic_settings::kernel (
     exec { 'kernel_mglru_min_ttl_ms':
       command => "/usr/bin/printf %s ${mglru_min_ttl_ms_shell} > /sys/kernel/mm/lru_gen/min_ttl_ms",
       onlyif  => "/usr/bin/bash -c ${mglru_min_ttl_ms_check_script_shell}",
-      require => [Package[$kernel_command_packages], Exec['kernel_mglru']],
+      require => [
+        Package[$kernel_command_packages],
+        Exec['kernel_mglru'],
+      ],
     }
 
     # Kernel security lockdown

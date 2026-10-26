@@ -1,5 +1,1 @@
-$values = [
-
-  'first',
-
-]
+$values = ['first']

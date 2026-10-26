@@ -158,7 +158,15 @@ define docker::vllm (
         # Validate only arguments of enabled services; unused service settings do not prevent switching modes.
         $active_arguments = concat($llm_enabled ? { true => $llm_arguments, default => [] },
           $stt_enabled ? { true => $stt_arguments, default => [] })
-        $managed_options = ['--host', '--port', '--uds', '--model', '--served-model-name', '--api-key', '--config']
+        $managed_options = [
+          '--host',
+          '--port',
+          '--uds',
+          '--model',
+          '--served-model-name',
+          '--api-key',
+          '--config',
+        ]
         $reserved_arguments = $active_arguments.filter |$argument| {
           # Normalize long options only, so relative paths and other argument values keep their literal meaning.
           if ($argument =~ /\A--/) {
@@ -185,7 +193,10 @@ define docker::vllm (
                 # Manage only the enabled services' caches; old caches remain on disk until explicit project removal.
                 $cache_names = concat(['hf-cache'], $enabled_services.map |$service| { "${service}-cache" })
                 $cache_directories = Hash($cache_names.map |$directory| {
-                  [$directory, { 'owner' => 'root', 'group' => 'root', 'mode' => '0700' }]
+                  [
+                    $directory,
+                    { 'owner' => 'root', 'group' => 'root', 'mode' => '0700' },
+                  ]
                 })
 
                 # Convert the timeout to the string form used by generated systemd directives.
@@ -206,7 +217,10 @@ define docker::vllm (
                   # Keep public route names stable; the proxy owns upstream URL and directive rendering.
                   $service_ports = { 'llm' => $llm_port, 'stt' => $stt_port }
                   $api_routes = Hash($enabled_services.map |$service| {
-                    ["/${service}/v1/", { 'port' => $service_ports[$service], 'uri' => '/v1/' }]
+                    [
+                      "/${service}/v1/",
+                      { 'port' => $service_ports[$service], 'uri' => '/v1/' },
+                    ]
                   })
 
                   # Undef adds no resource ACL; an explicit array always ends in deny, even when empty.

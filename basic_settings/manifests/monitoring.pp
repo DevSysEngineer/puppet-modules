@@ -88,7 +88,10 @@ class basic_settings::monitoring (
     owner   => 'root',
     group   => 'root',
     mode    => '0755',
-    require => [File['/usr/local/lib/puppet'], Package['dash', 'mailutils']],
+    require => [
+      File['/usr/local/lib/puppet'],
+      Package['dash', 'mailutils'],
+    ],
   }
 
   # Do thing based on mail package
@@ -287,7 +290,10 @@ class basic_settings::monitoring (
       },
       daemon_reload => 'monitoring_systemd_daemon_reload',
       enable        => false,
-      require       => [Package[$mail_package, 'bash', 'systemd'], File[$monitoring_notify_path]],
+      require       => [
+        Package[$mail_package, 'bash', 'systemd'],
+        File[$monitoring_notify_path],
+      ],
     }
 
     # Create drop in for notify-failed service
@@ -297,7 +303,10 @@ class basic_settings::monitoring (
         'Wants' => "${mail_package}.service",
       },
       daemon_reload => 'monitoring_systemd_daemon_reload',
-      require       => [Package[$mail_package], Basic_settings::Systemd_service['notify-failed@']],
+      require       => [
+        Package[$mail_package],
+        Basic_settings::Systemd_service['notify-failed@'],
+      ],
     }
 
     # Validate the active systemd configuration from the default target when monitoring is enabled.

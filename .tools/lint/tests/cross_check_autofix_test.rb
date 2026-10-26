@@ -12,12 +12,12 @@ class CrossCheckAutofixTest < Minitest::Test
     assert_fix(fixture('cross_check_autofix/region_in_one_pass_sample3'),
                "Notify['target'] -> [\n  Package['a', 'z'],\n  Service['a', 'z'],\n]\n")
     assert_fix("Notify['target'] -> [Package[\"z\",\"b\"],Service[\"nginx\"],Package[\"a\",\"a\"]]\n",
-               "Notify['target'] -> [Package['a', 'a', 'b', 'z'], Service['nginx']]\n")
+               "Notify['target'] -> [\n  Package['a', 'a', 'b', 'z'],\n  Service['nginx'],\n]\n")
   end
 
   def test_repeated_indentation_fixes_handle_empty_whitespace_tokens
     assert_fix("$command = join([\n      'first',\n      'second',\n    ], ' ')\n",
-               "$command = join([\n  'first',\n  'second',\n], ' ')\n")
+               "$command = join(['first', 'second'], ' ')\n")
   end
 
   def test_documentation_and_comment_spacing_share_the_surviving_anchor
@@ -46,13 +46,13 @@ class CrossCheckAutofixTest < Minitest::Test
                "class example (\n  String $a = $value,\n) {}\n",
                :only_variable_string, :project_layout, :project_parameter_alignment)
     assert_fix("$values = [\n      \"${value}\",\n]\n",
-               "$values = [\n  $value,\n]\n", :only_variable_string, :project_layout)
+               "$values = [$value]\n", :only_variable_string, :project_layout)
     assert_fix("$values = ['a',\"${value}\"]\n",
                "$values = ['a', $value]\n", :only_variable_string, :project_layout)
   end
 
   def test_array_baseline_accounts_for_upstream_tab_expansion
     assert_fix("if $active {\n\t$values = [\n   'a',\n ]\n}\n",
-               "if $active {\n  $values = [\n    'a',\n  ]\n}\n", :hard_tabs, :project_layout)
+               "if $active {\n  $values = ['a']\n}\n", :hard_tabs, :project_layout)
   end
 end

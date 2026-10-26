@@ -41,17 +41,16 @@ class CliLayoutTest < Minitest::Test
     assert_cli_success(@file)
   end
 
-  def correct_array_indentation(code)
-    code.gsub(/^      /, '  ').sub('    ]', ']')
+  def correct_array_indentation(_code)
+    "$command = join(['printf \"%s\"', 'synthetic'], ' ')\n"
   end
 
   def assert_array_indentation(code, options)
     write_source(code, path: 'arrays.pp')
     assert_cli_result(!options.empty?, *options, @file)
-    assert_equal 3, diagnostics(@output, 'project_layout').length, @output
+    assert_equal 1, diagnostics(@output, 'project_layout').length, @output
     kind = options.empty? ? 'warning' : 'fixed'
-    assert_includes @output, ":2:7: project_layout: #{kind}: Use 2 leading spaces for the array element"
-    assert_includes @output, ":4:5: project_layout: #{kind}: Use 0 leading spaces for the closing array bracket"
+    assert_includes @output, ":1:17: project_layout: #{kind}: Use compact array layout"
     assert_equal options.empty? ? code : correct_array_indentation(code), source
   end
 end

@@ -181,11 +181,21 @@ class docker::nextcloud_integration_openai (
       # Equal key values still require correction when native storage type, sensitivity or lazy loading differs.
       docker::nextcloud_occ { "integration_openai_${config_key}":
         command      => [
-          'config:app:set', 'integration_openai', $config_key,
-          '--type=string', '--sensitive', '--lazy', $argument,
+          'config:app:set',
+          'integration_openai',
+          $config_key,
+          '--type=string',
+          '--sensitive',
+          '--lazy',
+          $argument,
         ],
         compose_name => $compose_name,
-        unless       => ['config:app:get', 'integration_openai', $config_key, '--details'],
+        unless       => [
+          'config:app:get',
+          'integration_openai',
+          $config_key,
+          '--details',
+        ],
         unless_json  => $expected_details,
         require      => Docker::Nextcloud_app['integration_openai'],
       }

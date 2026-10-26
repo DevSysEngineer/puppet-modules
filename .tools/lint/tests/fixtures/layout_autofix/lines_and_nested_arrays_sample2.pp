@@ -1,7 +1,5 @@
 $values = [
-  [
-    'a', 'b',
-  ],
+  ['a', 'b'],
 ]
 if $active { # Explain.
   notice('Active')

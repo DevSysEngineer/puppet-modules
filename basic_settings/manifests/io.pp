@@ -41,12 +41,18 @@ class basic_settings::io (
     '/usr/sbin/parted',
     '/usr/bin/lsblk',
   ]
-  $default_packages_root = [
-    '/usr/bin/lsblk',
-  ]
+  $default_packages_root = ['/usr/bin/lsblk']
 
   # Install default development packages
-  package { ['fuse', 'logrotate', 'pbzip2', 'pigz', 'rsync', 'unzip', 'xz-utils']:
+  package { [
+      'fuse',
+      'logrotate',
+      'pbzip2',
+      'pigz',
+      'rsync',
+      'unzip',
+      'xz-utils',
+    ]:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }

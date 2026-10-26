@@ -128,14 +128,7 @@ class basic_settings::packages (
 
   # Install missing package-management tools before their dependent packages.
   ensure_packages(
-    [
-      'apt',
-      'coreutils',
-      'dash',
-      'dpkg',
-      'curl',
-      'gnupg',
-    ],
+    ['apt', 'coreutils', 'dash', 'dpkg', 'curl', 'gnupg'],
     {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -206,14 +199,21 @@ class basic_settings::packages (
     }
 
     # Remove unnecessary snapd and unminimize files
-    file { ['/etc/apt/apt.conf.d/20snapd.conf', '/etc/xdg/autostart/snap-userd-autostart.desktop']:
+    file { [
+        '/etc/apt/apt.conf.d/20snapd.conf',
+        '/etc/xdg/autostart/snap-userd-autostart.desktop',
+      ]:
       ensure  => absent,
       require => Package['snapd'],
     }
   }
 
   # Remove unnecessary packages
-  package { ['command-not-found', 'packagekit', 'update-notifier-common']:
+  package { [
+      'command-not-found',
+      'packagekit',
+      'update-notifier-common',
+    ]:
     ensure => purged,
   }
 
@@ -226,14 +226,20 @@ class basic_settings::packages (
     }
 
     # Remove unnecessary snapd and unminimize files
-    file { ['/usr/local/sbin/unminimize', '/etc/update-motd.d/60-unminimize']:
+    file { [
+        '/usr/local/sbin/unminimize',
+        '/etc/update-motd.d/60-unminimize',
+      ]:
       ensure => absent,
     }
 
     # Remove man
     exec { 'packages_man_remove':
       command => '/usr/bin/rm /usr/bin/man',
-      onlyif  => ['[ -e /usr/bin/man ]', '[ -e /etc/dpkg/dpkg.cfg.d/excludes ]'],
+      onlyif  => [
+        '[ -e /usr/bin/man ]',
+        '[ -e /etc/dpkg/dpkg.cfg.d/excludes ]',
+      ],
       require => Package['coreutils', 'dash'],
     }
 

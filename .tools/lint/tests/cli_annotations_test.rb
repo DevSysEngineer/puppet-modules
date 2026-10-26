@@ -16,7 +16,7 @@ class CliAnnotationsTest < Minitest::Test
   def assert_annotation_counts(code, github_action, options)
     write_source(code, path: 'project_layout.pp')
     assert_cli_result(!options.empty?, *options, @file, env: { 'GITHUB_ACTION' => github_action })
-    { 'project_layout' => 2, 'project_arrays' => 1 }.each do |check, count|
+    { 'project_layout' => 1, 'project_arrays' => 1 }.each do |check, count|
       assert_equal count, diagnostics(@output, check).length, @output
     end
     assert_equal annotation_count(github_action, options), @output.lines.grep(/\A::warning /).length, @output
@@ -24,13 +24,14 @@ class CliAnnotationsTest < Minitest::Test
   end
 
   def assert_annotation_source(code, options)
-    corrected = code.gsub('      ', '  ').sub('[1] + [2]', 'concat([1], [2])')
+    corrected = code.sub("[\n      'first',\n      'second',\n]", "['first', 'second']").sub('[1] + [2]',
+                                                                                             'concat([1], [2])')
     assert_equal options.empty? ? code : corrected, source
   end
 
   def annotation_count(github_action, options)
     return 0 unless github_action
 
-    options.empty? ? 3 : 0
+    options.empty? ? 2 : 0
   end
 end

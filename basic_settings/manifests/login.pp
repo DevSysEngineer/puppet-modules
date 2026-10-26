@@ -142,7 +142,12 @@ class basic_settings::login (
   }
 
   # Create list of packages that is suspicious
-  $suspicious_packages = ['/usr/bin/chage', '/usr/bin/sudo', '/usr/bin/last', '/usr/sbin/pam-auth-update']
+  $suspicious_packages = [
+    '/usr/bin/chage',
+    '/usr/bin/sudo',
+    '/usr/bin/last',
+    '/usr/sbin/pam-auth-update',
+  ]
 
   # Escape notification values for generated shell templates.
   $mail_to_shell = stdlib::shell_escape($mail_to)

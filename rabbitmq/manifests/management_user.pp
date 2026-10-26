@@ -40,7 +40,10 @@ define rabbitmq::management_user (
           if ($password == undef) {
             # Set defualt values
             $user_home = getparam(Resource['basic_settings::login_user', $name], 'home')
-            $user_require = [Package['pwgen'], Rabbitmq::Plugin['rabbitmq_management']]
+            $user_require = [
+              Package['pwgen'],
+              Rabbitmq::Plugin['rabbitmq_management'],
+            ]
 
             # Escape password file path and ownership before writing the generated password.
             $password_file_shell = stdlib::shell_escape("${user_home}/.rabbitmq.password")
@@ -77,7 +80,10 @@ define rabbitmq::management_user (
             exec { "rabbitmq_management_user_${name}_tags":
               command => "/usr/sbin/rabbitmqctl --quiet set_user_tags ${name_shell} ${user_tags_join}",
               unless  => "/usr/sbin/rabbitmqctl --quiet list_users --no-table-headers | /usr/bin/grep ${name_shell} | /usr/bin/cut -f2 | /usr/bin/grep ${user_tags_search}", # lint:ignore:140chars
-              require => [Package['coreutils', 'grep'], Exec["rabbitmq_management_user_${name}"]],
+              require => [
+                Package['coreutils', 'grep'],
+                Exec["rabbitmq_management_user_${name}"],
+              ],
             }
           }
         } else {

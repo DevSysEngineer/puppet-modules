@@ -189,7 +189,10 @@ class vnstat (
         template => 'vnstat/check_vnstat_interfaces',
         friendly => 'vnStat interfaces',
         timeout  => 60,
-        require  => [Concat['/etc/vnstat-monitoring.conf'], Package[$monitoring_required_packages]],
+        require  => [
+          Concat['/etc/vnstat-monitoring.conf'],
+          Package[$monitoring_required_packages],
+        ],
       }
     }
   } else {

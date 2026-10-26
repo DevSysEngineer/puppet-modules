@@ -80,9 +80,13 @@ class php8::cli (
         $composer_required_packages = concat($composer_packages, ["php8.${minor_version}-cli"])
         $composer_version_require = $php8::skip_default_files ? {
           true    => [],
-          default => [Exec['php_set_default_version']],
+          default => [
+            Exec['php_set_default_version'],
+          ],
         }
-        $composer_require = concat([Package[$composer_required_packages]], $composer_version_require)
+        $composer_require = concat([
+          Package[$composer_required_packages],
+        ], $composer_version_require)
 
         # Download, verify, and install Composer in a root-only temp directory that is always removed.
         exec { "php8_${minor_version}_composer_install":

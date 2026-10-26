@@ -21,9 +21,7 @@
 #
 # @api public
 class rabbitmq (
-  Array   $deprecated_features = [
-    'transient_nonexcl_queues',
-  ],
+  Array   $deprecated_features = ['transient_nonexcl_queues'],
   Integer $limit_file          = 10000,
   Integer $nice_level          = 12,
   String  $target              = 'services',

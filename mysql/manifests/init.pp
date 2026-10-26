@@ -135,7 +135,16 @@ class mysql (
   }
 
   # Account management, grants and backup encryption need these tools independently of monitoring.
-  $management_packages = ['bash', 'coreutils', 'dash', 'grep', 'mawk', 'mysql-client', 'openssl', 'sed']
+  $management_packages = [
+    'bash',
+    'coreutils',
+    'dash',
+    'grep',
+    'mawk',
+    'mysql-client',
+    'openssl',
+    'sed',
+  ]
   ensure_packages($management_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
@@ -177,7 +186,10 @@ class mysql (
       exec { 'mysql_hugetlb':
         unless  => '/bin/getent group hugetlb | /bin/cut -d: -f4 | /bin/grep -q mysql',
         command => '/usr/sbin/usermod -a -G hugetlb mysql',
-        require => [Group['hugetlb'], Package[$hugetlb_required_packages]],
+        require => [
+          Group['hugetlb'],
+          Package[$hugetlb_required_packages],
+        ],
       }
     }
 
@@ -349,7 +361,10 @@ class mysql (
     owner   => 'root',
     group   => 'root',
     mode    => '0700',
-    require => [File['/usr/local/lib/puppet'], Package[$management_packages]],
+    require => [
+      File['/usr/local/lib/puppet'],
+      Package[$management_packages],
+    ],
   }
 
   # Retire the helper's old private inputs and confirmation records without making backups.
@@ -367,7 +382,10 @@ class mysql (
     owner   => 'root',
     group   => 'root',
     mode    => '0700',
-    require => [File['/usr/local/lib/puppet'], Package[$management_packages]],
+    require => [
+      File['/usr/local/lib/puppet'],
+      Package[$management_packages],
+    ],
   }
 
   # Set config file

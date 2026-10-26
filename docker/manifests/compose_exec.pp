@@ -189,7 +189,10 @@ define docker::compose_exec (
       onlyif      => $onlyif_command,
       provider    => shell,
       refreshonly => $refreshonly,
-      require     => [Docker::Compose[$compose_name], File['/usr/local/lib/puppet/docker-compose-container']],
+      require     => [
+        Docker::Compose[$compose_name],
+        File['/usr/local/lib/puppet/docker-compose-container'],
+      ],
       timeout     => $timeout,
       unless      => $unless_command,
     }

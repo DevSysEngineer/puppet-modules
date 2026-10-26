@@ -232,7 +232,13 @@ define docker::nextcloud_s3 (
             'class'     => '\OC\Files\ObjectStore\S3',
             'arguments' => $arguments,
           })
-          $command = ['config:system:set', '--type=json', Sensitive("--value=${objectstore_json}"), 'objectstore', $name]
+          $command = [
+            'config:system:set',
+            '--type=json',
+            Sensitive("--value=${objectstore_json}"),
+            'objectstore',
+            $name,
+          ]
           $expected_json = Sensitive($objectstore_json)
         } else {
           # OCC renders the explicit missing-value fallback as a JSON string, distinct from any objectstore object.
@@ -245,7 +251,12 @@ define docker::nextcloud_s3 (
           command      => $command,
           compose_name => $compose_name,
           timeout      => $occ_timeout,
-          unless       => ['config:system:get', '--default-value=null', 'objectstore', $name],
+          unless       => [
+            'config:system:get',
+            '--default-value=null',
+            'objectstore',
+            $name,
+          ],
           unless_json  => $expected_json,
         }
 
@@ -284,7 +295,8 @@ define docker::nextcloud_s3 (
 
             # Registration waits for the shared executable and the named store configuration.
             $monitoring_require = [
-              Basic_settings::Monitoring_custom['nextcloud_s3'], Docker::Nextcloud_occ["s3_${name}"],
+              Basic_settings::Monitoring_custom['nextcloud_s3'],
+              Docker::Nextcloud_occ["s3_${name}"],
             ]
           } else {
             # Retirement needs no credentials, executable owner or active OCC dependency.

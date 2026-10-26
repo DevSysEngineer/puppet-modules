@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name = 'lint-project'
-  spec.version = '0.3.0'
+  spec.version = '0.4.0'
   spec.summary = 'Project Puppet-lint checks and JUnit reports'
   spec.authors = ['Puppet modules maintainers']
   spec.license = 'Apache-2.0'

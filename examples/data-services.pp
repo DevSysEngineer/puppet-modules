@@ -57,7 +57,10 @@ node 'database.example.org' {
     privileges   => ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
     table        => '*',
     username     => 'app',
-    require      => [Mysql::Database['app'], Mysql::User['app']],
+    require      => [
+      Mysql::Database['app'],
+      Mysql::User['app'],
+    ],
   }
 }
 
