@@ -2,10 +2,10 @@
 
 source 'https://rubygems.org'
 
-gem 'lint-project', path: '.tools/lint', require: false
+gem 'lint-project', path: '.tools/lint/puppet', require: false
 gem 'project-tools-metadata', path: '.tools/metadata', require: false
 gem 'project-tools-module-dependencies', path: '.tools/module-dependencies', require: false
-gem 'project-tools-ruby-lint', path: '.tools/ruby-lint', require: false
+gem 'project-tools-ruby-lint', path: '.tools/lint/ruby', require: false
 gem 'project-tools-secrets', path: '.tools/secrets', require: false
 gem 'project-tools-shared', path: '.tools/shared', require: false
 gem 'project-tools-syntax', path: '.tools/syntax', require: false

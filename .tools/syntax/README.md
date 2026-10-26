@@ -102,7 +102,7 @@ end
 
 Pas de uitsluitingen aan de dependencylocaties van je project aan. Deze selectie neemt nieuwe eigen manifests en uitvoerbare voorbeelden mee en sluit toolfixtures uit. De taak gebruikt de native parser of de rapportagegem; je kopieert geen validator of rapportimplementatie. Gebruik lokaal `bundle exec rake syntax:puppet` voor console-uitvoer. Vraag in de validatiejob het rapport expliciet aan met `bundle exec rake "syntax:puppet[$PROJECT_REPORT_DIR/syntax-report.xml]"`. Alleen het instellen van `PROJECT_REPORT_DIR` schakelt rapportage niet in. Houd de taak los van `test` en eventuele standaardtaken voor tooltests. Het [CI-voorbeeld](../README.md#controle-in-ci) gebruikt de rechtstreekse aanroep met twee concrete manifests; vervang die door je volledige bestandsselectie of de Rake-aanroep met rapportargument.
 
-Voor het onderzoeken van één fout blijft de native opdracht `bundle exec puppet parser validate pad/naar/manifest.pp` beschikbaar. Parservalidatie compileert geen catalogus en vervangt de [eigen gedragsvalidatie](../lint/README.md#aanvullende-tests) niet.
+Voor het onderzoeken van één fout blijft de native opdracht `bundle exec puppet parser validate pad/naar/manifest.pp` beschikbaar. Parservalidatie compileert geen catalogus en vervangt de [eigen gedragsvalidatie](../lint/puppet/README.md#aanvullende-tests) niet.
 
 ## Exitcodes van syntax-junit
 

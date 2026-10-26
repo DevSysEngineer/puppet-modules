@@ -10,7 +10,7 @@ AllCops:
   Include:
     - '.tools/secrets/bin/project-tools-secrets'
     - '.tools/metadata/bin/project-tools-metadata'
-    - '.tools/lint/bin/puppet-lint-junit'
+    - '.tools/lint/puppet/bin/puppet-lint-junit'
     - '.tools/syntax/bin/syntax-junit'
     - '.tools/module-dependencies/bin/project-tools-module-dependencies'
     - '.tools/**/*.rb'

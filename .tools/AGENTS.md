@@ -9,14 +9,14 @@ Open each affected component's local instructions below and read its README. For
 | Component | Responsibility | Development instructions |
 | --- | --- | --- |
 | `catalog` | Module catalog discovery and compilation runner | [Catalog](catalog/AGENTS.md) |
-| `lint` | Puppet-lint checks, profiles, detection, autofix and lint documentation | [Lint](lint/AGENTS.md) |
+| `lint/puppet` | Puppet-lint checks, profiles, detection, autofix and lint documentation | [Lint](lint/puppet/AGENTS.md) |
 | `metadata` | Own-metadata selection, validation and safe synchronization | [Metadata](metadata/AGENTS.md) |
 | `module-dependencies` | Native module selection and declared dependency analysis | [Module dependencies](module-dependencies/AGENTS.md) |
 | `repository-checks` | Repository documentation, CI configuration, distribution integration and test layout | [Repository checks](repository-checks/AGENTS.md) |
-| `ruby-lint` | Native RuboCop integration and shared Ruby profile | [Ruby lint](ruby-lint/AGENTS.md) |
+| `lint/ruby` | Native RuboCop integration and shared Ruby profile | [Ruby lint](lint/ruby/AGENTS.md) |
 | `secrets` | Local sensitive-data detection, prepared analysis, controlled writes and safe review | [Sensitive data](secrets/AGENTS.md) |
 | `shared` | Actually shared runtime behavior and repository test support | [Shared library](shared/AGENTS.md) |
 | `syntax` | Native parser validation and report integration | [Syntax](syntax/AGENTS.md) |
 
 
-Apply the [general code norms](lint/docs/CODE_RULES.md#algemene-ontwerpregels) to every component and the applicable documentation and operational norms selected by root. Applying norms under lint does not itself require lint development instructions; editing those norms does. Shared maintenance belongs to the shared README, and component maintenance to the owning README.
+Apply the [general code norms](lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels) to every component and the applicable documentation and operational norms selected by root. Applying norms under lint does not itself require lint development instructions; editing those norms does. Shared maintenance belongs to the shared README, and component maintenance to the owning README.

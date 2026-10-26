@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative '../../shared/test_support/packages'
+require_relative '../../../shared/test_support/packages'
 
 # Build a gem and exercise it through a separate, offline consumer bundle.
 module InstalledGemSupport
@@ -21,7 +21,7 @@ module InstalledGemSupport
 
   def install_gem
     build_install('shared', 'project-tools-shared')
-    build_install('lint', 'lint-project')
+    build_install('lint/puppet', 'lint-project')
   end
 
   def prepare_bundle

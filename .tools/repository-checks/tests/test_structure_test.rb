@@ -19,13 +19,13 @@ class TestStructureTest < Minitest::Test
   def test_tool_test_files_stay_under_the_owning_tool
     paths = Dir.glob('.tools/**/*_test.rb', base: ProjectToolsPackageSupport::ROOT)
     refute_empty paths
-    misplaced = paths.grep_v(%r{\A\.tools/[^/]+/tests/})
-    assert_empty misplaced, "Move tool tests to .tools/<tool-name>/tests/: #{misplaced.join(', ')}"
+    misplaced = paths.grep_v(%r{\A\.tools/(?:lint/(?:puppet|ruby)|(?!lint/)[^/]+)/tests/})
+    assert_empty misplaced, "Move tool tests under their owning tool: #{misplaced.join(', ')}"
   end
 
   def test_tool_test_directories_use_one_location_per_tool
     paths = Dir.glob('.tools/**/{test,tests}', base: ProjectToolsPackageSupport::ROOT)
-    misplaced = paths.grep_v(%r{\A\.tools/[^/]+/tests\z})
+    misplaced = paths.grep_v(%r{\A\.tools/(?:lint/(?:puppet|ruby)|(?!lint/)[^/]+)/tests\z})
     assert_empty misplaced, "Keep test directories under their owning tool: #{misplaced.join(', ')}"
   end
 
@@ -41,9 +41,9 @@ class TestStructureTest < Minitest::Test
   end
 
   def tool_selections
-    { 'test:lint' => %w[.tools/lint/tests/check_test.rb .tools/lint/tests/nested/check_test.rb],
+    { 'test:lint' => %w[.tools/lint/puppet/tests/check_test.rb .tools/lint/puppet/tests/nested/check_test.rb],
       'test:metadata' => ['.tools/metadata/tests/metadata_test.rb'],
-      'test:ruby_lint' => ['.tools/ruby-lint/tests/cli_test.rb'],
+      'test:ruby_lint' => ['.tools/lint/ruby/tests/cli_test.rb'],
       'test:repository_checks' => ['.tools/repository-checks/tests/workflow_test.rb'],
       'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
       'test:shared' => ['.tools/shared/tests/library_test.rb'],

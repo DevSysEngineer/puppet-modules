@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require_relative '../../shared/test_support/bootstrap'
+require_relative '../../../shared/test_support/bootstrap'
 require 'project_lint'
 
 # Use native configuration and diagnostics for both isolated checks and interacting fixes.
 module LintTestSupport
-  ROOT = File.expand_path('../../..', __dir__)
+  ROOT = File.expand_path('../../../..', __dir__)
   PuppetLint::OptParser.build(['--no-config', '--config', File.join(ROOT, '.puppet-lint.rc')])
 
   def fixture_set(pattern)

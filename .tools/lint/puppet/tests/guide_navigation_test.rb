@@ -4,11 +4,11 @@ require_relative 'test_helper'
 
 # Keep workflow and local instructions linked to the authoritative implementation rules.
 class GuideNavigationTest < Minitest::Test
-  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint')
+  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint/puppet')
 
   def test_local_instructions_link_the_workflow_and_rule_owners
     instructions = File.read(File.join(ROOT, 'AGENTS.md'))
-    %w[../../AGENTS.md ../AGENTS.md README.md].each { |path| assert_includes instructions, "(#{path})" }
+    %w[../../../AGENTS.md ../../AGENTS.md README.md].each { |path| assert_includes instructions, "(#{path})" }
     %w[instellingen-bij-hun-eigenaar-houden packageafhankelijkheden-bij-externe-commandos].each do |anchor|
       assert_includes instructions, "(docs/CODE_RULES.md##{anchor})"
     end
@@ -32,8 +32,8 @@ class GuideNavigationTest < Minitest::Test
 
   def test_workflow_navigation_links_to_the_owning_operational_rules
     instructions = File.read(File.join(LintTestSupport::ROOT, 'AGENTS.md'))
-    assert_includes instructions, '(.tools/lint/README.md#leeswijzer)'
-    assert_includes instructions, '(.tools/lint/docs/OPERATIONAL_RULES.md)'
+    assert_includes instructions, '(.tools/lint/puppet/README.md#leeswijzer)'
+    assert_includes instructions, '(.tools/lint/puppet/docs/OPERATIONAL_RULES.md)'
     guide = File.read(File.join(ROOT, 'README.md'))
     %w[shellscripts monitoringchecks door-puppet-beheerde-inhoud-markeren
        beheerhelpers-op-de-gedeelde-locatie-installeren shellhelpers-op-een-herkenbare-taak-afbakenen

@@ -59,9 +59,9 @@ class CiRubyStepsTest < Minitest::Test
 
   def test_a_stale_report_does_not_turn_a_startup_failure_into_offenses
     script = ruby_scripts.first
-    native = "mkdir -p .tools/ruby-lint/results\nprintf 'stale report' > .tools/ruby-lint/results/rubocop-report.xml\n"
+    native = "mkdir -p .tools/lint/ruby/results\nprintf 'stale report' > .tools/lint/ruby/results/rubocop-report.xml\n"
     output, errors, status = shell("#{native}bundle() { return 1; }\n#{script}")
     assert_unconfirmed_failure(output, errors, status)
-    refute_path_exists File.join(@project, '.tools/ruby-lint/results/rubocop-report.xml')
+    refute_path_exists File.join(@project, '.tools/lint/ruby/results/rubocop-report.xml')
   end
 end

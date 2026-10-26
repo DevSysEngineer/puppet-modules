@@ -29,15 +29,15 @@ Deze werkwijze geldt voor menselijke ontwikkelaars en AI-agents bij iedere wijzi
 
 | Je werk | Lees en pas toe |
 | --- | --- |
-| Iedere wijziging | Deze werkwijze, [testbeleid](TESTS.md) en de toepasselijke [documentatienormen](.tools/lint/docs/DOCUMENTATION_RULES.md). |
-| Eigen code, ook scripts en tooling | [Algemene ontwerpregels](.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels). |
-| Puppet-code of Puppet Strings | De [lintwerkwijze](.tools/lint/README.md#werkwijze-bij-een-wijziging) en de [leeswijzer](.tools/lint/README.md#leeswijzer) naar toepasselijke Puppet-regels, documentatieregels en hun reviewcriteria. |
-| Bestanden, rechten, beveiliging, services, shell, runtime-tools of monitoring | De relevante [operationele normen](.tools/lint/docs/OPERATIONAL_RULES.md), naast de code- en documentatienormen. |
+| Iedere wijziging | Deze werkwijze, [testbeleid](TESTS.md) en de toepasselijke [documentatienormen](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md). |
+| Eigen code, ook scripts en tooling | [Algemene ontwerpregels](.tools/lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels). |
+| Puppet-code of Puppet Strings | De [lintwerkwijze](.tools/lint/puppet/README.md#werkwijze-bij-een-wijziging) en de [leeswijzer](.tools/lint/puppet/README.md#leeswijzer) naar toepasselijke Puppet-regels, documentatieregels en hun reviewcriteria. |
+| Bestanden, rechten, beveiliging, services, shell, runtime-tools of monitoring | De relevante [operationele normen](.tools/lint/puppet/docs/OPERATIONAL_RULES.md), naast de code- en documentatienormen. |
 | Tooling, inclusief root-Gemfile, Rakefile, CI en consumervoorbeelden | [Gedeeld toolingonderhoud](.tools/README.md#gedeeld-toolingonderhoud) en de README van ieder geraakt component uit het [pakketoverzicht](.tools/README.md#pakketten-en-commandos), inclusief [repositorycontroles](.tools/repository-checks/README.md). |
 
 Lees de relevante bron daadwerkelijk vóór het wijzigen. Breid de leesroute uit wanneer nieuwe dependencies, integraties of aanroepers in beeld komen; ongewijzigde, al gelezen bronnen hoef je niet opnieuw te lezen. Bij gedeelde interfaces horen de contracten van alle werkelijk geraakte afnemers. Alleen codeafspraken onder `lint/docs/` toepassen vereist geen linteronderhoud; die afspraken wijzigen wel.
 
-Iedere duurzame norm heeft één eigenaar volgens de [informatieplaatsing](.tools/lint/docs/DOCUMENTATION_RULES.md#informatieplaatsing). Lokale afspraken vullen gezamenlijke afspraken aan en mogen ze niet afzwakken, tegenspreken of dupliceren. Een uitzondering is alleen geldig binnen een uitzondering die de normeigenaar toestaat. Leg onopgeloste verschillen vast volgens [conflicten beoordelen](.tools/lint/docs/DOCUMENTATION_RULES.md#conflicten-beoordelen), zonder lokale tekst stilzwijgend voorrang te geven.
+Iedere duurzame norm heeft één eigenaar volgens de [informatieplaatsing](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#informatieplaatsing). Lokale afspraken vullen gezamenlijke afspraken aan en mogen ze niet afzwakken, tegenspreken of dupliceren. Een uitzondering is alleen geldig binnen een uitzondering die de normeigenaar toestaat. Leg onopgeloste verschillen vast volgens [conflicten beoordelen](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#conflicten-beoordelen), zonder lokale tekst stilzwijgend voorrang te geven.
 
 ## Voorbereiding en wijzigingsscope
 
@@ -61,19 +61,19 @@ Iedere duurzame norm heeft één eigenaar volgens de [informatieplaatsing](.tool
 Deze review geldt bij features en substantiële wijzigingen aan alle eigen code, inclusief scripts, bibliotheken, tools en integratiecode, binnen de geraakte implementatie en haar werkelijke aanroepers.
 
 - Onderzoek vóór implementatie bestaande verantwoordelijkheden, interfaces, verwante implementaties en werkelijke aanroepers. Bepaal wat kan worden hergebruikt, uitgebreid of samengebracht voordat je een nieuwe implementatie toevoegt.
-- Pas de [algemene ontwerpcriteria](.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels) en hun Puppet- en shelluitwerkingen toe. Volg bij tooling ook de [integratiereview](.tools/README.md#verantwoordelijkheden-en-integratie-reviewen). Onderbouw nieuwe abstracties volgens de wijzigingsscope, zonder lagen voor hypothetisch hergebruik.
+- Pas de [algemene ontwerpcriteria](.tools/lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels) en hun Puppet- en shelluitwerkingen toe. Volg bij tooling ook de [integratiereview](.tools/README.md#verantwoordelijkheden-en-integratie-reviewen). Onderbouw nieuwe abstracties volgens de wijzigingsscope, zonder lagen voor hypothetisch hergebruik.
 - Rond consolidatie af door alle geraakte aanroepers te migreren en vervangen implementaties en verwijzingen te verwijderen. Behoud bij vervanging van een ontwikkel- of consumerinterface één ondersteunde werkwijze, zonder aliases, adapters, fallbacks of tijdelijke compatibiliteitsperiode. Migreer consumers, instructies en tests tegelijk; beschrijf vereiste consumeracties en breaking release-impact volgens het versiebeleid.
 - Beoordeel het geheel op verantwoordelijkheidsgrenzen, dependencyrichting en consistent gedrag over alle ingangen. Noteer wat is hergebruikt, geconsolideerd, verwijderd of bewust afzonderlijk gehouden, met de wezenlijke redenen. Behoud beveiliging en levenscyclus van iedere aanroeper en valideer hun gedrag en dependencies volgens [TESTS.md](TESTS.md).
 
 ## Impact en inhoudelijke review
 
-Bepaal bij iedere wijziging welke parameteruitleg, implementatiecomments, README-ingang, voorbeelden, procedures en eventuele gegenereerde referentie geraakt zijn. Volg daarvoor [interfacebeschrijvingen synchroniseren](.tools/lint/docs/DOCUMENTATION_RULES.md#interfacebeschrijvingen-synchroniseren) en de [informatieplaatsing](.tools/lint/docs/DOCUMENTATION_RULES.md#informatieplaatsing); leg in de review vast wat is bijgewerkt of waarom de bestaande uitleg volstaat.
+Bepaal bij iedere wijziging welke parameteruitleg, implementatiecomments, README-ingang, voorbeelden, procedures en eventuele gegenereerde referentie geraakt zijn. Volg daarvoor [interfacebeschrijvingen synchroniseren](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#interfacebeschrijvingen-synchroniseren) en de [informatieplaatsing](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#informatieplaatsing); leg in de review vast wat is bijgewerkt of waarom de bestaande uitleg volstaat.
 
-- Pas de normen en hun handmatige reviewcriteria toe, ook als lint slaagt. De [lintconfiguratie](.puppet-lint.rc), gedeelde profielen en [checks](.tools/lint/lib/project_lint/checks/) bepalen automatische detectie en correctie; tooltests bewijzen alleen hun uitgevoerde scenario's. Houd verschillen tussen norm, configuratie, implementatie en testbewijs zichtbaar en wijzig geen bron stilzwijgend zonder bewijs of expliciete projectbeslissing.
+- Pas de normen en hun handmatige reviewcriteria toe, ook als lint slaagt. De [lintconfiguratie](.puppet-lint.rc), gedeelde profielen en [checks](.tools/lint/puppet/lib/project_lint/checks/) bepalen automatische detectie en correctie; tooltests bewijzen alleen hun uitgevoerde scenario's. Houd verschillen tussen norm, configuratie, implementatie en testbewijs zichtbaar en wijzig geen bron stilzwijgend zonder bewijs of expliciete projectbeslissing.
 - Neem bij wijzigingen aan Puppet-conventies hun tests en alle geraakte eigen code in dezelfde wijziging mee.
 - Beoordeel gevolgen voor conventies, Puppet-abstracties en herbruikbare wrappers. Onderzoek bij een concreet voorbeeld of hetzelfde principe geldt voor andere resourcetypen, consumers of integraties binnen het geraakte gebied. Pas gedeeld gedrag consistent toe, behoud typespecifieke betekenis en noteer bereik en bewuste beperkingen.
-- Beoordeel monitoring, logging, alarmering, auditregels en operationele diagnostiek, evenals documentatie, voorbeelden, platforms, compatibiliteit en operationele commando's. Volg voor documentatiewijzigingen de volledige [redactionele review](.tools/lint/docs/DOCUMENTATION_RULES.md#redactionele-review).
-- Beoordeel prerequisites, resourceplaatsing en runtime-inventarisatie met de criteria bij [dependencies](.tools/lint/docs/CODE_RULES.md#resources-en-afhankelijkheden), [ordering](.tools/lint/docs/CODE_RULES.md#volgorde-en-meldingen) en [Facter](.tools/lint/docs/CODE_RULES.md#runtime-inventarisatie-met-facter-modelleren). Beoordeel beheerde inhoud, helpers, shell en monitoring met de betreffende [operationele criteria](.tools/lint/docs/OPERATIONAL_RULES.md).
+- Beoordeel monitoring, logging, alarmering, auditregels en operationele diagnostiek, evenals documentatie, voorbeelden, platforms, compatibiliteit en operationele commando's. Volg voor documentatiewijzigingen de volledige [redactionele review](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#redactionele-review).
+- Beoordeel prerequisites, resourceplaatsing en runtime-inventarisatie met de criteria bij [dependencies](.tools/lint/puppet/docs/CODE_RULES.md#resources-en-afhankelijkheden), [ordering](.tools/lint/puppet/docs/CODE_RULES.md#volgorde-en-meldingen) en [Facter](.tools/lint/puppet/docs/CODE_RULES.md#runtime-inventarisatie-met-facter-modelleren). Beoordeel beheerde inhoud, helpers, shell en monitoring met de betreffende [operationele criteria](.tools/lint/puppet/docs/OPERATIONAL_RULES.md).
 - Meld mogelijkheden voor veilige lintdetectie of autofix die nog ontbreken als mogelijke linterverbeteringen. Implementeer ze alleen wanneer linterontwikkeling binnen de opdracht valt.
 
 ### Beveiligingsreview
@@ -82,7 +82,7 @@ Behandel beveiliging vanaf het ontwerp als eis. Behoud correcte hardening en ver
 
 - Beoordeel privileges, rechten, gebruikers, groepen, capabilities, sudo en geheimen. Onderzoek minder privilege of een beperktere service-identiteit; benoem nieuwe trust boundaries, sudo-routes, schrijfbare paden, capabilities en privilegeaannames.
 - Beoordeel systemd-ordering, targets, hardening, herstartgedrag en foutafhandeling. Onderzoek strakkere isolatie zonder gedragsbreuk.
-- Beoordeel netwerken, poorten, sockets, firewalls, TLS en servicedependencies. Benoem nieuw blootgestelde poorten. Gebruik bij firewalls het [deployment- en monitoringcontract](.tools/lint/docs/OPERATIONAL_RULES.md#firewallconfiguratie-bij-de-deployment-houden); valideer packetbereikbaarheid afzonderlijk wanneer nodig. Een geslaagde structurele inspectie bewijst die bereikbaarheid niet.
+- Beoordeel netwerken, poorten, sockets, firewalls, TLS en servicedependencies. Benoem nieuw blootgestelde poorten. Gebruik bij firewalls het [deployment- en monitoringcontract](.tools/lint/puppet/docs/OPERATIONAL_RULES.md#firewallconfiguratie-bij-de-deployment-houden); valideer packetbereikbaarheid afzonderlijk wanneer nodig. Een geslaagde structurele inspectie bewijst die bereikbaarheid niet.
 
 ## Veilig werken en gegevensdeling
 
@@ -137,7 +137,7 @@ Laat gevalideerde wijzigingen beschikbaar in de werkboom voor menselijke review 
 
 De eigen modules richten zich op Debian- en Ubuntu-servers. De volledige combinatie richt zich vooral op `amd64`; afzonderlijke platformroutes kunnen meer of minder releases of architecturen ondersteunen. Ondersteuningsclaims voor besturingssysteem, release, architectuur, Puppet of OpenVox moeten in dezelfde wijziging overeenkomen met implementatie, relevante metadata, beschikbare validatie en Nederlandstalige README.
 
-Runtime-modulekeuze volgt de [lokale integratie- en dependencyregels](.tools/lint/docs/OPERATIONAL_RULES.md#lokale-integraties-en-runtimeafhankelijkheden-kiezen).
+Runtime-modulekeuze volgt de [lokale integratie- en dependencyregels](.tools/lint/puppet/docs/OPERATIONAL_RULES.md#lokale-integraties-en-runtimeafhankelijkheden-kiezen).
 
 ### Release-impact bepalen
 
@@ -159,15 +159,15 @@ Kies vóór iedere oplevering de projectversie voor alle verzamelde wijzigingen 
 
 De versie moet nieuwer zijn dan de laatste gepubliceerde release en het hoogste vereiste niveau dekken. Behoud een al gekozen onuitgebrachte versie alleen wanneer die alle verzamelde wijzigingen nog dekt en leg uit waarom geen verdere verhoging nodig is. Verhoog niet automatisch per commit of lintrun en leid impact niet uit bestandsnamen af.
 
-Stel eerst `VERSION` in en synchroniseer uitsluitend de `version`-velden in root- en eigen modulemetadata. Behoud overige metadata en versies van imports en dependencies. Leid `VERSION` nooit af uit metadata of Git en werk haar daaruit niet automatisch bij; releasetags volgen de gekozen versie. Geef bij breaking wijzigingen concrete consumermigratie in release notes of een changelog en werk de gebruiksdocumentatie bij naar het actuele contract, volgens [duurzame documentatie](.tools/lint/docs/DOCUMENTATION_RULES.md#duurzame-documentatie). Houd gepubliceerde releases onveranderlijk en lever volgende wijzigingen onder een nieuwe versie.
+Stel eerst `VERSION` in en synchroniseer uitsluitend de `version`-velden in root- en eigen modulemetadata. Behoud overige metadata en versies van imports en dependencies. Leid `VERSION` nooit af uit metadata of Git en werk haar daaruit niet automatisch bij; releasetags volgen de gekozen versie. Geef bij breaking wijzigingen concrete consumermigratie in release notes of een changelog en werk de gebruiksdocumentatie bij naar het actuele contract, volgens [duurzame documentatie](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#duurzame-documentatie). Houd gepubliceerde releases onveranderlijk en lever volgende wijzigingen onder een nieuwe versie.
 
-De [metadatahandleiding](.tools/metadata/README.md#versiebron-en-rapportage) beheert validatie, selectie en synchronisatie; een geslaagde consistentiecontrole bewijst geen compatibiliteit. De lintgem heeft een afzonderlijke versie en [releaseprocedure](.tools/lint/README.md#een-gem-bouwen-en-versie-uitbrengen).
+De [metadatahandleiding](.tools/metadata/README.md#versiebron-en-rapportage) beheert validatie, selectie en synchronisatie; een geslaagde consistentiecontrole bewijst geen compatibiliteit. De lintgem heeft een afzonderlijke versie en [releaseprocedure](.tools/lint/puppet/README.md#een-gem-bouwen-en-versie-uitbrengen).
 
 ## Afronden en wijzigingsreview
 
 Voltooi [TESTS.md](TESTS.md), inclusief de toepasselijke CI-controles, de laatste Git-inventaris met nieuwe bestanden en de toegestane diffreview. Controleer de volledige wijziging op semantiek en scope, ook autofix: gedrag, resourcerelaties, dependencies en bedoelde configuratie moeten behouden blijven. Beoordeel correcties handmatig wanneer veiligheid niet aantoonbaar is.
 
-Controleer vóór oplevering de voorbereiding, scope, normeigenaars en toepasselijke code-, operationele, beveiligings- en documentatiereview, impact, versie en metadata. Gebruik bij herindeling van afspraken de [regels voor informatiebehoud en eindreview](.tools/lint/docs/DOCUMENTATION_RULES.md#afspraken-onderhouden). Controleer voor externe deling geheimenbescherming, minimale en synthetische of voldoende geanonimiseerde inhoud, volledige uitgaande context en het verbod op onzekere sanitization.
+Controleer vóór oplevering de voorbereiding, scope, normeigenaars en toepasselijke code-, operationele, beveiligings- en documentatiereview, impact, versie en metadata. Gebruik bij herindeling van afspraken de [regels voor informatiebehoud en eindreview](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#afspraken-onderhouden). Controleer voor externe deling geheimenbescherming, minimale en synthetische of voldoende geanonimiseerde inhoud, volledige uitgaande context en het verbod op onzekere sanitization.
 
 Vermeld in de wijzigingsreview en het eindantwoord:
 

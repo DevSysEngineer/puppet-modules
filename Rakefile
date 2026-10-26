@@ -8,11 +8,11 @@ def project_manifests
 end
 
 {
-  test: ['Run all tool tests', '.tools/*/tests/**/*_test.rb'],
+  test: ['Run all tool tests', '.tools/**/tests/**/*_test.rb'],
   'test:metadata' => ['Run metadata tool tests', '.tools/metadata/tests/**/*_test.rb'],
-  'test:ruby_lint' => ['Run Ruby lint package tests', '.tools/ruby-lint/tests/**/*_test.rb'],
+  'test:ruby_lint' => ['Run Ruby lint package tests', '.tools/lint/ruby/tests/**/*_test.rb'],
   'test:repository_checks' => ['Run repository integration checks', '.tools/repository-checks/tests/**/*_test.rb'],
-  'test:lint' => ['Run linter tests', '.tools/lint/tests/**/*_test.rb'],
+  'test:lint' => ['Run linter tests', '.tools/lint/puppet/tests/**/*_test.rb'],
   'test:catalog' => ['Run catalog runner tests', '.tools/catalog/tests/**/*_test.rb'],
   'test:syntax' => ['Run Puppet syntax tests', '.tools/syntax/tests/**/*_test.rb'],
   'test:secrets' => ['Run sensitive-data scanner tests', '.tools/secrets/tests/**/*_test.rb'],

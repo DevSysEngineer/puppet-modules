@@ -52,7 +52,7 @@ class GuideExamplesTest < Minitest::Test
 
   def documented_examples
     %w[CODE_RULES.md DOCUMENTATION_RULES.md OPERATIONAL_RULES.md].flat_map do |name|
-      File.read(File.join(LintTestSupport::ROOT, '.tools/lint/docs', name)).scan(EXAMPLE)
+      File.read(File.join(LintTestSupport::ROOT, '.tools/lint/puppet/docs', name)).scan(EXAMPLE)
     end
   end
 

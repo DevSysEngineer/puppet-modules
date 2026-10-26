@@ -8,11 +8,13 @@ class SharedGuideStructureTest < Minitest::Test
   include ProjectToolsTestSupport::GuideLinks
 
   ROOT = File.expand_path('../../..', __dir__)
-  COMPONENTS = %w[catalog lint metadata module-dependencies repository-checks ruby-lint secrets shared syntax].freeze
+  COMPONENTS = %w[catalog lint/puppet lint/ruby metadata module-dependencies repository-checks
+                  secrets shared syntax].freeze
   DEVELOPMENT_ROUTES = {
     'README.md' => ['CONTRIBUTING.md'],
-    'CONTRIBUTING.md' => ['TESTS.md', '.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels',
-                          '.tools/lint/docs/DOCUMENTATION_RULES.md', '.tools/lint/docs/OPERATIONAL_RULES.md',
+    'CONTRIBUTING.md' => ['TESTS.md', '.tools/lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels',
+                          '.tools/lint/puppet/docs/DOCUMENTATION_RULES.md',
+                          '.tools/lint/puppet/docs/OPERATIONAL_RULES.md',
                           '.tools/README.md#gedeeld-toolingonderhoud'],
     '.tools/README.md' => COMPONENTS.map do |name|
       "#{name}/README.md"
@@ -23,7 +25,8 @@ class SharedGuideStructureTest < Minitest::Test
     'CONTRIBUTING.md' => %w[voorbereiding-en-wijzigingsscope compatibiliteit-en-versies
                             veilig-werken-en-gegevensdeling],
     'TESTS.md' => %w[testscope-en-plaatsing shellvalidatie monitoringvalidatie],
-    '.tools/lint/docs/DOCUMENTATION_RULES.md' => %w[informatieplaatsing markdown readme-richtlijnen redactionele-review]
+    '.tools/lint/puppet/docs/DOCUMENTATION_RULES.md' => %w[informatieplaatsing markdown readme-richtlijnen
+                                                           redactionele-review]
   }.freeze
 
   def development_route_errors(root)
@@ -53,7 +56,8 @@ class SharedGuideStructureTest < Minitest::Test
   def policy_headings
     sources = ['AGENTS.md', '.tools/AGENTS.md', *POLICY_OWNERS.keys,
                *COMPONENTS.map { |name| ".tools/#{name}/AGENTS.md" },
-               '.tools/lint/docs/CODE_RULES.md', '.tools/lint/docs/OPERATIONAL_RULES.md', '.tools/lint/README.md']
+               '.tools/lint/puppet/docs/CODE_RULES.md', '.tools/lint/puppet/docs/OPERATIONAL_RULES.md',
+               '.tools/lint/puppet/README.md']
     sources.to_h { |name| [name, heading_anchors(File.read(File.join(ROOT, name)))] }
   end
 
@@ -69,7 +73,7 @@ class SharedGuideStructureTest < Minitest::Test
   def test_package_guides_link_every_heading_and_keep_the_lint_registry_at_its_owner
     root = File.expand_path('../../..', __dir__)
     %w[CONTRIBUTING.md TESTS.md .tools/README.md .tools/shared/README.md .tools/module-dependencies/README.md
-       .tools/catalog/README.md .tools/syntax/README.md .tools/metadata/README.md .tools/ruby-lint/README.md
+       .tools/catalog/README.md .tools/syntax/README.md .tools/metadata/README.md .tools/lint/ruby/README.md
        .tools/repository-checks/README.md .tools/secrets/README.md].each do |name|
       text = File.read(File.join(root, name))
       contents = text[/^## Inhoudsopgave\n(.*?)(?=^## )/m, 1]

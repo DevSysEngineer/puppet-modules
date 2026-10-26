@@ -208,9 +208,9 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Puppet lint'
-          mkdir -p .tools/lint/results
+          mkdir -p .tools/lint/puppet/results
           set +e
-          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit --result-status .tools/lint/results/puppet-lint-report.xml
+          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit --result-status .tools/lint/puppet/results/puppet-lint-report.xml
           LINT_STATUS=("${PIPESTATUS[@]}")
           LINT_RESULT_STATUS=${LINT_STATUS[1]}
           if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
@@ -247,7 +247,7 @@ jobs:
         with:
           name: Puppet-lint-report
           include-hidden-files: true
-          path: .tools/lint/results/puppet-lint-report.xml
+          path: .tools/lint/puppet/results/puppet-lint-report.xml
 
   ruby_lint:
     name: Ruby lint
@@ -265,20 +265,20 @@ jobs:
         run: |
           source .github/actions/setup-tooling/log.sh
           ci_begin 'Ruby lint' native
-          mkdir -p .tools/ruby-lint/results
-          rm -f -- .tools/ruby-lint/results/rubocop-report.xml
-          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out .tools/ruby-lint/results/rubocop-report.xml; then
+          mkdir -p .tools/lint/ruby/results
+          rm -f -- .tools/lint/ruby/results/rubocop-report.xml
+          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out .tools/lint/ruby/results/rubocop-report.xml; then
               RUBY_STATUS=0
           else
               RUBY_STATUS=$?
           fi
-          if [ "$RUBY_STATUS" -le 1 ] && [ -s .tools/ruby-lint/results/rubocop-report.xml ]; then
-              printf 'JUnit written: %s\n' .tools/ruby-lint/results/rubocop-report.xml
+          if [ "$RUBY_STATUS" -le 1 ] && [ -s .tools/lint/ruby/results/rubocop-report.xml ]; then
+              printf 'JUnit written: %s\n' .tools/lint/ruby/results/rubocop-report.xml
           fi
           case "$RUBY_STATUS" in
               0) ci_end 0 PASSED complete ;;
               1)
-                  if [ -s .tools/ruby-lint/results/rubocop-report.xml ]; then
+                  if [ -s .tools/lint/ruby/results/rubocop-report.xml ]; then
                       ci_end 1 FAILED complete 'RuboCop offenses exceed the configured failure threshold.'
                   else
                       ci_end 1 ERROR incomplete 'RuboCop exited without a new, non-empty report; inspect the native diagnostic above.'
@@ -306,7 +306,7 @@ jobs:
         with:
           name: Ruby-lint-report
           include-hidden-files: true
-          path: .tools/ruby-lint/results/rubocop-report.xml
+          path: .tools/lint/ruby/results/rubocop-report.xml
 
   tool_tests:
     name: Tool tests

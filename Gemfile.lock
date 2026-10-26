@@ -1,5 +1,5 @@
 PATH
-  remote: .tools/lint
+  remote: .tools/lint/puppet
   specs:
     lint-project (0.4.0)
       json (< 3)
@@ -9,6 +9,12 @@ PATH
       puppet-lint-param-types (~> 3.0)
       puppet-lint-trailing_comma-check (~> 3.0)
       syslog (~> 0.4)
+
+PATH
+  remote: .tools/lint/ruby
+  specs:
+    project-tools-ruby-lint (0.1.0)
+      rubocop (~> 1.91)
 
 PATH
   remote: .tools/metadata
@@ -26,12 +32,6 @@ PATH
       project-tools-shared (>= 0.1.1, < 0.2.0)
       semantic_puppet (~> 1.1)
       syslog (~> 0.4)
-
-PATH
-  remote: .tools/ruby-lint
-  specs:
-    project-tools-ruby-lint (0.1.0)
-      rubocop (~> 1.91)
 
 PATH
   remote: .tools/secrets

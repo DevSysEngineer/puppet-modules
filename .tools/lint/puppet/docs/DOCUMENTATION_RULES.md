@@ -1,6 +1,6 @@
 # Documentatienormen en reviewcriteria
 
-Dit document bevat de algemene normen voor repositorydocumentatie, informatieplaatsing, Markdown, README's en redactionele review. De aanvullende codecommentaar- en interfaceregels benoemen hun scope; Puppet Strings en Puppet-specifieke opmaak blijven tot Puppet beperkt. Gebruik de [gezamenlijke ontwikkelwerkwijze](../../../CONTRIBUTING.md) en het [testbeleid](../../../TESTS.md) voor voorbereiding, verplichte validatie en oplevering.
+Dit document bevat de algemene normen voor repositorydocumentatie, informatieplaatsing, Markdown, README's en redactionele review. De aanvullende codecommentaar- en interfaceregels benoemen hun scope; Puppet Strings en Puppet-specifieke opmaak blijven tot Puppet beperkt. Gebruik de [gezamenlijke ontwikkelwerkwijze](../../../../CONTRIBUTING.md) en het [testbeleid](../../../../TESTS.md) voor voorbereiding, verplichte validatie en oplevering.
 
 Volg bij codewijzigingen ook de toepasselijke [algemene en taalspecifieke coderegels](CODE_RULES.md), en bij bestanden, rechten, beveiliging, services, shell, runtime-tools of monitoring de [operationele normen](OPERATIONAL_RULES.md). De drie bronnen kunnen tegelijk gelden. Een groene scan bewijst geen volledige naleving; normen zonder automatische controle blijven verplicht.
 
@@ -86,11 +86,11 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 | Bron | Verantwoordelijkheid |
 | --- | --- |
 | Root-`README.md` | Doel, installatie, algemene voorwaarden, beginnen en ingangen naar modules, voorbeelden en procedures, met een vindbare ontwikkelaarsingang. |
-| [CONTRIBUTING.md](../../../CONTRIBUTING.md) | Gezamenlijke voorbereiding, scope, ontwikkelworkflow, impact- en beveiligingsreview, Git-beleid, versiebeleid en oplevering. |
-| [TESTS.md](../../../TESTS.md) | Repositorybreed testbeleid, toepasselijkheid en volgorde van verplichte controles, scenarioselectie, aanvullende validatie en bewijsvoering. |
+| [CONTRIBUTING.md](../../../../CONTRIBUTING.md) | Gezamenlijke voorbereiding, scope, ontwikkelworkflow, impact- en beveiligingsreview, Git-beleid, versiebeleid en oplevering. |
+| [TESTS.md](../../../../TESTS.md) | Repositorybreed testbeleid, toepasselijkheid en volgorde van verplichte controles, scenarioselectie, aanvullende validatie en bewijsvoering. |
 | Root- en lokale `AGENTS.md` | Verplichte agentleesroutes, instructiehiërarchie en werkelijk agentspecifieke aanwijzingen. |
-| [Gedeelde tooling-README](../../README.md) | Installatie, pakketkeuze, modulepad, commando-overzicht, CI, rapporten, consumerintegratie, distributie, gezamenlijke tooltests en gedeeld toolingonderhoud. |
-| Tool-README's | Publieke interfaces, architectuur, ondersteund gebruik, componentonderhoud, verificatie en concrete testaanroepen; vind de eigenaar via het [tooloverzicht](../../README.md#pakketten-en-commandos). |
+| [Gedeelde tooling-README](../../../README.md) | Installatie, pakketkeuze, modulepad, commando-overzicht, CI, rapporten, consumerintegratie, distributie, gezamenlijke tooltests en gedeeld toolingonderhoud. |
+| Tool-README's | Publieke interfaces, architectuur, ondersteund gebruik, componentonderhoud, verificatie en concrete testaanroepen; vind de eigenaar via het [tooloverzicht](../../../README.md#pakketten-en-commandos). |
 | [Lint-README](../README.md) | Lintgebruik, dagelijkse correctiewerkwijze, het enige checkregister, configuratie, autofixgedrag, architectuur, lintonderhoud en linttestaanroepen. |
 | [CODE_RULES.md](CODE_RULES.md) | Algemene codeprincipes voor alle eigen talen en componenten, inclusief tooling; herkenbaar afgebakende taalregels, voorwaarden, uitzonderingen, handmatige reviewcriteria, detectie- en autofixgrenzen en voorbeelden. Puppet-syntax en resourceregels gelden alleen voor Puppet. |
 | Dit document | Algemene documentatienormen en aanvullende codecommentaar-, Puppet Strings- en interfaceafspraken, met toepasselijke uitzonderingen, detectie- en autofixgrenzen en voorbeelden. |
@@ -161,7 +161,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 
 - Verifieer gewijzigde, verplaatste of als verouderd verwijderde technische claims tegen actuele manifests, Puppet Strings, scripts, templates en voorbeelden. De README is geen implementatiebewijs.
 - Meld onopgeloste verschillen tussen documentatie en implementatie en behoud noodzakelijke waarschuwingen totdat het verschil is opgelost.
-- Controleer commando's, paden, opties en verwijzingen tegen voorbeelden en actuele implementatie. Controleer gewijzigde links en relatieve repositorylinks met de [documentatietests](../../repository-checks/README.md); beoordeel externe bestemmingen afzonderlijk. Controleer dat verplaatste informatie daadwerkelijk op de bestemming staat.
+- Controleer commando's, paden, opties en verwijzingen tegen voorbeelden en actuele implementatie. Controleer gewijzigde links en relatieve repositorylinks met de [documentatietests](../../../repository-checks/README.md); beoordeel externe bestemmingen afzonderlijk. Controleer dat verplaatste informatie daadwerkelijk op de bestemming staat.
 
 ### Proza beoordelen
 
@@ -251,7 +251,7 @@ Deze criteria gelden voor duurzame gezamenlijke afspraken en agentroutes. Kies d
 
 ### Eindreview van afspraken
 
-- Vergelijk met de eerdere versie via de [toegestane Git-inspectie](../../../CONTRIBUTING.md#git-inspectie), met gecontroleerde analysekopieën voor gevoelige inhoud. Verifieer behoud bij de eigenaar van iedere oorspronkelijke verplichting, verbod, voorkeur, voorwaarde, uitzondering, technisch contract, compatibiliteitseis, waarborg, uitleg, voorbeeld en verificatie-instructie, of een expliciet onderbouwde correctie. Controleer bij eigendomsoverdracht ook de werkende verwijzing.
+- Vergelijk met de eerdere versie via de [toegestane Git-inspectie](../../../../CONTRIBUTING.md#git-inspectie), met gecontroleerde analysekopieën voor gevoelige inhoud. Verifieer behoud bij de eigenaar van iedere oorspronkelijke verplichting, verbod, voorkeur, voorwaarde, uitzondering, technisch contract, compatibiliteitseis, waarborg, uitleg, voorbeeld en verificatie-instructie, of een expliciet onderbouwde correctie. Controleer bij eigendomsoverdracht ook de werkende verwijzing.
 - Controleer dat verbreding en herindeling verplichtingen niet optioneel en opties niet verplicht maken. Review iedere gewijzigde norm handmatig op noodzaak, herbruikbaarheid, scanbaarheid, unieke plaats, ondubbelzinnigheid en consistentie met instructieketen, terminologie en verwijzingen.
 - Voer automatische controles op letterlijke duplicaten en lokale links uit met bestaande tooling of geïsoleerde tijdelijke controles. Review betekenis, structuur en leesbaarheid handmatig, zonder numerieke prozalengte-eisen.
 - Leg voor iedere inhoudelijke regelwijziging bestaand beleid, reden, behouden verplichtingen en uitzonderingen vast buiten permanente instructies. Controleer ook de omgekeerde richting: iedere nieuwe verplichting, uitzondering of technische claim moet steunen op eerder beleid, een bestaande projectafspraak of expliciete opdracht. Maak open conflicten zichtbaar vóór oplevering.
@@ -467,7 +467,7 @@ Vergelijk met de huidige code en goed gedocumenteerde voorbeelden en controleer 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Niet-zichtbare implementatiekeuzes toelichten
 
@@ -509,7 +509,7 @@ Controleer iedere genoemde soort keuze en koppel de uitleg aan het lokale risico
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Codecommentaar in Engelse zinnen schrijven
 
@@ -551,7 +551,7 @@ Lees de volledige zin en werk willekeurige afbrekingen in geraakte comments weg.
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden toelichten
 
@@ -1719,7 +1719,7 @@ Beoordeel deze handmatige scenario's met de [README-richtlijn](#scope-en-configu
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Documentatie op haar aangewezen plaats onderhouden
 
@@ -1757,13 +1757,13 @@ Controleer de verantwoordelijkheden van iedere geraakte uitleg en voorkom een tw
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Uitvoerbare voorbeeldscenario’s onderhouden
 
 **Norm**
 
-Breid bij voorkeur een bestaand voorbeeldscenario uit. Toon daarin de benodigde parameters en zorg dat het voorbeeld met de genoemde voorwaarden uitvoerbaar is. De [project-README](../../../README.md#gebruik-van-voorbeelden-en-parameterdocumentatie) beschrijft het gebruik van voorbeeldwaarden, `Sensitive`-wrappers en Hiera; voor synthetische gegevens gelden de [beveiligingsregels](../../../CONTRIBUTING.md#veilig-werken-en-gegevensdeling).
+Breid bij voorkeur een bestaand voorbeeldscenario uit. Toon daarin de benodigde parameters en zorg dat het voorbeeld met de genoemde voorwaarden uitvoerbaar is. De [project-README](../../../../README.md#gebruik-van-voorbeelden-en-parameterdocumentatie) beschrijft het gebruik van voorbeeldwaarden, `Sensitive`-wrappers en Hiera; voor synthetische gegevens gelden de [beveiligingsregels](../../../../CONTRIBUTING.md#veilig-werken-en-gegevensdeling).
 
 **Herkomst**
 
@@ -1795,4 +1795,4 @@ Controleer alle genoemde prerequisites, argumenten en synthetische waarden; vali
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.

@@ -9,9 +9,9 @@ class ExternalImportsTest < Minitest::Test
   include ProjectToolsPackageSupport
   include ImportsSupport
 
-  PACKAGES = { 'shared' => 'project-tools-shared', 'lint' => 'lint-project',
+  PACKAGES = { 'shared' => 'project-tools-shared', 'lint/puppet' => 'lint-project',
                'module-dependencies' => 'project-tools-module-dependencies', 'syntax' => 'project-tools-syntax',
-               'metadata' => 'project-tools-metadata', 'ruby-lint' => 'project-tools-ruby-lint',
+               'metadata' => 'project-tools-metadata', 'lint/ruby' => 'project-tools-ruby-lint',
                'secrets' => 'project-tools-secrets' }.freeze
 
   def setup
@@ -23,7 +23,7 @@ class ExternalImportsTest < Minitest::Test
 
   def test_path_consumer_has_its_own_bundle_and_loads_the_monorepo_gemspec
     checkout = File.join(@project, 'global-modules')
-    destination = File.join(checkout, '.tools/lint')
+    destination = File.join(checkout, '.tools/lint/puppet')
     PACKAGES.each { |tool, name| copy_package_source(tool, name, checkout) }
     dependencies = PACKAGES.map do |tool, name|
       "gem '#{name}', path: 'global-modules/.tools/#{tool}', require: false"
@@ -37,7 +37,7 @@ class ExternalImportsTest < Minitest::Test
     repository, revision = git_worktree
     dependencies = PACKAGES.values.map { |name| "gem '#{name}', require: false" }.join("\n")
     replace_consumer_dependency(<<~RUBY)
-      git #{repository.dump}, ref: #{revision.dump}, glob: '.tools/*/*.gemspec' do
+      git #{repository.dump}, ref: #{revision.dump}, glob: '.tools/**/*.gemspec' do
         #{dependencies}
       end
     RUBY

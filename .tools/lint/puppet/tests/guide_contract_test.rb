@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require_relative '../../shared/test_support/guide_links'
+require_relative '../../../shared/test_support/guide_links'
 
 # Check the guide's bounded technical structure against the loaded public interfaces.
 class GuideContractTest < Minitest::Test
   include LintTestSupport
   include ProjectToolsTestSupport::GuideLinks
 
-  GUIDE = File.join(LintTestSupport::ROOT, '.tools/lint/README.md')
+  GUIDE = File.join(LintTestSupport::ROOT, '.tools/lint/puppet/README.md')
   RULES = %w[docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md].freeze
   FIELDS = ['Norm', 'Herkomst', 'Toepassingsgebied', 'Automatische controle', 'Detectiegrenzen',
             'Meldingen en severity', 'Autofix', 'Autofixvoorwaarden', 'Toegestane uitzonderingen',
@@ -46,7 +46,7 @@ class GuideContractTest < Minitest::Test
 
   def test_registry_activation_matches_both_profiles
     repository = profile_checks('.puppet-lint.rc')
-    shared = profile_checks('.tools/lint/config/puppet-lint.rc')
+    shared = profile_checks('.tools/lint/puppet/config/puppet-lint.rc')
     registry.each do |row|
       check = row.first.delete('`')
       assert_equal repository.fetch(check) ? 'Ja' : 'Nee', row[1], check

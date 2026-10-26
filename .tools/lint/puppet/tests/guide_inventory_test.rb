@@ -6,7 +6,7 @@ require_relative 'test_helper'
 class GuideInventoryTest < Minitest::Test
   DOCUMENTS = %w[README.md docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md
                  AGENTS.md].freeze
-  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint')
+  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint/puppet')
 
   def assert_document_inventory(root)
     documents = Dir.glob('**/*.md', File::FNM_DOTMATCH, base: root)

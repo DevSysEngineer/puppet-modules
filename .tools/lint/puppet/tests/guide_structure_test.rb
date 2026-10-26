@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require_relative '../../shared/test_support/guide_links'
+require_relative '../../../shared/test_support/guide_links'
 
 # Keep tooling, general rules, documentation rules and operational rules in their assigned files.
 class GuideStructureTest < Minitest::Test
   include ProjectToolsTestSupport::GuideLinks
 
-  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint')
+  ROOT = File.join(LintTestSupport::ROOT, '.tools/lint/puppet')
   DOCUMENTS = %w[README.md docs/CODE_RULES.md docs/DOCUMENTATION_RULES.md docs/OPERATIONAL_RULES.md].freeze
-  INSTRUCTIONS = ['../../AGENTS.md', '../AGENTS.md',
-                  *Dir.glob('*/AGENTS.md', base: File.join(ROOT, '..')).map { |path| "../#{path}" }].freeze
+  INSTRUCTIONS = ['../../../AGENTS.md', '../../AGENTS.md',
+                  *Dir.glob('**/AGENTS.md', base: File.join(ROOT, '../..')).map { |path| "../../#{path}" }].freeze
   RULE_GROUPS = {
     'docs/CODE_RULES.md' => ['Algemene ontwerpregels', 'Basisopmaak', 'Inspringing', "Komma's", 'Lange regels',
                              'Parameters en resources'],
@@ -77,7 +77,7 @@ class GuideStructureTest < Minitest::Test
   end
 
   def test_implementation_topics_have_one_owner_across_all_documentation_layers
-    headings = [*DOCUMENTS, *INSTRUCTIONS, '../../CONTRIBUTING.md', '../../TESTS.md'].to_h do |name|
+    headings = [*DOCUMENTS, *INSTRUCTIONS, '../../../CONTRIBUTING.md', '../../../TESTS.md'].to_h do |name|
       [name, prose(File.read(File.join(ROOT, name))).scan(/^\#{2,6} (.+)$/).flatten]
     end
     RULE_OWNERS.each do |owner, titles|

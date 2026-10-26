@@ -13,7 +13,7 @@ class GuideLinksTest < Minitest::Test
 
   def with_guide(text)
     Dir.mktmpdir('guide-links') do |root|
-      source = File.join(root, '.tools/lint/README.md')
+      source = File.join(root, '.tools/lint/puppet/README.md')
       FileUtils.mkdir_p(File.dirname(source))
       File.write(source, text)
       yield root, source
@@ -43,10 +43,10 @@ class GuideLinksTest < Minitest::Test
   def test_checks_relative_files_encoded_fragments_and_explicit_anchors
     with_guide("# Guide\n") do |root, source|
       File.write(File.join(root, 'README.md'), "# Één keuze\n\n<a id='legacy'></a>\n")
-      %w[../../README.md#%C3%A9%C3%A9n-keuze ../../README.md#legacy].each do |link|
+      %w[../../../README.md#%C3%A9%C3%A9n-keuze ../../../README.md#legacy].each do |link|
         assert_empty link_errors("[Target](#{link} \"Title\")", source: source, root: root)
       end
-      refute_empty link_errors('[Missing](../../README.md#absent)', source: source, root: root)
+      refute_empty link_errors('[Missing](../../../README.md#absent)', source: source, root: root)
     end
   end
 
@@ -84,7 +84,7 @@ class GuideLinksTest < Minitest::Test
     paths = repository_markdown(ROOT)
     refute_empty paths
     paths.each do |source|
-      message = "#{source}: Use relative links (.tools/lint/docs/DOCUMENTATION_RULES.md#markdown)"
+      message = "#{source}: Use relative links (.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#markdown)"
       refute File.read(source).match?(repository_url), message
     end
   end

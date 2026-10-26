@@ -6,7 +6,7 @@ Raakt je wijziging documentatie of codecommentaar, inclusief Puppet Strings en i
 
 Raakt je wijziging beheerde bestanden of mappen, eigenaarschap of rechten, beveiliging, systemd of services, shellcode of shelltemplates, runtime-tools of operationele dependencies, of monitoringchecks en hun registratie, volg dan ook de relevante regels uit [OPERATIONAL_RULES.md](OPERATIONAL_RULES.md). Beide aanvullende documenten kunnen tegelijk van toepassing zijn en vervangen deze algemene coderegels nooit.
 
-De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter of deze regels volgt het [lintonderhoud](../README.md#linter-ontwikkelen-en-testen). Alleen het toepassen van de regels vereist die onderhoudsroute niet. De [gezamenlijke ontwikkelafspraken](../../../CONTRIBUTING.md#leesroute-en-verantwoordelijkheid) bepalen voorbereiding, wijzigingsscope, migratie, validatie en oplevering. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
+De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de configuratie en de werking van de tooling. Onderhoud aan de linter of deze regels volgt het [lintonderhoud](../README.md#linter-ontwikkelen-en-testen). Alleen het toepassen van de regels vereist die onderhoudsroute niet. De [gezamenlijke ontwikkelafspraken](../../../../CONTRIBUTING.md#leesroute-en-verantwoordelijkheid) bepalen voorbereiding, wijzigingsscope, migratie, validatie en oplevering. Een groene lintscan bewijst niet dat alle handmatige regels zijn nageleefd. Ontbrekende automatische detectie vormt geen uitzondering op een regel.
 
 ## Inhoudsopgave
 
@@ -120,7 +120,7 @@ Handmatig reviewscenario: Beide ingangen gebruiken dezelfde bestaande verwerking
 
 **Grensgevallen**
 
-Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een mogelijke toekomstige aanroeper rechtvaardigt geen nieuwe abstractie; de [wijzigingsscope](../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen) bepaalt welke toevoegingen nodig zijn.
+Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een mogelijke toekomstige aanroeper rechtvaardigt geen nieuwe abstractie; de [wijzigingsscope](../../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen) bepaalt welke toevoegingen nodig zijn.
 
 **Handmatige review**
 
@@ -128,7 +128,7 @@ Vergelijk per aanroeper invoer, resultaat, foutafhandeling, voorwaarden, beveili
 
 **Verificatie**
 
-Beoordeel beide scenario's en valideer de betrokken aanroepers volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang) en [validatieafspraken](../../../TESTS.md#testbeleid-en-validatie). De documentatiecontracttests bewaken de vindbaarheid en unieke plaats van de norm; zij bewijzen geen gelijkwaardig gedrag.
+Beoordeel beide scenario's en valideer de betrokken aanroepers volgens de [hergebruikreview](../../../../CONTRIBUTING.md#hergebruik-en-samenhang) en [validatieafspraken](../../../../TESTS.md#testbeleid-en-validatie). De documentatiecontracttests bewaken de vindbaarheid en unieke plaats van de norm; zij bewijzen geen gelijkwaardig gedrag.
 
 ### Verantwoordelijkheden en interfaces afbakenen
 
@@ -138,7 +138,7 @@ Houd functionaliteit die meerdere taken binnen één component delen bij die com
 
 Maak invoer, resultaten en afhankelijkheden van herbruikbare code expliciet genoeg voor de werkelijke aanroepers. Houd de ingang die een taak ontvangt gescheiden van de verwerking die zij aanroept. De interface maakt duidelijk welke verantwoordelijkheid bij de aanroeper blijft en welke de ontvangende component uitvoert.
 
-Pas voor Puppet-configuratie de [eigenaarschapscriteria](#instellingen-bij-hun-eigenaar-houden) toe, voor hergebruik van parentwaarden in Puppet de [classcontroles](#classcontroles-hergebruiken), en voor shellcode de [helpergrenzen](OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen). De [toolingarchitectuur](../../README.md#verantwoordelijkheden-gescheiden-houden) benoemt de concrete pakketten en CLI-verantwoordelijkheden die deze principes uitvoeren.
+Pas voor Puppet-configuratie de [eigenaarschapscriteria](#instellingen-bij-hun-eigenaar-houden) toe, voor hergebruik van parentwaarden in Puppet de [classcontroles](#classcontroles-hergebruiken), en voor shellcode de [helpergrenzen](OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen). De [toolingarchitectuur](../../../README.md#verantwoordelijkheden-gescheiden-houden) benoemt de concrete pakketten en CLI-verantwoordelijkheden die deze principes uitvoeren.
 
 **Herkomst**
 
@@ -166,7 +166,7 @@ Handmatig reviewscenario: De bibliotheek verwerkt expliciete invoer en levert ee
 
 **Grensgevallen**
 
-Houd een gedeelde taak binnen haar component zolang andere componenten haar niet nodig hebben. Een bestaande component kan haar eigen berekeningen uitvoeren; een afzonderlijke helper of extra laag is daarvoor niet vanzelf nodig. Beoordeel de noodzaak volgens de [wijzigingsscope](../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen).
+Houd een gedeelde taak binnen haar component zolang andere componenten haar niet nodig hebben. Een bestaande component kan haar eigen berekeningen uitvoeren; een afzonderlijke helper of extra laag is daarvoor niet vanzelf nodig. Beoordeel de noodzaak volgens de [wijzigingsscope](../../../../CONTRIBUTING.md#scope-en-bestaande-wijzigingen).
 
 **Handmatige review**
 
@@ -174,7 +174,7 @@ Volg de gegevensstroom van iedere ingang via de verwerking naar het resultaat. C
 
 **Verificatie**
 
-Vergelijk de scenario's en controleer de interfaces met hun werkelijke aanroepers volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang). Bij tooling hoort daar de [integratiereview](../../README.md#verantwoordelijkheden-en-integratie-reviewen) bij. De documentatiecontracttests bewaken structuur en verwijzingen; de inhoudelijke eigendomsbeslissing blijft handmatig.
+Vergelijk de scenario's en controleer de interfaces met hun werkelijke aanroepers volgens de [hergebruikreview](../../../../CONTRIBUTING.md#hergebruik-en-samenhang). Bij tooling hoort daar de [integratiereview](../../../README.md#verantwoordelijkheden-en-integratie-reviewen) bij. De documentatiecontracttests bewaken structuur en verwijzingen; de inhoudelijke eigendomsbeslissing blijft handmatig.
 
 ## Basisopmaak
 
@@ -1130,7 +1130,7 @@ Vergelijk iedere gemigreerde aanroeper, diens instellingen, resource-eigendom, b
 
 **Verificatie**
 
-Vergelijk beide reviewscenario’s en valideer iedere gemigreerde aanroeper afzonderlijk volgens de [hergebruikreview](../../../CONTRIBUTING.md#hergebruik-en-samenhang).
+Vergelijk beide reviewscenario’s en valideer iedere gemigreerde aanroeper afzonderlijk volgens de [hergebruikreview](../../../../CONTRIBUTING.md#hergebruik-en-samenhang).
 
 ### Publieke parameters expliciet typeren
 
@@ -1419,7 +1419,7 @@ Controleer true als veilige standaard, false als weglaten en scalar als eigen wa
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Parameternamen op onderwerp kiezen
 
@@ -1461,7 +1461,7 @@ Controleer naamvolgorde en test een cijfer aan het begin op iedere ondersteunde 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Voorwaarden en validatie
 
@@ -1666,7 +1666,7 @@ Vergelijk de aanwezigheid van de regel en haar inhoud afzonderlijk voor explicie
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Optionele waarden alleen bij gebruik valideren
 
@@ -1708,7 +1708,7 @@ Volg beide gebruikspaden en controleer dat de foutmelding in de laatste else sta
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Classcontroles hergebruiken
 
@@ -1832,7 +1832,7 @@ Valideer de aanwezigheid en afwezigheid en de daadwerkelijke evaluatievolgorde v
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Resources en afhankelijkheden
 
@@ -2024,7 +2024,7 @@ Vergelijk de contractafspraak tussen beide onderdelen en gebruik na een afgeweze
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Dependencies pas na een geslaagde controle koppelen
 
@@ -2066,7 +2066,7 @@ Traceer zichtbaarheid op het evaluatiemoment en onderscheid die van de uiteindel
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Prerequisites van ordering onderscheiden
 
@@ -2074,7 +2074,7 @@ Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven h
 
 Maak bij dependencies onderscheid tussen wat een operatie nodig heeft om te kunnen draaien en wat alleen de uitvoervolgorde bepaalt. Het weglaten van een dependencyreference, zoals `require`, schakelt de afhankelijke operatie niet uit. Leid runtimebeschikbaarheid nooit uitsluitend af uit de aanwezigheid of afwezigheid van een declaratie.
 
-Het gedocumenteerde contract moet vereiste prerequisites vóór gebruik leveren of het gedrag bij ontbreken vastleggen: sla een optionele operatie over of faal duidelijk bij een verplichte operatie. De [prerequisitereview](../../../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud) vereist validatie met prerequisites aanwezig en afwezig, inclusief de relevante declaratie- en evaluatievolgorde.
+Het gedocumenteerde contract moet vereiste prerequisites vóór gebruik leveren of het gedrag bij ontbreken vastleggen: sla een optionele operatie over of faal duidelijk bij een verplichte operatie. De [prerequisitereview](../../../../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud) vereist validatie met prerequisites aanwezig en afwezig, inclusief de relevante declaratie- en evaluatievolgorde.
 
 **Herkomst**
 
@@ -2110,7 +2110,7 @@ Controleer aanwezigheid, afwezigheid, declaratievolgorde en evaluatievolgorde vo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Runtime-inventarisatie met Facter modelleren
 
@@ -2156,7 +2156,7 @@ Controleer dat discovery alleen leest, algemene inventarisatie geen applicatiebe
 
 **Verificatie**
 
-Beoordeel beide scenario's tegen de norm. Valideer factuitvoer en catalogusgedrag met geïsoleerde synthetische runtimegegevens buiten de repository volgens de [validatieafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De documentatietests controleren structuur en verwijzingen, niet het runtimegedrag van de fact.
+Beoordeel beide scenario's tegen de norm. Valideer factuitvoer en catalogusgedrag met geïsoleerde synthetische runtimegegevens buiten de repository volgens de [validatieafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De documentatietests controleren structuur en verwijzingen, niet het runtimegedrag van de fact.
 
 ### Packageafhankelijkheden bij externe commando’s
 
@@ -2288,7 +2288,7 @@ Gebruik dit patroon wanneer de hoofdclass de package-instellingen bezit, maar in
 
 De hoofdclass beschrijft met `@package` de gewenste toestand zonder die al af te dwingen. De actieve define maakt diezelfde resource met `realize(Package[...])` beheerd. Meerdere defines mogen dezelfde resource activeren: er blijft één package-resource met één set instellingen. Zie de [Puppet-uitleg over virtuele resources](https://help.puppet.com/core/current/Content/PuppetCore/lang_virtual.htm).
 
-Fragment uit [netplanio](../../../netplanio/manifests/init.pp); de hoofdclass beheert ook de algemene modulepackages:
+Fragment uit [netplanio](../../../../netplanio/manifests/init.pp); de hoofdclass beheert ook de algemene modulepackages:
 
 ```puppet
 # Keep the optional package settings with their owner.
@@ -2300,7 +2300,7 @@ if (!defined(Package['wpasupplicant'])) {
 }
 ```
 
-Fragment uit [netplanio::wifi](../../../netplanio/manifests/wifi.pp), binnen de bestaande parentclasscontrole en de tak voor `ensure => present`. Alleen de activatie en packagevolgorde zijn getoond; de overige bestandsattributen en de afhandeling van `absent` blijven in de define:
+Fragment uit [netplanio::wifi](../../../../netplanio/manifests/wifi.pp), binnen de bestaande parentclasscontrole en de tak voor `ensure => present`. Alleen de activatie en packagevolgorde zijn getoond; de overige bestandsattributen en de afhandeling van `absent` blijven in de define:
 
 ```puppet
 # Activate the package before using its functionality.
@@ -2478,7 +2478,7 @@ Controleer de werkelijke implementatie, overloads, expliciete invoer en alle gen
 
 **Verificatie**
 
-[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [duplicate_function_placement_test.rb](../tests/duplicate_function_placement_test.rb) en [duplicate_function_placement_safety_test.rb](../tests/duplicate_function_placement_safety_test.rb) controleren één en meerdere AST-eigenaren, commentaarbinding, verplichte groepsuitleg, scopes en interacties met de sectiechecks. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../TESTS.md).
+[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [duplicate_function_placement_test.rb](../tests/duplicate_function_placement_test.rb) en [duplicate_function_placement_safety_test.rb](../tests/duplicate_function_placement_safety_test.rb) controleren één en meerdere AST-eigenaren, commentaarbinding, verplichte groepsuitleg, scopes en interacties met de sectiechecks. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../../TESTS.md).
 
 ### Alle verplichte argumenten doorgeven
 
@@ -3174,7 +3174,7 @@ Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende imple
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Relaties en meldingen behouden
 
@@ -3214,7 +3214,7 @@ Volg de cyclus door require, notify, subscribe en containment; controleer welke 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
 
 ### Instellingen bij hun eigenaar houden
 

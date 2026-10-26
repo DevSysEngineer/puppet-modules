@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative '../../shared/test_support/bootstrap'
-require_relative '../../shared/test_support/packages'
+require_relative '../../../shared/test_support/bootstrap'
+require_relative '../../../shared/test_support/packages'
 require 'timeout'
 
 # Exercise the Ruby package without installing Puppet tooling.
@@ -12,7 +12,7 @@ class ExternalRubyTest < Minitest::Test
     @project = Dir.mktmpdir('ruby-lint-consumer-')
     consumer_environment
     prepare_environment
-    build_install('ruby-lint', 'project-tools-ruby-lint')
+    build_install('lint/ruby', 'project-tools-ruby-lint')
     write('Gemfile', "source 'https://rubygems.org'\ngem 'project-tools-ruby-lint', '= 0.1.0'\n")
     run_success('bundle', 'install', '--local')
     run_success('bundle', 'exec', 'ruby', '-e',
