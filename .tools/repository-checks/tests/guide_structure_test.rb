@@ -8,7 +8,7 @@ class SharedGuideStructureTest < Minitest::Test
   include ProjectToolsTestSupport::GuideLinks
 
   ROOT = File.expand_path('../../..', __dir__)
-  COMPONENTS = %w[lint metadata module-dependencies repository-checks ruby-lint secrets shared validate].freeze
+  COMPONENTS = %w[catalog lint metadata module-dependencies repository-checks ruby-lint secrets shared syntax].freeze
   DEVELOPMENT_ROUTES = {
     'README.md' => ['CONTRIBUTING.md'],
     'CONTRIBUTING.md' => ['TESTS.md', '.tools/lint/docs/CODE_RULES.md#algemene-ontwerpregels',
@@ -69,7 +69,7 @@ class SharedGuideStructureTest < Minitest::Test
   def test_package_guides_link_every_heading_and_keep_the_lint_registry_at_its_owner
     root = File.expand_path('../../..', __dir__)
     %w[CONTRIBUTING.md TESTS.md .tools/README.md .tools/shared/README.md .tools/module-dependencies/README.md
-       .tools/validate/README.md .tools/metadata/README.md .tools/ruby-lint/README.md
+       .tools/catalog/README.md .tools/syntax/README.md .tools/metadata/README.md .tools/ruby-lint/README.md
        .tools/repository-checks/README.md .tools/secrets/README.md].each do |name|
       text = File.read(File.join(root, name))
       contents = text[/^## Inhoudsopgave\n(.*?)(?=^## )/m, 1]

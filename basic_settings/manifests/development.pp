@@ -32,16 +32,16 @@ class basic_settings::development (
   }
 
   # Install default development packages
-  package { [
-      'build-essential',
-      'python-is-python3',
-      'python3',
-      'nano',
-      'ruby',
-    ]:
+  package { ['build-essential', 'python-is-python3', 'nano', 'ruby']:
     ensure          => installed,
     install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
+
+  # Share Python with the NCSC check while also installing it for standalone development.
+  ensure_packages('python3', {
+    'ensure'          => 'installed',
+    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+  })
 
   # Set default rules
   $default_rules = [

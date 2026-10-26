@@ -10,7 +10,7 @@ class ExternalImportsTest < Minitest::Test
   include ImportsSupport
 
   PACKAGES = { 'shared' => 'project-tools-shared', 'lint' => 'lint-project',
-               'module-dependencies' => 'project-tools-module-dependencies', 'validate' => 'project-tools-validate',
+               'module-dependencies' => 'project-tools-module-dependencies', 'syntax' => 'project-tools-syntax',
                'metadata' => 'project-tools-metadata', 'ruby-lint' => 'project-tools-ruby-lint',
                'secrets' => 'project-tools-secrets' }.freeze
 
@@ -54,7 +54,7 @@ class ExternalImportsTest < Minitest::Test
     assert_consumer_outcomes
     run_success('bundle', 'exec', 'puppet', 'parser', 'validate', 'manifests/site.pp')
     assert_empty Dir[File.join(@project, '**/*.xml')]
-    run_success('bundle', 'exec', 'validate-junit', '.reports/parser.xml', 'manifests/site.pp')
+    run_success('bundle', 'exec', 'syntax-junit', '.reports/parser.xml', 'manifests/site.pp')
     run_success('bundle', 'exec', 'project-tools-module-dependencies', '--junit', '.reports/dependencies.xml')
     run_success('bundle', 'exec', 'project-tools-metadata', '--junit', '.reports/metadata.xml')
     assert_secrets_tools

@@ -8,7 +8,7 @@ gem 'project-tools-module-dependencies', path: '.tools/module-dependencies', req
 gem 'project-tools-ruby-lint', path: '.tools/ruby-lint', require: false
 gem 'project-tools-secrets', path: '.tools/secrets', require: false
 gem 'project-tools-shared', path: '.tools/shared', require: false
-gem 'project-tools-validate', path: '.tools/validate', require: false
+gem 'project-tools-syntax', path: '.tools/syntax', require: false
 
 gem 'metadata-json-lint', require: false
 gem 'minitest'

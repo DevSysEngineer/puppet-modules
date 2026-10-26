@@ -48,9 +48,9 @@ PATH
       builder (~> 3.3)
 
 PATH
-  remote: .tools/validate
+  remote: .tools/syntax
   specs:
-    project-tools-validate (0.1.0)
+    project-tools-syntax (0.1.0)
       json (< 3)
       openvox (~> 8.29)
       project-tools-shared (>= 0.1.1, < 0.2.0)
@@ -191,7 +191,7 @@ DEPENDENCIES
   project-tools-ruby-lint!
   project-tools-secrets!
   project-tools-shared!
-  project-tools-validate!
+  project-tools-syntax!
   rake
   rexml
 

@@ -10,7 +10,7 @@ class ExternalLintIsolationTest < Minitest::Test
   def test_puppet_lint_loads_without_development_dependencies_or_loading_rubocop
     script = "abort 'development dependency leaked' unless " \
              '(Bundler.load.specs.map(&:name) & ' \
-             '%w[rubocop project-tools-metadata project-tools-validate metadata-json-lint rake minitest]).empty?; ' \
+             '%w[rubocop project-tools-metadata project-tools-syntax metadata-json-lint rake minitest]).empty?; ' \
              "require 'project_lint'; abort 'RuboCop loaded by Puppet-lint' if defined?(RuboCop)"
     run_success('bundle', 'exec', 'ruby', '-e', script)
     lint('manifests')

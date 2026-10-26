@@ -11,7 +11,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie verzameld in **`lint-project`**, ons eigen Ruby-pakket, ook wel een gem genoemd. Dit pakket gebruikt Puppet-lint als controleprogramma en voegt de `project_*`-checks toe voor onder meer parameters, documentatie, bestandsrechten en shellcommando's. Daarnaast installeert het de externe lintplugins uit zijn gemspec. Je blijft de controles starten met `puppet-lint`; de projectconfiguratie laadt onze uitbreiding en bepaalt samen met het gedeelde regelprofiel welke checks en opties actief zijn.
 
-`project-tools-ruby-lint` levert [Ruby-lint](../ruby-lint/README.md), `project-tools-metadata` levert [metadatacontrole](../metadata/README.md) en `project-tools-validate` levert [parservalidatie](../validate/README.md). Kies deze tools afzonderlijk in de [ontwikkelbundle](../README.md). De [tooltests](#tests-uitvoeren-en-uitbreiden) controleren lintchecks, correcties en installatie.
+`project-tools-ruby-lint` levert [Ruby-lint](../ruby-lint/README.md), `project-tools-metadata` levert [metadatacontrole](../metadata/README.md) en `project-tools-syntax` levert [parservalidatie](../syntax/README.md). Kies deze tools afzonderlijk in de [ontwikkelbundle](../README.md). De [tooltests](#tests-uitvoeren-en-uitbreiden) controleren lintchecks, correcties en installatie.
 
 Gebruik de [leeswijzer](#leeswijzer) om de toepasselijke normen te kiezen. De [centrale informatieplaatsing](docs/DOCUMENTATION_RULES.md#informatieplaatsing) bepaalt hun eigenaar; de [profielen](#configuratie-bestandsselectie-en-modulepad) en het [checkregister](#checkregister) verbinden die normen met de actieve controles.
 
@@ -102,7 +102,7 @@ Begin in de ontwikkelcheckout bij het [lintonderhoud](#linter-ontwikkelen-en-tes
   - [Een melding oplossen](#een-melding-oplossen)
   - [Exitcodes van Puppet-lint](#exitcodes-van-puppet-lint)
   - [Exitcodes van puppet-lint-junit](#exitcodes-van-puppet-lint-junit)
-  - [Exitcodes van validate-junit](#exitcodes-van-validate-junit)
+  - [Exitcodes van syntax-junit](#exitcodes-van-syntax-junit)
   - [Overige validatiecommando's](#overige-validatiecommandos)
 - [Checkregister](#checkregister)
   - [Beschikbare projectchecks](#beschikbare-projectchecks)
@@ -211,7 +211,7 @@ bundle exec puppet-lint --no-config --config .puppet-lint.rc examples/site.pp
 
 ```sh
 bundle exec rake secrets:puppet
-bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
+bundle exec rake 'syntax:puppet[.tools/syntax/results/syntax-report.xml]'
 bundle exec puppet-lint --no-config --config .puppet-lint.rc .
 bundle exec rubocop --config .rubocop.yml
 bundle exec rake test
@@ -464,7 +464,7 @@ De native parser bouwt check-specifieke schakelaars vóór `--load` wordt uitgev
 | `rubocop` | `--config`, `--format progress --format junit --out FILE` | Eigen RuboCop-configuratie en expliciet rapportpad | Native formatter, geen afzonderlijke converter; zie [Ruby-controles](#ruby-code-controleren). |
 | `rake test` / Minitest | `TEST=...`, `TESTOPTS=...` | Recursieve selectie van tooltests | Zie [testselectie](#testselectie-en-uitvoeropties) en [JUnit-initialisatie](#junit-rapportage-instellen). |
 
-Het afzonderlijke `validate-junit` volgt de [validatorinterface](../validate/README.md#puppet-manifests-valideren).
+Het afzonderlijke `syntax-junit` volgt de [validatorinterface](../syntax/README.md#puppet-manifests-valideren).
 
 ### Omgevingsvariabelen
 
@@ -546,15 +546,15 @@ Met `--result-status` vóór het rapportpad retourneert de converter 10 wanneer 
 
 De converter heeft geen lintconfiguratie, manifestselectie of warningbeleid: zulke combinaties zijn niet van toepassing omdat hij alleen stdin omzet. Zonder `--result-status` betekent exitcode 0 geslaagde conversie, ook bij XML-failures. Bewaar de lintstatus met Bash `pipefail`; alleen het bestaan van XML is onvoldoende.
 
-### Exitcodes van validate-junit
+### Exitcodes van syntax-junit
 
-De zelfstandige gem `project-tools-validate` beheert deze controle. Volg de [validatorhandleiding](../validate/README.md#exitcodes-van-validate-junit) voor de aanroep, selectie en rapportage.
+De zelfstandige gem `project-tools-syntax` beheert deze controle. Volg de [validatorhandleiding](../syntax/README.md#exitcodes-van-syntax-junit) voor de aanroep, selectie en rapportage.
 
 ### Overige validatiecommando's
 
 | Executable | Schoon | Bevinding of fout | Ongeldige invoer/configuratie | Rapportagefout en uitvoer |
 | --- | --- | --- | --- | --- |
-| `puppet parser validate` | 0, doorgaans stil | Syntaxfout: 1, native diagnostic | Ontbrekend bestand: 1; geen lintprofiel | Geen eigen XML; hiervoor bestaat validate-junit |
+| `puppet parser validate` | 0, doorgaans stil | Syntaxfout: 1, native diagnostic | Ontbrekend bestand: 1; geen lintprofiel | Geen eigen XML; hiervoor bestaat syntax-junit |
 | `rubocop` | 0, console-overzicht | Offenses: 1; copseverity is niet de Puppet-severity | Ongeldige optie/configuratie: 2 | Foutstatus en native diagnostic; native JUnit-formatter schrijft alleen waar uitvoering dat bereikt |
 | `rake test` | 0, testtelling; JUnit alleen bij expliciete rapportinstelling | Assertion/error: 1 | Taak-/laadfout: 1 | Reporter-/schrijffout: niet-nul; geen garantie op complete XML |
 
@@ -741,7 +741,7 @@ Gebruik de [Ruby-linthandleiding](../ruby-lint/README.md#ruby-code-controleren) 
 
 ### Puppet-manifests valideren
 
-De zelfstandige gem `project-tools-validate` beheert deze controle. Volg de [validatorhandleiding](../validate/README.md#puppet-manifests-valideren) voor de aanroep, selectie en rapportage.
+De zelfstandige gem `project-tools-syntax` beheert deze controle. Volg de [validatorhandleiding](../syntax/README.md#puppet-manifests-valideren) voor de aanroep, selectie en rapportage.
 
 ### Aanvullende validatie
 
@@ -755,7 +755,7 @@ Deze functionele controles blijven volgens de [testafspraken](../../TESTS.md#tes
 
 ### Eigen manifests valideren
 
-De zelfstandige gem `project-tools-validate` beheert deze controle. Volg de [validatorhandleiding](../validate/README.md#eigen-manifests-valideren) voor de aanroep, selectie en rapportage.
+De zelfstandige gem `project-tools-syntax` beheert deze controle. Volg de [validatorhandleiding](../syntax/README.md#eigen-manifests-valideren) voor de aanroep, selectie en rapportage.
 
 ### Ruby controleren in een ander project
 
@@ -787,7 +787,7 @@ bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle e
 
 Het Puppet-rapport groepeert actieve meldingen per bestand en check in één JUnit-testcase. De fouttekst bevat alle bijbehorende regels, kolommen en meldingen. Genegeerde en gecorrigeerde meldingen tellen niet als fout. Een scan zonder actieve bevindingen krijgt één geslaagde testcase voor de gehele scan; dat is geen telling van gecontroleerde manifests of functionele tests. Ontbrekende of ongeldige JSON-invoer en een scan zonder gerapporteerde bestanden leveren een rapport met `ReportError` en een foutcode op. Het opgegeven rapportbestand wordt bij iedere uitvoering vervangen; een eventuele bovenliggende map moet bestaan.
 
-Voor Ruby-rapporten gebruik je de [native RuboCop-aanroep](../README.md#rapporten-en-artifacts-in-je-project). De [parservalidatie](../validate/README.md) en [tooltests](../README.md#gezamenlijke-tooltests) houden hun eigen rapporten.
+Voor Ruby-rapporten gebruik je de [native RuboCop-aanroep](../README.md#rapporten-en-artifacts-in-je-project). De [parservalidatie](../syntax/README.md) en [tooltests](../README.md#gezamenlijke-tooltests) houden hun eigen rapporten.
 
 ### Rapportmap kiezen
 
@@ -955,7 +955,7 @@ Puppet-lint blijft de lintengine. De checks gebruiken zijn tokens, `notify`, sup
 
 [`PuppetJunit`](lib/project_lint/puppet_junit.rb) verwerkt uitsluitend de native JSON-uitvoer voor de [JUnit-rapportage](#lintrapporten-maken). Het uitvoerbare commando `puppet-lint-junit` komt uit dezelfde gem. De omzetter gebruikt `builder` voor XML-escaping, neemt alleen diagnostische velden op en wijzigt geen lintconfiguratie. De [reportertests](tests/puppet_junit_test.rb) controleren geldige en ongeldige invoer, unieke testcases en foutdetails; de [pakkettest](tests/external_junit_test.rb) controleert de volledige pipe vanuit een onafhankelijk geïnstalleerde gem.
 
-[`JunitReport`](lib/project_lint/junit_report.rb) verwijst naar de gedeelde XML-schrijver in `project-tools-shared`. De zelfstandige [validatorgem](../validate/README.md) beheert parserorkestratie en de bijbehorende tests.
+[`JunitReport`](lib/project_lint/junit_report.rb) verwijst naar de gedeelde XML-schrijver in `project-tools-shared`. De zelfstandige [validatorgem](../syntax/README.md) beheert parserorkestratie en de bijbehorende tests.
 
 [`Ast`](lib/project_lint/ast.rb) voegt alleen de structurele informatie van de OpenVox-parser toe: declaraties, expressies, resources en hun omliggende scopes. De tokenindexen van Puppet-lint leveren die volledige structuur niet. Alle structurele checks delen één AST voor de huidige lintinvoer; een nieuwe scan vervangt die analyse, ook bij gelijke tekst in een ander bestand. De analyse voert geen Puppet-functies of catalogi uit. Alleen echte `Puppet::ParseError`-meldingen worden omgezet naar een syntaxfout; programmeerfouten blijven fouten. Een onbekende constructie krijgt waar nodig een reviewmelding.
 

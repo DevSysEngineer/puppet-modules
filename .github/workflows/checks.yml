@@ -120,8 +120,8 @@ jobs:
           show: fail
           folded: false
 
-  validate:
-    name: Validate
+  syntax:
+    name: Puppet syntax
     needs: puppet_secrets
     runs-on: ubuntu-24.04
     steps:
@@ -132,8 +132,8 @@ jobs:
           persist-credentials: false
       - name: Set up project tooling
         uses: ./.github/actions/setup-tooling
-      - name: Validate first-party Puppet manifests
-        run: bundle exec rake 'validate:puppet[.tools/validate/results/validate-report.xml]'
+      - name: Check first-party Puppet syntax
+        run: bundle exec rake 'syntax:puppet[.tools/syntax/results/syntax-report.xml]'
       - name: Check for changes
         run: |
           source .github/actions/setup-tooling/log.sh
@@ -148,13 +148,49 @@ jobs:
                   ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
               fi
           fi
-      - name: Upload Puppet validation report
+      - name: Upload Puppet syntax report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: Validate-report
+          name: Syntax-report
           include-hidden-files: true
-          path: .tools/validate/results/validate-report.xml
+          path: .tools/syntax/results/syntax-report.xml
+
+  catalog:
+    name: Puppet catalogs
+    needs: puppet_secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up project tooling
+        uses: ./.github/actions/setup-tooling
+      - name: Compile basic_settings catalogs
+        run: bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]'
+      - name: Check for changes
+        run: |
+          source .github/actions/setup-tooling/log.sh
+          ci_begin 'Checkout changes'
+          if git diff --quiet HEAD --; then
+              ci_end 0 PASSED complete
+          else
+              CHECKOUT_STATUS=$?
+              if [ "$CHECKOUT_STATUS" -eq 1 ]; then
+                  ci_end "$CHECKOUT_STATUS" FAILED complete 'Tracked files differ from the checked-out commit.'
+              else
+                  ci_end "$CHECKOUT_STATUS" ERROR incomplete 'Git could not check the working tree; inspect the native diagnostic above.'
+              fi
+          fi
+      - name: Upload Puppet catalog report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: Catalog-report
+          include-hidden-files: true
+          path: .tools/catalog/results/catalog-report.xml
 
   puppet_lint:
     name: Puppet lint

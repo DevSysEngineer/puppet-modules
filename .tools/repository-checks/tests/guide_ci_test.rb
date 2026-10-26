@@ -16,7 +16,7 @@ class GuideCiTest < Minitest::Test
     gitlab = configuration_with('.check_setup')
     assert_equal 'bash', github.dig('defaults', 'run', 'shell')
     assert_includes gitlab.dig('.check_setup', 'before_script'), 'set -eo pipefail'
-    %w[validate puppet_lint ruby_lint tool_tests puppet_dependencies metadata].each do |name|
+    %w[syntax puppet_lint ruby_lint tool_tests puppet_dependencies metadata].each do |name|
       assert_github_job(github.fetch('jobs').fetch(name))
       assert_gitlab_job(gitlab.fetch(name))
     end
@@ -40,7 +40,7 @@ class GuideCiTest < Minitest::Test
   end
 
   def command_contracts
-    { 'validate' => /bundle exec (?:validate-junit|rake validate:puppet)/,
+    { 'syntax' => /bundle exec (?:syntax-junit|rake syntax:puppet)/,
       'puppet_lint' => /bundle exec puppet-lint-junit/,
       'ruby_lint' => /bundle exec rubocop --config .rubocop.yml/,
       'tool_tests' => /bundle exec rake test/,

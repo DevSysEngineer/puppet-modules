@@ -1,4 +1,4 @@
-# Parser Validator Agent Instructions
+# Puppet Syntax Agent Instructions
 
 ## Required Reading Route
 

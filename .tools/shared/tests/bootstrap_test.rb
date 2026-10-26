@@ -18,7 +18,7 @@ class SharedBootstrapTest < Minitest::Test
   end
 
   def test_joint_run_initializes_once_and_runs_each_owner
-    %w[lint shared module-dependencies validate metadata ruby-lint secrets
+    %w[lint shared module-dependencies syntax metadata ruby-lint secrets
        repository-checks].each_with_index do |tool, index|
       write_probe(tool, index)
     end

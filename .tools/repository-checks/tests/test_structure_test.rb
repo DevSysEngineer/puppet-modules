@@ -48,7 +48,8 @@ class TestStructureTest < Minitest::Test
       'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
       'test:shared' => ['.tools/shared/tests/library_test.rb'],
       'test:module_dependencies' => ['.tools/module-dependencies/tests/cli_test.rb'],
-      'test:validate' => ['.tools/validate/tests/cli_test.rb'] }
+      'test:catalog' => ['.tools/catalog/tests/catalog_test.rb'],
+      'test:syntax' => ['.tools/syntax/tests/cli_test.rb'] }
   end
 
   def assert_task_selection(task, expected)

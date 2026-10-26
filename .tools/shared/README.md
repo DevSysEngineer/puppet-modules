@@ -1,6 +1,6 @@
 # Gedeelde toolingbibliotheek
 
-`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-validate` en `project-tools-module-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
+`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-syntax` en `project-tools-module-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
 

@@ -9,10 +9,10 @@ require 'project_tools/shared/console'
 
 module ProjectTools
   # Runs the native validator once per manifest and reports every result, including failures.
-  class Validate
+  class Syntax
     def initialize(paths, console)
       @paths = paths.map { |path| Pathname.new(File.expand_path(path)).relative_path_from(Pathname.pwd).to_s }.uniq
-      @console = Shared::Console.new('Puppet validation', output: console, scope: "#{@paths.size} files selected")
+      @console = Shared::Console.new('Puppet syntax', output: console, scope: "#{@paths.size} files selected")
       @results = []
     end
 
@@ -24,8 +24,8 @@ module ProjectTools
     end
 
     def self.usage(console, errors)
-      errors.puts 'Usage: validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]'
-      Shared::Console.new('Puppet validation', output: console)
+      errors.puts 'Usage: syntax-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]'
+      Shared::Console.new('Puppet syntax', output: console)
                      .finish(status: 'ERROR', execution: 'not executed', details: ['Invalid arguments; see usage.'])
       1
     end
@@ -40,7 +40,7 @@ module ProjectTools
       finish(report: report)
       status
     rescue SystemCallError, IOError => e
-      message = "Cannot write Puppet validation JUnit report: #{e.message}"
+      message = "Cannot write Puppet syntax JUnit report: #{e.message}"
       @console.diagnostic(message, output: errors)
       finish(error: message)
       1
@@ -49,7 +49,7 @@ module ProjectTools
     def write(output)
       results = validation_results
       counts = result_counts(results)
-      Shared::JunitReport.write(output, name: 'validate', **counts) do |xml|
+      Shared::JunitReport.write(output, name: 'syntax', **counts) do |xml|
         results.each { |result| write_case(xml, result) }
       end
       counts.values_at(:failures, :errors).all?(&:zero?) ? 0 : 1
@@ -65,7 +65,7 @@ module ProjectTools
     end
 
     def process(path)
-      result = validate(path)
+      result = syntax(path)
       @results << result
       @console.finding(diagnostic(result)) unless result[:message].empty?
       @console.advance(unit: 'files', total: @paths.size)
@@ -97,7 +97,7 @@ module ProjectTools
         errors: results.count { |r| r[:kind] == :error } }
     end
 
-    def validate(path)
+    def syntax(path)
       unless path.end_with?('.pp') && File.file?(path)
         return { path: path, kind: :error, message: "Expected an existing .pp file: #{path}" }
       end
@@ -119,9 +119,9 @@ module ProjectTools
 
     def write_case(xml, result)
       path, kind, message = result.values_at(:path, :kind, :message)
-      xml.testcase(classname: 'validate', name: path, file: path) do
+      xml.testcase(classname: 'syntax', name: path, file: path) do
         if kind
-          xml.tag!(kind, message, type: kind == :failure ? 'PuppetValidationFailure' : 'ValidationError')
+          xml.tag!(kind, message, type: kind == :failure ? 'PuppetSyntaxFailure' : 'SyntaxError')
         elsif !message.empty?
           xml.tag!('system-out', message)
         end

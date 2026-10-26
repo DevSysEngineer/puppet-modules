@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require 'project_tools/validate'
+require 'project_tools/syntax'
 require 'rexml/document'
 require 'stringio'
 
 # Selection and report failures must not produce a passing or stale validation report.
-class ValidateTest < Minitest::Test
+class SyntaxTest < Minitest::Test
   include ProjectToolsPackageSupport
 
   def setup
-    @project = Dir.mktmpdir('validate-')
+    @project = Dir.mktmpdir('syntax-')
   end
 
   def write_file(relative, content)
@@ -22,7 +22,7 @@ class ValidateTest < Minitest::Test
     @report = File.join(@project, 'results', 'puppet.xml')
     @console = StringIO.new
     @errors = StringIO.new
-    @result = ProjectTools::Validate.run([@report, *paths], console: @console, errors: @errors)
+    @result = ProjectTools::Syntax.run([@report, *paths], console: @console, errors: @errors)
     REXML::Document.new(File.read(@report)).root.elements['testsuite']
   end
 
@@ -58,8 +58,8 @@ class ValidateTest < Minitest::Test
     path = write_file('site.pp', '$value = 1')
     [[], [path]].each do |arguments|
       errors = StringIO.new
-      assert_equal 1, ProjectTools::Validate.run(arguments, console: StringIO.new, errors: errors)
-      assert_equal "Usage: validate-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]\n", errors.string
+      assert_equal 1, ProjectTools::Syntax.run(arguments, console: StringIO.new, errors: errors)
+      assert_equal "Usage: syntax-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]\n", errors.string
     end
     assert_equal '$value = 1', File.read(path)
   end
@@ -67,8 +67,8 @@ class ValidateTest < Minitest::Test
   def test_output_errors_fail_without_modifying_manifests
     path = write_file('site.pp', '$value = 1')
     errors = StringIO.new
-    assert_equal 1, ProjectTools::Validate.run([File.join(path, 'report.xml'), path],
-                                               console: StringIO.new, errors: errors)
+    assert_equal 1, ProjectTools::Syntax.run([File.join(path, 'report.xml'), path],
+                                             console: StringIO.new, errors: errors)
     assert_includes errors.string, 'Cannot write'
     assert_equal '$value = 1', File.read(path)
   end
@@ -78,7 +78,7 @@ class ValidateTest < Minitest::Test
     errors = StringIO.new
     validator = failing_writer(console)
     assert_equal 1, validator.run(File.join(@project, 'report.xml'), errors)
-    assert_includes console.string, '[ERROR] Puppet validation'
+    assert_includes console.string, '[ERROR] Puppet syntax'
     assert_includes console.string, 'Results: 2 failures'
     assert_includes console.string, 'second diagnostic'
     assert_includes errors.string, 'synthetic report failure'
@@ -86,8 +86,8 @@ class ValidateTest < Minitest::Test
   end
 
   def failing_writer(console)
-    validator = ProjectTools::Validate.new(%w[first.pp second.pp], console)
-    validator.define_singleton_method(:validate) do |path|
+    validator = ProjectTools::Syntax.new(%w[first.pp second.pp], console)
+    validator.define_singleton_method(:syntax) do |path|
       raise 'first result was buffered' if path == 'second.pp' && !console.string.include?('first diagnostic')
 
       { path: path, kind: :failure, message: path == 'first.pp' ? 'first diagnostic' : 'second diagnostic' }
@@ -98,13 +98,13 @@ class ValidateTest < Minitest::Test
 
   def test_native_warning_keeps_success_and_report_details
     console = StringIO.new
-    validator = ProjectTools::Validate.new(['warning.pp'], console)
-    validator.define_singleton_method(:validate) do |path|
+    validator = ProjectTools::Syntax.new(['warning.pp'], console)
+    validator.define_singleton_method(:syntax) do |path|
       { path: path, kind: nil, message: 'Warning: synthetic native warning' }
     end
     report = File.join(@project, 'warning.xml')
     assert_equal 0, validator.run(report, StringIO.new)
-    assert_includes console.string, '[PASSED] Puppet validation'
+    assert_includes console.string, '[PASSED] Puppet syntax'
     assert_includes console.string, 'Warning: synthetic native warning'
     assert_includes File.read(report), '<system-out>Warning: synthetic native warning</system-out>'
   end

@@ -7,10 +7,11 @@ require 'yaml'
 class ToolingWorkflowTest < Minitest::Test
   ROOT = File.expand_path('../../..', __dir__)
 
-  def test_seven_jobs_use_the_same_setup_with_a_secret_gate
+  def test_eight_jobs_use_the_same_setup_with_a_secret_gate
     workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
     jobs = workflow.fetch('jobs')
-    names = ['Metadata', 'Puppet dependencies', 'Puppet lint', 'Puppet secrets', 'Ruby lint', 'Tool tests', 'Validate']
+    names = ['Metadata', 'Puppet catalogs', 'Puppet dependencies', 'Puppet lint', 'Puppet secrets',
+             'Puppet syntax', 'Ruby lint', 'Tool tests']
     assert_equal names, jobs.values.map { |job| job.fetch('name') }.sort
     jobs.each_value { |job| assert_job_setup(job) }
     assert_equal 'true', workflow.dig('env', 'BUNDLE_FROZEN')
@@ -64,10 +65,19 @@ class ToolingWorkflowTest < Minitest::Test
 
   def test_validation_job_explicitly_requests_the_published_report
     workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.fetch('jobs').fetch('validate').fetch('steps')
+    steps = workflow.fetch('jobs').fetch('syntax').fetch('steps')
     upload, = reporting_steps(steps)
     report = upload.dig('with', 'path')
-    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'validate:puppet[#{report}]'"
+    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'syntax:puppet[#{report}]'"
+  end
+
+  def test_catalog_job_explicitly_requests_the_published_report
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    steps = workflow.fetch('jobs').fetch('catalog').fetch('steps')
+    upload, = reporting_steps(steps)
+    report = upload.dig('with', 'path')
+    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'catalog:compile[#{report}]'"
+    assert_equal '${{ !cancelled() }}', upload.fetch('if')
   end
 
   def test_dependency_artifact_and_summary_use_the_same_report_on_failure
