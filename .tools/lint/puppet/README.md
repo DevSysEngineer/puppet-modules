@@ -1111,7 +1111,7 @@ bundle exec rake test
 bundle exec rake test:lint
 ```
 
-De [gezamenlijke testtaken](../../README.md#gezamenlijke-tooltests) beheren discovery, rapportbestemming en reporterlevenscyclus voor alle tools en repositorycontroles. De lint-testhelper laadt de [gedeelde bootstrap](../../shared/README.md#testondersteuning) en voegt de native lintconfiguratie toe. De [teststructuurcontrole](../../repository-checks/tests/test_structure_test.rb) bewaakt dat `test:lint` alleen lintertests selecteert.
+De [gezamenlijke testtaken](../../README.md#gezamenlijke-tooltests) beheren discovery, rapportbestemming en reporterlevenscyclus voor alle tools en repositorycontroles. De lint-testhelper laadt de [gedeelde bootstrap](../../shared/README.md#testondersteuning) en voegt de native lintconfiguratie toe. De [teststructuurcontrole](../../repository/tests/test_structure_test.rb) bewaakt dat `test:lint` alleen lintertests selecteert.
 
 Een gewone checktest erft rechtstreeks van `Minitest::Test` en gebruikt [`test_helper.rb`](tests/test_helper.rb) voor de native lintaanroep. De gedeelde `findings`-helper selecteert één regel via de publieke configuratie en herstelt die configuratie na de aanroep. Er zijn geen gespecialiseerde testbasisklassen of fixtures die op de naam van de testmethode worden opgezocht.
 

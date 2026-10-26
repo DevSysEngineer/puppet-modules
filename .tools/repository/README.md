@@ -13,7 +13,7 @@ Deze ontwikkelsuite bewaakt de samenhang van deze repository: documentatielinks 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle en Git-checkout. **Invoer:** Repositorydocumentatie, configuratie en synthetische consumerprojecten. **Wijzigt bestanden:** Tijdelijke consumerinstallaties; test-JUnit alleen bij expliciete rapportinstelling. **Verwacht resultaat:** Alle geselecteerde tests slagen.
 
 ```sh
-bundle exec rake test:repository_checks
+bundle exec rake test:repository
 ```
 
 `bundle exec rake test` neemt deze suite mee. Rapportlocatie en eenmalige testbootstrap volgen de [gezamenlijke testinrichting](../README.md#gezamenlijke-tooltests). Generieke helpers staan bij shared; toolspecifiek gedrag wordt bij de betreffende tool getest.

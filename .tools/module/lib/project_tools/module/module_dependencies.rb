@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ProjectTools
-  module ModuleDependencies
+  module Module
     # Validate comparable metadata and preserve each native unmet relationship before presentation.
     class ModuleDependencies
       def initialize(result)

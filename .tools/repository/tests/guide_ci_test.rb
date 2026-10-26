@@ -45,7 +45,7 @@ class GuideCiTest < Minitest::Test
       'ruby_lint' => /bundle exec rubocop --config .rubocop.yml/,
       'tool_tests' => /bundle exec rake test/,
       'metadata' => /bundle exec project-tools-metadata --junit /,
-      'puppet_dependencies' => /bundle exec project-tools-module-dependencies --junit / }
+      'puppet_dependencies' => /bundle exec project-tools-module --junit / }
   end
 
   def test_consumer_secret_jobs_use_the_shared_cli_before_diagnostics

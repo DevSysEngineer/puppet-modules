@@ -72,7 +72,7 @@ De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 di
 
 Dit project gebruikt `concat`, `debconf`, `reboot` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald.
 
-Controleer de geïnstalleerde moduleversies met de [dependencycontrole](.tools/module-dependencies/README.md). Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
+Controleer de geïnstalleerde moduleversies met de [dependencycontrole](.tools/module/README.md). Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
 > [!CAUTION]
 > Verschillende modules nemen bestaande configuratiebestanden of pakketkeuzes over. Pas een nieuwe catalogus eerst toe in een testomgeving, controleer wat Puppet wil wijzigen en test daarna de betreffende services. Je hoeft niet alle modules op iedere host te gebruiken.

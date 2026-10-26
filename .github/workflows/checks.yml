@@ -89,7 +89,7 @@ jobs:
       - name: Check Puppet module dependencies
         run: |
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE"
-          bundle exec project-tools-module-dependencies --junit .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+          bundle exec project-tools-module --junit .tools/module/results/project-tools-module-report.xml
       - name: Check for changes
         run: |
           source .github/actions/setup-tooling/log.sh
@@ -108,15 +108,15 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: Project-tools-module-dependencies-report
+          name: Project-tools-module-report
           include-hidden-files: true
           if-no-files-found: error
-          path: .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+          path: .tools/module/results/project-tools-module-report.xml
       - name: Publish dependency summary
-        if: ${{ !cancelled() && hashFiles('.tools/module-dependencies/results/project-tools-module-dependencies-report.xml') != '' }}
+        if: ${{ !cancelled() && hashFiles('.tools/module/results/project-tools-module-report.xml') != '' }}
         uses: test-summary/action@v2
         with:
-          paths: .tools/module-dependencies/results/project-tools-module-dependencies-report.xml
+          paths: .tools/module/results/project-tools-module-report.xml
           show: fail
           folded: false
 

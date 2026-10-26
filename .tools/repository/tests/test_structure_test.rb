@@ -44,10 +44,10 @@ class TestStructureTest < Minitest::Test
     { 'test:lint' => %w[.tools/lint/puppet/tests/check_test.rb .tools/lint/puppet/tests/nested/check_test.rb],
       'test:metadata' => ['.tools/metadata/tests/metadata_test.rb'],
       'test:ruby_lint' => ['.tools/lint/ruby/tests/cli_test.rb'],
-      'test:repository_checks' => ['.tools/repository-checks/tests/workflow_test.rb'],
+      'test:repository' => ['.tools/repository/tests/workflow_test.rb'],
       'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
       'test:shared' => ['.tools/shared/tests/library_test.rb'],
-      'test:module_dependencies' => ['.tools/module-dependencies/tests/cli_test.rb'],
+      'test:module' => ['.tools/module/tests/cli_test.rb'],
       'test:catalog' => ['.tools/catalog/tests/catalog_test.rb'],
       'test:syntax' => ['.tools/syntax/tests/cli_test.rb'] }
   end

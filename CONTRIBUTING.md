@@ -33,7 +33,7 @@ Deze werkwijze geldt voor menselijke ontwikkelaars en AI-agents bij iedere wijzi
 | Eigen code, ook scripts en tooling | [Algemene ontwerpregels](.tools/lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels). |
 | Puppet-code of Puppet Strings | De [lintwerkwijze](.tools/lint/puppet/README.md#werkwijze-bij-een-wijziging) en de [leeswijzer](.tools/lint/puppet/README.md#leeswijzer) naar toepasselijke Puppet-regels, documentatieregels en hun reviewcriteria. |
 | Bestanden, rechten, beveiliging, services, shell, runtime-tools of monitoring | De relevante [operationele normen](.tools/lint/puppet/docs/OPERATIONAL_RULES.md), naast de code- en documentatienormen. |
-| Tooling, inclusief root-Gemfile, Rakefile, CI en consumervoorbeelden | [Gedeeld toolingonderhoud](.tools/README.md#gedeeld-toolingonderhoud) en de README van ieder geraakt component uit het [pakketoverzicht](.tools/README.md#pakketten-en-commandos), inclusief [repositorycontroles](.tools/repository-checks/README.md). |
+| Tooling, inclusief root-Gemfile, Rakefile, CI en consumervoorbeelden | [Gedeeld toolingonderhoud](.tools/README.md#gedeeld-toolingonderhoud) en de README van ieder geraakt component uit het [pakketoverzicht](.tools/README.md#pakketten-en-commandos), inclusief [repositorycontroles](.tools/repository/README.md). |
 
 Lees de relevante bron daadwerkelijk vóór het wijzigen. Breid de leesroute uit wanneer nieuwe dependencies, integraties of aanroepers in beeld komen; ongewijzigde, al gelezen bronnen hoef je niet opnieuw te lezen. Bij gedeelde interfaces horen de contracten van alle werkelijk geraakte afnemers. Alleen codeafspraken onder `lint/docs/` toepassen vereist geen linteronderhoud; die afspraken wijzigen wel.
 

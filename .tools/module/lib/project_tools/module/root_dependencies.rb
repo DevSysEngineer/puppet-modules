@@ -4,7 +4,7 @@ require 'json'
 require 'semantic_puppet'
 
 module ProjectTools
-  module ModuleDependencies
+  module Module
     # Compare only the active project's dependency declarations with the native environment.
     class RootDependencies
       def initialize(root, result)

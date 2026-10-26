@@ -161,7 +161,7 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 
 - Verifieer gewijzigde, verplaatste of als verouderd verwijderde technische claims tegen actuele manifests, Puppet Strings, scripts, templates en voorbeelden. De README is geen implementatiebewijs.
 - Meld onopgeloste verschillen tussen documentatie en implementatie en behoud noodzakelijke waarschuwingen totdat het verschil is opgelost.
-- Controleer commando's, paden, opties en verwijzingen tegen voorbeelden en actuele implementatie. Controleer gewijzigde links en relatieve repositorylinks met de [documentatietests](../../../repository-checks/README.md); beoordeel externe bestemmingen afzonderlijk. Controleer dat verplaatste informatie daadwerkelijk op de bestemming staat.
+- Controleer commando's, paden, opties en verwijzingen tegen voorbeelden en actuele implementatie. Controleer gewijzigde links en relatieve repositorylinks met de [documentatietests](../../../repository/README.md); beoordeel externe bestemmingen afzonderlijk. Controleer dat verplaatste informatie daadwerkelijk op de bestemming staat.
 
 ### Proza beoordelen
 

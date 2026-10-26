@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require 'puppet'
-require 'project_tools/module_dependencies/module_dependencies'
+require 'project_tools/module/module_dependencies'
 
 module ProjectTools
-  module ModuleDependencies
+  module Module
     # Use one native environment; inventory candidates only to detect silently dropped modules.
     class OpenvoxAdapter
       def initialize(paths, result, progress: nil)

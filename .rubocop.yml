@@ -12,7 +12,7 @@ AllCops:
     - '.tools/metadata/bin/project-tools-metadata'
     - '.tools/lint/puppet/bin/puppet-lint-junit'
     - '.tools/syntax/bin/syntax-junit'
-    - '.tools/module-dependencies/bin/project-tools-module-dependencies'
+    - '.tools/module/bin/project-tools-module'
     - '.tools/**/*.rb'
     - '.tools/**/*.rake'
     - '.tools/**/*.gemspec'

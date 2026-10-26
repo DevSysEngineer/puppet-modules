@@ -10,7 +10,7 @@ Thumbs.db
 
 # Generated tool reports.
 /.tools/lint/puppet/results/
-/.tools/module-dependencies/results/
+/.tools/module/results/
 /.tools/syntax/results/
 /.tools/catalog/results/
 /.tools/metadata/results/

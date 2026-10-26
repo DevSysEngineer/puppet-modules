@@ -4,11 +4,11 @@ require 'fileutils'
 require 'optparse'
 require 'project_tools/shared/modulepath'
 require 'project_tools/shared/console'
-require 'project_tools/module_dependencies/result'
-require 'project_tools/module_dependencies/reporter'
+require 'project_tools/module/result'
+require 'project_tools/module/reporter'
 
 module ProjectTools
-  module ModuleDependencies
+  module Module
     # Run the native scan with console output and an explicitly requested report.
     class Cli
       def self.run(arguments, console: $stdout, errors: $stderr)
@@ -68,7 +68,7 @@ module ProjectTools
 
       def parser
         OptionParser.new do |cli|
-          cli.banner = 'Usage: project-tools-module-dependencies [--junit REPORT.xml]'
+          cli.banner = 'Usage: project-tools-module [--junit REPORT.xml]'
           cli.on('--junit REPORT.xml', 'Also write a JUnit report') do |path|
             raise OptionParser::InvalidArgument, 'JUnit report must end in .xml' unless path.end_with?('.xml')
 
@@ -95,8 +95,8 @@ module ProjectTools
 
       def perform_scan(result)
         paths = ProjectTools::Shared::Modulepath.parse(ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil))
-        require 'project_tools/module_dependencies/openvox_adapter'
-        require 'project_tools/module_dependencies/root_dependencies'
+        require 'project_tools/module/openvox_adapter'
+        require 'project_tools/module/root_dependencies'
         root = RootDependencies.new(@root, result)
         root.read
         OpenvoxAdapter.new(paths, result, progress: @presentation).scan { |environment| root.check(environment) }

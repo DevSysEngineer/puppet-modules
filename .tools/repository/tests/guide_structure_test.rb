@@ -8,7 +8,7 @@ class SharedGuideStructureTest < Minitest::Test
   include ProjectToolsTestSupport::GuideLinks
 
   ROOT = File.expand_path('../../..', __dir__)
-  COMPONENTS = %w[catalog lint/puppet lint/ruby metadata module-dependencies repository-checks
+  COMPONENTS = %w[catalog lint/puppet lint/ruby metadata module repository
                   secrets shared syntax].freeze
   DEVELOPMENT_ROUTES = {
     'README.md' => ['CONTRIBUTING.md'],
@@ -72,9 +72,9 @@ class SharedGuideStructureTest < Minitest::Test
 
   def test_package_guides_link_every_heading_and_keep_the_lint_registry_at_its_owner
     root = File.expand_path('../../..', __dir__)
-    %w[CONTRIBUTING.md TESTS.md .tools/README.md .tools/shared/README.md .tools/module-dependencies/README.md
+    %w[CONTRIBUTING.md TESTS.md .tools/README.md .tools/shared/README.md .tools/module/README.md
        .tools/catalog/README.md .tools/syntax/README.md .tools/metadata/README.md .tools/lint/ruby/README.md
-       .tools/repository-checks/README.md .tools/secrets/README.md].each do |name|
+       .tools/repository/README.md .tools/secrets/README.md].each do |name|
       text = File.read(File.join(root, name))
       contents = text[/^## Inhoudsopgave\n(.*?)(?=^## )/m, 1]
       assert_equal expected_contents(text), contents.lines.grep(/^ *- /).map(&:chomp), name

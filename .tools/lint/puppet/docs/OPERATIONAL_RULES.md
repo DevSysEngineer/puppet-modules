@@ -779,7 +779,7 @@ Controleer secretbeheer, standaardwaarden, logging en alle uitvoerkanalen. Volg 
 
 **Verificatie**
 
-Voer de [standaardcontrole](../../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit. Synthetische detectie en veilige verwijzingen staan in [puppet_test.rb](../../../secrets/tests/puppet_test.rb); de testkoppeling staat in [secrets_gate_test.rb](../../../repository-checks/tests/secrets_gate_test.rb).
+Voer de [standaardcontrole](../../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit. Synthetische detectie en veilige verwijzingen staan in [puppet_test.rb](../../../secrets/tests/puppet_test.rb); de testkoppeling staat in [secrets_gate_test.rb](../../../repository/tests/secrets_gate_test.rb).
 
 ### Toegang via diensten en rapporten beoordelen
 

@@ -11,8 +11,8 @@ Open each affected component's local instructions below and read its README. For
 | `catalog` | Module catalog discovery and compilation runner | [Catalog](catalog/AGENTS.md) |
 | `lint/puppet` | Puppet-lint checks, profiles, detection, autofix and lint documentation | [Lint](lint/puppet/AGENTS.md) |
 | `metadata` | Own-metadata selection, validation and safe synchronization | [Metadata](metadata/AGENTS.md) |
-| `module-dependencies` | Native module selection and declared dependency analysis | [Module dependencies](module-dependencies/AGENTS.md) |
-| `repository-checks` | Repository documentation, CI configuration, distribution integration and test layout | [Repository checks](repository-checks/AGENTS.md) |
+| `module` | Native module selection and declared dependency analysis | [Module dependencies](module/AGENTS.md) |
+| `repository` | Repository documentation, CI configuration, distribution integration and test layout | [Repository checks](repository/AGENTS.md) |
 | `lint/ruby` | Native RuboCop integration and shared Ruby profile | [Ruby lint](lint/ruby/AGENTS.md) |
 | `secrets` | Local sensitive-data detection, prepared analysis, controlled writes and safe review | [Sensitive data](secrets/AGENTS.md) |
 | `shared` | Actually shared runtime behavior and repository test support | [Shared library](shared/AGENTS.md) |

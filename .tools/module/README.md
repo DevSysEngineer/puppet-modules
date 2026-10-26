@@ -1,6 +1,6 @@
 # Puppet-moduledependencies controleren
 
-`project-tools-module-dependencies` vergelijkt gedeclareerde module- en rootdependencies met één native OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
+`project-tools-module` vergelijkt gedeclareerde module- en rootdependencies met één native OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
 
@@ -16,13 +16,13 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 ## Een controle uitvoeren
 
-Het publieke commando is `project-tools-module-dependencies [--junit REPORT.xml]`. Zonder opties verschijnen uitslag en dekking alleen in de console; de tool maakt dan geen rapportbestanden of rapportmappen aan en werkt bestaande rapporten niet bij. De werkmap bepaalt de actieve rootmetadata; de geminstallatiemap en `global-modules` doen dat niet.
+Het publieke commando is `project-tools-module [--junit REPORT.xml]`. Zonder opties verschijnen uitslag en dekking alleen in de console; de tool maakt dan geen rapportbestanden of rapportmappen aan en werkt bestaande rapporten niet bij. De werkmap bepaalt de actieve rootmetadata; de geminstallatiemap en `global-modules` doen dat niet.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle en submodules. **Invoer:** Expliciete modulepath en rootmetadata. **Wijzigt bestanden:** Geen. **Verwacht resultaat:** Exit 0 bij passende dependencies, 1 bij conflicten en 2 bij een onvolledige controle.
 
 ```sh
 export PROJECT_TOOLS_MODULEPATH="$PWD"
-bundle exec project-tools-module-dependencies
+bundle exec project-tools-module
 ```
 
 Voeg voor CI of een bewaard resultaat `--junit REPORT.xml` toe met een relatief of absoluut pad dat eindigt op `.xml`. Alleen dan maakt de tool de bovenliggende rapportmap aan. Een afnemend project kiest zijn eigen rapportmap en modulepaden. `PROJECT_REPORT_DIR` is een shellafspraak; de tool leest uitsluitend het uitgewerkte argument.
@@ -32,7 +32,7 @@ Voeg voor CI of een bewaard resultaat `--junit REPORT.xml` toe met een relatief 
 ```sh
 export PROJECT_REPORT_DIR=".tools/quality/results"
 export PROJECT_TOOLS_MODULEPATH="$PWD/global-modules:$PWD/modules"
-bundle exec project-tools-module-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-module-dependencies-report.xml"
+bundle exec project-tools-module --junit "$PROJECT_REPORT_DIR/project-tools-module-report.xml"
 ```
 
 Gebruik voor verschillende environments afzonderlijke aanroepen met hun eigen modulepath. De [gedeelde instellingen](../README.md#gedeeld-modulepad) onderscheiden dit zoekpad van de eigen metadataselectie. De dependencytool vereist geen `VERSION`, `PROJECT_METADATA_MODULES_PATH` of `PROJECT_METADATA_PREFIX`.
@@ -65,7 +65,7 @@ Het rootbestand van een ingeladen `global-modules` wordt geen tweede rootcontrac
 
 Uitvoerfouten hebben voorrang op bevindingen; reeds betrouwbare bevindingen blijven zichtbaar. `missing`, `version_mismatch` en `non_semantic_version` worden JUnit-`failure`-cases. De laatste reden kan zowel de voorwaarde als de geselecteerde versie betreffen. Uitvoerfouten krijgen `error`. Normale bevindingen gaan naar stdout, uitvoerdiagnoses naar stderr, zonder stacktrace of metadata-dump.
 
-De console volgt het [centrale logcontract](../README.md#joblogs) en toont nieuwe conflicten en uitvoerfouten direct. Een onvolledige scan eindigt met `ERROR`; de oorspronkelijke codes 0, 1 en 2 blijven gelijk. Voortgang telt verwerkte native modules; de dekking onderscheidt beoordeelde metadata van directories zonder metadata. Console en JUnit gebruiken dezelfde deterministisch gesorteerde resultaten. De suite heet `project-tools-module-dependencies`. Een testcase benoemt scope, aanvrager, dependency, requirement en geselecteerde versie. De tekst bevat reden en bronpaden, relatief aan de actieve projectroot; paden buiten de root blijven via `../` herleidbaar. Er worden geen JSON-regelnummers verzonnen. Een schone scan krijgt één geslaagde testcase, met dekking in `system-out`. Tellingen beschrijven testcases, niet modules of dependencydiepte.
+De console volgt het [centrale logcontract](../README.md#joblogs) en toont nieuwe conflicten en uitvoerfouten direct. Een onvolledige scan eindigt met `ERROR`; de oorspronkelijke codes 0, 1 en 2 blijven gelijk. Voortgang telt verwerkte native modules; de dekking onderscheidt beoordeelde metadata van directories zonder metadata. Console en JUnit gebruiken dezelfde deterministisch gesorteerde resultaten. De suite heet `project-tools-module`. Een testcase benoemt scope, aanvrager, dependency, requirement en geselecteerde versie. De tekst bevat reden en bronpaden, relatief aan de actieve projectroot; paden buiten de root blijven via `../` herleidbaar. Er worden geen JSON-regelnummers verzonnen. Een schone scan krijgt één geslaagde testcase, met dekking in `system-out`. Tellingen beschrijven testcases, niet modules of dependencydiepte.
 
 Een synthetisch voorbeeld van een failure:
 
@@ -89,7 +89,7 @@ De [CI-handleiding](../README.md#ci-van-deze-repository) beheert rapportlocaties
 
 De adapter gebruikt de actieve OpenVox-bundle, neutraliseert tijdelijk `PUPPETLIB` en construeert de environment rechtstreeks. `require 'puppet'` levert de runtime-defaults; de adapter roept geen applicatie-initialisatie aan die persoonlijke configuratie, extra load paths of facts inleest. Tijdelijke ENV-, strict- en loginstellingen worden hersteld na in-process gebruik. Native parserlogs kunnen invoerfragmenten bevatten; de tool vervangt ze door gerichte, gestructureerde fouten.
 
-De controle installeert of wijzigt geen modules, metadata, gitlinks, lockfiles of hostconfiguratie. Er is geen catalogus, facts-uitvoering, pluginsync, Puppet Server of verbinding met beheerde hosts nodig. Het laden van de vertrouwde Ruby-runtime is geen sandbox voor willekeurige externe code. De [gemspec](project-tools-module-dependencies.gemspec) begrenst de OpenVox- en JSON-versies; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast.
+De controle installeert of wijzigt geen modules, metadata, gitlinks, lockfiles of hostconfiguratie. Er is geen catalogus, facts-uitvoering, pluginsync, Puppet Server of verbinding met beheerde hosts nodig. Het laden van de vertrouwde Ruby-runtime is geen sandbox voor willekeurige externe code. De [gemspec](project-tools-module.gemspec) begrenst de OpenVox- en JSON-versies; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast.
 
 ## Ontwikkelen en testen
 
@@ -100,6 +100,6 @@ Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.m
 - Verifieer [rootdependencies](#rootdependencies) vanuit de actieve werkmap zonder metadataconfiguratie of VERSION te vereisen. Test de [runtimegrenzen](#runtime-en-veiligheidsgrenzen), inclusief herstel van persoonlijke instellingen na in-process gebruik.
 - Werk geraakte contracten en tooltests samen bij. Behoud native vergelijkingen met `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`, gescheiden stdout, stderr en status. Verifieer bevindingen tegenover uitvoerfouten, dekking, rapportvervanging, escaping en zelfstandige distributie zonder lint, RuboCop of ontwikkelgems. Echte checkoutconflicten horen bij de afzonderlijke scan, nooit een bewust falende tooltest.
 
-Voer vanuit de repositoryroot `bundle exec rake test:module_dependencies` uit voor de synthetische toolcontracten. De tests behandelen eerste-modulekeuze, omgekeerde paden, ontbrekende en onbruikbare metadata, Forge-identiteit, symlinks, externe aanvragers, native ranges, rootinvoer, persoonlijke instellingen, rapportvervanging, escaping en foutstatussen. Native CLI-vergelijkingen gebruiken `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')` met afzonderlijke stdout, stderr en processtatus.
+Voer vanuit de repositoryroot `bundle exec rake test:module` uit voor de synthetische toolcontracten. De tests behandelen eerste-modulekeuze, omgekeerde paden, ontbrekende en onbruikbare metadata, Forge-identiteit, symlinks, externe aanvragers, native ranges, rootinvoer, persoonlijke instellingen, rapportvervanging, escaping en foutstatussen. Native CLI-vergelijkingen gebruiken `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')` met afzonderlijke stdout, stderr en processtatus.
 
 Distributietests installeren shared en de dependencygem in een eigen consumerbundle zonder lintgem, lintplugins, RuboCop of ontwikkelgems. Ze controleren ook pathbronnen en de gezamenlijke Git-bronroute. De Git-test gebruikt vóór een menselijke commit een local override; de [gedocumenteerde beperking](../README.md#git-dependency-uit-de-monorepo) blijft zichtbaar. Sluit af met alle [gezamenlijke controles](../README.md#gezamenlijke-tooltests). Een echt repositoryconflict hoort bij de afzonderlijke dependencyjob, nooit als bewust falende tooltest.

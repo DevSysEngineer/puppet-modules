@@ -1,6 +1,6 @@
 # Gedeelde toolingbibliotheek
 
-`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-syntax` en `project-tools-module-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
+`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-syntax` en `project-tools-module`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
 
@@ -42,4 +42,4 @@ Repository-testhulp staat in `test_support/` en wordt niet verpakt. `bootstrap.r
 
 `packages.rb` deelt tijdelijke consumeromgevingen, subprocess-uitvoering met afzonderlijke stdout/stderr/status en het bouwen en installeren van afzonderlijke gems. De linthelper voegt alleen zijn eigen configuratie en verwachtingen toe. Validator- en dependencydistributietests gebruiken dezelfde packagehulp zonder lintbeleid. Package-tests werken offline met beschikbare externe gems, eigen Gemfiles en lockfiles; ze publiceren niets.
 
-Voer vanuit de repositoryroot `bundle exec rake test:shared` uit voor deze library en `bundle exec rake test` voor alle tools. De bootstraptests bewaken eenmalige initialisatie en behoud van andere rapportbestanden. Documentatielinks, workflow- en testindeling horen bij de [repositorycontroles](../repository-checks/README.md). De [projectbrede testscope](../../TESTS.md#testscope-en-plaatsing) en [gezamenlijke testinrichting](../README.md#gezamenlijke-tooltests) blijven leidend.
+Voer vanuit de repositoryroot `bundle exec rake test:shared` uit voor deze library en `bundle exec rake test` voor alle tools. De bootstraptests bewaken eenmalige initialisatie en behoud van andere rapportbestanden. Documentatielinks, workflow- en testindeling horen bij de [repositorycontroles](../repository/README.md). De [projectbrede testscope](../../TESTS.md#testscope-en-plaatsing) en [gezamenlijke testinrichting](../README.md#gezamenlijke-tooltests) blijven leidend.
