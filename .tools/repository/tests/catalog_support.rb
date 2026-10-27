@@ -27,7 +27,7 @@ module CatalogConsumerSupport
   def copy_runner
     destination = File.join(@library, '.tools', 'catalog')
     FileUtils.mkdir_p(destination)
-    %w[lib compile.rb].each { |path| FileUtils.cp_r(File.join(ROOT, '.tools', 'catalog', path), destination) }
+    %w[lib bin].each { |path| FileUtils.cp_r(File.join(ROOT, '.tools', 'catalog', path), destination) }
   end
 
   def install_bundle
@@ -49,15 +49,15 @@ module CatalogConsumerSupport
     write("#{base}/#{name}/tests/facts/synthetic.json", '{}')
   end
 
-  def invoke(entry, report: false)
+  def invoke(entry, report: false, options: [])
     arguments = if entry == :rake
                   ['rake', '-f', File.join(@library, 'Rakefile'),
                    report ? 'catalog:compile[catalog.xml]' : 'catalog:compile']
                 else
-                  ['ruby', File.join(@library, '.tools', 'catalog', 'compile.rb'),
+                  [File.join(@library, '.tools', 'catalog', 'bin', 'project-tools-catalog'),
                    *(['--junit', 'catalog.xml'] if report)]
                 end
-    command('bundle', 'exec', *arguments, directory: File.join(@project, 'elsewhere'))
+    command('bundle', 'exec', *arguments, *options, directory: File.join(@project, 'elsewhere'))
   end
 
   def suite

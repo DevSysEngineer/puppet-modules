@@ -528,6 +528,8 @@ Een ontbrekend configbestand is een vastgestelde native beperking. Daarom contro
 
 ### Exitcodes van puppet-lint-junit
 
+Gebruik `bundle exec puppet-lint-junit --help` of `-h` voor de opties. Help volgt het [gezamenlijke CLI-contract](../../README.md#cli-en-rapportage): status 0, gebruiksuitleg op stdout, lege stderr en geen verwerking van stdin of rapportbestand. Onbekende opties geven status 1 met gebruiksuitleg, zonder rapport te schrijven. Voor een bestand waarvan de naam met een streepje begint, gebruik je `--` vóór het pad.
+
 Deze tabel beschrijft de gewone conversie zonder `--result-status`.
 
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |

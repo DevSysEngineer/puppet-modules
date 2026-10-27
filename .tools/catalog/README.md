@@ -34,7 +34,7 @@ Vraag voor CI en de eindcontrole het JUnit-rapport expliciet aan:
 bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]'
 ```
 
-De CLI `bundle exec ruby .tools/catalog/compile.rb [--junit REPORT.xml]` gebruikt dezelfde runner. Beide ingangen veronderstellen een geslaagde voorcontrole. Zonder rapportargument maakt de runner geen rapporten en laat hij bestaande rapporten ongemoeid. Relatieve rapportpaden volgen de werkmap van de aanroeper. De [CI-configuratie](../README.md#ci-van-deze-repository) publiceert uitsluitend het aangevraagde rapport.
+De CLI `bundle exec .tools/catalog/bin/project-tools-catalog [--junit REPORT.xml]` gebruikt dezelfde runner. Beide ingangen veronderstellen een geslaagde voorcontrole. Zonder rapportargument maakt de runner geen rapporten en laat hij bestaande rapporten ongemoeid. Relatieve rapportpaden volgen de werkmap van de aanroeper. De [CI-configuratie](../README.md#ci-van-deze-repository) publiceert uitsluitend het aangevraagde rapport.
 
 ## Tests bij een module plaatsen
 
@@ -136,7 +136,7 @@ De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoo
 **Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** De genoemde bundle, de volledige checkout onder `global-modules` en een geslaagde secretsvoorcontrole van de geselecteerde modules en scenario’s. **Invoer:** Tests uit de geïmporteerde checkout. **Wijzigt bestanden:** Het gevraagde rapport binnen het consumerproject. **Verwacht resultaat:** Dezelfde selectie en exitcodes als vanuit de libraryroot.
 
 ```sh
-bundle exec ruby global-modules/.tools/catalog/compile.rb --junit build/reports/catalog.xml
+bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit build/reports/catalog.xml
 ```
 
 Wil je eigen modules en hun tests meenemen, geef dan het volledige modulepad op. In dit voorbeeld staan eigen modules vóór de geïmporteerde modules; beide directories moeten bestaan. De voorcontrole moet dezelfde geselecteerde code dekken voordat je compileert.
@@ -145,7 +145,7 @@ Wil je eigen modules en hun tests meenemen, geef dan het volledige modulepad op.
 
 ```sh
 export PROJECT_TOOLS_MODULEPATH="$PWD/modules:$PWD/global-modules"
-bundle exec ruby global-modules/.tools/catalog/compile.rb --junit build/reports/catalog.xml
+bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit build/reports/catalog.xml
 ```
 
 De bestaande Rake-ingang blijft bruikbaar met `bundle exec rake -f global-modules/Rakefile 'catalog:compile[build/reports/catalog.xml]'`. Vanuit een andere directory geef je absolute paden naar de CLI of het Rakefile en selecteer je de consumerbundle via `BUNDLE_GEMFILE`. Het modulepad blijft onafhankelijk van die directory; een relatief rapportpad volgt wel de aanroeper. Eigen modules kunnen dezelfde optionele `tests/hiera/`-structuur gebruiken. Hun relatieve Hiera-paden blijven modulegebonden en vereisen geen consumerconfiguratie of extra CLI-optie.

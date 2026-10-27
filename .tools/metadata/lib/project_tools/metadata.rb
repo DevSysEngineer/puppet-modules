@@ -10,15 +10,26 @@ module ProjectTools
   # Explicit metadata checks and corrections, independent of manifest linting.
   module Metadata
     def self.run(arguments, output: $stdout, errors: $stderr)
+      options = command_options(arguments)
+      if options[:help]
+        output.puts options[:help]
+        return 0
+      end
+
       console = Shared::Console.new('Metadata', output: output, scope: 'root metadata and selected own modules')
       console.during do
-        execute(arguments, console, errors)
+        execute(options, console, errors)
       end
     end
 
-    def self.execute(arguments, console, errors)
-      options = parse(arguments)
-      scanner = Scanner.new(ignore_paths: options[:ignore_paths])
+    def self.command_options(arguments)
+      parse(arguments)
+    rescue OptionParser::ParseError, ArgumentError => e
+      { error: e }
+    end
+
+    def self.execute(options, console, errors)
+      scanner = scanner_for(options)
       report = scan(scanner, options, console)
       report.write(options[:junit]) if options[:junit]
       report.finish(console, report: options[:junit])
@@ -27,6 +38,12 @@ module ProjectTools
       console.diagnostic("metadata: #{e.message}", output: errors)
       Report.new(scanner&.results || {}).finish(console, error: e.message)
       2
+    end
+
+    def self.scanner_for(options)
+      raise options[:error] if options[:error]
+
+      Scanner.new(ignore_paths: options[:ignore_paths])
     end
 
     def self.scan(scanner, options, console)
@@ -39,16 +56,21 @@ module ProjectTools
 
     def self.parse(arguments)
       options = { fix: false, ignore_paths: [] }
-      parser = OptionParser.new do |cli|
-        cli.banner = 'Usage: project-tools-metadata [--fix] [--ignore-paths GLOBS] [--junit REPORT.xml]'
-        cli.on('--fix', 'Synchronize known names and versions') { options[:fix] = true }
-        cli.on('--ignore-paths GLOBS', Array, 'Exclude metadata globs') { |paths| options[:ignore_paths] = paths }
-        cli.on('--junit REPORT.xml', 'Also write a JUnit report') { |path| options[:junit] = path }
-      end
+      parser = option_parser(options)
       raise ArgumentError, parser.to_s unless parser.parse(arguments).empty?
       raise ArgumentError, 'JUnit report path must not be empty' if options[:junit] == ''
 
       options
+    end
+
+    def self.option_parser(options)
+      OptionParser.new do |cli|
+        cli.banner = 'Usage: project-tools-metadata [--fix] [--ignore-paths GLOBS] [--junit REPORT.xml]'
+        cli.on('-h', '--help', 'Show usage') { options[:help] = cli.to_s }
+        cli.on('--fix', 'Synchronize known names and versions') { options[:fix] = true }
+        cli.on('--ignore-paths GLOBS', Array, 'Exclude metadata globs') { |paths| options[:ignore_paths] = paths }
+        cli.on('--junit REPORT.xml', 'Also write a JUnit report') { |path| options[:junit] = path }
+      end
     end
 
     # One case per selected file or configuration source, including clean files.

@@ -11,6 +11,23 @@ require_relative 'catalog_support'
 class CatalogIntegrationTest < Minitest::Test
   include CatalogConsumerSupport
 
+  def test_cli_help_from_the_consumer_bundle
+    invoke(:cli, options: ['--help'])
+    assert @status.success?, @output + @errors
+    assert_includes @output, 'project-tools-catalog [--junit REPORT.xml]'
+    assert_includes @output, 'PROJECT_TOOLS_MODULEPATH'
+  end
+
+  def test_cli_invalid_arguments_from_the_consumer_bundle
+    [%w[--unknown], %w[--junit], %w[unexpected]].each do |arguments|
+      invoke(:cli, options: arguments)
+      assert_equal 1, @status.exitstatus, @output + @errors
+      assert_includes @errors, 'Usage:'
+      refute_includes @output, 'Puppet catalogs'
+      refute_path_exists File.join(@project, 'elsewhere/catalog.xml')
+    end
+  end
+
   def test_default_checkout_selection_is_independent_of_current_directory_for_both_entry_points
     sample_module('elsewhere', 'decoy', body: "fail('wrong directory')")
     %i[cli rake].each do |entry|
@@ -31,6 +48,7 @@ class CatalogIntegrationTest < Minitest::Test
 
   def assert_counts(expected)
     assert_equal(expected, %w[tests failures errors].map { |key| suite.attributes[key] })
+    assert_includes suite.elements['testcase/system-out'].text, 'Definition coverage' if expected == %w[1 0 0]
   end
 
   def test_consumer_modulepath_discovers_new_tests_and_uses_the_same_order_for_compilation

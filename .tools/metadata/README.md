@@ -51,6 +51,8 @@ Voer vanuit de repositoryroot `bundle exec rake test:metadata` uit voor de eigen
 
 ## Modulemetadata controleren
 
+Gebruik `bundle exec project-tools-metadata --help` of `-h` voor de opties. Help volgt het [gezamenlijke CLI-contract](../README.md#cli-en-rapportage) en vereist geen projectconfiguratie of rapportpad.
+
 Start `project-tools-metadata` vanuit de root van het project dat je controleert. De werkmap bepaalt `metadata.json`, `VERSION` en de basis voor de eigen modulelocatie. De installatiemap van de gem en `PROJECT_TOOLS_MODULEPATH` bepalen die projectroot niet. Puppet-lint voert deze controle niet uit.
 
 De rootcontrole is verplicht in beide projectindelingen, ook zonder eigen modules of manifests. De modulecontrole beoordeelt daarnaast iedere eigen module één keer, ook als de module geen manifests bevat.

@@ -1,10 +1,23 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require 'stringio'
 
 # Reporting is optional and must not change the native dependency verdict.
 class DependencyCliTest < Minitest::Test
   include DependencyTestSupport
+
+  def test_library_help_returns_without_starting_a_scan_or_writing_reports
+    %w[-h --help].each do |flag|
+      console = StringIO.new
+      errors = StringIO.new
+      status = ProjectTools::Module::Cli.run(['--junit', @report, flag], console: console, errors: errors)
+      assert_equal 0, status
+      assert_match(/\AUsage:/, console.string)
+      assert_empty errors.string
+      refute_path_exists @report
+    end
+  end
 
   def test_success_without_a_report
     write_module('library')

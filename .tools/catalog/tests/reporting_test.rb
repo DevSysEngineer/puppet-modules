@@ -41,11 +41,11 @@ class CatalogReportingTest < Minitest::Test
   end
 
   def test_cli_help_and_unknown_arguments_do_not_compile
-    cli = File.expand_path('../compile.rb', __dir__)
-    output, status = Open3.capture2e(RbConfig.ruby, cli, '--help')
+    cli = File.expand_path('../bin/project-tools-catalog', __dir__)
+    output, status = Open3.capture2e(cli, '--help', chdir: @root)
     assert status.success?, output
     assert_includes output, '--junit'
-    output, status = Open3.capture2e(RbConfig.ruby, cli, '--unknown')
+    output, status = Open3.capture2e(cli, '--unknown', chdir: @root)
     assert_equal 1, status.exitstatus
     assert_includes output, 'Usage:'
     refute_includes output, 'resources'

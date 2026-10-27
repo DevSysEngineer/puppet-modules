@@ -4,30 +4,19 @@ require 'fileutils'
 require 'open3'
 require 'pathname'
 require 'rbconfig'
+require_relative 'syntax/command'
 require 'project_tools/shared/junit_report'
 require 'project_tools/shared/console'
 
 module ProjectTools
   # Runs the native validator once per manifest and reports every result, including failures.
   class Syntax
+    extend SyntaxCommand
+
     def initialize(paths, console)
       @paths = paths.map { |path| Pathname.new(File.expand_path(path)).relative_path_from(Pathname.pwd).to_s }.uniq
       @console = Shared::Console.new('Puppet syntax', output: console, scope: "#{@paths.size} files selected")
       @results = []
-    end
-
-    def self.run(arguments, console: $stdout, errors: $stderr)
-      report, *paths = arguments
-      return usage(console, errors) unless report&.end_with?('.xml')
-
-      new(paths, console).run(report, errors)
-    end
-
-    def self.usage(console, errors)
-      errors.puts 'Usage: syntax-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]'
-      Shared::Console.new('Puppet syntax', output: console)
-                     .finish(status: 'ERROR', execution: 'not executed', details: ['Invalid arguments; see usage.'])
-      1
     end
 
     def run(report, errors)

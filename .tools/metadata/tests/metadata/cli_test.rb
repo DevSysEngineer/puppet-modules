@@ -2,10 +2,31 @@
 
 require_relative '../test_helper'
 require_relative '../metadata_cli_support'
+require 'project_tools/metadata'
+require 'stringio'
 
 # Console-only checks and fixes must not depend on report storage.
 class MetadataCliTest < Minitest::Test
   include MetadataCliSupport
+
+  def test_library_help_prevents_fixes_and_report_changes
+    path = 'modules/profile/metadata.json'
+    metadata(path, version: '0.1.0')
+    original = contents(path)
+    report = File.join(@directory, '.reports/metadata.xml')
+    %w[-h --help].each { |flag| assert_library_help(report, flag) }
+    assert_equal original, contents(path)
+  end
+
+  def assert_library_help(report, flag)
+    output = StringIO.new
+    errors = StringIO.new
+    status = ProjectTools::Metadata.run(['--fix', '--junit', report, flag], output: output, errors: errors)
+    assert_equal 0, status
+    assert_match(/\AUsage:/, output.string)
+    assert_empty errors.string
+    refute_path_exists report
+  end
 
   def test_success_has_the_same_verdict_with_optional_junit
     metadata('modules/profile/metadata.json')

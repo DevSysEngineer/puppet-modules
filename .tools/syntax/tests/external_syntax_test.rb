@@ -90,6 +90,7 @@ class ExternalSyntaxTest < Minitest::Test
       abort 'JSON API incompatible' unless Gem.loaded_specs.fetch('json').version < Gem::Version.new('3')
     RUBY
     %w[VERSION metadata.json .puppet-lint.rc].each { |path| refute_path_exists File.join(@project, path) }
+    run_success('bundle', 'exec', 'syntax-junit', '--help')
     assert_package_contents
   end
 

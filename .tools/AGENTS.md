@@ -2,7 +2,7 @@
 
 ## Scope And Reading Route
 
-Read the [repository instructions](../AGENTS.md), including their inspection bootstrap, and this file before maintaining tooling. Actually read and apply the [shared tooling README](README.md), especially [maintenance and integration](README.md#gedeeld-toolingonderhoud), alongside [CONTRIBUTING](../CONTRIBUTING.md) and [TESTS](../TESTS.md). This route also covers root Gemfile, Rakefile, `.github/` and consumer examples.
+Read the [repository instructions](../AGENTS.md), including their inspection bootstrap, and this file before maintaining tooling. Actually read and apply the [shared tooling README](README.md), especially [component structure](README.md#componentstructuur) and [maintenance and integration](README.md#gedeeld-toolingonderhoud), alongside [CONTRIBUTING](../CONTRIBUTING.md) and [TESTS](../TESTS.md). This route also covers root Gemfile, Rakefile, `.github/` and consumer examples.
 
 Open each affected component's local instructions below and read its README. For shared interfaces, identify actual callers and read their instructions and contracts too. Follow the parent chain without rereading unchanged material already read in this task.
 

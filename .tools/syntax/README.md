@@ -15,6 +15,8 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 ## Puppet-manifests valideren
 
+Gebruik `bundle exec syntax-junit --help` of `-h` voor de opties. Help volgt het [gezamenlijke CLI-contract](../README.md#cli-en-rapportage) en vereist geen rapportpad of manifests.
+
 Controleer ieder gewijzigd Puppet-manifest afzonderlijk met de native parser, zonder rapportbestand of rapportmap. Gebruik `syntax-junit` wanneer je daarnaast een rapport per manifest nodig hebt, volgens het [CLI- en rapportagecontract](../README.md#cli-en-rapportage). Vervang het voorbeeldpad door het gewijzigde bestand:
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** examples/site.pp; kies voor werkelijk werk het gewijzigde manifest. **Wijzigt bestanden:** Geen bronbestanden. **Verwacht resultaat:** Parserstatus 0 bij geldige syntax.
@@ -108,6 +110,7 @@ Voor het onderzoeken van één fout blijft de native opdracht `bundle exec puppe
 
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |
 | --- | --- | --- | --- | --- |
+| `-h` of `--help` | 0 | Gebruik en opties | Leeg | Geen rapport of parseruitvoering |
 | Alle manifests syntactisch geldig | 0 | Compact `PASSED` met manifest- en resultaattellingen | Leeg | Eén geslaagde testcase per uniek pad |
 | Native waarschuwing zonder niet-nul parserstatus | 0 | Native uitvoer bij resultaat | Leeg | Geslaagde testcase met system-out; geen eigen warningseverity |
 | Parser eindigt niet-nul | 1 | `failure`, native diagnostic, telling | Native stderr is samengevoegd in resultaat | Failure; resterende bestanden worden ook gecontroleerd |

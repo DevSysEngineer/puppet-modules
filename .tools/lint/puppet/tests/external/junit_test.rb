@@ -8,6 +8,23 @@ require 'rexml/document'
 class ExternalJunitTest < Minitest::Test
   include InstalledGemSupport
 
+  def test_installed_help_does_not_consume_input_or_replace_a_report
+    write('puppet.xml', '<previous/>')
+    %w[-h --help].each do |flag|
+      run_success('bundle', 'exec', 'puppet-lint-junit', '--result-status', 'puppet.xml', flag)
+      assert_match(/\AUsage:/, @output)
+      assert_empty @errors
+      assert_equal '<previous/>', read('puppet.xml')
+    end
+  end
+
+  def test_installed_converter_rejects_unknown_options_without_creating_a_report
+    command('bundle', 'exec', 'puppet-lint-junit', '--unknown-option')
+    assert_equal 1, @status.exitstatus
+    assert_includes @errors, 'Usage:'
+    refute_path_exists File.join(@project, '--unknown-option')
+  end
+
   def test_clean_and_failed_native_scans_keep_their_status
     @env['GITHUB_ACTION'] = 'synthetic_test'
     junit_pipeline

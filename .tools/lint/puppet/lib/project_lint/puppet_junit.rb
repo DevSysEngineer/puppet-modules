@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require 'json'
+require_relative 'puppet_junit_command'
 require 'project_lint/junit_report'
 require 'project_tools/shared/console'
 
 module ProjectLint
   # Converts native Puppet-lint JSON; detection, selection and exit status remain with the native CLI.
   class PuppetJunit
+    extend PuppetJunitCommand
+
     # Distinguish findings from converter/startup failures without changing the native lint policy.
     FINDINGS_STATUS = 10
 
@@ -70,18 +73,6 @@ module ProjectLint
 
     def diagnostic(problem)
       format('%<path>s:%<line>d:%<column>d: %<check>s: %<kind>s: %<message>s', problem.transform_keys(&:to_sym))
-    end
-
-    def self.run(arguments, input: $stdin, console: $stdout, errors: $stderr)
-      arguments = arguments.dup
-      result_status = arguments.first == '--result-status'
-      arguments.shift if result_status
-      unless arguments.length == 1
-        errors.puts 'Usage: puppet-lint --json ... | puppet-lint-junit [--result-status] REPORT.xml'
-        return 1
-      end
-
-      report(arguments.first, input, console, errors, finding_status: result_status ? FINDINGS_STATUS : 0)
     end
 
     def self.report(path, input, console, errors, finding_status: 0)

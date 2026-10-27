@@ -163,6 +163,8 @@ Controleer dat de centrale lintoplossing en vereiste handmatige review het gewij
 
 Render gewijzigde templates en samengestelde fragmenten; controleer het resulterende formaat en de toepasselijke code- en operationele normen. Valideer Puppet-voorbeelden in Strings en Markdown tijdelijk buiten de repository met lintprofiel en parser: de gewone manifestscan vindt die niet. Bij gedrag beoordeel je geschreven bestanden, serviceherstarts, benodigde rechten en verbindingen, normaal gebruik en een praktisch foutgeval met synthetische invoer. Neem alle geraakte gebruikers van een gedeelde bouwsteen mee. De [lintgids](.tools/lint/puppet/README.md#aanvullende-validatie) beschrijft de uitvoeringsroute.
 
+Bij nieuwe of gewijzigde toolstructuren moet de bestaande [repositorystructuurtest](.tools/repository/tests/test_structure_test.rb) het [componentcontract](.tools/README.md#componentstructuur) bewaken, inclusief een aantoonbaar falend geval voor een ontbrekende verplichte CLI. De gewone `bundle exec rake test` en bestaande testjob voeren die controle mee uit.
+
 Bij toolinterfaces gelden bovendien de [gedeelde integratie- en CI-review](.tools/README.md#gedeeld-toolingonderhoud) en de concrete verificatie in iedere betrokken toolhandleiding, inclusief geïnstalleerde CLI en ondersteunde consumerinstallaties. Een gedeelde librarytest vervangt de validatie van haar gemigreerde aanroepers niet.
 
 ### Shellvalidatie

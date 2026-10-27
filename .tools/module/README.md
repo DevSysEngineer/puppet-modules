@@ -16,6 +16,8 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 ## Een controle uitvoeren
 
+Gebruik `bundle exec project-tools-module --help` of `-h` voor de opties. Help volgt het [gezamenlijke CLI-contract](../README.md#cli-en-rapportage) en vereist geen projectconfiguratie of rapportpad.
+
 Het publieke commando is `project-tools-module [--junit REPORT.xml]`. Zonder opties verschijnen uitslag en dekking alleen in de console; de tool maakt dan geen rapportbestanden of rapportmappen aan en werkt bestaande rapporten niet bij. De werkmap bepaalt de actieve rootmetadata; de geminstallatiemap en `global-modules` doen dat niet.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle en submodules. **Invoer:** Expliciete modulepath en rootmetadata. **Wijzigt bestanden:** Geen. **Verwacht resultaat:** Exit 0 bij passende dependencies, 1 bij conflicten en 2 bij een onvolledige controle.

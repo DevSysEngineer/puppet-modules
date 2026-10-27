@@ -20,11 +20,13 @@ bundle exec rake test:repository
 
 ## Onderhoud
 
+De gezamenlijke CLI-gedragstest binnen de bestaande structuurcontrole ontdekt alle eigen executables. Zij bewaakt dezelfde helpopties, stdout/stderr, exitstatus en afwezigheid van bestanden bij help en onbekende opties. Onderhoud deze assertions volgens het [CLI-contract en de integratiereview](../README.md#verantwoordelijkheden-en-integratie-reviewen), zodat een algemene verbetering bij alle toepasselijke tools wordt gecontroleerd.
+
 Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
 
 - Werk de betreffende tests hier bij wanneer workflows, package-indeling, instructies of documentatielinks veranderen. Houd toolgedrag bij de betrokken tool en deel helpers volgens het [gezamenlijke testonderhoud](../README.md#toolteststructuur-onderhouden).
 - Breid de bestaande [linktests](tests/guide/links_test.rb) en gedeelde linkondersteuning uit voor navigatie. Neem nieuwe ongecommitte Markdown, relatieve doelen en ankers, en de agentroute van root via tooling naar ieder component met verwijzingen naar parents en eigen README mee. Bewijs gewijzigde controles met tijdelijke synthetische gevallen voor ontbrekende bestanden en gebroken links.
-- Behoud [discoverycontroles](tests/test_structure_test.rb) bij gewijzigde testindeling. Verifieer dat zowel de gezamenlijke als geraakte gerichte taken de bedoelde tests ontdekken en uitvoeren.
+- Onderhoud de [structuur- en discoverycontroles](tests/test_structure_test.rb) volgens de [componentstructuur](../README.md#componentstructuur). Zij controleren verplichte componentbestanden, gemregistraties, CLI-locaties, uitvoerrechten, laden vanuit een andere werkmap en recursieve Rake-testselectie. Bewijs ontbrekende startbestanden en andere gewijzigde controles met synthetische fouten; componenten zonder CLI blijven geldig zonder `bin/`. Verifieer dat zowel de gezamenlijke als geraakte gerichte taken de bedoelde tests ontdekken en uitvoeren.
 - Review distributietests tegen de [onafhankelijke consumerroutes](../README.md#importeren-en-distribueren), met behoud van de lokale Bundler-override voor actuele werkbestanden zonder commits. Presenteer dit niet als externe beschikbaarheid of installatie van een ongepubliceerde revisie.
 - Behoud de hieronder beschreven verificatiegrenzen: YAML-controles toetsen configuratie, synthetische parser-Rake-tests taakselectie en status, Bash-logregressies presentatie en oorspronkelijke processtatus. Zij voeren hosted CI niet uit en bewijzen geen gerenderde UI. Console- en reportergedrag blijft bij de betreffende tool; controleer fout- en errorpresentatie op het platform na menselijke publicatie.
 

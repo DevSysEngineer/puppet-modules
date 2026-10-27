@@ -22,13 +22,19 @@ module ProjectTools
       end
 
       def run(arguments)
+        argument_error = parse(arguments)
+        if @help && !argument_error
+          @console.puts parser
+          return 0
+        end
+
         @presentation = Shared::Console.new('Puppet module dependencies', output: @console,
                                                                           scope: 'explicit modulepath and root')
-        @presentation.during { execute(arguments) }
+        @presentation.during { execute(argument_error) }
       end
 
-      def execute(arguments)
-        result = parse(arguments)
+      def execute(argument_error)
+        result = argument_result(argument_error)
         prepare_report if @report
         result ||= scan
         write(result) if @report
@@ -38,6 +44,12 @@ module ProjectTools
         message = "Cannot write Puppet dependency JUnit report (#{e.class})."
         Reporter.new(result || Result.new, @root).console(@presentation, @errors, error: message)
         2
+      end
+
+      def argument_result(error)
+        return unless error
+
+        new_result.tap { |result| result.error(:configuration_error, error.message) }
       end
 
       def new_result
@@ -61,14 +73,13 @@ module ProjectTools
 
         nil
       rescue OptionParser::ParseError => e
-        result = new_result
-        result.error(:configuration_error, e.message)
-        result
+        e
       end
 
       def parser
         OptionParser.new do |cli|
           cli.banner = 'Usage: project-tools-module [--junit REPORT.xml]'
+          cli.on('-h', '--help', 'Show usage') { @help = true }
           cli.on('--junit REPORT.xml', 'Also write a JUnit report') do |path|
             raise OptionParser::InvalidArgument, 'JUnit report must end in .xml' unless path.end_with?('.xml')
 

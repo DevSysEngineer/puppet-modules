@@ -46,6 +46,7 @@ Iedere duurzame norm heeft één eigenaar volgens de [informatieplaatsing](.tool
 - Inventariseer vóór bewerken de wijzigingen volgens [Git-inspectie](#git-inspectie).
 - Lees de relevante modulebestanden en README-secties vóór gedrags- of structuurwijzigingen, plus de modulemetadata als die bestaan. Pas bij nieuwe modules, metadata-, versie- of consumerintegratiewijzigingen de [metadata-inhoudsreview](.tools/metadata/README.md#modulemetadata-controleren) toe.
 - Inspecteer gerelateerde manifests, templates, statische bestanden, voorbeelden en systemd-units, ook gegenereerde units. Controleer relevante integraties met `basic_settings`, monitoring, systemd, security-audit, `php8::fpm`, `nginx` en andere lokale modules. Bekijk bestaande patronen voor eigenaar, modus, `require`, `notify` en `subscribe` vóór nieuwe resources.
+- Beoordeel bij nieuwe tooling meteen of een eigen CLI nodig is en waar die hoort volgens de [componentstructuur](.tools/README.md#componentstructuur). Controleer de aansluiting tussen library, CLI en eventuele gemregistratie, de uitvoering via Rake, CI en externe consumers, en welke bestaande tests, documentatie en instructieroutes mee moeten veranderen.
 - Alle modulemappen uit de README zijn eigen code, behalve de vendored Git-submodules `concat`, `debconf`, `reboot` en `stdlib`. Beperk wijzigingen tot eigen code, documentatie en tooling, tenzij de opdracht een dependencywijziging vereist. Gebruik vendored modules nooit als stijlvoorbeeld.
 
 ### Scope en bestaande wijzigingen

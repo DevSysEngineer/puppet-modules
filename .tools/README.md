@@ -1,6 +1,6 @@
 # Gedeelde projecttooling
 
-Gebruik één ontwikkelbundle met afzonderlijke tools voor lokale secretcontrole, Puppet-lint, Ruby-lint, metadata, syntax, cataloguscompilatie en moduledependencies. Iedere tool heeft een eigen commando en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
+Gebruik één ontwikkelbundle met afzonderlijke tools voor lokale secretcontrole, Puppet-lint, Ruby-lint, metadata, syntax, cataloguscompilatie en moduledependencies. Iedere controle heeft een eigen uitvoerinterface en resultaat. Kies voor je eigen project alleen de benodigde pakketten; geen van deze controles past catalogi toe.
 
 Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsafspraken](#gedeeld-toolingonderhoud), met de index naar ieder component. Installatie en gebruik staan in deze handleiding.
 
@@ -33,6 +33,7 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
   - [CLI en rapportage](#cli-en-rapportage)
   - [Joblogs](#joblogs)
 - [Gedeeld toolingonderhoud](#gedeeld-toolingonderhoud)
+  - [Componentstructuur](#componentstructuur)
   - [Verantwoordelijkheden en integratie reviewen](#verantwoordelijkheden-en-integratie-reviewen)
   - [Toolteststructuur onderhouden](#toolteststructuur-onderhouden)
   - [CI en rapporten onderhouden](#ci-en-rapporten-onderhouden)
@@ -1100,7 +1101,7 @@ De namen `profile`, `production` en `quality/results` zijn voorbeelden. Voeg de 
 | `.puppet-lint.rc` en `.rubocop.yml` | Bewaar hier de eigen bestandsselectie en laad de gedeelde profielen volgens [Eigen lintconfiguratie](lint/puppet/README.md#eigen-lintconfiguratie) en [Ruby controleren in een ander project](lint/ruby/README.md#ruby-controleren-in-een-ander-project). |
 | `global-modules/` | Beheer deze dependency via de Git-submodule en de gekozen revisie. Gebruik de gem uit die checkout; voer de controles vanuit de eigen projectroot uit. |
 | Eigen rapportmap, bijvoorbeeld `.tools/quality/results/` | Gegenereerde validatie-, lint- en testrapporten van het eigen project. Kies de locatie zelf, bewaar de map buiten versiebeheer en schrijf niet naar de submodule. |
-| `.tools/<tool-name>/` | Eén map per eigen tool, met een concrete naam. Gebruik `bin/` voor uitvoerbare ingangen en `lib/` voor Ruby-librarycode wanneer die nodig zijn; een klein zelfstandig script mag rechtstreeks in de toolmap staan. |
+| `.tools/<tool-name>/` | Eén map per eigen tool, met een concrete naam. Volg de [componentstructuur](#componentstructuur): de verantwoordelijkheid bepaalt welke ingangen, implementatie en tests nodig zijn. |
 | `.tools/<tool-name>/tests/` | Houd gedragstests, helpers en fixtures bij de tool die ze controleren. De [testindeling en uitvoering](#eigen-tooltests) beschrijven ook bestaande testmappen. |
 | `Rakefile` | Houd eigen taken in de projectroot. Ontdek tooltests recursief onder `.tools/**/tests/**/*_test.rb` en voeg alleen bestaande tools toe als `test:<tool-name>`. |
 
@@ -1244,6 +1245,8 @@ Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoa
 
 ### CLI en rapportage
 
+Iedere eigen executable, ook een converter of rapportagevariant, ondersteunt `-h` en `--help`. Beide tonen dezelfde gebruiksuitleg met de ondersteunde opties op stdout en eindigen met status 0 en lege stderr. Help voert geen controle of herstel uit, leest geen verwerkingsinvoer en maakt of wijzigt geen bestanden; start-, voortgangs- en resultaatmeldingen horen daar niet bij. Onbekende opties geven een niet-nul status en een diagnose, zonder als bestandsnamen te worden verwerkt. Behoud de gedocumenteerde toolspecifieke foutcodes en beveiligde diagnostiek. Gebruik de bestaande Ruby-optieparser voor de eigen CLI's; externe commando's houden hun native interface.
+
 Een controle of herstelhandeling moet lokaal uitvoerbaar zijn met console-uitvoer en een passende exitstatus, zonder verplicht rapportbestand. Geef een zelfstandig controlecommando een naam die zijn taak beschrijft. Gebruik bij onze eigen controle-CLI’s `--junit REPORT.xml` voor optionele JUnit-uitvoer. Zonder deze optie worden geen rapporten of rapportmappen aangemaakt of bijgewerkt; een bestaande rapportmap is geen vereiste voor controle of herstel. CI vraagt het rapport expliciet aan.
 
 Dit geldt ook voor Rake-taken, standaardtaken en voorbeeldhelpers: laat die rapportage niet impliciet inschakelen of een rapportpad invullen. Voor Minitest vraagt de aanroeper rapportage aan via de bestaande instelling `MINITEST_REPORTERS_REPORTS_DIR`. Een gewone `rake test`, gerichte testtaak of standaardtaak behoudt zonder die instelling uitsluitend console-uitvoer en de teststatus.
@@ -1293,9 +1296,26 @@ Volg bij onderhoud de [gezamenlijke ontwikkelwerkwijze](../CONTRIBUTING.md) en h
 | Cataloguscontrole | [Moduletestontdekking en runner](catalog/README.md#onderhoud). |
 | Syntax | [Native parser, selectie en rapporten](syntax/README.md#ontwikkelen-en-testen). |
 
+### Componentstructuur
+
+Bepaal de structuur vanuit de verantwoordelijkheid van het component. Maak geen lege mappen, startbestanden of wrappers om alle componenten dezelfde indeling te geven.
+
+| Soort component | Vereiste structuur |
+| --- | --- |
+| Tool met eigen CLI | Eén eigen executable onder `bin/`, met een Ruby-shebang en modus `0755`. Houd de implementatie in `lib/` gescheiden van het startbestand en laad haar onafhankelijk van de werkmap. |
+| Ruby-gem met executable | Dezelfde CLI-indeling, met `bindir = 'bin'` en de geleverde executables geregistreerd in de `.gemspec`. |
+| Gedeelde bibliotheek | Librarycode zonder verplichte `bin/` wanneer er geen zelfstandig commando is. |
+| Configuratie voor externe tooling | Configuratie voor het bestaande externe commando, zonder overbodige wrapper. |
+| Repositorytests | Tests via de bestaande root-Rake-infrastructuur, zonder eigen CLI. |
+
+Daarom heeft `catalog` een [eigen startbestand](catalog/bin/project-tools-catalog), terwijl `shared` alleen een bibliotheek levert, `lint/ruby` de native RuboCop-CLI gebruikt en `repository` via Rake draait. Die laatste drie hebben geen eigen `bin/` nodig. Houd bij ieder component de eigen `README.md`, `AGENTS.md` en toepasselijke tests onder `tests/` bij, volgens de [testscope](../TESTS.md#testscope-en-plaatsing) en [testinrichting](#gezamenlijke-tooltests). Documenteer gebruik en onderhoud bij de eigenaar en verbind de agentroute met die uitleg.
+
+Leg bij een nieuwe tool meteen de uitvoerinterface en de bijbehorende structuurtest vast. De bestaande [structuurcontrole](repository/tests/test_structure_test.rb) leidt gem-executables af uit hun gemspecs en componenten uit gemspecs, Rake-testselecties en aanwezige CLI-startbestanden. Een CLI zonder gemregistratie, zoals catalog, krijgt een expliciete verwachting in die test. Alleen aanwezige `bin/`-bestanden ontdekken kan een ontbrekende, nergens geregistreerde CLI niet aantonen. Houd ook de Ruby-lintselectie, gerichte testtaak en werkelijk benodigde Rake-, CI- en consumerintegraties in overeenstemming; voeg geen tweede toolregister of testsysteem toe.
+
 ### Verantwoordelijkheden en integratie reviewen
 
 - Pas de [hergebruikreview](../CONTRIBUTING.md#hergebruik-en-samenhang) en algemene ontwerpcriteria toe over de geraakte tools en hun echte consumers. Beoordeel executable, commandolaag, toolverwerking en gedeelde runtime tegen de [verantwoordelijkheidsgrenzen](#verantwoordelijkheden-gescheiden-houden) en het [CLI-contract](#cli-en-rapportage), ook voor zelfstandige installatie en consumerprojecten.
+- Beoordeel bij iedere nieuwe of gewijzigde CLI-optie, standaardinstelling, uitvoerconventie of foutafhandeling alle eigen CLI's op hetzelfde gebruikerscontract. Pas algemeen gedrag in dezelfde wijziging toe bij alle toepasselijke tools en onderhoud de gezamenlijke gedragstest in de bestaande [repositorystructuurcontrole](repository/tests/test_structure_test.rb). Leid de selectie af uit de componentstructuur; verzwak de gezamenlijke assertions niet met toolspecifieke uitzonderingen. Houd noodzakelijke verschillen bij hun eigenaar, met reden en gerichte tests; voeg taakgebonden functies niet toe aan tools waarvoor zij geen betekenis hebben. Verifieer gewijzigde libraries en geïnstalleerde consumerinterfaces naast de gezamenlijke CLI-test.
 - Verifieer bij taakingangen dat iedere afzonderlijke gebruikstaak een duidelijk subcommando binnen de ene executable heeft en de inhoudelijke verwerking aan de eigen library overdraagt. Pas bij vervanging de consolidatieafspraak toe: consumers migreren in plaats van parallelle routes te behouden. Werk geïnstalleerde executables, lintdekking, integraties en consumermigratie samen bij, zonder een tweede implementatie achter een nieuw commando.
 - Review packagegrenzen tegen het [pakketcontract](#pakketten-en-commandos): CLI, runtime-dependencies, configuratie, correcties, rapporten en gedragstests blijven bij hun onafhankelijke controle. Een gedeelde ontwikkelbundle rechtvaardigt geen afhankelijkheden tussen onafhankelijke tools of een runtimepakket voor repositorycontroles.
 - Houd ontwikkeldependencies en orkestratie in root-Gemfile en Rakefile. Gebruik lokaal en in CI dezelfde Bundler-, Rake- en native CLI-routes; voeg geen tweede ontwikkelbundle binnen een toolgem toe.
