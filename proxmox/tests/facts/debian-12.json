@@ -1,0 +1,38 @@
+{
+  "os": {
+    "name": "Debian",
+    "family": "Debian",
+    "architecture": "amd64",
+    "release": {
+      "major": "12",
+      "full": "12.0"
+    },
+    "distro": {
+      "codename": "bookworm"
+    }
+  },
+  "networking": {
+    "fqdn": "node.example.test",
+    "hostname": "node",
+    "domain": "example.test",
+    "ip": "192.0.2.10",
+    "interfaces": {}
+  },
+  "kernel": "Linux",
+  "kernelrelease": "6.12.0-amd64",
+  "is_virtual": true,
+  "virtual": "kvm",
+  "processors": {
+    "count": 2
+  },
+  "memory": {
+    "system": {
+      "total_bytes": 8589934592
+    }
+  },
+  "console_gettys": [],
+  "disks": {},
+  "partitions": {},
+  "mountpoints": {},
+  "systemd": true
+}

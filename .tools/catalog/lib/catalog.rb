@@ -64,15 +64,15 @@ module ProjectTools
       @scenarios.each do |scenario|
         result = compile(scenario)
         @results << result
-        @console.finding("#{result[:name]}: #{result[:message]}") unless result[:message].empty?
+        @console.diagnostic("#{result[:name]}: #{result[:message]}") unless result[:message].empty?
         @console.advance(unit: 'scenarios', total: @scenarios.size)
       end
     end
 
     def compile(scenario)
-      output, status = Open3.capture2e(RbConfig.ruby, File.join(__dir__, 'worker.rb'),
-                                       @modulepath.join(File::PATH_SEPARATOR),
-                                       scenario.fetch(:manifest), scenario.fetch(:facts))
+      arguments = [@modulepath.join(File::PATH_SEPARATOR), *scenario.values_at(:manifest, :facts),
+                   *Array(scenario[:module_directory])]
+      output, status = Open3.capture2e(RbConfig.ruby, File.join(__dir__, 'worker.rb'), *arguments)
       kind = status.success? ? nil : :error
       kind = :failure if status.exitstatus == 1
       output = "Compiler process ended: #{status}" if output.empty? && kind

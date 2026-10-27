@@ -1028,7 +1028,7 @@ Kies de gems voor de benodigde controles volgens [Pakketten en commando’s](#pa
 | Lokale secretcontrole | `project-tools-secrets` scant lokaal; `prepare` maakt de analysewerkboom voor inzage en wijzigingen. | Eigen bronselectie, voorcontrole, Puppet-gate en eventueel reviewbeleid volgens de [inrichtingsstappen](secrets/README.md#gebruik-in-een-ander-project). |
 | Eigen tooltests | De [voorbeelden voor testselectie en rapportage](#eigen-tooltests). | De eigen tests en testdependencies. De reporter van het eigen testframework schrijft JUnit XML. |
 
-Installeer de gekozen gems eenmaal per ontwikkelomgeving of CI-job via de eigen Gemfile en lockfile. Roep vervolgens de gedeelde commando's met `bundle exec` aan. Kopieer geen implementatie, gedeelde profielen of gemtests uit `global-modules` en laad zijn Gemfile of Rakefile niet vanuit je eigen project. Het Rakefile van deze repository selecteert onze bestanden; de gemcommando's werken met jouw selectie.
+Installeer de gekozen gems eenmaal per ontwikkelomgeving of CI-job via de eigen Gemfile en lockfile. Roep vervolgens de gedeelde commando's met `bundle exec` aan. Kopieer geen implementatie, gedeelde profielen of gemtests uit `global-modules` en laad zijn Gemfile of algemene testtaak niet vanuit je eigen project. Gebruik voor moduletests de afzonderlijke [catalog-ingang voor consumers](catalog/README.md#vanuit-een-ander-project-uitvoeren); die ondersteunt zowel de CLI als de gerichte Rake-taak met de eigen bundle. De gemcommando's werken met jouw selectie.
 
 De [CI-voorbeelden](#controle-in-ci) zijn configuratievoorbeelden voor het afnemende project, geen automatisch geïnstalleerde pipeline. Neem de benodigde jobs over en pas alleen de eigen installatie, bestandsselectie, modulepaden en rapportmap aan. Gedeelde verbeteringen komen via de gekozen gemversie of submodulerevisie binnen; een eigen kopie van de implementatie bijhouden is niet nodig. Controleer een update met de eigen lint-, validatie- en testjobs.
 
@@ -1126,7 +1126,7 @@ gem 'project-tools-metadata', path: 'global-modules/.tools/metadata', require: f
 gem 'project-tools-secrets', path: 'global-modules/.tools/secrets', require: false
 ```
 
-Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend OpenVox uit de ontwikkelbundle; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-module`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint volstaat `project-tools-ruby-lint`, zonder shared. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of het Rakefile van `global-modules`.
+Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend OpenVox uit de ontwikkelbundle; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-module`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint volstaat `project-tools-ruby-lint`, zonder shared. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of algemene testtaak van `global-modules`. Voor moduletests geldt de afzonderlijke [catalog-ingang](catalog/README.md#vanuit-een-ander-project-uitvoeren).
 
 ### Git-dependency uit de monorepo
 
@@ -1222,7 +1222,7 @@ Vervang `PROJECT_LINT_MODULEPATH` door `PROJECT_TOOLS_MODULEPATH` bij lint en de
 
 Gebruik `project-tools-syntax` voor syntaxcontrole. Vervang `project-tools-validate` (of de oudere naam `project-tools-puppet-validate`) in de eigen Gemfile en wijzig de pathbron van `global-modules/.tools/validate` naar `global-modules/.tools/syntax`. Vervang `validate-junit` of `puppet-validate-junit` door `syntax-junit`, werk de eigen lockfile bij en voer `bundle install` uit. Bij rechtstreeks Ruby-gebruik veranderen `project_tools/validate` en `ProjectTools::Validate` naar `project_tools/syntax` en `ProjectTools::Syntax`. Er zijn geen compatibiliteitsaliassen. Het native commando `puppet parser validate` blijft ongewijzigd.
 
-Hernoem eigen `validate:puppet`-taken naar `syntax:puppet`. Gebruik `syntax-report.xml`, suite en testcase-classname `syntax`, artifact `Syntax-report` en CI-job `Puppet syntax` met sleutel `syntax`. Pas rapportpaden, uploads, ignorepatronen en verplichte statuschecks met de oude naam `Validate` of `Puppet validate` samen aan. In deze repository worden `.tools/validate/` en `test:validate` vervangen door `.tools/syntax/` en `test:syntax`. De nieuwe afzonderlijke job `Puppet catalogs` compileert de [vaste repositorymatrix](catalog/README.md); voeg die job ook toe aan verplichte statuschecks als die zijn ingesteld. De consumer-CI-voorbeelden hieronder blijven gericht op eigen manifests; eigen cataloguscontroles vereisen eigen scenario’s.
+Hernoem eigen `validate:puppet`-taken naar `syntax:puppet`. Gebruik `syntax-report.xml`, suite en testcase-classname `syntax`, artifact `Syntax-report` en CI-job `Puppet syntax` met sleutel `syntax`. Pas rapportpaden, uploads, ignorepatronen en verplichte statuschecks met de oude naam `Validate` of `Puppet validate` samen aan. In deze repository worden `.tools/validate/` en `test:validate` vervangen door `.tools/syntax/` en `test:syntax`. De afzonderlijke job `Puppet catalogs` ontdekt en compileert de [module-eigen scenario’s](catalog/README.md); voeg die job ook toe aan verplichte statuschecks als die zijn ingesteld. De consumer-CI-voorbeelden blijven gericht op eigen manifests. Voor cataloguscontroles gebruikt een consumer de [centrale runner](catalog/README.md#vanuit-een-ander-project-uitvoeren), die zowel geïmporteerde als eigen moduletests op het gekozen modulepad ontdekt.
 
 Werk eigen parser-Rake-taken bij volgens het [voorbeeld met optionele rapportage](syntax/README.md#eigen-manifests-valideren). `bundle exec rake syntax:puppet` valideert zonder rapport. Vervang de aanroep in CI door `bundle exec rake "syntax:puppet[$PROJECT_REPORT_DIR/syntax-report.xml]"` met de ingestelde rapportmap. De taak heeft geen standaardrapportpad en leest `PROJECT_REPORT_DIR` niet zelf; bestaande rapporten blijven zonder rapportargument ongewijzigd.
 
@@ -1402,14 +1402,14 @@ Voer daarna `bundle install` uit. In een project met alleen tooltests kan de roo
 require 'rake/testtask'
 
 Rake::TestTask.new(:test) do |task|
-  task.pattern = '.tools/**/tests/**/*_test.rb'
+  task.test_files = Rake::FileList['.tools/**/tests/**/*_test.rb'].exclude(%r{(?:\A|/)fixtures/})
   task.warning = false
 end
 
 task default: :test
 ```
 
-Voer vanuit de projectroot `bundle exec rake test` uit, lokaal en in CI. Controleer het aantal uitgevoerde tests; een geslaagde taak met nul tests bewijst niets. Een aanvullende `test:<tool-name>`-taak selecteert alleen `.tools/<tool-name>/tests/**/*_test.rb`. Heeft het project al een verzameltaak voor andere tests, voeg de toolselectie dan als afzonderlijke taak toe en behoud de bestaande dekking en het standaardgedrag.
+Voer vanuit de projectroot `bundle exec rake test` uit, lokaal en in CI. Controleer het aantal uitgevoerde tests; een geslaagde taak met nul tests bewijst niets. Een aanvullende `test:<tool-name>`-taak selecteert alleen `.tools/<tool-name>/tests/**/*_test.rb`, met dezelfde uitsluiting van `fixtures/` op ieder niveau. Heeft het project al een verzameltaak voor andere tests, voeg de toolselectie dan als afzonderlijke taak toe en behoud de bestaande dekking en het standaardgedrag.
 
 Laat de selectie alleen de eigen tools doorlopen. De tests onder `global-modules/.tools/**/tests/` horen bij de ontwikkeling van de gedeelde gem en draaien in de CI van die repository. Het afnemende project hoeft die suite niet te kopiëren of via zijn eigen Rakefile te laden. Wie alleen de linters gebruikt, heeft daarvoor geen eigen testmap of testtaak nodig.
 

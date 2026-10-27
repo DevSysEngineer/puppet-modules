@@ -47,13 +47,14 @@ module ProjectTools
           return
         end
 
-        combine(name, facts, manifests)
+        combine(name, facts, manifests, File.dirname(directory))
       end
 
-      def combine(name, facts, manifests)
+      def combine(name, facts, manifests, module_directory)
         facts.product(manifests).each do |fact, manifest|
           @scenarios << { name: "#{name}/#{manifest[:name]} [#{fact[:name]}]",
-                          facts: fact[:path], manifest: manifest[:path] }
+                          facts: fact[:path], manifest: manifest[:path],
+                          module_directory: module_directory }
         end
       end
 

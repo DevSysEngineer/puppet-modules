@@ -61,6 +61,28 @@ class CatalogTest < Minitest::Test
     assert_includes @console.string, 'nonexistent'
   end
 
+  def test_coverage_reports_indirect_declarations_and_excludes_unrealized_defines
+    prepare_coverage_module
+    runner = ProjectTools::Catalog.new(modulepath: @root, console: @console, errors: @errors)
+    assert_equal 0, runner.run(report: File.join(@root, 'reports', 'catalog.xml'))
+    assert_includes @console.string, 'Definition coverage: 3/5'
+    assert_includes @console.string, 'Compiled definitions: class sample, class sample::child, define sample::item'
+    missing = 'Missing definitions (review required): class sample::missing, define sample::unused'
+    assert_includes @console.string, missing
+    assert_includes report_suite.elements['testcase/system-out'].text, missing
+  end
+
+  def prepare_coverage_module
+    directory = module_inputs('sample', code: 'include sample')
+    File.write(File.join(directory, 'manifests', 'init.pp'), <<~PUPPET)
+      class sample { include sample::child; sample::item { 'included': } @sample::unused { 'virtual': } }
+      class sample::child {}
+      class sample::missing {}
+      define sample::item() {}
+      define sample::unused() {}
+    PUPPET
+  end
+
   def test_missing_inputs_and_invalid_facts_are_errors_and_retain_later_results
     File.write(@facts, '[]')
     missing = { name: 'missing', manifest: File.join(@root, 'absent.pp'), facts: @facts }

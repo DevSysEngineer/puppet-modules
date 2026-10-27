@@ -1,0 +1,38 @@
+{
+  "os": {
+    "name": "Ubuntu",
+    "family": "Debian",
+    "architecture": "aarch64",
+    "release": {
+      "major": "24.04",
+      "full": "24.04"
+    },
+    "distro": {
+      "codename": "noble"
+    }
+  },
+  "networking": {
+    "fqdn": "node.example.test",
+    "hostname": "node",
+    "domain": "example.test",
+    "ip": "192.0.2.10",
+    "interfaces": {}
+  },
+  "kernel": "Linux",
+  "kernelrelease": "6.8.0-nvidia",
+  "is_virtual": true,
+  "virtual": "kvm",
+  "processors": {
+    "count": 2
+  },
+  "memory": {
+    "system": {
+      "total_bytes": 8589934592
+    }
+  },
+  "console_gettys": [],
+  "disks": {},
+  "partitions": {},
+  "mountpoints": {},
+  "systemd": true
+}

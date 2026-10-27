@@ -4,10 +4,11 @@ require 'json'
 require 'tmpdir'
 require 'puppet'
 require 'project_tools/shared/modulepath'
+require_relative 'coverage'
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
 begin
-  modulepath, manifest, facts_path = ARGV
+  modulepath, manifest, facts_path, module_directory = ARGV
   paths = ProjectTools::Shared::Modulepath.parse(modulepath)
 
   code = File.read(manifest)
@@ -26,6 +27,7 @@ begin
     node.fact_merge(Puppet::Node::Facts.new(node.name, facts))
     catalog = Puppet::Parser::Compiler.compile(node)
     puts "Compiled #{catalog.resources.size} resources."
+    puts ProjectTools::Catalog::Coverage.new(module_directory).report(catalog) if module_directory
   end
 rescue Puppet::Error => e
   warn e.message
