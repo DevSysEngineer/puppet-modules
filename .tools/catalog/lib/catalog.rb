@@ -70,15 +70,18 @@ module ProjectTools
     end
 
     def compile(scenario)
-      arguments = [@modulepath.join(File::PATH_SEPARATOR), *scenario.values_at(:manifest, :facts),
-                   *Array(scenario[:module_directory])]
+      arguments = worker_arguments(scenario)
       output, status = Open3.capture2e(RbConfig.ruby, File.join(__dir__, 'worker.rb'), *arguments)
-      kind = status.success? ? nil : :error
-      kind = :failure if status.exitstatus == 1
+      kind = { 0 => nil, 1 => :failure }.fetch(status.exitstatus, :error)
       output = "Compiler process ended: #{status}" if output.empty? && kind
       { name: scenario.fetch(:name), kind: kind, message: output }
     rescue SystemCallError => e
       { name: scenario.fetch(:name), kind: :error, message: "Cannot start compiler: #{e.message}" }
+    end
+
+    def worker_arguments(scenario)
+      [@modulepath.join(File::PATH_SEPARATOR), *scenario.values_at(:manifest, :facts),
+       scenario[:module_directory].to_s, scenario[:hiera].to_s]
     end
 
     def counts

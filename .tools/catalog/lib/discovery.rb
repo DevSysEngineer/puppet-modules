@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'puppet'
+require_relative 'hiera'
 
 module ProjectTools
   class Catalog
@@ -40,6 +41,9 @@ module ProjectTools
       end
 
       def select_scenarios(name, directory)
+        hiera = File.join(directory, 'hiera')
+        hiera = nil unless File.exist?(hiera) || File.symlink?(hiera)
+        HieraFixture.new(hiera) if hiera
         manifests = inputs(File.join(directory, 'manifests'), '.pp')
         facts = inputs(File.join(directory, 'facts'), '.json')
         if manifests.empty? || facts.empty?
@@ -47,14 +51,14 @@ module ProjectTools
           return
         end
 
-        combine(name, facts, manifests, File.dirname(directory))
+        combine(name, facts, manifests, File.dirname(directory), hiera)
       end
 
-      def combine(name, facts, manifests, module_directory)
+      def combine(name, facts, manifests, module_directory, hiera)
         facts.product(manifests).each do |fact, manifest|
           @scenarios << { name: "#{name}/#{manifest[:name]} [#{fact[:name]}]",
                           facts: fact[:path], manifest: manifest[:path],
-                          module_directory: module_directory }
+                          module_directory: module_directory, hiera: hiera }
         end
       end
 
