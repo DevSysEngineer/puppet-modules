@@ -12,15 +12,13 @@ class CiRubyStepsTest < Minitest::Test
   end
 
   def ruby_scripts
-    github = guide_configuration('jobs').dig('jobs', 'ruby_lint', 'steps')
-    gitlab = guide_configuration('.check_setup').dig('ruby_lint', 'script').join("\n")
-    scripts = [ruby_script(workflow_steps('ruby_lint')), ruby_script(github), gitlab]
+    scripts = [ruby_script(workflow_steps('ruby_lint'))]
     scripts.map do |script|
       "source \"$1\"\n#{script[/ci_begin 'Ruby lint' native.*?^\s*esac/m]}"
     end
   end
 
-  def test_offenses_and_runtime_errors_keep_distinct_outcomes_in_all_ci_examples
+  def test_offenses_and_runtime_errors_keep_distinct_outcomes
     ruby_scripts.each do |script|
       { 0 => ['PASSED', 'Execution: complete'], 1 => ['FAILED', 'Reason: RuboCop offenses'],
         2 => ['ERROR', 'Reason: RuboCop could not complete'] }.each do |code, (outcome, detail)|

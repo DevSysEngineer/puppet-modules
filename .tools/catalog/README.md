@@ -24,7 +24,7 @@ bundle exec rake secrets:puppet
 bundle exec rake catalog:compile
 ```
 
-Voer eerst de [Puppet-secretsgate](../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit en beoordeel haar status voordat je compileert. Die gate selecteert ook de scenario-manifests onder de eigen modules. In CI is zij een verplichte jobdependency. Cataloguscompilatie staat naast `syntax:puppet` en `rake test`; de tooltests starten uitsluitend synthetische compilaties.
+Voer eerst de [Puppet-secretsgate](../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit en beoordeel haar status voordat je compileert. Die gate selecteert ook de scenario-manifests onder de eigen modules. In CI geeft de zelfstandige secrets-job de volgende kwaliteitsfases vrij volgens de [faseafspraak](../README.md#ci-van-deze-repository). `catalog:compile` en de catalogusrunner voeren zelf geen scan uit en hebben in de CI-route geen secrets-prerequisite. Cataloguscompilatie staat naast `syntax:puppet` en `rake test`; de tooltests starten uitsluitend synthetische compilaties.
 
 Vraag voor CI en de eindcontrole het JUnit-rapport expliciet aan:
 
@@ -133,13 +133,13 @@ Alle gevonden modules met tests doen mee, inclusief geïmporteerde modules op he
 
 De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoorbeeld onder `global-modules`. Hij heeft geen eigen gem. Gebruik een actieve consumerbundle met `openvox` vanaf 8.29 binnen major 8, `json` onder versie 3, `syslog` binnen 0.4 en `project-tools-shared` vanaf 0.1.1 binnen 0.1; Rake-aanroepen vereisen bovendien `rake`. De [bundle-installatie voor consumers](../README.md#installatie-in-je-project) beschrijft de gedeelde packages. Een installatie van uitsluitend gems bevat deze runner en de moduletests niet.
 
-**Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** De genoemde bundle, de volledige checkout onder `global-modules` en een geslaagde secretsvoorcontrole van de geselecteerde modules en scenario’s. **Invoer:** Tests uit de geïmporteerde checkout. **Wijzigt bestanden:** Het gevraagde rapport binnen het consumerproject. **Verwacht resultaat:** Dezelfde selectie en exitcodes als vanuit de libraryroot.
+**Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** De genoemde bundle, de volledige checkout onder `global-modules` en een geslaagde voorafgaande Puppet-secretscontrole met de bestaande projectselectie. **Invoer:** Tests uit de geïmporteerde checkout. **Wijzigt bestanden:** Het gevraagde rapport binnen het consumerproject. **Verwacht resultaat:** Dezelfde selectie en exitcodes als vanuit de libraryroot.
 
 ```sh
 bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit build/reports/catalog.xml
 ```
 
-Wil je eigen modules en hun tests meenemen, geef dan het volledige modulepad op. In dit voorbeeld staan eigen modules vóór de geïmporteerde modules; beide directories moeten bestaan. De voorcontrole moet dezelfde geselecteerde code dekken voordat je compileert.
+Wil je eigen modules en hun tests meenemen, geef dan het volledige modulepad op. In dit voorbeeld staan eigen modules vóór de geïmporteerde modules; beide directories moeten bestaan. Het modulepad bepaalt de catalogusselectie, niet de secrets-selectie. Behoud de bestaande expliciete projectscan en breid haar niet automatisch uit naar geïmporteerde dependencies. Niet-geselecteerde imports vallen buiten haar controlebewijs.
 
 **Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** Dezelfde bundle en gecontroleerde invoer, plus eigen modules onder `modules`. **Invoer:** Beide modulemappen in de opgegeven volgorde. **Wijzigt bestanden:** Het gevraagde rapport. **Verwacht resultaat:** Automatische uitvoering van eigen en geïmporteerde moduletests, met voorrang voor eigen modules met dezelfde naam.
 
@@ -148,7 +148,7 @@ export PROJECT_TOOLS_MODULEPATH="$PWD/modules:$PWD/global-modules"
 bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit build/reports/catalog.xml
 ```
 
-De bestaande Rake-ingang blijft bruikbaar met `bundle exec rake -f global-modules/Rakefile 'catalog:compile[build/reports/catalog.xml]'`. Vanuit een andere directory geef je absolute paden naar de CLI of het Rakefile en selecteer je de consumerbundle via `BUNDLE_GEMFILE`. Het modulepad blijft onafhankelijk van die directory; een relatief rapportpad volgt wel de aanroeper. Eigen modules kunnen dezelfde optionele `tests/hiera/`-structuur gebruiken. Hun relatieve Hiera-paden blijven modulegebonden en vereisen geen consumerconfiguratie of extra CLI-optie.
+De bestaande Rake-ingang blijft bruikbaar met `bundle exec rake -f global-modules/Rakefile 'catalog:compile[build/reports/catalog.xml]'`. Vanuit een andere directory geef je absolute paden naar de CLI of het Rakefile en selecteer je de consumerbundle via `BUNDLE_GEMFILE`. Het modulepad blijft onafhankelijk van die directory; een relatief rapportpad volgt wel de aanroeper. Gebruikt de consumer een eigen `catalog:compile`, laat die uitsluitend de gedeelde runner aanroepen, zonder `catalog:secrets` of `rake secrets:puppet` als prerequisite. Controleer dit vanuit de consumerroot met `bundle exec rake --prereqs`; de upstream-taakgrafiek bewijst niets over eigen taakdefinities. Eigen modules kunnen dezelfde optionele `tests/hiera/`-structuur gebruiken. Hun relatieve Hiera-paden blijven modulegebonden en vereisen geen consumerconfiguratie of extra CLI-optie.
 
 ## Uitvoering en resultaten
 

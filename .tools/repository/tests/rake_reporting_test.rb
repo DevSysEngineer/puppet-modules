@@ -38,7 +38,7 @@ class RakeReportingTest < Minitest::Test
 
   def test_default_full_and_targeted_tasks_do_not_create_reports
     before = tree
-    [[], ['test'], ['test:shared']].each do |tasks|
+    [[], ['test'], ['test:tools'], ['test:shared']].each do |tasks|
       run_task(*tasks)
       assert @status.success?, @output + @errors
       assert_includes @output, '1 tests, 1 assertions'
@@ -64,10 +64,10 @@ class RakeReportingTest < Minitest::Test
   end
 
   def assert_optional_report(success)
-    run_task('test:shared')
+    run_task('test:tools')
     assert_equal(success ? 0 : 1, @status.exitstatus, @output + @errors)
     refute_path_exists File.join(@project, 'reports')
-    run_task('test:shared', reports: 'reports')
+    run_task('test:tools', reports: 'reports')
     assert_equal(success ? 0 : 1, @status.exitstatus, @output + @errors)
     assert_report(success)
   end

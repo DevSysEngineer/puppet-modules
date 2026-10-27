@@ -2,120 +2,74 @@
 
 require_relative '../../shared/test_support/bootstrap'
 require 'yaml'
+require_relative 'ci/phase_support'
 
 # Guard the checked-in CI status boundaries without pretending to execute GitHub's UI locally.
-class ToolingWorkflowTest < Minitest::Test
+class ToolingPhaseWorkflowTest < Minitest::Test
+  include CiPhaseSupport
+
   ROOT = File.expand_path('../../..', __dir__)
 
-  def test_eight_jobs_use_the_same_setup_with_a_secret_gate
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+  PHASES = [
+    ['puppet_secrets', 'Puppet secrets', []],
+    ['puppet_metadata', 'Puppet metadata', ['puppet_secrets']],
+    ['puppet_syntax', 'Puppet syntax', ['puppet_secrets']],
+    ['puppet_dependencies', 'Puppet dependencies', %w[puppet_metadata puppet_syntax]],
+    ['puppet_lint', 'Puppet lint', %w[puppet_metadata puppet_syntax]],
+    ['ruby_lint', 'Ruby lint', %w[puppet_metadata puppet_syntax]],
+    ['tool_tests', 'Tool tests', %w[puppet_dependencies puppet_lint ruby_lint]],
+    ['puppet_catalog', 'Puppet catalogs', ['tool_tests']]
+  ].freeze
+
+  def source
+    File.read(File.join(ROOT, '.github/workflows/checks.yml'))
+  end
+
+  def test_eight_jobs_use_the_same_setup_and_five_quality_phases
+    workflow = YAML.safe_load(source)
     jobs = workflow.fetch('jobs')
-    names = ['Metadata', 'Puppet catalogs', 'Puppet dependencies', 'Puppet lint', 'Puppet secrets',
-             'Puppet syntax', 'Ruby lint', 'Tool tests']
-    assert_equal names, jobs.values.map { |job| job.fetch('name') }.sort
-    jobs.each_value { |job| assert_job_setup(job) }
+    assert_phase_graph(jobs, PHASES, source: source)
+    jobs.each_value { |job| assert_setup(job.fetch('steps')) }
     assert_equal 'true', workflow.dig('env', 'BUNDLE_FROZEN')
     assert_equal({ 'contents' => 'read' }, workflow.fetch('permissions'))
   end
 
-  def assert_job_setup(job)
-    if job.fetch('name') == 'Puppet secrets'
-      refute job.key?('needs')
-    else
-      assert_equal 'puppet_secrets', job.fetch('needs')
-    end
-    steps = job.fetch('steps')
+  def assert_setup(steps)
     assert_equal 'actions/checkout@v7', steps.first.fetch('uses')
+    assert_equal 'recursive', steps.first.dig('with', 'submodules')
+    assert_equal false, steps.first.dig('with', 'persist-credentials')
     assert_equal './.github/actions/setup-tooling', steps[1].fetch('uses')
-    refute(steps.any? { |step| step.key?('continue-on-error') })
   end
 
-  def test_secret_status_runs_for_every_push_pull_request_and_merge_group
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    triggers = workflow.fetch('on') { workflow.fetch(true) }
-    assert_equal %w[merge_group pull_request push], triggers.keys.sort
+  def test_every_required_edge_and_job_failure_boundary_is_enforced
+    jobs = YAML.safe_load(source).fetch('jobs')
+    assert_missing_edges_rejected(jobs, PHASES, source: source)
+    assert_job_bypasses_rejected(jobs, PHASES, source: source)
   end
 
-  def test_secret_job_is_mandatory_and_reports_no_source
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.dig('jobs', 'puppet_secrets', 'steps')
-    assert_includes steps.filter_map { |step| step['run'] }, 'bundle exec rake secrets:puppet'
-    refute(steps.any? { |step| step.key?('if') || step.key?('continue-on-error') })
-  end
-
-  def test_checkout_checks_do_not_print_source_diffs
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    workflow.fetch('jobs').each_value do |job|
-      runs = job.fetch('steps').filter_map { |step| step['run'] }.join("\n")
-      refute_includes runs, 'git diff --exit-code'
-      assert_includes runs, 'git diff --quiet HEAD --'
+  def test_all_lower_phases_are_transitive_prerequisites
+    jobs = YAML.safe_load(source).fetch('jobs')
+    %w[puppet_metadata puppet_syntax].each do |predecessor|
+      PHASES.drop(3).each { |id,| assert_includes ancestors(jobs, id), predecessor }
+    end
+    %w[puppet_dependencies puppet_lint ruby_lint].each do |predecessor|
+      %w[tool_tests puppet_catalog].each { |id| assert_includes ancestors(jobs, id), predecessor }
     end
   end
 
-  def test_test_job_explicitly_requests_the_published_reports
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.fetch('jobs').fetch('tool_tests').fetch('steps')
-    test_step = steps.find { |step| step['run'] == 'bundle exec rake test' }
-    reports = test_step.fetch('env').fetch('MINITEST_REPORTERS_REPORTS_DIR')
-    refute_empty reports
-    upload, summary = reporting_steps(steps)
-    assert_equal "#{reports}/TEST-*.xml", upload.dig('with', 'path')
-    assert_equal "#{reports}/TEST-*.xml", summary.dig('with', 'paths')
-  end
-
-  def test_validation_job_explicitly_requests_the_published_report
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.fetch('jobs').fetch('syntax').fetch('steps')
-    upload, = reporting_steps(steps)
-    report = upload.dig('with', 'path')
-    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'syntax:puppet[#{report}]'"
-  end
-
-  def test_catalog_job_explicitly_requests_the_published_report
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.fetch('jobs').fetch('catalog').fetch('steps')
-    upload, = reporting_steps(steps)
-    report = upload.dig('with', 'path')
-    assert_includes steps.filter_map { |step| step['run'] }, "bundle exec rake 'catalog:compile[#{report}]'"
-    assert_equal '${{ !cancelled() }}', upload.fetch('if')
-  end
-
-  def test_dependency_artifact_and_summary_use_the_same_report_on_failure
-    steps = dependency_steps
-    upload, summary = reporting_steps(steps)
-    assert_equal '${{ !cancelled() }}', upload.fetch('if')
-    assert_equal 'error', upload.dig('with', 'if-no-files-found')
-    assert_equal upload.dig('with', 'path'), summary.dig('with', 'paths')
-    assert_equal 'fail', summary.dig('with', 'show')
-    assert_equal false, summary.dig('with', 'folded')
-  end
-
-  def dependency_steps
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    workflow.fetch('jobs').fetch('puppet_dependencies').fetch('steps')
-  end
-
-  def reporting_steps(steps)
-    ['actions/upload-artifact@', 'test-summary/'].map do |prefix|
-      steps.find { |step| step.fetch('uses', '').start_with?(prefix) }
+  def runs_by_job
+    YAML.safe_load(source).fetch('jobs').transform_values do |job|
+      job.fetch('steps').filter_map { |step| step['run'] }.join("\n")
     end
   end
 
-  def test_composite_action_keeps_existing_installation_choices
-    action = YAML.load_file(File.join(ROOT, '.github/actions/setup-tooling/action.yml'))
-    assert_equal 'composite', action.dig('runs', 'using')
-    steps = action.dig('runs', 'steps')
-    assert_equal 'ruby/setup-ruby@v1', steps[0].fetch('uses')
-    assert_equal({ 'ruby-version' => 'ruby', 'bundler' => 'none' }, steps[0].fetch('with'))
-    assert_installation_steps(steps.drop(1))
-  end
-
-  def assert_installation_steps(steps)
-    ['gem install bundler', 'bundle install'].zip(steps).each do |command, step|
-      assert_includes step.fetch('run'), "if #{command}; then"
-      assert_includes step.fetch('run'), 'source "$GITHUB_ACTION_PATH/log.sh"'
-      assert_includes step.fetch('run'), 'ci_end "$?" ERROR incomplete'
-    end
-    assert(steps.all? { |step| step.fetch('shell') == 'bash' })
+  def test_only_the_first_job_invokes_the_project_scan
+    runs = runs_by_job
+    scan_jobs = runs.keys.select { |id| runs.fetch(id).include?('rake secrets:puppet') }
+    assert_equal ['puppet_secrets'], scan_jobs
+    text = runs.values.join("\n")
+    assert_equal 1, text.scan('rake secrets:puppet').size
+    refute_match(/rake test(?:\s|$)/, text)
+    refute_includes text, 'catalog:secrets'
   end
 end

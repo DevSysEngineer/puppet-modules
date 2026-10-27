@@ -103,7 +103,7 @@ class TestStructureTest < Minitest::Test
     selections = tool_selections
     all = [*selections.values.flatten, '.tools/inventory/tests/inventory_test.rb'].sort
     all.each { |path| write_file(path, "puts #{path.dump}\n") }
-    selections.merge('test' => all, 'default' => all).each do |task, expected|
+    selections.merge('test:tools' => all, 'test' => all, 'default' => all).each do |task, expected|
       assert_task_selection(task, expected)
     end
   end

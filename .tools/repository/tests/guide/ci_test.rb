@@ -2,31 +2,23 @@
 
 require_relative '../../../shared/test_support/bootstrap'
 require 'yaml'
+require_relative '../ci/phase_support'
+require_relative 'ci_support'
 
-# Validate the independent job and artifact contracts in both documented CI configurations.
+# Validate the phase and artifact contracts in both documented CI configurations.
 class GuideCiTest < Minitest::Test
-  ROOT = File.expand_path('../../../..', __dir__)
-
-  def guide
-    File.read(File.join(ROOT, '.tools/README.md'))
-  end
+  include CiPhaseSupport
+  include GuideCiSupport
 
   def test_ci_examples_keep_independent_checks_and_failure_artifacts
     github = configuration_with('jobs')
     gitlab = configuration_with('.check_setup')
     assert_equal 'bash', github.dig('defaults', 'run', 'shell')
     assert_includes gitlab.dig('.check_setup', 'before_script'), 'set -eo pipefail'
-    %w[syntax puppet_lint ruby_lint tool_tests puppet_dependencies metadata].each do |name|
+    %w[puppet_metadata puppet_syntax puppet_dependencies puppet_lint puppet_catalog].each do |name|
       assert_github_job(github.fetch('jobs').fetch(name))
       assert_gitlab_job(gitlab.fetch(name))
     end
-  end
-
-  def configuration_with(key)
-    configurations = guide.scan(/^```yaml\n(.*?)^```/m).flatten.map { |text| YAML.safe_load(text) }
-    config = configurations.find { |item| item.is_a?(Hash) && item.key?(key) }
-    refute_nil config
-    config
   end
 
   def test_ci_jobs_invoke_the_documented_checks_and_report_conversion
@@ -37,15 +29,6 @@ class GuideCiTest < Minitest::Test
       assert_match command, runs
       assert_match command, gitlab.fetch(job).fetch('script').join("\n")
     end
-  end
-
-  def command_contracts
-    { 'syntax' => /bundle exec (?:syntax-junit|rake syntax:puppet)/,
-      'puppet_lint' => /bundle exec puppet-lint-junit/,
-      'ruby_lint' => /bundle exec rubocop --config .rubocop.yml/,
-      'tool_tests' => /bundle exec rake test/,
-      'metadata' => /bundle exec project-tools-metadata --junit /,
-      'puppet_dependencies' => /bundle exec project-tools-module --junit / }
   end
 
   def test_consumer_secret_jobs_use_the_shared_cli_before_diagnostics
@@ -59,44 +42,51 @@ class GuideCiTest < Minitest::Test
     assert_secret_stages
   end
 
-  def assert_secret_stages
-    assert_equal %w[secrets checks], configuration_with('.check_setup').fetch('stages')
+  def test_consumer_phases_omit_inapplicable_jobs_without_losing_dependencies
+    jobs = configuration_with('jobs').fetch('jobs')
+    assert_phase_graph(jobs, PHASES, source: guide)
+    assert_missing_edges_rejected(jobs, PHASES, source: guide)
+    assert_job_bypasses_rejected(jobs, PHASES, source: guide)
+    assert_gitlab_phases(configuration_with('.check_setup'))
   end
 
-  def test_ci_examples_request_test_reports_explicitly
-    github = configuration_with('jobs').fetch('jobs').fetch('tool_tests')
-    step = github.fetch('steps').find { |item| item.fetch('run', '').include?('bundle exec rake test') }
-    assert_equal '${{ env.PROJECT_REPORT_DIR }}', step.dig('env', 'MINITEST_REPORTERS_REPORTS_DIR')
-    gitlab = configuration_with('.check_setup').fetch('tool_tests')
-    assert_includes gitlab.fetch('script').join("\n"),
-                    'MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test'
+  def test_gitlab_phase_checks_reject_early_jobs_and_failure_bypasses
+    config = configuration_with('.check_setup')
+    PHASES.map(&:first).each do |id|
+      [{ 'stage' => 'tool_tests' }, { 'needs' => [] }, { 'allow_failure' => true },
+       { 'when' => 'always' }, { 'rules' => [{ 'when' => 'manual' }] }].each do |override|
+        changed = Marshal.load(Marshal.dump(config))
+        changed.fetch(id).merge!(override)
+        assert_raises(Minitest::Assertion) { assert_gitlab_phases(changed) }
+      end
+    end
   end
 
-  def assert_github_job(job)
-    assert_equal 'puppet_secrets', job.fetch('needs')
-    steps = job.fetch('steps')
-    assert(steps.any? { |step| step.fetch('run', '').include?('if git diff --quiet HEAD --; then') })
-    refute(steps.any? { |step| step.fetch('run', '').include?('--fix') })
-    uploads = steps.select { |step| step.fetch('uses', '').start_with?('actions/upload-artifact@') }
-    assert_github_uploads(uploads)
+  def test_optional_tool_tests_request_reports_via_the_focused_task
+    assert_includes guide, 'MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test:tools'
+    assert_includes guide, 'test-summary/action@v2'
+    assert_includes guide, 'TEST-*.xml'
+    assert_includes guide, 'artifacts:reports:junit'
+    assert_includes guide, 'ruby_lint'
   end
 
-  def assert_github_uploads(uploads)
-    assert_equal 1, uploads.size
-    upload = uploads.first
-    assert_equal '${{ !cancelled() }}', upload.fetch('if')
-    assert upload.dig('with', 'include-hidden-files')
-    assert_match(%r{\A\$\{\{ env.PROJECT_REPORT_DIR \}\}/(?:[\w-]+|TEST-\*)\.xml\z},
-                 upload.dig('with', 'path'))
+  def test_consumer_routes_have_one_project_scan_and_no_protected_aggregate
+    gitlab = configuration_with('.check_setup')
+    scripts = [github_scripts.join("\n"), PHASES.flat_map { |id,| gitlab.fetch(id).fetch('script') }.join("\n")]
+    scripts.each do |text|
+      assert_equal 1, text.scan('project-tools-secrets --puppet environments/ modules/').size
+      refute_match(/rake test(?:\s|$)/, text)
+      refute_includes text, 'catalog:secrets'
+      refute_includes text, 'global-modules/.tools/**/tests'
+    end
   end
 
-  def assert_gitlab_job(job)
-    refute job.key?('needs')
-    assert_equal '.check_setup', job.fetch('extends')
-    assert_includes job.fetch('script').last, 'if git diff --quiet HEAD --; then'
-    refute(job.fetch('script').any? { |command| command.include?('--fix') })
-    assert_equal 'always', job.dig('artifacts', 'when')
-    assert_equal [job.dig('artifacts', 'reports', 'junit')], job.dig('artifacts', 'paths')
+  def test_consumers_configure_their_own_metadata
+    github = configuration_with('jobs')
+    gitlab = configuration_with('.check_setup')
+    assert_equal 'modules', github.dig('jobs', 'puppet_metadata', 'env', 'PROJECT_METADATA_MODULES_PATH')
+    assert_equal 'example', gitlab.dig('puppet_metadata', 'variables', 'PROJECT_METADATA_PREFIX')
+    assert_includes guide, 'eigen `VERSION`'
   end
 
   def test_documented_ci_shell_blocks_are_valid_bash
@@ -104,16 +94,5 @@ class GuideCiTest < Minitest::Test
       output, errors, status = Open3.capture3('bash', '-n', stdin_data: script)
       assert status.success?, output + errors
     end
-  end
-
-  def ci_scripts
-    gitlab = configuration_with('.check_setup')
-    github_scripts + gitlab.dig('.check_setup', 'before_script') +
-      command_contracts.keys.flat_map { |job| gitlab.fetch(job).fetch('script') }
-  end
-
-  def github_scripts
-    steps = configuration_with('jobs').fetch('jobs').values.flat_map { |job| job.fetch('steps') }
-    steps.filter_map { |step| step['run'] }
   end
 end

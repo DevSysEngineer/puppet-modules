@@ -65,7 +65,7 @@ class CiNativeStepsTest < Minitest::Test
   end
 
   def test_checkout_failure_is_a_separate_failed_control_after_success
-    step = workflow_steps('metadata').find { |item| item['name'] == 'Check for changes' }
+    step = workflow_steps('puppet_metadata').find { |item| item['name'] == 'Check for changes' }
     script = step.fetch('run').sub('source .github/actions/setup-tooling/log.sh', 'source "$1"')
     native = "printf '[PASSED] Metadata\n'\ngit() { [ \"$2\" = --quiet ] || printf 'synthetic diff\n'; return 1; }\n"
     output, _errors, status = shell(native + script)

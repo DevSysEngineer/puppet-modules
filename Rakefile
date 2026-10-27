@@ -8,7 +8,7 @@ def project_manifests
 end
 
 {
-  test: ['Run all tool tests', '.tools/**/tests/**/*_test.rb'],
+  'test:tools' => ['Run all tool tests', '.tools/**/tests/**/*_test.rb'],
   'test:metadata' => ['Run metadata tool tests', '.tools/metadata/tests/**/*_test.rb'],
   'test:ruby_lint' => ['Run Ruby lint package tests', '.tools/lint/ruby/tests/**/*_test.rb'],
   'test:repository' => ['Run repository integration checks', '.tools/repository/tests/**/*_test.rb'],
@@ -38,7 +38,9 @@ namespace :secrets do
   end
 end
 
+desc 'Check Puppet secrets, then run all tool tests locally'
 task test: 'secrets:puppet'
+task test: 'test:tools'
 
 namespace :syntax do
   desc 'Check first-party Puppet syntax, optionally writing JUnit to the supplied path'

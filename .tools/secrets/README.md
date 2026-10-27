@@ -551,7 +551,7 @@ bundle exec rake secrets:puppet
 bundle exec rake test
 ```
 
-De CLI accepteert een hele map, meerdere mappen, een lijst bestanden of een combinatie in één proces. Met `--puppet` worden uitsluitend `.pp`-bestanden geselecteerd. Een selectie zonder manifesten, onleesbare invoer of een parserfout faalt met exitcode 2. Niet-geselecteerde bestandstypen zijn daarmee niet gecontroleerd. De repositorytaak selecteert alle eigen manifesten, inclusief `examples/`, en sluit `.tools/`, `vendor/` en de vier externe modules `concat`, `debconf`, `reboot` en `stdlib` uit. `bundle exec rake test` en de standaardtaak `bundle exec rake` voeren deze controle verplicht vóór de tooltests uit. De gerichte `test:*`-taken testen alleen de betreffende tool. De afzonderlijke native parservalidatie blijft verplicht.
+De CLI accepteert een hele map, meerdere mappen, een lijst bestanden of een combinatie in één proces. Met `--puppet` worden uitsluitend `.pp`-bestanden geselecteerd. Een selectie zonder manifesten, onleesbare invoer of een parserfout faalt met exitcode 2. Niet-geselecteerde bestandstypen zijn daarmee niet gecontroleerd. De repositorytaak selecteert alle eigen manifesten, inclusief `examples/`, en sluit `.tools/`, `vendor/` en de vier externe modules `concat`, `debconf`, `reboot` en `stdlib` uit. `bundle exec rake test` en de standaardtaak `bundle exec rake` voeren deze controle verplicht vóór de tooltests uit. `test:tools` draait de gehele toolsuite zonder projectscan; de overige gerichte `test:*`-taken testen alleen de betreffende tool. Synthetische scannertests blijven daarvan onderdeel: hun fictieve fixtures zijn geen tweede projectscan. De afzonderlijke native parservalidatie blijft verplicht.
 
 `puppet_hardcoded_value` meldt letterlijke waarden in gevoelige parameters, variabelen, resourceattributen en hashvelden. Ook een letterlijk argument van `Sensitive` of `Sensitive.new` wordt afgekeurd. Publieke SSH-records vallen onder de afzonderlijke openbaarmakingsregel en maken een manifest niet op zichzelf ongeldig, ook niet bij herstel door de writer. Gevoelige veldnamen en Sensitive-wrappers blijven hun bestaande beleid volgen. De bestaande herkenning van tokenprefixen, autorisatie, credential-URL's, versleutelde waarden en PEM-materiaal blijft actief. Het rapport toont uitsluitend bestand, regelnummer, regel en volledigheid; exitcode 1 blokkeert de tests. `--json` en `--junit` presenteren hetzelfde veilige metadatarapport.
 
@@ -561,7 +561,7 @@ De controle onderscheidt code van gegevens. Namen voor bestandspaden, scripts en
 
 Bij een `reduce` met twee lambdaparameters en een lege hash als beginwaarde herkent de Puppet-modus het volgende telpatroon: een `if` vergelijkt een geïndexeerde accumulator met `undef`, de eerste tak voegt voor die variabele sleutel `1` toe en de andere tak verhoogt dezelfde accumulatorwaarde met `1`. Alleen die twee literals zijn telwaarden. Bij `filter` met twee parameters wordt een gehele grenswaarde achter `>`, `>=`, `<` of `<=` op de tweede parameter als selectiegrens behandeld. Andere literals in dezelfde blokken, lookup-defaults en herkenbare token- of sleutelinhoud blijven gecontroleerd. Een naam met `count` of `counts`, een willekeurig getal of alleen het gebruik van een lambda geeft geen vrijstelling; afwijkende telvormen kunnen nog bevindingen geven.
 
-De [GitHub-workflow](../../.github/workflows/checks.yml) voert `bundle exec rake secrets:puppet` uit in de vaste job **Puppet secrets**, bij iedere push, pull request en merge-group. Er zijn geen padfilters die een vereiste controle in afwachting laten. Andere jobs wachten op deze controle, zodat hun bronfragmenten niet verschijnen wanneer de secrets-controle faalt. Ook `git diff` gebruikt daar uitsluitend een stille statuscontrole. Het secrets-resultaat bevat geen bronfragmenten en er worden geen bronbestanden of analysekopieën als artifact gepubliceerd.
+De [GitHub-workflow](../../.github/workflows/checks.yml) voert `bundle exec rake secrets:puppet` uit in de vaste job **Puppet secrets**, bij iedere push, pull request en merge-group. Er zijn geen padfilters die een vereiste controle in afwachting laten. Dit is de enige projectscan in een reguliere volledige CI-pipeline. De [vijf kwaliteitsfases](../README.md#ci-van-deze-repository) dwingen de verdere volgorde af; volgende jobs starten deze scan niet opnieuw. De tooltestjob gebruikt `bundle exec rake test:tools`; cataloguscompilatie heeft geen secrets-prerequisite. Een fout, onvolledige scan of skip blokkeert vervolgdiagnostiek. Ook `git diff` gebruikt daar uitsluitend een stille statuscontrole. Het secrets-resultaat bevat geen bronfragmenten en er worden geen bronbestanden of analysekopieën als artifact gepubliceerd.
 
 Selecteer na de eerste workflowuitvoering **Puppet secrets** als verplichte statuscontrole in branch protection of het ruleset van de doelbranch. Dit is een instelling van de repositorybeheerder; alleen een workflowbestand maakt een check niet verplicht. Behoud de jobnaam en neem bij gebruik van een merge queue de `merge_group`-trigger over. Zie GitHubs [uitleg over vereiste controles](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
@@ -653,7 +653,7 @@ Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasseli
 
 Gebruik één selectie van je eigen manifesten voor lokaal werk en CI. Het onderstaande fragment selecteert `environments/**/*.pp` en `modules/**/*.pp`; pas die patronen aan je project aan en houd geïmporteerde modules buiten deze selectie. De gem voegt zelf geen Rake-taak toe.
 
-Plaats dit fragment in het eigen `Rakefile`, **vóór** de bestaande definities en prerequisites van `test`. Daardoor draait de secrets-controle voordat testtaken of andere prerequisites bronfragmenten kunnen tonen. Behoud de bestaande testimplementatie onder het fragment; importeer het Rakefile van `global-modules` niet.
+Plaats dit fragment in het eigen `Rakefile`, **vóór** de prerequisites van de lokale verzameltaak `test`. Definieer de bestaande eigen toolsuite eenmaal als `test:tools` volgens de [testinrichting](../README.md#eigen-tooltests) en voeg haar daarna aan `test` toe. Zo draait lokaal eerst de projectscan en daarna eenmaal de suite. De zelfstandige `test:tools` heeft geen secrets-prerequisite en is de ingang voor een vrijgegeven CI-job. Importeer het Rakefile van `global-modules` niet als eigen testsuite.
 
 ```ruby
 require 'rake'
@@ -677,11 +677,12 @@ end
 
 De taak bewaart de scannerstatus: een bevinding of onvolledige inspectie stopt `rake test` vóór de eigen tests. Een lege selectie faalt ook. Laat een bestaande standaardtaak via `test` lopen als `bundle exec rake` dezelfde controle moet uitvoeren. Heeft je project geen eigen tests, gebruik dan alleen de taak `secrets:puppet` en laat de prerequisite voor `test` weg; maak geen lege testsuite aan.
 
-Controleer vanuit de consumerroot beide ingangen wanneer je project eigen tests heeft:
+Controleer vanuit de consumerroot de gerichte ingangen en de geladen taakgrafiek wanneer je project eigen tests heeft:
 
 ```sh
 bundle exec rake secrets:puppet
-bundle exec rake test
+bundle exec rake test:tools
+bundle exec rake --prereqs
 ```
 
 Controleer de koppeling ook met een tijdelijk synthetisch manifest buiten versiebeheer: een hardcoded waarde moet de testtaak blokkeren, een gewone lookup moet worden toegestaan en een parserfout moet als fout blijven terugkomen. Gebruik hiervoor nooit een echte credential. Een geslaagde secrets-controle vervangt de afzonderlijke parser-, lint- of dependencycontrole niet.
@@ -696,7 +697,7 @@ De voorbeelden roepen de gedeelde CLI rechtstreeks aan met `environments/ module
 bundle exec rake secrets:puppet
 ```
 
-Zo gebruiken lokaal werk en CI dezelfde selectie. Zonder Rake houd je de rechtstreekse CLI-aanroep en stem je de paden zelf af. Behoud de oorspronkelijke foutstatus; voeg geen `|| true`, `allow_failure` of `continue-on-error` toe. Publiceer geen bronbestanden of analysekopieën als artifact. Voor een gewenst metadatarapport gebruik je de bestaande [JUnit-optie](#resultaten-en-exitcodes) met een nieuw rapportpad buiten de invoer.
+Zo gebruiken lokaal werk en CI dezelfde selectie. Laat latere CI-jobs uitsluitend hun gerichte taak uitvoeren; roep daar geen `rake test` aan en verbind cataloguscompilatie niet aan een extra `catalog:secrets`-taak. Een lokale losse catalogusaanroep volgt op een expliciete voorafgaande controle. Zonder Rake houd je de rechtstreekse CLI-aanroep en stem je de paden zelf af. Behoud de oorspronkelijke foutstatus; voeg geen `|| true`, `allow_failure` of `continue-on-error` toe. Publiceer geen bronbestanden of analysekopieën als artifact. Voor een gewenst metadatarapport gebruik je de bestaande [JUnit-optie](#resultaten-en-exitcodes) met een nieuw rapportpad buiten de invoer.
 
 Stel de gate ook verplicht voor samenvoegen in volgens de regels van je hostingplatform. Behoud in GitHub de statusnaam **Puppet secrets** uit het voorbeeld; een workflowbestand alleen maakt die status niet verplicht. Controleer na publicatie met een synthetische fout dat downstreamjobs en samenvoegen worden geblokkeerd. De lokale tooltests voeren die instelling op je hostingplatform niet uit.
 
