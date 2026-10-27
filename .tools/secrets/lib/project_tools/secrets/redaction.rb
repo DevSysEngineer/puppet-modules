@@ -13,6 +13,8 @@ module ProjectTools
 
       def path(path)
         result = path.to_s.encode('UTF-8', invalid: :replace, undef: :replace)
+        return '[REDACTED]' if SshPublicKey::RECORD.match?(result)
+
         @values.reject(&:empty?).uniq.sort_by { |value| -value.length }.each do |value|
           result = result.gsub(value, '[REDACTED]')
         end
@@ -33,9 +35,19 @@ module ProjectTools
       end
 
       def known_values
-        values = @data['markers'].values.flat_map { |entry| [entry['raw'], entry['value']] }.compact.reject(&:empty?)
-        values.flat_map { |value| [value, JSON.generate(value)[1...-1], value.dump[1...-1]] }
+        values = local_values.compact.reject(&:empty?)
+        values += values.flat_map { |value| SshPublicKey.encoded_values(value) }
+        values.flat_map { |value| representations(value) }
               .uniq.sort_by { |value| -value.length }
+      end
+
+      def local_values
+        @data['markers'].values.flat_map { |entry| [entry['raw'], entry['value']] } +
+          @data['files'].values.flat_map { |file| file.fetch('ssh_public_values', []) }
+      end
+
+      def representations(value)
+        [value, JSON.generate(value)[1...-1], value.dump[1...-1]]
       end
 
       def mask_paths(text)

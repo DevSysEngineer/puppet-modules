@@ -5,6 +5,7 @@ require_relative 'text_scan'
 require_relative 'yaml_scan'
 require_relative 'puppet_scan'
 require_relative 'source_reader'
+require_relative 'ssh_public_key'
 
 module ProjectTools
   module Secrets
@@ -23,7 +24,10 @@ module ProjectTools
       def self.puppet!(documents)
         manifests = documents.select { |document| File.extname(document.path) == '.pp' }
         complete!(manifests)
-        raise Failure, 'puppet_policy_rejected' if manifests.any? { |document| !document.findings.empty? }
+        rejected = manifests.any? do |document|
+          document.findings.any? { |finding| finding[:rule] != 'ssh_public_key' }
+        end
+        raise Failure, 'puppet_policy_rejected' if rejected
       end
 
       MAX_BYTES = SourceReader::MAX_BYTES
@@ -50,7 +54,10 @@ module ProjectTools
 
       def inspect_documents
         scan_yaml
-        leaves.each { |document| scan_text(document) }
+        leaves.each do |document|
+          scan_text(document)
+          SshPublicKey.scan(document) if document.complete? && !@puppet
+        end
         documents.each(&:aggregate)
         documents
       rescue StandardError, SystemStackError, SignalException
@@ -101,7 +108,7 @@ module ProjectTools
         if stat.directory?
           directory(path)
         elsif stat.file?
-          read(path)
+          documents << @reader.read(path)
         else
           problem(path, 'unsupported_file_type')
         end
@@ -111,10 +118,6 @@ module ProjectTools
         entries = Dir.children(path).sort
         problem(path, 'empty_directory') if entries.empty?
         entries.each { |name| select(File.join(path, name)) }
-      end
-
-      def read(path)
-        documents << @reader.read(path)
       end
 
       def problem(path, code)

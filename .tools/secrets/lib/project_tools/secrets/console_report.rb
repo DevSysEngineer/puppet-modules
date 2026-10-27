@@ -15,6 +15,7 @@ module ProjectTools
         'authorization' => 'An authorization header contains authentication material.',
         'credential_url' => 'A URL contains authentication material.',
         'encrypted_secret' => 'Encrypted secret material is present.',
+        'ssh_public_key' => 'Public SSH key material requires disclosure protection.',
         'pem_material' => 'Private key, certificate or certificate request material is present.'
       }.freeze
       ERRORS = {

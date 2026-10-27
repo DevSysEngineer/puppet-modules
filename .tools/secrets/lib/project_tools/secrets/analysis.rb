@@ -52,6 +52,7 @@ module ProjectTools
         { 'source' => @document.path, 'original' => @document.text, 'analysis' => masked,
           'mode' => stat.mode & 0o7777, 'uid' => stat.uid, 'gid' => stat.gid,
           'coverage' => @document.inspection_coverage, 'context_omitted' => omitted?, 'writable' => !classified?,
+          'ssh_public_values' => SshPublicKey.known_values(@document),
           'identity' => SourceVersions.identity(source) }
       end
 
