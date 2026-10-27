@@ -931,7 +931,7 @@ Pull-, push-, server- en maatwerkcheckscenario's staan in [`examples/monitoring.
 
 <a id="doel-10"></a>
 
-`php8` installeert een gekozen PHP 8 minorversie en extensies. `php8::cli` beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm_pool` beheren de FPM-service en afzonderlijke applicatiepools.
+`php8` beheert de gedeelde pakketten en extensies voor een gekozen PHP 8 minorversie. `php8::cli` installeert de CLI en beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm_pool` beheren de FPM-service en afzonderlijke applicatiepools.
 
 <a id="belangrijkste-eigenschappen-10"></a>
 
@@ -944,6 +944,8 @@ Pull-, push-, server- en maatwerkcheckscenario's staan in [`examples/monitoring.
 #### Belangrijke aandachtspunten
 
 Zorg dat de gekozen PHP-versie in de ingestelde APT-bron beschikbaar is, bijvoorbeeld via Sury in `basic_settings`.
+
+Declareer eerst `php8` en daarna `php8::cli`, `php8::fpm` of beide. CLI en FPM werken zonder `basic_settings` en Nginx. Declareer optionele integraties vóór de PHP-classes om tijdzone, monitoring, logrotate en systemd over te nemen. De [PHP-handleiding](php8/README.md) toont zelfstandig CLI- en FPM-gebruik en de combinatie met `basic_settings`.
 
 PHP-FPM neemt de poolmap over en verwijdert onbeheerde pools, inclusief de distributiepool. Declareer daarom minstens één `php8::fpm_pool`, zoals in het voorbeeld. De gebruiker, groep en socketrechten moeten bij de webserver passen; anders kan die geen PHP-verzoeken doorgeven.
 

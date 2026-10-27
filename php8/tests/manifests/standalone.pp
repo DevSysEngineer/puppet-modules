@@ -1,7 +1,6 @@
-# FPM requires the real systemd package and shared unit management.
-include basic_settings::systemd
-
+# Compile every PHP interface without the server baseline or Nginx.
 include php8
+include php8::cli
 include php8::fpm
 
 php8::fpm_pool { 'app': }

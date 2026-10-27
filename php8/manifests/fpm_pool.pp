@@ -1,9 +1,13 @@
 # @summary Manages one PHP-FPM pool configuration.
 #
 # This defined type requires `php8::fpm` and writes `/etc/php/8.<minor>/fpm/pool.d/<title>.conf`. It resolves the socket
-# path from the parent class defaults unless an explicit `listen` value is supplied.
+# path from the parent class defaults unless an explicit `listen` value is supplied. Declare at least one pool:
+# `php8::fpm` purges unmanaged pool files, including the distribution's default pool.
 #
 # @example Create an application pool
+#   include php8
+#   include php8::fpm
+#
 #   php8::fpm_pool { 'app':
 #     user  => 'www-data',
 #     group => 'www-data',
@@ -90,8 +94,9 @@ define php8::fpm_pool (
       group   => 'root',
       mode    => '0600',
       notify  => Service["php8.${minor_version}-fpm"],
+      require => File["/etc/php/8.${minor_version}/fpm/pool.d"],
     }
   } else {
-    fail('The php::fpm class must be included before using the php8::fpm_pool defined type.')
+    fail('The php8::fpm class must be included before using the php8::fpm_pool defined type.')
   }
 }

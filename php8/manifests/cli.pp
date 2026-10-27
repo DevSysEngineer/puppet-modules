@@ -1,10 +1,12 @@
 # @summary Installs PHP CLI configuration and optional Composer.
 #
-# This class requires `php8`, installs the matching CLI package, writes CLI INI settings, optionally sets the default
-# `php` alternative, and can install Composer after verifying the installer signature in a root-only temporary
-# directory.
+# Declare `php8` first to select the PHP version and extensions. This class installs the matching CLI package,
+# writes CLI INI settings, optionally sets the default `php` alternative, and can install Composer after verifying
+# the installer signature in a root-only temporary directory. Neither FPM nor `basic_settings` is required.
 #
 # @example Configure PHP CLI with Composer
+#   include php8
+#
 #   class { 'php8::cli':
 #     ini_settings => { 'memory_limit' => '256M' },
 #   }
@@ -14,7 +16,8 @@
 #
 # @param ini_settings
 #   Hash of INI settings rendered into the CLI custom settings file. Must not include module-managed PHP INI settings
-#   such as `expose_php`.
+#   such as `expose_php`. A previously declared `basic_settings::timezone` supplies `date.timezone` unless explicitly
+#   overridden here. Without that class, the existing PHP timezone configuration remains in effect.
 #
 # @api public
 class php8::cli (
@@ -23,10 +26,16 @@ class php8::cli (
 ) {
   # Require the PHP parent before selecting the CLI version and rendering INI settings.
   if (defined(Class['php8'])) {
-    # Merge given init settings with default settings
-    $correct_ini_settings = stdlib::merge({
-        'date.timezone' => $basic_settings::server_timezone,
-    }, $ini_settings)
+    # Use the same optional timezone integration as FPM, retaining explicit CLI overrides.
+    if (defined(Class['basic_settings::timezone'])) {
+      # Inherit the configured host timezone only when its owning class is available.
+      $correct_ini_settings = stdlib::merge({
+          'date.timezone' => $basic_settings::timezone::timezone,
+      }, $ini_settings)
+    } else {
+      # Leave the existing PHP timezone unchanged when no central default is available.
+      $correct_ini_settings = $ini_settings
+    }
 
     # Reject module-managed PHP INI settings before the custom settings template is rendered.
     $reserved_ini_setting_names = ['expose_php']
@@ -64,8 +73,8 @@ class php8::cli (
         exec { 'php_set_default_version':
           command     => "/usr/bin/update-alternatives --set php ${php_cli_bin_shell}",
           refreshonly => true,
-          require     => Package['dpkg', "php8.${minor_version}"],
-          subscribe   => Package["php8.${minor_version}"],
+          require     => Package['dpkg', "php8.${minor_version}-cli"],
+          subscribe   => Package["php8.${minor_version}-cli"],
         }
       }
 
@@ -92,7 +101,7 @@ class php8::cli (
         exec { "php8_${minor_version}_composer_install":
           environment => 'COMPOSER_HOME=/usr/local/bin',
           command     => "/usr/bin/bash -c 'set -e; umask 077; tmpdir=\$(/usr/bin/mktemp -d /root/php8-composer.XXXXXX) || exit 1; trap \"rm -rf \\\"\$tmpdir\\\"\" EXIT; /usr/bin/curl -fsSL https://getcomposer.org/installer -o \"\$tmpdir/composer-setup.php\"; /usr/bin/curl -fsSL https://composer.github.io/installer.sig -o \"\$tmpdir/composer_hash\"; php -r \"if (hash_file(\\\"SHA384\\\", \\\"\$tmpdir/composer-setup.php\\\") !== trim(file_get_contents(\\\"\$tmpdir/composer_hash\\\"))) { exit(1); }\"; php \"\$tmpdir/composer-setup.php\" --quiet --install-dir=/usr/local/bin --filename=composer'", # lint:ignore:140chars
-          unless      => '[ -e /usr/local/bin/composer ]',
+          unless      => '/usr/bin/test -e /usr/local/bin/composer',
           require     => $composer_require,
         }
       }
@@ -102,6 +111,6 @@ class php8::cli (
       fail("php8::cli ini_settings must not include module-managed PHP INI settings: ${reserved_ini_settings_text}.")
     }
   } else {
-    fail('The php8 class must be included before using the php8::cli defined type.')
+    fail('The php8 class must be included before using the php8::cli class.')
   }
 }

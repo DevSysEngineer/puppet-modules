@@ -1,10 +1,10 @@
 # @summary Installs PHP 8 core packages and selected extensions.
 #
-# This class installs the selected PHP 8 minor version, common/opcache packages, optional extension packages, and
-# default shared files used by PHP CLI/FPM consumers. It is deliberately package-focused; CLI and FPM service
-# configuration lives in `php8::cli` and `php8::fpm`.
+# This class installs common/opcache packages, optional extensions, and shared files for the selected PHP 8 minor
+# version. Declare it before `php8::cli` or `php8::fpm`, which install and configure their respective runtime packages.
+# Package sources remain the caller's responsibility; no web runtime is installed by this shared baseline.
 #
-# @example Install PHP 8.2 with common web extensions
+# @example Select PHP 8.2 and prepare common web extensions
 #   class { 'php8':
 #     curl  => true,
 #     mysql => true,
@@ -99,9 +99,8 @@ class php8 (
   Boolean $xmlrpc             = false,
   Boolean $zip                = false,
 ) {
-  # Install common php packages,
+  # Install shared packages without the metapackage, which would pull in a web runtime even for CLI-only hosts.
   package { [
-      "php8.${minor_version}",
       "php8.${minor_version}-common",
       "php8.${minor_version}-opcache",
     ]:
