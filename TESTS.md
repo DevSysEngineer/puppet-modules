@@ -8,6 +8,8 @@ Dit document bepaalt welke controles bij een wijziging verplicht zijn, welke sce
 - [Soorten bewijs](#soorten-bewijs)
 - [Controlevolgorde en verplichte eindcontroles](#controlevolgorde-en-verplichte-eindcontroles)
 - [Testscope en plaatsing](#testscope-en-plaatsing)
+  - [Testbestanden groeperen](#testbestanden-groeperen)
+  - [Fixtures bij de tests plaatsen](#fixtures-bij-de-tests-plaatsen)
   - [Moduletests eenvoudig houden](#moduletests-eenvoudig-houden)
 - [Scenario's kiezen](#scenarios-kiezen)
 - [Onderwerpgebonden validatie](#onderwerpgebonden-validatie)
@@ -59,14 +61,78 @@ Richt ontwikkeling en CI in met de [gedocumenteerde bundle](.tools/README.md#ins
 
 ## Testscope en plaatsing
 
-- Voeg blijvende repository-eigen gedragstests uitsluitend voor repositorytools toe of onderhoud ze daarvoor. Daarnaast staan blijvende cataloguscompilatiescenario’s bij hun module onder `<module>/tests/`, met automatische uitvoering door `.tools/catalog/` als afzonderlijke controle. Classificeer een test naar wat zijn assertions verifiëren, niet naar naam, invoerformaat of gebruikte technologie.
+- Voeg blijvende repository-eigen gedragstests uitsluitend voor repositorytools toe of onderhoud ze daarvoor. Daarnaast staan blijvende cataloguscompilatiescenario’s bij hun module onder `<module>/tests/manifests/`, met automatische uitvoering door `.tools/catalog/` als afzonderlijke controle. Classificeer een test naar wat zijn assertions verifiëren, niet naar naam, invoerformaat of gebruikte technologie.
 - Houd repositorybrede Puppet-syntaxvalidatie als afzonderlijke taak met native `puppet parser validate` buiten tooltests en hun taakdependencies. Ook de werkelijke dependencycontrole van de checkout blijft afzonderlijk.
 - Houd de [module-eigen catalogusscenario’s](.tools/catalog/README.md#tests-bij-een-module-plaatsen) buiten tooltests en hun taakdependencies. Iedere module onderhoudt haar eigen manifests en facts; de centrale runner ontdekt en compileert die zonder moduleregistratie. Voeg daarnaast geen algemene template-, script- of monitoringgedragstests toe aan de repository, ook niet indirect via tooltests, helpers of hooks. Voer vereiste functionele validatie uit met bestaande validators en geïsoleerde tijdelijke controles buiten de repository.
 - Plaats tooltests uitsluitend op de [gedocumenteerde toollocaties](.tools/README.md#gezamenlijke-tooltests) en catalogusscenario’s onder de betreffende module. Maak geen root-`test/`, `tests/` of `spec/` en geen losse roottests. Modules zonder scenario’s hebben geen lege `tests/`-directory nodig. Volg bij toevoegen of verplaatsen het [tooltestonderhoud](.tools/README.md#toolteststructuur-onderhouden), inclusief gedeelde testondersteuning en afzonderlijke taken.
 
+### Testbestanden groeperen
+
+Deze conventie geldt voor alle eigen `tests/`-mappen, zowel bij Puppet-modules als bij tools onder `.tools/`. De basismap voor tooltests is `tests/`; voor Puppet-compilatiescenario’s is dat `tests/manifests/`. Bij moduletests scheiden de vaste mappen `manifests/` en `facts/` de scenario’s van hun invoer. Het minimum van twee tests geldt voor functionele groepen binnen de basismap, niet voor deze indeling op bestandstype. Groepeer op functie en houd de indeling zo vlak mogelijk:
+
+- Laat één testbestand rechtstreeks in de basismap staan, met zijn bestaande prefix. Een test zonder passende groep blijft op zijn bestaande niveau.
+- Groepeer twee of meer functioneel gerelateerde testbestanden met een gemeenschappelijke prefix binnen de basismap in een submap met die prefix als naam. Een toevallige naamovereenkomst is onvoldoende; tests voor verschillende regels hoeven bijvoorbeeld niet samen omdat hun namen met `resource_` beginnen.
+- Verwijder bij het verplaatsen de prefix uit de bestandsnaam. Behoud het herkenbare achtervoegsel, zoals `_test.rb` voor Ruby-testontdekking. Geef een algemene test waarvan alleen dit achtervoegsel zou overblijven een korte naam voor het geteste gedrag.
+- Maak geen lege groepen, groepen voor één test of vooraf bedachte hiërarchie. Voeg alleen een extra niveau toe als een concrete groep daardoor duidelijker wordt. Helpers en invoerbestanden tellen niet mee voor het minimum van twee tests.
+- Houd gedeelde helpers bij hun werkelijke gebruikers en pas relatieve imports, fixturepaden en documentatielinks bij een verplaatsing aan. De bestaande ondersteuningsmappen, zoals `fixtures/` voor toolinvoer en `facts/` voor catalogusfacts, volgen hun eigen invoercontract en zijn geen testgroepen.
+
+Bijvoorbeeld: `external_connection_test.rb` en `external_configuration_test.rb` controleren samen het gebruik vanuit een extern project. Zij worden `external/connection_test.rb` en `external/configuration_test.rb`. Een enkele `internal_configuration_test.rb` behoudt zijn naam en plaats:
+
+```text
+tests/
+├── external/
+│   ├── connection_test.rb
+│   └── configuration_test.rb
+├── internal_configuration_test.rb
+└── basic_compile_test.rb
+```
+
+Dit is een naamgevingsvoorbeeld voor tooltests, geen opdracht om deze tests toe te voegen. Dezelfde groeperingsregel geldt binnen `tests/manifests/` voor `.pp`-compilatiescenario’s: twee gerelateerde `external_*.pp`-bestanden worden bijvoorbeeld `manifests/external/connection.pp` en `manifests/external/configuration.pp`. Bij nginx staan `standalone.pp` en `with_basic_settings.pp` rechtstreeks in `tests/manifests/`, omdat ze geen gemeenschappelijke functionele prefix hebben:
+
+```text
+nginx/tests/
+├── manifests/
+│   ├── standalone.pp
+│   └── with_basic_settings.pp
+└── facts/
+    └── debian-13.json
+```
+
+Het [compile-testbeleid](#moduletests-eenvoudig-houden) blijft gelden.
+
+De [Ruby-testtaken](.tools/README.md#gezamenlijke-tooltests) vinden `*_test.rb` recursief; de [catalog](.tools/catalog/README.md#tests-bij-een-module-plaatsen) vindt `.pp`-scenario’s rechtstreeks onder `tests/manifests/` en recursief in submappen daarvan. Houd deze selecties automatisch, zonder lijsten van modules of groepen. Controleer bij een herindeling dat iedere bedoelde test eenmaal wordt ontdekt en dat gerichte taken dezelfde eigenaar blijven selecteren. De bestaande CI- en consumeraanroepen kiezen de centrale taak en hoeven de interne testindeling niet te kennen.
+
+### Fixtures bij de tests plaatsen
+
+Plaats grotere synthetische invoer bij de tests die haar gebruiken:
+
+- Zet fixtures die uitsluitend bij één bestaande testgroep horen onder `<groep>/fixtures/`. Houd hun inhoud ongewijzigd bij een verplaatsing en werk de verwijzingen bij.
+- Houd fixtures voor meerdere onafhankelijke testgroepen centraal onder `tests/fixtures/`. Fixtures voor een losse test zonder passende groep blijven eveneens centraal; een fixture vormt geen reden om een nieuwe testgroep te maken.
+- Maak een fixturemap alleen voor werkelijk gebruikte bestanden. Bewaar ieder bestand eenmaal en voeg alleen submappen toe wanneer die verschillende benodigde verzamelingen of gelijknamige bestanden onderscheiden.
+- Gebruik de bestaande fixturehelper met een expliciet pad, of los het pad op vanaf het testbestand met `__dir__`. De huidige werkmap en de naam van een testmethode bepalen de locatie niet. Houd gedeelde helpercode bij haar werkelijke gebruikers.
+- Sluit iedere `fixtures/`-map uit van automatische testontdekking, ook binnen een groep. Ruby-fixtures met een naam op `_test.rb` zijn geen tooltests; `.pp`-fixtures onder `tests/manifests/` zijn geen zelfstandige catalogusscenario’s. De bestaande CI- en consumeraanroepen gebruiken dezelfde selectie.
+
+Bijvoorbeeld, bij de bestaande groep voor arrayopmaak:
+
+```text
+tests/
+├── array_layout/
+│   ├── formatting_test.rb
+│   ├── contract_test.rb
+│   └── fixtures/
+│       ├── elements_in_function_calls_valid.pp
+│       └── paths_after.pp
+└── fixtures/
+    └── resource_dependencies/
+        ├── before.pp
+        └── after_layout.pp
+```
+
+De centrale `resource_dependencies`-invoer wordt door de onafhankelijke groepen `cli` en `external` gebruikt. Dit voorbeeld toont een deel van de bestanden; het vraagt geen extra fixtures of testscenario’s. Het [compile-testbeleid](#moduletests-eenvoudig-houden) blijft gelden voor module-eigen tests.
+
 ### Moduletests eenvoudig houden
 
-- Beperk `<module>/tests/` tot eenvoudige Puppet-cataloguscompilatietests met kleine manifests en synthetische facts. Het succescriterium is dat de catalogus compileert. Ook een scenario met meerdere modules blijft uitsluitend een compilatiecontrole: pas geen resources toe, installeer niets, start geen services en voer geen HTTP- of andere runtimecontroles uit. Voeg hier geen unit-, integratie- of functionele tests, mocks of assertions over afzonderlijke resourcewaarden toe.
+- Beperk `<module>/tests/` tot eenvoudige Puppet-cataloguscompilatietests met kleine manifests onder `manifests/` en synthetische facts onder `facts/`. Het succescriterium is dat de catalogus compileert. Ook een scenario met meerdere modules blijft uitsluitend een compilatiecontrole: pas geen resources toe, installeer niets, start geen services en voer geen HTTP- of andere runtimecontroles uit. Voeg hier geen unit-, integratie- of functionele tests, mocks of assertions over afzonderlijke resourcewaarden toe.
 - Onderhoud de kleinste set die de belangrijkste ondersteunde compilatiescenario's afdekt. Gebruik de publieke module-ingang met defaults en alleen de configuratie en dependencies die het scenario nodig heeft. Houd manifests rechtstreeks leesbaar en facts beperkt tot wat de gekozen scenario's nodig hebben.
 - Gebruik de bestaande catalog-runner en gewone Puppet- en JSON-bestanden. Voeg voor moduletests geen testframework, eigen runner, helperlaag, dynamische scenariogenerator of extra testafhankelijkheden toe. De afzonderlijke tooltests behouden hun eigen scope en inrichting.
 - Voeg alleen een scenario of factsbestand toe als het een wezenlijk andere modulecombinatie, een relevant compilatiepad of een concrete compilatiefout controleert die de bestaande selectie niet afdekt. Leg die meerwaarde kort vast bij de module. Een nieuwe wijziging, parameter of platformnaam is op zichzelf geen reden voor een extra test; ieder factsbestand vermenigvuldigt alle scenario's van die module.

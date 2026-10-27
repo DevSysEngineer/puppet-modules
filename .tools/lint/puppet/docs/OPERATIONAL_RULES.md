@@ -255,7 +255,7 @@ Vergelijk alle gerenderde varianten en de lezer van de configuratie. Kies gedeel
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [source_uri_test.rb](../tests/source_uri_test.rb), [resource_contract_test.rb](../tests/resource_contract_test.rb), [cli_diagnostics_test.rb](../tests/cli_diagnostics_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [source_uri_test.rb](../tests/source_uri_test.rb), [resource_contract_test.rb](../tests/resource_contract_test.rb), [cli/diagnostics_test.rb](../tests/cli/diagnostics_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Puppet-fileservermounts expliciet kiezen
 
@@ -327,9 +327,9 @@ Controleer mountprefix inclusief slash, dynamische paden, Puppet-servertoegang e
 
 **Verificatie**
 
-[cli_diagnostics_test.rb](../tests/cli_diagnostics_test.rb) bewijst dat een volledige `--fix`-scan onbekende en `files/`-mounts zonder onderdrukking behoudt en de melding laat staan.
+[cli/diagnostics_test.rb](../tests/cli/diagnostics_test.rb) bewijst dat een volledige `--fix`-scan onbekende en `files/`-mounts zonder onderdrukking behoudt en de melding laat staan.
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [source_uri_test.rb](../tests/source_uri_test.rb), [resource_contract_test.rb](../tests/resource_contract_test.rb), [cli_diagnostics_test.rb](../tests/cli_diagnostics_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [source_uri_test.rb](../tests/source_uri_test.rb), [resource_contract_test.rb](../tests/resource_contract_test.rb), [cli/diagnostics_test.rb](../tests/cli/diagnostics_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Puppet-fileservermounts expliciet kiezen
 
@@ -432,7 +432,7 @@ Controleer de effectieve provider en trailing APT-opties, inclusief overerving e
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [guarded_packages_test.rb](../tests/guarded_packages_test.rb), [guarded_packages_safety_test.rb](../tests/guarded_packages_safety_test.rb), [guarded_packages_fix_test.rb](../tests/guarded_packages_fix_test.rb), [external_guarded_packages_test.rb](../tests/external_guarded_packages_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [guarded_packages/detection_test.rb](../tests/guarded_packages/detection_test.rb), [guarded_packages/safety_test.rb](../tests/guarded_packages/safety_test.rb), [guarded_packages/fix_test.rb](../tests/guarded_packages/fix_test.rb), [external/guarded_packages_test.rb](../tests/external/guarded_packages_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij APT-opties expliciet afsluiten
 
@@ -517,7 +517,7 @@ Controleer stdlib-beschikbaarheid, bestaande packages en aliases, gelijke effect
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [guarded_packages_test.rb](../tests/guarded_packages_test.rb), [guarded_packages_safety_test.rb](../tests/guarded_packages_safety_test.rb), [guarded_packages_fix_test.rb](../tests/guarded_packages_fix_test.rb), [external_guarded_packages_test.rb](../tests/external_guarded_packages_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [guarded_packages/detection_test.rb](../tests/guarded_packages/detection_test.rb), [guarded_packages/safety_test.rb](../tests/guarded_packages/safety_test.rb), [guarded_packages/fix_test.rb](../tests/guarded_packages/fix_test.rb), [external/guarded_packages_test.rb](../tests/external/guarded_packages_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Gelijk ingestelde packageguards samenvoegen
 
@@ -703,7 +703,7 @@ Controleer de uitvoeringsidentiteit, parent-directorytoegang, symlinkdoelen, sou
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [shell_contract_test.rb](../tests/shell_contract_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [shell_contract_test.rb](../tests/shell_contract_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Eigenaars en rechten
 
@@ -779,7 +779,7 @@ Controleer secretbeheer, standaardwaarden, logging en alle uitvoerkanalen. Volg 
 
 **Verificatie**
 
-Voer de [standaardcontrole](../../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit. Synthetische detectie en veilige verwijzingen staan in [puppet_test.rb](../../../secrets/tests/puppet_test.rb); de testkoppeling staat in [secrets_gate_test.rb](../../../repository/tests/secrets_gate_test.rb).
+Voer de [standaardcontrole](../../../secrets/README.md#puppet-manifesten-in-standaardtests-en-ci) uit. Synthetische detectie en veilige verwijzingen staan in [puppet/detection_test.rb](../../../secrets/tests/puppet/detection_test.rb); de testkoppeling staat in [secrets/gate_test.rb](../../../repository/tests/secrets/gate_test.rb).
 
 ### Toegang via diensten en rapporten beoordelen
 
@@ -936,7 +936,7 @@ Volg iedere parserlaag tot het uiteindelijke argument. Test spaties, quotes, she
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [shell_contract_test.rb](../tests/shell_contract_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [shell_contract_test.rb](../tests/shell_contract_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Shellcommando's in Puppet
 
@@ -1432,7 +1432,7 @@ Controleer alle uiteindelijke unitnamen alfabetisch, wrappers, vendor-drop-ins, 
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [monitoring_decisions_test.rb](../tests/monitoring_decisions_test.rb), [cli_flow_test.rb](../tests/cli_flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [monitoring_decisions_test.rb](../tests/monitoring_decisions_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Targets en monitoring
 
@@ -2561,7 +2561,7 @@ Vergelijk de gevraagde meetbetekenis met de gekozen kernelgegevens en benoem waa
 
 **Verificatie**
 
-Beoordeel de scenario's en valideer de check buiten de repository zonder de optionele voorzieningen, met ontbrekende of ontoegankelijke gegevens en met zowel aanwezige als afwezige afwijkingen. Combineer iedere ondersteunde selectie met aanwezige en afwezige managers, tools, units en processen. Controleer ook een aanwezige maar onleesbare interface en een afwijking naast een geslaagde aanvullende meting. De [documentatiestructuurtest](../tests/guide_structure_test.rb) bewaakt de eigenaar en verwijzingen van deze regel; hij bewijst geen hostgedrag.
+Beoordeel de scenario's en valideer de check buiten de repository zonder de optionele voorzieningen, met ontbrekende of ontoegankelijke gegevens en met zowel aanwezige als afwezige afwijkingen. Combineer iedere ondersteunde selectie met aanwezige en afwezige managers, tools, units en processen. Controleer ook een aanwezige maar onleesbare interface en een afwijking naast een geslaagde aanvullende meting. De [documentatiestructuurtest](../tests/guide/structure_test.rb) bewaakt de eigenaar en verwijzingen van deze regel; hij bewijst geen hostgedrag.
 
 ### Vastgestelde afwijkingen en onvolledige inspecties onderscheiden
 

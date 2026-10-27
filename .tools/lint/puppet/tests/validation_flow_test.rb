@@ -25,7 +25,7 @@ class ValidationFlowTest < Minitest::Test
   end
 
   def test_nested_validation_else_arms_are_alternatives_not_trailing_implementation
-    body = fixture('validation_flow/alternatives_not_trailing_implementation_body')
+    body = fixture('fixtures/validation_flow/alternatives_not_trailing_implementation_body')
     ['class example', 'define example'].each do |declaration|
       assert_empty findings(body, declaration)
       assert_empty findings(body.gsub('fail(', 'warning('), declaration)
@@ -56,7 +56,7 @@ class ValidationFlowTest < Minitest::Test
   end
 
   def test_multiple_final_diagnostics_and_message_preparation_keep_the_fallback_last
-    body = fixture('validation_flow/keep_the_fallback_last_body')
+    body = fixture('fixtures/validation_flow/keep_the_fallback_last_body')
     assert_empty findings(body)
     assert_empty findings(body.sub('} else {', "} elsif $alternative {\n  notice('Alternative')\n} else {"))
     ["notice('Regular code')", '$unrelated = true', "notify { 'synthetic': }"].each do |extra|
@@ -82,12 +82,12 @@ class ValidationFlowTest < Minitest::Test
   end
 
   def test_declaration_boundaries_defaults_and_non_diagnostic_text_do_not_trigger_the_rule
-    body = fixture('validation_flow/not_trigger_the_rule_body')
+    body = fixture('fixtures/validation_flow/not_trigger_the_rule_body')
     assert_empty findings(body)
-    assert_empty findings(fixture('validation_flow/not_trigger_the_rule_sample'))
+    assert_empty findings(fixture('fixtures/validation_flow/not_trigger_the_rule_sample'))
     assert_empty findings("if $valid { notice('Valid') } else { fail('Invalid') }",
                           "define example (String $value = fail('Required'))")
-    assert_empty findings(fixture('validation_flow/not_trigger_the_rule_sample2'))
+    assert_empty findings(fixture('fixtures/validation_flow/not_trigger_the_rule_sample2'))
   end
 
   def test_generic_branch_sizing_still_applies_without_a_diagnostic_fallback

@@ -28,7 +28,7 @@ module OptionFileSupport
     write_source(@original)
     write_file('system.rc', "--no-double_quoted_strings-check\n")
     write_file('personal.rc', "--fix\n--no-140chars-check\n")
-    hook = write_file('option_files.rb', File.read(File.join(__dir__, 'fixtures/option_files.rb')))
+    hook = write_file('option_files.rb', File.read(File.join(__dir__, 'cli/fixtures/option_files.rb')))
     @personal_environment = { 'SYNTHETIC_LINT_CONFIG_ROOT' => @directory,
                               'RUBYOPT' => [ENV.fetch('RUBYOPT', nil), "-r#{hook}"].compact.join(' ') }
   end

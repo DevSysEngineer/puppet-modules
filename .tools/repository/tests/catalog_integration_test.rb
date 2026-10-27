@@ -40,9 +40,9 @@ class CatalogIntegrationTest < Minitest::Test
     @env.merge!('BUNDLE_FROZEN' => 'true', 'BUNDLE_GEMFILE' => File.join(@project, 'Gemfile'))
   end
 
-  def sample_module(base, name, body: '')
+  def sample_module(base, name, body: '', scenario: 'default')
     write("#{base}/#{name}/manifests/init.pp", "class #{name} { #{body} }\n")
-    write("#{base}/#{name}/tests/manifests/default.pp", "include #{name}\n")
+    write("#{base}/#{name}/tests/manifests/#{scenario}.pp", "include #{name}\n")
     write("#{base}/#{name}/tests/facts/synthetic.json", '{}')
   end
 
@@ -89,13 +89,13 @@ class CatalogIntegrationTest < Minitest::Test
       invoke(entry, report: true)
       assert @status.success?, @output + @errors
       assert_counts(%w[2 0 0])
-      assert_equal(['profile/default [synthetic]', 'sample/default [synthetic]'],
+      assert_equal(['profile/combined/default [synthetic]', 'sample/default [synthetic]'],
                    suite.get_elements('testcase').map { |item| item.attributes['name'] })
     end
   end
 
   def prepare_modulepath
-    sample_module('modules', 'profile', body: 'include sample')
+    sample_module('modules', 'profile', body: 'include sample', scenario: 'combined/default')
     sample_module('modules', 'sample')
     write('global-modules/sample/manifests/init.pp', "class sample { fail('shadowed module') }")
     @env['PROJECT_TOOLS_MODULEPATH'] = [File.join(@project, 'modules'), @library].join(File::PATH_SEPARATOR)

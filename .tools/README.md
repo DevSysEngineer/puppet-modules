@@ -1059,7 +1059,7 @@ Puppet/
 │       ├── tests/
 │       │   ├── <behavior>_test.rb
 │       │   ├── test_helper.rb       # Alleen voor werkelijk gedeelde testhulp.
-│       │   └── fixtures/            # Alleen voor benodigde synthetische invoer.
+│       │   └── fixtures/            # Invoer voor meerdere groepen of tests zonder groep.
 │       └── README.md
 ├── global-modules/                  # Deze repository als Git-submodule.
 │   ├── VERSION                     # De versie van het gedeelde project.
@@ -1304,7 +1304,7 @@ Volg bij onderhoud de [gezamenlijke ontwikkelwerkwijze](../CONTRIBUTING.md) en h
 
 ### Toolteststructuur onderhouden
 
-Volg bij toevoegen en verplaatsen de [testlocaties en taken](#gezamenlijke-tooltests), de [repositorybrede testscope](../TESTS.md#testscope-en-plaatsing) en [scenarioselectie](../TESTS.md#scenarios-kiezen).
+Volg bij toevoegen en verplaatsen de [centrale groeperingsconventie](../TESTS.md#testbestanden-groeperen), de [testlocaties en taken](#gezamenlijke-tooltests), de [repositorybrede testscope](../TESTS.md#testscope-en-plaatsing) en [scenarioselectie](../TESTS.md#scenarios-kiezen).
 
 - Verplaats verkeerd geplaatste tests naar hun eigenaar; verbreed discovery niet en documenteer geen uitzondering alleen om de bestaande plaats te behouden.
 - Gebruik fixtures en ondersteuning uitsluitend om een toolcontract te toetsen. Houd toolspecifieke helpers en fixtures bij hun tests; deel testhulp alleen als meerdere tools haar werkelijk nodig hebben.
@@ -1344,6 +1344,8 @@ bundle exec rake test:secrets
 
 De standaardtaak voert eerst `secrets:puppet` uit volgens de [scannerhandleiding](secrets/README.md#puppet-manifesten-in-standaardtests-en-ci). Alleen na een geslaagde controle ontdekt de root-Rake-taak `.tools/**/tests/**/*_test.rb` recursief. `bundle exec rake` voert dezelfde selectie uit als `bundle exec rake test`; de gerichte taken kiezen één eigenaar. Zonder `MINITEST_REPORTERS_REPORTS_DIR` geven al deze routes en rechtstreeks uitgevoerde testbestanden uitsluitend console-uitvoer. Bestaande rapportbestanden blijven ongewijzigd en er wordt geen rapportmap aangemaakt. De eenmalige bootstrap registreert autorun en de [testreporter](shared/README.md#testondersteuning) slechts één keer. Die toont afgeronde testgevallen, fouten en skips volgens het centrale logcontract; `TESTOPTS='--verbose'` behoudt de native detailuitvoer.
 
+De automatische testselectie slaat `fixtures/`-mappen op ieder niveau over.
+
 Vraag JUnit aan met een niet-leeg rapportpad, relatief aan de werkmap of absoluut. De CI-testjob gebruikt onderstaande instelling; je kunt die ook lokaal bij iedere testtaak meegeven:
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Alle tooltests. **Wijzigt bestanden:** Test-JUnit in de opgegeven map. **Verwacht resultaat:** Dezelfde teststatus met console-uitvoer en JUnit.
@@ -1381,7 +1383,7 @@ Werk op macOS Ruby bij met `brew update` en `brew upgrade ruby`. Open daarna een
 
 ### Eigen tooltests
 
-Test eigen gereedschap onder `.tools/<tool-name>/tests/`, met bestandsnamen die eindigen op `_test.rb`. Zet gedeelde voorbereiding in `test_helper.rb` wanneer meerdere tests die nodig hebben en bewaar grotere synthetische invoer onder `tests/fixtures/`. Fixtures mogen zo nodig per gedrag worden gegroepeerd. Gebruik korte invoer direct in de test en los paden op vanaf het testbestand, zodat de uitvoering niet afhangt van de huidige werkmap.
+Test eigen gereedschap onder `.tools/<tool-name>/tests/`, met bestandsnamen die eindigen op `_test.rb`. Zet gedeelde voorbereiding in `test_helper.rb` wanneer meerdere tests die nodig hebben en plaats grotere synthetische invoer volgens de [centrale fixtureconventie](../TESTS.md#fixtures-bij-de-tests-plaatsen) bij haar gebruikers. Gebruik korte invoer direct in de test en los paden op vanaf het testbestand, zodat de uitvoering niet afhangt van de huidige werkmap.
 
 De tests staan bij de tool die ze controleren; er is geen afzonderlijke centrale `.tools/test/` of `.tools/tests/`. Houd require-paden, fixtures, taken, CI en documentatie in overeenstemming met die indeling en behoud de testdekking. Module- en catalogustests horen bij de eigen validatie van het afnemende project en staan buiten `.tools/`.
 

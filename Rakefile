@@ -21,7 +21,7 @@ end
 }.each do |name, (description, pattern)|
   Rake::TestTask.new(name) do |task|
     task.description = description
-    task.pattern = pattern
+    task.pattern = FileList.new(pattern).exclude(%r{(?:\A|/)fixtures/})
     task.warning = false
   end
 end

@@ -14,6 +14,10 @@ class TestStructureTest < Minitest::Test
 
   def write_file(path, contents)
     write(path, contents)
+    return unless path.end_with?('_test.rb')
+
+    write(path.sub('/tests/', '/tests/fixtures/'), contents)
+    write(path.sub('/tests/', '/tests/nested/fixtures/'), contents)
   end
 
   def test_tool_test_files_stay_under_the_owning_tool
@@ -42,7 +46,7 @@ class TestStructureTest < Minitest::Test
 
   def tool_selections
     { 'test:lint' => %w[.tools/lint/puppet/tests/check_test.rb .tools/lint/puppet/tests/nested/check_test.rb],
-      'test:metadata' => ['.tools/metadata/tests/metadata_test.rb'],
+      'test:metadata' => ['.tools/metadata/tests/check_test.rb'],
       'test:ruby_lint' => ['.tools/lint/ruby/tests/cli_test.rb'],
       'test:repository' => ['.tools/repository/tests/workflow_test.rb'],
       'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
@@ -50,6 +54,7 @@ class TestStructureTest < Minitest::Test
       'test:module' => ['.tools/module/tests/cli_test.rb'],
       'test:catalog' => ['.tools/catalog/tests/catalog_test.rb'],
       'test:syntax' => ['.tools/syntax/tests/cli_test.rb'] }
+      .transform_values { |paths| [paths.first, paths.first.sub('/tests/', '/tests/nested/')].sort }
   end
 
   def assert_task_selection(task, expected)

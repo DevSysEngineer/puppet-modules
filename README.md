@@ -1259,3 +1259,5 @@ De map `examples/` bevat grotere, herkenbare scenario's. Houd environment-specif
 Pull requests en meldingen zijn welkom. Begin bij [CONTRIBUTING.md](CONTRIBUTING.md) voor voorbereiding, wijzigingsscope, veilig werken, review, versiebeleid en oplevering. Daar vind je de directe leesroutes naar [TESTS.md](TESTS.md), de code-, documentatie- en operationele normen en de [toolhandleidingen](.tools/README.md#gedeeld-toolingonderhoud). Menselijke ontwikkelaars en agents gebruiken dezelfde inhoudelijke afspraken.
 
 Richt de [ontwikkelomgeving](.tools/README.md#installatie) in en volg de [verplichte controlevolgorde](TESTS.md#controlevolgorde-en-verplichte-eindcontroles), inclusief de secretsvoorcontrole. De toolhandleidingen beschrijven de concrete commando's en rapporten; een geslaagde `bundle exec rake test` vervangt de overige eindcontroles en functionele validatie niet.
+
+De [indeling van testbestanden](TESTS.md#testbestanden-groeperen) geldt voor alle eigen testmappen. De [centrale catalog](.tools/catalog/README.md#vanuit-een-ander-project-uitvoeren) ontdekt module-eigen compile-tests ook vanuit een importerende checkout.

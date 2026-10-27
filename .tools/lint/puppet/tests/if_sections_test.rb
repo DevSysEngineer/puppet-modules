@@ -14,7 +14,7 @@ class IfSectionsTest < Minitest::Test
   end
 
   def test_if_sections_place_the_explanation_above_transitive_condition_inputs
-    code = fixture('if_sections/above_transitive_condition_inputs_code')
+    code = fixture('fixtures/if_sections/above_transitive_condition_inputs_code')
     assert_equal([[1, 1]], findings(code, 'project_if_sections').map { |problem| problem.values_at(:line, :column) })
     assert_empty findings("# Validate registration settings only when this backend is active.\n#{code}",
                           'project_if_sections')
@@ -41,7 +41,7 @@ class IfSectionsTest < Minitest::Test
   end
 
   def test_if_sections_do_not_reuse_a_parent_or_previous_condition_explanation
-    code = fixture('if_sections/or_previous_condition_explanation_code')
+    code = fixture('fixtures/if_sections/or_previous_condition_explanation_code')
     assert_equal([3, 5, 7], finding_lines(code, 'project_if_sections'))
     assert_equal([2],
                  finding_lines("# Explain the class.\nclass example { if $active { notice('Active') } }",
@@ -55,7 +55,7 @@ class IfSectionsTest < Minitest::Test
     assert_equal([:warning], finding_kinds(code.lines.drop(1).join, 'project_if_sections'))
     assert_equal([:warning], finding_kinds("unless $active { notice('Disabled') }", 'project_if_sections'))
     assert_empty findings("# Report disabled operation.\nunless $active { notice('Disabled') }", 'project_if_sections')
-    prepared = fixture('if_sections/chain_and_cover_unless_prepared')
+    prepared = fixture('fixtures/if_sections/chain_and_cover_unless_prepared')
     assert_empty findings(prepared, 'project_if_sections')
   end
 

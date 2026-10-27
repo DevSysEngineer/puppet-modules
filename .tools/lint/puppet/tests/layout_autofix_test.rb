@@ -8,35 +8,35 @@ class LayoutAutofixTest < Minitest::Test
 
   def test_comment_spacing_preserves_comments_and_indentation
     assert_fix("$a = 1\n# Explain b.\n$b = 2\n# Explain c.\n$c = 3\n",
-               fixture('layout_autofix/preserves_comments_and_indentation_sample2'), :project_comment_spacing)
+               fixture('fixtures/layout_autofix/preserves_comments_and_indentation_sample2'), :project_comment_spacing)
     assert_fix("if $active {\n  $a = 1\n  /* Explain b. */\n  $b = 2\n}\n",
-               fixture('layout_autofix/preserves_comments_and_indentation_sample4'), :project_comment_spacing)
+               fixture('fixtures/layout_autofix/preserves_comments_and_indentation_sample4'), :project_comment_spacing)
   end
 
   def test_layout_fixes_commas_blank_lines_and_nested_arrays
     before = "$values = [\n      [\n        'a','b',\n      ],\n]\n" \
              "if $active { # Explain.\n\n \t\n  notice('Active')\n}\n"
-    assert_fix(before, fixture('layout_autofix/lines_and_nested_arrays_sample2'), :project_layout)
+    assert_fix(before, fixture('fixtures/layout_autofix/lines_and_nested_arrays_sample2'), :project_layout)
   end
 
   def test_layout_parameter_trailing_comma_and_nested_default
     assert_fix("class example (\n  Array[String] $items = concat(['a','b'], ['c']) # Keep this reason.\n) {}\n",
-               fixture('layout_autofix/comma_and_nested_default_sample2'), :project_layout)
+               fixture('fixtures/layout_autofix/comma_and_nested_default_sample2'), :project_layout)
   end
 
   def test_array_resource_titles_use_the_resource_level
-    assert_fix(fixture('layout_autofix/use_the_resource_level_sample'),
-               fixture('layout_autofix/use_the_resource_level_sample2'), :project_layout)
+    assert_fix(fixture('fixtures/layout_autofix/use_the_resource_level_sample'),
+               fixture('fixtures/layout_autofix/use_the_resource_level_sample2'), :project_layout)
   end
 
   def test_parameter_alignment_uses_the_whole_block
-    assert_fix(fixture('layout_autofix/uses_the_whole_block_sample'),
-               fixture('layout_autofix/uses_the_whole_block_sample2'), :project_parameter_alignment)
+    assert_fix(fixture('fixtures/layout_autofix/uses_the_whole_block_sample'),
+               fixture('fixtures/layout_autofix/uses_the_whole_block_sample2'), :project_parameter_alignment)
   end
 
   def test_parameter_alignment_with_multiline_types_and_defaults
-    assert_fix(fixture('layout_autofix/multiline_types_and_defaults_sample'),
-               fixture('layout_autofix/multiline_types_and_defaults_sample2'), :project_parameter_alignment)
+    assert_fix(fixture('fixtures/layout_autofix/multiline_types_and_defaults_sample'),
+               fixture('fixtures/layout_autofix/multiline_types_and_defaults_sample2'), :project_parameter_alignment)
   end
 
   def test_parameter_alignment_does_not_move_comments_or_inline_parameters
@@ -62,7 +62,7 @@ class LayoutAutofixTest < Minitest::Test
   end
 
   def test_partial_suppression_prevents_edits_across_the_ignored_region
-    code = fixture('layout_autofix/across_the_ignored_region_code')
+    code = fixture('fixtures/layout_autofix/across_the_ignored_region_code')
     problems, fixed = lint_checks(code, [:project_parameter_alignment], fix: true)
     refute_empty problems
     assert_equal code, fixed
@@ -73,7 +73,7 @@ class LayoutAutofixTest < Minitest::Test
   end
 
   def test_literal_contents_and_correct_code_remain_unchanged
-    code = fixture('layout_autofix/correct_code_remain_unchanged_code')
+    code = fixture('fixtures/layout_autofix/correct_code_remain_unchanged_code')
     problems, fixed = lint_checks(code, %i[project_layout project_comment_spacing], fix: true)
     assert_empty problems
     assert_equal code, fixed
@@ -87,7 +87,7 @@ class LayoutAutofixTest < Minitest::Test
   end
 
   def test_heredoc_parameter_endings_remain_manual_without_changing_the_body
-    code = fixture('layout_autofix/without_changing_the_body_code')
+    code = fixture('fixtures/layout_autofix/without_changing_the_body_code')
     problems, fixed = lint_checks(code, [:project_layout], fix: true)
     assert_equal([:warning], problems.map { |problem| problem[:kind] })
     assert_equal code, fixed

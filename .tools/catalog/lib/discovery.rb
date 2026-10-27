@@ -69,6 +69,8 @@ module ProjectTools
 
       def files(directory)
         Dir.children(directory).sort.flat_map do |name|
+          next [] if name == 'fixtures'
+
           path = File.join(directory, name)
           raise ArgumentError, "Scenario inputs must not be symlinks: #{path}" if File.symlink?(path)
 

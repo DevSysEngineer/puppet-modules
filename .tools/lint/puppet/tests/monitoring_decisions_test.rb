@@ -128,7 +128,7 @@ class MonitoringDecisionsTest < Minitest::Test
   end
 
   def test_parameters_forwarded_as_the_backend_are_recognized_without_name_guessing
-    code = fixture('monitoring_decisions/recognized_without_name_guessing_code')
+    code = fixture('fixtures/monitoring_decisions/recognized_without_name_guessing_code')
     assert_equal([3], finding_lines(code))
     assert_empty findings(code.sub("== 'synthetic_backend'", "!= 'none'"))
   end

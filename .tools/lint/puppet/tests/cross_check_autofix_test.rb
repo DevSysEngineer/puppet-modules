@@ -9,7 +9,7 @@ class CrossCheckAutofixTest < Minitest::Test
   def test_all_checks_fix_the_same_region_in_one_pass
     assert_fix("Notify['target'] -> [\n      File[\"/z\"],File[\"/a\"]\n]\n",
                "Notify['target'] -> File['/a', '/z']\n")
-    assert_fix(fixture('cross_check_autofix/region_in_one_pass_sample3'),
+    assert_fix(fixture('fixtures/cross_check_autofix/region_in_one_pass_sample3'),
                "Notify['target'] -> [\n  Package['a', 'z'],\n  Service['a', 'z'],\n]\n")
     assert_fix("Notify['target'] -> [Package[\"z\",\"b\"],Service[\"nginx\"],Package[\"a\",\"a\"]]\n",
                "Notify['target'] -> [\n  Package['a', 'a', 'b', 'z'],\n  Service['nginx'],\n]\n")
@@ -21,8 +21,8 @@ class CrossCheckAutofixTest < Minitest::Test
   end
 
   def test_documentation_and_comment_spacing_share_the_surviving_anchor
-    before = fixture('cross_check_autofix/share_the_surviving_anchor_before')
-    after = fixture('cross_check_autofix/share_the_surviving_anchor_after')
+    before = fixture('fixtures/cross_check_autofix/share_the_surviving_anchor_before')
+    after = fixture('fixtures/cross_check_autofix/share_the_surviving_anchor_after')
     assert_fix(before, after, :project_documentation_layout, :project_comment_spacing)
   end
 

@@ -15,7 +15,7 @@ class BraceLayoutTest < Minitest::Test
   ].freeze
 
   def test_layout_rejects_blank_lines_after_opening_braces_in_nested_blocks
-    code = fixture('brace_layout/braces_in_nested_blocks_code')
+    code = fixture('fixtures/brace_layout/braces_in_nested_blocks_code')
     problems = findings(code, 'project_layout')
     assert_equal([3, 6], problems.map { |problem| problem.fetch(:line) })
     assert(problems.all? { |problem| problem[:kind] == :warning && problem[:column] == 1 })
@@ -43,7 +43,7 @@ class BraceLayoutTest < Minitest::Test
 
   def test_layout_preserves_content_and_spacing_elsewhere_in_blocks
     sources = ["if $active {}\n", "if $active {\n}\n"]
-    sources += fixture_set('brace_layout/spacing_elsewhere_in_blocks_sources6_*')
+    sources += fixture_set('fixtures/brace_layout/spacing_elsewhere_in_blocks_sources6_*')
     sources.each { |code| assert_empty findings(code, 'project_layout'), code }
   end
 

@@ -39,11 +39,11 @@ class ResourceContractTest < Minitest::Test
   end
 
   def test_source_content_exclusion_requires_a_real_guard
-    code = fixture('resource_contract/requires_a_real_guard_code')
+    code = fixture('fixtures/resource_contract/requires_a_real_guard_code')
     assert_empty findings(code, 'project_files')
     refute_empty findings(code.sub('$source == undef or $content == undef', '$source != undef or $content != undef'),
                           'project_files')
-    derived = fixture('resource_contract/requires_a_real_guard_derived')
+    derived = fixture('fixtures/resource_contract/requires_a_real_guard_derived')
     assert_empty findings(derived, 'project_files')
     refute_empty findings(derived.sub('$resolved = undef', '$resolved = $content'), 'project_files')
   end

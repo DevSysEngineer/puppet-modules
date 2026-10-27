@@ -18,7 +18,7 @@ class ResourceSectionsTest < Minitest::Test
   end
 
   def test_resource_sections_after_conditions_need_their_own_explanation
-    code = fixture('resource_sections/need_their_own_explanation_code')
+    code = fixture('fixtures/resource_sections/need_their_own_explanation_code')
     assert_equal([[6, 1]], findings(code, 'project_resource_sections').map do |problem|
       problem.values_at(:line, :column)
     end)
@@ -74,7 +74,7 @@ class ResourceSectionsTest < Minitest::Test
     end
     refute_empty findings("if $active { $value = 1 } # Explain this condition.\nnotify { 'example': }\n",
                           'project_resource_sections')
-    code = fixture('resource_sections/and_control_only_comments_code')
+    code = fixture('fixtures/resource_sections/and_control_only_comments_code')
     assert_empty findings(code, 'project_resource_sections')
     assert_empty findings(code, 'project_comment_spacing')
   end

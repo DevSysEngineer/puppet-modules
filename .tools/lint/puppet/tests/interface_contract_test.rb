@@ -7,7 +7,7 @@ class InterfaceContractTest < Minitest::Test
   include LintTestSupport
 
   def test_nested_parameter_types_and_multiline_defaults
-    code = fixture('interface_contract/types_and_multiline_defaults_code')
+    code = fixture('fixtures/interface_contract/types_and_multiline_defaults_code')
     assert_empty findings(code, 'parameter_types')
     assert_empty findings(code, 'project_parameter_order')
     assert_empty findings(code, 'project_parameter_alignment')
@@ -83,7 +83,7 @@ class InterfaceContractTest < Minitest::Test
   end
 
   def test_default_dependencies_and_explanatory_comment
-    code = fixture('interface_contract/dependencies_and_explanatory_comment_code')
+    code = fixture('fixtures/interface_contract/dependencies_and_explanatory_comment_code')
     assert_empty findings(code, 'project_parameter_order')
     refute_empty findings(code.sub(/ # Must[^\n]+/, ''), 'project_parameter_order')
     refute_empty findings('class example (String $listen_user = $user, String $user = "example") {}',
@@ -97,7 +97,7 @@ class InterfaceContractTest < Minitest::Test
   end
 
   def test_documentation_matches_each_declaration
-    valid = fixture('interface_contract/documentation_matches_each_declaration_valid')
+    valid = fixture('fixtures/interface_contract/documentation_matches_each_declaration_valid')
     assert_empty findings(valid, 'project_documentation')
     refute_empty findings(valid.sub('@param label', '@param other'), 'project_documentation')
     refute_empty findings("#{valid}\nclass undocumented {}", 'project_documentation')

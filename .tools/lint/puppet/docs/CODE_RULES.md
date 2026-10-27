@@ -254,7 +254,7 @@ Een even aantal spaties kan nog het verkeerde structurele niveau zijn; vergelijk
 
 **Verificatie**
 
-De gemarkeerde voorbeeldparen worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide_examples_test.rb](../tests/guide_examples_test.rb) exacte uitvoer, hercontrole en tweede run. Een even aantal spaties kan nog het verkeerde structurele niveau zijn; vergelijk ieder blok met zijn opening.
+De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide/examples_test.rb](../tests/guide/examples_test.rb) exacte uitvoer, hercontrole en tweede run. Een even aantal spaties kan nog het verkeerde structurele niveau zijn; vergelijk ieder blok met zijn opening.
 
 ### Inhoud direct na een openingsaccolade beginnen
 
@@ -331,7 +331,7 @@ Vergelijk de toelichting met de direct betrokken verwerking en controleer dat sc
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli_sections_test.rb](../tests/cli_sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli/sections_test.rb](../tests/cli/sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Resourcepijlen uitlijnen
 
@@ -409,7 +409,7 @@ Controleer dat attribuutnamen, waarden, commentaar en resourcegrenzen gelijk bli
 
 **Verificatie**
 
-De gemarkeerde voorbeeldparen worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide_examples_test.rb](../tests/guide_examples_test.rb) exacte uitvoer, hercontrole en tweede run. Controleer dat attribuutnamen, waarden, commentaar en resourcegrenzen gelijk blijven; een opgemaakte groep bewijst geen correcte resourcevolgorde.
+De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide/examples_test.rb](../tests/guide/examples_test.rb) exacte uitvoer, hercontrole en tweede run. Controleer dat attribuutnamen, waarden, commentaar en resourcegrenzen gelijk blijven; een opgemaakte groep bewijst geen correcte resourcevolgorde.
 
 ### Aanhalingstekens bij stringinhoud kiezen
 
@@ -481,7 +481,7 @@ Vergelijk de effectieve inhoud, interpolatie en escapes; controleer een string m
 
 **Verificatie**
 
-De gemarkeerde voorbeeldparen worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide_examples_test.rb](../tests/guide_examples_test.rb) exacte uitvoer, hercontrole en tweede run. Vergelijk de effectieve inhoud, interpolatie en escapes; controleer een string met apostrof handmatig wanneer de detectie haar overslaat.
+De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide/examples_test.rb](../tests/guide/examples_test.rb) exacte uitvoer, hercontrole en tweede run. Vergelijk de effectieve inhoud, interpolatie en escapes; controleer een string met apostrof handmatig wanneer de detectie haar overslaat.
 
 ### Selectors vóór resources berekenen
 
@@ -554,7 +554,7 @@ Controleer dat de voorbereide waarde vóór de resource beschikbaar is, binnen h
 
 **Verificatie**
 
-De gemarkeerde voorbeeldparen worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide_examples_test.rb](../tests/guide_examples_test.rb) exacte uitvoer, hercontrole en tweede run. Controleer dat de voorbereide waarde vóór de resource beschikbaar is, binnen hetzelfde geldige pad wordt berekend en dezelfde selectorsemantiek houdt.
+De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide/examples_test.rb](../tests/guide/examples_test.rb) exacte uitvoer, hercontrole en tweede run. Controleer dat de voorbereide waarde vóór de resource beschikbaar is, binnen hetzelfde geldige pad wordt berekend en dezelfde selectorsemantiek houdt.
 
 ### Functionele resourcevolgorde beoordelen
 
@@ -695,7 +695,7 @@ Vergelijk elementinhoud, volgorde, datatypen, nesting en resourcetitels vóór e
 
 **Verificatie**
 
-[guide_examples_test.rb](../tests/guide_examples_test.rb) controleert de gemarkeerde voorbeelden. [array_layout_contract_test.rb](../tests/array_layout_contract_test.rb), [array_layout_expressions_test.rb](../tests/array_layout_expressions_test.rb) en [array_layout_protection_test.rb](../tests/array_layout_protection_test.rb) controleren grenzen, gezamenlijke planning, nesting, bronbehoud en semantische AST-gelijkheid. [array_layout_interaction_test.rb](../tests/array_layout_interaction_test.rb) en [cli_layout_test.rb](../tests/cli_layout_test.rb) controleren de native fixroute en interacties. Correcties worden geparseerd, hercontroleerd en opnieuw gefixt; de tweede run blijft ongewijzigd. Dit bewijst geen catalogus- of hostgedrag.
+[guide/examples_test.rb](../tests/guide/examples_test.rb) controleert de gemarkeerde voorbeelden. [array_layout/contract_test.rb](../tests/array_layout/contract_test.rb), [array_layout/expressions_test.rb](../tests/array_layout/expressions_test.rb) en [array_layout/protection_test.rb](../tests/array_layout/protection_test.rb) controleren grenzen, gezamenlijke planning, nesting, bronbehoud en semantische AST-gelijkheid. [array_layout/interaction_test.rb](../tests/array_layout/interaction_test.rb) en [cli/layout_test.rb](../tests/cli/layout_test.rb) controleren de native fixroute en interacties. Correcties worden geparseerd, hercontroleerd en opnieuw gefixt; de tweede run blijft ongewijzigd. Dit bewijst geen catalogus- of hostgedrag.
 
 #### Verdieping bij Inspringing
 
@@ -793,7 +793,7 @@ Controleer de scheiding van argumenten en plaats de komma bij een heredoc met de
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [layout_autofix_test.rb](../tests/layout_autofix_test.rb), [cli_layout_test.rb](../tests/cli_layout_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [layout_autofix_test.rb](../tests/layout_autofix_test.rb), [cli/layout_test.rb](../tests/cli/layout_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Meerregelige lijsten met een komma afsluiten
 
@@ -869,7 +869,7 @@ Controleer de scheiding van argumenten en plaats de komma bij een heredoc met de
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [layout_autofix_test.rb](../tests/layout_autofix_test.rb), [cli_layout_test.rb](../tests/cli_layout_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [layout_autofix_test.rb](../tests/layout_autofix_test.rb), [cli/layout_test.rb](../tests/cli/layout_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Meerregelige lijsten met een komma afsluiten
 
@@ -945,7 +945,7 @@ Meet ook overgeslagen URL- en template-regels. Controleer dat de markering Puppe
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [suppression_policy_test.rb](../tests/suppression_policy_test.rb), [documentation_suppressions_test.rb](../tests/documentation_suppressions_test.rb), [documentation_width_test.rb](../tests/documentation_width_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [suppression_policy_test.rb](../tests/suppression_policy_test.rb), [documentation/suppressions_test.rb](../tests/documentation/suppressions_test.rb), [documentation/width_test.rb](../tests/documentation/width_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Lange regels
 
@@ -1038,7 +1038,7 @@ Controleer de noodzaak en begrenzing van elke markering, bekijk --show-ignored e
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door guide_examples_test.rb. [suppression_policy_test.rb](../tests/suppression_policy_test.rb) controleert namen en commenttokens; [documentation_suppressions_test.rb](../tests/documentation_suppressions_test.rb) controleert de afzonderlijke documentatiegrenzen.
+De gemarkeerde paren worden uitgevoerd door guide/examples_test.rb. [suppression_policy_test.rb](../tests/suppression_policy_test.rb) controleert namen en commenttokens; [documentation/suppressions_test.rb](../tests/documentation/suppressions_test.rb) controleert de afzonderlijke documentatiegrenzen.
 
 ## Parameters en resources
 
@@ -1202,7 +1202,7 @@ Vergelijk het gekozen type, undef-toelating en eventuele grenzen met de werkelij
 
 **Verificatie**
 
-De gemarkeerde paren draaien in guide_examples_test.rb; [interface_contract_test.rb](../tests/interface_contract_test.rb), test_nested_parameter_types_and_multiline_defaults, controleert geneste types/defaults. Catalogusvalidatie blijft nodig voor typebetekenis.
+De gemarkeerde paren draaien in guide/examples_test.rb; [interface_contract_test.rb](../tests/interface_contract_test.rb), test_nested_parameter_types_and_multiline_defaults, controleert geneste types/defaults. Catalogusvalidatie blijft nodig voor typebetekenis.
 
 ### Parameters met defaultafhankelijkheden sorteren
 
@@ -1276,9 +1276,9 @@ Controleer beide sorteergroepen, iedere lokale defaultafhankelijkheid en de trai
 
 **Verificatie**
 
-[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
+[cli/safe_fixes_test.rb](../tests/cli/safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Parameters met defaultafhankelijkheden sorteren
 
@@ -1377,7 +1377,7 @@ Controleer type, parameternaam en default vóór en na witruimtecorrectie, en be
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [layout_autofix_test.rb](../tests/layout_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Beveiligingsinstellingen met één waardekeuze modelleren
 
@@ -1537,7 +1537,7 @@ Vergelijk structurele verwerkingsomvang, behoud waarheidsvoorwaarden en priorite
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli_flow_test.rb](../tests/cli_flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij De grootste verwerking vóór de korte afhandeling plaatsen
 
@@ -1624,7 +1624,7 @@ Loop geldig en ongeldig pad door tot het einde van de class/define, ook na omvat
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli_flow_test.rb](../tests/cli_flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Ruwe en geërfde waarden in templates onderscheiden
 
@@ -1780,7 +1780,7 @@ Controleer parentdeclaratie, positieve guard, iedere toekenning en afnemer en he
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [parent_class_checks_test.rb](../tests/parent_class_checks_test.rb), [class_consumers_test.rb](../tests/class_consumers_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [parent_class_checks_test.rb](../tests/parent_class_checks_test.rb), [class_consumers_test.rb](../tests/class_consumers_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Classcontroles hergebruiken
 
@@ -1908,7 +1908,7 @@ Controleer per uitvoerpad welke optionele attributen ingevuld zijn en dat source
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [source_uri_test.rb](../tests/source_uri_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [source_uri_test.rb](../tests/source_uri_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Arrays met concat combineren
 
@@ -1980,9 +1980,9 @@ Bepaal de effectieve typen van dynamische waarden en vergelijk de volledige elem
 
 **Verificatie**
 
-[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
+[cli/safe_fixes_test.rb](../tests/cli/safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [source_uri_test.rb](../tests/source_uri_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_contract_test.rb](../tests/resource_contract_test.rb), [source_uri_test.rb](../tests/source_uri_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Bestaande interfaces voor integratiewaarden gebruiken
 
@@ -2280,7 +2280,7 @@ Valideer relevante catalogi zonder de hoofdclass `basic_settings` en met vereist
 
 **Verificatie**
 
-De voorbeeldparen worden door [guide_examples_test.rb](../tests/guide_examples_test.rb) gecontroleerd. [exec_packages_test.rb](../tests/exec_packages_test.rb), [package_graph_test.rb](../tests/package_graph_test.rb) en [package_graph_boundaries_test.rb](../tests/package_graph_boundaries_test.rb) controleren commandovelden, arrays, installatie, ordering, parenthergebruik en analysegrenzen via de native lintengine. [package_graph_branches_test.rb](../tests/package_graph_branches_test.rb) en [package_graph_branch_order_test.rb](../tests/package_graph_branch_order_test.rb) bewaken volledige en onvolledige keuzes, geneste routes, lokale waarden, afzonderlijke dependencyketens en de analysegrens. [external_exec_packages_test.rb](../tests/external_exec_packages_test.rb) controleert de gebouwde gem vanuit een onafhankelijk consumerproject, inclusief parentkeuzes via het modulepad en ongewijzigde bron bij `--fix`. Deze tests bewijzen het toolcontract; leg catalogus- en runtimebewijs afzonderlijk vast in de wijzigingsreview.
+De voorbeeldparen worden door [guide/examples_test.rb](../tests/guide/examples_test.rb) gecontroleerd. [exec_packages_test.rb](../tests/exec_packages_test.rb), [package_graph/resolution_test.rb](../tests/package_graph/resolution_test.rb) en [package_graph/boundaries_test.rb](../tests/package_graph/boundaries_test.rb) controleren commandovelden, arrays, installatie, ordering, parenthergebruik en analysegrenzen via de native lintengine. [package_graph/branches_test.rb](../tests/package_graph/branches_test.rb) en [package_graph/branch_order_test.rb](../tests/package_graph/branch_order_test.rb) bewaken volledige en onvolledige keuzes, geneste routes, lokale waarden, afzonderlijke dependencyketens en de analysegrens. [external/exec_packages_test.rb](../tests/external/exec_packages_test.rb) controleert de gebouwde gem vanuit een onafhankelijk consumerproject, inclusief parentkeuzes via het modulepad en ongewijzigde bron bij `--fix`. Deze tests bewijzen het toolcontract; leg catalogus- en runtimebewijs afzonderlijk vast in de wijzigingsreview.
 
 #### Optionele packages activeren met realize
 
@@ -2401,7 +2401,7 @@ Volg alle afhankelijke verwerking en behoud iedere aanvullende lokale voorwaarde
 
 **Verificatie**
 
-[shared_conditions_test.rb](../tests/shared_conditions_test.rb) controleert detectie, bronposities, beide bronvolgorden, aanvullende voorwaarden, verschillende resourcetypen, scopes, analysegrenzen, native suppressions en ongewijzigde bron bij `--fix`. [guide_examples_test.rb](../tests/guide_examples_test.rb) voert de gemarkeerde voorbeeldparen uit. [external_shared_conditions_test.rb](../tests/external_shared_conditions_test.rb) controleert de check, exitcodes en ongewijzigde bron vanuit een onafhankelijk geïnstalleerd gempakket. Dit bewijst het toolcontract; module- en hostgedrag worden afzonderlijk gevalideerd.
+[shared_conditions_test.rb](../tests/shared_conditions_test.rb) controleert detectie, bronposities, beide bronvolgorden, aanvullende voorwaarden, verschillende resourcetypen, scopes, analysegrenzen, native suppressions en ongewijzigde bron bij `--fix`. [guide/examples_test.rb](../tests/guide/examples_test.rb) voert de gemarkeerde voorbeeldparen uit. [external/shared_conditions_test.rb](../tests/external/shared_conditions_test.rb) controleert de check, exitcodes en ongewijzigde bron vanuit een onafhankelijk geïnstalleerd gempakket. Dit bewijst het toolcontract; module- en hostgedrag worden afzonderlijk gevalideerd.
 
 ### Aanroepen en publieke interfaces
 
@@ -2478,7 +2478,7 @@ Controleer de werkelijke implementatie, overloads, expliciete invoer en alle gen
 
 **Verificatie**
 
-[duplicate_function_calls_test.rb](../tests/duplicate_function_calls_test.rb), [duplicate_function_registry_test.rb](../tests/duplicate_function_registry_test.rb) en [duplicate_function_safety_test.rb](../tests/duplicate_function_safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [duplicate_function_placement_test.rb](../tests/duplicate_function_placement_test.rb) en [duplicate_function_placement_safety_test.rb](../tests/duplicate_function_placement_safety_test.rb) controleren één en meerdere AST-eigenaren, commentaarbinding, verplichte groepsuitleg, scopes en interacties met de sectiechecks. [cli_duplicate_function_calls_test.rb](../tests/cli_duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external_duplicate_function_calls_test.rb](../tests/external_duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../../TESTS.md).
+[duplicate_function/calls_test.rb](../tests/duplicate_function/calls_test.rb), [duplicate_function/registry_test.rb](../tests/duplicate_function/registry_test.rb) en [duplicate_function/safety_test.rb](../tests/duplicate_function/safety_test.rb) bewaken groepsdetectie, exacte correcties en weigeringen. [duplicate_function/placement_test.rb](../tests/duplicate_function/placement_test.rb) en [duplicate_function/placement_safety_test.rb](../tests/duplicate_function/placement_safety_test.rb) controleren één en meerdere AST-eigenaren, commentaarbinding, verplichte groepsuitleg, scopes en interacties met de sectiechecks. [cli/duplicate_function_calls_test.rb](../tests/cli/duplicate_function_calls_test.rb) controleert de native schrijfroute, rapporten en het volledige profiel; [external/duplicate_function_calls_test.rb](../tests/external/duplicate_function_calls_test.rb) de geïnstalleerde gem. Succesvolle correcties worden geparseerd, hercontroleerd en nogmaals gefixt. Functioneel bewijs blijft een afzonderlijke geïsoleerde controle volgens [TESTS.md](../../../../TESTS.md).
 
 ### Alle verplichte argumenten doorgeven
 
@@ -2563,7 +2563,7 @@ Controleer de gekozen moduleversie en de argumenten van defined types, ook bij s
 
 **Verificatie**
 
-[guide_examples_test.rb](../tests/guide_examples_test.rb) controleert de gemarkeerde fragmenten via de native engine. [interface_contract_test.rb](../tests/interface_contract_test.rb) controleert classes met `String`, `Sensitive[String]` en `Optional[String]`, lokaal en via het modulepad, plus vereiste defineargumenten, expliciet `undef`, defaults, splats, onvindbare declaraties en het ontbreken van autofix. [external_interface_calls_test.rb](../tests/external_interface_calls_test.rb) controleert class- en defineaanroepen met de geïnstalleerde gem; [external_project_test.rb](../tests/external_project_test.rb) bewaakt modulepadvolgorde, moduleoverschaduwing, vendored namen en symlinkgrenzen. De linttests gebruiken geen Hiera-bestanden en voeren `lookup(...)` niet uit. Controleer het catalogusgedrag afzonderlijk in een geïsoleerde tijdelijke omgeving; een succesvolle lintscan is geen catalogusvalidatie.
+[guide/examples_test.rb](../tests/guide/examples_test.rb) controleert de gemarkeerde fragmenten via de native engine. [interface_contract_test.rb](../tests/interface_contract_test.rb) controleert classes met `String`, `Sensitive[String]` en `Optional[String]`, lokaal en via het modulepad, plus vereiste defineargumenten, expliciet `undef`, defaults, splats, onvindbare declaraties en het ontbreken van autofix. [external/interface_calls_test.rb](../tests/external/interface_calls_test.rb) controleert class- en defineaanroepen met de geïnstalleerde gem; [external/project_test.rb](../tests/external/project_test.rb) bewaakt modulepadvolgorde, moduleoverschaduwing, vendored namen en symlinkgrenzen. De linttests gebruiken geen Hiera-bestanden en voeren `lookup(...)` niet uit. Controleer het catalogusgedrag afzonderlijk in een geïsoleerde tijdelijke omgeving; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Alle verplichte argumenten doorgeven
 
@@ -2641,9 +2641,9 @@ Vergelijk per key de effectieve bronwaarde en ontvangende default en valideer ca
 
 **Verificatie**
 
-[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
+[cli/safe_fixes_test.rb](../tests/cli/safe_fixes_test.rb) controleert de daadwerkelijke native schrijfroute, veilige en geweigerde gevallen, hercontrole en idempotentie.
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [parameter_passthrough_test.rb](../tests/parameter_passthrough_test.rb), [parameter_filter_defaults_test.rb](../tests/parameter_filter_defaults_test.rb), [parameter_filter_predicate_test.rb](../tests/parameter_filter_predicate_test.rb), [parameter_filter_source_test.rb](../tests/parameter_filter_source_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [interface_contract_test.rb](../tests/interface_contract_test.rb), [parameter_passthrough/detection_test.rb](../tests/parameter_passthrough/detection_test.rb), [parameter_filter/defaults_test.rb](../tests/parameter_filter/defaults_test.rb), [parameter_filter/predicate_test.rb](../tests/parameter_filter/predicate_test.rb), [parameter_filter/source_test.rb](../tests/parameter_filter/source_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Overbodige parameterdoorgifte rechtstreeks schrijven
 
@@ -2735,7 +2735,7 @@ Vergelijk per arraylaag elementvorm, titelvolgorde en comments. Beoordeel of het
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference_merging_test.rb](../tests/reference_merging_test.rb), [reference_safety_test.rb](../tests/reference_safety_test.rb), [reference_wrappers_test.rb](../tests/reference_wrappers_test.rb), [reference_concat_test.rb](../tests/reference_concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference/merging_test.rb](../tests/reference/merging_test.rb), [reference/safety_test.rb](../tests/reference/safety_test.rb), [reference/wrappers_test.rb](../tests/reference/wrappers_test.rb), [reference/concat_test.rb](../tests/reference/concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij References van hetzelfde type samenvoegen
 
@@ -2835,7 +2835,7 @@ Controleer de effectieve titelwaarden, hoofdlettergevoelige volgorde, behouden d
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference_merging_test.rb](../tests/reference_merging_test.rb), [reference_safety_test.rb](../tests/reference_safety_test.rb), [reference_wrappers_test.rb](../tests/reference_wrappers_test.rb), [reference_concat_test.rb](../tests/reference_concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference/merging_test.rb](../tests/reference/merging_test.rb), [reference/safety_test.rb](../tests/reference/safety_test.rb), [reference/wrappers_test.rb](../tests/reference/wrappers_test.rb), [reference/concat_test.rb](../tests/reference/concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Een overbodige buitenste dependency-array verwijderen
 
@@ -2907,7 +2907,7 @@ Controleer gewone waarden, functieargumenten, opgeslagen concatresultaten, genes
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference_merging_test.rb](../tests/reference_merging_test.rb), [reference_safety_test.rb](../tests/reference_safety_test.rb), [reference_wrappers_test.rb](../tests/reference_wrappers_test.rb), [reference_concat_test.rb](../tests/reference_concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [reference/merging_test.rb](../tests/reference/merging_test.rb), [reference/safety_test.rb](../tests/reference/safety_test.rb), [reference/wrappers_test.rb](../tests/reference/wrappers_test.rb), [reference/concat_test.rb](../tests/reference/concat_test.rb), [cross_check_autofix_test.rb](../tests/cross_check_autofix_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Resourcelijsten hergebruiken
 
@@ -2982,7 +2982,7 @@ Controleer dat gedeelde variabelen vóór alle afnemers bestaan, verschillen beh
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_list_reuse_test.rb](../tests/resource_list_reuse_test.rb), [resource_list_reuse_fix_test.rb](../tests/resource_list_reuse_fix_test.rb), [package_list_extensions_test.rb](../tests/package_list_extensions_test.rb), [package_list_scope_test.rb](../tests/package_list_scope_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_list_reuse/detection_test.rb](../tests/resource_list_reuse/detection_test.rb), [resource_list_reuse/fix_test.rb](../tests/resource_list_reuse/fix_test.rb), [package_list/extensions_test.rb](../tests/package_list/extensions_test.rb), [package_list/scope_test.rb](../tests/package_list/scope_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Resourcelijsten hergebruiken
 
@@ -3101,7 +3101,7 @@ Controleer dat titelvariabelen alleen titels bevatten, andere dependencies refer
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_dependencies_test.rb](../tests/resource_dependencies_test.rb), [cli_resource_list_reuse_test.rb](../tests/cli_resource_list_reuse_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [resource_dependencies_test.rb](../tests/resource_dependencies_test.rb), [cli/resource_list_reuse_test.rb](../tests/cli/resource_list_reuse_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Resource-dependencies opbouwen
 

@@ -9,13 +9,13 @@ module LintTestSupport
   PuppetLint::OptParser.build(['--no-config', '--config', File.join(ROOT, '.puppet-lint.rc')])
 
   def fixture_set(pattern)
-    paths = Dir[File.join(__dir__, 'fixtures', "#{pattern}.pp")].sort
+    paths = Dir[File.join(__dir__, "#{pattern}.pp")].sort
     refute_empty paths
     paths.map { |path| File.read(path) }
   end
 
   def fixture(name)
-    File.read(File.join(__dir__, 'fixtures', "#{name}.pp"))
+    File.read(File.join(__dir__, "#{name}.pp"))
   end
 
   def lint_checks(code, rules = nil, fix: false, path: 'example.pp')

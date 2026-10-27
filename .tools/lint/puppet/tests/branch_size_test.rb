@@ -14,7 +14,7 @@ class BranchSizeTest < Minitest::Test
   end
 
   def test_positive_flow_rejects_short_assignments_before_the_larger_else
-    code = fixture('branch_size/before_the_larger_else_code')
+    code = fixture('fixtures/branch_size/before_the_larger_else_code')
     assert_equal([[1, :warning]], findings(code, 'project_positive_flow').map do |problem|
       problem.values_at(:line, :kind)
     end)
@@ -61,7 +61,7 @@ class BranchSizeTest < Minitest::Test
   end
 
   def test_positive_flow_ignores_comments_whitespace_and_physical_line_count
-    code = fixture('branch_size/and_physical_line_count_code')
+    code = fixture('fixtures/branch_size/and_physical_line_count_code')
     assert_equal([[1, :warning]], findings(code, 'project_positive_flow').map do |problem|
       problem.values_at(:line, :kind)
     end)

@@ -345,7 +345,7 @@ Vergelijk de toelichting met de direct betrokken verwerking en controleer dat sc
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli_sections_test.rb](../tests/cli_sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli/sections_test.rb](../tests/cli/sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Toelichtingsblokken van eerdere code scheiden
 
@@ -425,7 +425,7 @@ Vergelijk de toelichting met de direct betrokken verwerking en controleer dat sc
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli_sections_test.rb](../tests/cli_sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli/sections_test.rb](../tests/cli/sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Bestaande implementatie-uitleg actueel houden
 
@@ -624,7 +624,7 @@ Controleer dat de uitleg alle voorbereide waarden en de feitelijke voorwaarde ve
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [if_sections_test.rb](../tests/if_sections_test.rb), [cli_sections_test.rb](../tests/cli_sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [if_sections_test.rb](../tests/if_sections_test.rb), [cli/sections_test.rb](../tests/cli/sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Voorwaarden toelichten
 
@@ -728,7 +728,7 @@ Controleer per groep het doel en de werkelijk gebruikte variabelen. Beoordeel v�
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [variable_openings_test.rb](../tests/variable_openings_test.rb), [variable_dependencies_test.rb](../tests/variable_dependencies_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [variable/openings_test.rb](../tests/variable/openings_test.rb), [variable/dependencies_test.rb](../tests/variable/dependencies_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Een onafhankelijke groep na afhankelijke waarden beginnen
 
@@ -808,7 +808,7 @@ Controleer per groep het doel en de werkelijk gebruikte variabelen. Beoordeel v�
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide_examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [variable_openings_test.rb](../tests/variable_openings_test.rb), [variable_dependencies_test.rb](../tests/variable_dependencies_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [variable/openings_test.rb](../tests/variable/openings_test.rb), [variable/dependencies_test.rb](../tests/variable/dependencies_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij Een onafhankelijke groep na afhankelijke waarden beginnen
 
@@ -928,7 +928,7 @@ Controleer voor iedere geraakte publieke interface de vindbare bron, invoer, res
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [interface_contract_test.rb](../tests/interface_contract_test.rb), `test_documentation_matches_each_declaration`, verifieert afzonderlijke declaraties. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [interface_contract_test.rb](../tests/interface_contract_test.rb), `test_documentation_matches_each_declaration`, verifieert afzonderlijke declaraties. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 #### Verdieping bij Publieke declaraties bij de code documenteren
 
@@ -1015,7 +1015,7 @@ Bepaal de bedoelde public/private-interface en controleer nieuwe classes, define
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [interface_contract_test.rb](../tests/interface_contract_test.rb) controleert documentatie per declaratie; het bovenstaande fragment bewijst de API-variant. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [interface_contract_test.rb](../tests/interface_contract_test.rb) controleert documentatie per declaratie; het bovenstaande fragment bewijst de API-variant. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 ### Strings-summary op één regel
 
@@ -1098,7 +1098,7 @@ Controleer één korte summary en behoud noodzakelijke details in de overview.
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_structure_test.rb](../tests/documentation_structure_test.rb), `test_summary_requires_manual_shortening_without_deleting_text`, verifieert behoud en weigering. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/structure_test.rb](../tests/documentation/structure_test.rb), `test_summary_requires_manual_shortening_without_deleting_text`, verifieert behoud en weigering. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 ### Strings-parametercontract
 
@@ -1191,9 +1191,9 @@ Vergelijk iedere parameter, default, undef/true/false-betekenis, dependency, geg
 
 **Verificatie**
 
-[cli_safe_fixes_test.rb](../tests/cli_safe_fixes_test.rb) controleert bestaande tekst, samengestelde parameter- en tagsortering, onvolledige documentatie en een ongewijzigde tweede fixrun.
+[cli/safe_fixes_test.rb](../tests/cli/safe_fixes_test.rb) controleert bestaande tekst, samengestelde parameter- en tagsortering, onvolledige documentatie en een ongewijzigde tweede fixrun.
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_scope_test.rb](../tests/documentation_scope_test.rb), beschrijvingsscenario’s, en [interface_contract_test.rb](../tests/interface_contract_test.rb) controleren aanwezigheid en volgorde. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/scope_test.rb](../tests/documentation/scope_test.rb), beschrijvingsscenario’s, en [interface_contract_test.rb](../tests/interface_contract_test.rb) controleren aanwezigheid en volgorde. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 ### Uitvoerbare Strings-voorbeelden
 
@@ -1274,7 +1274,7 @@ Werk het voorbeeld met prerequisites tijdelijk uit, valideer correcte en onjuist
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_examples_test.rb](../tests/documentation_examples_test.rb) controleert behoud van voorbeeldcode, breedte, handmatige inspringing en titel/body. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/examples_test.rb](../tests/documentation/examples_test.rb) controleert behoud van voorbeeldcode, breedte, handmatige inspringing en titel/body. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 #### Verdieping bij Uitvoerbare Strings-voorbeelden
 
@@ -1390,7 +1390,7 @@ Lees tekst en gerenderde Markdown na; behoud alle woorden en technische waarden 
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_width_test.rb](../tests/documentation_width_test.rb) controleert 120/121/140/141, identifiers, URL, Unicode en parametertekst; [documentation_markup_test.rb](../tests/documentation_markup_test.rb) controleert iedere genoemde structuurweigering en woord-/alineabehoud. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/width_test.rb](../tests/documentation/width_test.rb) controleert 120/121/140/141, identifiers, URL, Unicode en parametertekst; [documentation/markup_test.rb](../tests/documentation/markup_test.rb) controleert iedere genoemde structuurweigering en woord-/alineabehoud. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 #### Verdieping bij Strings-regelbreedte
 
@@ -1398,7 +1398,7 @@ De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/gu
 
 Met `--fix` kan de documentatiecheck gewone tekst afbreken en herkenbare tag-inspringing en sectiescheiding herstellen. Woorden, backtick-inhoud en alinea's blijven behouden. Summaries, voorbeeldtitels, voorbeeldcode en gestructureerde Markdown, zoals lijsten, tabellen en codeblokken, vragen waar nodig handmatige correctie. Een lange summary of voorbeeldtitel kort je zelf in. Bij onveilige of onduidelijke correcties blijft een melding met `[review]` staan.
 
-> **Verschil tussen norm en lintgedrag:** de norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met een warning, waardoor het profiel faalt. Breek zulke tekst af tot maximaal 120 tekens om deze melding te verhelpen. De grensgevallen staan in `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` van [documentation_width_test.rb](../tests/documentation_width_test.rb). Of de voorkeur een verplichte grens moet zijn, vereist een expliciet besluit volgens de [conflictprocedure](#conflicten-beoordelen); het lintgedrag stelt die norm niet vast.
+> **Verschil tussen norm en lintgedrag:** de norm noemt circa 120 tekens een voorkeur en 140 het uiterste. De check meldt afbreekbare tekst op 121–140 tekens met een warning, waardoor het profiel faalt. Breek zulke tekst af tot maximaal 120 tekens om deze melding te verhelpen. De grensgevallen staan in `test_preferred_width_is_distinguished_from_hard_maximum` en `test_exact_line_width_boundaries_include_the_comment_prefix` van [documentation/width_test.rb](../tests/documentation/width_test.rb). Of de voorkeur een verplichte grens moet zijn, vereist een expliciet besluit volgens de [conflictprocedure](#conflicten-beoordelen); het lintgedrag stelt die norm niet vast.
 
 ### Strings-taginspringing
 
@@ -1488,7 +1488,7 @@ Controleer het verschil tussen proza en voorbeeldcode en behoud de betekenisvoll
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_structure_test.rb](../tests/documentation_structure_test.rb), `test_continuation_indentation_is_corrected_for_parameters_and_other_tags`; [documentation_examples_test.rb](../tests/documentation_examples_test.rb), inspringingsweigeringen. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/structure_test.rb](../tests/documentation/structure_test.rb), `test_continuation_indentation_is_corrected_for_parameters_and_other_tags`; [documentation/examples_test.rb](../tests/documentation/examples_test.rb), inspringingsweigeringen. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 ### Strings-secties met commentregels scheiden
 
@@ -1571,7 +1571,7 @@ Lees sectiegrenzen en alinea’s en controleer dat voorbeeldcode en letterlijke 
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_structure_test.rb](../tests/documentation_structure_test.rb) controleert secties en lege bronregels; [documentation_markup_test.rb](../tests/documentation_markup_test.rb) controleert alinea’s en whitespace-only comments. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/structure_test.rb](../tests/documentation/structure_test.rb) controleert secties en lege bronregels; [documentation/markup_test.rb](../tests/documentation/markup_test.rb) controleert alinea’s en whitespace-only comments. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 #### Verdieping bij Strings-secties met commentregels scheiden
 
@@ -1661,7 +1661,7 @@ Controleer ieder teken van het suppressionbereik; verifieer dat gewone tekst wee
 
 **Verificatie**
 
-De gemarkeerde paren worden uitgevoerd door [guide_examples_test.rb](../tests/guide_examples_test.rb). [documentation_suppressions_test.rb](../tests/documentation_suppressions_test.rb) controleert verwijderbare en geweigerde suppressions en scopes. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
+De gemarkeerde paren worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [documentation/suppressions_test.rb](../tests/documentation/suppressions_test.rb) controleert verwijderbare en geweigerde suppressions en scopes. Controleer inhoud en uitvoerbaarheid bovendien volgens de handmatige review; aanwezigheid van tags is geen gedragsbewijs.
 
 ### Waar de uitleg hoort
 

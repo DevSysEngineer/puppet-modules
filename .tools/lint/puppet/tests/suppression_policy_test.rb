@@ -41,7 +41,7 @@ class SuppressionPolicyTest < Minitest::Test
   end
 
   def test_line_length_control_comments_preserve_documentation_validation
-    valid = fixture('suppression_policy/comments_preserve_documentation_validation_valid')
+    valid = fixture('fixtures/suppression_policy/comments_preserve_documentation_validation_valid')
     assert_empty findings(valid, 'project_documentation')
     refute_empty findings(valid.sub('@param label', '@param other'), 'project_documentation')
   end
