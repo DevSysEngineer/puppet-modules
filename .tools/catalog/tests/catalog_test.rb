@@ -24,6 +24,8 @@ class CatalogTest < Minitest::Test
     before = Dir.glob('**/*', File::FNM_DOTMATCH, base: @root)
     assert_equal 0, run_catalogs([input]), @console.string
     assert_includes @console.string, '[PASSED] Puppet catalogs'
+    assert_primary_status('PASSED')
+    assert_compact_success
     assert_equal before, Dir.glob('**/*', File::FNM_DOTMATCH, base: @root)
     refute_path_exists target
     assert_empty @errors.string
@@ -38,14 +40,15 @@ class CatalogTest < Minitest::Test
     suite = report_suite
     assert_mixed_results(suite)
     refute_includes File.read(report), '<previous/>'
-    assert_includes @console.string, '3 selected | 3 checked'
+    assert_mixed_console
   end
 
-  def stale_report
-    report = File.join(@root, 'reports', 'catalog.xml')
-    FileUtils.mkdir_p(File.dirname(report))
-    File.write(report, '<previous/>')
-    report
+  def assert_mixed_console
+    assert_includes @console.string, '3 selected | 3 checked'
+    assert_primary_status('FAILED')
+    assert_occurs_once('Duplicate declaration')
+    assert_includes @console.string, '[FINDING] Puppet catalogs | duplicate | Compilation failure'
+    assert_compact_success
   end
 
   def assert_mixed_results(suite)
@@ -59,46 +62,39 @@ class CatalogTest < Minitest::Test
     assert_equal 1, run_catalogs([input])
     assert_includes @console.string, '1 failures | 0 errors'
     assert_includes @console.string, 'nonexistent'
+    assert_primary_status('FAILED')
   end
 
-  def test_coverage_reports_indirect_declarations_and_excludes_unrealized_defines
-    prepare_coverage_module
-    runner = ProjectTools::Catalog.new(modulepath: @root, console: @console, errors: @errors)
-    assert_equal 0, runner.run(report: File.join(@root, 'reports', 'catalog.xml'))
-    assert_includes @console.string, 'Definition coverage: 3/5'
-    assert_includes @console.string, 'Compiled definitions: class sample, class sample::child, define sample::item'
-    missing = 'Missing definitions (review required): class sample::missing, define sample::unused'
-    assert_includes @console.string, missing
-    assert_includes report_suite.elements['testcase/system-out'].text, missing
-  end
-
-  def prepare_coverage_module
-    directory = module_inputs('sample', code: 'include sample')
-    File.write(File.join(directory, 'manifests', 'init.pp'), <<~PUPPET)
-      class sample { include sample::child; sample::item { 'included': } @sample::unused { 'virtual': } }
-      class sample::child {}
-      class sample::missing {}
-      define sample::item() {}
-      define sample::unused() {}
-    PUPPET
+  def test_native_output_remains_visible_and_does_not_corrupt_worker_results
+    input = scenario('native', "warning('synthetic native warning')\ninline_template('<% puts \"native stdout\" %>')")
+    assert_equal 0, run_catalogs([input], report: report_path)
+    assert_primary_status('PASSED')
+    assert_compact_success
+    assert_includes @console.string, '| Native diagnostic'
+    ['synthetic native warning', 'native stdout'].each do |message|
+      assert_occurs_once(message)
+      assert_includes report_suite.elements['testcase/system-out'].text, message
+    end
   end
 
   def test_missing_inputs_and_invalid_facts_are_errors_and_retain_later_results
     File.write(@facts, '[]')
     missing = { name: 'missing', manifest: File.join(@root, 'absent.pp'), facts: @facts }
     invalid = scenario('invalid facts', "notify { 'example': }")
-    report = File.join(@root, 'reports', 'catalog.xml')
+    report = report_path
     assert_equal 1, run_catalogs([missing, invalid], report: report)
     assert_equal(%w[2 0 2], %w[tests failures errors].map { |key| report_suite.attributes[key] })
     assert_includes @console.string, '2 selected | 0 checked'
     assert_includes @console.string, 'Expected a JSON object of facts'
+    assert_primary_status('ERROR')
   end
 
   def test_interrupted_compiler_is_an_error_and_does_not_hide_later_success
     killed = scenario('interrupted', "inline_template('<% Process.kill(\"TERM\", Process.pid) %>')")
     valid = scenario('valid', "notify { 'example': }")
-    assert_equal 1, run_catalogs([killed, valid], report: File.join(@root, 'reports', 'catalog.xml'))
+    assert_equal 1, run_catalogs([killed, valid], report: report_path)
     assert_equal(%w[2 0 1], %w[tests failures errors].map { |key| report_suite.attributes[key] })
     assert_includes @console.string, '2 selected | 1 checked'
+    assert_primary_status('ERROR')
   end
 end

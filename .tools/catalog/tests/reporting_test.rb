@@ -7,9 +7,11 @@ class CatalogReportingTest < Minitest::Test
   include CatalogTestSupport
 
   def test_empty_selection_is_an_error
-    assert_equal 1, run_catalogs([], report: File.join(@root, 'reports', 'catalog.xml'))
+    assert_equal 1, run_catalogs([], report: report_path)
     assert_equal '1', report_suite.attributes['errors']
     assert_includes @console.string, 'No catalog scenarios selected.'
+    assert_primary_status('ERROR')
+    assert_occurs_once('No catalog scenarios selected.')
   end
 
   def test_report_is_opt_in_and_existing_report_is_preserved_without_request
@@ -25,11 +27,12 @@ class CatalogReportingTest < Minitest::Test
     File.write(blocker, 'ordinary file')
     input = scenario('bad', "fail('synthetic compilation failure')")
     assert_equal 1, run_catalogs([input], report: File.join(blocker, 'catalog.xml'))
-    assert_includes @console.string, 'synthetic compilation failure'
-    assert_includes @console.string, '[ERROR] Puppet catalogs'
     assert_includes @errors.string, 'Cannot write catalog JUnit report'
     refute_includes @console.string, 'JUnit written:'
     assert_equal 'ordinary file', File.read(blocker)
+    assert_primary_status('ERROR')
+    assert_occurs_once('synthetic compilation failure')
+    assert_includes @console.string, '1 failures | 1 errors'
   end
 
   def test_invalid_report_extension_fails_before_compilation
@@ -38,6 +41,26 @@ class CatalogReportingTest < Minitest::Test
     assert_equal 1, run_catalogs([input], report: report)
     refute_includes @console.string, 'must not compile'
     refute_path_exists report
+    assert_primary_status('ERROR')
+    assert_includes @console.string, 'Execution: not executed'
+    refute_includes @console.string, 'JUnit written:'
+  end
+
+  def test_report_generation_failure_removes_old_report_and_partial_output
+    report = stale_report
+    runner = catalog_runner([scenario('valid', "notify { 'example': }")])
+    runner.define_singleton_method(:write_case) { |_xml, _result| raise IOError, 'synthetic writer failure' }
+    assert_equal 1, runner.run(report: report)
+    assert_primary_status('ERROR')
+    assert_includes @errors.string, 'synthetic writer failure'
+    assert_includes @console.string, '1 selected | 1 checked'
+    refute_includes @console.string, 'JUnit written:'
+    assert_no_report_files(report)
+  end
+
+  def assert_no_report_files(report)
+    refute_path_exists report
+    assert_empty Dir.children(File.dirname(report))
   end
 
   def test_cli_help_and_unknown_arguments_do_not_compile

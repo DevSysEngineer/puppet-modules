@@ -20,14 +20,11 @@ module ProjectTools
         end
       end
 
-      def report(catalog)
+      def result(catalog)
         resources = compiled_resources(catalog)
         compiled = @definitions & resources
         missing = @definitions - compiled
-        lines = ["Definition coverage: #{compiled.size}/#{@definitions.size}",
-                 "Compiled definitions: #{compiled.join(', ')}"]
-        lines << "Missing definitions (review required): #{missing.join(', ')}" unless missing.empty?
-        lines.join("\n")
+        { total: @definitions.size, compiled: compiled, missing: missing }
       end
 
       def compiled_resources(catalog)

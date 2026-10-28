@@ -31,8 +31,38 @@ module CatalogTestSupport
                               errors: @errors).run(report: report)
   end
 
+  def catalog_runner(scenarios)
+    ProjectTools::Catalog.new(modulepath: @root, scenarios: scenarios, console: @console, errors: @errors)
+  end
+
+  def report_path
+    File.join(@root, 'reports', 'catalog.xml')
+  end
+
+  def assert_occurs_once(text)
+    assert_equal 1, @console.string.scan(text).size
+  end
+
+  def stale_report
+    report = report_path
+    FileUtils.mkdir_p(File.dirname(report))
+    File.write(report, '<previous/>')
+    report
+  end
+
   def report_suite
     REXML::Document.new(File.read(File.join(@root, 'reports', 'catalog.xml'))).root.elements['testsuite']
+  end
+
+  def assert_primary_status(status)
+    assert_equal [status], @console.string.scan(/^\[(PASSED|FAILED|ERROR|SKIPPED)\] Puppet catalogs$/).flatten
+    assert_equal 1, @console.string.scan('[START] Puppet catalogs').size
+  end
+
+  def assert_compact_success
+    refute_includes @console.string, 'Compiled definitions:'
+    refute_match(/Compiled \d+ resources\./, @console.string)
+    refute_includes @console.string, 'Definition coverage:'
   end
 
   def module_inputs(name, base: @root, code: "notify { '#{name}': }")

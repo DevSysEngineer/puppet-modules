@@ -115,11 +115,11 @@ De bestaande opdracht `bundle exec rake catalog:compile` ontdekt de twee manifes
 
 Na iedere geslaagde compilatie vergelijkt de runner de class- en defined-type-declaraties uit alle `manifests/**/*.pp` van de betreffende module met de resources in de werkelijk gecompileerde catalogus. De inventaris gebruikt de native Puppet-parser. Indirect geladen classes en defines tellen mee; niet-gerealiseerde virtuele resources tellen niet mee. De vergelijking betreft de module die het scenario bezit, niet iedere meegecompileerde dependency.
 
-Het log en `system-out` van de JUnit-testcase bevatten `Definition coverage`, de gecompileerde namen onder `Compiled definitions` en eventueel `Missing definitions (review required)`. Daardoor blijft zichtbaar welke interne of nieuw toegevoegde onderdelen buiten de compilatie vallen. Functies en typealiassen vallen buiten deze telling.
+De standaardconsole toont alleen ontbrekende dekking als `Coverage review: gecontroleerd/totaal`, met module, scenario, facts-identiteit en de ontbrekende namen onder `Missing definitions`. Volledige dekking blijft stil. Het aangevraagde JUnit-rapport bevat per geslaagde testcase in `system-out` het aantal resources, `Definition coverage`, de volledige lijst `Compiled definitions` en zo nodig `Missing definitions (review required)`. Functies en typealiassen vallen buiten deze telling. Na een compilatiefout wordt geen succesvolle of volledige dekking gesuggereerd.
 
 Beoordeel deze uitvoer bij iedere wijziging van een module of haar tests volgens het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden). Vul ontbrekende declaraties met geldige minimale configuratie aan in de bestaande scenario’s. Als conflicterende configuraties afzonderlijke manifests vereisen, vergelijk dan de gezamenlijke namen binnen zowel de standalone- als de combinatiegroep. Onderbouw een technische uitzondering in de module-eigen README; verwijs daarbij naar de betrokken broncode en beschrijf welke dekking wel mogelijk is.
 
-De dekkingsmelding verandert de compile-exitcode niet en kent geen centrale uitzonderingslijst. Een geslaagde testcase bewijst dus niet automatisch volledige class- en define-dekking: ontbrekende namen vereisen expliciete review. Bestaande consumeraanroepen blijven werken en tonen dezelfde aanvullende dekkingsinformatie.
+De dekkingsmelding verandert de compile-exitcode niet en kent geen centrale uitzonderingslijst. Een geslaagde testcase bewijst dus niet automatisch volledige class- en define-dekking: ontbrekende namen vereisen expliciete review. CLI, Rake en geïmporteerde checkouts gebruiken dezelfde compacte presentatie en volledige JUnit-details. Iedere manifest/facts-combinatie houdt haar eigen dekking; bewust opgesplitste scenario’s krijgen geen automatische uitzondering.
 
 ## Modulepad en ontdekking
 
@@ -152,7 +152,7 @@ De bestaande Rake-ingang blijft bruikbaar met `bundle exec rake -f global-module
 
 ## Uitvoering en resultaten
 
-De [runner](lib/catalog.rb) start voor ieder scenario met de actieve Ruby en bundle een afzonderlijke [worker](lib/worker.rb). Die gebruikt de native `Puppet::Parser::Compiler`, het geselecteerde modulepad en tijdelijke Puppet-instellingen. De scenario’s gebruiken geen productie-Hiera, Facter-inventaris of beheerde servers. Puppet-functies en templates worden wel tijdens compilatie uitgevoerd; alleen gecontroleerde code hoort in deze selectie.
+De [runner](lib/catalog.rb) presenteert resultaten via zijn [rapportagemodule](lib/reporting.rb) met de bestaande shared-console en JUnit-writer. De worker draagt resourceaantallen en scenariodekking als JSON over, los van native diagnostiek en processtatus, zonder blijvende tussenbestanden. De runner start voor ieder scenario met de actieve Ruby en bundle een afzonderlijke [worker](lib/worker.rb). Die gebruikt de native `Puppet::Parser::Compiler`, het geselecteerde modulepad en tijdelijke Puppet-instellingen. De scenario’s gebruiken geen productie-Hiera, Facter-inventaris of beheerde servers. Puppet-functies en templates worden wel tijdens compilatie uitgevoerd; alleen gecontroleerde code hoort in deze selectie.
 
 | Uitkomst | Exitstatus runner | JUnit | Dekking |
 | --- | --- | --- | --- |
@@ -163,14 +163,57 @@ De [runner](lib/catalog.rb) start voor ieder scenario met de actieve Ruby en bun
 | Ongeldig modulepad of lege totale selectie | 1 | `error` voor de selectie | Geen compilaties |
 | Ongeldig rapportpad of rapportschrijffout | 1 | Geen bruikbaar nieuw rapport gegarandeerd | Log behoudt reeds bekende resultaten |
 
-De suite en testcase-classname heten `catalog`. De testcase noemt module, manifest en facts, bijvoorbeeld `basic_settings/standalone [debian-13]`. Subdirectorynamen blijven onderdeel van de identiteit. Het log volgt het [gedeelde logcontract](../README.md#joblogs) met selectie, voortgang, diagnoses en afzonderlijke aantallen failures en errors. Het rapport bevat geen volledige catalogi.
+De standaardconsole volgt het [centrale logcontract](../README.md#joblogs): één start, beperkte voortgang, relevante bevindingen en één primaire afsluiting. Succesvolle scenario’s verhogen alleen de voortgangsteller en de totaaltelling. Resourceaantallen, gecompileerde definities en volledige dekking verschijnen uitsluitend in het aangevraagde JUnit-rapport. Native Puppet-waarschuwingen blijven zichtbaar en behouden de compilatiestatus.
+
+Dit illustratieve voorbeeld toont een geslaagde run met volledige definitiedekking; tellingen en duur komen in een echte run uit de uitvoering:
+
+```text
+[START] Puppet catalogs | Module catalog scenarios
+
+[PASSED] Puppet catalogs
+Execution: complete
+Scenarios: 2 selected | 2 checked
+Results: 0 failures | 0 errors
+Modules without tests: 1 skipped
+Duration: 3.2 s
+JUnit written: build/reports/catalog.xml
+```
+
+Een compilatiefout verschijnt eenmaal als bevinding, met de volledige native diagnose en de locatie wanneer Puppet die levert. Een dekkingsbevinding vraagt beoordeling maar is geen compilatiefout. Dit illustratieve voorbeeld bevat beide:
+
+```text
+[START] Puppet catalogs | Module catalog scenarios
+[FINDING] Puppet catalogs | sample/cli_only [debian] | Coverage review: 2/4
+  Missing definitions: class sample::fpm, define sample::pool
+[FINDING] Puppet catalogs | sample/combined [debian] | Compilation failure
+  Evaluation Error: Unknown variable: 'missing'. (line: 2, column: 8)
+
+[FAILED] Puppet catalogs
+Execution: complete
+Scenarios: 2 selected | 2 checked
+Results: 1 failures | 0 errors
+Modules without tests: 0 skipped
+  See findings and diagnostics above.
+Duration: 3.4 s
+JUnit written: build/reports/catalog.xml
+```
+
+Bij langere uitvoering gebruikt de runner de gedeelde voortgang, bijvoorbeeld `[PROGRESS] Puppet catalogs | 18/61 scenarios processed | 45 s`. `processed` telt afgeronde workerpogingen, inclusief uitvoeringsfouten; `checked` telt alleen scenario’s met een compilatie-uitkomst. Ontdekkingsfouten tellen als errors maar niet als geselecteerde scenario’s. Modules zonder tests staan afzonderlijk als skipped en maken een lege selectie niet succesvol.
+
+Uitvoerings- en rapportagefouten geven `ERROR` met `Execution: incomplete`; een ongeldig rapportargument geeft `ERROR` met `not executed`. Het einde verwijst naar eerder getoonde diagnoses zonder ze te herhalen. Ook een onderbreking behoudt bekende resultaten en suggereert geen succes; een harde procesbeëindiging kan afsluiting verhinderen. De CLI behoudt exitcode 0 bij succes en 1 bij inhoudelijke of uitvoeringsfouten; een afhandelbaar signaal wordt na de onvolledige afsluiting doorgegeven.
+
+Bij een geldig rapportverzoek verwijdert de runner een bestaand doel vóór uitvoering en publiceert hij het nieuwe XML-bestand pas na volledig schrijven en sluiten. Een schrijffout geeft één `ERROR`, zonder `JUnit written` en zonder gedeeltelijk nieuw rapport. Kan het oude bestand zelf niet worden verwijderd, dan stopt de uitvoering en wordt het niet als nieuw resultaat aangekondigd. Zonder rapportverzoek wordt geen rapport geschreven of gewijzigd.
+
+De suite en testcase-classname heten `catalog`. De testcase noemt module, manifest en facts, bijvoorbeeld `basic_settings/standalone [debian-13]`. Subdirectorynamen blijven onderdeel van de identiteit. JUnit behoudt `failure` voor compilatiefouten, `error` voor uitvoeringsfouten en `system-out` voor aanvullende uitvoer van geslaagde scenario’s, inclusief native diagnostiek. Het rapport bevat geen volledige catalogi.
 
 Een geslaagde compilatie bewijst dat deze classcombinatie met deze facts compileert. Zij bewijst geen installatie op een host, werkende services of monitoringchecks, alle parametercombinaties of ondersteuning van iedere Puppet-versie. De actieve bundle bepaalt de compiler; modulemetadata houdt haar eigen ondersteunde runtimecontract.
 
 ## Onderhoud
 
-Volg de [ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud). Onderhoud de echte scenario’s bij hun module; de synthetische tests van de runner blijven onder `.tools/catalog/tests/`.
+Volg de [ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud). Lees bij outputwijzigingen het [centrale logcontract](../README.md#joblogs) en voer de [integratiereview](../README.md#verantwoordelijkheden-en-integratie-reviewen) uit, inclusief shared en vergelijkbare tools. Onderhoud de echte scenario’s bij hun module; de synthetische tests van de runner blijven onder `.tools/catalog/tests/`.
 
 Voer `bundle exec rake test:catalog` uit voor ontdekking, padvolgorde, native compilatie, class- en define-dekking, procesisolatie, Hiera-conversie en merge, fixturegrenzen, foutafhandeling, doorgaan na fouten en optionele JUnit-rapportage. Voer daarnaast `bundle exec rake test:repository` uit voor de Rake- en CLI-aanroep met Hiera vanuit een consumer met eigen bundle en afwijkende werkmap, CI-configuratie en documentatie. Gebruik `bundle exec rake catalog:compile` voor de echte moduletests en volg de [gezamenlijke eindcontroles](../../TESTS.md#controlevolgorde-en-verplichte-eindcontroles).
+
+De bestaande [catalogustests](tests/catalog_test.rb) bewaken compact succes, native waarschuwingen en compilatiefouten zonder dubbele diagnoses. De [dekkingstests](tests/coverage_test.rb) controleren volledige JUnit-details bij meerdere classes en defines, volledige en ontbrekende scenariodekking en meerdere compilatiefouten. De [rapportagetests](tests/reporting_test.rb) bewaken opt-in rapportage, lege selectie en rapportfouten zonder oud of gedeeltelijk rapport. De [uitvoeringstests](tests/execution_test.rb) controleren voortgang en onderbreking met één primaire afsluiting. De [consumerintegratietests](../repository/tests/catalog_integration_test.rb) controleren dezelfde presentatie en exitstatus via CLI en Rake uit een geïmporteerde checkout. `test:tools` ontdekt deze tests automatisch; de bestaande CI-gate voert ze mee uit.
 
 Controleer bij wijzigingen aan ontdekking ook nieuwe modules zonder centrale registratie, modules zonder tests, onvolledige selecties, conflicterende modulenamen en gemengde successen en fouten. Behoud bestaande aanroepen, optionele rapportage en afkeurende exitcodes in CI. Lokale integratietests voeren de hosted CI-pipeline zelf niet uit.

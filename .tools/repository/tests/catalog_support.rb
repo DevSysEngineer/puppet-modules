@@ -60,6 +60,39 @@ module CatalogConsumerSupport
     command('bundle', 'exec', *arguments, *options, directory: File.join(@project, 'elsewhere'))
   end
 
+  def assert_log_status(status)
+    assert_equal [status], @output.scan(/^\[(PASSED|FAILED|ERROR|SKIPPED)\] Puppet catalogs$/).flatten
+    assert_equal 1, @output.scan('[START] Puppet catalogs').size
+    refute_includes @output, 'Compiled definitions:'
+    refute_match(/Compiled \d+ resources\./, @output)
+  end
+
+  def assert_consumer_failure
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_log_status('FAILED')
+    assert_counts(%w[2 1 0])
+    assert_includes @output, '[FINDING] Puppet catalogs | failure/default [synthetic] | Compilation failure'
+    assert_equal 1, @output.scan('synthetic consumer failure').size
+    assert_includes suite.elements['testcase/failure'].text, 'synthetic consumer failure'
+  end
+
+  def assert_mixed_results(entry, report:)
+    invoke(entry, report: report)
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_includes @output, 'Duplicate declaration'
+    assert_includes @output, 'Expected a JSON object of facts'
+    assert_log_status('ERROR')
+    assert_includes @output, '3 selected | 2 checked'
+    assert_includes @output, '1 failures | 1 errors'
+    assert_equal 1, @output.scan('Duplicate declaration').size
+    assert_equal 1, @output.scan('Expected a JSON object of facts').size
+  end
+
+  def assert_default_success_log
+    assert_log_status('PASSED')
+    assert_includes suite.elements['testcase/system-out'].text, 'Compiled definitions: class sample'
+  end
+
   def suite
     REXML::Document.new(read('elsewhere/catalog.xml')).root.elements['testsuite']
   end

@@ -34,6 +34,7 @@ class CatalogIntegrationTest < Minitest::Test
       invoke(entry, report: true)
       assert @status.success?, @output + @errors
       assert_counts(%w[1 0 0])
+      assert_default_success_log
       assert_equal 'sample/default [synthetic]', suite.elements['testcase'].attributes['name']
       assert_report_preserved(entry)
     end
@@ -72,12 +73,12 @@ class CatalogIntegrationTest < Minitest::Test
     end
   end
 
-  def assert_mixed_results(entry, report:)
-    invoke(entry, report: report)
-    assert_equal 1, @status.exitstatus, @output + @errors
-    assert_includes @output, 'Duplicate declaration'
-    assert_includes @output, 'Expected a JSON object of facts'
-    assert_includes @output, 'sample/default [synthetic]'
+  def test_compilation_failure_has_the_same_presentation_in_cli_and_rake
+    sample_module('global-modules', 'failure', body: "fail('synthetic consumer failure')")
+    %i[cli rake].each do |entry|
+      invoke(entry, report: true)
+      assert_consumer_failure
+    end
   end
 
   def test_hiera_fixtures_work_from_consumer_modulepath_for_cli_and_rake_with_optional_reports

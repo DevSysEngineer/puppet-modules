@@ -18,10 +18,19 @@ class CatalogDiscoveryErrorsTest < Minitest::Test
     prepare_mixed_modules
     assert_equal 1, run_catalogs(nil, report: File.join(@root, 'reports', 'catalog.xml'))
     assert_discovery_results
+    assert_mixed_console
+  end
+
+  def assert_mixed_console
     assert_includes @console.string, 'Duplicate declaration'
     assert_includes @console.string, 'no_facts/discovery'
     assert_includes @console.string, 'no_manifests/discovery'
     assert_includes @console.string, '2 selected | 2 checked'
+    assert_primary_status('ERROR')
+    assert_includes @console.string, '1 failures | 2 errors'
+    assert_occurs_once('Duplicate declaration')
+    assert_occurs_once('no_facts/discovery')
+    assert_occurs_once('no_manifests/discovery')
   end
 
   def prepare_mixed_modules

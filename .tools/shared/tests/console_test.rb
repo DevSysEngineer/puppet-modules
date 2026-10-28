@@ -30,6 +30,30 @@ class SharedConsoleTest < Minitest::Test
     refute_includes @output.string, 'PASSED'
   end
 
+  def test_start_full_diagnostics_and_caller_status_use_safe_terminal_text
+    @console.during do
+      @console.finding('example.pp:2:3 | Compilation failure')
+      @console.diagnostic("first line\n::error::literal text\e[31m\nlast line\t\r\0")
+      @console.finish(status: 'FAILED', execution: 'complete', facts: ['Checks: 1'],
+                      details: ['See diagnostics above.'])
+    end
+    assert_full_safe_diagnostic
+  end
+
+  def assert_full_safe_diagnostic
+    assert_equal 1, @output.string.scan('[START]').size
+    assert_equal 1, @output.string.scan('[FINDING]').size
+    assert_equal ['FAILED'], @output.string.scan(/^\[(PASSED|FAILED|ERROR|SKIPPED)\]/).flatten
+    assert_includes @output.string, 'Execution: complete'
+    assert_safe_diagnostic_lines
+  end
+
+  def assert_safe_diagnostic_lines
+    %w[first last].each { |word| assert_equal 1, @output.string.scan("#{word} line").size }
+    refute_match(/^::error::/, @output.string)
+    refute_match(/[\e\t\r\0]/, @output.string)
+  end
+
   def test_failure_stops_activity_and_keeps_available_diagnostics
     threads = Thread.list
     assert_raises(IOError) do

@@ -23,6 +23,28 @@ De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een
 
 `diagnostic(message, output:)` is ook als classmethode beschikbaar voor converters zonder eigen uitvoeringscyclus. Zij springt regels in en vlakt terminalcontroltekens af; XML blijft bij de JUnit-writer. De console schrijft geen bestanden, platformcommando’s of annotaties. Bij een onverwacht afgebroken `during` blijven verzamelde bevindingen zichtbaar in een onvolledige foutafsluiting, waarna de oorspronkelijke exception of het signaal doorgaat. Het [centrale logcontract](../README.md#joblogs) bepaalt de gebruikerspresentatie en de grens met native CI-stappen.
 
+Gebruik `finding` voor een beknopte identiteit en het probleemtype; deze methode toont maximaal de eerste twee regels. Geef een volledige meerregelige diagnose daarom afzonderlijk aan `diagnostic`, dat alle regels behoudt en terminalcontroltekens veilig weergeeft. Succesdetails zoals gecompileerde resources of definities zijn geen bevinding: bewaar ze bij het toolresultaat voor JUnit. Shared beslist niet of een warning of ontbrekende dekking het toolbeleid schendt.
+
+Dit kleine voorbeeld presenteert reeds door de tool beoordeelde resultaten. `status`, `execution` en `written_report` komen van de aanroeper; de rapportvariabele is alleen gevuld na geslaagde publicatie:
+
+```ruby
+console = ProjectTools::Shared::Console.new('Example check', scope: "#{results.size} checks selected")
+console.during do
+  results.each do |result|
+    if result[:problem]
+      console.finding("#{result[:name]} | #{result[:problem]}")
+      console.diagnostic(result[:diagnostic])
+    end
+    console.advance(unit: 'checks', total: results.size)
+  end
+  console.finish(status: status, execution: execution,
+                 facts: ["Checks: #{results.size} processed"],
+                 details: ['See any findings and diagnostics above.'], report: written_report)
+end
+```
+
+Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daarna eenmaal `finish` aan met het juiste tooloordeel. Een rescue buiten `during` komt pas na de automatische onvolledige afsluiting en mag geen tweede primaire status schrijven. Herhaal volledig getoonde diagnoses niet via `finish(details:)`; verwijs ernaar bij de bekende tellingen. De automatische afsluiting bij een onverwachte exception is een vangnet, geen vervanging voor de toolspecifieke foutafhandeling en resultaatadministratie.
+
 `project_lint/junit_report` blijft in de lintgem beschikbaar als compatibility-shim. `ProjectLint::JunitReport` verwijst naar dezelfde shared-module, met dezelfde signatuur. Er is geen tweede XML-implementatie of fallback naar een naastgelegen checkout.
 
 ## Afhankelijkheden en onderhoud

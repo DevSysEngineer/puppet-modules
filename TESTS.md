@@ -167,6 +167,8 @@ Bij nieuwe of gewijzigde toolstructuren moet de bestaande [repositorystructuurte
 
 Bij toolinterfaces gelden bovendien de [gedeelde integratie- en CI-review](.tools/README.md#gedeeld-toolingonderhoud) en de concrete verificatie in iedere betrokken toolhandleiding, inclusief geïnstalleerde CLI en ondersteunde consumerinstallaties. Een gedeelde librarytest vervangt de validatie van haar gemigreerde aanroepers niet.
 
+Nieuwe eigen Ruby-tools en wijzigingen die console-uitvoer of rapportage beïnvloeden, moeten gedragstests bij de betreffende tool bevatten voor het [centrale logcontract](.tools/README.md#joblogs). Controleer compact succes, inhoudelijke afkeuring, afzonderlijk geclassificeerde uitvoeringsfouten, behoud van exitstatus en rapportdetails en maximaal één primaire afsluiting, ook bij rapportagefouten en onderbrekingen. Neem gemengde resultaten, voortgang en ondersteunde CLI-, Rake- en consumeringangen mee waar van toepassing. De bestaande `test:tools`-selectie en CI-gate voeren deze regressies automatisch uit; alleen werkelijk gedeeld gedrag hoort bij shared. Dit betreft runnergedrag en voegt geen module-eigen scenario's of eisen aan de [eenvoudige Puppet-compilatietests](#moduletests-eenvoudig-houden) toe.
+
 ### Shellvalidatie
 
 - Beoordeel bron én gerenderde uitvoer volgens de [shellnormen](.tools/lint/puppet/docs/OPERATIONAL_RULES.md#shellscripts) en valideer syntax met de bedoelde interpreter. Puppet-lint valideert shellsyntax en de volledige shellstijl niet.
