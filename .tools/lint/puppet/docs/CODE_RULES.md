@@ -2170,7 +2170,9 @@ Inventariseer bij een `exec` het effectieve `command`, of de resourcetitel wanne
 
 Controleer per ondersteunde distributie en pakketbron welk package het executable levert; leid de packagenaam niet uit de commandonaam af. `cmp` komt bijvoorbeeld uit `diffutils` en `awk` heeft meerdere providers. NodeSource levert npm via `nodejs`, terwijl Debian en Ubuntu daarvoor een afzonderlijk `npm`-package leveren.
 
-Borg ontbrekende algemene modulepackages met `ensure_packages` in de hoofdclass en groepeer gelijke instellingen volgens [pakketten en mappen](OPERATIONAL_RULES.md#pakketten-en-mappen). Een define die zijn parentclass vereist, controleert die afhankelijkheid expliciet en hergebruikt haar packages zonder eigen `ensure_packages` of package-declaraties. Een zelfstandige define mag zijn specifieke packages zelf beheren; gedeelde scripts en hun packages hebben één eigenaar.
+Gebruik voor package-installatie via stdlib de functie `stdlib::ensure_packages()`; de oude globale `ensure_packages()` is deprecated. Declareer de dependency op `puppetlabs-stdlib` in de modulemetadata. De [cataloguscontrole](../../../catalog/README.md#native-deprecations-afkeuren) keurt geëvalueerde native deprecations af; hiervoor bestaat geen afzonderlijke statische lintregel.
+
+Borg ontbrekende algemene modulepackages met `stdlib::ensure_packages` in de hoofdclass en groepeer gelijke instellingen volgens [pakketten en mappen](OPERATIONAL_RULES.md#pakketten-en-mappen). Een define die zijn parentclass vereist, controleert die afhankelijkheid expliciet en hergebruikt haar packages zonder eigen `stdlib::ensure_packages` of package-declaraties. Een zelfstandige define mag zijn specifieke packages zelf beheren; gedeelde scripts en hun packages hebben één eigenaar.
 
 Verplaats verspreid packagebeheer naar die eigenaar met behoud van optionele installatievoorwaarden en uitvoeringsrelaties. Voor een package dat alleen actieve onderdelen nodig hebben, kan de hoofdclass een [virtuele package met `realize()`](#optionele-packages-activeren-met-realize) aanbieden. Declareer geen extra package als installatie al in dezelfde module of een verplichte parentclass op ieder relevant uitvoerpad is geborgd. Ook een verplichte package-afhankelijkheid kan volstaan wanneer de dependencyketen voor de ondersteunde pakketbronnen is gecontroleerd; een aanbeveling volstaat niet.
 
@@ -2190,7 +2192,7 @@ Externe commando’s in alle `exec`-velden en door Puppet beheerde scripts, incl
 
 `project_exec_packages` controleert een begrensd deel van `exec`-resources. De check gebruikt de expliciete Debian/Ubuntu-koppelingen `bash → bash`, `cmp → diffutils`, `curl → curl`, `jq → jq`, `rsync → rsync`, `tar → tar`, `unzip → unzip` en `wget → wget`. Hij herkent deze namen als eerste executable, ongewijzigd of onder `/bin/` en `/usr/bin/`, in `command`, de impliciete commandotitel, `onlyif`, `unless` en `refresh`. Argumentarrays en arrays met afzonderlijke guards worden volgens hun eigen betekenis behandeld. Een vaste commandoprefix vóór geïnterpoleerde argumenten en een eenduidige voorafgaande lokale toekenning tellen mee.
 
-De analyse hergebruikt lokale resource-defaults en vaste package-/referencelijsten, ook via `concat`. Hij beoordeelt `package`-declaraties en `ensure_packages` afzonderlijk van relaties via `require`, `subscribe`, `before`, `notify` en relatiepijlen. Eenvoudige transitieve relaties via bestanden tellen mee. Packages in een bereikbare class tellen mee via `include`, `contain`, `require`, classdeclaraties of een positieve omvattende `defined(Class[...])`-guard met één classreference. Classbronnen komen uit dezelfde invoer of het [ingestelde modulepad](../README.md#aanroepen-van-modules-controleren). Alleen een classreference bewijst geen installatie; `include` bewijst geen ordering.
+De analyse hergebruikt lokale resource-defaults en vaste package-/referencelijsten, ook via `concat`. Hij beoordeelt `package`-declaraties en `stdlib::ensure_packages` afzonderlijk van relaties via `require`, `subscribe`, `before`, `notify` en relatiepijlen. Eenvoudige transitieve relaties via bestanden tellen mee. Packages in een bereikbare class tellen mee via `include`, `contain`, `require`, classdeclaraties of een positieve omvattende `defined(Class[...])`-guard met één classreference. Classbronnen komen uit dezelfde invoer of het [ingestelde modulepad](../README.md#aanroepen-van-modules-controleren). Alleen een classreference bewijst geen installatie; `include` bewijst geen ordering.
 
 `PackageGraph` beoordeelt relevante routes door `case`, `if`/`elsif`/`else` en `unless` afzonderlijk, inclusief geneste keuzes en keuzes binnen verplichte parentclasses. Een package is gegarandeerd wanneer iedere route waarop de onderzochte `exec` kan bestaan zijn installatie borgt. Verschillende geldige dependencyketens per route mogen dezelfde ordering bewijzen; installatie en relaties uit verschillende routes worden nooit samengevoegd tot één bewijs.
 
@@ -2251,7 +2253,7 @@ Fragment; `project_exec_packages` accepteert de installatie en de indirecte uitv
 
 <!-- lint-example: project_exec_packages clean -->
 ```puppet
-ensure_packages('diffutils', {
+stdlib::ensure_packages('diffutils', {
   'ensure'          => 'installed',
   'install_options' => ['--no-install-recommends', '--no-install-suggests'],
 })
@@ -2284,7 +2286,7 @@ De voorbeeldparen worden door [guide/examples_test.rb](../tests/guide/examples_t
 
 #### Optionele packages activeren met realize
 
-Gebruik dit patroon wanneer de hoofdclass de package-instellingen bezit, maar installatie alleen nodig is zodra een afhankelijke define actief wordt. Algemene packages die ieder gebruik van de module nodig heeft, blijven gewoon in `ensure_packages()` in de hoofdclass.
+Gebruik dit patroon wanneer de hoofdclass de package-instellingen bezit, maar installatie alleen nodig is zodra een afhankelijke define actief wordt. Algemene packages die ieder gebruik van de module nodig heeft, blijven gewoon in `stdlib::ensure_packages()` in de hoofdclass.
 
 De hoofdclass beschrijft met `@package` de gewenste toestand zonder die al af te dwingen. De actieve define maakt diezelfde resource met `realize(Package[...])` beheerd. Meerdere defines mogen dezelfde resource activeren: er blijft één package-resource met één set instellingen. Zie de [Puppet-uitleg over virtuele resources](https://help.puppet.com/core/current/Content/PuppetCore/lang_virtual.htm).
 
@@ -2921,7 +2923,7 @@ Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontb
 
 **Toepassingsgebied**
 
-Resourcedeclaraties, references en ensure_packages met minstens twee verschillende letterlijke titels van hetzelfde type binnen dezelfde class, define of topscope.
+Resourcedeclaraties, references en stdlib::ensure_packages met minstens twee verschillende letterlijke titels van hetzelfde type binnen dezelfde class, define of topscope.
 
 **Automatische controle**
 
@@ -2941,7 +2943,7 @@ Voorwaardelijk voor exacte herhaling en duidelijke package-uitbreidingen; Geen v
 
 **Autofixvoorwaarden**
 
-Uitsluitend één rechtstreeks gebruikte ensure_packages-lijst met dependencies na de aanroep in hetzelfde blok. Alle hieronder beschreven titel-, naam-, scope-, breedte-, commentaar- en uitbreidingsvoorwaarden zijn vereist.
+Uitsluitend één rechtstreeks gebruikte stdlib::ensure_packages-lijst met dependencies na de aanroep in hetzelfde blok. Alle hieronder beschreven titel-, naam-, scope-, breedte-, commentaar- en uitbreidingsvoorwaarden zijn vereist.
 
 **Toegestane uitzonderingen**
 
@@ -2986,7 +2988,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij Resourcelijsten hergebruiken
 
-Bij packages deel je de lijst ook tussen `ensure_packages()` en `Package[...]`, zodat een toevoeging of verwijdering niet op meerdere plaatsen hoeft te worden bijgehouden:
+Bij packages deel je de lijst ook tussen `stdlib::ensure_packages()` en `Package[...]`, zodat een toevoeging of verwijdering niet op meerdere plaatsen hoeft te worden bijgehouden:
 
 Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
 
@@ -2997,7 +2999,7 @@ Voor dit fragment wordt uitsluitend `project_resource_list_reuse` gecontroleerd.
 # Install the tools shared by this feature's consumers.
 $feature_packages = ['coreutils', 'grep', 'sed']
 
-ensure_packages($feature_packages, {
+stdlib::ensure_packages($feature_packages, {
   'ensure'          => 'installed',
   'install_options' => ['--no-install-recommends', '--no-install-suggests'],
 })
@@ -3016,13 +3018,13 @@ notify { 'feature-ready':
 
 Aanvullende dependencies blijven behouden in een afzonderlijk voorbereide lijst. Die uitbreiding declareert de extra resources niet: hun bestaande eigenaar blijft daarvoor verantwoordelijk. De [arrayconventie](#resources-en-afhankelijkheden) schrijft `concat(...)` voor; deze hergebruikcheck herkent ook hergebruik via `+`, maar schakelt de aparte melding van `project_arrays` niet uit. De [opbouw van dependencies](#resource-dependencies-opbouwen) houdt titels gescheiden van resource references.
 
-`project_resource_list_reuse` vergelijkt binnen dezelfde class, hetzelfde defined type of dezelfde topscope bronnen met ten minste twee verschillende letterlijke titels van hetzelfde resourcetype. Een andere schrijfvolgorde maakt geen verschil. Identieke sets worden ook gemeld bij herhaalde declaraties, herhaalde references of meerdere `ensure_packages()`-aanroepen. Gelijke titels van verschillende resourcetypen worden niet gekoppeld. Datatypeparameters, lokale typealiases en gewone indexeringen vallen buiten de regel. Samenhangende herhalingen krijgen één melding bij de eerste bronlijst.
+`project_resource_list_reuse` vergelijkt binnen dezelfde class, hetzelfde defined type of dezelfde topscope bronnen met ten minste twee verschillende letterlijke titels van hetzelfde resourcetype. Een andere schrijfvolgorde maakt geen verschil. Identieke sets worden ook gemeld bij herhaalde declaraties, herhaalde references of meerdere `stdlib::ensure_packages()`-aanroepen. Gelijke titels van verschillende resourcetypen worden niet gekoppeld. Datatypeparameters, lokale typealiases en gewone indexeringen vallen buiten de regel. Samenhangende herhalingen krijgen één melding bij de eerste bronlijst.
 
-Tussen een declaratielijst of `ensure_packages()` en een afzonderlijke reference meldt de check ook een volledig herhaalde basisset met extra titels. Bij overige overlap is een melding beperkt tot minstens drie gemeenschappelijke titels die ten minste 80% van beide sets vormen. Zo'n melding vraagt altijd review: behoud de bedoelde verschillen en deel alleen de gemeenschappelijke basis. Enkele gemeenschappelijke titels, kleinere dependency-subsets en verschillende declaratiesets zijn geen reden om lijsten samen te voegen.
+Tussen een declaratielijst of `stdlib::ensure_packages()` en een afzonderlijke reference meldt de check ook een volledig herhaalde basisset met extra titels. Bij overige overlap is een melding beperkt tot minstens drie gemeenschappelijke titels die ten minste 80% van beide sets vormen. Zo'n melding vraagt altijd review: behoud de bedoelde verschillen en deel alleen de gemeenschappelijke basis. Enkele gemeenschappelijke titels, kleinere dependency-subsets en verschillende declaratiesets zijn geen reden om lijsten samen te voegen.
 
 De analyse volgt eerdere, eenduidige lokale toekenningen, aliassen, `concat(...)`, arrayoptelling en letterlijke lijsten in selectors en `if`-expressies. Verwijzingen naar dezelfde bronlijst tellen als hergebruik. Statisch zichtbare namen naast dynamische waarden kunnen een reviewmelding opleveren; onbekende expressies worden niet uitgevoerd. Parameterdefaults, onopgeloste variabelen, andere functieaanroepen en afzonderlijke lambdascopes blijven buiten deze vergelijking. Bij references in gewone waarden en relatieketens volgt alleen een melding: de autofix beperkt zich tot `require`, `before`, `notify` en `subscribe` op resources.
 
-De hergebruik-autofix beperkt zich tot één rechtstreeks aangeroepen, letterlijke `ensure_packages()`-lijst met passende package-dependencies in hetzelfde uitvoerblok, na de installatieaanroep. Er mag geen tweede installatielijst in die scope zijn. De namen moeten uniek zijn en bestaan uit letters, cijfers, `+`, `_`, `.`, `:` of `-`, beginnend met een letter of cijfer. Bij exacte herhaling zet de fix de lijst direct vóór de aanroep in `$required_packages` en vervangt alle passende references; `concat()` is dan niet nodig. Bij declaraties of alleen references beoordeel je de extractie handmatig, met behoud van hun eigen attributen en levenscyclus.
+De analyse blijft ook oude globale functieaanroepen herkennen; een veilige autofix genereert uitsluitend `stdlib::ensure_packages()`. De hergebruik-autofix beperkt zich tot één rechtstreeks aangeroepen, letterlijke `stdlib::ensure_packages()`-lijst met passende package-dependencies in hetzelfde uitvoerblok, na de installatieaanroep. Er mag geen tweede installatielijst in die scope zijn. De namen moeten uniek zijn en bestaan uit letters, cijfers, `+`, `_`, `.`, `:` of `-`, beginnend met een letter of cijfer. Bij exacte herhaling zet de fix de lijst direct vóór de aanroep in `$required_packages` en vervangt alle passende references; `concat()` is dan niet nodig. Bij declaraties of alleen references beoordeel je de extractie handmatig, met behoud van hun eigen attributen en levenscyclus.
 
 Een duidelijke uitbreiding mag eveneens worden gecorrigeerd: de installatie gebruikt dan `$packages` en na de aanroep volgt `$required_packages = concat($packages, ['extra'])`, verdeeld over meerdere regels. Iedere dependency bevat de volledige basislijst; er mag maximaal één verschillende uitbreidingsset zijn. Resources die alleen de basis nodig hebben gebruiken `$packages`. Overige resources en dependencyvariabelen blijven buiten `Package[...]`. Naamconflicten, ook met gekwalificeerde variabelen of parameters, verhinderen autofix; kies bij handmatige correctie contextnamen.
 

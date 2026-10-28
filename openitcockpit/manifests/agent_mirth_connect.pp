@@ -32,7 +32,7 @@ class openitcockpit::agent_mirth_connect (
         true    => ['systemd'],
         default => ['procps'],
       })
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

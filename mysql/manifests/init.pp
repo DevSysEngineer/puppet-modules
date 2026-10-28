@@ -145,7 +145,7 @@ class mysql (
     'openssl',
     'sed',
   ]
-  ensure_packages($management_packages, {
+  stdlib::ensure_packages($management_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -176,7 +176,7 @@ class mysql (
     if ($basic_settings_enable and $basic_settings::kernel_hugepages > 0) {
       # getent and usermod are required independently of the group and server resources.
       $hugetlb_packages = ['libc-bin', 'passwd']
-      ensure_packages($hugetlb_packages, {
+      stdlib::ensure_packages($hugetlb_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })
@@ -281,7 +281,7 @@ class mysql (
         true    => ['systemd'],
         default => ['procps'],
       })
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

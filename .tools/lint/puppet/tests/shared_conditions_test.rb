@@ -92,7 +92,7 @@ class SharedConditionsTest < Minitest::Test
 
   def test_resource_overrides_defaults_and_resources_in_iterations_share_the_guard
     ["File['/tmp/config'] { mode => '0600' }", "File { mode => '0600' }",
-     "['item'].each |$item| { notify { $item: } }", "ensure_packages(['example'])"].each do |body|
+     "['item'].each |$item| { notify { $item: } }", "stdlib::ensure_packages(['example'])"].each do |body|
       assert_equal [:warning], finding_kinds("if $enabled { file { '/tmp/config': } } if $enabled { #{body} }")
     end
   end

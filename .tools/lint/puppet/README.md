@@ -195,6 +195,8 @@ bundle exec puppet-lint --no-config --config .puppet-lint.rc examples/site.pp
 
 ### Werkwijze bij een wijziging
 
+Gebruik `stdlib::ensure_packages()` volgens de [packageafspraken](docs/CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). De bestaande lintanalyses ondersteunen deze functie en de autofixes genereren de namespaced aanroep. De [cataloguscontrole](../../catalog/README.md#native-deprecations-afkeuren) beoordeelt deprecations tijdens evaluatie.
+
 1. Volg de [voorbereiding en Git-inspectie](../../../CONTRIBUTING.md#bestaande-situatie-onderzoeken) en lees de relevante code, modulemetadata en documentatie na de vereiste voorcontrole. Kies met de [leeswijzer](#leeswijzer) de toepasselijke codeafspraken.
 2. Voer vóór het aanpassen een lintscan uit, zodat je weet welke meldingen al bestonden. Scan gewijzigde code opnieuw voordat je meldingen gaat corrigeren. Tijdens het ontwikkelen kun je de scan tot [één manifest](#werking-van-de-controles) beperken.
 3. Gebruik een beschikbare [autofix](#automatisch-corrigeren-autofix) als die voor de betrokken code veilig en deterministisch is. Controleer daarvoor de voorwaarden bij de check. Beperk de correctie tot je wijziging en behoud gedrag, relaties en configuratie.
@@ -877,7 +879,7 @@ Het pakket bevat alleen `lib/`, `bin/`, `config/`, `README.md`, `docs/CODE_RULES
 
 Volg bij een update de [consumermigratie](../../README.md#migreren-naar-afzonderlijke-toolpakketten) voor de afzonderlijke metadata- en Ruby-tools en gewijzigde gedeelde instellingen.
 
-Het [checkoverzicht](#beschikbare-projectchecks) vermeldt de actieve controles en verwijst naar hun detectie- en autofixvoorwaarden. Let bij de [packageguard-fix](docs/OPERATIONAL_RULES.md#gelijk-ingestelde-packageguards-samenvoegen) op de runtimevoorwaarde: de gegenereerde Puppet-code gebruikt `ensure_packages()` uit stdlib; de linter levert die module niet mee. Conflicterende package-attributen blijven als catalogusfout zichtbaar.
+Het [checkoverzicht](#beschikbare-projectchecks) vermeldt de actieve controles en verwijst naar hun detectie- en autofixvoorwaarden. Let bij de [packageguard-fix](docs/OPERATIONAL_RULES.md#gelijk-ingestelde-packageguards-samenvoegen) op de runtimevoorwaarde: de gegenereerde Puppet-code gebruikt `stdlib::ensure_packages()` uit stdlib; de linter levert die module niet mee. Conflicterende package-attributen blijven als catalogusfout zichtbaar.
 
 Checknamen, meldingsniveaus, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, gedeelde configuratiepaden en rapportcommando's zijn publieke interfaces; de [ontwikkelinstructies](#architectuurreview) beschrijven de review ervan. Verhoog de gemversie bij een uitgave en beschrijf wijzigingen die afnemers raken. Wijzigingen aan actieve regels en profielen kunnen bestaande projecten laten falen; laat afnemers zo’n update bewust uitvoeren met Bundler en hun eigen CI. Werk een Git-afnemer bij naar een gecontroleerde revisie en een pakketafnemer naar een gecontroleerde gemversie.
 

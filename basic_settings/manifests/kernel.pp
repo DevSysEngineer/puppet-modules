@@ -355,13 +355,13 @@ class basic_settings::kernel (
       'sed',
       'util-linux',
     ]
-    ensure_packages($kernel_command_packages, {
+    stdlib::ensure_packages($kernel_command_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
 
     # Retain the other kernel inspection tools without coupling them to command execution.
-    ensure_packages(['findutils', 'lsb-release', 'lsof', 'kmod', 'usbutils'], {
+    stdlib::ensure_packages(['findutils', 'lsb-release', 'lsof', 'kmod', 'usbutils'], {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
@@ -974,7 +974,7 @@ class basic_settings::kernel (
       $monitoring_packages = ['mawk']
       $monitoring_required_packages = concat(['coreutils', 'dash'], $monitoring_packages, ['sed'])
 
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

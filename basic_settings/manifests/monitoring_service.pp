@@ -136,7 +136,7 @@ define basic_settings::monitoring_service (
     # Install the tools used by the shared systemd check.
     $monitoring_packages = ['coreutils', 'dash', 'grep', 'mawk', 'sed', 'systemd']
 
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

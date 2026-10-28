@@ -15,8 +15,9 @@ class GuardedPackagesTest < Minitest::Test
       problems = findings(manifest(*names.map { |name| guard(name) }))
       assert_equal 1, problems.length
       assert_equal [2, 3], problems.first.values_at(:line, :column)
-      assert_equal "Multiple guarded package declarations can be combined using ensure_packages(): #{names.join(', ')}",
-                   problems.first[:message]
+      expected = 'Multiple guarded package declarations can be combined using stdlib::ensure_packages(): ' \
+                 "#{names.join(', ')}"
+      assert_equal expected, problems.first[:message]
     end
   end
 

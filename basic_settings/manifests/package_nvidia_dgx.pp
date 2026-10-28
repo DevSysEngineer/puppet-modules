@@ -37,7 +37,7 @@ class basic_settings::package_nvidia_dgx (
   # Reject unsupported activation while allowing cleanup independently of platform support.
   if (!$enable or $nvidia_dgx_allow) {
     # APT owns the source directory and supplies the existing refresh command on either lifecycle path.
-    ensure_packages('apt', {
+    stdlib::ensure_packages('apt', {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
@@ -66,7 +66,7 @@ class basic_settings::package_nvidia_dgx (
         'gzip',
         'tar',
       ]
-      ensure_packages($repository_packages, {
+      stdlib::ensure_packages($repository_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

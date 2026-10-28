@@ -11,6 +11,18 @@ require_relative 'catalog_support'
 class CatalogIntegrationTest < Minitest::Test
   include CatalogConsumerSupport
 
+  def test_native_deprecations_fail_both_consumer_entry_points_and_keep_ordinary_warnings
+    prepare_modulepath
+    sample_module('modules', 'legacy', body: <<~PUPPET)
+      inline_template('<% Puppet.deprecation_warning("synthetic consumer deprecation", "consumer") %>')
+    PUPPET
+    sample_module('modules', 'ordinary', body: "warning('deprecated is ordinary text')")
+    %i[cli rake].each do |entry|
+      invoke(entry, report: true)
+      assert_deprecation_failure
+    end
+  end
+
   def test_cli_help_from_the_consumer_bundle
     invoke(:cli, options: ['--help'])
     assert @status.success?, @output + @errors
@@ -38,18 +50,6 @@ class CatalogIntegrationTest < Minitest::Test
       assert_equal 'sample/default [synthetic]', suite.elements['testcase'].attributes['name']
       assert_report_preserved(entry)
     end
-  end
-
-  def assert_report_preserved(entry)
-    write('elsewhere/catalog.xml', '<previous/>')
-    invoke(entry)
-    assert @status.success?, @output + @errors
-    assert_equal '<previous/>', read('elsewhere/catalog.xml')
-  end
-
-  def assert_counts(expected)
-    assert_equal(expected, %w[tests failures errors].map { |key| suite.attributes[key] })
-    assert_includes suite.elements['testcase/system-out'].text, 'Definition coverage' if expected == %w[1 0 0]
   end
 
   def test_consumer_modulepath_discovers_new_tests_and_uses_the_same_order_for_compilation

@@ -402,7 +402,7 @@ class basic_settings::network (
             true    => ['systemd'],
             default => [],
           })
-          ensure_packages($firewall_monitoring_packages, {
+          stdlib::ensure_packages($firewall_monitoring_packages, {
             'ensure'          => 'installed',
             'install_options' => ['--no-install-recommends', '--no-install-suggests'],
           })
@@ -716,7 +716,7 @@ class basic_settings::network (
       true    => ['systemd'],
       default => ['procps'],
     })
-    ensure_packages($network_monitoring_packages, {
+    stdlib::ensure_packages($network_monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

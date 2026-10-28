@@ -188,7 +188,7 @@ module ProjectLint
         def replacement(group, indent)
           titles = group.map { |entry| "#{indent}    '#{entry[:title]}',\n" }.join
           settings = settings_text(group.first[:attributes], indent)
-          "ensure_packages(\n#{indent}  [\n#{titles}#{indent}  ],\n" \
+          "stdlib::ensure_packages(\n#{indent}  [\n#{titles}#{indent}  ],\n" \
             "#{indent}  {\n#{settings}#{indent}  },\n#{indent})"
         end
 
@@ -253,7 +253,8 @@ module ProjectLint
 
       def group_message(edit)
         names = edit[:group].map { |entry| entry[:title].dump.delete_prefix('"').delete_suffix('"') }
-        message = "Multiple guarded package declarations can be combined using ensure_packages(): #{names.join(', ')}"
+        message = 'Multiple guarded package declarations can be combined using stdlib::ensure_packages(): ' \
+                  "#{names.join(', ')}"
         message += ' [review] Verify evaluation order, attributes, relationships and comments' unless edit[:safe]
         message
       end

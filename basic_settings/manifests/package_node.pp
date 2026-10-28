@@ -28,7 +28,7 @@ class basic_settings::package_node (
 ) {
   # Provide the shell and source-list tools on both installation and removal paths.
   $source_packages = ['apt', 'coreutils', 'dash']
-  ensure_packages($source_packages, {
+  stdlib::ensure_packages($source_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -71,7 +71,7 @@ class basic_settings::package_node (
   if ($enable) {
     # Install the download and signing tools only while this repository is enabled.
     $repository_packages = ['apt-transport-https', 'ca-certificates', 'curl', 'gnupg']
-    ensure_packages($repository_packages, {
+    stdlib::ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
@@ -134,7 +134,7 @@ class basic_settings::package_node (
 
     # Supply the shared permission helper's interpreter and external commands.
     $permission_packages = ['findutils', 'libc-bin']
-    ensure_packages($permission_packages, {
+    stdlib::ensure_packages($permission_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

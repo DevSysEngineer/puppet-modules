@@ -41,7 +41,7 @@ class GuardedPackagesFixTest < Minitest::Test
 
   def test_preceding_comment_is_kept
     before = pair.sub('  if', "  # Install the command line tools.\n  if")
-    after = merged.sub('  ensure_packages', "  # Install the command line tools.\n  ensure_packages")
+    after = merged.sub('  stdlib::ensure_packages', "  # Install the command line tools.\n  stdlib::ensure_packages")
     assert_fix(before, after, count: 1)
   end
 

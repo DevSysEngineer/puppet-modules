@@ -61,7 +61,7 @@ class php8::cli (
       # Update the default PHP executable only when default-file management is enabled.
       if (!$php8::skip_default_files) {
         # update-alternatives is provided by dpkg, independently of the selected PHP package.
-        ensure_packages('dpkg', {
+        stdlib::ensure_packages('dpkg', {
           'ensure'          => 'installed',
           'install_options' => ['--no-install-recommends', '--no-install-suggests'],
         })
@@ -82,7 +82,7 @@ class php8::cli (
       if ($composer_enable) {
         # Composer's verified installer uses Bash, curl and temporary-file tools.
         $composer_packages = ['bash', 'ca-certificates', 'coreutils', 'curl', 'dash']
-        ensure_packages($composer_packages, {
+        stdlib::ensure_packages($composer_packages, {
           'ensure'          => 'installed',
           'install_options' => ['--no-install-recommends', '--no-install-suggests'],
         })

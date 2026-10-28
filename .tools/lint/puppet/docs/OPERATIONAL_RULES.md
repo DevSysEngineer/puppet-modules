@@ -382,7 +382,7 @@ Package-resources voor APT/aptitude-installaties, inclusief zichtbare lokale def
 
 **Detectiegrenzen**
 
-De check inspecteert package-resources, geen effectieve ensure_packages-aanroepen. Onopgeloste provider, overerving, overrides en niet-herkende samengestelde opties geven reviewvarianten. Bij een letterlijke lijst controleert de implementatie de aanwezigheid van beide vereiste flags in de laatste twee posities, zonder hun onderlinge volgorde af te dwingen.
+De check inspecteert package-resources, geen effectieve stdlib::ensure_packages-aanroepen. Onopgeloste provider, overerving, overrides en niet-herkende samengestelde opties geven reviewvarianten. Bij een letterlijke lijst controleert de implementatie de aanwezigheid van beide vereiste flags in de laatste twee posities, zonder hun onderlinge volgorde af te dwingen.
 
 **Meldingen en severity**
 
@@ -424,7 +424,7 @@ package { 'synthetic': ensure => installed, install_options => ['--no-install-re
 
 **Grensgevallen**
 
-Verwijderresources en expliciete niet-APT-providers vallen buiten de optiecontrole. Een concrete package mag een onderbouwde afwijking nodig hebben; die beleidsuitzondering wordt niet automatisch bewezen. De optiecheck inspecteert geen effectieve ensure_packages-aanroepen. Onopgeloste providers, overerving en overrides vragen catalogusreview. Voor het samenvoegen van declaraties gelden daarnaast de afzonderlijke [voorwaarden voor packageguards](#gelijk-ingestelde-packageguards-samenvoegen). De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij APT-opties expliciet afsluiten](#verdieping-bij-apt-opties-expliciet-afsluiten).
+Verwijderresources en expliciete niet-APT-providers vallen buiten de optiecontrole. Een concrete package mag een onderbouwde afwijking nodig hebben; die beleidsuitzondering wordt niet automatisch bewezen. De optiecheck inspecteert geen effectieve stdlib::ensure_packages-aanroepen. Onopgeloste providers, overerving en overrides vragen catalogusreview. Voor het samenvoegen van declaraties gelden daarnaast de afzonderlijke [voorwaarden voor packageguards](#gelijk-ingestelde-packageguards-samenvoegen). De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij APT-opties expliciet afsluiten](#verdieping-bij-apt-opties-expliciet-afsluiten).
 
 **Handmatige review**
 
@@ -462,11 +462,11 @@ Gelijk ingestelde if !defined(Package)-guards binnen dezelfde class/define en he
 
 **Detectiegrenzen**
 
-De optiecheck inspecteert geen effectieve ensure_packages-aanroepen. Onopgeloste providers, overerving en overrides vragen catalogusreview. De guardanalyse vergelijkt expliciete attributen; zij bewijst geen verborgen defaults, aliases of stdlib-beschikbaarheid.
+De optiecheck inspecteert geen effectieve stdlib::ensure_packages-aanroepen. Onopgeloste providers, overerving en overrides vragen catalogusreview. De guardanalyse vergelijkt expliciete attributen; zij bewijst geen verborgen defaults, aliases of stdlib-beschikbaarheid.
 
 **Meldingen en severity**
 
-`Multiple guarded package declarations can be combined using ensure_packages(): {namen}`: `warning`, namen in declaratievolgorde. Onveilige groepen krijgen ` [review] Verify evaluation order, attributes, relationships and comments`; ook dit is warning.
+`Multiple guarded package declarations can be combined using stdlib::ensure_packages(): {namen}`: `warning`, namen in declaratievolgorde. Onveilige groepen krijgen ` [review] Verify evaluation order, attributes, relationships and comments`; ook dit is warning.
 
 **Autofix**
 
@@ -503,13 +503,13 @@ Fragment; alleen `project_guarded_packages`; verwacht geen melding.
 <!-- lint-example: project_guarded_packages clean -->
 ```puppet
 class example {
-  ensure_packages(['alpha', 'zulu'], { 'ensure' => 'installed' })
+  stdlib::ensure_packages(['alpha', 'zulu'], { 'ensure' => 'installed' })
 }
 ```
 
 **Grensgevallen**
 
-Losse guards, verschillende branches en verschillende instellingen worden niet samengevoegd. De guardanalyse vergelijkt expliciete attributen; zij bewijst geen verborgen defaults, aliases of stdlib-beschikbaarheid. Beoordeel de installatieopties afzonderlijk volgens [APT-opties expliciet afsluiten](#apt-opties-expliciet-afsluiten), inclusief de concrete pakketuitzondering en de analysegrenzen voor providers, overerving, overrides en ensure_packages-aanroepen. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Gelijk ingestelde packageguards samenvoegen](#verdieping-bij-gelijk-ingestelde-packageguards-samenvoegen).
+Losse guards, verschillende branches en verschillende instellingen worden niet samengevoegd. De guardanalyse vergelijkt expliciete attributen; zij bewijst geen verborgen defaults, aliases of stdlib-beschikbaarheid. Beoordeel de installatieopties afzonderlijk volgens [APT-opties expliciet afsluiten](#apt-opties-expliciet-afsluiten), inclusief de concrete pakketuitzondering en de analysegrenzen voor providers, overerving, overrides en stdlib::ensure_packages-aanroepen. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Gelijk ingestelde packageguards samenvoegen](#verdieping-bij-gelijk-ingestelde-packageguards-samenvoegen).
 
 **Handmatige review**
 
@@ -523,7 +523,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 Voeg herhaalde package-declaraties met dezelfde instellingen samen met behoud van hun evaluatievolgorde, attributen en relaties. `project_guarded_packages` zoekt binnen iedere class en ieder defined type naar twee of meer `if !defined(Package['naam'])`-blokken met een gelijknamige package-resource. De expliciete attributen en waarden moeten overeenkomen; hun schrijfvolgorde telt niet mee. Iedere groep krijgt één melding bij de eerste guard, met de packagenamen in declaratievolgorde. Verschillende instellingen vormen afzonderlijke groepen. Afzonderlijke takken, lambda's, dynamische titels en enkele declaraties worden niet samengevoegd.
 
-De autofix vervangt de guards door een rechtstreekse `ensure_packages()`-aanroep. Die functie controleert bestaande packages ook op de opgegeven attributen. Bij conflicterende instellingen is een duplicate-resource-fout gewenst: zo wordt een inconsistente declaratie zichtbaar. Filter bestaande packages daarom niet vooraf uit de lijst.
+De autofix vervangt de guards door een rechtstreekse `stdlib::ensure_packages()`-aanroep. Die functie controleert bestaande packages ook op de opgegeven attributen. Bij conflicterende instellingen is een duplicate-resource-fout gewenst: zo wordt een inconsistente declaratie zichtbaar. Filter bestaande packages daarom niet vooraf uit de lijst.
 
 Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
 
@@ -532,7 +532,7 @@ Voor dit fragment wordt uitsluitend `project_guarded_packages` gecontroleerd.
 <!-- lint-example: project_guarded_packages clean -->
 ```puppet
 # Install system tools with consistent package settings.
-ensure_packages(
+stdlib::ensure_packages(
   ['coreutils', 'findutils'],
   {
     'ensure'          => 'installed',

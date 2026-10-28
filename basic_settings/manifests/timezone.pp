@@ -35,7 +35,7 @@ class basic_settings::timezone (
   # Share runtime packages with callers while retaining the APT installation policy.
   $timezone_packages = ['coreutils', 'dash', 'tzdata']
 
-  ensure_packages($timezone_packages, {
+  stdlib::ensure_packages($timezone_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -140,7 +140,7 @@ class basic_settings::timezone (
       # Install the external commands used by this check.
       $monitoring_packages = ['dash', 'grep', 'mawk', 'sed']
 
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

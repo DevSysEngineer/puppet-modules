@@ -27,7 +27,7 @@ class ResourceListReuseTest < Minitest::Test
   end
 
   def test_repeated_installations_and_repeated_references
-    code = "class example { ensure_packages(['alpha', 'beta'])\nensure_packages(['beta', 'alpha']) }"
+    code = "class example { stdlib::ensure_packages(['alpha', 'beta'])\nensure_packages(['beta', 'alpha']) }"
     assert_equal [:warning], finding_kinds(code)
     assert_equal [:warning],
                  finding_kinds("class example { $one = Package['alpha', 'beta']\n$two = Package['beta', 'alpha'] }")

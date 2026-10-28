@@ -12,7 +12,7 @@
 class netplanio (
 ) {
   # Supply Netplan and the shared command tools used by its interfaces.
-  ensure_packages(['coreutils', 'dash', 'netplan.io'], {
+  stdlib::ensure_packages(['coreutils', 'dash', 'netplan.io'], {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })

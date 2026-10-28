@@ -32,7 +32,7 @@ class rabbitmq (
 
   # Broker administration and its guards share these interpreters and text tools.
   $command_packages = ['bash', 'coreutils', 'dash', 'grep', 'sed']
-  ensure_packages($command_packages, {
+  stdlib::ensure_packages($command_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })

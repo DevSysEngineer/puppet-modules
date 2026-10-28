@@ -348,6 +348,7 @@ module ProjectLint
         end
 
         def apply_plan(plan)
+          plan[:anchor].value = 'stdlib::ensure_packages'
           index = tokens.index(plan[:anchor])
           plan[:declaration].each_with_index { |token, offset| add_token(index + offset, token) }
           insert_tokens_after(*plan[:extension]) if plan[:extension]

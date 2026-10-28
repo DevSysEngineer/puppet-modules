@@ -157,7 +157,7 @@ class rabbitmq::management (
       # The downloaded rabbitmqadmin CLI uses Python 3.
       $admin_packages = ['curl', 'python3']
 
-      ensure_packages($admin_packages, {
+      stdlib::ensure_packages($admin_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })
@@ -227,7 +227,7 @@ class rabbitmq::management (
         true    => ['systemd'],
         default => ['procps'],
       })
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

@@ -14,12 +14,38 @@ module ProjectTools
 
       def present(result)
         if result[:kind]
-          problem = result[:kind] == :failure ? 'Compilation failure' : 'Execution error'
-          present_diagnostic(result[:name], problem, result[:message])
+          present_diagnostic(result[:name], problem_label(result), diagnostic_details(result))
+          present_coverage(result) if result[:resources]
         else
           present_coverage(result)
           present_diagnostic(result[:name], 'Native diagnostic', result[:message]) unless result[:message].empty?
         end
+      end
+
+      def problem_label(result)
+        return 'Execution error' if result[:kind] == :error
+
+        result[:cause] == :deprecation ? 'Deprecated Puppet usage' : 'Compilation failure'
+      end
+
+      def diagnostic_details(result)
+        lines = [result[:message], *deprecation_details(result)]
+        lines << "Deprecation detection error: #{result[:deprecation_error]}" if result[:deprecation_error]
+        lines.reject(&:empty?).join("\n")
+      end
+
+      def deprecation_details(result)
+        entries = result.fetch(:deprecations, [])
+        return [] if entries.empty?
+
+        # Native logging usually already contains the message and location; print it only once.
+        missing = entries.reject { |entry| result[:message].include?(entry[:message]) }
+        ["Native deprecations: #{entries.size}", *missing.map { |entry| deprecation_detail(entry) }]
+      end
+
+      def deprecation_detail(entry)
+        location = [entry[:source], entry[:line]].compact.join(':')
+        [entry[:message], (location unless location.empty?)].compact.join(' | ')
       end
 
       def present_diagnostic(name, problem, message)
@@ -57,6 +83,7 @@ module ProjectTools
         xml.testcase(classname: 'catalog', name: result[:name]) do
           if result[:kind]
             type = result[:kind] == :failure ? 'CatalogFailure' : 'CompilerError'
+            type = 'Deprecation' if result[:kind] == :failure && result[:cause] == :deprecation
             xml.tag!(result[:kind], report_details(result), type: type)
           else
             xml.tag!('system-out', report_details(result))
@@ -68,7 +95,8 @@ module ProjectTools
         lines = []
         lines << "Compiled #{result[:resources]} resources." if result[:resources]
         lines.concat(coverage_details(result[:coverage])) if result[:coverage]
-        lines << result[:message] unless result[:message].empty?
+        diagnostic = diagnostic_details(result)
+        lines << diagnostic unless diagnostic.empty?
         lines.join("\n")
       end
 

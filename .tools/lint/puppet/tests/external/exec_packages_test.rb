@@ -10,7 +10,7 @@ class ExternalExecPackagesTest < Minitest::Test
 
   def test_installed_check_reuses_parent_packages_and_does_not_guess_a_fix
     relative = 'modules/example/manifests/task.pp'
-    write('modules/example/manifests/init.pp', "class example { ensure_packages('diffutils') }")
+    write('modules/example/manifests/init.pp', "class example { stdlib::ensure_packages('diffutils') }")
     write(relative, consumer)
     lint('--only-checks', 'project_exec_packages', relative)
     assert @status.success?, @output + @errors
@@ -32,7 +32,7 @@ class ExternalExecPackagesTest < Minitest::Test
     <<~PUPPET
       class example {
         case $choice {
-          'full': { ensure_packages(['diffutils', 'curl']) }
+          'full': { stdlib::ensure_packages(['diffutils', 'curl']) }
           default: { package { 'diffutils': ensure => installed } }
         }
       }

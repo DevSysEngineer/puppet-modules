@@ -46,7 +46,7 @@ class basic_settings::package_openitcockpit (
 ) {
   # Provide the shell and source-list tools on both installation and removal paths.
   $source_packages = ['apt', 'coreutils', 'dash']
-  ensure_packages($source_packages, {
+  stdlib::ensure_packages($source_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -90,7 +90,7 @@ class basic_settings::package_openitcockpit (
       'diffutils',
       'gnupg',
     ]
-    ensure_packages($repository_packages, {
+    stdlib::ensure_packages($repository_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

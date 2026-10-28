@@ -109,7 +109,7 @@ class basic_settings::login (
   }
 
   # Install the shared packages required for login configuration and service management.
-  ensure_packages(
+  stdlib::ensure_packages(
     ['libpam-runtime', 'systemd', 'sudo'],
     {
       'ensure'          => 'installed',

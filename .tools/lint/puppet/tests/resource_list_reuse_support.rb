@@ -8,7 +8,7 @@ module ResourceListReuseSupport
     <<~PUPPET
       class example {
         # Install the shared tools.
-        ensure_packages(#{installation}, { 'ensure' => 'installed' })
+        stdlib::ensure_packages(#{installation}, { 'ensure' => 'installed' })
 
         # Order the consumer after its prerequisites.
         notify { 'consumer':
@@ -20,7 +20,7 @@ module ResourceListReuseSupport
 
   def shared_pair
     pair('$required_packages', '$required_packages').sub(
-      '  ensure_packages(', "  $required_packages = ['alpha', 'beta', 'gamma']\n\n  ensure_packages("
+      '  stdlib::ensure_packages(', "  $required_packages = ['alpha', 'beta', 'gamma']\n\n  stdlib::ensure_packages("
     )
   end
 

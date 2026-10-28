@@ -25,7 +25,7 @@ class letsencrypt (
   # Install certbot
   $required_packages = ['dash', 'grep']
 
-  ensure_packages($required_packages, {
+  stdlib::ensure_packages($required_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })

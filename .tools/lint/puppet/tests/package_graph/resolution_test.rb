@@ -8,7 +8,7 @@ class PackageGraphTest < Minitest::Test
 
   RULE = :project_exec_packages
   COMMAND = "exec { 'example': command => 'curl --version', require => Package['curl'] }"
-  PARENT = "class example { ensure_packages('curl') }\n"
+  PARENT = "class example { stdlib::ensure_packages('curl') }\n"
   NESTED_CONSUMER = <<~PUPPET
     define example::%<name>s {
       if defined(Class['example']) {
@@ -23,7 +23,7 @@ class PackageGraphTest < Minitest::Test
 
   def test_installation_and_order_are_separate_requirements
     assert_includes findings(COMMAND).fetch(0)[:message], 'does not install'
-    installed = "ensure_packages(['curl'])\n"
+    installed = "stdlib::ensure_packages(['curl'])\n"
     assert_clean_passes(installed + COMMAND)
     problem = findings("#{installed}exec { 'example': command => 'curl --version' }").fetch(0)
     assert_includes problem[:message], 'no dependency path'
@@ -57,7 +57,7 @@ class PackageGraphTest < Minitest::Test
       "package { 'curl': ensure => installed } -> exec { 'example': command => 'curl --version' }"
     ]
     variants.each_with_index do |variant, index|
-      assert_clean_passes(index == 2 ? variant : "ensure_packages('curl')\n#{variant}")
+      assert_clean_passes(index == 2 ? variant : "stdlib::ensure_packages('curl')\n#{variant}")
     end
   end
 
@@ -93,20 +93,21 @@ class PackageGraphTest < Minitest::Test
 
   def test_unknown_conditions_providers_and_relations_request_specific_review
     variants = [
-      "if $enabled { ensure_packages('curl') }; #{COMMAND}",
-      "ensure_packages($packages); #{COMMAND}",
+      "if $enabled { stdlib::ensure_packages('curl') }; #{COMMAND}",
+      "stdlib::ensure_packages($packages); #{COMMAND}",
       "package { 'curl': ensure => $state }; #{COMMAND}",
       "package { 'curl': provider => $provider }; #{COMMAND}",
       "include unknown; exec { 'example': command => 'curl --version', require => Class['unknown'] }",
-      "ensure_packages('curl'); exec { 'example': command => 'curl --version', require => $dependencies }"
+      "stdlib::ensure_packages('curl'); exec { 'example': command => 'curl --version', require => $dependencies }"
     ]
     variants.each { |code| assert_preserved(code, [:warning], review: true) }
   end
 
   def test_installation_on_the_same_branch_is_valid_but_the_opposite_branch_is_not_proof
-    valid = "if $enabled { ensure_packages('curl'); #{COMMAND} }"
+    valid = "if $enabled { stdlib::ensure_packages('curl'); #{COMMAND} }"
     assert_clean_passes(valid)
-    assert_preserved("if $enabled { ensure_packages('curl') } else { exec { 'example': command => 'curl --version', " \
+    assert_preserved("if $enabled { stdlib::ensure_packages('curl') } else { " \
+                     "exec { 'example': command => 'curl --version', " \
                      "require => Package['curl'] } }", [:warning])
   end
 end

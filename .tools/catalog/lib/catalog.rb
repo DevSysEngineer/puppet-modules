@@ -8,6 +8,7 @@ require 'project_tools/shared/console'
 require 'project_tools/shared/modulepath'
 require_relative 'discovery'
 require_relative 'reporting'
+require_relative 'worker_result'
 
 module ProjectTools
   # Discover module-owned scenarios and compile each in an isolated Puppet process.
@@ -84,13 +85,7 @@ module ProjectTools
     end
 
     def worker_result(scenario, output, diagnostics, status)
-      kind = { 0 => nil, 1 => :failure }.fetch(status.exitstatus, :error)
-      diagnostics = "Compiler process ended: #{status}" if diagnostics.empty? && kind
-      details = output.empty? && kind ? {} : JSON.parse(output, symbolize_names: true)
-      details.merge(name: scenario.fetch(:name), kind: kind, message: diagnostics)
-    rescue JSON::ParserError => e
-      { name: scenario.fetch(:name), kind: :error,
-        message: "Invalid compiler result: #{e.message}\n#{diagnostics}" }
+      WorkerResult.new(scenario.fetch(:name), output, diagnostics, status).result
     end
 
     def worker_arguments(scenario)

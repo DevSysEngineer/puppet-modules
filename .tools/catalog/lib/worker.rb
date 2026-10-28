@@ -6,12 +6,14 @@ require 'puppet'
 require 'project_tools/shared/modulepath'
 require_relative 'coverage'
 require_relative 'hiera'
+require_relative 'deprecations'
 
 # Reserve stdout for the result; native output stays on the diagnostic stream.
 result_output = $stdout.dup
 $stdout.reopen($stderr)
 result = {}
 compiling = false
+deprecations = nil
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
 begin
@@ -22,11 +24,13 @@ begin
   facts = JSON.parse(File.read(facts_path))
   raise ArgumentError, 'Expected a JSON object of facts.' unless facts.is_a?(Hash)
 
+  deprecations = ProjectTools::Catalog::Deprecations.new
   ENV.delete('PUPPETLIB')
+  Puppet::Util::Log.newdestination(:console)
   Dir.mktmpdir('catalog-compile-') do |directory|
     Puppet.initialize_settings(['--confdir', directory, '--vardir', directory, '--logdir', directory,
                                 '--codedir', directory, '--color=false'])
-    Puppet::Util::Log.newdestination(:console)
+    deprecations.start
     Puppet[:hiera_config] = File.join(directory, 'hiera.yaml')
     File.write(Puppet[:hiera_config], "version: 5\nhierarchy: []\n", mode: 'w', perm: 0o600)
     Puppet[:node_terminus] = 'plain'
@@ -59,6 +63,7 @@ rescue StandardError => e
   warn "Compiler could not run: #{e.class}: #{e.message}"
   exit 2
 ensure
+  result.merge!(deprecations.result) if deprecations
   result_output.puts JSON.generate(result)
   result_output.close
 end

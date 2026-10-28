@@ -112,7 +112,7 @@ class nginx (
   $config_file = '/etc/nginx/nginx.conf'
 
   # Supply shared command tools for vhost cleanup and certificate monitoring.
-  ensure_packages('coreutils', {
+  stdlib::ensure_packages('coreutils', {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -256,7 +256,7 @@ class nginx (
       'openssl',
     ]
 
-    ensure_packages($monitoring_cert_packages, {
+    stdlib::ensure_packages($monitoring_cert_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

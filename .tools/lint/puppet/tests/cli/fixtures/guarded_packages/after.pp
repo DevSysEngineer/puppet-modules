@@ -6,7 +6,7 @@
 # @api public
 class example {
   # Install missing command line tools.
-  ensure_packages(
+  stdlib::ensure_packages(
     [
       'alpha',
       'beta',

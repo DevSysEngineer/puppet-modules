@@ -181,7 +181,7 @@ class ssh (
 
   # Public host-key recovery uses a shell and an external file-presence guard.
   $host_key_packages = ['coreutils', 'dash']
-  ensure_packages($host_key_packages, {
+  stdlib::ensure_packages($host_key_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -329,7 +329,7 @@ class ssh (
       true    => ['systemd'],
       default => [],
     })
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

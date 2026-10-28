@@ -4,10 +4,12 @@ require_relative '../../shared/test_support/bootstrap'
 require_relative '../../shared/test_support/packages'
 require 'rexml/document'
 require 'yaml'
+require_relative 'catalog_reporting_support'
 
 # Temporary consumer setup is shared by the entry point and Hiera regressions below.
 module CatalogConsumerSupport
   include ProjectToolsPackageSupport
+  include CatalogConsumerReportingSupport
 
   SYNTHETIC_VALUE = 'synthetic-catalog-test-only'
 
@@ -67,32 +69,6 @@ module CatalogConsumerSupport
     refute_match(/Compiled \d+ resources\./, @output)
   end
 
-  def assert_consumer_failure
-    assert_equal 1, @status.exitstatus, @output + @errors
-    assert_log_status('FAILED')
-    assert_counts(%w[2 1 0])
-    assert_includes @output, '[FINDING] Puppet catalogs | failure/default [synthetic] | Compilation failure'
-    assert_equal 1, @output.scan('synthetic consumer failure').size
-    assert_includes suite.elements['testcase/failure'].text, 'synthetic consumer failure'
-  end
-
-  def assert_mixed_results(entry, report:)
-    invoke(entry, report: report)
-    assert_equal 1, @status.exitstatus, @output + @errors
-    assert_includes @output, 'Duplicate declaration'
-    assert_includes @output, 'Expected a JSON object of facts'
-    assert_log_status('ERROR')
-    assert_includes @output, '3 selected | 2 checked'
-    assert_includes @output, '1 failures | 1 errors'
-    assert_equal 1, @output.scan('Duplicate declaration').size
-    assert_equal 1, @output.scan('Expected a JSON object of facts').size
-  end
-
-  def assert_default_success_log
-    assert_log_status('PASSED')
-    assert_includes suite.elements['testcase/system-out'].text, 'Compiled definitions: class sample'
-  end
-
   def suite
     REXML::Document.new(read('elsewhere/catalog.xml')).root.elements['testsuite']
   end
@@ -111,5 +87,12 @@ module CatalogConsumerSupport
     key = 'sample::password'
     data = { 'lookup_options' => { key => { 'convert_to' => 'Sensitive' } }, key => SYNTHETIC_VALUE }
     write("modules/#{name}/tests/hiera/data/common.yaml", YAML.dump(data))
+  end
+
+  def assert_report_preserved(entry)
+    write('elsewhere/catalog.xml', '<previous/>')
+    invoke(entry)
+    assert @status.success?, @output + @errors
+    assert_equal '<previous/>', read('elsewhere/catalog.xml')
   end
 end

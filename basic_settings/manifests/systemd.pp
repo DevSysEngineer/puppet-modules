@@ -26,7 +26,7 @@ class basic_settings::systemd (
   # The default-target guard uses an external test and a command substitution.
   $packages = ['coreutils', 'dash']
 
-  ensure_packages($packages, {
+  stdlib::ensure_packages($packages, {
     'ensure'          => 'installed',
     'install_options' => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
   })

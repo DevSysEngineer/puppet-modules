@@ -13,14 +13,22 @@ class ResourceListReuseFixTest < Minitest::Test
     assert_fix pair("['alpha', 'beta', 'gamma']", "'gamma', 'alpha', 'beta'"), shared_pair, count: 1
   end
 
+  def test_legacy_installers_are_normalized_when_reusing_their_package_list
+    %w[ensure_packages ::ensure_packages ::stdlib::ensure_packages].each do |name|
+      assert_fix pair.sub('stdlib::ensure_packages', name), shared_pair, count: 1
+    end
+  end
+
   def test_all_attributes_and_multiple_resources_are_fixed_together
     code = pair
     %w[before notify subscribe].each do |attribute|
       code = code.sub("\n}", "\n  notify { '#{attribute}': #{attribute} => Package['alpha', 'beta', 'gamma'] }\n}")
     end
-    expected = code.sub('  ensure_packages(', "  $required_packages = ['alpha', 'beta', 'gamma']\n\n  ensure_packages(")
-                   .sub("ensure_packages(['alpha', 'beta', 'gamma']", 'ensure_packages($required_packages')
-                   .gsub("Package['alpha', 'beta', 'gamma']", 'Package[$required_packages]')
+    expected = code.sub('  stdlib::ensure_packages(',
+                        "  $required_packages = ['alpha', 'beta', 'gamma']\n\n  stdlib::ensure_packages(")
+    expected = expected.sub("stdlib::ensure_packages(['alpha', 'beta', 'gamma']",
+                            'stdlib::ensure_packages($required_packages')
+                       .gsub("Package['alpha', 'beta', 'gamma']", 'Package[$required_packages]')
     assert_fix code, expected, count: 1
   end
 
@@ -53,7 +61,8 @@ class ResourceListReuseFixTest < Minitest::Test
   end
 
   def test_installation_result_and_inheritance_prevent_fixing
-    assert_preserved pair.sub('ensure_packages(', '$result = ensure_packages('), [:warning], review: true
+    code = pair.sub('stdlib::ensure_packages(', '$result = stdlib::ensure_packages(')
+    assert_preserved code, [:warning], review: true
     assert_preserved pair.sub('class example {', 'class example inherits other {'), [:warning], review: true
   end
 

@@ -10,20 +10,20 @@ class PackageGraphBoundariesTest < Minitest::Test
   COMMAND = "exec { 'example': command => 'curl --version', require => Package['curl'] }"
 
   def test_unrelated_dynamic_notifications_do_not_invalidate_proven_order
-    code = "ensure_packages('curl'); #{COMMAND.sub(' }', ', notify => $notification }')}"
+    code = "stdlib::ensure_packages('curl'); #{COMMAND.sub(' }', ', notify => $notification }')}"
     assert_clean_passes(code)
   end
 
   def test_package_reference_to_an_uninstantiated_class_does_not_import_its_installation
-    code = "class example { ensure_packages('curl') }\n" \
+    code = "class example { stdlib::ensure_packages('curl') }\n" \
            "exec { 'example': command => 'curl --version', require => Class['example'] }"
     assert_preserved(code, [:warning], review: true)
   end
 
   def test_other_scopes_and_optional_includes_do_not_guarantee_installation
-    assert_includes findings("class separate { ensure_packages('curl') }; #{COMMAND}").first[:message],
+    assert_includes findings("class separate { stdlib::ensure_packages('curl') }; #{COMMAND}").first[:message],
                     'no package installation guarantee'
-    code = "class separate { ensure_packages('curl') }; if $enabled { include separate }; #{COMMAND}"
+    code = "class separate { stdlib::ensure_packages('curl') }; if $enabled { include separate }; #{COMMAND}"
     assert_preserved(code, [:warning])
   end
 
@@ -35,7 +35,7 @@ class PackageGraphBoundariesTest < Minitest::Test
   end
 
   def test_virtual_resources_and_dynamic_install_options_do_not_prove_installation
-    ["@package { 'curl': ensure => installed }", "ensure_packages('curl', $options)"].each do |declaration|
+    ["@package { 'curl': ensure => installed }", "stdlib::ensure_packages('curl', $options)"].each do |declaration|
       assert_preserved("#{declaration}; #{COMMAND}", [:warning], review: true)
     end
   end
@@ -46,7 +46,7 @@ class PackageGraphBoundariesTest < Minitest::Test
   end
 
   def test_parameter_defaults_do_not_become_fixed_package_guarantees
-    code = "class example(Array $packages = ['curl']) { ensure_packages($packages); #{COMMAND} }"
+    code = "class example(Array $packages = ['curl']) { stdlib::ensure_packages($packages); #{COMMAND} }"
     assert_preserved(code, [:warning], review: true)
   end
 
@@ -61,8 +61,8 @@ class PackageGraphBoundariesTest < Minitest::Test
 
   def test_collectors_overrides_and_resource_creators_request_review
     variants = [
-      "ensure_packages('curl'); Package['curl'] { ensure => absent }; #{COMMAND}",
-      "ensure_packages('curl'); Package <| title == 'curl' |> { ensure => absent }; #{COMMAND}",
+      "stdlib::ensure_packages('curl'); Package['curl'] { ensure => absent }; #{COMMAND}",
+      "stdlib::ensure_packages('curl'); Package <| title == 'curl' |> { ensure => absent }; #{COMMAND}",
       "create_resources('package', $packages); #{COMMAND}",
       "example::installer { 'tools': }; #{COMMAND}"
     ]
@@ -70,7 +70,7 @@ class PackageGraphBoundariesTest < Minitest::Test
   end
 
   def test_alternative_class_guards_and_inheritance_do_not_prove_parent_installation
-    parent = "class example { ensure_packages('curl') }; "
+    parent = "class example { stdlib::ensure_packages('curl') }; "
     code = "#{parent}define example::task { if defined(Class['example'], Class['other']) { #{COMMAND} } }"
     assert_preserved(code, [:warning], review: true)
     assert_preserved("#{parent}class child inherits example { #{COMMAND} }", [:warning], review: true)

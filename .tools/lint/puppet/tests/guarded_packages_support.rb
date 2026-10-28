@@ -23,7 +23,7 @@ module GuardedPackagesSupport
   def merged
     <<~PUPPET
       class example {
-        ensure_packages(
+        stdlib::ensure_packages(
           [
             'alpha',
             'beta',

@@ -127,7 +127,7 @@ class gitlab (
   $gitlab_install_script_shell = stdlib::shell_escape($gitlab_install_script)
 
   # The installer supplies the commands used by the GitLab check.
-  ensure_packages($installer_packages, {
+  stdlib::ensure_packages($installer_packages, {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -207,7 +207,7 @@ class gitlab (
     # Install the external commands used by this check.
     $monitoring_packages = ['coreutils', 'mawk', 'sed']
 
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

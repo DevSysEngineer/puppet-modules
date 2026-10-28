@@ -73,4 +73,15 @@ class CatalogReportingTest < Minitest::Test
     assert_includes output, 'Usage:'
     refute_includes output, 'resources'
   end
+
+  def test_structured_deprecation_retains_location_and_completed_catalog_details
+    runner = catalog_runner([])
+    result = { kind: :failure, cause: :deprecation, message: '', resources: 42,
+               deprecations: [{ message: 'synthetic native', source: 'example.pp', line: 12 }],
+               coverage: { total: 1, compiled: ['class example'], missing: [] } }
+    details = runner.report_details(result)
+    assert_includes details, 'synthetic native | example.pp:12'
+    assert_includes details, 'Compiled 42 resources.'
+    assert_includes details, 'Definition coverage: 1/1'
+  end
 end

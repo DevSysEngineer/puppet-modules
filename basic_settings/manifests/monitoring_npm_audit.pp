@@ -115,7 +115,7 @@ define basic_settings::monitoring_npm_audit (
 
     # Install the shared check's interpreter, parsers and npm provider.
     $monitoring_packages = ['dash', 'jq', 'mawk', 'sed', $npm_package_correct]
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

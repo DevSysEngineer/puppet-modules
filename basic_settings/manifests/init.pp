@@ -793,7 +793,7 @@ class basic_settings (
   }
 
   # Reuse packages already supplied by standalone features and keep APT policy consistent.
-  ensure_packages(
+  stdlib::ensure_packages(
     [
       'apt',
       'apt-transport-https',

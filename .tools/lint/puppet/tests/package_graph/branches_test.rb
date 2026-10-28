@@ -7,7 +7,7 @@ class PackageGraphBranchesTest < Minitest::Test
   include LintTestSupport
 
   RULE = :project_exec_packages
-  INSTALL = "ensure_packages('curl')"
+  INSTALL = "stdlib::ensure_packages('curl')"
   COMMAND = "exec { 'example': command => 'curl --version', require => Package['curl'] }"
 
   def case_code(first, other = nil)
@@ -26,7 +26,7 @@ class PackageGraphBranchesTest < Minitest::Test
 
   def test_absent_dynamic_and_virtual_packages_in_one_route_do_not_prove_installation
     alternatives = ["package { 'curl': ensure => absent }", "package { 'curl': ensure => $state }",
-                    "@package { 'curl': ensure => installed }", 'ensure_packages($packages)']
+                    "@package { 'curl': ensure => installed }", 'stdlib::ensure_packages($packages)']
     alternatives.each do |other|
       assert_preserved("#{case_code(INSTALL, other)} #{COMMAND}", [:warning], review: true)
     end
@@ -54,7 +54,7 @@ class PackageGraphBranchesTest < Minitest::Test
   end
 
   def test_literal_lists_and_local_values_are_resolved_in_each_branch
-    code = "if $enabled { $packages = ['curl', 'jq']; ensure_packages($packages) } " \
+    code = "if $enabled { $packages = ['curl', 'jq']; stdlib::ensure_packages($packages) } " \
            "else { $packages = ['curl']; stdlib::ensure_packages($packages) } #{COMMAND}"
     assert_clean_passes(code)
   end
@@ -87,8 +87,8 @@ class PackageGraphBranchesTest < Minitest::Test
 
   def test_branch_assigned_values_are_resolved_after_a_complete_choice
     assignments = "if $enabled { $packages = ['curl', 'jq'] } else { $packages = ['curl'] }"
-    assert_clean_passes("#{assignments} ensure_packages($packages) #{COMMAND}")
-    assert_preserved("#{assignments.sub("['curl']", "['jq']")} ensure_packages($packages) #{COMMAND}",
+    assert_clean_passes("#{assignments} stdlib::ensure_packages($packages) #{COMMAND}")
+    assert_preserved("#{assignments.sub("['curl']", "['jq']")} stdlib::ensure_packages($packages) #{COMMAND}",
                      [:warning], review: true)
   end
 

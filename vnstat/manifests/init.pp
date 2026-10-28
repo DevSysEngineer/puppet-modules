@@ -172,7 +172,7 @@ class vnstat (
       # Install the shell, text tools and JSON parser used to inspect vnStat records.
       $monitoring_packages = ['coreutils', 'dash', 'grep', 'jq', 'mawk', 'sed']
 
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

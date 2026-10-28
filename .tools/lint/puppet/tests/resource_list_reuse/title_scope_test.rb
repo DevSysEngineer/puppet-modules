@@ -27,7 +27,7 @@ class ResourceTitleScopeTest < Minitest::Test
   def test_distinct_types_partial_overlap_and_single_titles_are_independent
     ["file { ['alpha', 'beta']: }\n$refs = Service['alpha', 'beta']",
      "$files = File['alpha', 'beta']\n$services = Service['alpha', 'beta']",
-     "ensure_packages(['alpha', 'beta'])\n$files = File['alpha', 'beta']",
+     "stdlib::ensure_packages(['alpha', 'beta'])\n$files = File['alpha', 'beta']",
      "file { ['/a', '/b', '/c']: }\n$files = File['/a', '/b', '/d']",
      "file { ['/a', '/b', '/c']: }\n$files = File['/a', '/b']",
      "$one = Service['single']\n$two = Service['single']"].each { |code| assert_clean_passes code }

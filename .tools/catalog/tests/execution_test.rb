@@ -6,6 +6,28 @@ require_relative 'test_helper'
 class CatalogExecutionTest < Minitest::Test
   include CatalogTestSupport
 
+  def test_missing_or_malformed_deprecation_results_are_execution_errors
+    runner = catalog_runner([])
+    status = Struct.new(:exitstatus).new(0)
+    ['{}', '[]', '{"deprecations":null}', '{"deprecations":[{}]}',
+     '{"deprecations":[{"message":3}]}', '{"deprecations":[],"deprecation_error":false}'].each do |output|
+      result = runner.worker_result({ name: 'synthetic' }, output, 'native diagnostic', status)
+      assert_equal :error, result[:kind], output
+      assert_includes result[:message], 'Invalid compiler result'
+      assert_includes result[:message], 'native diagnostic'
+    end
+  end
+
+  def test_successful_worker_with_deprecations_is_a_quality_failure
+    runner = catalog_runner([])
+    status = Struct.new(:exitstatus).new(0)
+    output = JSON.generate(resources: 42, deprecations: [{ message: 'synthetic deprecation' }])
+    result = runner.worker_result({ name: 'synthetic' }, output, '', status)
+    assert_equal :failure, result[:kind]
+    assert_equal :deprecation, result[:cause]
+    assert_equal 42, result[:resources]
+  end
+
   def test_progress_uses_shared_format_and_counts_completed_scenarios
     runner = catalog_runner([scenario('first', ''), scenario('second', '')])
     runner.define_singleton_method(:compile) do |input|

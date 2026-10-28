@@ -13,7 +13,7 @@ class ResourceDependenciesTest < Minitest::Test
       class example {
         # Install the backup tools.
         $backup_packages = ['alpha', 'beta']
-        ensure_packages($backup_packages)
+        stdlib::ensure_packages($backup_packages)
 
         # Register the consumer after its prerequisites.
         notify { 'consumer':
@@ -82,11 +82,11 @@ class ResourceDependenciesTest < Minitest::Test
   def test_other_resource_types_keep_their_own_titles_and_context_names
     %w[File Service Example::Item Class].each do |type|
       before = input.gsub('Package[', "#{type}[").gsub('backup_packages', 'config_files')
-                    .sub('ensure_packages($config_files)', '$unused = $config_files')
+                    .sub('stdlib::ensure_packages($config_files)', '$unused = $config_files')
                     .gsub("'alpha'", "'/etc/example/alpha.conf'").gsub("'server'", "'/etc/example/extra.conf'")
       after = expected.gsub('Package[', "#{type}[").gsub('backup_packages', 'config_files')
                       .gsub('backup_required_packages', 'config_required_files')
-                      .sub('ensure_packages($config_files)', '$unused = $config_files')
+                      .sub('stdlib::ensure_packages($config_files)', '$unused = $config_files')
                       .gsub("'alpha'", "'/etc/example/alpha.conf'").gsub("'server'", "'/etc/example/extra.conf'")
       assert_fix before, after, RULE, :project_resource_references
     end

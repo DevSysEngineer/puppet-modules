@@ -68,7 +68,7 @@ class basic_settings::security (
       true    => ['systemd'],
       default => [],
     })
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

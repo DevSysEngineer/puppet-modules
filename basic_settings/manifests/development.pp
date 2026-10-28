@@ -38,7 +38,7 @@ class basic_settings::development (
   }
 
   # Share Python with the NCSC check while also installing it for standalone development.
-  ensure_packages('python3', {
+  stdlib::ensure_packages('python3', {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })

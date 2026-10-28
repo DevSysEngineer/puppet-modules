@@ -14,7 +14,7 @@ class ExternalGuardedPackagesTest < Minitest::Test
     write('manifests/site.pp', pair)
     lint('--only-checks=project_guarded_packages', 'manifests')
     refute @status.success?, @output + @errors
-    assert_includes @output, 'ensure_packages(): alpha, beta'
+    assert_includes @output, 'stdlib::ensure_packages(): alpha, beta'
     assert_equal pair, read('manifests/site.pp')
   end
 

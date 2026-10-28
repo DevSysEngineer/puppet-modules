@@ -205,7 +205,7 @@ class docker (
     }
 
     # Compose deployment, host-side container mappings, backups and monitoring share these dependencies.
-    ensure_packages([
+    stdlib::ensure_packages([
       'coreutils',
       'dash',
       'docker-compose-plugin',
@@ -270,7 +270,7 @@ class docker (
         'sed',
       ]
 
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })

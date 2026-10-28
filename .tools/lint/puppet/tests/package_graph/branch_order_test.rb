@@ -7,7 +7,7 @@ class PackageGraphBranchOrderTest < Minitest::Test
   include LintTestSupport
 
   RULE = :project_exec_packages
-  INSTALL = "ensure_packages('curl')"
+  INSTALL = "stdlib::ensure_packages('curl')"
   COMMAND = "exec { 'example': command => 'curl --version' }"
 
   def test_different_dependency_paths_may_prove_order_in_each_branch
@@ -65,7 +65,7 @@ class PackageGraphBranchOrderTest < Minitest::Test
   end
 
   def test_many_unrelated_conditions_do_not_obscure_a_complete_installation
-    unrelated = 20.times.map { |i| "if $flag#{i} { ensure_packages('unrelated#{i}') }" }.join("\n")
+    unrelated = 20.times.map { |i| "if $flag#{i} { stdlib::ensure_packages('unrelated#{i}') }" }.join("\n")
     code = "#{unrelated} if $enabled { #{INSTALL} } else { #{INSTALL} } " \
            "exec { 'example': command => 'curl --version', require => Package['curl'] }"
     assert_clean_passes(code)

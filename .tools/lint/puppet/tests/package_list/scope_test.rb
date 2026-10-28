@@ -10,9 +10,9 @@ class PackageListScopeTest < Minitest::Test
 
   def test_separate_definitions_and_lambda_scopes_are_not_combined
     assert_clean_passes <<~PUPPET
-      class first { ensure_packages(['alpha', 'beta']) }
+      class first { stdlib::ensure_packages(['alpha', 'beta']) }
       define second { notify { $title: require => Package['alpha', 'beta'] } }
-      class third { ['one'].each |$item| { ensure_packages(['alpha', 'beta']) } }
+      class third { ['one'].each |$item| { stdlib::ensure_packages(['alpha', 'beta']) } }
     PUPPET
   end
 
@@ -27,23 +27,24 @@ class PackageListScopeTest < Minitest::Test
   def test_variable_aliases_and_defaults_are_not_confused_with_duplicate_lists
     assert_clean_passes <<~PUPPET
       class example (Array[String] $packages = ['alpha', 'beta']) {
-        ensure_packages($packages)
+        stdlib::ensure_packages($packages)
         notify { 'consumer': require => Package['alpha', 'beta'] }
       }
     PUPPET
-    assert_clean_passes shared_pair.sub('  ensure_packages(', "  $alias = $required_packages\n  ensure_packages(")
-                                   .sub('Package[$required_packages]', 'Package[$alias]')
+    code = shared_pair.sub('  stdlib::ensure_packages(', "  $alias = $required_packages\n  stdlib::ensure_packages(")
+    assert_clean_passes code.sub('Package[$required_packages]', 'Package[$alias]')
   end
 
   def test_single_packages_unknown_functions_and_non_package_references_are_excluded
     assert_clean_passes pair("['alpha']", "'alpha'")
-    assert_clean_passes pair.gsub('ensure_packages', 'other::ensure_packages').gsub('Package[', 'Service[')
+    assert_clean_passes pair.gsub('stdlib::ensure_packages', 'other::ensure_packages').gsub('Package[', 'Service[')
     assert_clean_passes pair("lookup('synthetic', { 'default_value' => ['alpha', 'beta', 'gamma'] })")
   end
 
   def test_namespaced_calls_defines_and_top_level_examples_are_supported
-    %w[::ensure_packages stdlib::ensure_packages ::stdlib::ensure_packages].each do |name|
-      assert_equal [:warning], finding_kinds(pair.sub('ensure_packages', name).sub('class example', 'define example'))
+    %w[ensure_packages ::ensure_packages stdlib::ensure_packages ::stdlib::ensure_packages].each do |name|
+      code = pair.sub('stdlib::ensure_packages', name).sub('class example', 'define example')
+      assert_equal [:warning], finding_kinds(code)
     end
     assert_equal [:warning], finding_kinds(pair.delete_prefix("class example {\n").delete_suffix("}\n"))
   end
@@ -51,7 +52,7 @@ class PackageListScopeTest < Minitest::Test
   def test_same_looking_conditional_sources_are_distinct
     code = <<~PUPPET
       class example {
-        if $enabled { ensure_packages(['alpha', 'beta']) } else { ensure_packages(['alpha', 'beta']) }
+        if $enabled { stdlib::ensure_packages(['alpha', 'beta']) } else { stdlib::ensure_packages(['alpha', 'beta']) }
       }
     PUPPET
     assert_preserved code, [:warning], review: true
@@ -62,8 +63,8 @@ class PackageListScopeTest < Minitest::Test
       class example {
         $first = ['alpha', 'beta', 'gamma']
         $second = ['alpha', 'beta', 'delta', 'epsilon', 'gamma']
-        ensure_packages($first)
-        ensure_packages($second)
+        stdlib::ensure_packages($first)
+        stdlib::ensure_packages($second)
         notify { 'first': require => Package[$first] }
         notify { 'second': require => Package[concat($second, ['zeta'])] }
       }

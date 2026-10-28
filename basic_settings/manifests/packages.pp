@@ -127,7 +127,7 @@ class basic_settings::packages (
   $unattended_upgrades_reboot_str = bool2str($unattended_upgrades_reboot)
 
   # Install missing package-management tools before their dependent packages.
-  ensure_packages(
+  stdlib::ensure_packages(
     ['apt', 'coreutils', 'dash', 'dpkg', 'curl', 'gnupg'],
     {
       'ensure'          => 'installed',
@@ -136,7 +136,7 @@ class basic_settings::packages (
   )
 
   # Repository helpers can already supply the HTTPS trust store.
-  ensure_packages('ca-certificates', {
+  stdlib::ensure_packages('ca-certificates', {
     'ensure'          => 'installed',
     'install_options' => ['--no-install-recommends', '--no-install-suggests'],
   })
@@ -370,7 +370,7 @@ class basic_settings::packages (
       true    => ['systemd'],
       default => [],
     })
-    ensure_packages($monitoring_packages, {
+    stdlib::ensure_packages($monitoring_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
@@ -407,7 +407,7 @@ class basic_settings::packages (
       'python3',
       'util-linux',
     ]
-    ensure_packages($ncsc_required_packages, {
+    stdlib::ensure_packages($ncsc_required_packages, {
       'ensure'          => 'installed',
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })

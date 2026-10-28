@@ -2,7 +2,7 @@
 include basic_settings::login
 
 # The server helper requires these real command packages.
-ensure_packages(['coreutils', 'grep'], {
+stdlib::ensure_packages(['coreutils', 'grep'], {
   'ensure'          => 'installed',
   'install_options' => ['--no-install-recommends', '--no-install-suggests'],
 })

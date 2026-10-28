@@ -41,7 +41,7 @@ class nvidia (
   if ($platform_supported) {
     # Provide the commands used by the guarded cleanup, also when this class is used independently.
     $cleanup_packages = ['apt', 'dpkg', 'dash', 'mawk', 'findutils']
-    ensure_packages($cleanup_packages, {
+    stdlib::ensure_packages($cleanup_packages, {
       'ensure'          => 'installed',
       'install_options' => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
     })

@@ -219,7 +219,7 @@ class basic_settings::puppet (
         true    => ['systemd'],
         default => [],
       })
-      ensure_packages($monitoring_packages, {
+      stdlib::ensure_packages($monitoring_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })
@@ -565,7 +565,7 @@ class basic_settings::puppet (
       # Add only the tools not already guaranteed by the agent check and server installation.
       $server_monitoring_extra_packages = ['findutils', 'openssl', 'util-linux']
       $server_monitoring_packages = concat($monitoring_packages, $server_monitoring_extra_packages, [$server_package])
-      ensure_packages($server_monitoring_extra_packages, {
+      stdlib::ensure_packages($server_monitoring_extra_packages, {
         'ensure'          => 'installed',
         'install_options' => ['--no-install-recommends', '--no-install-suggests'],
       })
