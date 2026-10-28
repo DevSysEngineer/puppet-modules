@@ -23,13 +23,13 @@ class BranchSizeTest < Minitest::Test
     assert_empty findings(reversed, 'project_positive_flow')
   end
 
-  def test_positive_flow_handles_all_short_calls_through_the_same_structure_rule
+  def test_positive_flow_reports_short_calls_once_with_the_applicable_structure_message
     %w[fail warning notice custom::report_issue].each do |function|
       code = "if $missing { #{function}('Synthetic message') } else { file { '/tmp/example': } }"
       problems = findings(code, 'project_positive_flow')
       assert_equal [:warning], problems.map { |problem| problem[:kind] }, function
-      assert_equal problems.first[:message],
-                   findings(code.sub(function, 'notice'), 'project_positive_flow').first[:message]
+      message = %w[fail warning].include?(function) ? 'Put validation' : 'Put the larger code branch first'
+      assert_includes problems.first[:message], message
     end
     code = "if $missing { warning('First'); fail('Second') } else { $one = 1; $two = 2; $three = 3 }"
     assert_equal([:warning], finding_kinds(code, 'project_positive_flow'))

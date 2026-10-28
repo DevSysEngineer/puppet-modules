@@ -28,6 +28,36 @@ class CliFlowTest < Minitest::Test
     assert_cli_success(@file)
   end
 
+  def test_node_validation_fails_with_the_project_profile
+    code = fixture('cli/fixtures/node_validation_invalid')
+    write_source(code)
+    capture_cli(@file)
+    assert_equal 1, @status.exitstatus, @output + @errors
+    assert_equal 1, diagnostics(@output, 'project_positive_flow').length, @output
+    assert_includes @output, 'project_positive_flow: warning: Put validation'
+    assert_equal code, source
+  end
+
+  def test_validation_scopes_preserve_source_and_exit_status_with_fix
+    ['class example', 'define example', "node 'example.test'", nil].each do |declaration|
+      %w[fail warning ::fail ::warning].each do |function|
+        invalid = "if !$supported { #{function}('Unsupported') }; notice('Outside')"
+        valid = "if $supported { notice('Inside') } else { #{function}('Unsupported') }"
+        assert_validation_pair(declaration, invalid, valid)
+      end
+    end
+  end
+
+  def assert_validation_pair(declaration, invalid, valid)
+    options = ['--only-checks', 'project_positive_flow']
+    code = declaration ? "#{declaration} { #{invalid} }\n" : "#{invalid}\n"
+    assert_review_source(code, 'project_positive_flow', options: options)
+    assert_equal 1, @status.exitstatus
+    corrected = declaration ? "#{declaration} { #{valid} }\n" : "#{valid}\n"
+    write_source(corrected)
+    assert_cli_stable(corrected, *options)
+  end
+
   def test_class_check_reuse_does_not_change_evaluation_order_with_fix
     ["$enabled = defined(Class['synthetic']); notice($enabled)",
      "notice(defined(Class['synthetic'])); include synthetic; notice(defined(Class['synthetic']))"].each do |body|

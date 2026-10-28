@@ -1537,7 +1537,7 @@ Vergelijk structurele verwerkingsomvang, behoud waarheidsvoorwaarden en priorite
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow/structure_test.rb](../tests/validation_flow/structure_test.rb), [validation_flow/boundaries_test.rb](../tests/validation_flow/boundaries_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 #### Verdieping bij De grootste verwerking vóór de korte afhandeling plaatsen
 
@@ -1553,7 +1553,7 @@ Bij invoervalidatie omsluit de geldige tak de implementatie die van die invoer a
 
 Een fouttak mag meerdere meldingen bevatten en lokale variabelen voorbereiden die voor die meldingen worden gebruikt. Andere verwerking hoort in de geldige tak. Laat de fouttak ook achteraan staan wanneer de meldingen en hun voorbereiding samen groter zijn dan de geldige tak.
 
-Na zo'n validatie volgt binnen dezelfde class of hetzelfde defined type geen implementatiecode meer. Dat geldt ook wanneer de validatie in een buitenste `if`, `case` of lambda-aanroep staat: code ná dat buitenste blok zou buiten de geldige tak vallen. Een volgende `else` of alternatieve `case`-tak vormt een ander uitvoerpad en mag wel volgen.
+Na zo'n validatie volgt binnen dezelfde class, hetzelfde defined type, hetzelfde nodeblok of hetzelfde manifest-topniveau geen implementatiecode meer. Dat geldt ook wanneer de validatie in een buitenste `if`, `case` of lambda-aanroep staat: code ná dat buitenste blok zou buiten de geldige tak vallen. Een volgende `else` of alternatieve `case`-tak vormt een ander uitvoerpad en mag wel volgen.
 
 **Herkomst**
 
@@ -1561,7 +1561,7 @@ Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontb
 
 **Toepassingsgebied**
 
-Bodies van classes en defined types met directe warning()/fail()-validatie, inclusief omvattende if/case/lambdablokken.
+Bodies van classes, defined types en nodeblokken, en uitvoerbare code op manifest-topniveau met directe `warning()`-/`fail()`-validatie, inclusief omvattende `if`-, `case`- en lambdablokken.
 
 **Automatische controle**
 
@@ -1569,11 +1569,11 @@ Bodies van classes en defined types met directe warning()/fail()-validatie, incl
 
 **Detectiegrenzen**
 
-Structuur telt; tekstlengte en gewone functieargumenten tellen niet mee. Namespaced eigen functies, functiedeclaraties en parameterdefaults vallen buiten de validatieanalyse. Behoud prioriteit van overlappende elsif-voorwaarden.
+De check herkent directe `fail()`, `warning()`, `::fail()` en `::warning()` via de AST. Zij volgt volgende opdrachten op hetzelfde pad tot het einde van de dichtstbijzijnde class-, define- of nodebody, of de programmabody voor topniveau. Ook vervolgcode na omvattende `if`-, `case`- en lambdablokken telt mee; alternatieve takken en afzonderlijke declaraties tellen niet als vervolgcode op dat pad. Functiedeclaraties, parameterdefaults, eigen namespaced functies, strings en commentaar blijven uitgesloten. De analyse blijft binnen één manifest en bepaalt geen inhoudelijke afhankelijkheid tussen opdrachten.
 
 **Meldingen en severity**
 
-`Put validation warning() and fail() calls in the final else (or case default), with regular implementation in the valid branch`: `warning` bij onjuiste fouttakplaatsing. `Keep the remaining implementation inside the valid branch; no implementation may follow this validation or its enclosing blocks within the class or defined type`: `warning` bij volgende implementatie buiten het geldige pad.
+`Put validation warning() and fail() calls in the final else (or case default), with regular implementation in the valid branch`: `warning` bij onjuiste fouttakplaatsing. `Keep the remaining implementation inside the valid branch; no implementation may follow this validation or its enclosing blocks within the same class, defined type, node or manifest top level`: `warning` bij volgende implementatie buiten het geldige pad.
 
 **Autofix**
 
@@ -1597,7 +1597,7 @@ Fragment; alleen `project_positive_flow`; verwacht warning.
 
 <!-- lint-example: project_positive_flow warning -->
 ```puppet
-class example {
+node 'example.test' {
   if $active { notice('Active') } else { fail('Inactive') }
   notice('Outside the valid branch')
 }
@@ -1609,22 +1609,22 @@ Fragment; alleen `project_positive_flow`; verwacht geen melding.
 
 <!-- lint-example: project_positive_flow clean -->
 ```puppet
-class example {
+node 'example.test' {
   if $active { notice('Active'); notice('Inside the valid branch') } else { fail('Inactive') }
 }
 ```
 
 **Grensgevallen**
 
-Gelijke takken en if zonder vervolgtak zijn toegestaan. Een uitsluitend diagnostische fouttak blijft achteraan, ook als voorbereiding en meldingen groter zijn. Een bestaande case mag de laatste default gebruiken. Structuur telt; tekstlengte en gewone functieargumenten tellen niet mee. Namespaced eigen functies, functiedeclaraties en parameterdefaults vallen buiten de validatieanalyse. Behoud prioriteit van overlappende elsif-voorwaarden. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Omvang en validatiestructuur](../README.md#omvang-en-validatiestructuur).
+Ook een korte of even grote fouttak vereist een afsluitende `else` of laatste `case default`. Een uitsluitend diagnostische fouttak blijft achteraan, ook als voorbereiding en meldingen groter zijn. Een andere class-, define- of nodedeclaratie opent haar eigen validatiegrens; code buiten die body telt niet als haar vervolgcode. Op topniveau eindigt de grens bij het einde van het geanalyseerde manifest. De [technische naslag](../README.md#omvang-en-validatiestructuur) beschrijft de scopekeuze en uitsluitingen.
 
 **Handmatige review**
 
-Loop geldig en ongeldig pad door tot het einde van de class/define, ook na omvattende blokken. Controleer dat warning Puppet niet vanzelf stopt en dat afhankelijke implementatie daarom binnen de geldige tak blijft.
+Loop geldig en ongeldig pad door tot het einde van de class-, define- of nodebody of het manifest-topniveau, ook na omvattende blokken. Controleer dat warning Puppet niet vanzelf stopt en dat afhankelijke implementatie daarom binnen de geldige tak blijft.
 
 **Verificatie**
 
-De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow_test.rb](../tests/validation_flow_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [branch_size_test.rb](../tests/branch_size_test.rb), [validation_flow/structure_test.rb](../tests/validation_flow/structure_test.rb), [validation_flow/boundaries_test.rb](../tests/validation_flow/boundaries_test.rb), [cli/flow_test.rb](../tests/cli/flow_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
 
 ### Ruwe en geërfde waarden in templates onderscheiden
 

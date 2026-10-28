@@ -49,6 +49,9 @@ module ProjectLint
       include AstCheck
       include VariableDependencies
 
+      VALIDATION_SCOPES = [Ast::M::HostClassDefinition, Ast::M::ResourceTypeDefinition,
+                           Ast::M::NodeDefinition, Ast::M::Program].freeze
+
       # Recognize branches containing only diagnostics and the assignments those diagnostics consume.
       module DiagnosticBranches
         def statements(node)
@@ -92,7 +95,7 @@ module ProjectLint
       end
 
       def check_branch(node)
-        return if @validation_guards.include?(node)
+        return if @validation_guards.any? { |guard| guard.equal?(node) }
         return unless @branch_size.size(node.then_expr) < following_size(node.else_expr)
 
         issue(node, 'Put the larger code branch first and keep shorter handling in the final else; ' \
@@ -101,7 +104,7 @@ module ProjectLint
 
       # Compare individual elsif arms; explicit nested if expressions keep their own structural weight.
       def following_size(node)
-        return 0 if @fallbacks.include?(node)
+        return 0 if @fallbacks.any? { |branch| branch.equal?(node) }
 
         if node.is_a?(Ast::M::IfExpression) && @positions.fetch([node.line, node.pos]).type == :ELSIF
           [@branch_size.size(node.then_expr), following_size(node.else_expr)].max
@@ -116,15 +119,17 @@ module ProjectLint
         ast.each_node do |node, parents|
           inspect_diagnostic(node, parents) if diagnostic?(node)
         end
-        @reported | @terminal
+        @reported + @terminal
       end
 
       def validation_path(node, parents)
-        index = parents.rindex do |parent|
-          parent.is_a?(Ast::M::HostClassDefinition) || parent.is_a?(Ast::M::ResourceTypeDefinition)
-        end
-        path = index ? parents.drop(index) + [node] : []
-        path if path.any? && path.include?(path.first.body) && path.none?(Ast::M::FunctionDefinition)
+        return if parents.any?(Ast::M::Parameter)
+
+        index = parents.rindex { |parent| parent.is_a?(Ast::M::Definition) } || 0
+        path = parents.drop(index) + [node]
+        return unless VALIDATION_SCOPES.include?(path.first.class)
+
+        path if path.any? { |part| part.equal?(path.first.body) }
       end
 
       def inspect_diagnostic(node, parents)
@@ -133,7 +138,8 @@ module ProjectLint
 
         index = path.rindex { |parent| parent.is_a?(Ast::M::IfExpression) || parent.is_a?(Ast::M::CaseExpression) }
         guard = index ? path[index] : node
-        return if @reported.include?(guard)
+        # Structurally equal AST nodes at different source positions are separate validations.
+        return if @reported.any? { |reported| reported.equal?(guard) }
 
         message = validation_message(node, guard, index ? path.take(index + 1) : [])
         record_validation(guard, message)
@@ -156,20 +162,20 @@ module ProjectLint
         path.each_cons(2).any? do |parent, child|
           next false unless parent.is_a?(Ast::M::BlockExpression)
 
-          body = statements(parent)
-          index = body.index(child)
+          body = statements(parent).grep_v(Ast::M::Definition)
+          index = body.index { |statement| statement.equal?(child) }
           index && index < body.length - 1
         end
       end
 
       def validation_message(node, guard, path)
         branch = fallback(guard)
-        if !diagnostic_branch?(branch) || !statements(branch).include?(node)
+        if !diagnostic_branch?(branch) || statements(branch).none? { |statement| statement.equal?(node) }
           'Put validation warning() and fail() calls in the final else (or case default), ' \
             'with regular implementation in the valid branch'
         elsif implementation_follows?(path)
           'Keep the remaining implementation inside the valid branch; no implementation may follow this validation ' \
-            'or its enclosing blocks within the class or defined type'
+            'or its enclosing blocks within the same class, defined type, node or manifest top level'
         end
       end
       include DiagnosticBranches
