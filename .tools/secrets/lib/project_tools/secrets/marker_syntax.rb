@@ -7,6 +7,13 @@ module ProjectTools
       MARKER = /\[REDACTED-([0-9a-f]{32})\]/.freeze
 
       def descriptor(first, last, replacement)
+        member = ruby_containers&.member(first, last)
+        return ruby_containers.descriptor(member) if member && member.values_at(:first, :last) == [first, last]
+
+        literal_descriptor(first, last, replacement)
+      end
+
+      def literal_descriptor(first, last, replacement)
         literal = literals.find { |start, stop, _value, _type| start == first && stop == last }
         raw = text[first...last]
         { 'raw' => raw, 'replacement' => literal ? replacement : fragment_marker(raw),
@@ -17,7 +24,7 @@ module ProjectTools
       def fragment_marker(raw)
         quote = raw[0]
         return "#{quote}[REDACTED]#{quote}" if %w[' "].include?(quote) && raw[-1] == quote
-        return "'[REDACTED]'" if File.extname(path) == '.pp'
+        return "'[REDACTED]'" if File.extname(path) == '.pp' || (ruby_source? && Ripper.sexp(raw))
 
         '[REDACTED]'
       end
@@ -32,10 +39,31 @@ module ProjectTools
       end
 
       def restore(site, entry)
+        return restore_member(site, entry) if entry['type'] == 'ruby_member'
+
         literal = site['literal']
         return restore_literal(site, entry, literal) if literal && %w[yaml puppet ruby].include?(entry['type'])
 
         restore_fragment(site, entry)
+      end
+
+      def restore_member(site, entry)
+        member = ruby_containers&.member(site['first'], site['last'])
+        literal = site['literal']
+        return restore_member_literal(site, entry, literal) unless member
+
+        valid = literal && literal[2] == site['marker'] &&
+                ruby_containers.literal_member?(member, literal, entry)
+        raise Failure, 'unsupported_marker_context' unless valid
+
+        [member[:first], member[:last], entry['raw']]
+      end
+
+      def restore_member_literal(site, entry, literal)
+        valid = entry['value'].is_a?(String) && literal && %w[yaml puppet ruby].include?(literal[3])
+        raise Failure, 'unsupported_marker_context' unless valid
+
+        restore_literal(site, entry.merge('type' => 'ruby'), literal)
       end
 
       def restore_literal(site, entry, literal)

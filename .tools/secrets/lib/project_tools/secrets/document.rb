@@ -4,6 +4,7 @@ require 'ripper'
 require 'json'
 require_relative 'marker_syntax'
 require_relative 'ruby_literals'
+require_relative 'ruby_containers'
 
 module ProjectTools
   module Secrets
@@ -51,8 +52,22 @@ module ProjectTools
 
       def redact(first, last, rule, replacement = '[REDACTED]', value: nil)
         finding(rule, first, 'value')
+        parts = ruby_containers&.parts(first, last)
+        return redact_members(parts) if parts
+
         @spans << [first, last, replacement]
         @values << (value || text[first...last])
+      end
+
+      def redact_members(parts)
+        parts.each do |member|
+          @spans << [member[:first], member[:last], ruby_containers.replacement(member)]
+          @values << ruby_containers.value(member)
+        end
+      end
+
+      def ruby_containers
+        @ruby_containers ||= RubyContainers.new(self) if ruby_source? && complete?
       end
 
       def complete?

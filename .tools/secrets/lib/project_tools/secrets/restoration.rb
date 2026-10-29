@@ -51,6 +51,8 @@ module ProjectTools
       def reject_plain_values(document, edits)
         document.merged_spans.each do |first, last, _replacement|
           outside = unprotected(document.text, first, last, edits)
+          member = document.ruby_containers&.member(first, last)
+          outside = outside.sub(/=>\s*\z/, '') if member && member[:kind] == :key
           raise Failure, 'unregistered_value' unless outside.gsub(/["'\s]/, '').empty?
         end
       end

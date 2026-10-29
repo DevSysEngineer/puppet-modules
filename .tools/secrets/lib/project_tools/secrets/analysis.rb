@@ -88,14 +88,21 @@ module ProjectTools
 
       def remember_context(text)
         representation = Document.new(@safe, text)
+        raise Failure, 'inspection_incomplete' unless representation.complete?
+
         @data['markers'].each do |id, entry|
           next unless entry['file'] == @safe
 
-          visible = entry['replacement'].sub('[REDACTED]', "[REDACTED-#{id}]")
-          first = text.index(visible)
-          entry['context'] = representation.line_context(first, first + visible.length)
-          entry['role'] = representation.marker_role(first) if entry['role']
+          remember_entry(representation, id, entry)
         end
+      end
+
+      def remember_entry(representation, id, entry)
+        visible = entry['replacement'].sub('[REDACTED]', "[REDACTED-#{id}]")
+        first = representation.text.index(visible)
+        entry['context'] = representation.line_context(first, first + visible.length)
+        entry['role'] = representation.marker_role(first) if entry['role']
+        entry['container_role'] = representation.ruby_containers.role(first) if entry['type'] == 'ruby_member'
       end
     end
   end

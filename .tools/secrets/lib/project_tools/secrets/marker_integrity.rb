@@ -66,8 +66,15 @@ module ProjectTools
         return unless entry['role']
         return if @changes.moves.key?(site['id'])
 
+        expected = entry.fetch('container_role', entry['role'])
+        raise Failure, 'unintended_marker_move' unless expected == current_role(document, site, entry)
+      end
+
+      def current_role(document, site, entry)
+        return document.ruby_containers&.role(site['first']) if entry['container_role']
+
         first = site['literal'] ? site['literal'][0] : site['first'] - entry['replacement'].index('[REDACTED]')
-        raise Failure, 'unintended_marker_move' unless entry['role'] == document.marker_role(first)
+        document.marker_role(first)
       end
 
       def action(path, entry)
