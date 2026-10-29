@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require 'puppet'
+require 'project_tools/shared/puppet_runtime'
+ProjectTools::Shared::PuppetRuntime.load!
 require 'project_tools/module/module_dependencies'
 
 module ProjectTools
@@ -20,7 +21,7 @@ module ProjectTools
           yield environment
         end
       rescue StandardError => e
-        @result.error(:runtime_error, "OpenVox could not complete dependency inventory (#{e.class}).")
+        @result.error(:runtime_error, "Puppet runtime could not complete dependency inventory (#{e.class}).")
       end
 
       def inspect_environment(environment)
@@ -72,7 +73,7 @@ module ProjectTools
         candidates.each do |name, path|
           next if selected[name] == path && File.directory?(path)
 
-          @result.error(:metadata_error, 'OpenVox omitted a selected module or its directory disappeared.',
+          @result.error(:metadata_error, 'Puppet runtime omitted a selected module or its directory disappeared.',
                         scope: 'module', requester_name: name, requester_metadata: File.join(path, 'metadata.json'))
         end
       end

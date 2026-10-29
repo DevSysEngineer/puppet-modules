@@ -2,6 +2,8 @@
 
 `project-tools-secrets` leest bestanden lokaal voordat je de inhoud gebruikt voor externe analyse of AI-analyse. De tool meldt mogelijke geheimen zonder hun waarden te tonen en bereidt een analysewerkboom voor waarin die waarden zijn gemaskeerd. Scanner en voorbereiding maken geen netwerkverbindingen, voeren geen invoer uit en wijzigen geen bronbestanden. Het subcommando `write` kan gecontroleerde bronwijzigingen toepassen; expliciete diagnostiek start goedgekeurde lokale opdrachten. Neem je deze repository als `global-modules` op in een ander project, begin dan bij [Gebruik in een ander project](#gebruik-in-een-ander-project).
 
+Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Algemene tekstscans hebben geen Puppet-runtime nodig. Puppet-invoer gebruikt de [centraal geselecteerde Puppet/OpenVox-runtime](../shared/README.md#puppet-runtime-selecteren); ontbrekende of ongeschikte functionaliteit blijft een onvolledige scan. De versieheader verschijnt eenmaal op stderr bij afsluiting en bevat geen brongegevens.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
@@ -117,7 +119,7 @@ Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestand
 
 ### Voorbereiden en een gewone wijziging toepassen
 
-Dit doorlopende voorbeeld gebruikt uitsluitend synthetische invoer. Voer het uit vanuit een project met de gem in zijn bundle, in een POSIX-shell. De bestanden komen in een tijdelijke oefenmap; de eigen projectbestanden veranderen niet. Ruby, de gem en de externe programma's `cp` en `diff` moeten beschikbaar zijn. Voor `.pp` vereist voorbereiding OpenVox 8 in dezelfde bundle; zonder parser volgt een fout, geen terugval naar tekstpatronen.
+Dit doorlopende voorbeeld gebruikt uitsluitend synthetische invoer. Voer het uit vanuit een project met de gem in zijn bundle, in een POSIX-shell. De bestanden komen in een tijdelijke oefenmap; de eigen projectbestanden veranderen niet. Ruby, de gem en de externe programma's `cp` en `diff` moeten beschikbaar zijn. Voor `.pp` vereist voorbereiding Puppet of OpenVox in dezelfde bundle; zonder parser volgt een fout, geen terugval naar tekstpatronen.
 
 ```sh
 TASK_BASE=$(mktemp -d)
@@ -507,7 +509,7 @@ Een zuivere variabelereferentie zoals `"$VALUE"` bevat zelf geen runtimewaarde e
 
 Een losse PEM-markering binnen een betrouwbaar begrensd, geankerd zoekpatroon vormt geen PEM-blok. De scanner herkent hiervoor geciteerde patronen bij `grep` en shellcommandoreferenties, en AWK-patronen tussen slashes, inclusief de afzonderlijke patronen van een bereik. Begin- en eindmarkeringen uit zulke zelfstandige zoekpatronen worden niet aan elkaar gekoppeld. Dit sluit de overige broncode niet uit van detectie: opgenomen PEM-inhoud blijft gevoelig, ook in strings, meerregelige inhoud en gesplitste literals. De inhoud hoeft geen cryptografisch geldig certificaat of geldige sleutel te zijn. Een ontbrekend einde, onjuiste nesting of een niet betrouwbaar herkenbaar zoekpatroon blijft de voorbereiding blokkeren zodra vermoed PEM-materiaal niet volledig kan worden afgebakend.
 
-De algemene scanmodus herkent afgebakende tekstpatronen; de onderstaande Puppet-modus gebruikt daarnaast de syntaxisboom van OpenVox. JSON wordt met de YAML-bronparser gelezen, zonder strikte JSON-validatie. Variabelen, includes, externe Hiera-hiërarchieën en -backends en runtime-lookups worden niet uitgewerkt. XML-elementen, onbekende veldnamen, verhulde of gecodeerde waarden en inloggegevens die over meerdere bestanden zijn verdeeld, kunnen worden gemist. Onterechte bevindingen zijn mogelijk, ook in broncode en synthetische testbestanden. Persoons-, klant-, host- en andere vertrouwelijke gegevens worden niet volledig herkend. Laat bij twijfel de inhoud lokaal door iemand beoordelen voordat je die deelt, ook bij gemaskeerde kopieën.
+De algemene scanmodus herkent afgebakende tekstpatronen; de onderstaande Puppet-modus gebruikt daarnaast de syntaxisboom van de gekozen Puppet-runtime. JSON wordt met de YAML-bronparser gelezen, zonder strikte JSON-validatie. Variabelen, includes, externe Hiera-hiërarchieën en -backends en runtime-lookups worden niet uitgewerkt. XML-elementen, onbekende veldnamen, verhulde of gecodeerde waarden en inloggegevens die over meerdere bestanden zijn verdeeld, kunnen worden gemist. Onterechte bevindingen zijn mogelijk, ook in broncode en synthetische testbestanden. Persoons-, klant-, host- en andere vertrouwelijke gegevens worden niet volledig herkend. Laat bij twijfel de inhoud lokaal door iemand beoordelen voordat je die deelt, ook bij gemaskeerde kopieën.
 
 Een naam of getal alleen bepaalt geen uitzondering. `api_key_count` met een geheel getal, de numerieke beleidsvelden `password.minlength`, `password.retrylimit` en `password.expiration` (ook de ondersteunde underscore- en koppeltekenvarianten), en `TOKEN_EXPIRE`, `TOKEN_TTL` of `TOKEN_LIFETIME` met een getal en eventueel `s`, `m`, `h`, `d` of `w` beschrijven metadata. Een numeriek `password` of een willekeurige tekenreeks in zo'n beleidsveld blijft een mogelijke geheime waarde. Een expliciete Hiera-conversie naar `Sensitive` blijft leidend. Private-keyvelden met een `puppet:///`-bronverwijzing bevatten geen sleutelbytes; controleer de bron afzonderlijk. Een bestandsachtig woord onder een onduidelijke eigen interface blijft een mogelijke geheime waarde.
 
@@ -517,7 +519,7 @@ In `.sh`-bestanden en bestanden met een `sh`- of `bash`-shebang herkent de scann
 
 Voor Ruby-bronnen gebruikt de scanner Ripper uitsluitend om geldige bronsyntaxis te herkennen. Dit voorkomt dat een volgende Ruby-opdracht als ingesprongen vervolgwaarde wordt behandeld. Ongeldige Ruby en onbegrensde geheime invoer in testliterals blijven onvolledig; geldige Ruby maakt de inhoud van die literals niet automatisch veilig. Bij geciteerde shellopdrachten begrenst het omringende aanhalingsteken de waarde. Niet-ondersteunde heredocs en andere onduidelijke grenzen blijven geblokkeerd. De tool voert broncode of fixtures nooit uit.
 
-In `.pp`-bestanden begrenst de algemene scan lambda-expressies met ongetypeerde variabeleparameters tussen `|` en een bijbehorend `{ ... }`-blok. Komma's en regeleinden tussen parameters beëindigen de toegewezen waarde niet; strings en geneste haakjes blijven onderdeel van de expressie. Na een variabeleverwijzing met eventuele indexen of argumentloze methoden, of na een afgesloten lambda herkent de scanner een volgende ingesprongen `if` of `unless` met een conditie en sluitend blok als afzonderlijk statement. Deze beperkte bronherkenning vereist geen OpenVox en vervangt geen Puppet-parservalidatie. Getypeerde parameters, parameterdefaults en andere niet-herkende lambdavormen blijven conservatief behandeld; onvolledige lambda's, strings en onzekere voortzettingen blokkeren analysekopieën. De algemene scan kan de volledige afgebakende expressie maskeren en exitcode 1 geven, ook wanneer de Puppet-modus geen credential vindt.
+In `.pp`-bestanden begrenst de algemene scan lambda-expressies met ongetypeerde variabeleparameters tussen `|` en een bijbehorend `{ ... }`-blok. Komma's en regeleinden tussen parameters beëindigen de toegewezen waarde niet; strings en geneste haakjes blijven onderdeel van de expressie. Na een variabeleverwijzing met eventuele indexen of argumentloze methoden, of na een afgesloten lambda herkent de scanner een volgende ingesprongen `if` of `unless` met een conditie en sluitend blok als afzonderlijk statement. Deze beperkte bronherkenning vereist geen Puppet-runtime en vervangt geen Puppet-parservalidatie. Getypeerde parameters, parameterdefaults en andere niet-herkende lambdavormen blijven conservatief behandeld; onvolledige lambda's, strings en onzekere voortzettingen blokkeren analysekopieën. De algemene scan kan de volledige afgebakende expressie maskeren en exitcode 1 geven, ook wanneer de Puppet-modus geen credential vindt.
 
 ### Markdown-codefragmenten
 
@@ -543,7 +545,7 @@ Het rapport behoudt één record per geselecteerd bestand. `coverage: archive` b
 
 ## Puppet-manifesten in standaardtests en CI
 
-Gebruik voor de verplichte controle op hardcoded waarden de bestaande CLI met `--puppet`. Deze modus vereist OpenVox 8 in dezelfde bundle; de repositorybundle bevat die dependency al. De parser leest alleen syntaxis: de scanner compileert geen catalogus en voert geen functies, facts of Hiera-lookups uit. De algemene voorcontrole voor externe analyse blijft afzonderlijk verplicht en omvat ook YAML, templates en overige geselecteerde bestanden.
+Gebruik voor de verplichte controle op hardcoded waarden de bestaande CLI met `--puppet`. Deze modus vereist Puppet of OpenVox in dezelfde bundle; de repositorybundle bevat die dependency al. De parser leest alleen syntaxis: de scanner compileert geen catalogus en voert geen functies, facts of Hiera-lookups uit. De algemene voorcontrole voor externe analyse blijft afzonderlijk verplicht en omvat ook YAML, templates en overige geselecteerde bestanden.
 
 ```sh
 bundle exec project-tools-secrets --puppet manifests/ modules/example/manifests/ extra.pp
@@ -618,12 +620,13 @@ source 'https://rubygems.org'
 
 gem 'project-tools-shared', path: 'global-modules/.tools/shared', require: false
 gem 'project-tools-secrets', path: 'global-modules/.tools/secrets', require: false
-gem 'openvox', '~> 8.0', require: false
-gem 'syslog', require: false
+gem 'openvox', require: false # Of puppet; kies precies één runtime.
+gem 'json', '< 3', require: false
+gem 'syslog', '~> 0.4', platforms: :ruby, require: false
 gem 'rake', require: false
 ```
 
-Voor uitsluitend de algemene voorcontrole volstaan shared en secrets; JSON en Psych worden via de gemdependencies geïnstalleerd. OpenVox is nodig voor `--puppet`, `syslog` voor die runtime met Ruby 4 en Rake voor de eigen taken. De scanner vereist geen rootmetadata, `VERSION`, lintconfiguratie of `PROJECT_TOOLS_MODULEPATH`. Andere tools in je bundle kunnen die wel vereisen.
+Voor uitsluitend de algemene voorcontrole volstaan shared en secrets; JSON en Psych worden via de gemdependencies geïnstalleerd. Puppet of OpenVox is nodig voor `--puppet`, `syslog` voor die runtime met Ruby 4 en Rake voor de eigen taken. De scanner vereist geen rootmetadata, `VERSION`, lintconfiguratie of `PROJECT_TOOLS_MODULEPATH`. Andere tools in je bundle kunnen die wel vereisen.
 
 Installeer vanuit de consumerroot en controleer waar Bundler de gem vandaan haalt:
 

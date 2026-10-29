@@ -4,6 +4,7 @@ require 'fileutils'
 require 'optparse'
 require 'project_tools/shared/modulepath'
 require 'project_tools/shared/console'
+require 'project_tools/shared/puppet_runtime'
 require 'project_tools/module/result'
 require 'project_tools/module/reporter'
 
@@ -28,8 +29,10 @@ module ProjectTools
           return 0
         end
 
-        @presentation = Shared::Console.new('Puppet module dependencies', output: @console,
-                                                                          scope: 'explicit modulepath and root')
+        @presentation = Shared::Console.new(
+          'Puppet module dependencies', output: @console, scope: 'explicit modulepath and root',
+                                        software: { tool: 'project-tools-module', runtime: true }
+        )
         @presentation.during { execute(argument_error) }
       end
 
@@ -96,8 +99,9 @@ module ProjectTools
         result = new_result
         perform_scan(result)
         result
-      rescue ArgumentError => e
-        result.error(:configuration_error, e.message)
+      rescue Shared::PuppetRuntime::Error, ArgumentError => e
+        code = e.is_a?(ArgumentError) ? :configuration_error : :runtime_error
+        result.error(code, e.message)
         result
       rescue StandardError, LoadError => e
         result.error(:runtime_error, "Dependency scan failed (#{e.class}).")
@@ -105,6 +109,7 @@ module ProjectTools
       end
 
       def perform_scan(result)
+        Shared::PuppetRuntime.load!
         paths = ProjectTools::Shared::Modulepath.parse(ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil))
         require 'project_tools/module/openvox_adapter'
         require 'project_tools/module/root_dependencies'

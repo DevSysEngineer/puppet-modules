@@ -22,8 +22,7 @@ class SecretsLicenseGateTest < Minitest::Test
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
       gem 'project-tools-secrets', '= 0.4.0'
-      gem 'openvox', '~> 8.0'
-      gem 'syslog'
+      #{runtime_dependency}
       gem 'rake'
     RUBY
     run_success('bundle', 'install', '--local')

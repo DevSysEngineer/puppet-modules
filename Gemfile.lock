@@ -2,18 +2,17 @@ PATH
   remote: .tools/lint/puppet
   specs:
     lint-project (0.4.0)
-      json (< 3)
-      openvox (~> 8.29)
+      json (>= 2)
       project-tools-shared (>= 0.1.1, < 0.2.0)
       puppet-lint (~> 5.1)
       puppet-lint-param-types (~> 3.0)
       puppet-lint-trailing_comma-check (~> 3.0)
-      syslog (~> 0.4)
 
 PATH
   remote: .tools/lint/ruby
   specs:
     project-tools-ruby-lint (0.1.0)
+      project-tools-shared (>= 0.1.1, < 0.2)
       rubocop (~> 1.91)
 
 PATH
@@ -27,11 +26,9 @@ PATH
   remote: .tools/module
   specs:
     project-tools-module (0.1.0)
-      json (< 3)
-      openvox (~> 8.29)
+      json (>= 2)
       project-tools-shared (>= 0.1.1, < 0.2.0)
       semantic_puppet (~> 1.1)
-      syslog (~> 0.4)
 
 PATH
   remote: .tools/secrets
@@ -51,10 +48,8 @@ PATH
   remote: .tools/syntax
   specs:
     project-tools-syntax (0.1.0)
-      json (< 3)
-      openvox (~> 8.29)
+      json (>= 2)
       project-tools-shared (>= 0.1.1, < 0.2.0)
-      syslog (~> 0.4)
 
 GEM
   remote: https://rubygems.org/
@@ -182,10 +177,12 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  json (< 3)
   lint-project!
   metadata-json-lint
   minitest
   minitest-reporters
+  openvox
   project-tools-metadata!
   project-tools-module!
   project-tools-ruby-lint!
@@ -194,6 +191,7 @@ DEPENDENCIES
   project-tools-syntax!
   rake
   rexml
+  syslog (~> 0.4)
 
 BUNDLED WITH
   4.0.20

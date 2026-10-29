@@ -3,7 +3,8 @@
 require 'fileutils'
 require 'pathname'
 require 'yaml'
-require 'puppet'
+require 'project_tools/shared/puppet_runtime'
+ProjectTools::Shared::PuppetRuntime.load!
 
 module ProjectTools
   class Catalog

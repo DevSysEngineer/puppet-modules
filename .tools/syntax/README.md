@@ -1,8 +1,10 @@
 # Zelfstandige Puppet-parservalidatie
 
-`project-tools-syntax` levert `syntax-junit`: native OpenVox-syntaxvalidatie met JUnit per manifest. De gem gebruikt `project-tools-shared` voor de XML-opbouw en kan zonder linter, lintplugins, RuboCop of dependencytool worden geïnstalleerd. De [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) beschrijft installatie, packagekeuze en consumermigratie.
+`project-tools-syntax` levert `syntax-junit`: native Puppet/OpenVox-syntaxvalidatie met JUnit per manifest. De gem gebruikt `project-tools-shared` voor de XML-opbouw en kan zonder linter, lintplugins, RuboCop of dependencytool worden geïnstalleerd. De [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) beschrijft installatie, packagekeuze en consumermigratie.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+
+De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De consumertests gebruiken alleen de aanwezige runtime; versievarianten worden centraal gesimuleerd.
 
 ## Inhoudsopgave
 
@@ -86,10 +88,13 @@ namespace :syntax do
       end
     else
       require 'project_tools/shared/console'
-      console = ProjectTools::Shared::Console.new('Puppet syntax', scope: "#{manifests.size} files selected")
+      console = ProjectTools::Shared::Console.new('Puppet syntax',
+                                                  scope: "#{manifests.size} files selected",
+                                                  software: { tool: 'project-tools-syntax', runtime: true })
       console.during do
         abort 'No Puppet manifests selected.' if manifests.empty?
-        sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests, verbose: false do |ok, status|
+        sh RbConfig.ruby, ProjectTools::Shared::PuppetRuntime.detect.executable, 'parser', 'validate',
+           '--color=false', *manifests, verbose: false do |ok, status|
           console.finish(status: ok ? 'PASSED' : 'Result not classified', execution: ok ? 'complete' : 'unknown',
                          facts: ["Original exit status: #{status}", 'Native parser diagnostics are shown above.'])
           raise SignalException, status.termsig if status.signaled?
@@ -124,17 +129,17 @@ Deze reporter heeft geen lintconfiguratie; het modulepad en `.puppet-lint.rc` zi
 
 ## Runtime en packagegrenzen
 
-`require 'project_tools/syntax'` levert `ProjectTools::Syntax.run(arguments, console:, errors:)`. De [implementatie](lib/project_tools/syntax.rb) start voor ieder uniek manifest de native parser uit de actieve bundle met `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`. Bestandspaden gaan als afzonderlijke procesargumenten mee; er is geen shellinterpretatie of eigen syntaxparser. De API en CLI gebruiken dezelfde resultaatverzameling en exitstatus.
+`require 'project_tools/syntax'` levert `ProjectTools::Syntax.run(arguments, console:, errors:)`. De [implementatie](lib/project_tools/syntax.rb) start voor ieder uniek manifest de native parser uit de actieve bundle met `RbConfig.ruby` en `ProjectTools::Shared::PuppetRuntime.detect.executable`. Bestandspaden gaan als afzonderlijke procesargumenten mee; er is geen shellinterpretatie of eigen syntaxparser. De API en CLI gebruiken dezelfde resultaatverzameling en exitstatus.
 
-De [gemspec](project-tools-syntax.gemspec) beheert de vereiste versies van shared, OpenVox, JSON en syslog. Het [pakketoverzicht](../README.md#pakketten-en-commandos) beschrijft de dependencies per tool; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast. De gem bevat uitsluitend eigen runtimecode, executable, README en licentie. Testhulp en ontwikkelgems blijven buiten het pakket. Voor een validatie zijn geen rootmetadata, `VERSION`, lintprofielen of `PROJECT_LINT_*`-instellingen vereist.
+De [gemspec](project-tools-syntax.gemspec) beheert de eigen shared- en JSON-interfaces. Het project kiest Puppet of OpenVox en de benodigde ondersteunende gems volgens [runtimekeuze](../README.md#runtimekeuze-en-compatibiliteit). Het [pakketoverzicht](../README.md#pakketten-en-commandos) beschrijft de dependencies per tool; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast. De gem bevat uitsluitend eigen runtimecode, executable, README en licentie. Testhulp en ontwikkelgems blijven buiten het pakket. Voor een validatie zijn geen rootmetadata, `VERSION`, lintprofielen of `PROJECT_LINT_*`-instellingen vereist.
 
-`syntax-junit` heeft precies één eigenaar: deze gem. `lint-project` gebruikt OpenVox voor zijn eigen AST-analyse, maar installeert de validatorgem niet. De [migratie-instructies](../README.md#migreren-naar-afzonderlijke-toolpakketten) beschrijven hoe bestaande afnemers hun bundle aanvullen. De repositorytaak en CI-rapportlocaties staan in de [gezamenlijke CI-uitleg](../README.md#ci-van-deze-repository).
+`syntax-junit` heeft precies één eigenaar: deze gem. `lint-project` gebruikt de gekozen runtime voor zijn eigen AST-analyse, maar installeert de validatorgem niet. De [migratie-instructies](../README.md#migreren-naar-afzonderlijke-toolpakketten) beschrijven hoe bestaande afnemers hun bundle aanvullen. De repositorytaak en CI-rapportlocaties staan in de [gezamenlijke CI-uitleg](../README.md#ci-van-deze-repository).
 
 ## Ontwikkelen en testen
 
 Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
 
-- Behoud de [native runtime- en packagegrenzen](#runtime-en-packagegrenzen): parseruitvoering via `RbConfig.ruby` en `Gem.bin_path('openvox', 'puppet')`, afzonderlijke procesargumenten zonder shellinterpretatie en gelijke API- en CLI-resultaten. Voeg geen syntaxparser, catalogustoepassing of lintconfiguratiedependency toe.
+- Behoud de [native runtime- en packagegrenzen](#runtime-en-packagegrenzen): parseruitvoering via `RbConfig.ruby` en `ProjectTools::Shared::PuppetRuntime.detect.executable`, afzonderlijke procesargumenten zonder shellinterpretatie en gelijke API- en CLI-resultaten. Voeg geen syntaxparser, catalogustoepassing of lintconfiguratiedependency toe.
 - Verifieer wijzigingen tegen [manifestselectie](#puppet-manifests-valideren) en [exitcontracten](#exitcodes-van-syntax-junit), inclusief lege selecties, ongeldige invoer, dubbele en bijzondere paden, waarschuwingen, parserfouten, doorgaan na fouten, opstart- of signaalfouten, bronbehoud en rapportschrijffouten.
 - Werk README-contracten en tooltests samen bij. Verifieer zelfstandige pakket- en pathinstallatie zonder lint of projectmetadata en de gezamenlijke Git-bronroute met haar lokale override. Houd testondersteuning en ontwikkelgems buiten de runtimegem.
 - Houd volledige eigen syntaxvalidatie gescheiden van synthetische tooltests en hun dependencies volgens [TESTS.md](../../TESTS.md#testscope-en-plaatsing). Review root- of consumer-Rakeselectie samen met [repositorycontroles](../repository/README.md#onderhoud).

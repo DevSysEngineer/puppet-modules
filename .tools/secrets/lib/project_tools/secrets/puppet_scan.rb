@@ -18,10 +18,10 @@ module ProjectTools
       end
 
       def scan
-        require 'puppet'
-        tree = Puppet::Pops::Parser::EvaluatingParser.new.parse_string(@document.text, 'input.pp')
+        require 'project_tools/shared/puppet_runtime'
+        tree = Shared::PuppetRuntime.parser.parse_string(@document.text, 'input.pp')
         tree._pcore_all_contents([]) { |node| inspect_node(node) }
-      rescue LoadError
+      rescue LoadError, Shared::PuppetRuntime::Error
         @document.error('puppet_parser_unavailable')
       rescue StandardError, SystemStackError
         @document.error('puppet_inspection_failed')

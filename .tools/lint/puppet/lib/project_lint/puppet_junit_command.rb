@@ -14,9 +14,14 @@ module ProjectLint
       paths = options.parse(arguments)
       return usage(errors) unless paths.length == 1
 
-      report(paths.first, input, console, errors, finding_status: settings[:result_status] ? self::FINDINGS_STATUS : 0)
+      report_with_versions(paths.first, input, console, errors, settings)
     rescue OptionParser::ParseError
       usage(errors)
+    end
+
+    def report_with_versions(path, input, console, errors, settings)
+      ProjectTools::Shared::Console.software('lint-project', output: errors)
+      report(path, input, console, errors, finding_status: settings[:result_status] ? self::FINDINGS_STATUS : 0)
     end
 
     def parser(settings, &help)

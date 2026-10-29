@@ -16,7 +16,8 @@ module ProjectTools
         return 0
       end
 
-      console = Shared::Console.new('Metadata', output: output, scope: 'root metadata and selected own modules')
+      console = Shared::Console.new('Metadata', output: output, scope: 'root metadata and selected own modules',
+                                                software: { tool: 'project-tools-metadata' })
       console.during do
         execute(options, console, errors)
       end

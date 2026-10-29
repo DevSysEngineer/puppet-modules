@@ -17,7 +17,7 @@ module ProjectTools
       end
 
       def inspection_options(options)
-        options.on('--puppet', 'Check hardcoded values in Puppet manifests (requires OpenVox)') do
+        options.on('--puppet', 'Check hardcoded values in Puppet manifests (requires Puppet or OpenVox)') do
           @options[:puppet] = true
         end
       end

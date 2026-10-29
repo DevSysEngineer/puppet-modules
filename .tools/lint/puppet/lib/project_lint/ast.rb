@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require 'puppet'
-require 'puppet/pops'
+require 'project_tools/shared/puppet_runtime'
+ProjectTools::Shared::PuppetRuntime.load!('puppet/pops')
 
 module ProjectLint
-  # Use OpenVox's Puppet AST for structure and the lint lexer for comments and concrete whitespace.
+  # Use the selected runtime's Puppet AST for structure and the lint lexer for comments and concrete whitespace.
   class Ast
     M = Puppet::Pops::Model
     attr_reader :program, :nodes
@@ -19,7 +19,7 @@ module ProjectLint
     end
 
     def initialize(code, path = 'example.pp')
-      @program = Puppet::Pops::Parser::EvaluatingParser.new.parse_string(code, path)
+      @program = ProjectTools::Shared::PuppetRuntime.parser.parse_string(code, path)
       @nodes = []
       program._pcore_all_contents([]) do |node, parents|
         @nodes << [node, parents.dup] if node.is_a?(Ast::M::Positioned)

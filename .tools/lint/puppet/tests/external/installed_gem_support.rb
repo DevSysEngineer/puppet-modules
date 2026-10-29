@@ -27,6 +27,7 @@ module InstalledGemSupport
   def prepare_bundle
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
+      #{runtime_dependency}
       gem 'lint-project', '= 0.4.0', require: false
     RUBY
     run_success('bundle', 'install', '--local')

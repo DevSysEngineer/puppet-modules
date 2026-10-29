@@ -8,6 +8,7 @@ Gem::Specification.new do |spec|
   spec.license = 'Apache-2.0'
   spec.homepage = 'https://github.com/DevSysEngineer/puppet-modules'
   spec.required_ruby_version = '>= 3.2'
-  spec.files = Dir.chdir(__dir__) { Dir['config/*', 'README.md', 'LICENSE'] }
+  spec.files = Dir.chdir(__dir__) { Dir['lib/**/*.rb', 'config/*', 'README.md', 'LICENSE'] }
+  spec.add_dependency 'project-tools-shared', '>= 0.1.1', '< 0.2'
   spec.add_dependency 'rubocop', '~> 1.91'
 end

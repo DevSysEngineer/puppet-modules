@@ -17,7 +17,7 @@ class ExternalSecretsTest < ExternalSecretsTestCase
   def test_package_does_not_install_puppet_or_linters
     run_success('bundle', 'exec', 'ruby', '-e',
                 "require 'project_tools/secrets'; " \
-                'abort if (Bundler.load.specs.map(&:name) & %w[openvox lint-project rubocop]).any?')
+                'abort if (Bundler.load.specs.map(&:name) & %w[puppet openvox lint-project rubocop]).any?')
   end
 
   def test_installed_general_scanner_bounds_puppet_lambdas_without_openvox
@@ -78,7 +78,7 @@ class ExternalSecretsTest < ExternalSecretsTestCase
   end
 
   def configure_puppet
-    write('Gemfile', "#{read('Gemfile')}gem 'openvox', '~> 8.0', require: false\ngem 'syslog', require: false\n")
+    write('Gemfile', "#{read('Gemfile')}#{runtime_dependency}\n")
     run_success('bundle', 'install', '--local')
   end
 end

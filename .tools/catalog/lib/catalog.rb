@@ -6,7 +6,6 @@ require 'open3'
 require 'rbconfig'
 require 'project_tools/shared/console'
 require 'project_tools/shared/modulepath'
-require_relative 'discovery'
 require_relative 'reporting'
 require_relative 'worker_result'
 
@@ -20,7 +19,9 @@ module ProjectTools
                    console: $stdout, errors: $stderr)
       @modulepath_input = modulepath
       @scenarios = scenarios
-      @console = Shared::Console.new('Puppet catalogs', output: console, scope: 'Module catalog scenarios')
+      software = { tool: 'project-tools-catalog', runtime: true, version: File.read(File.join(ROOT, 'VERSION')).strip }
+      @console = Shared::Console.new('Puppet catalogs', output: console, scope: 'Module catalog scenarios',
+                                                        software: software)
       @errors = errors
       @results = []
     end
@@ -54,11 +55,12 @@ module ProjectTools
       @modulepath = Shared::Modulepath.parse(@modulepath_input)
       return if @scenarios
 
+      require_relative 'discovery'
       discovery = Discovery.new(@modulepath)
       @scenarios = discovery.scenarios
       @results.concat(discovery.errors)
       @skipped = discovery.skipped
-    rescue ArgumentError, SystemCallError => e
+    rescue ArgumentError, SystemCallError, Shared::PuppetRuntime::Error => e
       @scenarios = []
       @results << { name: 'Scenario selection', kind: :error, message: e.message }
     end

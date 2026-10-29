@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require_relative 'deprecation_probes'
+
 module ProjectTools
   class Catalog
-    # Worker-only adapter for the internal registries and language diagnostics in OpenVox 8.29.0.
+    # Probe the native registration and language diagnostic contracts inside each isolated worker.
     class Deprecations
-      LIMIT = 100
-      PROBE_MESSAGE = 'Catalog deprecation registration probe.'
+      include DeprecationProbes
+
       class DetectionError < StandardError; end
 
       def initialize
@@ -14,33 +16,20 @@ module ProjectTools
       end
 
       def start
-        verify_runtime
+        Shared::PuppetRuntime.load!
         Puppet[:disable_warnings] = Puppet[:disable_warnings] - ['deprecations']
         Puppet[:strict] = :warning
         ENV['STDLIB_LOG_DEPRECATIONS'] = 'true'
         probe_registration
         @registry = native_registry
+        probe_capacity
         verify_registration
         observe_language_diagnostics
-      end
-
-      def probe_registration
-        level = Puppet::Util::Log.level
-        # Only the synthetic probe is quiet; scenario logging keeps its original destination and level.
-        Puppet::Util::Log.level = :err
-        Puppet.deprecation_warning(PROBE_MESSAGE, @probe)
-      ensure
-        Puppet::Util::Log.level = level
-      end
-
-      def verify_runtime
-        return if Gem.loaded_specs['openvox']&.version&.to_s == '8.29.0'
-
-        raise DetectionError, 'Deprecation detection requires the verified OpenVox 8.29.0 adapter.'
+        probe_language
       end
 
       def native_registry
-        # Read OpenVox's existing internal registry; never create or reset it.
+        # Read the runtime's own registry, including warnings raised before scenario compilation.
         $deprecation_warnings # rubocop:disable Style/GlobalVars
       end
 
@@ -57,7 +46,7 @@ module ProjectTools
         unless @registry.values.all? { |message| message.is_a?(String) && !message.empty? }
           raise DetectionError, 'Native deprecation registration has an unsupported format.'
         end
-        return if @registry.size < LIMIT
+        return if @limit && @registry.size < @limit
 
         raise DetectionError, 'Native deprecation registration limit reached; detection coverage is incomplete.'
       end
@@ -70,6 +59,14 @@ module ProjectTools
       end
 
       def observe_language_diagnostics
+        unless Puppet::Pops::IssueReporter.respond_to?(:assert_and_report)
+          raise DetectionError, 'Native language deprecation reporting is unavailable.'
+        end
+
+        install_language_observer
+      end
+
+      def install_language_observer
         observer = self
         # Language deprecations bypass the registry. Observe their native severity before logging limits apply.
         observer_module = Module.new do

@@ -21,7 +21,7 @@ class ExternalSyntaxTest < Minitest::Test
   def prepare_bundle(dependencies)
     @env.delete('BUNDLE_FROZEN')
     FileUtils.rm_f(File.join(@project, 'Gemfile.lock'))
-    write('Gemfile', "source 'https://rubygems.org'\n#{dependencies}\n")
+    write('Gemfile', "source 'https://rubygems.org'\n#{runtime_dependency}\n#{dependencies}\n")
     run_success('bundle', 'install', '--local')
     run_success('bundle', 'info', '--path', 'project-tools-syntax')
     @installed = @output.strip

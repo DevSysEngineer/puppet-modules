@@ -1,8 +1,10 @@
 # Puppet-moduledependencies controleren
 
-`project-tools-module` vergelijkt gedeclareerde module- en rootdependencies met één native OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
+`project-tools-module` vergelijkt gedeclareerde module- en rootdependencies met één native Puppet/OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+
+De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De consumertests gebruiken alleen de aanwezige runtime; versievarianten worden centraal gesimuleerd.
 
 ## Inhoudsopgave
 
@@ -89,9 +91,9 @@ De [CI-handleiding](../README.md#ci-van-deze-repository) beheert rapportlocaties
 
 ## Runtime en veiligheidsgrenzen
 
-De adapter gebruikt de actieve OpenVox-bundle, neutraliseert tijdelijk `PUPPETLIB` en construeert de environment rechtstreeks. `require 'puppet'` levert de runtime-defaults; de adapter roept geen applicatie-initialisatie aan die persoonlijke configuratie, extra load paths of facts inleest. Tijdelijke ENV-, strict- en loginstellingen worden hersteld na in-process gebruik. Native parserlogs kunnen invoerfragmenten bevatten; de tool vervangt ze door gerichte, gestructureerde fouten.
+De adapter gebruikt de actieve Puppet/OpenVox-bundle, neutraliseert tijdelijk `PUPPETLIB` en construeert de environment rechtstreeks. `require 'puppet'` levert de runtime-defaults; de adapter roept geen applicatie-initialisatie aan die persoonlijke configuratie, extra load paths of facts inleest. Tijdelijke ENV-, strict- en loginstellingen worden hersteld na in-process gebruik. Native parserlogs kunnen invoerfragmenten bevatten; de tool vervangt ze door gerichte, gestructureerde fouten.
 
-De controle installeert of wijzigt geen modules, metadata, gitlinks, lockfiles of hostconfiguratie. Er is geen catalogus, facts-uitvoering, pluginsync, Puppet Server of verbinding met beheerde hosts nodig. Het laden van de vertrouwde Ruby-runtime is geen sandbox voor willekeurige externe code. De [gemspec](project-tools-module.gemspec) begrenst de OpenVox- en JSON-versies; de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast.
+De controle installeert of wijzigt geen modules, metadata, gitlinks, lockfiles of hostconfiguratie. Er is geen catalogus, facts-uitvoering, pluginsync, Puppet Server of verbinding met beheerde hosts nodig. Het laden van de vertrouwde Ruby-runtime is geen sandbox voor willekeurige externe code. De [gemspec](project-tools-module.gemspec) begrenst uitsluitend de eigen library-interfaces; het project kiest de runtime volgens [runtimekeuze](../README.md#runtimekeuze-en-compatibiliteit); de [lockfile](../../Gemfile.lock) legt de ontwikkelbundle vast.
 
 ## Ontwikkelen en testen
 

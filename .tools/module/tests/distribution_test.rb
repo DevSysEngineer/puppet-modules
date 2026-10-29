@@ -25,7 +25,7 @@ class DependencyDistributionTest < Minitest::Test
   end
 
   def bundle_with(dependencies)
-    write('Gemfile', "source 'https://rubygems.org'\n#{dependencies}\n")
+    write('Gemfile', "source 'https://rubygems.org'\n#{runtime_dependency}\n#{dependencies}\n")
     run_success('bundle', 'install', '--local')
     @env['BUNDLE_FROZEN'] = 'true'
   end

@@ -8,6 +8,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 - [Inhoudsopgave](#inhoudsopgave)
 - [Runtimecontracten](#runtimecontracten)
+- [Puppet-runtime selecteren](#puppet-runtime-selecteren)
 - [Afhankelijkheden en onderhoud](#afhankelijkheden-en-onderhoud)
 - [Testondersteuning](#testondersteuning)
 
@@ -46,6 +47,18 @@ end
 Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daarna eenmaal `finish` aan met het juiste tooloordeel. Een rescue buiten `during` komt pas na de automatische onvolledige afsluiting en mag geen tweede primaire status schrijven. Herhaal volledig getoonde diagnoses niet via `finish(details:)`; verwijs ernaar bij de bekende tellingen. De automatische afsluiting bij een onverwachte exception is een vangnet, geen vervanging voor de toolspecifieke foutafhandeling en resultaatadministratie.
 
 `project_lint/junit_report` blijft in de lintgem beschikbaar als compatibility-shim. `ProjectLint::JunitReport` verwijst naar dezelfde shared-module, met dezelfde signatuur. Er is geen tweede XML-implementatie of fallback naar een naastgelegen checkout.
+
+## Puppet-runtime selecteren
+
+`require 'project_tools/shared/puppet_runtime'` laadt uitsluitend de gedeelde voorziening. `PuppetRuntime.detect` selecteert precies één geactiveerde gem uit `Gem.loaded_specs`: `puppet` of `openvox`. Bundler activeert de gem uit de eigen bundle; buiten Bundler moet de caller haar vooraf activeren. Geïnstalleerde alternatieven en `PATH` zijn geen selectiebron. Geen actieve runtime, beide gems tegelijk of overschaduwde Puppet-kerncode buiten de gekozen gem geeft `PuppetRuntime::Error`. `name`, `version` en `to_s` komen uit de geselecteerde gemspec. De herkomstcontrole beoordeelt `puppet.rb` en bestanden die in de geselecteerde runtime bestaan; module-eigen uitbreidingen onder `lib/puppet/` blijven toegestaan.
+
+`PuppetRuntime.load!(feature = 'puppet')` laadt de vereiste interface en controleert herkomst en overeenstemming tussen gemversie en `Puppet.version`. Dit is een consistentiecontrole tussen twee dynamische waarden, geen lijst toegestane releases. `detect.executable` kiest met RubyGems de executable van precies die gem en versie en controleert de herkomst. Start haar met de actieve `RbConfig.ruby`; zoek niet zelfstandig naar een executable of tweede runtime.
+
+`PuppetRuntime.parser` oefent parsing, AST-traversal, declaraties, literalwaarden en bronposities met synthetische invoer voordat de parser wordt teruggegeven. Een ontbrekende of afwijkende interface geeft een gerichte fout. De gedeelde voorziening garandeert geen volledige compatibiliteit van compiler, functies of interne API's. Functiespecifieke adapters blijven bij hun tool, zoals de [literal-evaluator](../lint/puppet/lib/project_lint/literal_evaluator.rb), die waarden en het signaal voor onbekende expressies controleert, en de [deprecationadapter](../catalog/README.md#native-deprecations-afkeuren). Ontwikkel adapters op benodigd gedrag: gebruik stabiele interfaces waar mogelijk, oefen noodzakelijke interne contracten en rapporteer onbekende of onvolledige analyse als fout. Voeg een verschiladapter alleen toe voor een aangetoond gedragsverschil; kies niet uitsluitend op een majorversie.
+
+`Console.software(tool, runtime: false, version: nil, output: $stderr)` toont eenmaal per aanroep de toolversie uit de geactiveerde gemspec, de runtime-identiteit en `RUBY_VERSION`. Checkouttools geven hun bestaande versiebron expliciet mee. `runtime: true` detecteert de actieve runtime; `false` toont `Puppet runtime: not required`. Een uitvoeringsconsole kan dezelfde informatie met `software: { tool: ..., runtime: ... }` bij haar start tonen. Een native CLI gebruikt rechtstreeks `software`; voeg geen tweede header toe in CI. `Console.with_software` houdt voor de secrets-tool bij of daadwerkelijk een Puppet-interface is gevraagd, ook bij een laadfout, en schrijft de header bij afsluiting. Algemene tekstscans activeren geen runtime.
+
+De [simulatietests](tests/puppet_runtime_test.rb) gebruiken tijdelijke gemspecs en een vervangende executable-resolver voor Puppet 8, OpenVox 8, OpenVox 9 en een onbekende toekomstige major. Ze testen selectie, conflicten, herkomst, versielogs en ontbrekende of gewijzigde API's zonder runtime-installaties. Ze bewijzen onze beslislogica, geen werking van die externe releases. De integratietests gebruiken uitsluitend de reeds geselecteerde lokale runtime; raadpleeg de [centrale bewijsgrenzen](../README.md#runtimekeuze-en-compatibiliteit).
 
 ## Afhankelijkheden en onderhoud
 

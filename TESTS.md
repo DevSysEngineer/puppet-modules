@@ -189,6 +189,8 @@ Nieuwe eigen Ruby-tools en wijzigingen die console-uitvoer of rapportage beïnvl
 
 Bij gewijzigde Puppet-voorbeelden in Markdown of Strings controleer je de codeblokken afzonderlijk met de bestaande lint- en parserroute. Een gewone manifestscan vindt ze niet. Plaats fragmenten zo nodig in hun bedoelde geldige context in een tijdelijk manifest buiten de repository; voeg daarvoor geen algemene extractievoorziening toe. Controleer ook de redactionele samenhang en gerichte links volgens de [documentatienorm](.tools/lint/puppet/docs/DOCUMENTATION_RULES.md#redactionele-review). Leg vast of parameterhulp in de gebruikte editor en een consumer met `global-modules` daadwerkelijk is bekeken.
 
+Runtimekeuze wordt in de bestaande shared- en Ruby-linttests gesimuleerd met gemspecs, vervangende resolvers en geïsoleerde API-stubs. Neem Puppet, OpenVox, toekomstige majors, ontbrekende/conflicterende selectie en afwijkend gedrag mee. Controleer eenmaal getoonde dynamische versie-informatie en behoud van stdout/JSON, stderr, exitcodes en JUnit. Echte integraties gebruiken uitsluitend de actieve ontwikkelruntime; installeer hiervoor geen aanvullende runtimes, verander Ruby of de bestaande lockfile niet automatisch en voeg geen echte versiematrix toe. Simulaties bewijzen onze logica, geen compatibiliteit van externe releases. De [toolinghandleiding](.tools/README.md#runtimekeuze-en-compatibiliteit) onderscheidt ontwerp, werkelijk getest gedrag en simulaties.
+
 ## Isolatie en bewijsvoering
 
 Houd synthetische tests en validatie gescheiden van productiecredentials, productieverbindingen en beheerde hosts. Een geslaagde lintscan vervangt functionele validatie of review nooit.

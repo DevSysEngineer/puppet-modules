@@ -30,8 +30,13 @@ class SecretsFailureTest < SecretsTest
     assert_equal 2, @status.exitstatus
     refute @report['complete']
     refute @report['files'][0]['complete']
-    assert_empty @err
+    assert_software_header
     assert_no_disclosure('synthetic-deep')
+  end
+
+  def assert_software_header
+    header = "Tool: project-tools-secrets #{Gem.loaded_specs.fetch('project-tools-secrets').version}\n"
+    assert_equal "#{header}Puppet runtime: not required\nRuby: #{RUBY_VERSION}\n", @err
   end
 
   def test_failed_publication_removes_partial_analysis_tree

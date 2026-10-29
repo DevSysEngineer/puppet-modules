@@ -5,7 +5,7 @@ module ProjectTools
     # Compare native declarations with realized resources, independently of the scenario's spelling.
     class Coverage
       def initialize(directory)
-        parser = Puppet::Pops::Parser::EvaluatingParser.new
+        parser = Shared::PuppetRuntime.parser
         @definitions = Dir.glob(File.join(directory, 'manifests/**/*.pp')).flat_map do |path|
           parser.parse_file(path).definitions.filter_map { |definition| definition_name(definition) }
         end.uniq.sort

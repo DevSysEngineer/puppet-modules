@@ -56,7 +56,7 @@ module ProjectTools
       def check_dependencies(mod)
         mod.unmet_dependencies.each { |finding| record_finding(mod, finding) }
       rescue StandardError => e
-        @result.error(:runtime_error, "OpenVox could not compare module dependencies (#{e.class}).",
+        @result.error(:runtime_error, "Puppet runtime could not compare module dependencies (#{e.class}).",
                       scope: 'module', requester_name: mod.name, requester_metadata: mod.metadata_file)
       end
 

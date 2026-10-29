@@ -7,6 +7,7 @@ module CiTaskSupport
   def setup
     @project = Dir.mktmpdir('ci-task-boundaries-')
     write('Rakefile', File.read(File.join(ROOT, 'Rakefile')))
+    write('VERSION', File.read(File.join(ROOT, 'VERSION')))
     FileUtils.mkdir_p(File.join(@project, '.tools/catalog'))
     FileUtils.cp_r(File.join(ROOT, '.tools/catalog/lib'), File.join(@project, '.tools/catalog/lib'))
     write_scenarios

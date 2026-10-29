@@ -69,7 +69,7 @@ class CliDiagnosticsTest < Minitest::Test
     assert_cli_success(@file)
     assert_equal 0, @status.exitstatus
     assert_empty @output
-    assert_empty @errors
+    assert_version_header
   end
 
   def test_warning_and_error_numeric_exit_codes_match_the_guide
@@ -80,7 +80,7 @@ class CliDiagnosticsTest < Minitest::Test
       assert_cli_failure(@file)
       assert_equal 1, @status.exitstatus
       assert_includes @output, message
-      assert_empty @errors
+      assert_version_header
     end
   end
 
@@ -89,7 +89,7 @@ class CliDiagnosticsTest < Minitest::Test
     assert_cli_failure('--invalid-synthetic-option', @file)
     assert_equal 1, @status.exitstatus
     assert_includes @output, 'invalid option'
-    assert_empty @errors
+    assert_version_header
   end
 
   def test_filtering_output_does_not_change_the_warning_exit_status

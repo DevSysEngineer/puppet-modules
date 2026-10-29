@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
-require 'puppet'
+require 'project_tools/shared/puppet_runtime'
+ProjectTools::Shared::PuppetRuntime.load!
 require_relative 'hiera'
 
 module ProjectTools

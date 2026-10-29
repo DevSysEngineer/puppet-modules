@@ -13,7 +13,13 @@ module ProjectTools
   module Secrets
     ACTIONS = %w[prepare write diff run close cancel clone register fixture recover].freeze
 
-    def self.run(arguments, output: $stdout)
+    def self.run(arguments, output: $stdout, errors: $stderr)
+      return dispatch(arguments, output) if arguments.include?('--help') || arguments.include?('-h')
+
+      Shared::Console.with_software('project-tools-secrets', output: errors) { dispatch(arguments, output) }
+    end
+
+    def self.dispatch(arguments, output)
       if ACTIONS.include?(arguments.first)
         require_relative 'secrets/session_command'
         SessionCommand.new(output).run(arguments)

@@ -1,6 +1,6 @@
 # Ruby-lint
 
-`project-tools-ruby-lint` levert RuboCop en het gedeelde profiel `config/rubocop.yml`. Gebruik de native `rubocop`-CLI en zijn JUnit-formatter. Het pakket installeert geen Puppet, lintplugins of shared-library en heeft geen eigen wrapper. Kies je gembron volgens de [installatiehandleiding](../../README.md#importeren-en-distribueren).
+`project-tools-ruby-lint` levert RuboCop en het gedeelde profiel `config/rubocop.yml`. Gebruik de native `rubocop`-CLI en zijn JUnit-formatter. Het pakket gebruikt shared voor versie-informatie, installeert geen Puppet-runtime of Puppet-lintplugins en heeft geen eigen wrapper. Kies je gembron volgens de [installatiehandleiding](../../README.md#importeren-en-distribueren).
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-tests).
 
@@ -9,6 +9,7 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 - [Inhoudsopgave](#inhoudsopgave)
 - [Ruby-code controleren](#ruby-code-controleren)
 - [Ruby controleren in een ander project](#ruby-controleren-in-een-ander-project)
+- [Runtimekoppelingen controleren](#runtimekoppelingen-controleren)
 - [Onderhoud en tests](#onderhoud-en-tests)
 
 ## Ruby-code controleren
@@ -73,14 +74,22 @@ bundle exec rubocop --config .rubocop.yml
 
 Voor veilige lokale correcties volg je de [RuboCop-werkwijze](#ruby-code-controleren), met de `.rubocop.yml` van je eigen project. Voor console-uitvoer en JUnit XML uit één uitvoering gebruik je de [rapportaanroep](../../README.md#rapporten-en-artifacts-in-je-project). Voer de Ruby-scan ook in je eigen CI uit. Puppet-lint en RuboCop hebben afzonderlijke commando's: een Puppet-lintscan voert geen Ruby-scan uit.
 
+## Runtimekoppelingen controleren
+
+Het gedeelde profiel laadt `Project/RuntimeCoupling`. De bestaande Ruby-scan in lokale controles, GitHub Actions en het GitLab-voorbeeld keurt een overtreding af. De AST-regel herkent directe `require`/RubyGems-selectie van Puppet/OpenVox buiten de gedeelde runtimevoorziening, runtime-dependencies in toolgems en exacte runtimeversieguards, inclusief eenvoudige lokale toewijzingen. De project-Gemfile mag één onbegrensde runtime kiezen. Een expliciete grens in Gemfile of een noodzakelijke exacte defectuitsluiting vereist direct erboven `# runtime-compatibility: <concrete technische reden>`. Die toelichting ontslaat de reviewer niet van bewijs en gerichte tests; zij staat geen tweede detector of directe tooldependency toe.
+
+De eigen detector is via `RuntimeFiles` het benoemde implementatiepunt. Tests, mocks en fixtures zijn uitgesloten voor deze regel; gewone Ruby-stijlchecks blijven gelden. Lockfiles en Markdown worden niet als Ruby-code onderzocht. Onderbouwde minimumversies en expliciete compatibiliteitsgrenzen zijn toegestaan. Dynamisch opgebouwde Ruby en complexere gegevensstromen vallen buiten deze gerichte statische controle; handmatige review blijft nodig. De regel corrigeert niets automatisch.
+
+De [AST-tests](tests/runtime_coupling_test.rb) gebruiken synthetische code. De geïnstalleerde-consumertest bewijst profielovererving en normale RuboCop-afkeuring. Er worden geen extra Puppet-runtimes geïnstalleerd. De versieheader komt eenmaal via shared op stderr, onafhankelijk van de gekozen native formatter; JSON en JUnit blijven machineleesbaar.
+
 ## Onderhoud en tests
 
 Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../../CONTRIBUTING.md), het [testbeleid](../../../TESTS.md) en het [gedeelde toolingonderhoud](../../README.md#gedeeld-toolingonderhoud).
 
-- Behoud de [native gebruiks- en correctieroute](#ruby-code-controleren) en [consumerprofielintegratie](#ruby-controleren-in-een-ander-project). Voeg geen projectwrapper, tweede formatter of dependencies op Puppet, lintplugins of shared toe.
+- Behoud de [native gebruiks- en correctieroute](#ruby-code-controleren) en [consumerprofielintegratie](#ruby-controleren-in-een-ander-project). Voeg geen projectwrapper, tweede formatter of dependencies op Puppet of Puppet-lintplugins toe. Gebruik shared voor de gezamenlijke versieheader.
 - Review profielwijzigingen tegen repository- en consumerselectie, inclusief verborgen tooling, uitgesloten dependencies en templates. Behoud standaard-RuboCopregels en inschakeling van nieuwe checks zonder een suppressielijst voor bestaande bevindingen te genereren.
 - Werk gebruiks- en testcontracten samen bij. Verifieer zelfstandige installatie met eigen consumerbundle, overerving van het profiel, schone en falende Ruby-invoer en native JUnit. Behoud native diagnostiek, annotaties en exitcodes bij CI-presentatiewijzigingen; betrek repositorycontroles bij workflowintegratie.
 
-De gem bevat het profiel, deze README en de licentie. Lokale aanroepen houden de native uitvoer. CI gebruikt de native progress- en JUnit-formatters, `--stderr` voor ongebufferde voortgang en de bestaande Bash-aanroeplaag voor het [centrale logcontract](../../README.md#joblogs). Native diagnostiek en eventuele GitHub-annotaties worden niet nogmaals geparseerd of uitgezonden. RuboCopstatus 1 met een nieuw, niet-leeg JUnit-rapport wordt als `FAILED` getoond, met de uitleg dat offenses de ingestelde afkeurdrempel overschrijden. Ontbreekt dat rapport bij status 1, dan is de uitvoering niet bevestigd en volgt `ERROR`; een oud rapport wordt vóór de scan verwijderd. Andere niet-nul statussen geven `ERROR` met de uitleg dat de scan of rapportage niet kon worden afgerond. De getoonde native bestands- en offenseaantallen blijven afzonderlijk van de JUnit-testcases. Native RuboCop bepaalt de exitcodes en maakt JUnit met `--format junit --out REPORT.xml`; de [gezamenlijke gids](../../README.md#rapporten-en-artifacts-in-je-project) beschrijft CI en rapportpaden. Exitcode 0 is schoon, 1 betekent offenses en uitvoerings- of configuratiefouten leveren een foutstatus op.
+De gem bevat het profiel, de eigen Ruby-lintintegratie en AST-regel, deze README en de licentie. Lokale aanroepen houden de native uitvoer. CI gebruikt de native progress- en JUnit-formatters, `--stderr` voor ongebufferde voortgang en de bestaande Bash-aanroeplaag voor het [centrale logcontract](../../README.md#joblogs). Native diagnostiek en eventuele GitHub-annotaties worden niet nogmaals geparseerd of uitgezonden. RuboCopstatus 1 met een nieuw, niet-leeg JUnit-rapport wordt als `FAILED` getoond, met de uitleg dat offenses de ingestelde afkeurdrempel overschrijden. Ontbreekt dat rapport bij status 1, dan is de uitvoering niet bevestigd en volgt `ERROR`; een oud rapport wordt vóór de scan verwijderd. Andere niet-nul statussen geven `ERROR` met de uitleg dat de scan of rapportage niet kon worden afgerond. De getoonde native bestands- en offenseaantallen blijven afzonderlijk van de JUnit-testcases. Native RuboCop bepaalt de exitcodes en maakt JUnit met `--format junit --out REPORT.xml`; de [gezamenlijke gids](../../README.md#rapporten-en-artifacts-in-je-project) beschrijft CI en rapportpaden. Exitcode 0 is schoon, 1 betekent offenses en uitvoerings- of configuratiefouten leveren een foutstatus op.
 
 Voer vanuit de repositoryroot `bundle exec rake test:ruby_lint` uit voor onafhankelijke installatie, profielgebruik, schone/falende Ruby-invoer en native JUnit. De tests gebruiken een eigen consumerbundle zonder Puppet-tools. `bundle exec rake test` controleert alle tools samen.

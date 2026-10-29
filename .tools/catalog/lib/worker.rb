@@ -2,10 +2,9 @@
 
 require 'json'
 require 'tmpdir'
-require 'puppet'
+require 'project_tools/shared/puppet_runtime'
 require 'project_tools/shared/modulepath'
 require_relative 'coverage'
-require_relative 'hiera'
 require_relative 'deprecations'
 
 # Reserve stdout for the result; native output stays on the diagnostic stream.
@@ -17,6 +16,8 @@ deprecations = nil
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
 begin
+  ProjectTools::Shared::PuppetRuntime.load!
+  require_relative 'hiera'
   modulepath, manifest, facts_path, module_directory, hiera = ARGV
   paths = ProjectTools::Shared::Modulepath.parse(modulepath)
 
@@ -55,6 +56,9 @@ begin
       result[:coverage] = ProjectTools::Catalog::Coverage.new(module_directory).result(catalog)
     end
   end
+rescue ProjectTools::Shared::PuppetRuntime::Error => e
+  warn e.message
+  exit 2
 rescue Puppet::Error => e
   # The native compiler logs its own exception, including source location.
   warn e.message unless compiling

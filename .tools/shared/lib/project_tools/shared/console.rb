@@ -1,12 +1,17 @@
 # frozen_string_literal: true
 
+require_relative 'software'
+
 module ProjectTools
   module Shared
     # Presentation only: callers supply the outcome, coverage and diagnostics.
     class Console
+      extend Software
+
       INTERVAL = 15
 
-      def initialize(name, output: $stdout, scope: nil, clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
+      def initialize(name, output: $stdout, scope: nil, software: nil,
+                     clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
         @name = name
         @output = output
         @clock = clock
@@ -16,6 +21,7 @@ module ProjectTools
         @findings = []
         @mutex = Mutex.new
         line(["[START] #{@name}", scope].compact.join(' | '))
+        self.class.software(software.fetch(:tool), **software.except(:tool), output: output) if software
       end
 
       def during

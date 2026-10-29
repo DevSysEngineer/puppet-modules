@@ -54,10 +54,13 @@ namespace :syntax do
       end
     else
       require 'project_tools/shared/console'
-      console = ProjectTools::Shared::Console.new('Puppet syntax', scope: "#{manifests.size} files selected")
+      console = ProjectTools::Shared::Console.new('Puppet syntax',
+                                                  scope: "#{manifests.size} files selected",
+                                                  software: { tool: 'project-tools-syntax', runtime: true })
       console.during do
         abort 'No Puppet manifests selected.' if manifests.empty?
-        sh 'bundle', 'exec', 'puppet', 'parser', 'validate', '--color=false', *manifests, verbose: false do |ok, status|
+        sh RbConfig.ruby, ProjectTools::Shared::PuppetRuntime.detect.executable, 'parser', 'validate',
+           '--color=false', *manifests, verbose: false do |ok, status|
           console.finish(status: ok ? 'PASSED' : 'Result not classified', execution: ok ? 'complete' : 'unknown',
                          facts: ["Original exit status: #{status}", 'Native parser diagnostics are shown above.'])
           raise SignalException, status.termsig if status.signaled?

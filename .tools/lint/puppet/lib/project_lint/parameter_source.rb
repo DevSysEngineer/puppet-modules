@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'project_lint/ast'
-require 'puppet/pops/evaluator/json_strict_literal_evaluator'
+require 'project_lint/literal_evaluator'
 
 module ProjectLint
   # Follow local assignments and parameter defaults without confusing defaults with fixed values.
@@ -11,7 +11,7 @@ module ProjectLint
       # AST equality ignores source locations; identical variable names can belong to different scopes.
       @parents = {}.compare_by_identity
       ast.nodes.each { |node, parents| @parents[node] = parents }
-      @literals = Puppet::Pops::Evaluator::JsonStrictLiteralEvaluator.new
+      @literals = LiteralEvaluator.build
     end
 
     def unwrap(node)

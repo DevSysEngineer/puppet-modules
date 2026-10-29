@@ -41,7 +41,7 @@ module ImportsSupport
     # Offline gem caches do not provide registry checksums for a new lockfile.
     @env['BUNDLE_LOCKFILE_CHECKSUMS'] = 'false'
     FileUtils.rm_f(File.join(@project, 'Gemfile.lock'))
-    write('Gemfile', "source 'https://rubygems.org'\n#{dependency}\n")
+    write('Gemfile', "source 'https://rubygems.org'\n#{runtime_dependency}\n#{dependency}\n")
     run_success('bundle', 'install', '--local')
     run_success('bundle', 'info', '--path', 'lint-project')
     @installed = @output.strip

@@ -7,6 +7,7 @@ require 'rbconfig'
 require_relative 'syntax/command'
 require 'project_tools/shared/junit_report'
 require 'project_tools/shared/console'
+require 'project_tools/shared/puppet_runtime'
 
 module ProjectTools
   # Runs the native validator once per manifest and reports every result, including failures.
@@ -15,7 +16,8 @@ module ProjectTools
 
     def initialize(paths, console)
       @paths = paths.map { |path| Pathname.new(File.expand_path(path)).relative_path_from(Pathname.pwd).to_s }.uniq
-      @console = Shared::Console.new('Puppet syntax', output: console, scope: "#{@paths.size} files selected")
+      @console = Shared::Console.new('Puppet syntax', output: console, scope: "#{@paths.size} files selected",
+                                                      software: { tool: 'project-tools-syntax', runtime: true })
       @results = []
     end
 
@@ -92,10 +94,10 @@ module ProjectTools
       end
 
       # The active bundle supplies the executable and Ruby; no shell interprets manifest paths.
-      output, status = Open3.capture2e(RbConfig.ruby, Gem.bin_path('openvox', 'puppet'),
+      output, status = Open3.capture2e(RbConfig.ruby, Shared::PuppetRuntime.detect.executable,
                                        'parser', 'validate', '--color=false', File.expand_path(path))
       validation_result(path, output, status)
-    rescue SystemCallError => e
+    rescue SystemCallError, Shared::PuppetRuntime::Error => e
       { path: path, kind: :error, message: "Cannot start Puppet validator: #{e.message}" }
     end
 

@@ -69,7 +69,7 @@ module DependencyTestSupport
   end
 
   def native_list
-    output, errors, status = Open3.capture3(@env, RbConfig.ruby, Gem.bin_path('openvox', 'puppet'),
+    output, errors, status = Open3.capture3(@env, RbConfig.ruby, ProjectTools::Shared::PuppetRuntime.detect.executable,
                                             'module', 'list', '--modulepath', @env.fetch('PROJECT_TOOLS_MODULEPATH'),
                                             '--strict=error', '--render-as', 'json', '--color=false', chdir: @project)
     assert_equal 0, status.exitstatus, output + errors

@@ -4,6 +4,8 @@
 
 Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-verificatie).
 
+Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Metadata heeft geen Puppet-runtime nodig.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

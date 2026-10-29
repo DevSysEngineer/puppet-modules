@@ -4,6 +4,12 @@
 module LintCliSupport
   include LintTestSupport
 
+  def assert_version_header
+    expected = ["Tool: lint-project #{Gem.loaded_specs.fetch('lint-project').version}",
+                "Runtime: #{ProjectTools::Shared::PuppetRuntime.detect}", "Ruby: #{RUBY_VERSION}"]
+    assert_equal expected, @errors.lines.map(&:chomp)
+  end
+
   def setup
     @directory = Dir.mktmpdir('lint_cli_')
   end

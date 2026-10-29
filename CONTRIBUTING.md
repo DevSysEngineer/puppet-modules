@@ -141,6 +141,8 @@ De eigen modules richten zich op Debian- en Ubuntu-servers. De volledige combina
 
 Runtime-modulekeuze volgt de [lokale integratie- en dependencyregels](.tools/lint/puppet/docs/OPERATIONAL_RULES.md#lokale-integraties-en-runtimeafhankelijkheden-kiezen).
 
+Voor tooling selecteert het afnemende project één Puppet/OpenVox-runtime. Gebruik de [gedeelde runtimevoorziening](.tools/shared/README.md#puppet-runtime-selecteren), behoud functionele veiligheidscontroles en onderbouw noodzakelijke versiegrenzen. De [Ruby-lintcontrole](.tools/lint/ruby/README.md#runtimekoppelingen-controleren) en [simulatieroute](TESTS.md#isolatie-en-bewijsvoering) vullen handmatige review aan; claim geen compatibiliteit die niet is uitgevoerd.
+
 ### Release-impact bepalen
 
 Gebruik [Semantic Versioning](https://semver.org/spec/v2.0.0.html), `MAJOR.MINOR.PATCH`. Root-`VERSION` is de enige projectversiebron; rootmetadata en alle eigen modulemetadata volgen haar. Een breaking wijziging in één module raakt dus de versie van de volledige moduleset, ook ongewijzigde modules. Consumerprojecten, geïmporteerde gedeelde projecten en externe dependencies behouden eigen versies.

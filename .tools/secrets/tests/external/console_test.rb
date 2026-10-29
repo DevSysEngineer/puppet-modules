@@ -13,7 +13,8 @@ class ExternalSecretsConsoleTest < ExternalSecretsTestCase
     assert_includes @output, 'possible secret value: An assignment targets a sensitive field.'
     refute_includes @output, 'ordinary.txt'
     refute_includes @output + @errors, 'synthetic-console-consumer'
-    assert_empty @errors
+    assert_equal 1, @errors.scan('Tool: project-tools-secrets').size
+    assert_includes @errors, 'Ruby: '
   end
 
   def test_installed_console_explains_missing_optional_parser
@@ -22,9 +23,11 @@ class ExternalSecretsConsoleTest < ExternalSecretsTestCase
     assert_equal 2, @status.exitstatus, @output + @errors
     assert_includes @output, '[ERROR] Sensitive data scan'
     assert_includes @output, 'Files: 1 selected | 0 complete | 1 incomplete'
-    assert_includes @output, 'The Puppet parser is unavailable; install OpenVox in the active bundle.'
+    assert_includes @output, 'The Puppet parser is unavailable; '
+    assert_includes @output, 'select compatible Puppet or OpenVox in the active bundle.'
     assert_includes @output, '(puppet_parser_unavailable)'
-    assert_empty @errors
+    assert_equal 1, @errors.scan('Tool: project-tools-secrets').size
+    assert_includes @errors, 'Runtime: unavailable'
   end
 
   def test_installed_console_identifies_archive_members_without_disclosing_content

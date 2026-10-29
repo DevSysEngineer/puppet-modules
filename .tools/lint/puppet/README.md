@@ -66,6 +66,8 @@ Richt eerst een eigen bundle en configuratie in met [Snelstart in een ander Pupp
 
 Begin in de ontwikkelcheckout bij het [lintonderhoud](#linter-ontwikkelen-en-testen), na de [gezamenlijke ontwikkelwerkwijze](../../../CONTRIBUTING.md) en het [gedeelde toolingonderhoud](../../README.md#gedeeld-toolingonderhoud). De [technische uitleg en testaanroepen](#linter-ontwikkelen-en-testen) hieronder beschrijven de architectuur en beschikbare verificatie. Voor gewone Puppet-wijzigingen gebruik je de dagelijkse werkwijze en relevante normen.
 
+Selecteer Puppet of OpenVox expliciet in de eigen Gemfile volgens [runtimekeuze](../../README.md#runtimekeuze-en-compatibiliteit). De gedeelde detector en gedragsprobe leveren de parser. De native CLI toont eenmaal tool-, runtime- en Ruby-versie op stderr; de JUnit-converter heeft zelf geen Puppet-runtime nodig. Deze architectuur bewijst geen compatibiliteit met ongeteste releases.
+
 ## Inhoudsopgave
 
 - [Leeswijzer](#leeswijzer)
@@ -512,16 +514,16 @@ De tabellen gelden voor de expliciete profielen met `--fail-on-warnings` en `--e
 
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |
 | --- | --- | --- | --- | --- |
-| Schoon bestand | 0 | Stil; met JSON `[[]]` | Leeg | Native uitvoer; JUnit alleen via converter |
-| Actieve warning | 1 | Diagnostic met warning of native JSON | Gewoonlijk leeg | JSON bevat de warning |
+| Schoon bestand | 0 | Stil; met JSON `[[]]` | Versieheader | Native uitvoer; JUnit alleen via converter |
+| Actieve warning | 1 | Diagnostic met warning of native JSON | Versieheader | JSON bevat de warning |
 | Actieve error | 1 | Diagnostic met error of native JSON | Syntax geeft bovendien parseradvies | JSON bevat de error |
-| Ongeldige optie | 1 | `puppet-lint: invalid option: {optie}` plus hulpaanwijzing | Leeg voor InvalidOption | Geen geldige native JSON |
-| Ontbrekende invoer of bestand | 1 | `no file specified` of `no file specified or specified file does not exist` plus hulpaanwijzing | Leeg | Geen geldige native JSON |
-| Ontbrekend expliciet configbestand | 0 bij verder schone run | Geen waarschuwing over het ontbrekende bestand | Leeg | Overige opties draaien; dit bewijst geen geladen projectprofiel |
-| Ongeldige configoptie | 1 | InvalidOption plus hulpaanwijzing | Leeg | Geen geldige native JSON |
+| Ongeldige optie | 1 | `puppet-lint: invalid option: {optie}` plus hulpaanwijzing | Versieheader | Geen geldige native JSON |
+| Ontbrekende invoer of bestand | 1 | `no file specified` of `no file specified or specified file does not exist` plus hulpaanwijzing | Versieheader | Geen geldige native JSON |
+| Ontbrekend expliciet configbestand | 0 bij verder schone run | Geen waarschuwing over het ontbrekende bestand | Versieheader | Overige opties draaien; dit bewijst geen geladen projectprofiel |
+| Ongeldige configoptie | 1 | InvalidOption plus hulpaanwijzing | Versieheader | Geen geldige native JSON |
 | Ontbrekend `--load`-bestand | 1 | Geen lintdiagnostics | LoadError met bestandsnaam en stacktrace | Geen JSON-rapport |
 | Ongeldig modulepad | 1 | Geen geslaagde lintuitslag | ArgumentError met `PROJECT_TOOLS_MODULEPATH` | Geen compleet JSON-rapport |
-| Lege directory of volledig uitgesloten manifestselectie | 0 | JSON `[]` | Leeg | Zonder gecontroleerde bestanden maakt de converter ReportError |
+| Lege directory of volledig uitgesloten manifestselectie | 0 | JSON `[]` | Versieheader | Zonder gecontroleerde bestanden maakt de converter ReportError |
 | Ongeldige native rapportbestemming | 1 | Eventueel reeds gemaakte JSON | Schrijffout, bijvoorbeeld EISDIR | Geen bruikbaar nieuw rapport op die bestemming |
 
 `--error-level` filtert alleen de gepubliceerde meldingen, inclusief JSON. Het verandert de warning/error-exitstatus niet. Een warningrun met `--error-level error --json` kan dus `[[]]` afdrukken en toch met 1 eindigen. Gebruik deze filteroptie niet in eindrapporten. Zonder `--fail-on-warnings` zou een warningrun 0 kunnen geven; beide projectprofielen voorkomen dat.
@@ -532,13 +534,13 @@ Een ontbrekend configbestand is een vastgestelde native beperking. Daarom contro
 
 Gebruik `bundle exec puppet-lint-junit --help` of `-h` voor de opties. Help volgt het [gezamenlijke CLI-contract](../../README.md#cli-en-rapportage): status 0, gebruiksuitleg op stdout, lege stderr en geen verwerking van stdin of rapportbestand. Onbekende opties geven status 1 met gebruiksuitleg, zonder rapport te schrijven. Voor een bestand waarvan de naam met een streepje begint, gebruik je `--` vóór het pad.
 
-Deze tabel beschrijft de gewone conversie zonder `--result-status`.
+Deze tabel beschrijft de gewone conversie zonder `--result-status`. Iedere conversie met een geldig rapportargument toont eerst de versieheader op stderr; genoemde diagnoses komen daarachter. Help en argumentfouten behouden hun eigen uitvoer.
 
 | Geval | Exitcode | Stdout | Stderr | Rapportgedrag |
 | --- | --- | --- | --- | --- |
-| Geldige JSON zonder actieve meldingen | 0 | `Puppet lint: no active findings.` | Leeg | Eén geslaagde testcase |
-| Geldige JSON met warnings | 0 | Actieve diagnostics | Leeg | JUnit-failure per bestand/check |
-| Geldige JSON met errors | 0 | Actieve diagnostics | Leeg | JUnit-failure per bestand/check |
+| Geldige JSON zonder actieve meldingen | 0 | `Puppet lint: no active findings.` | Versieheader | Eén geslaagde testcase |
+| Geldige JSON met warnings | 0 | Actieve diagnostics | Versieheader | JUnit-failure per bestand/check |
+| Geldige JSON met errors | 0 | Actieve diagnostics | Versieheader | JUnit-failure per bestand/check |
 | Ontbrekende/ongeldige JSON | 1 | Geen geslaagde scanmelding | `Invalid or missing Puppet-lint JSON; inspect the lint log.` | Parseerbare XML met ReportError als rapportpad schrijfbaar is |
 | JSON `[]` | 1 | Geen geslaagde scanmelding | `No files were reported by Puppet-lint` | XML met ReportError |
 | Ongeldige JSON-structuur of diagnosticvelden | 1 | Geen geslaagde scanmelding | `Expected native Puppet-lint JSON arrays` of `Invalid Puppet-lint diagnostic` | XML met ReportError |
@@ -961,7 +963,7 @@ Puppet-lint blijft de lintengine. De checks gebruiken zijn tokens, `notify`, sup
 
 [`JunitReport`](lib/project_lint/junit_report.rb) verwijst naar de gedeelde XML-schrijver in `project-tools-shared`. De zelfstandige [validatorgem](../../syntax/README.md) beheert parserorkestratie en de bijbehorende tests.
 
-[`Ast`](lib/project_lint/ast.rb) voegt alleen de structurele informatie van de OpenVox-parser toe: declaraties, expressies, resources en hun omliggende scopes. De tokenindexen van Puppet-lint leveren die volledige structuur niet. Alle structurele checks delen één AST voor de huidige lintinvoer; een nieuwe scan vervangt die analyse, ook bij gelijke tekst in een ander bestand. De analyse voert geen Puppet-functies of catalogi uit. Alleen echte `Puppet::ParseError`-meldingen worden omgezet naar een syntaxfout; programmeerfouten blijven fouten. Een onbekende constructie krijgt waar nodig een reviewmelding.
+[`Ast`](lib/project_lint/ast.rb) voegt alleen de structurele informatie van de geselecteerde Puppet-parser toe: declaraties, expressies, resources en hun omliggende scopes. De tokenindexen van Puppet-lint leveren die volledige structuur niet. Alle structurele checks delen één AST voor de huidige lintinvoer; een nieuwe scan vervangt die analyse, ook bij gelijke tekst in een ander bestand. De analyse voert geen Puppet-functies of catalogi uit. Alleen echte `Puppet::ParseError`-meldingen worden omgezet naar een syntaxfout; programmeerfouten blijven fouten. Een onbekende constructie krijgt waar nodig een reviewmelding.
 
 Het entrypoint laadt eerst `puppet-lint` en daarna de eigen checks. Gebruik daarom `--load` zoals in de voorbeelden, of `require 'project_lint'` vanuit Ruby. Automatische registratie van manifestchecks via `lib/puppet-lint/plugins/` wordt bewust niet gebruikt: Puppet-lint laadt gemplugins met `load`, in gemvolgorde. De externe trailing-comma-plugin bewaart oorspronkelijke tokenankers die referencefixes kunnen verwijderen. Door het projectentrypoint na de engine te laden, zijn de upstream-fixes al geregistreerd en blijven beide transformaties bruikbaar. De integratietests bewaken deze laadroute en herhaald laden veroorzaakt geen dubbele registraties. De [native API](https://puppet-lint.com/developer/api/) en de onderhouden [parameterplugin](https://github.com/voxpupuli/puppet-lint-param-types) zijn het uitgangspunt voor nieuwe checks; afhankelijkheden en hun werkelijk geïnstalleerde implementatie bepalen de grenzen van autofix.
 
@@ -974,7 +976,7 @@ Het entrypoint laadt eerst `puppet-lint` en daarna de eigen checks. Gebruik daar
 
 `project_duplicate_function_calls` is standaard actief in beide profielen. Vanaf twee structureel gelijke, bewezen herhaalbare aanroepen volgt één `warning` op de tweede aanroep, met de regel van de eerste. De melding bevat geen argumentwaarden. Met `--fail-on-warnings` kan deze nieuwe check de scan laten falen; inventariseer bevindingen vóór een consumerupdate. De [norm en reviewcriteria](docs/CODE_RULES.md#herhaalde-zuivere-functieaanroepen-lokaal-hergebruiken) blijven ook buiten de automatische dekking gelden.
 
-Het interne register in [duplicate_function_calls.rb](lib/project_lint/checks/duplicate_function_calls.rb) is beoordeeld tegen OpenVox 8.29.0 en stdlib 10.1.0 uit de checkout. De bestaande gemspecafhankelijkheden veranderen niet. Controleer bij runtime-updates opnieuw dispatches en implementaties; de [Puppet-functiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/Markdown/function.htm), [conversiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/typecasting.htm) en [stdlib 10.1.0-bron](https://github.com/puppetlabs/puppetlabs-stdlib/tree/v10.1.0/lib/puppet) helpen die review, maar vervangen haar niet.
+Het interne register in [duplicate_function_calls.rb](lib/project_lint/checks/duplicate_function_calls.rb) is beoordeeld tegen OpenVox 8.29.0 en stdlib 10.1.0 uit de checkout. Controleer bij runtime-updates opnieuw dispatches en implementaties; de [Puppet-functiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/Markdown/function.htm), [conversiereferentie](https://help.puppet.com/core/current/Content/PuppetCore/typecasting.htm) en [stdlib 10.1.0-bron](https://github.com/puppetlabs/puppetlabs-stdlib/tree/v10.1.0/lib/puppet) helpen die review, maar vervangen haar niet.
 
 Alleen onderstaande exacte namen en positionele vormen zijn ingeschakeld. `Data` betekent gewone Puppet-data: scalars, `undef`, arrays daarvan en hashes met stringkeys; `ScalarData` betekent string, getal of boolean. `Collection` is hier `Array[Data]` of `Hash[String, Data]`. Vierkante tekst tussen haakjes in de argumentkolom geeft optionele argumenten aan, geen Puppet-typesyntax. De resultaatkolom is een conservatief statisch type, geen uitvoering van de functie.
 

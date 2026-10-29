@@ -14,6 +14,7 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
   - [Installatie](#installatie)
   - [Ruby op macOS](#ruby-op-macos)
   - [Gems installeren](#gems-installeren)
+- [Runtimekeuze en compatibiliteit](#runtimekeuze-en-compatibiliteit)
 - [Gedeeld modulepad](#gedeeld-modulepad)
 - [Rapporten en CI](#rapporten-en-ci)
   - [Rapportmap kiezen](#rapportmap-kiezen)
@@ -60,7 +61,7 @@ Controleer bestanden vóór AI-analyse of externe inzage met de [lokale secretco
 
 De pakketlinks verwijzen naar de gemspecs die de pakketversies en dependencygrenzen beheren. De [lockfile](../Gemfile.lock) legt de gekozen versies van de ontwikkelbundle vast; afnemende projecten beheren hun eigen lockfile.
 
-De validatorgem gebruikt shared, OpenVox, JSON en syslog; de dependencygem gebruikt daarnaast semantic_puppet. OpenVox heeft syslog op de gebruikte Ruby 4-runtime nodig; alle drie OpenVox-gebruikers declareren die dependency zelf. Validator en dependencytool installeren geen Puppet-lint, lintplugins of RuboCop. Shared gebruikt geen van de tools en initialiseert geen Puppet-runtime. Metadata gebruikt JSON en shared, zonder Puppet-runtime. De algemene secretcontrole gebruikt shared, JSON en Psych en heeft geen Puppet-runtime nodig. Voor de Puppet-gate en voorbereiding van `.pp`-bestanden is OpenVox 8 wel vereist. Ruby-lint gebruikt alleen RuboCop. Lint gebruikt OpenVox voor zijn eigen AST-analyse. [Repositorycontroles](repository/README.md) bewaken uitsluitend deze ontwikkelcheckout en vormen geen runtimegem.
+De toolgems kiezen geen Puppet-runtime voor de afnemer. Syntax, modulecontrole, lint en cataloguscompilatie gebruiken Puppet of OpenVox uit de actieve bundle; secrets gebruikt die alleen voor Puppet-invoer. De [gedeelde runtimevoorziening](shared/README.md#puppet-runtime-selecteren) verzorgt selectie en executable. Metadata, Ruby-lint en algemene tekstscans werken zonder Puppet-runtime. Ruby-lint gebruikt RuboCop en shared voor uniforme versie-informatie. Shared heeft geen dependency op Puppet, OpenVox of andere tools. Validator en dependencycontrole installeren geen linter. [Repositorycontroles](repository/README.md) blijven uitsluitend voor deze ontwikkelcheckout.
 
 De secrets-gem levert één executable: `project-tools-secrets`. De subcommando's `prepare`, `write`, `run`, `diff` en `close` bedienen de analysewerkwijze. De [taakindeling en migratie](secrets/README.md#taakingangen-en-migratie) beschrijven ook markerregistratie, diagnostiek, afsluiten en herstel. Gebruik voor bewerkingen met beschermde waarden de [voorbereide analysebestanden](secrets/README.md#ontwikkelen-met-een-analysewerkboom), met eigen lokale selectie, Hiera-context en private ID-koppelingen. Scanner, voorbereiding, writer, diagnostiek en gecontroleerde vergelijking delen hetzelfde pakket en werken zonder Git-repository of agentlauncher. De [gezamenlijke Git-afspraken](../CONTRIBUTING.md#git-inspectie) verplichten tot voorcontrole; de [praktische Git-werkwijze](secrets/README.md#git-versies-lokaal-controleren-en-vergelijken) beschrijft hoe je volledige versies lokaal aanbiedt. Ruim eerder ingerichte koppelingen op volgens de [migratie-instructies](secrets/README.md#oude-integraties-opruimen).
 
@@ -141,7 +142,23 @@ De [Gemfile](../Gemfile) bevat geen vaste gemversies. [`Gemfile.lock`](../Gemfil
 
 Krijg je een Bundler-fout met `/System/Library/Frameworks/Ruby.framework` of `/usr/bin/bundle` in de melding, dan gebruikt je terminal nog de macOS-installatie. Controleer eerst `ruby --version`, `command -v ruby` en `command -v bundle` en herstel de PATH-instelling hierboven. Bundler installeren met de oude systeem-Ruby of `sudo gem install` lost die versieverschillen niet op.
 
-De root-Gemfile wijst iedere toolgem expliciet aan via zijn eigen map. Lint, metadata, validator en dependencycontrole gebruiken shared volgens de [dependencygrenzen in hun gemspecs](#pakketten-en-commandos); Ruby-lint gebruikt uitsluitend RuboCop. Ontwikkeldependencies blijven in de rootbundle.
+De root-Gemfile wijst iedere toolgem expliciet aan via zijn eigen map. Lint, metadata, validator en dependencycontrole gebruiken shared volgens de [dependencygrenzen in hun gemspecs](#pakketten-en-commandos); Ruby-lint gebruikt RuboCop en shared. Ontwikkeldependencies blijven in de rootbundle.
+
+## Runtimekeuze en compatibiliteit
+
+Het afnemende project selecteert in zijn Gemfile **één** runtime, `gem 'openvox', require: false` of `gem 'puppet', require: false`. Declareer nooit beide. Toolgems bevatten geen directe runtime-dependency en sluiten toekomstige majors niet met een pessimistische runtimegrens uit. Bundler en de eigen lockfile leggen de volledige reproduceerbare combinatie vast. Verander de runtime alleen als bewuste dependencyupdate; detectie installeert of wisselt niets.
+
+Voor de huidige ontwikkelcombinatie staan `json < 3` en `syslog ~> 0.4` in de root-Gemfile. De onderzochte runtime gebruikt `JSON::PRETTY_STATE_PROTOTYPE`; syslog is op de gebruikte Ruby geen gebundelde library meer. Die runtimegebonden keuzes horen bij het project, niet in iedere toolgem. De syslog-declaratie is begrensd tot Bundlers `ruby`-platform; behoud bij een ander platform of andere runtime uitsluitend aantoonbaar benodigde dependencies. De toolgems houden hun eigen JSON-, parser-, lint- en shared-interfacegrenzen. Kopieer bij gebruik van de huidige runtime deze ondersteunende dependencies naar de eigen Gemfile en lockfile; toets ze opnieuw bij een runtime-upgrade.
+
+| Combinatie | Bewijs en grens |
+| --- | --- |
+| OpenVox 8.29.0, Ruby 4.0.9 | Aanwezige ontwikkelruntime; echte integratietests en functionele probes worden hiermee uitgevoerd. |
+| Puppet 8, OpenVox 8/9, onbekende toekomstige major | Gesimuleerde gemselectie, versie- en executableverwerking, logging en foutpaden. Geen uitgevoerde integratie met iedere genoemde release. |
+| Andere runtime met dezelfde interfaces | Architectuur kan haar selecteren; functionaliteit vereist geslaagde gedragsprobes en eigen integratievalidatie. Geen algemene ondersteuningsclaim. |
+
+Exacte versiegelijkheid is geen algemene toegangspoort voor functionaliteit. Een methode die bestaat, kan nog ander gedrag hebben. Gebruik de [gedeelde detectie en parserprobe](shared/README.md#puppet-runtime-selecteren) en toolgebonden gedragsprobes voor noodzakelijke interne API's. Onbekende of onvolledige controles moeten afkeuren; stil overslaan en vervolgens groen melden is verboden. De [Ruby-lintregel](lint/ruby/README.md#runtimekoppelingen-controleren) bewaakt nieuwe directe runtimekeuze en onverklaarde versiegrenzen in de normale CI-scan.
+
+Bij migratie van een consumer die OpenVox via een toolgem verkreeg: voeg de runtime expliciet toe aan de eigen Gemfile, neem benodigde ondersteunende gems over en laat Bundler de eigen lockfile bijwerken. Leg de gekozen runtime en goedgekeurde toolingrevisie samen vast. Voor deze ontwikkeling worden geen extra Puppet/OpenVox-versies geïnstalleerd en wordt de bestaande rootlockfile niet automatisch gewijzigd. Simulatietests vragen geen nieuwe CI-matrix; ze bewijzen de eigen detectielogica, geen gewijzigde externe API.
 
 ## Gedeeld modulepad
 
@@ -289,7 +306,7 @@ De library ontwikkelen en de library gebruiken zijn verschillende taken. Een upd
 
 De twee volledige basisvoorbeelden hieronder horen bij eigen Puppet-modules met catalogusscenario’s, zonder eigen Ruby-code of toolsuite. Ze bevatten precies zes jobs: secrets, metadata, syntax, dependencies, Puppet-lint en catalogi. Fase 04 heeft geen job; catalogi wachten direct op beide fase-03-jobs. Een consumer zonder catalogusscenario’s laat ook de catalogusjob weg. Maak geen lege succesjobs en verwijs nooit naar een afwezige job.
 
-Richt eerst de [eigen bundle](#installatie-in-je-project) en [Puppet-lintconfiguratie](lint/puppet/README.md#eigen-lintconfiguratie) in. Voor dit profiel selecteer je shared, secrets, metadata, module, syntax en lint; Ruby-lint en Minitest zijn niet nodig. De module- en syntaxgems leveren tevens OpenVox, JSON en syslog voor de catalogusrunner. Haal `global-modules` recursief op, voer lokaal `bundle install` uit en leg de eigen Gemfile, lockfile en gekozen submodulerevisie vast. Iedere CI-job gebruikt diezelfde bundle met `BUNDLE_FROZEN=true`.
+Richt eerst de [eigen bundle](#installatie-in-je-project) en [Puppet-lintconfiguratie](lint/puppet/README.md#eigen-lintconfiguratie) in. Voor dit profiel selecteer je shared, secrets, metadata, module, syntax en lint; Ruby-lint en Minitest zijn niet nodig. Selecteer daarnaast één runtime en haar vereiste ondersteunende gems volgens [runtimekeuze](#runtimekeuze-en-compatibiliteit). Haal `global-modules` recursief op, voer lokaal `bundle install` uit en leg de eigen Gemfile, lockfile en gekozen submodulerevisie vast. Iedere CI-job gebruikt diezelfde bundle met `BUNDLE_FROZEN=true`.
 
 Secrets, syntax en lint richten zich op de bestaande expliciete selectie eigen code en toepasselijke voorbeelden. Pas de voorbeeldpaden aan die selectie aan; deze inrichting vraagt geen uitbreiding naar imports. `--puppet` controleert uitsluitend Puppet-manifests en vervangt de algemene inspectie van YAML, templates of andere bronnen niet. `PROJECT_METADATA_MODULES_PATH=modules` en `PROJECT_METADATA_PREFIX=example` horen bij de eigen root- en modulemetadata en het eigen `VERSION`-bestand. Neem upstream-eigenaar, modulelocatie of versie niet blind over.
 
@@ -1015,6 +1032,11 @@ Gebruik voor een checkout als `global-modules` expliciete bronnen voor alle geko
 ```ruby
 source 'https://rubygems.org'
 
+# Choose one runtime; replace openvox with puppet when appropriate.
+gem 'openvox', require: false
+gem 'json', '< 3', require: false
+gem 'syslog', '~> 0.4', platforms: :ruby, require: false
+
 gem 'project-tools-shared', path: 'global-modules/.tools/shared', require: false
 gem 'lint-project', path: 'global-modules/.tools/lint/puppet', require: false
 gem 'project-tools-module', path: 'global-modules/.tools/module', require: false
@@ -1024,7 +1046,7 @@ gem 'project-tools-metadata', path: 'global-modules/.tools/metadata', require: f
 gem 'project-tools-secrets', path: 'global-modules/.tools/secrets', require: false
 ```
 
-Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend OpenVox uit de ontwikkelbundle; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-module`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint volstaat `project-tools-ruby-lint`, zonder shared. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of algemene testtaak van `global-modules`. Voor moduletests geldt de afzonderlijke [catalog-ingang](catalog/README.md#vanuit-een-ander-project-uitvoeren).
+Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend de gekozen Puppet-runtime; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-module`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint kies je `project-tools-ruby-lint` en shared, zonder Puppet-runtime. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of algemene testtaak van `global-modules`. Voor moduletests geldt de afzonderlijke [catalog-ingang](catalog/README.md#vanuit-een-ander-project-uitvoeren).
 
 ### Git-dependency uit de monorepo
 
@@ -1032,6 +1054,11 @@ Alle interne gems komen uit dezelfde gekozen revisie. Vervang `<repository-url>`
 
 ```ruby
 source 'https://rubygems.org'
+
+# Choose one runtime; replace openvox with puppet when appropriate.
+gem 'openvox', require: false
+gem 'json', '< 3', require: false
+gem 'syslog', '~> 0.4', platforms: :ruby, require: false
 
 git '<repository-url>',
     ref: ENV.fetch('TOOLS_REVISION'),
@@ -1087,6 +1114,11 @@ De eigen Gemfile selecteert de geïnstalleerde pakketten. Onderstaande vaste ver
 
 ```ruby
 source 'https://rubygems.org'
+
+# Choose one runtime; replace openvox with puppet when appropriate.
+gem 'openvox', require: false
+gem 'json', '< 3', require: false
+gem 'syslog', '~> 0.4', platforms: :ruby, require: false
 
 gem 'project-tools-shared', '= 0.1.1', require: false
 gem 'lint-project', '= 0.2.0', require: false
@@ -1179,7 +1211,9 @@ Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de b
 
 `details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
 
-De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Alleen een Ruby-lintinstallatie heeft nog steeds geen shared-gem of Puppet-runtime nodig.
+De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Een Ruby-lintinstallatie gebruikt shared voor de versieheader en heeft geen Puppet-runtime nodig.
+
+Elke tooluitvoering toont dynamisch `Tool: <naam> <versie>`, `Runtime: Puppet/OpenVox <versie>` en `Ruby: <versie>`. Zonder runtimegebruik staat er `Puppet runtime: not required`; een ontbrekende vereiste runtime wordt als unavailable vermeld en de controle faalt. Help blijft zonder versieheader. De gedeelde console levert dezelfde informatie lokaal, in GitLab CI en GitHub Actions. Native RuboCop, Puppet-lint en converters schrijven de header op stderr, zodat JSON/XML en JUnit ongewijzigd blijven. De secrets-tool meldt bij afsluiting welke runtime zij werkelijk heeft gevraagd. De catalogusrunner gebruikt root-`VERSION`; gemtools gebruiken hun geactiveerde gemspec. CI voegt geen tweede header toe.
 
 ## Gedeeld toolingonderhoud
 

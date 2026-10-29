@@ -13,6 +13,8 @@ class ExternalInterfaceCallsTest < Minitest::Test
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_equal ['manifests/site.pp:2:10: project_interface_calls: warning: ' \
                   "Public interface call omits required parameters: value\n"], @output.lines
-    assert_empty @errors
+    assert_equal 1, @errors.scan('Tool: lint-project').size
+    assert_includes @errors, 'Runtime: '
+    assert_includes @errors, "Ruby: #{RUBY_VERSION}"
   end
 end

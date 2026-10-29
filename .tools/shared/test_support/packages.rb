@@ -18,6 +18,14 @@ module ProjectToolsPackageSupport
     end
   end
 
+  def runtime_dependency
+    require 'project_tools/shared/puppet_runtime'
+    runtime = ProjectTools::Shared::PuppetRuntime.detect
+    # Consumer fixtures reuse the project's selected support gems, including after a runtime upgrade.
+    specifications = [runtime.spec, *Gem.loaded_specs.values_at('json', 'syslog').compact]
+    specifications.map { |spec| "gem '#{spec.name}', '= #{spec.version}', require: false" }.join("\n")
+  end
+
   def build_install(tool, name)
     package = File.join(@project, "#{name}.gem")
     run_success('gem', 'build', "#{name}.gemspec", '--output', package,

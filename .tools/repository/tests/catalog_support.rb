@@ -29,6 +29,7 @@ module CatalogConsumerSupport
   def copy_runner
     destination = File.join(@library, '.tools', 'catalog')
     FileUtils.mkdir_p(destination)
+    FileUtils.cp(File.join(ROOT, 'VERSION'), File.join(@library, 'VERSION'))
     %w[lib bin].each { |path| FileUtils.cp_r(File.join(ROOT, '.tools', 'catalog', path), destination) }
   end
 
@@ -36,9 +37,7 @@ module CatalogConsumerSupport
     write('Gemfile', <<~RUBY)
       source 'https://rubygems.org'
       gem 'project-tools-shared', path: 'global-modules/.tools/shared'
-      gem 'openvox', '~> 8.29'
-      gem 'json', '< 3'
-      gem 'syslog', '~> 0.4'
+      #{runtime_dependency}
       gem 'rake'
     RUBY
     run_success('bundle', 'install', '--local')

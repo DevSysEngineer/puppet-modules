@@ -2,6 +2,8 @@
 
 # Load upstream plugins before checks that can remove their original fix anchors.
 require 'puppet-lint'
+require 'project_lint/version_output'
+ProjectLint::VersionOutput.announce
 require 'project_lint/native_fixes'
 
 require 'project_lint/checks/parameter_order'

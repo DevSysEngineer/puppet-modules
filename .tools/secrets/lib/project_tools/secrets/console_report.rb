@@ -37,7 +37,8 @@ module ProjectTools
         'unsupported_yaml_key' => 'A YAML key uses an unsupported structure.',
         'unsupported_hiera_selector' => 'A Hiera lookup selector cannot be resolved by this scanner.',
         'unresolved_hiera_scope' => 'Hiera sensitivity could not be resolved across the selected files.',
-        'puppet_parser_unavailable' => 'The Puppet parser is unavailable; install OpenVox in the active bundle.',
+        'puppet_parser_unavailable' => 'The Puppet parser is unavailable; select compatible Puppet or OpenVox ' \
+                                       'in the active bundle.',
         'puppet_inspection_failed' => 'Puppet syntax could not be inspected; check the manifest locally.',
         'unbounded_puppet_value' => 'The boundaries of a sensitive Puppet value could not be determined.',
         'unbounded_sensitive_value' => 'The boundaries of a potentially sensitive value could not be determined.',

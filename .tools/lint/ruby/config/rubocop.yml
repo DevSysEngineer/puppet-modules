@@ -1,2 +1,15 @@
+require:
+  - ../lib/project_tools/ruby_lint.rb
+
 AllCops:
   NewCops: enable
+
+Project/RuntimeCoupling:
+  Enabled: true
+  Exclude:
+    - '**/tests/**/*'
+    - '**/test/**/*'
+    - '**/spec/**/*'
+    - '**/fixtures/**/*'
+  RuntimeFiles:
+    - '**/project_tools/shared/puppet_runtime.rb'
