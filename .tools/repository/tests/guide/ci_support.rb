@@ -30,7 +30,7 @@ module GuideCiSupport
       'puppet_lint' => /bundle exec puppet-lint-junit/,
       'puppet_catalog' => %r{bundle exec global-modules/\.tools/catalog/bin/project-tools-catalog --junit },
       'puppet_metadata' => /bundle exec project-tools-metadata --junit /,
-      'puppet_dependencies' => /bundle exec project-tools-module --junit / }
+      'puppet_dependencies' => /bundle exec project-tools-dependencies --junit / }
   end
 
   def assert_secret_stages

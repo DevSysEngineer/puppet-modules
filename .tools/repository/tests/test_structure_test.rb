@@ -115,7 +115,7 @@ class TestStructureTest < Minitest::Test
       'test:repository' => ['.tools/repository/tests/workflow_test.rb'],
       'test:secrets' => ['.tools/secrets/tests/detection_test.rb'],
       'test:shared' => ['.tools/shared/tests/library_test.rb'],
-      'test:module' => ['.tools/module/tests/cli_test.rb'],
+      'test:dependencies' => ['.tools/dependencies/tests/cli_test.rb'],
       'test:catalog' => ['.tools/catalog/tests/catalog_test.rb'],
       'test:syntax' => ['.tools/syntax/tests/cli_test.rb'] }
       .transform_values { |paths| [paths.first, paths.first.sub('/tests/', '/tests/nested/')].sort }

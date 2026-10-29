@@ -5,7 +5,7 @@ require 'project_tools/shared/junit_report'
 require 'project_tools/shared/console'
 
 module ProjectTools
-  module Module
+  module Dependencies
     # Render the same deterministic relationships in both output formats.
     class Reporter
       def initialize(result, root)
@@ -46,10 +46,10 @@ module ProjectTools
       end
 
       def write(output)
-        ProjectTools::Shared::JunitReport.write(output, name: 'project-tools-module',
+        ProjectTools::Shared::JunitReport.write(output, name: 'project-tools-dependencies',
                                                         **@result.counts) do |xml|
           if @result.problems.empty?
-            xml.testcase(classname: 'project-tools-module', name: 'Declared dependencies satisfied')
+            xml.testcase(classname: 'project-tools-dependencies', name: 'Declared dependencies satisfied')
           end
           @result.sorted_problems.each { |problem| write_case(xml, problem) }
           xml.tag!('system-out', coverage)
@@ -57,7 +57,7 @@ module ProjectTools
       end
 
       def write_case(xml, problem)
-        xml.testcase(classname: 'project-tools-module', name: title(problem)) do
+        xml.testcase(classname: 'project-tools-dependencies', name: title(problem)) do
           xml.tag!(problem.fetch(:kind), details(problem), type: safe(problem.fetch(:reason)))
         end
       end

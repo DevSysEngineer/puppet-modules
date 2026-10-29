@@ -2,10 +2,10 @@
 
 require 'project_tools/shared/puppet_runtime'
 ProjectTools::Shared::PuppetRuntime.load!
-require 'project_tools/module/module_dependencies'
+require 'project_tools/dependencies/module_dependencies'
 
 module ProjectTools
-  module Module
+  module Dependencies
     # Use one native environment; inventory candidates only to detect silently dropped modules.
     class OpenvoxAdapter
       def initialize(paths, result, progress: nil)

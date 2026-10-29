@@ -84,7 +84,7 @@ class ExternalSyntaxTest < Minitest::Test
   def test_built_package_loads_without_lint_or_project_configuration
     run_success('bundle', 'exec', 'ruby', '-e', <<~RUBY)
       require 'project_tools/syntax'
-      forbidden = %w[lint-project puppet-lint rubocop project-tools-module minitest minitest-reporters rake]
+      forbidden = %w[lint-project puppet-lint rubocop project-tools-dependencies minitest minitest-reporters rake]
       abort 'unrelated tool dependency' unless (Bundler.load.specs.map(&:name) & forbidden).empty?
       abort 'lint loaded' if defined?(ProjectLint) || defined?(PuppetLint) || defined?(RuboCop)
       abort 'JSON API incompatible' unless Gem.loaded_specs.fetch('json').version < Gem::Version.new('3')

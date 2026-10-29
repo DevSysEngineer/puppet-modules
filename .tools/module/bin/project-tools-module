@@ -1,6 +1,0 @@
-#!/usr/bin/env ruby
-# frozen_string_literal: true
-
-require 'project_tools/module/cli'
-
-exit ProjectTools::Module::Cli.run(ARGV)

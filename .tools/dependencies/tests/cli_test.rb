@@ -11,9 +11,9 @@ class DependencyCliTest < Minitest::Test
     %w[-h --help].each do |flag|
       console = StringIO.new
       errors = StringIO.new
-      status = ProjectTools::Module::Cli.run(['--junit', @report, flag], console: console, errors: errors)
+      status = ProjectTools::Dependencies::Cli.run(['--junit', @report, flag], console: console, errors: errors)
       assert_equal 0, status
-      assert_match(/\AUsage:/, console.string)
+      assert_equal 'Usage: project-tools-dependencies [--junit REPORT.xml]', console.string.lines.first.chomp
       assert_empty errors.string
       refute_path_exists @report
     end

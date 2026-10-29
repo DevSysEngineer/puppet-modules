@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
-require 'project_tools/module/openvox_adapter'
+require 'project_tools/dependencies/openvox_adapter'
 
 # The adapter uses the supplied paths without applying manifests, facts or personal settings.
 class DependencyIsolationTest < Minitest::Test
@@ -11,8 +11,8 @@ class DependencyIsolationTest < Minitest::Test
     require 'puppet'
     Puppet.initialize_settings(['--config', ARGV.shift], true, false)
     raise 'Synthetic configuration was not loaded' unless Puppet[:basemodulepath] == ARGV.shift
-    require 'project_tools/module/cli'
-    exit ProjectTools::Module::Cli.run(ARGV)
+    require 'project_tools/dependencies/cli'
+    exit ProjectTools::Dependencies::Cli.run(ARGV)
   RUBY
 
   def test_puppetlib_and_personal_configuration_do_not_replace_explicit_paths
@@ -36,9 +36,9 @@ class DependencyIsolationTest < Minitest::Test
   def test_existing_runtime_configuration_cannot_replace_explicit_paths
     write_module('library', version: '2.0.0')
     write_module('library', version: '9.0.0', base: @second)
-    result = ProjectTools::Module::Result.new
+    result = ProjectTools::Dependencies::Result.new
     with_modulepath_setting do
-      ProjectTools::Module::OpenvoxAdapter.new([@first], result).scan do |environment|
+      ProjectTools::Dependencies::OpenvoxAdapter.new([@first], result).scan do |environment|
         assert_equal '2.0.0', environment.module_by_forge_name('example/library').version
       end
       assert_equal 0, result.status
@@ -58,8 +58,8 @@ class DependencyIsolationTest < Minitest::Test
     environment = Puppet::Node::Environment.create(:dependency_disappearance, [@first])
     mod = environment.modules.first
     FileUtils.remove_entry(directory)
-    result = ProjectTools::Module::Result.new
-    ProjectTools::Module::ModuleDependencies.new(result).check(mod)
+    result = ProjectTools::Dependencies::Result.new
+    ProjectTools::Dependencies::ModuleDependencies.new(result).check(mod)
     assert_equal 2, result.status
     assert_equal :metadata_error, result.problems.first[:reason]
   end
@@ -67,9 +67,9 @@ class DependencyIsolationTest < Minitest::Test
   def test_adapter_restores_environment_settings_and_log_destinations
     write_module('library')
     with_existing_settings do
-      result = ProjectTools::Module::Result.new
+      result = ProjectTools::Dependencies::Result.new
       destinations = Puppet::Util::Log.destinations.dup
-      ProjectTools::Module::OpenvoxAdapter.new([@first], result).scan { |_environment| nil }
+      ProjectTools::Dependencies::OpenvoxAdapter.new([@first], result).scan { |_environment| nil }
       assert_equal 0, result.status
       assert_equal @second, ENV.fetch('PUPPETLIB')
       assert_equal :warning, Puppet[:strict]
@@ -90,8 +90,8 @@ class DependencyIsolationTest < Minitest::Test
 
   def test_unexpected_native_comparison_error_preserves_earlier_findings
     write_module('consumer', dependencies: [dependency('example-missing')])
-    result = ProjectTools::Module::Result.new
-    ProjectTools::Module::OpenvoxAdapter.new([@first], result).scan { raise 'synthetic failure' }
+    result = ProjectTools::Dependencies::Result.new
+    ProjectTools::Dependencies::OpenvoxAdapter.new([@first], result).scan { raise 'synthetic failure' }
     assert_equal 2, result.status
     assert_equal(%i[failure error], result.problems.map { |problem| problem[:kind] })
   end

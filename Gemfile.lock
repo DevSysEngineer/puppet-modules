@@ -1,4 +1,12 @@
 PATH
+  remote: .tools/dependencies
+  specs:
+    project-tools-dependencies (0.1.0)
+      json (>= 2)
+      project-tools-shared (>= 0.1.1, < 0.2.0)
+      semantic_puppet (~> 1.1)
+
+PATH
   remote: .tools/lint/puppet
   specs:
     lint-project (0.4.0)
@@ -21,14 +29,6 @@ PATH
     project-tools-metadata (0.1.0)
       json (>= 2.21, < 4)
       project-tools-shared (>= 0.1.1, < 0.2.0)
-
-PATH
-  remote: .tools/module
-  specs:
-    project-tools-module (0.1.0)
-      json (>= 2)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
-      semantic_puppet (~> 1.1)
 
 PATH
   remote: .tools/secrets
@@ -183,8 +183,8 @@ DEPENDENCIES
   minitest
   minitest-reporters
   openvox
+  project-tools-dependencies!
   project-tools-metadata!
-  project-tools-module!
   project-tools-ruby-lint!
   project-tools-secrets!
   project-tools-shared!

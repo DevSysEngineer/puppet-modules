@@ -85,8 +85,8 @@ class DependencyReportTest < Minitest::Test
 
   def failing_final_write
     <<~RUBY
-      require 'project_tools/module/cli'
-      class ProjectTools::Module::Cli
+      require 'project_tools/dependencies/cli'
+      class ProjectTools::Dependencies::Cli
         alias original_write write
         def write(result)
           @writes = (@writes || 0) + 1
@@ -94,21 +94,21 @@ class DependencyReportTest < Minitest::Test
           original_write(result)
         end
       end
-      exit ProjectTools::Module::Cli.run(ARGV)
+      exit ProjectTools::Dependencies::Cli.run(ARGV)
     RUBY
   end
 
   def interrupted_scan
     <<~RUBY
-      require 'project_tools/module/cli'
-      class ProjectTools::Module::Cli
+      require 'project_tools/dependencies/cli'
+      class ProjectTools::Dependencies::Cli
         def scan
           report = File.read(#{@report.dump})
           abort 'missing incomplete marker' unless report.include?('incomplete_scan')
           raise Interrupt
         end
       end
-      ProjectTools::Module::Cli.run(['--junit', #{@report.dump}])
+      ProjectTools::Dependencies::Cli.run(['--junit', #{@report.dump}])
     RUBY
   end
 end

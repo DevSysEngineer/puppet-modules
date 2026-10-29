@@ -50,7 +50,7 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
 | Pakket | Eigenaar | Publieke commando’s |
 | --- | --- | --- |
 | [`project-tools-metadata`](metadata/project-tools-metadata.gemspec) | [Metadata](metadata/README.md) | `project-tools-metadata [--fix] [--ignore-paths GLOBS] [--junit REPORT.xml]` |
-| [`project-tools-module`](module/project-tools-module.gemspec) | [Dependencycontrole](module/README.md) | `project-tools-module [--junit REPORT.xml]` |
+| [`project-tools-dependencies`](dependencies/project-tools-dependencies.gemspec) | [Dependencycontrole](dependencies/README.md) | `project-tools-dependencies [--junit REPORT.xml]` |
 | [`project-tools-syntax`](syntax/project-tools-syntax.gemspec) | [Parservalidatie](syntax/README.md) | Native `puppet parser validate MANIFEST.pp`; met rapport `syntax-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]` |
 | [`lint-project`](lint/puppet/lint-project.gemspec) | [Lint](lint/puppet/README.md) | `puppet-lint`, `puppet-lint-junit` |
 | [`project-tools-ruby-lint`](lint/ruby/project-tools-ruby-lint.gemspec) | [Ruby-lint](lint/ruby/README.md) | Native `rubocop` met eigen JUnit-formatter |
@@ -77,7 +77,7 @@ export PROJECT_TOOLS_MODULEPATH="$PWD"
 bundle exec rake secrets:puppet
 bundle exec project-tools-metadata
 bundle exec rake syntax:puppet
-bundle exec project-tools-module
+bundle exec project-tools-dependencies
 bundle exec puppet-lint --no-config --config .puppet-lint.rc .
 bundle exec rubocop --config .rubocop.yml
 bundle exec rake test:tools
@@ -210,7 +210,7 @@ Synthetische tests van de scanner blijven onderdeel van de toolsuite. Zij contro
 | `Puppet secrets` | `bundle exec rake secrets:puppet` | Geen | Veilige scanmetadata in het joblog |
 | `Puppet metadata` | `bundle exec project-tools-metadata --junit .tools/metadata/results/metadata-report.xml` met `PROJECT_METADATA_MODULES_PATH=.` | `Metadata-report` | `.tools/metadata/results/metadata-report.xml` |
 | `Puppet syntax` | `bundle exec rake 'syntax:puppet[.tools/syntax/results/syntax-report.xml]'` | `Syntax-report` | `.tools/syntax/results/syntax-report.xml` |
-| `Puppet dependencies` | `bundle exec project-tools-module --junit .tools/module/results/project-tools-module-report.xml` met het expliciete projectmodulepad | `Project-tools-module-report` | `.tools/module/results/project-tools-module-report.xml` |
+| `Puppet dependencies` | `bundle exec project-tools-dependencies --junit .tools/dependencies/results/project-tools-dependencies-report.xml` met het expliciete projectmodulepad | `Project-tools-dependencies-report` | `.tools/dependencies/results/project-tools-dependencies-report.xml` |
 | `Puppet lint` | Volledige lintscan met JUnit-omzetting volgens de workflow | `Puppet-lint-report` | `.tools/lint/puppet/results/puppet-lint-report.xml` |
 | `Ruby lint` | RuboCop met console en JUnit volgens de workflow | `Ruby-lint-report` | `.tools/lint/ruby/results/rubocop-report.xml` |
 | `Tool tests` | `MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests bundle exec rake test:tools` | `Test-results` | `.tools/results/tests/TEST-*.xml` |
@@ -238,7 +238,7 @@ Bewaar bij voorkeur de resultaten van iedere controle in een afzonderlijk artifa
 | --- | --- | --- | --- |
 | `Puppet metadata` | `metadata-report.xml` | `Metadata-report` | Eigen VERSION, rootmetadata en expliciete modulelocatie. |
 | `Puppet syntax` | `syntax-report.xml` | `Syntax-report` | De eigen Puppet-manifests zijn geselecteerd. |
-| `Puppet dependencies` | `project-tools-module-report.xml` | `Project-tools-module-report` | Eigen rootmetadata en expliciete modulepath met alle dependencies. |
+| `Puppet dependencies` | `project-tools-dependencies-report.xml` | `Project-tools-dependencies-report` | Eigen rootmetadata en expliciete modulepath met alle dependencies. |
 | `Puppet lint` | `puppet-lint-report.xml` | `Puppet-lint-report` | De eigen Puppet-manifests en lintconfiguratie zijn aanwezig. |
 | `Ruby lint` | `rubocop-report.xml` | `Ruby-lint-report` | De eigen Ruby-code en RuboCop-configuratie zijn aanwezig. |
 | `Tool tests` | `TEST-*.xml` | `Test-results` | Het project heeft een eigen testsuite en [JUnit-rapportage](#junit-rapportage-instellen). |
@@ -258,7 +258,7 @@ export PROJECT_METADATA_PREFIX=example
 bundle exec project-tools-metadata --junit "$PROJECT_REPORT_DIR/metadata-report.xml"
 ```
 
-De [dependencycontrole](module/README.md#een-controle-uitvoeren) schrijft haar rapport bij de expliciete `--junit`-aanroep. Het validatierapport ontstaat tijdens de [parseraanroep](syntax/README.md#eigen-manifests-valideren).
+De [dependencycontrole](dependencies/README.md#een-controle-uitvoeren) schrijft haar rapport bij de expliciete `--junit`-aanroep. Het validatierapport ontstaat tijdens de [parseraanroep](syntax/README.md#eigen-manifests-valideren).
 
 Maak het Puppet-lintrapport vanuit de projectroot met dezelfde configuratie en bronselectie als de [gewone controle](lint/puppet/README.md#eigen-code-controleren):
 
@@ -306,7 +306,7 @@ De library ontwikkelen en de library gebruiken zijn verschillende taken. Een upd
 
 De twee volledige basisvoorbeelden hieronder horen bij eigen Puppet-modules met catalogusscenario’s, zonder eigen Ruby-code of toolsuite. Ze bevatten precies zes jobs: secrets, metadata, syntax, dependencies, Puppet-lint en catalogi. Fase 04 heeft geen job; catalogi wachten direct op beide fase-03-jobs. Een consumer zonder catalogusscenario’s laat ook de catalogusjob weg. Maak geen lege succesjobs en verwijs nooit naar een afwezige job.
 
-Richt eerst de [eigen bundle](#installatie-in-je-project) en [Puppet-lintconfiguratie](lint/puppet/README.md#eigen-lintconfiguratie) in. Voor dit profiel selecteer je shared, secrets, metadata, module, syntax en lint; Ruby-lint en Minitest zijn niet nodig. Selecteer daarnaast één runtime en haar vereiste ondersteunende gems volgens [runtimekeuze](#runtimekeuze-en-compatibiliteit). Haal `global-modules` recursief op, voer lokaal `bundle install` uit en leg de eigen Gemfile, lockfile en gekozen submodulerevisie vast. Iedere CI-job gebruikt diezelfde bundle met `BUNDLE_FROZEN=true`.
+Richt eerst de [eigen bundle](#installatie-in-je-project) en [Puppet-lintconfiguratie](lint/puppet/README.md#eigen-lintconfiguratie) in. Voor dit profiel selecteer je shared, secrets, metadata, dependencies, syntax en lint; Ruby-lint en Minitest zijn niet nodig. Selecteer daarnaast één runtime en haar vereiste ondersteunende gems volgens [runtimekeuze](#runtimekeuze-en-compatibiliteit). Haal `global-modules` recursief op, voer lokaal `bundle install` uit en leg de eigen Gemfile, lockfile en gekozen submodulerevisie vast. Iedere CI-job gebruikt diezelfde bundle met `BUNDLE_FROZEN=true`.
 
 Secrets, syntax en lint richten zich op de bestaande expliciete selectie eigen code en toepasselijke voorbeelden. Pas de voorbeeldpaden aan die selectie aan; deze inrichting vraagt geen uitbreiding naar imports. `--puppet` controleert uitsluitend Puppet-manifests en vervangt de algemene inspectie van YAML, templates of andere bronnen niet. `PROJECT_METADATA_MODULES_PATH=modules` en `PROJECT_METADATA_PREFIX=example` horen bij de eigen root- en modulemetadata en het eigen `VERSION`-bestand. Neem upstream-eigenaar, modulelocatie of versie niet blind over.
 
@@ -527,7 +527,7 @@ jobs:
       - name: Check Puppet module dependencies
         run: |
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE/global-modules:$GITHUB_WORKSPACE/modules"
-          bundle exec project-tools-module --junit "$PROJECT_REPORT_DIR/project-tools-module-report.xml"
+          bundle exec project-tools-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-dependencies-report.xml"
       - name: Check for changes
         run: |
           source global-modules/.github/actions/setup-tooling/log.sh
@@ -546,15 +546,15 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: Project-tools-module-report
+          name: Project-tools-dependencies-report
           include-hidden-files: true
           if-no-files-found: error
-          path: ${{ env.PROJECT_REPORT_DIR }}/project-tools-module-report.xml
+          path: ${{ env.PROJECT_REPORT_DIR }}/project-tools-dependencies-report.xml
       - name: Publish dependency summary
-        if: ${{ !cancelled() && hashFiles(format('{0}/project-tools-module-report.xml', env.PROJECT_REPORT_DIR)) != '' }}
+        if: ${{ !cancelled() && hashFiles(format('{0}/project-tools-dependencies-report.xml', env.PROJECT_REPORT_DIR)) != '' }}
         uses: test-summary/action@v2
         with:
-          paths: ${{ env.PROJECT_REPORT_DIR }}/project-tools-module-report.xml
+          paths: ${{ env.PROJECT_REPORT_DIR }}/project-tools-dependencies-report.xml
           show: fail
           folded: false
 
@@ -703,7 +703,7 @@ De publicatiestappen gebruiken `!cancelled()`: ook na een gewone validatie-, lin
 
 Iedere job controleert na zijn geslaagde opdracht met `git diff --quiet HEAD --` of installatie of uitvoering gevolgde bestanden verandert. Hiervoor is een schone checkout nodig. Nieuwe, niet-gevolgde bestanden vallen buiten deze controle; herstel bestanden niet om de stap te laten slagen. Voor de lokale whitespacecontrole met `git diff --check` gelden de [voorcontrole en beperkingen](../CONTRIBUTING.md#git-inspectie).
 
-Open in GitHub **Actions** en kies de workflowrun. Daar download je `Metadata-report`, `Syntax-report`, `Project-tools-module-report`, `Puppet-lint-report` en `Catalog-report`. Het workflowoverzicht toont daarnaast de JUnit-samenvatting van de dependencycontrole. De configuratie gebruikt alleen `contents: read`; de samenvatting schrijft geen pull-requestcomments en vraagt geen extra repositoryschrijfrechten. Een beheerder kan de nieuwe job bij branchbeveiliging als verplichte statuscheck instellen; de tooling wijzigt die instelling niet.
+Open in GitHub **Actions** en kies de workflowrun. Daar download je `Metadata-report`, `Syntax-report`, `Project-tools-dependencies-report`, `Puppet-lint-report` en `Catalog-report`. Het workflowoverzicht toont daarnaast de JUnit-samenvatting van de dependencycontrole. De configuratie gebruikt alleen `contents: read`; de samenvatting schrijft geen pull-requestcomments en vraagt geen extra repositoryschrijfrechten. Een beheerder kan de nieuwe job bij branchbeveiliging als verplichte statuscheck instellen; de tooling wijzigt die instelling niet.
 
 Als eigen Ruby-code van toepassing wordt, voeg je `ruby_lint` met naam `"Ruby lint"` toe aan fase 03, met `needs: [puppet_metadata, puppet_syntax]`. Gebruik de [Ruby-rapportaanroep](#rapporten-en-artifacts-in-je-project), de eigen `.rubocop.yml`, artifact `Ruby-lint-report` en `rubocop-report.xml`. Zonder toolsuite voeg je `ruby_lint` tevens toe aan de `needs` van catalogi.
 
@@ -822,7 +822,7 @@ puppet_dependencies:
   stage: static_checks
   script:
     - export PROJECT_TOOLS_MODULEPATH="$CI_PROJECT_DIR/global-modules:$CI_PROJECT_DIR/modules"
-    - bundle exec project-tools-module --junit "$PROJECT_REPORT_DIR/project-tools-module-report.xml"
+    - bundle exec project-tools-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-dependencies-report.xml"
     - |
       ci_begin 'Checkout changes'
       if git diff --quiet HEAD --; then
@@ -836,12 +836,12 @@ puppet_dependencies:
           fi
       fi
   artifacts:
-    name: Project-tools-module-report
+    name: Project-tools-dependencies-report
     when: always
     paths:
-      - "$PROJECT_REPORT_DIR/project-tools-module-report.xml"
+      - "$PROJECT_REPORT_DIR/project-tools-dependencies-report.xml"
     reports:
-      junit: "$PROJECT_REPORT_DIR/project-tools-module-report.xml"
+      junit: "$PROJECT_REPORT_DIR/project-tools-dependencies-report.xml"
 
 puppet_lint:
   extends: .check_setup
@@ -936,7 +936,7 @@ Kies de gems voor de benodigde controles volgens [Pakketten en commando’s](#pa
 | Controle | Dit gebruik je uit de gem | Dit stelt je eigen project in |
 | --- | --- | --- |
 | Metadata | `project-tools-metadata` controleert metadata, herstelt bekende velden met `--fix` en schrijft optioneel JUnit met `--junit`. | Eigen VERSION, rootmetadata, modulelocatie, naamprefix, uitsluitingen en eventueel een rapportpad volgens de [metadatagids](metadata/README.md). |
-| Puppet-dependencies | `project-tools-module` gebruikt native OpenVox; `--junit` schrijft dezelfde uitslag ook als XML. | Expliciete modulepath, rootmetadata en eventueel een rapportpad. |
+| Puppet-dependencies | `project-tools-dependencies` gebruikt native OpenVox; `--junit` schrijft dezelfde uitslag ook als XML. | Expliciete modulepath, rootmetadata en eventueel een rapportpad. |
 | Puppet-syntax | `syntax-junit` voert de meegeleverde native Puppet-parser uit en schrijft JUnit XML per manifest. | De manifestselectie en het rapportpad. De [optionele Rake-taak](syntax/README.md#eigen-manifests-valideren) verzamelt alleen de eigen bestanden en roept dit commando aan. |
 | Puppet-lint | De projectchecks, het gedeelde `config/puppet-lint.rc` en `puppet-lint-junit`. | De eigen bestandsuitsluitingen, het Puppet-modulepad en het rapportpad. Gebruik de [native CLI met het gem-entrypoint](lint/puppet/README.md#eigen-code-controleren). |
 | Ruby-lint | RuboCop en het gedeelde `config/rubocop.yml`. De native JUnit-formatter schrijft het rapport. | De eigen `.rubocop.yml` met `inherit_gem`, bestandsselectie en het rapportpad. |
@@ -983,7 +983,7 @@ Puppet/
 │       ├── README.md
 │       ├── secrets/project-tools-secrets.gemspec
 │       ├── shared/project-tools-shared.gemspec
-│       ├── module/project-tools-module.gemspec
+│       ├── dependencies/project-tools-dependencies.gemspec
 │       ├── metadata/project-tools-metadata.gemspec
 │       ├── syntax/project-tools-syntax.gemspec
 │       └── lint/
@@ -1039,14 +1039,14 @@ gem 'syslog', '~> 0.4', platforms: :ruby, require: false
 
 gem 'project-tools-shared', path: 'global-modules/.tools/shared', require: false
 gem 'lint-project', path: 'global-modules/.tools/lint/puppet', require: false
-gem 'project-tools-module', path: 'global-modules/.tools/module', require: false
+gem 'project-tools-dependencies', path: 'global-modules/.tools/dependencies', require: false
 gem 'project-tools-syntax', path: 'global-modules/.tools/syntax', require: false
 gem 'project-tools-ruby-lint', path: 'global-modules/.tools/lint/ruby', require: false
 gem 'project-tools-metadata', path: 'global-modules/.tools/metadata', require: false
 gem 'project-tools-secrets', path: 'global-modules/.tools/secrets', require: false
 ```
 
-Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend de gekozen Puppet-runtime; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-module`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint kies je `project-tools-ruby-lint` en shared, zonder Puppet-runtime. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of algemene testtaak van `global-modules`. Voor moduletests geldt de afzonderlijke [catalog-ingang](catalog/README.md#vanuit-een-ander-project-uitvoeren).
+Voor algemene secretcontrole kies je shared en `project-tools-secrets`; de Puppet-modus gebruikt aanvullend de gekozen Puppet-runtime; leg ook de [voorcontrole voor AI en externe analyse](secrets/README.md#gebruik-in-een-ander-project) vast in je eigen instructies. Voor alleen parservalidatie kies je shared en `project-tools-syntax`; voor alleen dependencycontrole kies je shared en `project-tools-dependencies`. Voor alleen metadata kies je shared en `project-tools-metadata`; voor alleen Ruby-lint kies je `project-tools-ruby-lint` en shared, zonder Puppet-runtime. Laat de overige toolgems weg. De Git-submodule legt de bronrevisie vast en je eigen lockfile legt de volledige oplossing vast. Voer `bundle install` vanuit de consumerroot uit. De gems installeren geen Puppet-modules; haal die afzonderlijk op. Kopieer geen Ruby-implementatie of rapportomzetter en laad niet de root-Gemfile of algemene testtaak van `global-modules`. Voor moduletests geldt de afzonderlijke [catalog-ingang](catalog/README.md#vanuit-een-ander-project-uitvoeren).
 
 ### Git-dependency uit de monorepo
 
@@ -1065,7 +1065,7 @@ git '<repository-url>',
     glob: '.tools/**/*.gemspec' do
   gem 'project-tools-shared', require: false
   gem 'lint-project', require: false
-  gem 'project-tools-module', require: false
+  gem 'project-tools-dependencies', require: false
   gem 'project-tools-syntax', require: false
   gem 'project-tools-ruby-lint', require: false
   gem 'project-tools-metadata', require: false
@@ -1073,7 +1073,7 @@ git '<repository-url>',
 end
 ```
 
-Voer `bundle install` vanuit de eigen projectroot uit. Bewaar de gekozen revisie en lockfile. Bij een update gebruik je een gecontroleerde revisie en `bundle update lint-project project-tools-shared project-tools-module project-tools-syntax project-tools-ruby-lint project-tools-metadata project-tools-secrets`, gevolgd door de eigen kwaliteitscontroles. Zonder de multi-gemglob vindt Bundler niet alle geneste gemspecs. Zet geen credentials in Gemfile of URL. Een Puppet-modulecheckout blijft afzonderlijk nodig voor de moduleset die je beoordeelt.
+Voer `bundle install` vanuit de eigen projectroot uit. Bewaar de gekozen revisie en lockfile. Bij een update gebruik je een gecontroleerde revisie en `bundle update lint-project project-tools-shared project-tools-dependencies project-tools-syntax project-tools-ruby-lint project-tools-metadata project-tools-secrets`, gevolgd door de eigen kwaliteitscontroles. Zonder de multi-gemglob vindt Bundler niet alle geneste gemspecs. Zet geen credentials in Gemfile of URL. Een Puppet-modulecheckout blijft afzonderlijk nodig voor de moduleset die je beoordeelt.
 
 De installatietest gebruikt een tijdelijke Git-checkout met een Bundler-local-override voor de huidige werkbestanden, zonder commits te maken. Dat controleert de multi-gembron, glob, lokale packagegrenzen en consumercommando’s. Een installatie van de uiteindelijke gepubliceerde revisie zonder local override blijft een controle na de menselijke commit; de test bewijst evenmin bereikbaarheid of toegangsrechten van de externe server.
 
@@ -1088,7 +1088,7 @@ De meegeleverde Markdown blijft gelijk aan de documentatie in de checkout en vol
 ```sh
 (cd .tools/shared && gem build project-tools-shared.gemspec --output /tmp/project-tools-shared.gem)
 (cd .tools/lint/puppet && gem build lint-project.gemspec --output /tmp/lint-project.gem)
-(cd .tools/module && gem build project-tools-module.gemspec --output /tmp/project-tools-module.gem)
+(cd .tools/dependencies && gem build project-tools-dependencies.gemspec --output /tmp/project-tools-dependencies.gem)
 (cd .tools/syntax && gem build project-tools-syntax.gemspec --output /tmp/project-tools-syntax.gem)
 (cd .tools/lint/ruby && gem build project-tools-ruby-lint.gemspec --output /tmp/project-tools-ruby-lint.gem)
 (cd .tools/metadata && gem build project-tools-metadata.gemspec --output /tmp/project-tools-metadata.gem)
@@ -1102,7 +1102,7 @@ Installeer shared vóór de gekozen tools, zodat een ongepubliceerde shared-gem 
 ```sh
 gem install /tmp/project-tools-shared.gem
 gem install /tmp/lint-project.gem
-gem install /tmp/project-tools-module.gem
+gem install /tmp/project-tools-dependencies.gem
 gem install /tmp/project-tools-syntax.gem
 gem install /tmp/project-tools-ruby-lint.gem
 gem install /tmp/project-tools-metadata.gem
@@ -1122,7 +1122,7 @@ gem 'syslog', '~> 0.4', platforms: :ruby, require: false
 
 gem 'project-tools-shared', '= 0.1.1', require: false
 gem 'lint-project', '= 0.2.0', require: false
-gem 'project-tools-module', '= 0.1.0', require: false
+gem 'project-tools-dependencies', '= 0.1.0', require: false
 gem 'project-tools-syntax', '= 0.1.0', require: false
 gem 'project-tools-ruby-lint', '= 0.1.0', require: false
 gem 'project-tools-metadata', '= 0.1.0', require: false
@@ -1142,7 +1142,7 @@ Voeg voor Ruby `project-tools-ruby-lint` toe en wijzig `inherit_gem` in `.ruboco
 
 Voeg voor metadata `project-tools-metadata` toe. Vervang `PROJECT_LINT_MODULES_PATH` door `PROJECT_METADATA_MODULES_PATH` en `PROJECT_LINT_METADATA_PREFIX` door `PROJECT_METADATA_PREFIX` in de metadata-aanroep en CI-job. Neem benodigde uitsluitingen uit `.puppet-lint.rc` expliciet over als `--ignore-paths` van het metadatacommando. Vervang `puppet-lint --only-checks=project_metadata --fix` door `project-tools-metadata --fix`. Verwijder oude `project_metadata`-selecties of uitschakelopties uit lintconfiguratie; de check is geen lintplugin meer. Voeg ook de metadatajob met `--junit REPORT.xml` zonder `--fix` toe: Puppet-lint controleert en synchroniseert metadata niet meer.
 
-Vervang eerdere aanroepen van `project-tools-metadata-junit [--fix] REPORT.xml` door `project-tools-metadata [--fix] --junit REPORT.xml` en van `project-tools-module-dependencies-junit REPORT.xml` door `project-tools-module --junit REPORT.xml`. Laat voor uitsluitend console-uitvoer het hele `--junit REPORT.xml`-argument weg. Een los rapportpad wordt afgewezen. Werk ook eigen scripts en CI-aanroepen bij en voer `bundle install` uit om de nieuwe executables beschikbaar te maken. De vervangen executables krijgen geen compatibiliteitsalias.
+Vervang eerdere aanroepen van `project-tools-metadata-junit [--fix] REPORT.xml` door `project-tools-metadata [--fix] --junit REPORT.xml` en van `project-tools-module-dependencies-junit REPORT.xml` door `project-tools-dependencies --junit REPORT.xml`. Laat voor uitsluitend console-uitvoer het hele `--junit REPORT.xml`-argument weg. Een los rapportpad wordt afgewezen. Werk ook eigen scripts en CI-aanroepen bij en voer `bundle install` uit om de nieuwe executables beschikbaar te maken. De vervangen executables krijgen geen compatibiliteitsalias.
 
 Verwijder automatische rapportinstellingen uit eigen Rakefiles en testhelpers. Gebruik de [optionele reporterinitialisatie](#junit-rapportage-instellen) en geef in CI `MINITEST_REPORTERS_REPORTS_DIR` expliciet mee met dezelfde map als de testartifactselectie. Zonder die instelling laten `rake test`, gerichte taken en de standaardtaak bestaande rapporten ongemoeid; een lokaal oud rapport hoort dus bij de eerdere uitvoering.
 
@@ -1156,11 +1156,11 @@ Hernoem eigen `validate:puppet`-taken naar `syntax:puppet`. Gebruik `syntax-repo
 
 Werk eigen parser-Rake-taken bij volgens het [voorbeeld met optionele rapportage](syntax/README.md#eigen-manifests-valideren). `bundle exec rake syntax:puppet` valideert zonder rapport. Vervang de aanroep in CI door `bundle exec rake "syntax:puppet[$PROJECT_REPORT_DIR/syntax-report.xml]"` met de ingestelde rapportmap. De taak heeft geen standaardrapportpad en leest `PROJECT_REPORT_DIR` niet zelf; bestaande rapporten blijven zonder rapportargument ongewijzigd.
 
-Voeg `project-tools-module` en zijn afzonderlijke CI-job toe wanneer je dependencycontrole gebruikt. Werk bestaande Gemfile-verwijzingen, buildcommando’s en CI-aanroepen voor de dependencytool bij naar de volledige naam `project-tools-module` en executable `project-tools-module`. Gebruik de rapportnamen uit [Rapporten en artifacts](#rapporten-en-artifacts-in-je-project).
+Voeg `project-tools-dependencies` en zijn afzonderlijke CI-job toe wanneer je dependencycontrole gebruikt. Werk bestaande Gemfile-verwijzingen, buildcommando’s en CI-aanroepen voor de dependencytool bij naar de volledige naam `project-tools-dependencies` en executable `project-tools-dependencies`. Gebruik de rapportnamen uit [Rapporten en artifacts](#rapporten-en-artifacts-in-je-project).
 
 De gedeelde console voor [joblogs](#joblogs) is beschikbaar vanaf `project-tools-shared 0.1.1`. Werk bij een update van de afnemende tools ook shared en de eigen lockfile bij volgens hun gemspecs. Mensgerichte tekst is geen parser-API; gebruik voor automatische verwerking de bestaande JSON- en XML-formaten.
 
-Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en aanpassing van de parseraanroep. `puppet-lint-junit` blijft een converter: geldige conversie kan status 0 geven terwijl de XML failures bevat; de lintpipe blijft `pipefail` vereisen. `syntax-junit` blijft ieder geselecteerd manifest native valideren. De nieuwe dependencytool gebruikt zijn eigen [exitcodes en rapportlevenscyclus](module/README.md#exitcodes-en-rapporten).
+Puppet-lint en parservalidatie behouden hun statuscontracten na installatie en aanpassing van de parseraanroep. `puppet-lint-junit` blijft een converter: geldige conversie kan status 0 geven terwijl de XML failures bevat; de lintpipe blijft `pipefail` vereisen. `syntax-junit` blijft ieder geselecteerd manifest native valideren. De nieuwe dependencytool gebruikt zijn eigen [exitcodes en rapportlevenscyclus](dependencies/README.md#exitcodes-en-rapporten).
 
 ## Verantwoordelijkheden gescheiden houden
 
@@ -1223,7 +1223,7 @@ Volg bij onderhoud de [gezamenlijke ontwikkelwerkwijze](../CONTRIBUTING.md) en h
 | --- | --- |
 | Lint | [Checks, architectuur, veilige autofix en documentatie](lint/puppet/README.md#linter-ontwikkelen-en-testen). |
 | Metadata | [Selectie, versiebron, herstel en rapporten](metadata/README.md#onderhoud-en-verificatie). |
-| Moduledependencies | [Native selectie, runtimegrenzen en distributie](module/README.md#ontwikkelen-en-testen). |
+| Moduledependencies | [Native selectie, runtimegrenzen en distributie](dependencies/README.md#ontwikkelen-en-testen). |
 | Repositorycontroles | [Documentatie, instructieroutes, CI, distributie-integratie en testindeling](repository/README.md#onderhoud). |
 | Ruby-lint | [Native RuboCop, profiel en consumerintegratie](lint/ruby/README.md#onderhoud-en-tests). |
 | Secrets | [Detectie, analysekopieën, herstel en veilige review](secrets/README.md#ontwikkelen-en-testen). |
@@ -1282,7 +1282,7 @@ Houd toolspecifieke testinstructies in de eigen handleiding en maak geen losse t
 
 ## Gezamenlijke tooltests
 
-Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint/puppet`, `lint/ruby`, `shared`, `syntax`, `catalog`, `module`, `metadata`, `secrets` en `repository`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../TESTS.md#testscope-en-plaatsing) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
+Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint/puppet`, `lint/ruby`, `shared`, `syntax`, `catalog`, `dependencies`, `metadata`, `secrets` en `repository`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../TESTS.md#testscope-en-plaatsing) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Eigen Puppet-manifesten voor de secrets-gate en synthetische toolcontracten. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Niet-lege selectie zonder failures, errors of onverklaarde skips.
 
@@ -1290,7 +1290,7 @@ Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint/puppet`, `lin
 bundle exec rake test
 bundle exec rake test:lint
 bundle exec rake test:shared
-bundle exec rake test:module
+bundle exec rake test:dependencies
 bundle exec rake test:syntax
 bundle exec rake test:catalog
 bundle exec rake test:metadata

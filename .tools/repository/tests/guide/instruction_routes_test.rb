@@ -10,7 +10,7 @@ class GuideInstructionRoutesTest < Minitest::Test
   include RepositoryGuideInventory
 
   ROOT = File.expand_path('../../../..', __dir__)
-  COMPONENTS = %w[catalog lint/puppet lint/ruby metadata module repository
+  COMPONENTS = %w[catalog lint/puppet lint/ruby metadata dependencies repository
                   secrets shared syntax].freeze
   COMPONENT_PARENTS = %w[../../AGENTS.md ../AGENTS.md README.md ../../CONTRIBUTING.md ../../TESTS.md].freeze
   INSTRUCTION_ROUTES = {

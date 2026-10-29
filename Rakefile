@@ -17,7 +17,7 @@ end
   'test:syntax' => ['Run Puppet syntax tests', '.tools/syntax/tests/**/*_test.rb'],
   'test:secrets' => ['Run sensitive-data scanner tests', '.tools/secrets/tests/**/*_test.rb'],
   'test:shared' => ['Run shared library tests', '.tools/shared/tests/**/*_test.rb'],
-  'test:module' => ['Run dependency tool tests', '.tools/module/tests/**/*_test.rb']
+  'test:dependencies' => ['Run dependency tool tests', '.tools/dependencies/tests/**/*_test.rb']
 }.each do |name, (description, pattern)|
   Rake::TestTask.new(name) do |task|
     task.description = description

@@ -5,11 +5,11 @@ require 'optparse'
 require 'project_tools/shared/modulepath'
 require 'project_tools/shared/console'
 require 'project_tools/shared/puppet_runtime'
-require 'project_tools/module/result'
-require 'project_tools/module/reporter'
+require 'project_tools/dependencies/result'
+require 'project_tools/dependencies/reporter'
 
 module ProjectTools
-  module Module
+  module Dependencies
     # Run the native scan with console output and an explicitly requested report.
     class Cli
       def self.run(arguments, console: $stdout, errors: $stderr)
@@ -31,7 +31,7 @@ module ProjectTools
 
         @presentation = Shared::Console.new(
           'Puppet module dependencies', output: @console, scope: 'explicit modulepath and root',
-                                        software: { tool: 'project-tools-module', runtime: true }
+                                        software: { tool: 'project-tools-dependencies', runtime: true }
         )
         @presentation.during { execute(argument_error) }
       end
@@ -81,7 +81,7 @@ module ProjectTools
 
       def parser
         OptionParser.new do |cli|
-          cli.banner = 'Usage: project-tools-module [--junit REPORT.xml]'
+          cli.banner = 'Usage: project-tools-dependencies [--junit REPORT.xml]'
           cli.on('-h', '--help', 'Show usage') { @help = true }
           cli.on('--junit REPORT.xml', 'Also write a JUnit report') do |path|
             raise OptionParser::InvalidArgument, 'JUnit report must end in .xml' unless path.end_with?('.xml')
@@ -111,8 +111,8 @@ module ProjectTools
       def perform_scan(result)
         Shared::PuppetRuntime.load!
         paths = ProjectTools::Shared::Modulepath.parse(ENV.fetch('PROJECT_TOOLS_MODULEPATH', nil))
-        require 'project_tools/module/openvox_adapter'
-        require 'project_tools/module/root_dependencies'
+        require 'project_tools/dependencies/openvox_adapter'
+        require 'project_tools/dependencies/root_dependencies'
         root = RootDependencies.new(@root, result)
         root.read
         OpenvoxAdapter.new(paths, result, progress: @presentation).scan { |environment| root.check(environment) }

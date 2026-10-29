@@ -2,7 +2,7 @@
 
 require_relative '../../shared/test_support/bootstrap'
 require 'rexml/document'
-require 'project_tools/module/cli'
+require 'project_tools/dependencies/cli'
 
 # Synthetic metadata tests the tool contract without executing any Puppet module code.
 module DependencyTestSupport
@@ -39,7 +39,7 @@ module DependencyTestSupport
   end
 
   def dependency_executable
-    Gem.bin_path('project-tools-module', 'project-tools-module')
+    Gem.bin_path('project-tools-dependencies', 'project-tools-dependencies')
   end
 
   def error_types
@@ -52,7 +52,7 @@ module DependencyTestSupport
                                               '--junit', @report, chdir: @project)
     assert_equal expected, status.exitstatus, @output + @errors
     @suite = read_suite
-    assert_equal 'project-tools-module', @suite.attributes['name']
+    assert_equal 'project-tools-dependencies', @suite.attributes['name']
     @suite
   end
 

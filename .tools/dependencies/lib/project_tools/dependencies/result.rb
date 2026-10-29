@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ProjectTools
-  module Module
+  module Dependencies
     # One scan result supplies console output, JUnit cases and the process status.
     class Result
       attr_reader :problems, :assessed, :unassessed
