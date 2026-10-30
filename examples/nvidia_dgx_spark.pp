@@ -12,6 +12,7 @@ node 'dgx-spark.example.org' {
     ip_forwarding     => true,
     nginx_enable      => true,
     kernel_flavor     => 'nvidia',
+    kernel_version    => '7.0.0-1019-nvidia', # Use an available release; omit this parameter to follow HWE.
     nvidia_dgx_enable => true,
   }
 

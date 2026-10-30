@@ -72,10 +72,18 @@
 #   Generic installs linux-generic and removes raspi metapackages; on Ubuntu other than 26.04 it also installs
 #   release-specific generic HWE image and headers. Raspi installs linux-raspi and removes generic metapackages.
 #   Nvidia requires Ubuntu 24.04 with Facter architecture arm64 or aarch64; unsupported selection fails compilation.
-#   It installs linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources, retaining
-#   linux-tools-common and existing generic kernels. It neither selects -nvidia-64k nor pins a build. No NVIDIA
-#   repository, GPU driver, CUDA, boot-entry selection or reboot is supplied by this choice. Verify boot
-#   configuration and reboot manually after checking the package plan.
+#   Without kernel_version it installs linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources,
+#   retaining linux-tools-common and existing generic kernels. This choice supplies no NVIDIA repository,
+#   GPU driver, CUDA, boot-entry selection or reboot. Verify boot configuration and reboot manually after checking
+#   the package plan.
+#
+# @param kernel_version
+#   Optional full kernel release, for example 7.0.0-1019-nvidia; used only with kernel_flavor => 'nvidia'.
+#   Selects linux-image-<release>, linux-modules-<release>, linux-headers-<release> and linux-tools-<release> instead
+#   of the HWE metapackages. All four packages must exist in the configured APT sources; no fallback is used.
+#   Undef selects the HWE metapackages. Empty strings are invalid. Existing kernels and HWE metapackages are not
+#   removed or held; installed metapackages can still pull in newer kernels. This selects package names, not a
+#   Debian package version or a boot entry. Changing or clearing the value retains previously installed packages.
 #
 # @param memory_available_profiles
 #   Optional MemAvailable threshold profiles for memory-pressure monitoring.
@@ -136,6 +144,7 @@ class basic_settings::kernel (
   String                                     $ip_regdom                 = 'NL',
   Enum['all', '4']                           $ip_version                = 'all',
   Enum['auto', 'generic', 'raspi', 'nvidia'] $kernel_flavor             = 'auto',
+  Optional[String[1]]                        $kernel_version            = undef,
   Optional[Array[Hash]]                      $memory_available_profiles = undef,
   Variant[Boolean, Integer[0]]               $mglru_enable              = true,
   String                                     $network_mode              = 'strict',
@@ -418,10 +427,21 @@ class basic_settings::kernel (
         }
       }
       'nvidia': {
+        # Share the selected package names with the caller's APT-refresh ordering.
+        $nvidia_kernel_packages = $kernel_version ? {
+          undef   => ['linux-nvidia-hwe-24.04', 'linux-tools-nvidia-hwe-24.04'],
+          default => [
+            "linux-image-${kernel_version}",
+            "linux-modules-${kernel_version}",
+            "linux-headers-${kernel_version}",
+            "linux-tools-${kernel_version}",
+          ],
+        }
+
         # Install the NVIDIA kernel and tools while retaining existing generic kernels for recovery.
-        package { ['linux-nvidia-hwe-24.04', 'linux-tools-nvidia-hwe-24.04']:
-            ensure          => installed,
-            install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+        package { $nvidia_kernel_packages:
+          ensure          => installed,
+          install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
         }
       }
       default: {

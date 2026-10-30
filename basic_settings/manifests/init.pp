@@ -118,9 +118,9 @@
 #   Generic installs linux-generic, removes the raspi metapackages and, on Ubuntu releases other than 26.04,
 #   installs the release-specific generic HWE image and headers. Raspi installs linux-raspi and removes generic
 #   kernel metapackages.
-#   Nvidia requires Ubuntu 24.04 ARM64 (arm64 or aarch64), otherwise compilation fails. It installs
-#   linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources, retaining existing generic kernels
-#   and linux-tools-common. It does not select the -nvidia-64k line or pin a build, require nvidia_dgx_enable,
+#   Nvidia requires Ubuntu 24.04 ARM64 (arm64 or aarch64), otherwise compilation fails. Without kernel_version it
+#   installs linux-nvidia-hwe-24.04 and linux-tools-nvidia-hwe-24.04 from Ubuntu sources, retaining existing generic
+#   kernels and linux-tools-common. It does not require nvidia_dgx_enable,
 #   install GPU drivers or CUDA, choose a boot entry or trigger a reboot. Verify the package plan and boot
 #   configuration before a manual reboot; the README contains the complete Spark procedure.
 #
@@ -154,6 +154,14 @@
 #
 # @param kernel_tcp_fastopen
 #   TCP Fast Open sysctl value passed to `basic_settings::kernel`.
+#
+# @param kernel_version
+#   Optional full kernel release, for example 7.0.0-1019-nvidia; used only with kernel_flavor => 'nvidia'.
+#   Selects linux-image-<release>, linux-modules-<release>, linux-headers-<release> and linux-tools-<release> instead
+#   of the HWE metapackages. All four packages must exist in the configured APT sources; no fallback is used.
+#   Undef selects the HWE metapackages. Empty strings are invalid. Existing kernels and HWE metapackages are not
+#   removed or held; installed metapackages can still pull in newer kernels. This selects package names, not a
+#   Debian package version or a boot entry. Changing or clearing the value retains previously installed packages.
 #
 # @param keyboard_enable
 #   Optional override for console keyboard management in `basic_settings::assistent`.
@@ -417,6 +425,7 @@ class basic_settings (
   Optional[Array[Hash]]                      $kernel_swap_free_profiles                = undef,
   String                                     $kernel_tcp_congestion_control            = 'brr',
   Integer                                    $kernel_tcp_fastopen                      = 3,
+  Optional[String[1]]                        $kernel_version                           = undef,
   Optional[Boolean]                          $keyboard_enable                          = undef,
   Boolean                                    $locale_enable                            = false,
   Boolean                                    $lvm_enable                               = false,
@@ -1021,6 +1030,7 @@ class basic_settings (
     ip_ra_enable              => $ip_ra_enable_correct,
     ip_ra_learn_prefix        => $ip_ra_learn_prefix,
     kernel_flavor             => $kernel_flavor,
+    kernel_version            => $kernel_version,
     memory_available_profiles => $kernel_memory_available_profiles,
     mglru_enable              => $kernel_mglru_enable,
     network_mode              => $kernel_network_mode,
@@ -1036,7 +1046,7 @@ class basic_settings (
 
   # Install NVIDIA kernel packages only after Ubuntu sources and the central APT refresh are ready.
   if ($kernel_flavor == 'nvidia') {
-    Exec['basic_settings_source_reload'] -> Package['linux-nvidia-hwe-24.04', 'linux-tools-nvidia-hwe-24.04']
+    Exec['basic_settings_source_reload'] -> Package[$basic_settings::kernel::nvidia_kernel_packages]
   }
 
   # Set network

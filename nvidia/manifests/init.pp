@@ -57,7 +57,7 @@ class nvidia (
 
     # The desired kernel may already be installed without being the running kernel.
     if (defined(Class['basic_settings::kernel'])) {
-      # Wait for the selected kernel and its transitive header dependency.
+      # Wait for the selected kernel and headers.
       $kernel_require = Class['basic_settings::kernel']
     } else {
       # Standalone callers provide the kernel and headers before applying this class.
@@ -88,7 +88,7 @@ class nvidia (
     }
 
     # Select the open headless driver from the same branch as the pinning package.
-    package { ["nvidia-headless-${pinning}-open", 'nvidia-modprobe']:
+    package { ["nvidia-headless-${pinning}-server-open", 'nvidia-modprobe', "nvidia-utils-${pinning}-server"]:
       ensure          => installed,
       provider        => apt,
       install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
