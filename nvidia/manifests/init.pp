@@ -88,7 +88,11 @@ class nvidia (
     }
 
     # Select the open headless driver from the same branch as the pinning package.
-    package { ["nvidia-headless-${pinning}-server-open", 'nvidia-modprobe', "nvidia-utils-${pinning}-server"]:
+    package { [
+        "nvidia-headless-${pinning}-server-open",
+        'nvidia-modprobe',
+        "nvidia-utils-${pinning}-server",
+      ]:
       ensure          => installed,
       provider        => apt,
       install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),

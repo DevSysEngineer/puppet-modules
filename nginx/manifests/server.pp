@@ -185,6 +185,8 @@
 #   Defaults to `false`, which contributes no override and does not veto another vhost's request. Repeated `true`
 #   values emit `multipath` once per TCP socket. Requires Nginx 1.29.7 or newer with Multipath TCP support on Linux 5.6
 #   or newer. Nginx also enables SO_REUSEPORT when adding or removing this option.
+#   A previously declared basic_settings::kernel with mptcp_enable => false overrides every vhost request and omits
+#   multipath from the generated listeners. Without that class, the vhost request is used unchanged.
 #
 # @param php_fpm_directives
 #   Additional raw directives rendered into the PHP-FPM location.
@@ -666,9 +668,10 @@ define nginx::server (
 
     # Resolve address-family policy and optional kernel-backed socket settings once for this vhost.
     if (defined(Class['basic_settings::kernel'])) {
-      # Use IPv6 listeners only when kernel policy permits them.
+      # Use IPv6 and Multipath TCP listeners only when kernel policy permits them.
       $http_ipv6_correct = $http_ipv6 and $basic_settings::kernel::ip_version_v6
       $https_ipv6_correct = $https_ipv6 and $basic_settings::kernel::ip_version_v6
+      $multipath_correct = $multipath and $basic_settings::kernel::mptcp_enable
 
       # A zero backlog inherits the kernel limit; Fast Open requires the kernel's client/server setting.
       $backlog_value = $backlog ? {
@@ -680,9 +683,10 @@ define nginx::server (
         default => undef,
       }
     } else {
-      # Without managed kernel policy, honor the vhost's address-family settings.
+      # Without managed kernel policy, honor the vhost's address-family and Multipath TCP settings.
       $http_ipv6_correct = $http_ipv6
       $https_ipv6_correct = $https_ipv6
+      $multipath_correct = $multipath
 
       # Without kernel configuration only an explicitly positive backlog can contribute an override.
       $backlog_value = $backlog > 0 ? { true => $backlog, default => undef }
@@ -895,7 +899,7 @@ define nginx::server (
         'backlog'      => $backlog_value,
         'deferred'     => $deferred ? { true => true, default => undef },
         'fastopen'     => $fastopen_value,
-        'multipath'    => $multipath ? { true => true, default => undef },
+        'multipath'    => $multipath_correct ? { true => true, default => undef },
         'reuseport'    => $reuseport ? { true => true, default => undef },
         'so_keepalive' => $so_keepalive,
       }

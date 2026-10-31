@@ -134,6 +134,12 @@
 # @param kernel_mglru_enable
 #   Controls Multi-Gen LRU. `true` uses the default, `false` disables it, and an integer sets a custom `min_ttl_ms`.
 #
+# @param kernel_mptcp_enable
+#   Allows new Multipath TCP sockets when true; false writes net.mptcp.enabled=0 through the kernel class.
+#   Changes persist in /etc/sysctl.d/90-network.conf and trigger the existing sysctl reload in Puppet's network
+#   namespace. Other namespaces need their own setting. Existing sockets are not closed; restart affected
+#   applications after disabling MPTCP. Declare this class before Nginx vhosts so they honor this policy.
+#
 # @param kernel_network_mode
 #   Kernel network hardening mode passed to sysctl templates.
 #
@@ -419,6 +425,7 @@ class basic_settings (
   Integer                                    $kernel_hugepages                         = 0,
   Optional[Array[Hash]]                      $kernel_memory_available_profiles         = undef,
   Variant[Boolean, Integer[0]]               $kernel_mglru_enable                      = true,
+  Boolean                                    $kernel_mptcp_enable                      = true,
   String                                     $kernel_network_mode                      = 'strict',
   Enum['initramfs', 'dracut']                $kernel_ram_disk_package                  = 'initramfs',
   Variant[Boolean, String]                   $kernel_security_lockdown                 = true,
@@ -1033,6 +1040,7 @@ class basic_settings (
     kernel_version            => $kernel_version,
     memory_available_profiles => $kernel_memory_available_profiles,
     mglru_enable              => $kernel_mglru_enable,
+    mptcp_enable              => $kernel_mptcp_enable,
     network_mode              => $kernel_network_mode,
     ram_disk_package          => $kernel_ram_disk_package_correct,
     security_lockdown         => $kernel_security_lockdown,

@@ -95,6 +95,13 @@
 #   Controls Multi-Gen LRU. `true` uses the default `min_ttl_ms` of 1000, `false` disables MGLRU, and an integer sets a
 #   custom `min_ttl_ms`.
 #
+# @param mptcp_enable
+#   Allows new Multipath TCP sockets when true; false writes net.mptcp.enabled=0 in /etc/sysctl.d/90-network.conf.
+#   Changes notify the existing sysctl reload and persist across boot. The setting applies only to Puppet's network
+#   namespace; manage other namespaces separately. Existing sockets are not closed and applications are not
+#   restarted by this setting. Restart affected applications after disabling MPTCP. Declare this class before Nginx
+#   vhosts so they omit multipath when false, including requests from application wrappers.
+#
 # @param network_mode
 #   Kernel network hardening mode consumed by the sysctl templates.
 #
@@ -147,6 +154,7 @@ class basic_settings::kernel (
   Optional[String[1]]                        $kernel_version            = undef,
   Optional[Array[Hash]]                      $memory_available_profiles = undef,
   Variant[Boolean, Integer[0]]               $mglru_enable              = true,
+  Boolean                                    $mptcp_enable              = true,
   String                                     $network_mode              = 'strict',
   Enum['initramfs', 'dracut']                $ram_disk_package          = 'initramfs',
   Variant[Boolean, String]                   $security_lockdown         = true,
@@ -353,6 +361,9 @@ class basic_settings::kernel (
 
     # Use the same forwarding value for global settings and new interfaces; ip_version controls family availability.
     $ip_forwarding_value = bool2str($ip_forwarding, '1', '0')
+
+    # Render an explicit sysctl value so disabling MPTCP also replaces an earlier enabled setting.
+    $mptcp_value = bool2str($mptcp_enable, '1', '0')
 
     # Supply the interpreters and tools used by kernel commands and their guards.
     $kernel_command_packages = [
