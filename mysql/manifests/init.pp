@@ -54,6 +54,8 @@
 #
 # @param settings
 #   Hash of MySQL server settings merged over the module defaults and rendered into the MySQL configuration template.
+#   MySQL 9.7 omits binlog_format so the server defaults to ROW; older supported series retain MIXED.
+#   Explicit settings still override these defaults, including binlog_format.
 #   The combined server/client file is managed only when root is managed; otherwise provide that configuration
 #   externally. Overrides and included files must be valid for the selected server. Changes do not request a restart.
 #
@@ -93,7 +95,6 @@ class mysql (
   # Set mysqld default values
   $default_values = {
     'binlog_cache_size'             => '2M',
-    'binlog_format'                 => 'MIXED',
     'binlog_expire_logs_auto_purge' => 'ON',
     'binlog_expire_logs_seconds'    => 172800, # 2 days
     'innodb_buffer_pool_chunk_size' => '256M', # innodb_buffer_pool_size / innodb_buffer_pool_instances
@@ -122,8 +123,7 @@ class mysql (
     'mysql_dump_skip_lock_tables'   => 'yes',
   }
 
-  # Merge default settings with user settings
-  $mysqld_default = stdlib::merge($default_values, $settings)
+  # Merge backup defaults with user settings.
   $automysqlbackup_default = stdlib::merge($automysqlbackup_values, $automysqlbackup_settings)
 
   # Basic variable
@@ -138,6 +138,15 @@ class mysql (
     # Use the caller's series when the repository is absent or disabled.
     $version = $package_version
   }
+
+  # Let MySQL 9.7 use ROW without configuring the deprecated option; retain older defaults.
+  $binlog_defaults = $version ? {
+    9.7     => {},
+    default => { 'binlog_format' => 'MIXED' },
+  }
+
+  # Apply caller settings after the defaults for the effective server series.
+  $mysqld_default = stdlib::merge($default_values, $binlog_defaults, $settings)
 
   # Classify reviewed series once for root, user authentication and grant rendering.
   $version_profile = $version ? {
