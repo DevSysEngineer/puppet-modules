@@ -27,6 +27,8 @@
 #
 # @param version
 #   MySQL version used in repository component and key selection. The default is 8.0.
+#   Enabled repositories accept 8.0, 8.4 and 9.7, or the historical mapping through 5.7.
+#   Other series fail compilation. Disabled cleanup ignores the unused version.
 #
 # @api private
 class basic_settings::package_mysql (
@@ -101,70 +103,83 @@ class basic_settings::package_mysql (
         $version_correct = $version
       }
       8.4: {
-        # Pair the MySQL 8 signing key with the LTS repository component.
+        # Pair the MySQL 8 signing key with the 8.4 LTS repository component.
         $key_filename = 'mysql-8.key'
         $version_correct = "${version}-lts"
       }
+      9.7: {
+        # Pair the MySQL 9 signing key with the 9.7 LTS repository component.
+        $key_filename = 'mysql-9.key'
+        $version_correct = "${version}-lts"
+      }
       default: {
-        # Use the older signing-key mapping for the remaining MySQL versions.
+        # Retain the historical mapping without guessing components for newer unreviewed series.
         $key_filename = 'mysql-7.key'
-        $version_correct = $version
+        $version_correct = $version <= 5.7 ? {
+          true    => $version,
+          default => undef,
+        }
       }
     }
 
-    # Get source
-    if ($deb_version == '822') {
-      # Render the selected repository and signing key in deb822 format.
-      $source_content  = "Types: deb\\nURIs: https://repo.mysql.com/apt/${os_parent}\\nSuites: ${os_name}\\nComponents: mysql-${version_correct}\\nSigned-By:${key_file}\\n" # lint:ignore:140chars
+    # Only reviewed modern components and the historical mapping may create an active source.
+    if ($version_correct != undef) {
+      # Get source
+      if ($deb_version == '822') {
+        # Render the selected repository and signing key in deb822 format.
+        $source_content  = "Types: deb\\nURIs: https://repo.mysql.com/apt/${os_parent}\\nSuites: ${os_name}\\nComponents: mysql-${version_correct}\\nSigned-By:${key_file}\\n" # lint:ignore:140chars
+      } else {
+        # Render the selected repository and signing key in one-line APT format.
+        $source_content = "deb [signed-by=${key_file}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\\n"
+      }
+
+      # Escape generated repo and preference content as literal newline sequences before the shell writes it.
+      $source_content_shell = stdlib::shell_escape("# Managed by puppet\\n${source_content}")
+      $preference_content_shell = stdlib::shell_escape("# Managed by puppet\\nPackage: mysql*\\nPin: origin repo.mysql.com\\nPin-Priority: 990\\n") # lint:ignore:140chars
+
+      # Rebuild key
+      exec { 'package_mysql_key_build':
+        command     => $key_rebuild,
+        onlyif      => "/usr/bin/test -e ${key_file_shell}",
+        refreshonly => true,
+        require     => [
+          File[$alternative],
+          Package[$repository_required_packages],
+        ],
+        before      => Exec['basic_settings_source_reload'],
+      }
+
+      # Create MySQL key
+      file { 'package_mysql_key_filename':
+        ensure => file,
+        path   => '/usr/share/keyrings/mysql.key',
+        source => "puppet:///modules/basic_settings/mysql/${key_filename}",
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0600',
+        notify => Exec['package_mysql_key_build'],
+      }
+
+      # Set source
+      exec { 'package_mysql_source':
+        provider => shell,
+        command  => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
+        unless   => "/usr/bin/test -e ${source_file_shell} && /usr/bin/printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
+        require  => [
+          Package[$repository_required_packages],
+          File['package_mysql_key_filename'],
+        ],
+      }
+
+      # Set preference
+      exec { 'package_mysql_preference':
+        provider => shell,
+        command  => "/usr/bin/printf %b ${preference_content_shell} > ${file_preference_shell}; chmod 644 ${file_preference_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+        unless   => "/usr/bin/test -e ${file_preference_shell} && /usr/bin/printf %b ${preference_content_shell} | /usr/bin/cmp -s - ${file_preference_shell}", # lint:ignore:140chars
+        require  => Exec['package_mysql_source'],
+      }
     } else {
-      # Render the selected repository and signing key in one-line APT format.
-      $source_content = "deb [signed-by=${key_file}] https://repo.mysql.com/apt/${os_parent} ${os_name} mysql-${version_correct}\\n"
-    }
-
-    # Escape generated repo and preference content as literal newline sequences before the shell writes it.
-    $source_content_shell = stdlib::shell_escape("# Managed by puppet\\n${source_content}")
-    $preference_content_shell = stdlib::shell_escape("# Managed by puppet\\nPackage: mysql*\\nPin: origin repo.mysql.com\\nPin-Priority: 990\\n") # lint:ignore:140chars
-
-    # Rebuild key
-    exec { 'package_mysql_key_build':
-      command     => $key_rebuild,
-      onlyif      => "/usr/bin/test -e ${key_file_shell}",
-      refreshonly => true,
-      require     => [
-        File[$alternative],
-        Package[$repository_required_packages],
-      ],
-      before      => Exec['basic_settings_source_reload'],
-    }
-
-    # Create MySQL key
-    file { 'package_mysql_key_filename':
-      ensure => file,
-      path   => '/usr/share/keyrings/mysql.key',
-      source => "puppet:///modules/basic_settings/mysql/${key_filename}",
-      owner  => 'root',
-      group  => 'root',
-      mode   => '0600',
-      notify => Exec['package_mysql_key_build'],
-    }
-
-    # Set source
-    exec { 'package_mysql_source':
-      provider => shell,
-      command  => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
-      unless   => "/usr/bin/test -e ${source_file_shell} && /usr/bin/printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
-      require  => [
-        Package[$repository_required_packages],
-        File['package_mysql_key_filename'],
-      ],
-    }
-
-    # Set preference
-    exec { 'package_mysql_preference':
-      provider => shell,
-      command  => "/usr/bin/printf %b ${preference_content_shell} > ${file_preference_shell}; chmod 644 ${file_preference_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless   => "/usr/bin/test -e ${file_preference_shell} && /usr/bin/printf %b ${preference_content_shell} | /usr/bin/cmp -s - ${file_preference_shell}", # lint:ignore:140chars
-      require  => Exec['package_mysql_source'],
+      fail("basic_settings::package_mysql version ${version} is unsupported; choose 8.0, 8.4 or 9.7")
     }
   } else {
     # Remove mysql repo

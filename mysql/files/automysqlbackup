@@ -154,11 +154,13 @@ prepare_backup_credentials() {
 
 # Never remove a caller-supplied defaults file or unrelated files in a shared temporary directory.
 cleanup_backup_credentials() {
+    local cleanup_status=0
     if [[ -n "${MYSQL_CREDENTIAL_DIR:-}" ]]; then
-        $MYSQL_RM -f -- "$MYSQL_CREDENTIAL_DIR/client.cnf"
-        $MYSQL_RMDIR -- "$MYSQL_CREDENTIAL_DIR"
+        $MYSQL_RM -f -- "$MYSQL_CREDENTIAL_DIR/client.cnf" || cleanup_status=1
+        $MYSQL_RMDIR -- "$MYSQL_CREDENTIAL_DIR" || cleanup_status=1
         MYSQL_CREDENTIAL_DIR=''
     fi
+    return "$cleanup_status"
 }
 
 # @return:  true, if variable is set; else false
@@ -346,56 +348,103 @@ set_datetime_vars() {
     date_lastday_of_this_month=$(days_of_month $month $year)
 }
 
-# @info:  This function is called after data has already been saved. It performs encryption and
-#     hardlink-copying of files to a latest folder.
-# @return:  flags
-# @deps:  load_default_config
-files_postprocessing () {
-    local flags
-    let "flags=0x00"
-    let "flags_files_postprocessing_success_encrypt=0x01"
+# Remove only staging and lock directories created by this invocation, including on signals.
+cleanup_backup_output() {
+    local cleanup_status=0
+    if [[ -n "${backup_work_dir:-}" ]]; then
+        rm -rf -- "$backup_work_dir" || cleanup_status=1
+        backup_work_dir=''
+    fi
+    if [[ -n "${backup_lock_dir:-}" ]]; then
+        rm -f -- "$backup_lock_dir/pid" || cleanup_status=1
+        rmdir -- "$backup_lock_dir" || cleanup_status=1
+        backup_lock_dir=''
+    fi
+    return "$cleanup_status"
+}
 
-    # -> CONFIG_encrypt
-    [[ "${CONFIG_encrypt}" = "yes" && "${CONFIG_encrypt_password}" ]] && {
-        if (( $CONFIG_dryrun )); then
-            printf 'dry-running: openssl enc -aes-256-cbc -pbkdf2 -salt -e -in %s -out %s.enc -pass fd:3\n' "${1}" "${1}"
+# Preserve the primary status and make failed cleanup visible to the service manager.
+finish_backup() {
+    local final_status=$?
+    cleanup_backup_output || final_status=1
+    cleanup_backup_credentials || final_status=1
+    if [[ "${backup_mail_cleanup:-0}" = 1 ]]; then
+        mail_cleanup || final_status=1
+    fi
+    exit "$final_status"
+}
+
+# Serialize manual and scheduled writers to the same destination; stale locks require operator review.
+lock_backup_output() {
+    if mkdir -- "${CONFIG_backup_dir}/.automysqlbackup.lock"; then
+        backup_lock_dir="${CONFIG_backup_dir}/.automysqlbackup.lock"
+        printf '%s\n' "$$" > "$backup_lock_dir/pid"
+    else
+        printf '%s\n' 'Backup destination is locked; confirm the other run has stopped before removing a stale lock.' >&2
+        return 1
+    fi
+}
+
+# Write one complete archive before replacing its final name. The command follows the destination argument.
+# Success appends the published path to backupfiles; failures leave earlier archives intact and return nonzero.
+write_backup_archive() {
+    local destination="$1"
+    local staged
+    shift
+    if (( CONFIG_dryrun )); then
+        printf 'dry-running: create backup archive %s\n' "$destination"
+        return 0
+    fi
+
+    backup_work_dir=$(umask 077; mktemp -d "${destination}.partial.XXXXXXXX") || return 1
+    staged="$backup_work_dir/archive"
+    if (
+        set -o pipefail
+        case "$CONFIG_mysql_dump_compression" in
+            gzip) "$@" | gzip_compression ;;
+            bzip2) "$@" | bzip2_compression ;;
+            *) "$@" ;;
+        esac
+    ) > "$staged"; then
+        :
+    else
+        printf 'Backup export or compression failed for %s\n' "$destination" >&2
+        rm -rf -- "$backup_work_dir"
+        backup_work_dir=''
+        return 1
+    fi
+
+    if [[ "$CONFIG_encrypt" = yes && -n "$CONFIG_encrypt_password" ]]; then
+        # Preserve the existing cipher, PBKDF2 and descriptor-based passphrase input.
+        if openssl enc -aes-256-cbc -pbkdf2 -salt -e -in "$staged" -out "$staged.enc" -pass fd:3 3<<<"$CONFIG_encrypt_password"; then
+            if ! rm -- "$staged"; then
+                let "E |= E_enc_cleartext_delfailed"
+                return 1
+            fi
+            staged="$staged.enc"
+            destination="$destination.enc"
         else
-            # Bash supplies the passphrase on a private descriptor, without adding it to argv or the environment.
-            openssl enc -aes-256-cbc -pbkdf2 -salt -e -in "${1}" -out "${1}.enc" -pass fd:3 3<<<"${CONFIG_encrypt_password}"
-            if (( $? == 0 )); then
-                if rm "${1}" 2>&1; then
-                    echo "Successfully encrypted archive as ${1}.enc"
-                    let "flags |= $flags_files_postprocessing_success_encrypt"
-                else
-                    echo "Successfully encrypted archive as ${1}.enc, but could not remove cleartext file ${1}."
-                    let "E |= $E_enc_cleartext_delfailed"
-                fi
-            else
-                let "E |= $E_enc_failed"
-            fi
+            let "E |= E_enc_failed"
+            printf 'Backup encryption failed for %s\n' "$destination" >&2
+            rm -rf -- "$backup_work_dir"
+            backup_work_dir=''
+            return 1
         fi
-    }
-    # <- CONFIG_encrypt
+    fi
 
-    # -> CONFIG_mysql_dump_latest
-    [[ "${CONFIG_mysql_dump_latest}" = "yes" ]] && {
-        if (( $flags & $flags_files_postprocessing_success_encrypt )); then
-            if (( $CONFIG_dryrun )); then
-                printf 'dry-running: cp -al %s.enc %s/latest/\n' "${1}" "${CONFIG_backup_dir}"
-            else
-                cp -al "${1}${suffix}.enc" "${CONFIG_backup_dir}"/latest/
-            fi
-        else
-            if (( $CONFIG_dryrun )); then
-                printf 'dry-running: cp -al %s %s/latest/\n' "${1}" "${CONFIG_backup_dir}"
-            else
-                cp -al "${1}" "${CONFIG_backup_dir}"/latest/
-            fi
-        fi
-    }
-    # <- CONFIG_mysql_dump_latest
-
-    return $flags
+    if ! mv -f -- "$staged" "$destination"; then
+        printf 'Backup publication failed for %s\n' "$destination" >&2
+        rm -rf -- "$backup_work_dir"
+        backup_work_dir=''
+        return 1
+    fi
+    rmdir -- "$backup_work_dir" || return 1
+    backup_work_dir=''
+    backupfiles=( "${backupfiles[@]}" "$destination" )
+    if [[ "$CONFIG_mysql_dump_latest" = yes ]]; then
+        cp -al -- "$destination" "${CONFIG_backup_dir}/latest/" || return 1
+    fi
+    return 0
 }
 
 # @info:  When called, sets error and notify strings matching their flags. It then goes through all
@@ -411,7 +460,7 @@ error_handler () {
         [0x08]='At least one of the subdirectories (daily, weekly, monthly, latest) failed to create.'
         [0x10]="The backup_dir ${CONFIG_backup_dir} is not writable AND/OR executable."
         [0x20]='Could not remove the cleartext file after encryption. This error did not cause an abort. Remove it manually and check permissions.'
-        [0x40]='Encryption failed. Continuing without encryption.'
+        [0x40]='Encryption failed; the incomplete archive was not published.'
         [0x80]='The mysql server is empty, i.e. no databases found. Check if something is wrong. Exiting.'
         [0x100]='Failed to create the named pipe (fifo) for reading in all databases. Exiting.'
         [0x200]='Dependency programs are missing. Perhaps they are not in $PATH. Exiting.'
@@ -514,16 +563,20 @@ backup_local_files () {
 # @args:  (none)
 # @deps:  load_default_config
 parse_configuration () {
+    # Match account management: ignore ambient credentials without requiring newer client-only options.
+    unset MYSQL_PWD
+    MYSQL_TEST_LOGIN_FILE=/dev/null
+    export MYSQL_TEST_LOGIN_FILE
     prepare_backup_credentials
 
     # OPT string for use with mysqldump ( see man mysqldump )
-    opt=( '--quote-names' '--opt' )
+    opt=( '--quote-names' '--opt' '--routines' '--events' )
 
     # OPT string for use with mysql (see man mysql )
     mysql_opt=()
 
     # OPT string for use with mysqldump fullschema
-    opt_fullschema=( '--all-databases' '--routines' '--no-data' )
+    opt_fullschema=( '--all-databases' '--routines' '--events' '--no-data' )
 
     # OPT string for use with mysqlstatus
     opt_dbstatus=( '--status' )
@@ -619,77 +672,14 @@ parse_configuration () {
 # @return:  true in case of dry-run, otherwise the return value of mysqlshow
 # @deps:  load_default_config, parse_configuration
 dbstatus() {
-    # Get mysql access
-    mysql_access="--defaults-file=${CONFIG_mysql_dump_use_defaults_file}"
-
-    if (( $CONFIG_dryrun )); then
-        case "${CONFIG_mysql_dump_compression}" in
-            'gzip')
-                echo "dry-running: mysqlshow ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_dbstatus[@]} | gzip_compression > ${1}${suffix}";
-            ;;
-            'bzip2')
-                echo "dry-running: mysqlshow ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_dbstatus[@]} | bzip2_compression > ${1}${suffix}";
-            ;;
-            *)
-                echo "dry-running: mysqlshow ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_dbstatus[@]} > ${1}${suffix}";
-            ;;
-        esac
-        return 0;
-    else
-        case "${CONFIG_mysql_dump_compression}" in
-            'gzip')
-                mysqlshow "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_dbstatus[@]}" | gzip_compression > "${1}${suffix}";
-                return $?
-            ;;
-            'bzip2')
-                mysqlshow "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_dbstatus[@]}" | bzip2_compression > "${1}${suffix}";
-                return $?
-            ;;
-            *)
-                mysqlshow "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_dbstatus[@]}" > "${1}${suffix}";
-                return $?
-            ;;
-        esac
-    fi
+    write_backup_archive "${1}${suffix}" mysqlshow "--defaults-file=${CONFIG_mysql_dump_use_defaults_file}" \
+        --host="$CONFIG_mysql_dump_host" "${opt_dbstatus[@]}"
 }
 
-# @info:  Backup of the database schema.
-# @args:  filename to save data to
-# @return:  true in case of dry-run, otherwise the return value of mysqldump
-# @deps:  load_default_config, parse_configuration
-fullschema () {
-    # Get mysql access
-    mysql_access="--defaults-file=${CONFIG_mysql_dump_use_defaults_file}"
-
-    if (( $CONFIG_dryrun )); then
-        case "${CONFIG_mysql_dump_compression}" in
-            'gzip')
-                echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_fullschema[@]} | gzip_compression > ${1}${suffix}";
-            ;;
-            'bzip2')
-                echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_fullschema[@]} | bzip2_compression > ${1}${suffix}";
-            ;;
-            *)
-                echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt_fullschema[@]} > ${1}${suffix}";
-            ;;
-        esac
-        return 0;
-    else
-        case "${CONFIG_mysql_dump_compression}" in
-            'gzip')
-                mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_fullschema[@]}" | gzip_compression > "${1}${suffix}";
-                return $?
-            ;;
-            'bzip2')
-                mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_fullschema[@]}" | bzip2_compression > "${1}${suffix}";
-                return $?
-            ;;
-            *)
-                mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt_fullschema[@]}" > "${1}${suffix}";
-                return $?
-            ;;
-        esac
-    fi
+# Export schema through the same checked compression, encryption and publication path as database data.
+fullschema() {
+    write_backup_archive "${1}${suffix}" mysqldump "--defaults-file=${CONFIG_mysql_dump_use_defaults_file}" \
+        --host="$CONFIG_mysql_dump_host" "${opt_fullschema[@]}"
 }
 
 # @info:  Process a single db.
@@ -851,35 +841,8 @@ process_dbs() {
         # <- generate diff filename
     else
         cfname="${fname}${suffix}"
-        if (( $CONFIG_dryrun )); then
-            case "${CONFIG_mysql_dump_compression}" in
-                'gzip')
-                    echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt[@]} $@ | gzip_compression > ${cfname}"
-                ;;
-                'bzip2')
-                    echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt[@]} $@ | bzip2_compression > ${cfname}"
-                ;;
-                *)
-                    echo "dry-running: mysqldump ${mysql_access} --host=${CONFIG_mysql_dump_host} ${opt[@]} $@ > ${cfname}"
-                ;;
-                esac
-            return 0;
-        else
-            case "${CONFIG_mysql_dump_compression}" in
-                'gzip')
-                    mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt[@]}" "$@" | gzip_compression > "${cfname}"
-                    ret=$?
-                ;;
-                'bzip2')
-                    mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt[@]}" "$@" | bzip2_compression > "${cfname}"
-                    ret=$?
-                ;;
-                *)
-                    mysqldump "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${opt[@]}" "$@" > "${cfname}"
-                    ret=$?
-                ;;
-            esac
-        fi
+        write_backup_archive "$cfname" mysqldump "$mysql_access" --host="$CONFIG_mysql_dump_host" "${opt[@]}" "$@"
+        ret=$?
     fi
 
     if (( $ret == 0 )); then
@@ -889,9 +852,7 @@ process_dbs() {
         else
             find "${CONFIG_backup_dir}/${subfolder}${subsubfolder}" -mtime +"${rotation}" -type f -exec rm {} \;
         fi
-        files_postprocessing "$cfname"
-        tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-        backupfiles=( "${backupfiles[@]}" "${cfname}${var}" )
+
     else
         let "E |= $E_dbdump_failed"
         echo "dbdump with parameters \"${CONFIG_db_names[@]}\" \"${cfname}\" failed!"
@@ -910,11 +871,14 @@ activateIO() {
     touch "${2}"
     exec 7>&2       # Link file descriptor #7 with stderr. Saves stderr.
     exec 2> "${2}"  # stderr replaced with file $log_errfile.
+    backup_io_active=1
 }
 
 # @info:  Restore stdout and stderr redirections.
 # @deps:  (none)
 removeIO() {
+    [[ "${backup_io_active:-0}" = 1 ]] || return 0
+    backup_io_active=0
     exec 1>&6 6>&-      # Restore stdout and close file descriptor #6.
     exec 2>&7 7>&-      # Restore stdout and close file descriptor #7.
 }
@@ -1088,10 +1052,13 @@ check_dependencies () {
                 echo "WARNING: Turning off multicore support, since pigz isn't there."
             fi
         fi
-    else
-        [[ "x$CONFIG_mysql_dump_compression" = 'xbzip2' ]] && dependencies=("${dependencies[@]}" 'bzip2' )
-        [[ "x$CONFIG_mysql_dump_compression" = 'xgzip' ]] && dependencies=("${dependencies[@]}" 'gzip' )
-    fi    
+    fi
+    if [[ "$CONFIG_multicore" != yes ]]; then
+        [[ "$CONFIG_mysql_dump_compression" = bzip2 ]] && dependencies=( "${dependencies[@]}" 'bzip2' )
+        [[ "$CONFIG_mysql_dump_compression" = gzip ]] && dependencies=( "${dependencies[@]}" 'gzip' )
+    fi
+    [[ "$CONFIG_mysql_dump_dbstatus" = yes ]] && dependencies=( "${dependencies[@]}" 'mysqlshow' )
+    [[ "$CONFIG_encrypt" = yes && -n "$CONFIG_encrypt_password" ]] && dependencies=( "${dependencies[@]}" 'openssl' )
 
     if [[ "x$CONFIG_mailcontent" = 'xlog' || "x$CONFIG_mailcontent" = 'xquiet' ]]; then
         dependencies=( "${dependencies[@]}" 'mail' )
@@ -1126,37 +1093,48 @@ check_dependencies () {
 # CONFIG_db_month_names empty? -> set to alldbnames
 #
 parse_databases() {
-    # bash 4.x version
-    #mapfile -t alldbnames < <(mysql "${mysql_access}" --host="${CONFIG_mysql_dump_host}" --batch --skip-column-names -e "show databases")
-    alldbnames=()
-
-    printf "# Parsing databases ... "
-
-    # Get mysql access
-    mysql_access="--defaults-file=${CONFIG_mysql_dump_use_defaults_file}"
-
-    # Check if config databse names is empty
-    if [ ${#CONFIG_db_names[@]} -eq 0 ]; then
-        # bash 3.0
-        local i;i=0;
-        while read -r; do alldbnames[i++]="$REPLY"; done < <(mysql "${mysql_access}" --host="${CONFIG_mysql_dump_host}" "${mysql_opt[@]}" --batch --skip-column-names -e "show databases")
-        unset i
-
-        # Check for empty array and copy list
-        ((! "${#alldbnames[@]}" )) && { let "E |= $E_db_empty"; error_handler; }
-        CONFIG_db_names=( "${alldbnames[@]}" )
+    local inventory name exclude i
+    local selected=()
+    printf '# Parsing databases ... '
+    if (( ${#CONFIG_db_names[@]} == 0 || ${#CONFIG_db_month_names[@]} == 0 )); then
+        if inventory=$(mysql "--defaults-file=${CONFIG_mysql_dump_use_defaults_file}" --host="$CONFIG_mysql_dump_host" \
+            "${mysql_opt[@]}" --batch --skip-column-names -e 'SHOW DATABASES'); then
+            while IFS= read -r name; do
+                [[ -n "$name" ]] && selected=( "${selected[@]}" "$name" )
+            done <<< "$inventory"
+        else
+            printf '%s\n' 'Database inventory failed; no backup was started.' >&2
+            let "E |= E_db_empty"
+            error_handler
+        fi
     fi
+    (( ${#CONFIG_db_names[@]} )) || CONFIG_db_names=( "${selected[@]}" )
+    (( ${#CONFIG_db_month_names[@]} )) || CONFIG_db_month_names=( "${selected[@]}" )
 
-    # -> remove excluded dbs from list
-    for exclude in "${CONFIG_db_exclude[@]}"; do
-        for i in "${!CONFIG_db_names[@]}"; do if [[ "${CONFIG_db_names[$i]}" = "${exclude}" ]]; then unset 'CONFIG_db_names[i]'; fi; done
+    # Preserve spaces; reject path separators, option-like names and escaped control characters explicitly.
+    for name in "${CONFIG_db_names[@]}" "${CONFIG_db_month_names[@]}"; do
+        case "$name" in
+            ''|-*|*/*|*\\*|*$'\n'*|*$'\r'*|*$'\t'*)
+                printf '%s\n' 'Database inventory contains an unsupported name.' >&2
+                let "E |= E_db_empty"
+                error_handler
+                ;;
+        esac
     done
-    # <- remove excluded dbs from list
-
-    # check for empty array lists and copy all dbs
-    ((! ${#CONFIG_db_names[@]}))  && CONFIG_db_names=( "${alldbnames[@]}" )
-    ((! ${#CONFIG_db_month_names[@]}))  && CONFIG_db_month_names=( "${alldbnames[@]}" )
-    printf "done.\n"
+    for exclude in "${CONFIG_db_exclude[@]}"; do
+        for i in "${!CONFIG_db_names[@]}"; do
+            [[ "${CONFIG_db_names[i]}" = "$exclude" ]] && unset 'CONFIG_db_names[i]'
+        done
+        for i in "${!CONFIG_db_month_names[@]}"; do
+            [[ "${CONFIG_db_month_names[i]}" = "$exclude" ]] && unset 'CONFIG_db_month_names[i]'
+        done
+    done
+    if (( ${#CONFIG_db_names[@]} == 0 )); then
+        printf '%s\n' 'No databases selected after exclusions; no backup was started.' >&2
+        let "E |= E_db_empty"
+        error_handler
+    fi
+    printf 'done.\n'
 }
 
 # @return:  true if locked, false otherwise
@@ -1708,6 +1686,24 @@ extended_select() {
 
 # BEGIN _methods
 
+# An explicit standalone file may replace an absent global file; a failed selected file is always fatal.
+load_backup_configuration() {
+    if [[ -r "$CONFIG_configfile" ]]; then
+        source "$CONFIG_configfile" || return 1
+    elif (( ! ${opt_flag_config_file:-0} )); then
+        printf '%s\n' 'Required backup configuration is missing or unreadable.' >&2
+        return 1
+    fi
+    if (( ${opt_flag_config_file:-0} )); then
+        if [[ -r "$opt_config_file" ]]; then
+            source "$opt_config_file" || return 1
+        else
+            printf '%s\n' 'Explicit backup configuration is missing or unreadable.' >&2
+            return 1
+        fi
+    fi
+}
+
 # @info:  Backup method
 method_backup () {
     manifest_entries_corrupted=()
@@ -1720,10 +1716,10 @@ method_backup () {
 
     load_default_config
 
-    trap 'cleanup_backup_credentials; mail_cleanup' EXIT
+    backup_mail_cleanup=1
     trap 'exit 1' SIGHUP SIGINT SIGQUIT SIGTERM
-    if [[ -r "${CONFIG_configfile}" ]]; then source "${CONFIG_configfile}"; echo "Parsed config file \"${CONFIG_configfile}\""; else let "N |= $N_config_file_missing"; fi; echo
-    if (( $opt_flag_config_file )); then if [[ -r "${opt_config_file}" ]]; then source "${opt_config_file}"; let "N |= $N_arg_conffile_parsed"; else let "N |= $N_arg_conffile_unreadable"; fi; else let "N |= $N_too_many_args"; fi
+    umask 077
+    load_backup_configuration || exit 1
 
     (( $CONFIG_dryrun )) && {
         echo "NOTE: We are dry-running. That means, that the script just shows you what it would do, if it were operating normally."
@@ -1739,7 +1735,9 @@ method_backup () {
 
     validate_backup_passphrase
     directory_checks_enable_logging
-    cleanup_latest
+    if (( ! CONFIG_dryrun )); then
+        lock_backup_output || exit 1
+    fi
     set_datetime_vars
     check_dependencies  # check for required programs
     parse_configuration # parse configuration and set variables appropriately
@@ -1751,9 +1749,9 @@ method_backup () {
 
     backupfiles=()
     parse_databases
+    cleanup_latest
 
-    # debug output of variables
-    (( $CONFIG_debug )) && { echo; echo "# DEBUG: printing all current variables"; declare -p | egrep -o '.* (CONFIG_[a-z_]*|opt|mysql_opt|opt_dbstatus|opt_fullschema)=.*'; echo; }
+    # Keep debug output limited to the selected database names.
     (( $CONFIG_debug )) && { echo "DEBUG: before pre-backup"; ( IFS=,; echo "DEBUG: CONFIG_db_names '${CONFIG_db_names[*]}'" ); ( IFS=,; echo "DEBUG: CONFIG_db_month_names '${CONFIG_db_month_names[*]}'" );}
 
 
@@ -1834,9 +1832,7 @@ method_backup () {
                 else
                     find "${CONFIG_backup_dir}/fullschema" -mtime +"${CONFIG_rotation_monthly}" -type f -name 'fullschema_monthly*' -exec rm {} \;
                 fi
-                files_postprocessing "${CONFIG_backup_dir}/fullschema/fullschema_monthly_${datetimestamp}_${date_month}.sql${suffix}"
-                tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-                backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/fullschema/fullschema_monthly_${datetimestamp}_${date_month}.sql${suffix}${var}" )
+
             else
                 let "E |= $E_dump_fullschema_failed"
             fi
@@ -1852,9 +1848,7 @@ method_backup () {
                 else
                     find "${CONFIG_backup_dir}/fullschema" -mtime +"${CONFIG_rotation_weekly}" -type f -name 'fullschema_weekly*' -exec rm {} \;
                 fi
-                files_postprocessing "${CONFIG_backup_dir}/fullschema/fullschema_weekly_${datetimestamp}_${date_weekno}.sql${suffix}"
-                tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-                backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/fullschema/fullschema_weekly_${datetimestamp}_${date_weekno}.sql${suffix}${var}" )
+
             else
                 let "E |= $E_dump_fullschema_failed"
             fi
@@ -1869,9 +1863,7 @@ method_backup () {
             else
                 find "${CONFIG_backup_dir}/fullschema" -mtime +"${CONFIG_rotation_daily}" -type f -name 'fullschema_daily*' -exec rm {} \;
             fi
-            files_postprocessing "${CONFIG_backup_dir}/fullschema/fullschema_daily_${datetimestamp}_${date_day_of_week}.sql${suffix}"
-            tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-            backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/fullschema/fullschema_daily_${datetimestamp}_${date_day_of_week}.sql${suffix}${var}" )
+
         else
             let "E |= $E_dump_fullschema_failed"
         fi
@@ -1897,9 +1889,7 @@ method_backup () {
                 else
                     find "${CONFIG_backup_dir}/status" -mtime +"${CONFIG_rotation_monthly}" -type f -name 'status_monthly*' -exec rm {} \;
                 fi
-                files_postprocessing "${CONFIG_backup_dir}/status/status_monthly_${datetimestamp}_${date_month}.txt${suffix}"
-                tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-                backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/status/status_monthly_${datetimestamp}_${date_month}.txt${suffix}${var}" )
+
             else
                 let "E |= $E_dump_status_failed"
             fi
@@ -1915,9 +1905,7 @@ method_backup () {
                 else
                     find "${CONFIG_backup_dir}/status" -mtime +"${CONFIG_rotation_weekly}" -type f -name 'status_weekly*' -exec rm {} \;
                 fi
-                files_postprocessing "${CONFIG_backup_dir}/status/status_weekly_${datetimestamp}_${date_weekno}.txt${suffix}"
-                tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-                backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/status/status_weekly_${datetimestamp}_${date_weekno}.txt${suffix}${var}" )
+
             else
                 let "E |= $E_dump_status_failed"
             fi
@@ -1932,9 +1920,7 @@ method_backup () {
             else
                 find "${CONFIG_backup_dir}/status" -mtime +"${CONFIG_rotation_daily}" -type f -name 'status_daily*' -exec rm {} \;
             fi
-            files_postprocessing "${CONFIG_backup_dir}/status/status_daily_${datetimestamp}_${date_day_of_week}.txt${suffix}"
-            tmp_flags=$?; var=; (( $tmp_flags & $flags_files_postprocessing_success_encrypt )) && var=.enc
-            backupfiles=( "${backupfiles[@]}" "${CONFIG_backup_dir}/status/status_daily_${datetimestamp}_${date_day_of_week}.txt${suffix}${var}" )
+
         else
             let "E |= $E_dump_status_failed"
         fi
@@ -2062,7 +2048,7 @@ method_backup () {
     fi
     # <- postbackup commands
 
-    if [[ -s "$log_errfile" ]];then status=1; else status=0; fi
+    if (( E != 0 )) || [[ -s "$log_errfile" ]]; then status=1; else status=0; fi
     exit ${status}
 }
 
@@ -2085,8 +2071,8 @@ method_list_manifest_entries () {
 
     load_default_config
 
-    if [[ -r "${CONFIG_configfile}" ]]; then source "${CONFIG_configfile}"; echo "Parsed config file \"${CONFIG_configfile}\""; else let "N |= $N_config_file_missing"; fi; echo
-    if (( $opt_flag_config_file )); then if [[ -r "${opt_config_file}" ]]; then source "${opt_config_file}"; let "N |= $N_arg_conffile_parsed"; else let "N |= $N_arg_conffile_unreadable"; fi; else let "N |= $N_too_many_args"; fi
+    umask 077
+    load_backup_configuration || exit 1
 
     export LC_ALL=C
     PROGNAME=`basename $0`
@@ -2279,7 +2265,7 @@ method_diff_to_full() {
 
 # BEGIN __main
 
-trap cleanup_backup_credentials EXIT
+trap finish_backup EXIT
 trap 'exit 1' SIGHUP SIGINT SIGQUIT SIGTERM
 
 NO_ARGS=0

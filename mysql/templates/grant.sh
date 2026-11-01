@@ -70,7 +70,7 @@ fi
 
 # Build the object and account strings once since they are used in multiple places. 
 grant_object="$arg_database.$arg_table"
-<% if @version == 8.0 or @version == 8.4 -%>
+<% if @modern_accounts -%>
 grant_account="\`$arg_username\`@\`$arg_hostname\`"
 grant_account_allows_password="0"
 <% else -%>

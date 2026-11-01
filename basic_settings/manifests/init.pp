@@ -215,7 +215,11 @@
 #   /usr/share/keyrings/mysql.key.
 #
 # @param mysql_version
-#   MySQL version used when the MySQL repository is enabled.
+#   MySQL series selected by an enabled repository: 8.0, 8.4 or 9.7; historical versions through 5.7 retain their
+#   mapping.
+#   An enabled repository declared before mysql also determines its account and configuration behavior.
+#   Disabled or unsupported-platform cleanup ignores this value; mysql then uses its own package_version.
+#   This selects a repository component, not an exact patch or an automatic upgrade of installed packages.
 #
 # @param network_interfaces
 #   Interface patterns passed to network and systemd-networkd helpers.

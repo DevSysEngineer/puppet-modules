@@ -36,9 +36,12 @@
 #   encoded separately for SQL and MySQL option files. Plain strings are rejected; convert Hiera lookups at their keys.
 #
 # @param password_latency
-#   Selects the MySQL 8 password storage path. Use `authentication_string` for legacy `mysql_native_password`; the
+#   Selects the modern MySQL password storage path. Use `authentication_string` for legacy `mysql_native_password`; the
 #   default uses MySQL's default method. MySQL 5.7 uses mysql_native_password; older versions retain SET PASSWORD.
 #   The requested plugin must already be available; MySQL 8.4 does not enable mysql_native_password automatically.
+#   MySQL 9.7 rejects a present account that effectively requests mysql_native_password because that plugin was removed.
+#   Absent accounts need no password or available authentication plugin. Explicit class-managed root policy takes
+#   precedence.
 #
 # @api public
 define mysql::user (
@@ -65,12 +68,12 @@ define mysql::user (
     # The class owns root authentication; ordinary users retain their version and password_latency selection.
     if (!$root_account or $mysql::root_authentication == undef) {
       # Select SQL syntax and plugin requirements once for the helper and SQL rendering.
-      case $mysql::version {
-        5.7: {
+      case $mysql::version_profile {
+        'native': {
           # MySQL 5.7 retains native authentication while using log-redactable account statements.
           $authentication = 'mysql_native_password'
         }
-        8.0, 8.4: {
+        'modern', 'modern_without_native': {
           # Only the explicit compatibility selection requests the native authentication plugin.
           $authentication = $password_latency ? {
             'authentication_string' => 'mysql_native_password',
@@ -87,66 +90,71 @@ define mysql::user (
       $authentication = $mysql::root_authentication
     }
 
-    # Render native client input only when the desired account uses it.
-    if ($ensure == 'present') {
-      # Reuse the option-file encoder used by the administrative configuration.
-      $client_username = $username
-      $client_password = $authentication ? {
-        'auth_socket' => undef,
-        default       => assert_type(Sensitive[String], $password),
+    # Retiring an account does not require its old plugin to remain available.
+    if ($ensure == 'absent' or $authentication != 'mysql_native_password' or $mysql::version_profile != 'modern_without_native') {
+      # Render native client input only when the desired account uses it.
+      if ($ensure == 'present') {
+        # Reuse the option-file encoder used by the administrative configuration.
+        $client_username = $username
+        $client_password = $authentication ? {
+          'auth_socket' => undef,
+          default       => assert_type(Sensitive[String], $password),
+        }
+        $client_input = { 'cnf' => template('mysql/client.cnf') }
+        $statements = ['inspect', 'drop', 'create', 'alter']
+      } else {
+        # Retirement needs account selectors only, without rendering a password.
+        $client_input = {}
+        $statements = ['inspect', 'drop']
       }
-      $client_input = { 'cnf' => template('mysql/client.cnf') }
-      $statements = ['inspect', 'drop', 'create', 'alter']
+
+      # Keep the existing SQL encoder for both the credential check and mutation.
+      $account_input = $statements.reduce($client_input) |$input, $statement| {
+        $input + { "${statement}.sql" => template('mysql/user.sql') }
+      }
+      $temporary_files = $account_input.map |$extension, $content| {
+        # Quote rendered input before embedding it in the shell command.
+        $content_shell = stdlib::shell_escape($content)
+        $filename_shell = stdlib::shell_escape("account.${extension}")
+        "printf '%s' ${content_shell} > \"\${tmpdir}\"/${filename_shell} || exit 2"
+      }
+      $setup_script = join(concat([
+        'umask 077',
+        'tmpdir=$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 2',
+        'trap \'rm -rf -- "$tmpdir"\' EXIT',
+        'trap \'exit 129\' HUP',
+        'trap \'exit 130\' INT',
+        'trap \'exit 143\' TERM',
+      ], $temporary_files), "\n")
+
+      # Quote helper arguments independently; the temporary input prefix is resolved by the shell.
+      $script_shell = stdlib::shell_escape($mysql::user_script_path)
+      $defaults_shell = stdlib::shell_escape($mysql::defaults_file)
+      $authentication_shell = stdlib::shell_escape($authentication)
+      $root_shell = stdlib::shell_escape(String($root_account))
+      $account_shell = stdlib::shell_escape("${username}@${hostname}")
+      $ensure_shell = stdlib::shell_escape($ensure)
+      $helper_arguments = join([
+        $defaults_shell,
+        '"$tmpdir/account"',
+        $authentication_shell,
+        $root_shell,
+        $account_shell,
+      ], ' ')
+
+      # Each check and mutation owns its temporary files, even when no change is necessary.
+      exec { "mysql_user_${username}@${hostname}":
+        provider  => shell,
+        unless    => Sensitive.new("${setup_script}\n${script_shell} check-${ensure_shell} ${helper_arguments}"),
+        command   => Sensitive.new("${setup_script}\n${script_shell} ${ensure_shell} ${helper_arguments}"),
+        logoutput => false,
+        require   => concat([
+          Service[$mysql::package_name],
+          File[$mysql::user_script_path],
+        ], $config_require),
+      }
     } else {
-      # Retirement needs account selectors only, without rendering a password.
-      $client_input = {}
-      $statements = ['inspect', 'drop']
-    }
-
-    # Keep the existing SQL encoder for both the credential check and mutation.
-    $account_input = $statements.reduce($client_input) |$input, $statement| {
-      $input + { "${statement}.sql" => template('mysql/user.sql') }
-    }
-    $temporary_files = $account_input.map |$extension, $content| {
-      # Quote rendered input before embedding it in the shell command.
-      $content_shell = stdlib::shell_escape($content)
-      $filename_shell = stdlib::shell_escape("account.${extension}")
-      "printf '%s' ${content_shell} > \"\${tmpdir}\"/${filename_shell} || exit 2"
-    }
-    $setup_script = join(concat([
-      'umask 077',
-      'tmpdir=$(/usr/bin/mktemp -d /root/mysql-user-check.XXXXXX) || exit 2',
-      'trap \'rm -rf -- "$tmpdir"\' EXIT',
-      'trap \'exit 129\' HUP',
-      'trap \'exit 130\' INT',
-      'trap \'exit 143\' TERM',
-    ], $temporary_files), "\n")
-
-    # Quote helper arguments independently; the temporary input prefix is resolved by the shell.
-    $script_shell = stdlib::shell_escape($mysql::user_script_path)
-    $defaults_shell = stdlib::shell_escape($mysql::defaults_file)
-    $authentication_shell = stdlib::shell_escape($authentication)
-    $root_shell = stdlib::shell_escape(String($root_account))
-    $account_shell = stdlib::shell_escape("${username}@${hostname}")
-    $ensure_shell = stdlib::shell_escape($ensure)
-    $helper_arguments = join([
-      $defaults_shell,
-      '"$tmpdir/account"',
-      $authentication_shell,
-      $root_shell,
-      $account_shell,
-    ], ' ')
-
-    # Each check and mutation owns its temporary files, even when no change is necessary.
-    exec { "mysql_user_${username}@${hostname}":
-      provider  => shell,
-      unless    => Sensitive.new("${setup_script}\n${script_shell} check-${ensure_shell} ${helper_arguments}"),
-      command   => Sensitive.new("${setup_script}\n${script_shell} ${ensure_shell} ${helper_arguments}"),
-      logoutput => false,
-      require   => concat([
-        Service[$mysql::package_name],
-        File[$mysql::user_script_path],
-      ], $config_require),
+      fail('mysql::user password_latency=authentication_string requests mysql_native_password for present on MySQL 9.7; use the default method') # lint:ignore:140chars
     }
   } else {
     fail('Class mysql is not defined, but is required for mysql::user')

@@ -10,6 +10,7 @@ node 'database.example.org' {
     mysql_version              => 8.0,
   }
 
+  # The enabled source above selects the MySQL series; use 9.7 only with a validated installation and restore plan.
   # Configure the database service and encrypted backups after preparing its package source.
   class { 'mysql':
     automysqlbackup_backupdir => '/var/lib/automysqlbackup',
@@ -20,7 +21,6 @@ node 'database.example.org' {
     },
     nice_level                => 12,
     package_name              => 'mysql',
-    package_version           => 8.0,
     root_password             => lookup('mysql::root_password', Sensitive[String]),
     settings                  => {
       'innodb_buffer_pool_size' => '1G',

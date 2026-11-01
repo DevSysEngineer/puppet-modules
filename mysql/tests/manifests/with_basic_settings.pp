@@ -1,5 +1,9 @@
-include basic_settings
+class { 'basic_settings':
+  mysql_enable  => true,
+  mysql_version => 8.4,
+}
 
+# Preserve the existing LTS path through an enabled repository.
 class { 'mysql':
   automysqlbackup_password => Sensitive($facts['compile_test_password']),
 }

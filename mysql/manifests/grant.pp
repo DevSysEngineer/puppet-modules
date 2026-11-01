@@ -1,7 +1,7 @@
 # @summary Grants or revokes MySQL privileges for one user and object scope.
 #
 # This defined type delegates privilege checks and changes to the module's root-only grant helper script. It escapes all
-# dynamic command arguments before building shell commands and supports MySQL 8 privilege-list compatibility for
+# dynamic command arguments before building shell commands and supports modern MySQL privilege-list compatibility for
 # `ALL PRIVILEGES`.
 #
 # @example Grant privileges on one database
@@ -76,14 +76,14 @@ define mysql::grant (
     $table_shell = stdlib::shell_escape($table)
     $grant_option_num_shell = stdlib::shell_escape($grant_option_num)
 
-    # Change SQL queries based on version
-    if (versioncmp(String($mysql::version), '8.0') >= 0 and $priv_str == 'ALL PRIVILEGES') {
-      # Expand ALL PRIVILEGES only for the global MySQL 8 grant comparison.
+    # Use the parent's reviewed series classification for global privilege comparison.
+    if ($mysql::modern_accounts and $priv_str == 'ALL PRIVILEGES') {
+      # Expand ALL PRIVILEGES only for the global modern MySQL grant comparison.
       if ($database != '*') {
         # Compare database-scoped privileges using the requested privilege string.
         $check_all_priv = $priv_str
       } else {
-        # Expand global ALL PRIVILEGES to the MySQL 8 privilege list for comparison.
+        # Expand global ALL PRIVILEGES to the modern MySQL privilege list for comparison.
         $check_all_priv = 'ALTER, ALTER ROUTINE, CREATE, CREATE ROLE, CREATE ROUTINE, CREATE TABLESPACE, CREATE TEMPORARY TABLES, CREATE USER, CREATE VIEW, DELETE, DROP, DROP ROLE, EVENT, EXECUTE, FILE, INDEX, INSERT, LOCK TABLES, PROCESS, REFERENCES, RELOAD, REPLICATION CLIENT, REPLICATION SLAVE, SELECT, SHOW DATABASES, SHOW VIEW, SHUTDOWN, SUPER, TRIGGER, UPDATE' # lint:ignore:140chars
       }
 
