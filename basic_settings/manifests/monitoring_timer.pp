@@ -13,14 +13,21 @@
 # @param friendly
 #   Human-readable check name. `undef` uses a capitalized resource title.
 #
+# @param log_window
+#   Trailing journal interval in seconds, ending at the check time without clipping to the latest trigger. `undef`
+#   omits the override and keeps the check's last-trigger interval. Historical entries only provide diagnostic context;
+#   current target service properties determine status. Larger windows require more journal processing within the
+#   unchanged output limits and agent timeout.
+#
 # @param package
 #   Monitoring package override. `undef` inherits `basic_settings::monitoring` when that class is declared.
 #
 # @api public
 define basic_settings::monitoring_timer (
-  Enum['present', 'absent'] $ensure   = present,
-  Optional[String]          $friendly = undef,
-  Optional[String]          $package  = undef,
+  Enum['present', 'absent'] $ensure     = present,
+  Optional[String]          $friendly   = undef,
+  Optional[Integer[1]]      $log_window = undef,
+  Optional[String]          $package    = undef,
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -79,9 +86,13 @@ define basic_settings::monitoring_timer (
 
       # Create fragment for plugin
       if ($ensure == present) {
+        # Supply a trailing interval only when this registration explicitly requests one.
+        $log_window_arg = $log_window ? { undef => '', default => " -w ${log_window}" }
+
+        # Register this timer with its own journal selection and the shared executable.
         concat::fragment { "monitoring_timer_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${name}.timer\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${log_window_arg} ${name}.timer\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
           order   => '10',
           require => File[$script_path],
         }

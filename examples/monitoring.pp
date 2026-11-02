@@ -61,6 +61,13 @@ node 'monitored-host.example.org' {
     require    => Class['openitcockpit::agent'],
   }
 
+  # Show the preceding day for an existing timer, even when it fires every 15 seconds.
+  # Historical journal failures are context only; current target service properties determine status.
+  basic_settings::monitoring_timer { 'application-poll':
+    log_window => 86400,
+    require    => Class['openitcockpit::agent'],
+  }
+
   # Add Mirth Connect monitoring to the same agent.
   class { 'openitcockpit::agent_mirth_connect':
     ensure  => present,

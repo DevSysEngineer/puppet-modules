@@ -111,6 +111,8 @@ Met `basic_settings::monitoring_custom` kun je een eigen script in de OpenITCOCK
 
 Voor diensten die weinig loggen kun je het journalvenster per check verlengen met `log_window` bij [`monitoring_service`](basic_settings/manifests/monitoring_service.pp), of `monitoring_log_window` bij [`systemd_service`](basic_settings/manifests/systemd_service.pp). Geef de duur in seconden op, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Een actieve service toont alleen regels sinds haar laatste start. Het langere venster geldt ook voor het herkennen van fouten, waardoor een fout langer een alarm kan geven; de uitvoerlimiet en agenttimeout worden niet verruimd.
 
+Voor timers geven `log_window` bij [`monitoring_timer`](basic_settings/manifests/monitoring_timer.pp) en `monitoring_log_window` bij [`systemd_timer`](basic_settings/manifests/systemd_timer.pp) een terugkijkvenster tot het controlemoment, ook bij frequente triggers. Zonder override blijft het venster vanaf de laatste trigger gelden. Historische journalregels zijn alleen diagnosecontext: de actuele systemd-eigenschappen van de doelservice bepalen de status. Controleer bij een langer venster de looptijd met representatief journalvolume; uitvoerlimieten en agenttimeout blijven gelijk.
+
 Laat bij het uitschakelen van de hele monitoring `basic_settings::monitoring` aanwezig met `package => 'none'`: Puppet leegt dan zijn bestaande checkregistratie en herstart een actieve systemd-agent om de oude checks uit het geheugen te verwijderen. Andere pluginbestanden blijven staan.
 
 ## Installatie
@@ -749,7 +751,7 @@ naemon::host { 'web01':
 }
 ```
 
-De [serveropbouw](examples/monitoring.pp#L86) staat in `examples/monitoring.pp`. Zie de Puppet Strings bij [`naemon`](naemon/manifests/init.pp), [`host`](naemon/manifests/host.pp) en [`hostgroup`](naemon/manifests/hostgroup.pp) voor de voorwaarden en configuratie.
+De [serveropbouw](examples/monitoring.pp#L95) staat in `examples/monitoring.pp`. Zie de Puppet Strings bij [`naemon`](naemon/manifests/init.pp), [`host`](naemon/manifests/host.pp) en [`hostgroup`](naemon/manifests/hostgroup.pp) voor de voorwaarden en configuratie.
 
 ### `netplanio`
 

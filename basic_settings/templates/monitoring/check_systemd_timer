@@ -26,20 +26,29 @@ TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
 
 # Window and log caps keep timer diagnosis bounded for monitoring output.
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
+LOG_WINDOW=${LOG_WINDOW:-} # optional trailing journal interval in seconds
+LOG_WINDOW_SET=${LOG_WINDOW:+true} # distinguish an omitted interval from an explicitly empty CLI value
 LOG_LINES=${LOG_LINES:-20} # max journal lines to print below the summary
 MAXLOG=${MAXLOG:-1000} # max characters per journal line in long output
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000} # max characters before Interpretation
 
 # The timer target is read from the running manager after argument validation.
-USAGE_TEXT="Usage: $0 [-l chars] [-n lines] [-t seconds] [-m chars_per_line] <timer>
-Environment: DETAIL_LIMIT (-l); LOG_LINES (-n); WINDOW (-t); MAXLOG (-m).
+USAGE_TEXT="Usage: $0 [-l chars] [-n lines] [-t seconds] [-w seconds] [-m chars_per_line] <timer>
+Environment: DETAIL_LIMIT (-l, default 6000); LOG_LINES (-n, default 20); WINDOW (-t, default 600); MAXLOG (-m, default 1000); LOG_WINDOW (-w, optional).
+WINDOW selects the forward journal interval from the last timer trigger.
+LOG_WINDOW selects a positive integer interval from now minus that many seconds through now, without clipping to the last trigger. It overrides journal selection only; WINDOW retains its meaning when LOG_WINDOW is omitted.
+Journal entries are diagnostic context; current target service properties determine status. Output limits and the agent timeout do not expand with the lookback.
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 OPTERR=0
-while getopts ':l:n:t:m:h' opt; do
+while getopts ':l:n:t:w:m:h' opt; do
     case "$opt" in
         l) DETAIL_LIMIT=$OPTARG ;;
         n) LOG_LINES=$OPTARG ;;
         t) WINDOW=$OPTARG ;;
+        w)
+            LOG_WINDOW=$OPTARG
+            LOG_WINDOW_SET=true
+            ;;
         m) MAXLOG=$OPTARG ;;
         *) die "$USAGE_TEXT" ;;
     esac
@@ -65,6 +74,14 @@ esac
 [ "$MAXLOG" -ge 1 ] || die "MAXLOG must be at least 1"
 [ "$WINDOW" -ge 1 ] || die "WINDOW must be at least 1"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "DETAIL_LIMIT must be at least 1"
+if [ "$LOG_WINDOW_SET" = true ]; then
+    case "$LOG_WINDOW" in
+        ''|*[!0-9]*) die "LOG_WINDOW must be a positive integer" ;;
+    esac
+    # Treat digit-only input as decimal rather than shell arithmetic's octal notation.
+    LOG_WINDOW=$(printf '%s\n' "$LOG_WINDOW" | $SED 's/^0*//')
+    [ "$LOG_WINDOW" -ge 1 ] 2>/dev/null || die "LOG_WINDOW must be a positive integer"
+fi
 
 # Inspect manager properties: a bus failure does not prove a missing or inactive unit.
 TIMER_LOAD=$($SYSTEMCTL show "$TIMER_UNIT" -p LoadState --value 2>/dev/null)
@@ -86,7 +103,7 @@ esac
 SERVICE_UNIT=$($SYSTEMCTL show "$TIMER_UNIT" -p Unit --value 2>/dev/null) || die "timer target unavailable"
 [ -n "$SERVICE_UNIT" ] || die "timer target unavailable"
 
-# The last trigger timestamp anchors both age perfdata and the journal window.
+# The last trigger timestamp anchors age perfdata and the default journal window.
 LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value 2>/dev/null) || die "timer trigger timestamp unavailable"
 if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
     monitor_result "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
@@ -102,12 +119,22 @@ NOW_TS=$($DATE +%s)
 }
 
 LAST_RUN_AGE=$((NOW_TS - LAST_RUN_TS))
-UNTIL_TS=$((LAST_RUN_TS + WINDOW))
+if [ "$LOG_WINDOW_SET" = true ]; then
+    SINCE_TS=$((NOW_TS - LOG_WINDOW))
+    UNTIL_TS=$NOW_TS
+    JOURNAL_SOURCE="$SERVICE_UNIT; trailing window $LOG_WINDOW s; @${SINCE_TS} through @${UNTIL_TS}"
+    JOURNAL_CONTEXT='the trailing interval'
+else
+    SINCE_TS=$LAST_RUN_TS
+    UNTIL_TS=$((LAST_RUN_TS + WINDOW))
+    JOURNAL_SOURCE="$SERVICE_UNIT; trigger $LAST_RUN_TEXT; window $WINDOW s"
+    JOURNAL_CONTEXT='the last trigger window'
+fi
 
-# Pull only the paired service journal lines created shortly after the timer fired.
+# Read the target service journal within the selected diagnostic interval.
 JOURNAL_RAW=""
 if [ -n "$JOURNALCTL" ]; then
-    JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${LAST_RUN_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
+    JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${SINCE_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
 fi
 
 # Current properties of the timer's actual target are authoritative; logs only add context.
@@ -130,7 +157,7 @@ esac
 
 monitor_section "Service journal"
 if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
-    monitor_item "Source: $SERVICE_UNIT; trigger $LAST_RUN_TEXT; window $WINDOW s"
+    monitor_item "Source: $JOURNAL_SOURCE"
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
         monitor_item "Selection: latest $LOG_LINES lines; $((JOURNAL_LINE_COUNT - LOG_LINES)) older lines omitted."
     fi
@@ -139,7 +166,7 @@ fi
 if [ -n "${LONG_OUTPUT:-}" ]; then
     monitor_limit "$DETAIL_LIMIT"
     monitor_section "Interpretation"
-    monitor_item "Current properties of the timer target decide the exit code; journal lines are bounded context from the last trigger window."
+    monitor_item "Current properties of the timer target decide the exit code; journal lines are bounded context from $JOURNAL_CONTEXT."
     monitor_item "Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome."
 fi
 

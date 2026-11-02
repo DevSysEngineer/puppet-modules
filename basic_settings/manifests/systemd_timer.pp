@@ -27,6 +27,11 @@
 # @param monitoring_enable
 #   Enables generated timer monitoring when set to `true`.
 #
+# @param monitoring_log_window
+#   Trailing journal interval in seconds for generated timer monitoring, ending at the check time without clipping to
+#   the latest trigger. `undef` keeps the check's last-trigger interval. Historical entries are diagnostic context;
+#   current target service properties determine status. Output limits, check interval and agent timeout stay unchanged.
+#
 # @param monitoring_package
 #   Monitoring backend package passed to `basic_settings::monitoring_timer`.
 #
@@ -42,17 +47,18 @@
 # @api public
 define basic_settings::systemd_timer (
   String                               $description,
-  String                               $daemon_reload      = 'systemd_daemon_reload',
-  Boolean                              $enable             = true,
-  Enum['present', 'absent']            $ensure             = present,
-  Hash                                 $install            = {
+  String                               $daemon_reload         = 'systemd_daemon_reload',
+  Boolean                              $enable                = true,
+  Enum['present', 'absent']            $ensure                = present,
+  Hash                                 $install               = {
     'WantedBy'  => 'timers.target',
   },
-  Optional[Boolean]                    $monitoring_enable  = undef,
-  Optional[String]                     $monitoring_package = undef,
-  Optional[Enum['running', 'stopped']] $state              = undef,
-  Hash                                 $timer              = {},
-  Hash                                 $unit               = {},
+  Optional[Boolean]                    $monitoring_enable     = undef,
+  Optional[Integer[1]]                 $monitoring_log_window = undef,
+  Optional[String]                     $monitoring_package    = undef,
+  Optional[Enum['running', 'stopped']] $state                 = undef,
+  Hash                                 $timer                 = {},
+  Hash                                 $unit                  = {},
 ) {
   # Check if systemd package is not defined
   if (!defined(Package['systemd'])) {
@@ -88,14 +94,16 @@ define basic_settings::systemd_timer (
 
       # Register or retire the timer check using the caller's monitoring choice.
       basic_settings::monitoring_timer { $title:
-        ensure  => $monitoring_ensure,
-        package => $monitoring_package,
+        ensure     => $monitoring_ensure,
+        log_window => $monitoring_log_window,
+        package    => $monitoring_package,
       }
     }
   } elsif ($monitoring_package != 'none') {
     basic_settings::monitoring_timer { $title:
-      ensure  => $ensure,
-      package => $monitoring_package,
+      ensure     => $ensure,
+      log_window => $monitoring_log_window,
+      package    => $monitoring_package,
     }
   }
 }
