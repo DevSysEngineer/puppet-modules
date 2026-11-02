@@ -109,6 +109,8 @@ De checks werken ook met een Nagios-compatibele executor. Gebruik `-h` bij een g
 
 Met `basic_settings::monitoring_custom` kun je een eigen script in de OpenITCOCKPIT-pluginmap plaatsen en registreren. De defined types `monitoring_service`, `monitoring_timer` en `monitoring_npm_audit` zijn bedoeld voor veelvoorkomende systemd- en npm-controles. De checks zelf staan onder `files/` en `templates/`; zie ook [Beschikbare checks](#beschikbare-checks) en [`examples/monitoring.pp`](examples/monitoring.pp).
 
+Voor diensten die weinig loggen kun je het journalvenster per check verlengen met `log_window` bij [`monitoring_service`](basic_settings/manifests/monitoring_service.pp), of `monitoring_log_window` bij [`systemd_service`](basic_settings/manifests/systemd_service.pp). Geef de duur in seconden op, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Een actieve service toont alleen regels sinds haar laatste start. Het langere venster geldt ook voor het herkennen van fouten, waardoor een fout langer een alarm kan geven; de uitvoerlimiet en agenttimeout worden niet verruimd.
+
 Laat bij het uitschakelen van de hele monitoring `basic_settings::monitoring` aanwezig met `package => 'none'`: Puppet leegt dan zijn bestaande checkregistratie en herstart een actieve systemd-agent om de oude checks uit het geheugen te verwijderen. Andere pluginbestanden blijven staan.
 
 ## Installatie
@@ -747,7 +749,7 @@ naemon::host { 'web01':
 }
 ```
 
-De [serveropbouw](examples/monitoring.pp#L80) staat in `examples/monitoring.pp`. Zie de Puppet Strings bij [`naemon`](naemon/manifests/init.pp), [`host`](naemon/manifests/host.pp) en [`hostgroup`](naemon/manifests/hostgroup.pp) voor de voorwaarden en configuratie.
+De [serveropbouw](examples/monitoring.pp#L86) staat in `examples/monitoring.pp`. Zie de Puppet Strings bij [`naemon`](naemon/manifests/init.pp), [`host`](naemon/manifests/host.pp) en [`hostgroup`](naemon/manifests/hostgroup.pp) voor de voorwaarden en configuratie.
 
 ### `netplanio`
 

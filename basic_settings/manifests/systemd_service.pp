@@ -38,6 +38,12 @@
 # @param monitoring_enable
 #   Enables generated monitoring when set to `true`. `undef` leaves monitoring absent.
 #
+# @param monitoring_log_window
+#   Journal lookback in seconds for generated service monitoring. `undef` keeps the check script default. Running
+#   services remain limited to their latest activation; other states use the latest state change when more recent.
+#   The window affects journal context and failure/warning matching, not the output line limit. Larger windows can
+#   retain alarms longer and require more journal processing within the unchanged agent timeout.
+#
 # @param monitoring_package
 #   Monitoring backend package passed to `basic_settings::monitoring_service`.
 #
@@ -62,6 +68,7 @@ define basic_settings::systemd_service (
   Optional[String]          $monitoring_active_days    = undef,
   Optional[String]          $monitoring_active_windows = undef,
   Optional[Boolean]         $monitoring_enable         = undef,
+  Optional[Integer[1]]      $monitoring_log_window     = undef,
   Optional[String]          $monitoring_package        = undef,
   Hash                      $service                   = {},
   Optional[Array]           $service_subscribe         = undef,
@@ -112,6 +119,7 @@ define basic_settings::systemd_service (
   basic_settings::monitoring_service { $name:
     ensure         => $monitoring_ensure,
     package        => $monitoring_package,
+    log_window     => $monitoring_log_window,
     active_windows => $monitoring_active_windows,
     active_days    => $monitoring_active_days,
   }

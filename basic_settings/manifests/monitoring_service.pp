@@ -24,6 +24,12 @@
 # @param friendly
 #   Human-readable check name. `undef` uses a capitalized resource title.
 #
+# @param log_window
+#   Journal lookback in seconds for each selected service. `undef` keeps the check script default. Running services
+#   remain limited to their latest activation; other states use the latest state change when it is more recent.
+#   The window affects both displayed context and failure/warning matching, not the output line limit. Larger windows
+#   can retain alarms longer and require more journal processing within the unchanged agent timeout.
+#
 # @param package
 #   Monitoring package override. `undef` inherits `basic_settings::monitoring` when that class is declared.
 #
@@ -36,6 +42,7 @@ define basic_settings::monitoring_service (
   Optional[String]          $active_windows = undef,
   Enum['present', 'absent'] $ensure         = present,
   Optional[String]          $friendly       = undef,
+  Optional[Integer[1]]      $log_window     = undef,
   Optional[String]          $package        = undef,
   Optional[Array]           $services       = undef,
 ) {
@@ -117,6 +124,7 @@ define basic_settings::monitoring_service (
         parent_name    => $name,
         script_path    => $script_path,
         friendly       => $friendly_correct,
+        log_window     => $log_window,
         active_windows => $active_windows,
         active_days    => $active_days,
         require        => File[$script_path],

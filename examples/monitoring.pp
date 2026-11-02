@@ -55,6 +55,12 @@ node 'monitored-host.example.org' {
     require       => Class['openitcockpit::agent'],
   }
 
+  # Inspect up to one hour of the current activation of an existing application service.
+  basic_settings::monitoring_service { 'application':
+    log_window => 3600,
+    require    => Class['openitcockpit::agent'],
+  }
+
   # Add Mirth Connect monitoring to the same agent.
   class { 'openitcockpit::agent_mirth_connect':
     ensure  => present,

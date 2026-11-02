@@ -30,6 +30,9 @@
 # @param ensure
 #   Controls whether the backend fragment is present or omitted.
 #
+# @param log_window
+#   Optional journal lookback in seconds. `undef` omits the override and leaves the check script default in effect.
+#
 # @param parent_force
 #   Forces use of the parent friendly name and script name even when the checked service title differs from the parent
 #   title.
@@ -43,6 +46,7 @@ define basic_settings::monitoring_service_part (
   Optional[String]          $active_days    = undef,
   Optional[String]          $active_windows = undef,
   Enum['present', 'absent'] $ensure         = present,
+  Optional[Integer[1]]      $log_window     = undef,
   Boolean                   $parent_force   = false,
 ) {
   case $package {
@@ -78,10 +82,19 @@ define basic_settings::monitoring_service_part (
           $script_active_days = ''
         }
 
+        # Override the journal window only when this registration explicitly selects one.
+        if ($log_window != undef) {
+          # Pass the requested duration to the shared executable.
+          $script_log_window = "-t ${log_window} "
+        } else {
+          # Keep the executable as the sole owner of the default window.
+          $script_log_window = ''
+        }
+
         # Add fragment
         concat::fragment { "monitoring_service_part_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${script_log_window}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
           order   => '10',
         }
       }
