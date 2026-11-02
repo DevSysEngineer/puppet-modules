@@ -2,6 +2,7 @@
 
 require_relative '../../shared/test_support/bootstrap'
 require_relative '../lib/catalog'
+require_relative '../lib/discovery'
 require 'json'
 require 'rexml/document'
 require 'stringio'

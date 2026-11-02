@@ -1,19 +1,49 @@
 # frozen_string_literal: true
 
 require 'project_tools/shared/console'
+require 'stringio'
 
 module ProjectTools
   # Development-only adapter; native Minitest owns test outcomes and JUnit cases.
   class TestConsoleReporter < Minitest::Reporters::DefaultReporter
+    # Keep headers out of the suite log while exercising their normal rendering in tests.
+    module SoftwareOutput
+      def software(tool, output: $stderr, **options)
+        streams = TestConsoleReporter.terminal_outputs
+        output = StringIO.new if streams&.any? { |stream| stream.equal?(output) }
+        super
+      end
+    end
+
+    class << self
+      attr_accessor :terminal_outputs
+    end
+
     def on_start
       @expected = options[:total_count] unless options[:exclude]
       @running = {}
-      scope = @expected ? "#{@expected} tests selected" : 'filtered tests; total unknown'
-      @console = Shared::Console.new('Tool tests', output: io, scope: scope)
-      @console.diagnostic("Run options: #{options[:args]}")
+      start_console
       @console.start_activity
       at_exit { interrupted unless @reported }
+      self.class.terminal_outputs = [io, $stdout, $stderr]
       prepare_report
+    end
+
+    def start_console
+      scope = @expected ? "#{@expected} tests selected" : 'filtered tests; total unknown'
+      @console = Shared::Console.new('Tool tests', output: io, scope: scope, software: software)
+      @console.diagnostic("Packages: #{packages.join(', ')}")
+      @console.diagnostic("Run options: #{options[:args]}")
+    end
+
+    def packages
+      tools = Gem.loaded_specs.values.select { |spec| spec.name.match?(/\A(?:project-tools-|lint-project\z)/) }
+      tools.sort_by(&:name).map { |spec| "#{spec.name} #{spec.version}" }
+    end
+
+    def software
+      version = File.read(File.expand_path('../../../VERSION', __dir__)).strip
+      { tool: 'project-tools-tests', version: version, runtime: true }
     end
 
     def before_test(test)
@@ -45,6 +75,8 @@ module ProjectTools
     rescue SystemCallError, IOError => e
       finish('ERROR', 'incomplete', error: "Cannot write test JUnit reports: #{e.message}")
       raise
+    ensure
+      self.class.terminal_outputs = nil
     end
 
     def completeness
@@ -73,6 +105,8 @@ module ProjectTools
       @console.finish(status: 'ERROR', execution: 'incomplete',
                       details: diagnostics +
                         ['Test execution or required reporting did not complete; see native diagnostic above.'])
+    ensure
+      self.class.terminal_outputs = nil
     end
   end
 end

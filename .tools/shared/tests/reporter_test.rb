@@ -42,6 +42,60 @@ class SharedTestReporterTest < Minitest::Test
     assert_includes output, 'synthetic runtime cause'
   end
 
+  def test_software_versions_appear_at_start_without_repeating_during_tests
+    output, errors, status = probe(software_calls)
+    assert status.success?, output + errors
+    header, body = output.split('Test body started', 2)
+    assert_software_header(header)
+    refute_match(/^(?:Tool:|Runtime:|Puppet runtime:|Ruby:)/, body)
+    assert_equal "Synthetic diagnostic remains visible\n", errors
+  end
+
+  def software_calls
+    <<~RUBY
+      puts 'Test body started'
+      tools = Gem.loaded_specs.keys.grep(/\\A(?:project-tools-|lint-project\\z)/).sort
+      2.times do
+        tools.each do |tool|
+          ProjectTools::Shared::Console.software(tool)
+          ProjectTools::Shared::Console.software(tool, output: $stdout)
+        end
+      end
+      warn 'Synthetic diagnostic remains visible'
+      assert true
+    RUBY
+  end
+
+  def assert_software_header(header)
+    assert_includes header, 'Tool: project-tools-tests '
+    assert_includes header, ProjectTools::Shared::PuppetRuntime.detect.to_s
+    assert_includes header, "Ruby: #{RUBY_VERSION}"
+    tools = Gem.loaded_specs.values.select { |spec| spec.name.match?(/\A(?:project-tools-|lint-project\z)/) }
+    tools.each { |spec| assert_includes header, "#{spec.name} #{spec.version}" }
+  end
+
+  def test_captured_software_output_remains_available_to_assertions
+    output, errors, status = probe(captured_software_calls)
+    assert status.success?, output + errors
+    assert_empty errors
+  end
+
+  def captured_software_calls
+    <<~RUBY
+      captured_output, captured_errors = capture_io do
+        ProjectTools::Shared::Console.software('synthetic', version: '1.0')
+        ProjectTools::Shared::Console.software('synthetic', version: '1.0', output: $stdout)
+      end
+      [captured_output, captured_errors].each do |text|
+        assert_includes text, 'Tool: synthetic 1.0'
+        assert_includes text, 'Puppet runtime: not required'
+      end
+      direct = StringIO.new
+      ProjectTools::Shared::Console.software('synthetic', version: '1.0', output: direct)
+      assert_includes direct.string, 'Tool: synthetic 1.0'
+    RUBY
+  end
+
   def test_interruption_does_not_present_unfinished_tests_as_successful
     [[], ['--exclude=/unselected/']].each { |arguments| assert_interrupted(*arguments) }
   end

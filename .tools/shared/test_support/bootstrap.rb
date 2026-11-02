@@ -9,4 +9,5 @@ require 'json'
 require_relative 'console_reporter'
 
 # Ruby require initializes this once, regardless of the number or order of tool helpers.
+ProjectTools::Shared::Console.singleton_class.prepend(ProjectTools::TestConsoleReporter::SoftwareOutput)
 Minitest::Reporters.use!(ProjectTools::TestConsoleReporter.new)
