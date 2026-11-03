@@ -47,8 +47,8 @@ class basic_settings::systemd (
       'systemd-sysv',
       'libpam-systemd',
     ]:
-    ensure          => installed,
-    install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+      ensure          => installed,
+      install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
   }
 
   # Remove unnecessary packages

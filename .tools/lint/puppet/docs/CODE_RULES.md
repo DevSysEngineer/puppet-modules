@@ -188,7 +188,7 @@ Puppet-code gebruikt twee spaties per inspringniveau.
 
 **Herkomst**
 
-Projectspecificatie van upstream; [Puppet-stijlgids](https://help.puppet.com/core/current/Content/PuppetCore/style_guide.html). De geïnstalleerde native check bepaalt de hieronder beschreven dekking.
+Projectspecificatie van upstream; [Puppet-stijlgids](https://help.puppet.com/core/current/Content/PuppetCore/style_guide.html). De native check en de projectuitbreiding bepalen samen de hieronder beschreven dekking.
 
 **Toepassingsgebied**
 
@@ -200,23 +200,27 @@ Inspringingstokens in Puppet-code; arrays volgen bovendien [Inspringing](#inspri
 
 **Detectiegrenzen**
 
-Controleert alleen of de lengte van een INDENT-token even is; vier spaties op een plaats waar twee nodig zijn worden daarmee niet bewezen. `hard_tabs` meldt afzonderlijk echte tabs.
+De native controle meldt oneven INDENT-tokens. De projectuitbreiding controleert daarnaast de structurele inspringing van resources: kop, afzonderlijke titels, attribuutnamen en sluitaccolade. Dit geldt voor gewone, virtuele en geëxporteerde resources, classresources, defaults, overrides en collectors met attributen. Op hoofdniveau en binnen herkenbare class-, define-, node-, functie-, voorwaarde-, case- en lambdabodies wordt het niveau uit de AST bepaald; een `elsif` voegt geen extra niveau toe. Bij een onbekende expressiecontext wordt alleen de relatieve resourceopmaak gecontroleerd vanaf de bestaande inspringing van de kopregel.
+
+Alleen tokens aan een regelbegin met uitsluitend voorafgaande spaties worden beoordeeld. Inline code, comments, letterlijke inhoud en vervolgexpressies worden niet opnieuw ingedeeld. Andere blokkoppen en statements krijgen hiermee geen algemene structurele inspringingscontrole. `hard_tabs` meldt afzonderlijk echte tabs; arrays houden hun eigen opmaakcontrole.
 
 **Meldingen en severity**
 
 `two-space soft tabs not used`: `error` bij oneven lengte van een inspringingstoken.
 
+`Resource indentation should be {verwacht} spaces, found {gevonden}`: `error` bij een aantoonbaar verkeerd resourceniveau, ook bij nul of een even aantal spaties. Een bestaande native melding op dezelfde regel wordt hergebruikt.
+
 **Autofix**
 
-Geen
+Voorwaardelijk: corrigeert de leidende spaties op bewezen resourceregels. Overige oneven inspringing heeft geen autofix, omdat het gewenste niveau niet is vastgesteld.
 
 **Autofixvoorwaarden**
 
-Niet van toepassing: de native 2sp_soft_tabs-check heeft geen fixmethode.
+De vastgelegde ankertoken moet nog aanwezig zijn en de actuele regelprefix mag uitsluitend spaties bevatten. De fix wijzigt alleen die prefix, behoudt LF en CRLF en gebruikt de native selectie en fixafhandeling. Commentaar, strings en heredocs blijven intact. Bij arrayfixes worden de attribuutniveaus na veranderde resourcetitles opnieuw gecontroleerd en worden waarde-arrays eenmaal opnieuw gepland voor de gewijzigde regelbreedte. Er is geen algemene herhaalde fixlus.
 
 **Toegestane uitzonderingen**
 
-Geen uitzondering voor oneven inspringing; de specifieke array- en resourcetitelindeling staat bij Inspringing.
+Geen uitzondering voor oneven inspringing. Attributen staan twee spaties verder dan de resourcekop. Bij een titel op een afzonderlijke regel of een meerregelige titel staan zij vier spaties verder; de specifieke arrayindeling staat bij [Inspringing](#inspringing).
 
 **Suppressions**
 
@@ -228,8 +232,8 @@ Fragment; controle `2sp_soft_tabs`; verwacht error.
 
 <!-- lint-example: 2sp_soft_tabs error -->
 ```puppet
-if $active {
-   notice('Example')
+    mysql::database { $database_name:
+    ensure => present,
 }
 ```
 
@@ -239,22 +243,22 @@ Fragment; controle `2sp_soft_tabs`; verwacht geen melding.
 
 <!-- lint-example: 2sp_soft_tabs clean -->
 ```puppet
-if $active {
-  notice('Example')
+mysql::database { $database_name:
+  ensure => present,
 }
 ```
 
 **Grensgevallen**
 
-Controleert alleen of de lengte van een INDENT-token even is; vier spaties op een plaats waar twee nodig zijn worden daarmee niet bewezen. `hard_tabs` meldt afzonderlijk echte tabs. Geen uitzondering voor oneven inspringing; de specifieke array- en resourcetitelindeling staat bij Inspringing.
+Een volledig verschoven resourceblok wordt eveneens herkend. Meerdere resourcetitles behouden ieder hun eigen attribuutniveau. Binnen niet-herkende expressiecontexten blijft de absolute plaatsing handmatige review; de relatieve opmaak bewijst die niet. Oneven inspringing buiten de ondersteunde resourceregels blijft een native fout zonder fix.
 
 **Handmatige review**
 
-Een even aantal spaties kan nog het verkeerde structurele niveau zijn; vergelijk ieder blok met zijn opening.
+Vergelijk ook niet-gecontroleerde blokken, comments en vervolgexpressies met hun opening. Een correcte resource bewijst niet dat haar omliggende blok zelf goed is ingesprongen.
 
 **Verificatie**
 
-De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). Voor de beschreven quote- en pijlcorrecties controleert [guide/examples_test.rb](../tests/guide/examples_test.rb) exacte uitvoer, hercontrole en tweede run. Een even aantal spaties kan nog het verkeerde structurele niveau zijn; vergelijk ieder blok met zijn opening.
+De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](../tests/guide/examples_test.rb). [resource_indentation_test.rb](../tests/resource_indentation_test.rb) controleert scopes, resourcevormen, letterlijke inhoud, native selectie en array-interacties met exacte fixes, parservalidatie en ongewijzigde tweede runs. [cli/layout_test.rb](../tests/cli/layout_test.rb) en [external/resource_indentation_test.rb](../tests/external/resource_indentation_test.rb) bewaken exitcodes, expliciet schrijven en de geïnstalleerde consumerroute.
 
 ### Inhoud direct na een openingsaccolade beginnen
 

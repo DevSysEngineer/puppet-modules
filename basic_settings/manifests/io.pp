@@ -53,8 +53,8 @@ class basic_settings::io (
       'unzip',
       'xz-utils',
     ]:
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
   # Remove package for connection with Windows environment / device

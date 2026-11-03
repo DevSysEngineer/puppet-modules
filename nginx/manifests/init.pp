@@ -450,8 +450,8 @@ class nginx (
       '/etc/nginx/snippets/fastcgi-php.conf',
       '/etc/nginx/snippets/fastcgi_params-php',
     ]:
-    ensure  => absent,
-    require => File['nginx_snippets'],
+      ensure  => absent,
+      require => File['nginx_snippets'],
   }
 
   # Check if logrotate package exists

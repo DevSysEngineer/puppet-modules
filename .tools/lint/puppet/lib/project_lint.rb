@@ -5,6 +5,7 @@ require 'puppet-lint'
 require 'project_lint/version_output'
 ProjectLint::VersionOutput.announce
 require 'project_lint/native_fixes'
+require 'project_lint/resource_indentation'
 
 require 'project_lint/checks/parameter_order'
 require 'project_lint/checks/documentation_layout'

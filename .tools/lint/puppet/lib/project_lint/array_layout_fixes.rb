@@ -12,7 +12,7 @@ module ProjectLint
   module ArraySourceEndings
     def load_data(fileinfo, data)
       super
-      return unless enabled_checks.include?(:project_layout) && data.include?("\r\n")
+      return unless (enabled_checks & %i[project_layout 2sp_soft_tabs]).any? && data.include?("\r\n")
 
       lines = data.lines
       PuppetLint::Data.tokens.each { |part| restore_part_endings(part, lines) }
@@ -80,11 +80,36 @@ module ProjectLint
       return result unless finalize_arrays?(fileinfo, result)
 
       load_data(fileinfo, manifest)
-      final = PuppetLint.configuration.check_object.fetch(:project_layout).new.finish_arrays
+      final = finish_array_check
       return result if final.empty? && result.none? { |problem| array_finding?(problem) }
 
+      final.concat(final_resource_indents(fileinfo))
       load_data(fileinfo, manifest)
       @problems = reconciled_problems(result, final, current_findings)
+    end
+
+    # A title array changes the attribute level when it expands or collapses.
+    # Replan value arrays once after correcting those prefixes; title decisions
+    # depend on resource headers and cannot be changed by attribute prefixes.
+    def final_resource_indents(fileinfo)
+      return [] unless enabled_checks.include?(:'2sp_soft_tabs')
+
+      load_data(fileinfo, manifest)
+      problems = finish_resource_check
+      return [] unless problems.any? { |problem| problem[:kind] == :fixed }
+
+      load_data(fileinfo, manifest)
+      problems + finish_array_check
+    end
+
+    def finish_resource_check
+      check = PuppetLint.configuration.check_object.fetch(:'2sp_soft_tabs').new
+      check.run
+      check.fix_problems
+    end
+
+    def finish_array_check
+      PuppetLint.configuration.check_object.fetch(:project_layout).new.finish_arrays
     end
 
     def finalize_arrays?(fileinfo, result)

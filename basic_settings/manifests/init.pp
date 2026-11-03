@@ -1405,9 +1405,9 @@ class basic_settings (
         'ca-certificates-java',
         'dconf-service',
       ]:
-      ensure          => installed,
-      install_options => ['--no-install-recommends', '--no-install-suggests'],
-      require         => Package['openjdk'],
+        ensure          => installed,
+        install_options => ['--no-install-recommends', '--no-install-suggests'],
+        require         => Package['openjdk'],
     }
   }
 

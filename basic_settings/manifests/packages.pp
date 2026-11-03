@@ -203,8 +203,8 @@ class basic_settings::packages (
         '/etc/apt/apt.conf.d/20snapd.conf',
         '/etc/xdg/autostart/snap-userd-autostart.desktop',
       ]:
-      ensure  => absent,
-      require => Package['snapd'],
+        ensure  => absent,
+        require => Package['snapd'],
     }
   }
 
@@ -214,7 +214,7 @@ class basic_settings::packages (
       'packagekit',
       'update-notifier-common',
     ]:
-    ensure => purged,
+      ensure => purged,
   }
 
   # Do extra steps when Ubuntu
@@ -230,7 +230,7 @@ class basic_settings::packages (
         '/usr/local/sbin/unminimize',
         '/etc/update-motd.d/60-unminimize',
       ]:
-      ensure => absent,
+        ensure => absent,
     }
 
     # Remove man

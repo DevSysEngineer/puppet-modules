@@ -18,6 +18,25 @@ class CliLayoutTest < Minitest::Test
     assert_cli_stable(fixture('cli/fixtures/explicit_native_cli_fixing_expected'), *arguments)
   end
 
+  def test_resource_indentation_is_rejected_and_corrected_with_the_full_profile
+    before = "# Create database for this server\n    mysql::database { $database_name:\n    ensure => present,\n}\n"
+    after = "# Create database for this server\nmysql::database { $database_name:\n  ensure => present,\n}\n"
+    write_source(before)
+    assert_cli_failure(@file)
+    assert_equal 1, @status.exitstatus
+    assert_equal 2, diagnostics(@output, '2sp_soft_tabs').length
+    assert_equal before, source
+    assert_cli_success('--fix', @file)
+    assert_equal after, source
+    assert_cli_stable(after)
+  end
+
+  def test_resource_indentation_preserves_crlf_and_interacts_with_native_fixes
+    before = "    notify { 'example':\r\n      message => \"hello\",\r\n    }\r\n"
+    after = "notify { 'example':\r\n  message => 'hello',\r\n}\r\n"
+    assert_native_fix before, after, '2sp_soft_tabs', 'double_quoted_strings'
+  end
+
   def test_opening_brace_spacing_fails_even_after_a_line_length_suppression
     code = fixture('cli/fixtures/a_line_length_suppression_code')
     [[], ['--fix']].each { |options| assert_brace_spacing(code, options) }

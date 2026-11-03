@@ -93,10 +93,10 @@ class nvidia (
         'nvidia-modprobe',
         "nvidia-utils-${pinning}-server",
       ]:
-      ensure          => installed,
-      provider        => apt,
-      install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
-      require         => Package[$pin_package],
+        ensure          => installed,
+        provider        => apt,
+        install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+        require         => Package[$pin_package],
     }
   } else {
     fail('The NVIDIA headless driver mapping requires Ubuntu 24.04 ARM64.')

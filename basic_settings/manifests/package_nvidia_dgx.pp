@@ -163,9 +163,9 @@ class basic_settings::package_nvidia_dgx (
           "/etc/apt/sources.list.d/cuda-compute-repo.${alternative}",
           "/etc/apt/sources.list.d/dgx.${alternative}",
         ]:
-        ensure  => absent,
-        require => File[$keys],
-        notify  => Exec['basic_settings_source_reload'],
+          ensure  => absent,
+          require => File[$keys],
+          notify  => Exec['basic_settings_source_reload'],
       }
 
       # Enforce source content on every run using the same root-only permissions as the base APT sources.

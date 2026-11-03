@@ -414,8 +414,8 @@ class basic_settings::kernel (
               "linux-image-generic-hwe-${os_version}",
               "linux-headers-generic-hwe-${os_version}",
             ]:
-            ensure          => installed,
-            install_options => ['--no-install-recommends', '--no-install-suggests'],
+              ensure          => installed,
+              install_options => ['--no-install-recommends', '--no-install-suggests'],
           }
         }
       }
@@ -432,9 +432,9 @@ class basic_settings::kernel (
             'linux-image-generic',
             'linux-headers-generic',
           ]:
-          ensure          => purged,
-          install_options => ['--no-install-recommends', '--no-install-suggests'],
-          require         => Package['linux-raspi'],
+            ensure          => purged,
+            install_options => ['--no-install-recommends', '--no-install-suggests'],
+            require         => Package['linux-raspi'],
         }
       }
       'nvidia': {
@@ -753,8 +753,8 @@ class basic_settings::kernel (
             'initramfs-tools-bin',
             'initramfs-tools-core',
           ]:
-          ensure  => purged,
-          require => Package['dracut-core'],
+            ensure  => purged,
+            require => Package['dracut-core'],
         }
       }
       'initramfs': {

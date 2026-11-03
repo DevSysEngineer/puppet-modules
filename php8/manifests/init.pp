@@ -104,8 +104,8 @@ class php8 (
       "php8.${minor_version}-common",
       "php8.${minor_version}-opcache",
     ]:
-    ensure          => installed,
-    install_options => ['--no-install-recommends', '--no-install-suggests'],
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
   }
 
   # Provide the optional APCu user-data cache for PHP applications.

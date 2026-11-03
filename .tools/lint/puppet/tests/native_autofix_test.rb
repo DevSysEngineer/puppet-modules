@@ -7,6 +7,8 @@ class NativeAutofixTest < Minitest::Test
   include LintCliSupport
 
   SAMPLES = {
+    '2sp_soft_tabs': ["    notify { 'example':\n    message => 'value',\n}\n",
+                      "notify { 'example':\n  message => 'value',\n}\n"],
     arrow_on_right_operand_line: ["File['a'] ->\nFile['b']\n", "File['a']\n-> File['b']\n"],
     names_containing_uppercase: ["class Example {}\n", "class example {}\n"],
     slash_comments: ["// Explain this.\n", "# Explain this.\n"],
