@@ -35,11 +35,50 @@ module ProjectLint
       end
     end
 
-    # Coordinate array, brace and comma layout checks using original source positions.
+    # Inspect only attribute boundaries, leaving nested values and explanatory blocks intact.
+    module ResourceAttributeSpacingCheck
+      def check_resource_attribute_spacing
+        ast.each_node do |node, _parents|
+          next unless resource_attribute_owner?(node)
+
+          node.operations.each { |operation| check_resource_attribute_gap(expression_span(operation).first) }
+        end
+      end
+
+      def resource_attribute_owner?(node)
+        node.is_a?(Ast::M::ResourceBody) || node.is_a?(Ast::M::ResourceDefaultsExpression) ||
+          node.is_a?(Ast::M::ResourceOverrideExpression) || node.is_a?(Ast::M::CollectExpression)
+      end
+
+      def check_resource_attribute_gap(first)
+        newline = resource_attribute_gap(first).find { |token| token.type == :NEWLINE }
+        return unless newline
+
+        blank = blank_tokens(newline.next_token)
+        return if blank.empty?
+
+        report_edit('Remove blank lines before resource attributes', blank.first.line, 1, remove: blank)
+      end
+
+      def resource_attribute_gap(first)
+        previous = first&.prev_code_token
+        return [] unless previous && previous.type != :LBRACE
+
+        gap = token_span(previous, first)[1...-1]
+        return [] unless gap.all? do |token|
+          %i[INDENT WHITESPACE NEWLINE].include?(token.type) || inline_layout_comment?(token, previous)
+        end
+
+        gap
+      end
+    end
+
+    # Coordinate array, brace, resource and comma layout checks using original source positions.
     module Layout
       include AstCheck
       include TokenHelpers
       include ArrayLayoutCheck
+      include ResourceAttributeSpacingCheck
 
       def report_edit(message, line, column, edit)
         @edits << edit
@@ -52,6 +91,7 @@ module ProjectLint
         return if @array_final_pass
 
         check_opening_brace_spacing
+        check_resource_attribute_spacing
         check_commas
         (class_indexes + defined_type_indexes).each { |declaration| check_parameter_comma(declaration) }
       end
@@ -88,14 +128,14 @@ module ProjectLint
                     closing: parameters.last.next_token)
       end
 
-      def inline_brace_comment?(token, opening)
+      def inline_layout_comment?(token, opening)
         token && token.line == opening.line && %i[WHITESPACE COMMENT SLASH_COMMENT MLCOMMENT].include?(token.type) &&
           !token.value.include?("\n")
       end
 
-      def opening_newline(opening)
+      def boundary_newline(opening)
         following = opening.next_token
-        following = following.next_token while inline_brace_comment?(following, opening)
+        following = following.next_token while inline_layout_comment?(following, opening)
         following if following&.type == :NEWLINE && following.line == opening.line
       end
 
@@ -111,7 +151,7 @@ module ProjectLint
 
       def check_opening_brace_spacing
         tokens.select { |token| token.type == :LBRACE }.each do |opening|
-          following = opening_newline(opening)
+          following = boundary_newline(opening)
           next unless following && PuppetLint::Data.manifest_lines[opening.line]&.strip == ''
 
           report_edit('Remove blank lines immediately after an opening brace', opening.line + 1, 1,

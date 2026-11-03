@@ -17,6 +17,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 - [Basisopmaak](#basisopmaak)
   - [Twee spaties per inspringniveau](#twee-spaties-per-inspringniveau)
   - [Inhoud direct na een openingsaccolade beginnen](#inhoud-direct-na-een-openingsaccolade-beginnen)
+  - [Resource-attributen zonder lege regels schrijven](#resource-attributen-zonder-lege-regels-schrijven)
   - [Resourcepijlen uitlijnen](#resourcepijlen-uitlijnen)
   - [Aanhalingstekens bij stringinhoud kiezen](#aanhalingstekens-bij-stringinhoud-kiezen)
   - [Selectors vóór resources berekenen](#selectors-vóór-resources-berekenen)
@@ -264,7 +265,7 @@ De gemarkeerde voorbeeldparen worden uitgevoerd door [guide/examples_test.rb](..
 
 **Norm**
 
-Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
+Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden; voor resource-attributen geldt de [afzonderlijke regel](#resource-attributen-zonder-lege-regels-schrijven). Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
 
 **Herkomst**
 
@@ -272,7 +273,7 @@ Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontb
 
 **Toepassingsgebied**
 
-Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden. Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
+Na een openende `{` begint de inhoud direct op de volgende regel, ook als er achter de accolade commentaar staat. Dit geldt voor codeblokken en verzamelingen. Verderop in het blok mogen lege regels onderdelen scheiden; voor resource-attributen geldt de [afzonderlijke regel](#resource-attributen-zonder-lege-regels-schrijven). Bij `(` mag ook de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Deze opmaakregels gaan over Puppet-code; tekens binnen strings, reguliere expressies, heredocs of commentaar behouden hun betekenis.
 
 **Automatische controle**
 
@@ -280,7 +281,7 @@ Na een openende `{` begint de inhoud direct op de volgende regel, ook als er ach
 
 **Detectiegrenzen**
 
-Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden. De inhoudelijke juistheid van de uitleg blijft review.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden, behalve bij de [beschreven resource-attribuutgrenzen](#resource-attributen-zonder-lege-regels-schrijven). De inhoudelijke juistheid van de uitleg blijft review.
 
 **Meldingen en severity**
 
@@ -296,7 +297,7 @@ Verwijdert uitsluitend lege tokens na een echte openingsaccolade; comments op de
 
 **Toegestane uitzonderingen**
 
-Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden, behalve bij de [beschreven resource-attribuutgrenzen](#resource-attributen-zonder-lege-regels-schrijven).
 
 **Suppressions**
 
@@ -327,7 +328,7 @@ if $active {
 
 **Grensgevallen**
 
-Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden, behalve bij de [beschreven resource-attribuutgrenzen](#resource-attributen-zonder-lege-regels-schrijven).
 
 **Handmatige review**
 
@@ -336,6 +337,86 @@ Vergelijk de toelichting met de direct betrokken verwerking en controleer dat sc
 **Verificatie**
 
 De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples_test.rb`. Aanvullende detectie-, grens- en fixscenario’s: [comment_spacing_test.rb](../tests/comment_spacing_test.rb), [resource_sections_test.rb](../tests/resource_sections_test.rb), [brace_layout_test.rb](../tests/brace_layout_test.rb), [cli/sections_test.rb](../tests/cli/sections_test.rb). Bij fixes verifiëren `assert_fix` en de CLI-tests de exacte uitvoer, parsergeldigheid, hercontrole en ongewijzigde tweede run. Zie de tests per beschreven grens; een succesvolle lintscan is geen catalogusvalidatie.
+
+### Resource-attributen zonder lege regels schrijven
+
+**Norm**
+
+Begin resource-attributen direct na de resourcetitel en schrijf opeenvolgende attributen zonder lege regels ertussen. Dit houdt de instellingen van één resource bij elkaar. Commentaar achter de titel of het vorige attribuut verandert deze afspraak niet. Behoud de scheiding rond zelfstandige toelichtingsblokken volgens de [commentaaropmaak](DOCUMENTATION_RULES.md#toelichtingsblokken-van-eerdere-code-scheiden).
+
+**Herkomst**
+
+Projectregel.
+
+**Toepassingsgebied**
+
+Attributen van gewone, virtuele en geëxporteerde resources, classresources, defaults, overrides en collectors. Iedere body binnen een declaratie met meerdere titels heeft haar eigen attribuutblok. De bestaande [accoladeregel](#inhoud-direct-na-een-openingsaccolade-beginnen) behandelt lege regels direct na een openingsaccolade.
+
+**Automatische controle**
+
+`project_layout`
+
+**Detectiegrenzen**
+
+De check gebruikt de parserstructuur om attribuutgrenzen te herkennen, inclusief `* =>`. Zij meldt lege regels in de tussenruimte vóór een attribuut wanneer daar alleen witruimte en eventueel commentaar achter de vorige coderegel staan. Zelfstandige commentaarblokken blijven buiten deze correctie. Witruimte binnen attribuutwaarden, tussen afzonderlijke resourcebodies en vóór de sluitaccolade valt buiten deze regel.
+
+**Meldingen en severity**
+
+`Remove blank lines before resource attributes`: één `warning` op de eerste lege regel van iedere reeks, ook bij regels met alleen spaties of tabs. Een lege regel direct na `{` behoudt de bestaande accolademelding en krijgt geen dubbele melding.
+
+**Autofix**
+
+Voorwaardelijk.
+
+**Autofixvoorwaarden**
+
+Verwijdert uitsluitend de vastgestelde lege witruimtetokens. Attribuutvolgorde, waarden, commentaar, inspringing en LF- of CRLF-regeleinden blijven behouden. De inhoud van strings, regexen en heredocs wordt niet herschreven; de lege scheidingsregel na een heredoc kan wel worden verwijderd. Genegeerde bereiken worden niet aangepast. De gewone native `--fix`-route verzorgt schrijven en samenloop met andere opmaakchecks.
+
+**Toegestane uitzonderingen**
+
+Zelfstandige toelichtingsblokken behouden hun eigen commentaaropmaak. Lege regels in geneste waarden of tussen verschillende resources worden door hun eigen toepasselijke regels beoordeeld.
+
+**Suppressions**
+
+Suppressie van `project_layout` is niet toegestaan. Technisch genegeerde bereiken blijven bij autofix intact.
+
+**Onjuist voorbeeld**
+
+Fragment; alleen `project_layout`; verwacht twee warnings.
+
+<!-- lint-example: project_layout warning -->
+```puppet
+notify { 'example':
+
+  message  => 'Example',
+
+  withpath => false,
+}
+```
+
+**Correct voorbeeld**
+
+Fragment; alleen `project_layout`; verwacht geen melding.
+
+<!-- lint-example: project_layout clean -->
+```puppet
+notify { 'example':
+  message  => 'Example',
+  withpath => false,
+}
+```
+
+**Grensgevallen**
+
+Een lege resource heeft geen attribuutgrens. Meerregelige titels en waarden veranderen de afspraak bij het volgende attribuut niet. Commentaar achter een titel of waarde blijft op die regel staan. Meerregelige commentaartokens en zelfstandige toelichtingen worden niet verplaatst of samengevoegd.
+
+**Handmatige review**
+
+Vergelijk de volledige resource vóór en na correctie, inclusief de inhoud van meerregelige waarden en de binding van toelichtingen. Controleer resterende meldingen van andere checks afzonderlijk; correcte witruimte bewijst geen geldige parameter of catalogus.
+
+**Verificatie**
+
+[resource_attribute_spacing_test.rb](../tests/resource_attribute_spacing_test.rb) controleert beide posities, resourcevormen, meerdere bodies, splats, commentaar, nesting, heredocs, regeleinden, suppressions en fixinteracties. De exacte correcties worden geparseerd, opnieuw gecontroleerd en een tweede keer gefixt zonder verdere wijziging. [cli/layout_test.rb](../tests/cli/layout_test.rb) controleert het volledige profiel en expliciet schrijven; [external/resource_attribute_spacing_test.rb](../tests/external/resource_attribute_spacing_test.rb) controleert dezelfde route met een afzonderlijk geïnstalleerd gempakket. [guide/examples_test.rb](../tests/guide/examples_test.rb) voert de gemarkeerde voorbeelden uit.
 
 ### Resourcepijlen uitlijnen
 
