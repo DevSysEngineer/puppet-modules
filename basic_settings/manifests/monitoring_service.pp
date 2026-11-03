@@ -36,6 +36,10 @@
 # @param services
 #   Optional list of systemd service names. `undef` monitors the resource title.
 #
+# @param timeout
+#   OpenITCOCKPIT execution timeout in seconds for each service check. Set this separately from `log_window`;
+#   it does not change the check interval or the monitored service's runtime limits.
+#
 # @api public
 define basic_settings::monitoring_service (
   Optional[String]          $active_days    = undef,
@@ -45,6 +49,7 @@ define basic_settings::monitoring_service (
   Optional[Integer[1]]      $log_window     = undef,
   Optional[String]          $package        = undef,
   Optional[Array]           $services       = undef,
+  Integer[1]                $timeout        = 10,
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -106,10 +111,7 @@ define basic_settings::monitoring_service (
         $services_correct = $services
 
         # Treat a single explicitly selected service as the check's parent service.
-        if (length($services) == 1) {
-          # Use the single selected service as the parent check.
-          $parent_force = true
-        }
+        $parent_force = length($services) == 1
       } else {
         # Use the resource title as the default service without forcing a parent check.
         $services_correct = $name
@@ -125,6 +127,7 @@ define basic_settings::monitoring_service (
         script_path    => $script_path,
         friendly       => $friendly_correct,
         log_window     => $log_window,
+        timeout        => $timeout,
         active_windows => $active_windows,
         active_days    => $active_days,
         require        => File[$script_path],

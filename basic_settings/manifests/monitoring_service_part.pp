@@ -37,6 +37,9 @@
 #   Forces use of the parent friendly name and script name even when the checked service title differs from the parent
 #   title.
 #
+# @param timeout
+#   OpenITCOCKPIT execution timeout in seconds for this service check, independent of its journal window.
+#
 # @api private
 define basic_settings::monitoring_service_part (
   String                    $friendly,
@@ -48,6 +51,7 @@ define basic_settings::monitoring_service_part (
   Enum['present', 'absent'] $ensure         = present,
   Optional[Integer[1]]      $log_window     = undef,
   Boolean                   $parent_force   = false,
+  Integer[1]                $timeout        = 10,
 ) {
   case $package {
     'openitcockpit': {
@@ -94,7 +98,7 @@ define basic_settings::monitoring_service_part (
         # Add fragment
         concat::fragment { "monitoring_service_part_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${script_log_window}${name}.service\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path} ${script_active_window}${script_active_days}${script_log_window}${name}.service\ninterval = 300\ntimeout = ${timeout}\nenabled = true\n", # lint:ignore:140chars
           order   => '10',
         }
       }

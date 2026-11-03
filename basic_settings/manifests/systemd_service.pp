@@ -47,6 +47,10 @@
 # @param monitoring_package
 #   Monitoring backend package passed to `basic_settings::monitoring_service`.
 #
+# @param monitoring_timeout
+#   OpenITCOCKPIT execution timeout in seconds for the generated systemd service check. Set this separately from
+#   `monitoring_log_window`; it does not change service runtime limits, the check interval or the npm audit timeout.
+#
 # @param service
 #   Key/value settings rendered into the `[Service]` section.
 #
@@ -70,6 +74,7 @@ define basic_settings::systemd_service (
   Optional[Boolean]         $monitoring_enable         = undef,
   Optional[Integer[1]]      $monitoring_log_window     = undef,
   Optional[String]          $monitoring_package        = undef,
+  Integer[1]                $monitoring_timeout        = 10,
   Hash                      $service                   = {},
   Optional[Array]           $service_subscribe         = undef,
   Hash                      $unit                      = {},
@@ -120,6 +125,7 @@ define basic_settings::systemd_service (
     ensure         => $monitoring_ensure,
     package        => $monitoring_package,
     log_window     => $monitoring_log_window,
+    timeout        => $monitoring_timeout,
     active_windows => $monitoring_active_windows,
     active_days    => $monitoring_active_days,
   }

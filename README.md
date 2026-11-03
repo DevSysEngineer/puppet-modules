@@ -113,6 +113,8 @@ Voor diensten die weinig loggen kun je het journalvenster per check verlengen me
 
 Voor timers geven `log_window` bij [`monitoring_timer`](basic_settings/manifests/monitoring_timer.pp) en `monitoring_log_window` bij [`systemd_timer`](basic_settings/manifests/systemd_timer.pp) een terugkijkvenster tot het controlemoment, ook bij frequente triggers. Zonder override blijft het venster vanaf de laatste trigger gelden. Historische journalregels zijn alleen diagnosecontext: de actuele systemd-eigenschappen van de doelservice bepalen de status. Controleer bij een langer venster de looptijd met representatief journalvolume; uitvoerlimieten en agenttimeout blijven gelijk.
 
+Stel de agenttimeout voor service- en timerchecks afzonderlijk in met `monitoring_timeout` bij `systemd_service` en `systemd_timer`, of met `timeout` bij rechtstreeks gebruik van `monitoring_service` en `monitoring_timer`. De standaard is 10 seconden. Kies bijvoorbeeld 60 seconden wanneer de gemeten checklooptijd dat vraagt, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Reserveer ook tijd voor beëindiging en uitvoer van de check. Deze instelling verandert het controle-interval, de timerplanning en de looptijdlimieten van de bewaakte service niet.
+
 Laat bij het uitschakelen van de hele monitoring `basic_settings::monitoring` aanwezig met `package => 'none'`: Puppet leegt dan zijn bestaande checkregistratie en herstart een actieve systemd-agent om de oude checks uit het geheugen te verwijderen. Andere pluginbestanden blijven staan.
 
 ## Installatie

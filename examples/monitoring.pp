@@ -56,8 +56,10 @@ node 'monitored-host.example.org' {
   }
 
   # Inspect up to one hour of the current activation of an existing application service.
+  # Choose the executor timeout separately and verify it against representative journal volume.
   basic_settings::monitoring_service { 'application':
     log_window => 3600,
+    timeout    => 60,
     require    => Class['openitcockpit::agent'],
   }
 
@@ -65,6 +67,7 @@ node 'monitored-host.example.org' {
   # Historical journal failures are context only; current target service properties determine status.
   basic_settings::monitoring_timer { 'application-poll':
     log_window => 86400,
+    timeout    => 60,
     require    => Class['openitcockpit::agent'],
   }
 

@@ -35,6 +35,10 @@
 # @param monitoring_package
 #   Monitoring backend package passed to `basic_settings::monitoring_timer`.
 #
+# @param monitoring_timeout
+#   OpenITCOCKPIT execution timeout in seconds for the generated timer check. Set this separately from
+#   `monitoring_log_window`; it does not change the check interval, timer schedule or target service's runtime limits.
+#
 # @param state
 #   Optional Puppet service state for the timer, usually `running` or `stopped`.
 #
@@ -56,6 +60,7 @@ define basic_settings::systemd_timer (
   Optional[Boolean]                    $monitoring_enable     = undef,
   Optional[Integer[1]]                 $monitoring_log_window = undef,
   Optional[String]                     $monitoring_package    = undef,
+  Integer[1]                           $monitoring_timeout    = 10,
   Optional[Enum['running', 'stopped']] $state                 = undef,
   Hash                                 $timer                 = {},
   Hash                                 $unit                  = {},
@@ -97,6 +102,7 @@ define basic_settings::systemd_timer (
         ensure     => $monitoring_ensure,
         log_window => $monitoring_log_window,
         package    => $monitoring_package,
+        timeout    => $monitoring_timeout,
       }
     }
   } elsif ($monitoring_package != 'none') {
@@ -104,6 +110,7 @@ define basic_settings::systemd_timer (
       ensure     => $ensure,
       log_window => $monitoring_log_window,
       package    => $monitoring_package,
+      timeout    => $monitoring_timeout,
     }
   }
 }

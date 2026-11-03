@@ -22,12 +22,17 @@
 # @param package
 #   Monitoring package override. `undef` inherits `basic_settings::monitoring` when that class is declared.
 #
+# @param timeout
+#   OpenITCOCKPIT execution timeout in seconds for this timer check. Set this separately from `log_window`;
+#   it does not change the check interval, timer schedule or target service's runtime limits.
+#
 # @api public
 define basic_settings::monitoring_timer (
   Enum['present', 'absent'] $ensure     = present,
   Optional[String]          $friendly   = undef,
   Optional[Integer[1]]      $log_window = undef,
   Optional[String]          $package    = undef,
+  Integer[1]                $timeout    = 10,
 ) {
   # Get friendly name
   if ($friendly == undef) {
@@ -92,7 +97,7 @@ define basic_settings::monitoring_timer (
         # Register this timer with its own journal selection and the shared executable.
         concat::fragment { "monitoring_timer_${name}":
           target  => '/etc/openitcockpit-agent/customchecks.ini',
-          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${log_window_arg} ${name}.timer\ninterval = 300\ntimeout = 10\nenabled = true\n", # lint:ignore:140chars
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${log_window_arg} ${name}.timer\ninterval = 300\ntimeout = ${timeout}\nenabled = true\n", # lint:ignore:140chars
           order   => '10',
           require => File[$script_path],
         }
