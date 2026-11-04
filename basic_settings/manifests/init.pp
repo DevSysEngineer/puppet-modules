@@ -123,6 +123,9 @@
 #   kernels and linux-tools-common. It does not require nvidia_dgx_enable,
 #   install GPU drivers or CUDA, choose a boot entry or trigger a reboot. Verify the package plan and boot
 #   configuration before a manual reboot; the README contains the complete Spark procedure.
+#   The nvidia profile also adds initcall_blacklist=tegra234_cbb_init,power_wrap_init to normal GRUB boot entries.
+#   Changes run update-grub and take effect after a manual reboot. Recovery entries retain their empty extra command
+#   line. Other profiles omit the blacklist when managing GRUB.
 #
 # @param kernel_hugepages
 #   Hugepage count passed to the kernel class.

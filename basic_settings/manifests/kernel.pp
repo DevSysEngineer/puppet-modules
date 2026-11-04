@@ -76,6 +76,9 @@
 #   retaining linux-tools-common and existing generic kernels. This choice supplies no NVIDIA repository,
 #   GPU driver, CUDA, boot-entry selection or reboot. Verify boot configuration and reboot manually after checking
 #   the package plan.
+#   With bootloader => 'grub', the nvidia profile adds initcall_blacklist=tegra234_cbb_init,power_wrap_init to
+#   GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub. Changes run update-grub and take effect after a manual reboot.
+#   Recovery entries retain their empty extra command line. Other profiles omit the blacklist when managing GRUB.
 #
 # @param kernel_version
 #   Optional full kernel release, for example 7.0.0-1019-nvidia; used only with kernel_flavor => 'nvidia'.

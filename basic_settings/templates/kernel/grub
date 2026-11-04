@@ -15,6 +15,11 @@ GRUB_CMDLINE_LINUX=""
 # Disable debug information during boot
 GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=0"
 
+<% if @kernel_type == 'nvidia' -%>
+# Skip the Tegra CBB and power wrapper initcalls for the DGX Spark kernel profile.
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT initcall_blacklist=tegra234_cbb_init,power_wrap_init"
+
+<% end -%>
 # Disable the merging of slabs of similar sizes
 GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT slab_nomerge"
 
