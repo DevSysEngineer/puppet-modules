@@ -1,4 +1,4 @@
-# @summary Installs a pinned open headless NVIDIA driver on Ubuntu 24.04 ARM64.
+# @summary Installs a pinned open headless NVIDIA driver and Persistence Mode on Ubuntu 24.04 ARM64.
 #
 # Prepare the NVIDIA CUDA/SBSA repository, refresh APT, and install the selected kernel and its headers first.
 # When basic_settings::kernel is declared, pin installation waits for that class. The caller must order any
@@ -8,6 +8,11 @@
 # Driver packages use ensure => installed: updates within a branch are not applied automatically.
 # Changing pinning selects another branch's driver package; review the resulting APT changes before applying.
 # Plan driver upgrades and any reboot separately; Secure Boot and DKMS must work for the selected boot kernel.
+# nv-persistence-mode supplies the vendor configuration; the headless driver dependencies supply nvidia-persistenced.
+# Declare basic_settings::systemd first to activate the daemon through its <cluster_id>-system.target with Wants/After.
+# Otherwise the vendor service is enabled for normal boots. No additional public parameters are required.
+# Puppet manages boot activation only: ensure => undef avoids starting a daemon against a mismatched loaded driver.
+# After the planned reboot, verify persistence_mode with nvidia-smi; an active daemon alone is insufficient.
 #
 # @example Install the Spark driver after preparing the platform
 #   class { 'basic_settings':
@@ -18,12 +23,15 @@
 #   # Install the driver after preparing its package source and kernel headers.
 #   class { 'nvidia':
 #     pinning => 580,
-#     require => [Class['basic_settings::package_nvidia_dgx'], Exec['basic_settings_source_reload']],
+#     require => [
+#       Class['basic_settings::package_nvidia_dgx'],
+#       Exec['basic_settings_source_reload'],
+#     ],
 #   }
 #
 # @param pinning
 #   Required positive integer driver branch, for example 580.
-#   Selects nvidia-driver-pinning-<branch> and nvidia-headless-<branch>-open from the configured repository.
+#   Selects nvidia-driver-pinning-<branch> and nvidia-headless-<branch>-server-open from the configured repository.
 #   Both packages must exist; missing packages fail installation without a fallback.
 #   A guarded cleanup removes other installed pins and residual configuration before installing the requested pin.
 #
@@ -97,6 +105,43 @@ class nvidia (
         provider        => apt,
         install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
         require         => Package[$pin_package],
+    }
+
+    # Install NVIDIA's Persistence Mode configuration after the selected headless driver and utilities.
+    package { 'nv-persistence-mode':
+      ensure          => installed,
+      provider        => apt,
+      install_options => concat($install_options, ['--no-install-recommends', '--no-install-suggests']),
+      require         => Package["nvidia-headless-${pinning}-server-open", "nvidia-utils-${pinning}-server"],
+    }
+
+    # Use the shared system target when it has already been declared.
+    if (defined(Class['basic_settings::systemd'])) {
+      # The shared target owns boot activation instead of the vendor enablement links.
+      $persistence_enable = false
+
+      # Wait for the start attempt without making later system phases depend on a successful GPU initialization.
+      basic_settings::systemd_drop_in { 'nvidia_persistenced_dependency':
+        target_unit => "${basic_settings::systemd::cluster_id}-system.target",
+        unit        => {
+          'After' => 'nvidia-persistenced.service',
+          'Wants' => 'nvidia-persistenced.service',
+        },
+        require     => [
+          Package['nv-persistence-mode'],
+          Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-system"],
+        ],
+      }
+    } else {
+      # Standalone hosts use the boot integration supplied by NVIDIA.
+      $persistence_enable = true
+    }
+
+    # Leave the running state unchanged until the administrator has checked the driver and planned the first reboot.
+    service { 'nvidia-persistenced':
+      ensure  => undef,
+      enable  => $persistence_enable,
+      require => Package['nv-persistence-mode'],
     }
   } else {
     fail('The NVIDIA headless driver mapping requires Ubuntu 24.04 ARM64.')

@@ -57,12 +57,8 @@ class basic_settings::systemd (
     require => Package['systemd-cron'],
   }
 
-  # Reload systemd daemon
-  exec { 'systemd_daemon_reload':
-    command     => '/usr/bin/systemctl daemon-reload',
-    refreshonly => true,
-    require     => Package['systemd'],
-  }
+  # Keep the shared refresh outside this class's ordering boundary so later service modules can notify it.
+  include basic_settings::systemd::reload
 
   # Systemd system target
   basic_settings::systemd_target { "${cluster_id}-system":

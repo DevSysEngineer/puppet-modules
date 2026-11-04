@@ -2,7 +2,7 @@
 # Arrange firewall activation and boot ordering as described in README; ip_version selects the forwarding families.
 # Example: headless NVIDIA DGX Spark / ASUS Ascent GX10 with Ubuntu 24.04 ARM64.
 # Declare each class once, in this evaluation order; require relationships alone do not enable Docker's class detection.
-# Installs the open headless driver and Container Toolkit; CUDA applications belong in containers.
+# Installs the open headless driver, Persistence Mode and Container Toolkit; CUDA applications belong in containers.
 # Review the package plan and daemon start options before use; no desktop or DGX platform metapackages are requested.
 # Review APT changes and boot configuration, retain the generic kernel, and schedule a manual reboot.
 
@@ -17,6 +17,7 @@ node 'dgx-spark.example.org' {
   }
 
   # Pin selection precedes driver installation and waits for the NVIDIA sources, APT refresh and selected kernel headers.
+  # The Persistence Daemon uses the shared system target at boot; Puppet does not force a daemon start.
   class { 'nvidia':
     pinning => lookup('profile::nextcloud_ai::driver_branch', Integer[1]),
     require => [
