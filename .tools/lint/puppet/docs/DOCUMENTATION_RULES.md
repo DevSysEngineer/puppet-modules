@@ -13,6 +13,7 @@ De [linthandleiding](../README.md) beheert gebruik, architectuur en linteronderh
   - [Taal en informatieplaatsing](#taal-en-informatieplaatsing)
     - [Informatieplaatsing](#informatieplaatsing)
   - [Duurzame documentatie](#duurzame-documentatie)
+  - [Productvalidatie bij de ontwikkelaar houden](#productvalidatie-bij-de-ontwikkelaar-houden)
   - [Markdown](#markdown)
   - [Stijl en uitleg](#stijl-en-uitleg)
 - [Redactionele review](#redactionele-review)
@@ -124,6 +125,12 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 - Behoud een letterlijke waarde buiten haar eigenaar alleen wanneer de beschreven gebruikerskeuze, uitvoerbare opdracht, voorbeeld, waarschuwing of interpretatie zonder die waarde niet correct of veilig bruikbaar is. Dat kan gelden voor eenheden, limieten, compatibiliteit, migratiegrenzen en exacte contracten; alleen het feit dat iets een default of contractwaarde is, rechtvaardigt geen kopie. Een automatisch beheerde instelling behoeft geen letterlijke herhaling om haar werking of activering te beschrijven. Gebruik herkenbare placeholders voor eigen invoer en leg de herkomst uit. Label illustratieve uitvoer; wijzig dependency-pins of runtimegedrag niet om waarden niet te hoeven documenteren.
 - Beoordeel alle eigen Markdown naar doel, inclusief verborgen mappen, geneste componenten, voorbeelden en instructies. Historische rapporten behouden gebeurtenis, datum of identificatie en noodzakelijke feiten; een statusregister maakt doel en geldigheid duidelijk. Behoud juridische tekst en fixtures met exacte inhoudscontracten. Corrigeer bij gegenereerde uitvoer eerst de beheerde bron en genereer opnieuw. Benoem extern eigenaarschap en de upstreamonderhoudsroute; bewerk dependencies niet als eigen proza.
 - Houd noodzakelijke workarounds en beperkingen naast de betrokken actie, met voorwaarde, gevolg en vereiste handeling. Verwijs voor veranderlijke voortgang naar haar bron. Verifieer vermeende veroudering vóór verwijderen van een waarschuwing, uitzondering of technische beperking en meld onopgeloste verschillen volgens de technische review.
+
+### Productvalidatie bij de ontwikkelaar houden
+
+Gebruikersdocumentatie beschrijft het ondersteunde gebruik van een werkend product. De ontwikkelaar is verantwoordelijk voor correcte installatie, werking en integratie en valideert die volgens [TESTS.md](../../../../TESTS.md). Geef eindgebruikers geen acceptatiechecklists om vast te stellen of de opgeleverde module werkt, zoals pakketinspecties, servicestatuscontroles, proefworkloads of idempotentietests. Die controles horen bij ontwikkeling en oplevering.
+
+Beschrijf wel noodzakelijke installatievoorwaarden, configuratiekeuzes en beheerhandelingen, zoals een geplande handmatige herstart. Gerichte diagnose bij een concrete storing hoort bij probleemoplossing. Leg ontbrekend validatiebewijs en open bevindingen vast in de wijzigingsreview; vervang dat bewijs niet door een controleopdracht aan de eindgebruiker of een ongefundeerde werkingsclaim. Beoordeel bij de redactionele review of iedere instructie het gebruik ondersteunt of ten onrechte productvalidatie naar de gebruiker verschuift.
 
 ### Markdown
 

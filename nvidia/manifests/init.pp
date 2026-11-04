@@ -6,13 +6,13 @@
 # Declare basic_settings, then nvidia, then docker: Docker detects only an already declared nvidia class.
 # Existing pinning packages, including residual configuration, are purged before installing the requested pin.
 # Driver packages use ensure => installed: updates within a branch are not applied automatically.
-# Changing pinning selects another branch's driver package; review the resulting APT changes before applying.
-# Plan driver upgrades and any reboot separately; Secure Boot and DKMS must work for the selected boot kernel.
+# Changing pinning selects another branch's driver package. Driver upgrades and reboots are managed separately.
+# Secure Boot and DKMS must work for the selected boot kernel.
 # nv-persistence-mode supplies the vendor configuration; the headless driver dependencies supply nvidia-persistenced.
 # Declare basic_settings::systemd first to activate the daemon through its <cluster_id>-system.target with Wants/After.
 # Otherwise the vendor service is enabled for normal boots. No additional public parameters are required.
 # Puppet manages boot activation only: ensure => undef avoids starting a daemon against a mismatched loaded driver.
-# After the planned reboot, verify persistence_mode with nvidia-smi; an active daemon alone is insufficient.
+# The first activation of the new driver and Persistence Mode takes effect after a manually planned reboot.
 #
 # @example Install the Spark driver after preparing the platform
 #   class { 'basic_settings':
@@ -137,7 +137,7 @@ class nvidia (
       $persistence_enable = true
     }
 
-    # Leave the running state unchanged until the administrator has checked the driver and planned the first reboot.
+    # Leave the running state unchanged because the new driver takes effect after the first planned reboot.
     service { 'nvidia-persistenced':
       ensure  => undef,
       enable  => $persistence_enable,

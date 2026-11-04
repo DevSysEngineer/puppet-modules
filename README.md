@@ -859,17 +859,18 @@ Een vooraf gedeclareerde `basic_settings` met `kernel_mptcp_enable => false` sch
 
 <a id="belangrijkste-eigenschappen-8"></a>
 
-- Installeert de headless DKMS-driver en `nvidia-modprobe`, zonder aanbevolen of voorgestelde pakketten.
+- Installeert de headless DKMS-driver, `nvidia-modprobe` en `nv-persistence-mode`, zonder aanbevolen of voorgestelde pakketten.
+- Configureert Persistence Mode automatisch en start de NVIDIA Persistence Daemon bij iedere normale systeemstart.
 - Laat verplichte dependencies van de gekozen driverbranch intact.
 - Installeert geen host-CUDA-toolkit, desktop, volledige DGX-platformstack of applicatieframework.
 
 #### Belangrijke aandachtspunten
 
-Gebruik een headless Ubuntu 24.04-basis met ARM64, de NVIDIA-pakketbron en de geselecteerde kernel inclusief headers. Dit is een selectieve installatie, geen volledige DGX OS-inrichting of claim dat iedere Spark-workload is gevalideerd. Bestaande desktop- en CUDA-pakketten worden niet opgeschoond. De pakketbron moet voor de gekozen branch zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-open` aanbieden.
+Gebruik een headless Ubuntu 24.04-basis met ARM64, de NVIDIA-pakketbron en de geselecteerde kernel inclusief headers. De module levert een headless driverinstallatie en neemt de overige DGX OS-inrichting niet over. Bestaande desktop- en CUDA-pakketten worden niet opgeschoond. De pakketbron moet voor de gekozen branch zowel `nvidia-driver-pinning-<branch>` als `nvidia-headless-<branch>-server-open` aanbieden.
 
-Kies de driverbranch volgens de [publieke `pinning`-parameter](nvidia/manifests/init.pp). Binnen een branch worden bestaande drivers niet automatisch bijgewerkt. Beoordeel bij een branchwissel het APT-plan, controleer DKMS voor de bedoelde bootkernel en plan zo nodig een handmatige herstart. Secure Boot blijft ongewijzigd.
+Kies de driverbranch volgens de [publieke `pinning`-parameter](nvidia/manifests/init.pp). Binnen een branch worden bestaande drivers niet automatisch bijgewerkt. Secure Boot blijft ongewijzigd.
 
-Controleer vóór de driverinstallatie op de doelhost het APT-pakketplan nadat de gekozen pin daadwerkelijk is geïnstalleerd. NVIDIA's [pakketindex](https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/) toont de beschikbare pakketten. Controleer na installatie de driver en de benodigde utilities zoals beschreven bij [GPU-toegang controleren](#gpu-toegang-controleren).
+Na de eerste driverinstallatie is een handmatige herstart nodig om de nieuwe driver en Persistence Mode te activeren. Puppet voert die herstart niet uit.
 
 #### Basisvoorbeeld
 
@@ -886,20 +887,6 @@ class { 'nvidia':
 ```
 
 De [Puppet Strings](nvidia/manifests/init.pp) beschrijven pinning, installatieopties, prerequisites en updategedrag. Alleen deze driverclass gebruiken installeert geen Docker of Container Toolkit.
-
-#### GPU-toegang controleren
-
-Controleer na installatie en de geplande herstart eerst `uname -r`, `dkms status` en `nvidia-smi`. De draaiende kernel moet de gekozen `-nvidia`-kernel zijn en de geladen driver moet overeenkomen met de geïnstalleerde bibliotheken. Test vervolgens expliciete GPU-toegang zonder de normale Docker-runtime te veranderen:
-
-```sh
-sudo docker info --format '{{json .Runtimes}}'
-sudo docker run --rm --runtime=nvidia --gpus all \
-  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility ubuntu:24.04 nvidia-smi
-```
-
-Gebruik bij Compose `runtime: nvidia` en een GPU-reservering met `driver: nvidia`, `count: all` en `capabilities: [gpu]`; combineer `count` niet met `device_ids`. Het [Docker Compose GPU-voorbeeld](https://docs.docker.com/compose/how-tos/gpu-support/) beschrijft de structuur. Deze controles vereisen geen privileged-container, Docker-socketmount of gepubliceerde poort.
-
-`nvidia-smi` bewijst apparaattoegang, maar nog geen CUDA-berekening. Voer ook een berekening uit in een voor ARM64, Spark en de gekozen driver geschikte frameworkcontainer en leg de image-digest vast. Test een gewone container, een ongewijzigde Puppet-run, noop, herstel van de runtimevermelding en het weglaten van de driverclass. Controleer GPU-toegang tevens na de normale projectroute voor `systemctl daemon-reload`: NVIDIA beschrijft voor bepaalde systemd/cgroup-combinaties [verlies van GPU-toegang](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Pas cgroups of hardening alleen aan wanneer de gebruikte combinatie dat aantoonbaar vereist.
 
 ### `openitcockpit`
 
