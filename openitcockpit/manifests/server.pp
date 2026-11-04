@@ -529,92 +529,80 @@ class openitcockpit::server (
         require => Package['openitcockpit'],
       }
 
-      # Reload systemd deamon
-      exec { 'openitcockpit_systemd_daemon_reload':
-        command     => '/usr/bin/systemctl daemon-reload',
-        refreshonly => true,
-        require     => Package['systemd'],
-      }
+      # Use the shared reload for unit changes without containing it in this class.
+      include basic_settings::systemd::reload
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
         basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'gearman-job-server.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
         }
 
         # Tie the services target to the Gearman worker lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_gearman_worker_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'gearman_worker.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
         }
 
         # Tie the production target to the OpenITCOCKPIT node service lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_node_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-production.target",
+          unit        => {
             'BindsTo'   => 'openitcockpit-node.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
         }
 
         # Tie the production target to the graphing service lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_graphing_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-production.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-production.target",
+          unit        => {
             'BindsTo'   => 'openitcockpit-graphing.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-production"],
         }
 
         # Tie the services target to the monitoring websocket server lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_websocket_server_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'openitcockpit-websocket.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
         }
 
         # Tie the services target to the monitoring command processor lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'oitc_cmd.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
         }
 
         # Tie the helpers target to the monitoring cron timer lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_dependency':
-          target_unit   => "${basic_settings::cluster_id}-helpers.target",
-          unit          => {
+          target_unit => "${basic_settings::cluster_id}-helpers.target",
+          unit        => {
             'BindsTo'   => 'oitc_cronjobs.timer',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+          require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
         }
 
         # Tie the services target to the status engine lifecycle.
         basic_settings::systemd_drop_in { 'openitcockpit_statusengine_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'statusengine.service',
           },
-          daemon_reload => 'openitcockpit_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
         }
       }
 
@@ -644,75 +632,67 @@ class openitcockpit::server (
       })
 
       basic_settings::systemd_drop_in { 'openitcockpit_gearman_job_server_settings':
-        target_unit   => 'gearman-job-server.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'gearman-job-server.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # The Gearman worker writes executable files that must stay world-readable
       # and executable, so it intentionally inherits the default 0022 umask.
       basic_settings::systemd_drop_in { 'openitcockpit_gearman_worker_settings':
-        target_unit   => 'gearman_worker.service',
-        unit          => $unit,
-        service       => $service_base,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'gearman_worker.service',
+        unit        => $unit,
+        service     => $service_base,
+        require     => Package['openitcockpit'],
       }
 
       # Apply shared file permissions and failure notifications to the node service.
       basic_settings::systemd_drop_in { 'openitcockpit_node_settings':
-        target_unit   => 'openitcockpit-node.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'openitcockpit-node.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # Apply shared file permissions and failure notifications to the graphing service.
       basic_settings::systemd_drop_in { 'openitcockpit_graphing_settings':
-        target_unit   => 'openitcockpit-graphing.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'openitcockpit-graphing.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # Apply shared file permissions and failure notifications to the websocket service.
       basic_settings::systemd_drop_in { 'openitcockpit_websocket_settings':
-        target_unit   => 'openitcockpit-websocket.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'openitcockpit-websocket.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # Apply shared file permissions and failure notifications to the command processor.
       basic_settings::systemd_drop_in { 'openitcockpit_oitc_cmd_settings':
-        target_unit   => 'oitc_cmd.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'oitc_cmd.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # Apply the shared policy to the cron service executed by the timer.
       basic_settings::systemd_drop_in { 'openitcockpit_oitc_cronjobs_settings':
-        target_unit   => 'oitc_cronjobs.service', # oitc_cronjobs.timer
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'oitc_cronjobs.service', # oitc_cronjobs.timer
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
 
       # Apply shared file permissions and failure notifications to the status engine.
       basic_settings::systemd_drop_in { 'openitcockpit_statusengine_settings':
-        target_unit   => 'statusengine.service',
-        unit          => $unit,
-        service       => $service_shared_files,
-        daemon_reload => 'openitcockpit_systemd_daemon_reload',
-        require       => Package['openitcockpit'],
+        target_unit => 'statusengine.service',
+        unit        => $unit,
+        service     => $service_shared_files,
+        require     => Package['openitcockpit'],
       }
     } else {
       # Enable service

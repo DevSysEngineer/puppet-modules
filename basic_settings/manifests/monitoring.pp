@@ -142,22 +142,21 @@ class basic_settings::monitoring (
           # Create drop in for x target
           if (defined(Class['basic_settings::systemd'])) {
             basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
-              target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-              unit          => {
+              target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+              unit        => {
                 'BindsTo'   => 'openitcockpit-agent.service',
               },
-              daemon_reload => 'monitoring_systemd_daemon_reload',
-              require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+              require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
             }
           }
 
           # Create drop in for ncpa service
           basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
-            target_unit   => 'openitcockpit-agent.service',
-            unit          => {
+            target_unit => 'openitcockpit-agent.service',
+            unit        => {
               'OnFailure' => 'notify-failed@%i.service',
             },
-            service       => {
+            service     => {
               'PrivateDevices' => 'true',
               'PrivateTmp'     => 'true',
               'ProtectHome'    => 'true',
@@ -165,8 +164,7 @@ class basic_settings::monitoring (
               'ReadWritePaths' => '/etc/openitcockpit-agent',
               'UMask'          => '0077',
             },
-            daemon_reload => 'monitoring_systemd_daemon_reload',
-            require       => Package['openitcockpit-agent'],
+            require     => Package['openitcockpit-agent'],
           }
         } else {
           # Enable service
@@ -259,17 +257,13 @@ class basic_settings::monitoring (
       'install_options' => ['--no-install-recommends', '--no-install-suggests'],
     })
 
-    # Reload systemd deamon
-    exec { 'monitoring_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Create systemd service for notification
     basic_settings::systemd_service { 'notify-failed@':
-      description   => 'Send systemd notifications to mail',
-      service       => {
+      description => 'Send systemd notifications to mail',
+      service     => {
         'ExecStart'               => "/usr/bin/bash -c '${notify_failed_script}' %i",
         'LockPersonality'         => 'true',
         'MemoryDenyWriteExecute'  => 'true',
@@ -288,9 +282,8 @@ class basic_settings::monitoring (
         'Type'                    => 'oneshot',
         'UMask'                   => '0077',
       },
-      daemon_reload => 'monitoring_systemd_daemon_reload',
-      enable        => false,
-      require       => [
+      enable      => false,
+      require     => [
         Package[$mail_package, 'bash', 'systemd'],
         File[$monitoring_notify_path],
       ],
@@ -298,12 +291,11 @@ class basic_settings::monitoring (
 
     # Create drop in for notify-failed service
     basic_settings::systemd_drop_in { "notify-failed_${mail_package}_dependency":
-      target_unit   => 'notify-failed@',
-      unit          => {
+      target_unit => 'notify-failed@',
+      unit        => {
         'Wants' => "${mail_package}.service",
       },
-      daemon_reload => 'monitoring_systemd_daemon_reload',
-      require       => [
+      require     => [
         Package[$mail_package],
         Basic_settings::Systemd_service['notify-failed@'],
       ],

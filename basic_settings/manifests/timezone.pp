@@ -73,12 +73,8 @@ class basic_settings::timezone (
 
   # Check if systemd is installed
   if (defined(Package['systemd'])) {
-    # Reload systemd deamon
-    exec { 'systemd_timezone_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Install package
     # Keep policy flags last even when caller options contain duplicate or conflicting flags.
@@ -123,7 +119,7 @@ class basic_settings::timezone (
       owner   => 'root',
       group   => 'root',
       mode    => '0644', # Important
-      notify  => Exec['systemd_timezone_daemon_reload'],
+      notify  => Exec['systemd_daemon_reload'],
       require => Package['systemd-timesyncd'],
     }
 

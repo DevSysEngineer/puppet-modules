@@ -75,12 +75,8 @@ class vnstat (
         require => Package['vnstat'],
       }
 
-      # Reload systemd daemon
-      exec { 'vnstat_systemd_daemon_reload':
-        command     => '/usr/bin/systemctl daemon-reload',
-        refreshonly => true,
-        require     => Package['systemd'],
-      }
+      # Use the shared reload for unit changes without containing it in this class.
+      include basic_settings::systemd::reload
 
       # Get unit
       if ($monitoring_enable) {
@@ -95,24 +91,22 @@ class vnstat (
 
       # Create drop in for vnstat service
       basic_settings::systemd_drop_in { 'vnstat_settings':
-        target_unit   => 'vnstat.service',
-        unit          => $unit,
-        service       => {
+        target_unit => 'vnstat.service',
+        unit        => $unit,
+        service     => {
           'Nice'         => "-${nice_level}",
         },
-        daemon_reload => 'vnstat_systemd_daemon_reload',
-        require       => Package['vnstat'],
+        require     => Package['vnstat'],
       }
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
         basic_settings::systemd_drop_in { 'vnstat_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-${target}.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
+          unit        => {
             'BindsTo'   => 'vnstat.service',
           },
-          daemon_reload => 'vnstat_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
         }
       }
     } else {

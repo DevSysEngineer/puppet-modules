@@ -60,22 +60,17 @@ class naemon () {
         require => Package[$package],
       }
 
-      # Reload systemd deamon
-      exec { 'naemon_systemd_daemon_reload':
-        command     => '/usr/bin/systemctl daemon-reload',
-        refreshonly => true,
-        require     => Package['systemd'],
-      }
+      # Use the shared reload for unit changes without containing it in this class.
+      include basic_settings::systemd::reload
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
         basic_settings::systemd_drop_in { 'naemon_dependency':
-          target_unit   => "${basic_settings::systemd::cluster_id}-helpers.target",
-          unit          => {
+          target_unit => "${basic_settings::systemd::cluster_id}-helpers.target",
+          unit        => {
             'BindsTo'   => 'naemon.service',
           },
-          daemon_reload => 'naemon_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-helpers"],
+          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-helpers"],
         }
       }
 
@@ -92,17 +87,16 @@ class naemon () {
 
       # Create drop in for openitcockpit-node service
       basic_settings::systemd_drop_in { 'naemon_settings':
-        target_unit   => 'naemon.service',
-        unit          => $unit,
-        service       => {
+        target_unit => 'naemon.service',
+        unit        => $unit,
+        service     => {
           'PrivateDevices' => 'true',
           'PrivateTmp'     => 'true',
           'ProtectHome'    => 'true',
           'ProtectSystem'  => 'full',
           'UMask'          => '0027', # Naemon shares runtime files with OpenITCOCKPIT and web-facing tooling.
         },
-        daemon_reload => 'naemon_systemd_daemon_reload',
-        require       => Package[$package],
+        require     => Package[$package],
       }
 
       # Check if we have openitcockpit server
@@ -114,7 +108,7 @@ class naemon () {
           group   => 'root',
           target  => '/usr/lib/systemd/system/naemon.service',
           force   => true,
-          notify  => Exec['naemon_systemd_daemon_reload'],
+          notify  => Exec['systemd_daemon_reload'],
           require => Package[$package],
         }
       }

@@ -39,12 +39,8 @@ class letsencrypt (
 
   # Check if we have systemd
   if (defined(Package['systemd'])) {
-    # Reload systemd deamon
-    exec { 'letsencrypt_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Get unit
     if ($monitoring_enable) {
@@ -59,13 +55,12 @@ class letsencrypt (
 
     # Create drop in for certbot service
     basic_settings::systemd_drop_in { 'letsencrypt_settings':
-      target_unit   => 'certbot.service',
-      unit          => $unit,
-      service       => {
+      target_unit => 'certbot.service',
+      unit        => $unit,
+      service     => {
         'Nice'         => "-${nice_level}",
       },
-      daemon_reload => 'letsencrypt_systemd_daemon_reload',
-      require       => Package['certbot'],
+      require     => Package['certbot'],
     }
   }
 

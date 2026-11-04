@@ -191,12 +191,8 @@ class basic_settings::security (
 
   # Check if systemd and message class exists
   if ($systemd_enable) {
-    # Create systemctl daemon reload
-    exec { 'security_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Create unit
     if ($monitoring_enable) {
@@ -207,10 +203,9 @@ class basic_settings::security (
 
       # Create drop in for apparmor service
       basic_settings::systemd_drop_in { 'apparmor_notify_failed':
-        target_unit   => 'apparmor.service',
-        unit          => $unit,
-        daemon_reload => 'security_systemd_daemon_reload',
-        require       => Package['apparmor'],
+        target_unit => 'apparmor.service',
+        unit        => $unit,
+        require     => Package['apparmor'],
       }
     } else {
       # Leave unit failure hooks empty when monitoring is unavailable.
@@ -219,22 +214,21 @@ class basic_settings::security (
 
     # Create drop in for auditd service
     basic_settings::systemd_drop_in { 'auditd_settings':
-      target_unit   => 'auditd.service',
-      unit          => $unit,
-      service       => {
+      target_unit => 'auditd.service',
+      unit        => $unit,
+      service     => {
         'PrivateTmp'  => 'true',
         'ProtectHome' => 'false', # Important for monitoring home dirs
         'UMask'       => '0027', # auditd.conf uses log_group=adm, so keep audit logs group-readable.
       },
-      daemon_reload => 'security_systemd_daemon_reload',
-      require       => Package['auditd'],
+      require     => Package['auditd'],
     }
 
     # Create systemd service
     basic_settings::systemd_service { 'auditmail':
-      description   => 'Audit mail service',
-      unit          => $unit,
-      service       => {
+      description => 'Audit mail service',
+      unit        => $unit,
+      service     => {
         'ExecStart'               => '/usr/local/sbin/auditmail',
         'LockPersonality'         => 'true',
         'MemoryDenyWriteExecute'  => 'true',
@@ -256,18 +250,16 @@ class basic_settings::security (
         'UMask'                   => '0077',
         'User'                    => 'root',
       },
-      daemon_reload => 'security_systemd_daemon_reload',
-      enable        => false,
+      enable      => false,
     }
 
     # Create systemd timer
     basic_settings::systemd_timer { 'auditmail':
-      description   => 'Audit mail timer',
-      state         => 'running',
-      timer         => {
+      description => 'Audit mail timer',
+      state       => 'running',
+      timer       => {
         'OnCalendar' => '*-*-* 0:30',
       },
-      daemon_reload => 'security_systemd_daemon_reload',
     }
 
     # Create default aide file */

@@ -437,17 +437,13 @@ class basic_settings::login (
     require  => Package['systemd'],
   }
 
-  # Reload only when removing the old wildcard workaround; other getty drop-ins remain untouched.
-  exec { 'login_systemd_daemon_reload':
-    command     => '/usr/bin/systemctl daemon-reload',
-    refreshonly => true,
-    require     => Package['systemd'],
-  }
+  # Use the shared reload for unit changes without containing it in this class.
+  include basic_settings::systemd::reload
 
   # Retire the drop-in that guarded the old wildcard instance.
   file { '/etc/systemd/system/getty@.service.d/getty_settings.conf':
     ensure => absent,
-    notify => Exec['login_systemd_daemon_reload'],
+    notify => Exec['systemd_daemon_reload'],
   }
 
   # Require successful agent discovery; an empty list is valid, a missing or failed fact is not.
@@ -466,7 +462,7 @@ class basic_settings::login (
     service { $managed_gettys:
       ensure   => $console_getty_state,
       provider => systemd,
-      require  => Exec['login_systemd_daemon_reload'],
+      require  => Exec['systemd_daemon_reload'],
     }
   } else {
     fail("Agent console_gettys discovery failed or is missing: ${console_getty_units}")

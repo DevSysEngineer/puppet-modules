@@ -194,23 +194,18 @@ class basic_settings::io (
 
   # Register the unit reload only when the systemd package dependency exists.
   if (defined(Package['systemd'])) {
-    # Reload systemd deamon
-    exec { 'io_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Create drop in for systemd journal service
     basic_settings::systemd_drop_in { 'journald_settings':
-      target_unit   => 'journald.conf',
-      path          => '/etc/systemd',
-      journal       => {
+      target_unit => 'journald.conf',
+      path        => '/etc/systemd',
+      journal     => {
         'MaxLevelSyslog'  => 'warning',
         'MaxLevelConsole' => 'warning',
       },
-      daemon_reload => 'io_systemd_daemon_reload',
-      require       => Package['systemd'],
+      require     => Package['systemd'],
     }
   }
 

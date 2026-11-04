@@ -173,23 +173,20 @@ class nginx (
 
   # Disable service
   if ($systemd_enable) {
-    # Reload systemd deamon
-    exec { 'nginx_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-      before      => Service['nginx'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
+
+    # Load changed units before managing this service.
+    Exec['systemd_daemon_reload'] -> Service['nginx']
 
     # Create drop in for x target
     if (defined(Class['basic_settings::systemd'])) {
       basic_settings::systemd_drop_in { 'nginx_dependency':
-        target_unit   => "${basic_settings::systemd::cluster_id}-${target}.target",
-        unit          => {
+        target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
+        unit        => {
           'BindsTo'   => 'nginx.service',
         },
-        daemon_reload => 'nginx_systemd_daemon_reload',
-        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+        require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
       }
     }
 
@@ -206,9 +203,9 @@ class nginx (
 
     # Create drop in for nginx service
     basic_settings::systemd_drop_in { 'nginx_settings':
-      target_unit   => 'nginx.service',
-      unit          => $unit,
-      service       => {
+      target_unit => 'nginx.service',
+      unit        => $unit,
+      service     => {
         'LimitNOFILE'             => $limit_file,
         'Nice'                    => "-${nice_level}",
         'PIDFile'                 => $pid,
@@ -225,20 +222,18 @@ class nginx (
         'SystemCallArchitectures' => 'native',
         'UMask'                   => '0077',
       },
-      daemon_reload => 'nginx_systemd_daemon_reload',
-      require       => Package['nginx'],
-      before        => Exec['nginx_systemd_daemon_reload'],
+      require     => Package['nginx'],
+      before      => Exec['systemd_daemon_reload'],
     }
 
     # Older Linux kernels charge QUIC BPF maps against the service's locked-memory limit.
     @basic_settings::systemd_drop_in { 'nginx_quic':
-      target_unit   => 'nginx.service',
-      service       => {
+      target_unit => 'nginx.service',
+      service     => {
         'LimitMEMLOCK' => 'infinity',
       },
-      daemon_reload => 'nginx_systemd_daemon_reload',
-      require       => Package['nginx'],
-      notify        => Service['nginx'],
+      require     => Package['nginx'],
+      notify      => Service['nginx'],
     }
   }
 
@@ -320,7 +315,7 @@ class nginx (
   # Reload systemd as well as Nginx when retiring the shared QUIC configuration.
   $quic_notify = $systemd_enable ? {
     true    => [
-      Exec['nginx_systemd_daemon_reload'],
+      Exec['systemd_daemon_reload'],
       Service['nginx'],
     ],
     default => Service['nginx'],

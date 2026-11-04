@@ -373,13 +373,9 @@ class basic_settings::network (
     }
   }
 
-  # Reload systemd deamon
+  # Include the shared reload for direct unit-file notifications.
   if (defined(Class['basic_settings::systemd']) or $monitoring_enable) {
-    exec { 'network_firewall_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    include basic_settings::systemd::reload
   }
 
   # Check which firewall we have
@@ -429,12 +425,11 @@ class basic_settings::network (
       if ($systemd_enable) {
         # Create drop in for firewall service
         basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
-          target_unit   => "${firewall_package}.service",
-          unit          => {
+          target_unit => "${firewall_package}.service",
+          unit        => {
             'OnFailure' => 'notify-failed@%i.service',
           },
-          daemon_reload => 'network_firewall_systemd_daemon_reload',
-          require       => Package[$firewall_package],
+          require     => Package[$firewall_package],
         }
       }
     }
@@ -456,16 +451,14 @@ class basic_settings::network (
       # If DHCP is disabled, force system not to use DHCP
       if (!$dhcp_enable) {
         basic_settings::systemd_network { '90-dhcpc':
-          interface     => $interfaces_str,
-          network       => {
+          interface => $interfaces_str,
+          network   => {
             'DHCP' => 'no',
           },
-          daemon_reload => 'network_firewall_systemd_daemon_reload',
         }
       } else {
         basic_settings::systemd_network { '90-dhcpc':
-          ensure        => absent,
-          daemon_reload => 'network_firewall_systemd_daemon_reload',
+          ensure => absent,
         }
       }
 
@@ -483,22 +476,19 @@ class basic_settings::network (
             'IPv6AcceptRA'        => 'yes',
             'LinkLocalAddressing' => 'ipv6',
           },
-          daemon_reload  => 'network_firewall_systemd_daemon_reload',
         }
       } else {
         basic_settings::systemd_network { '90-router-advertisement':
-          interface     => $interfaces_str,
-          network       => {
+          interface => $interfaces_str,
+          network   => {
             'IPv6AcceptRA'        => 'no',
             'LinkLocalAddressing' => 'no',
           },
-          daemon_reload => 'network_firewall_systemd_daemon_reload',
         }
       }
     } else {
       basic_settings::systemd_network { ['90-dhcpc', '90-router-advertisement']:
-        ensure        => absent,
-        daemon_reload => 'network_firewall_systemd_daemon_reload',
+        ensure => absent,
       }
     }
 
@@ -609,11 +599,10 @@ class basic_settings::network (
 
       # Create drop in for systemd resolved service
       basic_settings::systemd_drop_in { 'resolved_settings':
-        target_unit   => 'resolved.conf',
-        path          => '/etc/systemd',
-        resolve       => $systemd_resolved_settings,
-        daemon_reload => 'network_firewall_systemd_daemon_reload',
-        require       => Package['systemd-resolved'],
+        target_unit => 'resolved.conf',
+        path        => '/etc/systemd',
+        resolve     => $systemd_resolved_settings,
+        require     => Package['systemd-resolved'],
       }
 
       # Preserve the trust-anchor recovery permissions while allowing the resolver to traverse the directory.
@@ -647,10 +636,9 @@ class basic_settings::network (
 
       # Create drop in for systemd resolved service
       basic_settings::systemd_drop_in { 'resolved_settings':
-        target_unit   => 'resolved.conf',
-        path          => '/etc/systemd',
-        resolve       => $systemd_resolved_settings,
-        daemon_reload => 'network_firewall_systemd_daemon_reload',
+        target_unit => 'resolved.conf',
+        path        => '/etc/systemd',
+        resolve     => $systemd_resolved_settings,
       }
     }
 
@@ -681,7 +669,7 @@ class basic_settings::network (
         owner   => 'root',
         group   => 'root',
         target  => '/usr/lib/systemd/system/systemd-networkd.service',
-        notify  => Exec['network_firewall_systemd_daemon_reload'],
+        notify  => Exec['systemd_daemon_reload'],
         require => Package['dbus'],
       }
     }

@@ -6,7 +6,6 @@
 # @example Schedule a managed project with explicit effective settings
 #   docker::compose_backup { 'example':
 #     backup_service    => 'db',
-#     daemon_reload     => 'docker_compose_systemd_daemon_reload_example',
 #     on_calendar       => '*-*-* 05:00:00',
 #     project_directory => '/opt/docker/example',
 #     retention_days    => 7,
@@ -14,9 +13,6 @@
 #
 # @param backup_service
 #   Explicit Compose service name supplied by docker::compose. The runner selects its single running container.
-#
-# @param daemon_reload
-#   Existing Compose project's daemon-reload exec, supplied by docker::compose.
 #
 # @param on_calendar
 #   Effective local-time systemd calendar expression, supplied by docker::compose.
@@ -30,7 +26,6 @@
 # @api private
 define docker::compose_backup (
   Pattern[/\A[A-Za-z0-9_.-]+\z/]                           $backup_service,
-  String[1]                                                $daemon_reload,
   Pattern[/\A[^\r\n]+\z/]                                  $on_calendar,
   Pattern[/\A\/opt\/docker\/[A-Za-z0-9][A-Za-z0-9_.-]*\z/] $project_directory,
   Integer[1]                                               $retention_days,
@@ -48,12 +43,11 @@ define docker::compose_backup (
 
     # Docker socket access is privileged; host writes stay within this project's private backup directory.
     basic_settings::systemd_service { $unit_name:
-      daemon_reload => $daemon_reload,
-      description   => "Docker Compose backup ${name}",
-      enable        => false,
-      install       => {},
-      unit          => stdlib::merge($failure, { 'After' => 'docker.service' }),
-      service       => {
+      description => "Docker Compose backup ${name}",
+      enable      => false,
+      install     => {},
+      unit        => stdlib::merge($failure, { 'After' => 'docker.service' }),
+      service     => {
         'ExecStart'               => $backup_command,
         'Type'                    => 'oneshot',
         'User'                    => 'root',
@@ -75,7 +69,7 @@ define docker::compose_backup (
         'LockPersonality'         => 'true',
         'SystemCallArchitectures' => 'native',
       },
-      require       => [
+      require     => [
         Class['docker'],
         File["${project_directory}/backup"],
       ],
@@ -83,7 +77,6 @@ define docker::compose_backup (
 
     # Only the timer is monitored: an idle oneshot service is healthy between runs.
     basic_settings::systemd_timer { $unit_name:
-      daemon_reload     => $daemon_reload,
       description       => "Docker Compose backup ${name}",
       monitoring_enable => $monitoring,
       state             => running,
@@ -93,7 +86,7 @@ define docker::compose_backup (
 
     # Load changed units before activation and restart the timer when its schedule changes.
     Service <| title == "${unit_name}.timer" |> {
-      require   +> Exec[$daemon_reload],
+      require   +> Exec['systemd_daemon_reload'],
       subscribe +> File["/etc/systemd/system/${unit_name}.timer"],
     }
   } else {

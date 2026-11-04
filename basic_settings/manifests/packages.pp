@@ -440,41 +440,34 @@ class basic_settings::packages (
       require => Package['systemd'],
     }
 
-    # Reload systemd deamon
-    exec { 'packages_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Create drop in for APT upgrade service
     basic_settings::systemd_drop_in { 'apt_daily_upgrade_settings':
-      target_unit   => 'apt-daily-upgrade.timer',
-      timer         => {
+      target_unit => 'apt-daily-upgrade.timer',
+      timer       => {
         'OnCalendar'         => ['', '*-*-* 2:00'],
         'RandomizedDelaySec' => 30,
       },
-      daemon_reload => 'packages_systemd_daemon_reload',
     }
 
     # Attach APT failure notifications only when monitoring integration is available.
     if ($monitoring_enable) {
       # Create drop in for APT service
       basic_settings::systemd_drop_in { 'apt_daily_notify_failed':
-        target_unit   => 'apt-daily.service',
-        unit          => {
+        target_unit => 'apt-daily.service',
+        unit        => {
           'OnFailure' => 'notify-failed@%i.service',
         },
-        daemon_reload => 'packages_systemd_daemon_reload',
       }
 
       # Create drop in for APT upgrade service
       basic_settings::systemd_drop_in { 'apt_daily_upgrade_notify_failed':
-        target_unit   => 'apt-daily-upgrade.service',
-        unit          => {
+        target_unit => 'apt-daily-upgrade.service',
+        unit        => {
           'OnFailure' => 'notify-failed@%i.service',
         },
-        daemon_reload => 'packages_systemd_daemon_reload',
       }
     }
   }

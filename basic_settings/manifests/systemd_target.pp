@@ -49,6 +49,9 @@ define basic_settings::systemd_target (
     }
   }
 
+  # Provide the shared reload without pulling in the systemd target ladder.
+  include basic_settings::systemd::reload
+
   # Create systemd target file
   file { "/etc/systemd/system/${title}.target":
     ensure  => $ensure,

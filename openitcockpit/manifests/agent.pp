@@ -180,22 +180,17 @@ class openitcockpit::agent (
           require => Package['openitcockpit-agent'],
         }
 
-        # Reload systemd deamon
-        exec { 'openitcockpit_agent_systemd_daemon_reload':
-          command     => '/usr/bin/systemctl daemon-reload',
-          refreshonly => true,
-          require     => Package['systemd'],
-        }
+        # Use the shared reload for unit changes without containing it in this class.
+        include basic_settings::systemd::reload
 
         # Create drop in for x target
         if (defined(Class['basic_settings::systemd'])) {
           basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
-            target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-            unit          => {
+            target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+            unit        => {
               'BindsTo'   => 'openitcockpit-agent.service',
             },
-            daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
-            require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+            require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
           }
         }
 
@@ -217,15 +212,15 @@ class openitcockpit::agent (
           group   => 'root',
           target  => '/etc/openitcockpit-agent/init/openitcockpit-agent.service',
           force   => true,
-          notify  => Exec['openitcockpit_agent_systemd_daemon_reload'],
+          notify  => Exec['systemd_daemon_reload'],
           require => Package['openitcockpit-agent'],
         }
 
         # Create drop in for ncpa service
         basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
-          target_unit   => 'openitcockpit-agent.service',
-          unit          => $unit,
-          service       => {
+          target_unit => 'openitcockpit-agent.service',
+          unit        => $unit,
+          service     => {
             'PrivateDevices' => 'true',
             'PrivateTmp'     => 'true',
             'ProtectHome'    => 'true',
@@ -233,8 +228,7 @@ class openitcockpit::agent (
             'ReadWritePaths' => '/etc/openitcockpit-agent',
             'UMask'          => '0077',
           },
-          daemon_reload => 'openitcockpit_agent_systemd_daemon_reload',
-          require       => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
+          require     => File['/usr/lib/systemd/system/openitcockpit-agent.service'],
         }
       } else {
         # Enable service

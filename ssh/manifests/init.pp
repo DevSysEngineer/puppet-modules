@@ -259,12 +259,8 @@ class ssh (
 
   # Check if we have systemd socket
   if ($systemd_socket) {
-    # Reload systemd deamon
-    exec { 'ssh_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Socket settings
     if ($port_alternative) {
@@ -283,10 +279,9 @@ class ssh (
 
     # Create drop in for SSH socket
     basic_settings::systemd_drop_in { 'ssh_socket_settings':
-      target_unit   => 'ssh.socket',
-      socket        => $systemd_socket_settings,
-      daemon_reload => 'ssh_systemd_daemon_reload',
-      require       => Package['openssh-server'],
+      target_unit => 'ssh.socket',
+      socket      => $systemd_socket_settings,
+      require     => Package['openssh-server'],
     }
 
     # Disable SSH server service

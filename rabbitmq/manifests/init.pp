@@ -60,22 +60,17 @@ class rabbitmq (
       require => Package['rabbitmq-server'],
     }
 
-    # Reload systemd deamon
-    exec { 'rabbitmq_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Create drop in for x target
     if (defined(Class['basic_settings::systemd'])) {
       basic_settings::systemd_drop_in { 'rabbitmq_dependency':
-        target_unit   => "${basic_settings::systemd::cluster_id}-${target}.target",
-        unit          => {
+        target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
+        unit        => {
           'BindsTo'   => 'rabbitmq-server.service',
         },
-        daemon_reload => 'rabbitmq_systemd_daemon_reload',
-        require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+        require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
       }
     }
 
@@ -92,9 +87,9 @@ class rabbitmq (
 
     # Create drop in for nginx service
     basic_settings::systemd_drop_in { 'rabbitmq_settings':
-      target_unit   => 'rabbitmq-server.service',
-      unit          => $unit,
-      service       => {
+      target_unit => 'rabbitmq-server.service',
+      unit        => $unit,
+      service     => {
         'LimitNOFILE'             => $limit_file,
         'Nice'                    => "-${nice_level}",
         'PrivateDevices'          => 'true',
@@ -110,8 +105,7 @@ class rabbitmq (
         'SystemCallArchitectures' => 'native',
         'UMask'                   => '0077',
       },
-      daemon_reload => 'rabbitmq_systemd_daemon_reload',
-      require       => Package['rabbitmq-server'],
+      require     => Package['rabbitmq-server'],
     }
   } else {
     # Enable service

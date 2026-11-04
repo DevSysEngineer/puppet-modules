@@ -14,7 +14,8 @@
 #   Final unit or daemon configuration filename that receives the drop-in.
 #
 # @param daemon_reload
-#   Exec resource title notified after the drop-in changes.
+#   Exec resource title notified after the drop-in changes. The shared default is declared automatically;
+#   a custom exec must be declared by the caller.
 #
 # @param ensure
 #   Controls whether the drop-in file is present or absent.
@@ -64,6 +65,9 @@ define basic_settings::systemd_drop_in (
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
   }
+
+  # Provide the shared reload without pulling in the systemd target ladder.
+  include basic_settings::systemd::reload
 
   # Check if this dir is not already managed by puppet
   if (!defined(File["${path}/${target_unit}.d"])) {

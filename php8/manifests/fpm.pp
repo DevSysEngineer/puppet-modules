@@ -105,13 +105,11 @@ class php8::fpm (
 
       # Add drop-ins only when systemd has already been selected by the caller.
       if ($systemd_enable) {
-        # Reload unit changes before Puppet manages the FPM service.
-        exec { "php8_${minor_version}_systemd_daemon_reload":
-          command     => '/usr/bin/systemctl daemon-reload',
-          refreshonly => true,
-          require     => Package['systemd'],
-          before      => Service["php8.${minor_version}-fpm"],
-        }
+        # Use the shared reload for unit changes without containing it in this class.
+        include basic_settings::systemd::reload
+
+        # Load changed units before managing this service.
+        Exec['systemd_daemon_reload'] -> Service["php8.${minor_version}-fpm"]
 
         # Set PHP-FPM service hardening explicitly, even when newer distro units already ship these settings.
         $default_service = {
@@ -136,13 +134,12 @@ class php8::fpm (
         if ($nginx_enable) {
           # Create drop in for nginx service
           basic_settings::systemd_drop_in { 'nginx_php_dependency':
-            target_unit   => 'nginx.service',
-            unit          => {
+            target_unit => 'nginx.service',
+            unit        => {
               'After'   => "php8.${minor_version}-fpm.service",
               'BindsTo' => "php8.${minor_version}-fpm.service",
             },
-            daemon_reload => "php8_${minor_version}_systemd_daemon_reload",
-            require       => Package['nginx'],
+            require     => Package['nginx'],
           }
 
           # Set service
@@ -167,23 +164,21 @@ class php8::fpm (
 
         # Create drop in for PHP FPM service
         basic_settings::systemd_drop_in { "php8_${minor_version}_settings":
-          target_unit   => "php8.${minor_version}-fpm.service",
-          unit          => $unit,
-          service       => $service,
-          daemon_reload => "php8_${minor_version}_systemd_daemon_reload",
-          require       => Package["php8.${minor_version}-fpm"],
-          before        => Exec["php8_${minor_version}_systemd_daemon_reload"],
+          target_unit => "php8.${minor_version}-fpm.service",
+          unit        => $unit,
+          service     => $service,
+          require     => Package["php8.${minor_version}-fpm"],
+          before      => Exec['systemd_daemon_reload'],
         }
 
         # Supply a startup path on baseline hosts without changing the existing Nginx dependency chain.
         if (!$nginx_enable and $systemd_target_enable) {
           basic_settings::systemd_drop_in { "php8_${minor_version}_dependency":
-            target_unit   => "${basic_settings::systemd::cluster_id}-services.target",
-            unit          => {
+            target_unit => "${basic_settings::systemd::cluster_id}-services.target",
+            unit        => {
               'BindsTo' => "php8.${minor_version}-fpm.service",
             },
-            daemon_reload => "php8_${minor_version}_systemd_daemon_reload",
-            require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+            require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
           }
         }
       }

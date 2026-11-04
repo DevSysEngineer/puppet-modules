@@ -233,33 +233,27 @@ class mysql (
           require => Package['mysql-server'],
         }
 
-        # Reload systemd deamon
-        exec { 'mysql_systemd_daemon_reload':
-          command     => '/usr/bin/systemctl daemon-reload',
-          refreshonly => true,
-          require     => Package['systemd'],
-        }
+        # Use the shared reload for unit changes without containing it in this class.
+        include basic_settings::systemd::reload
 
-        # Create drop in for PHP FPM service
+        # Order the drop-in after its vendor unit, before the shared reload and FPM service management.
         if (defined(Class['php8::fpm'])) {
           basic_settings::systemd_drop_in { "php8_${$php8::minor_version}_mysql_dependency":
-            target_unit   => "php8.${$php8::minor_version}-fpm.service",
-            unit          => {
+            target_unit => "php8.${$php8::minor_version}-fpm.service",
+            unit        => {
               'After'   => 'mysql.service',
               'BindsTo' => 'mysql.service',
             },
-            daemon_reload => 'mysql_systemd_daemon_reload',
-            require       => Class['php8::fpm'],
+            require     => Package["php8.${php8::minor_version}-fpm"],
           }
         } elsif ($basic_settings_enable) {
           # Create drop in for services target
           basic_settings::systemd_drop_in { 'mysql_dependency':
-            target_unit   => "${basic_settings::cluster_id}-services.target",
-            unit          => {
+            target_unit => "${basic_settings::cluster_id}-services.target",
+            unit        => {
               'BindsTo'   => 'mysql.service',
             },
-            daemon_reload => 'mysql_systemd_daemon_reload',
-            require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+            require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
           }
         }
 
@@ -276,25 +270,23 @@ class mysql (
 
         # Create drop in for nginx service
         basic_settings::systemd_drop_in { 'mysql_settings':
-          target_unit   => 'mysql.service',
-          unit          => $unit,
-          service       => {
+          target_unit => 'mysql.service',
+          unit        => $unit,
+          service     => {
             'LimitNOFILE'  => 'infinity',
             'LimitMEMLOCK' => 'infinity',
             'Nice'         => "-${nice_level}",
           },
-          daemon_reload => 'mysql_systemd_daemon_reload',
-          require       => Package['mysql-server'],
+          require     => Package['mysql-server'],
         }
 
         # Create drop in for puppet service
         basic_settings::systemd_drop_in { 'puppet_mysql_dependency':
-          target_unit   => 'puppet.service',
-          unit          => {
+          target_unit => 'puppet.service',
+          unit        => {
             'Wants' => 'mysql.service',
           },
-          daemon_reload => 'mysql_systemd_daemon_reload',
-          require       => Package['mysql-server'],
+          require     => Package['mysql-server'],
         }
       } else {
         # Enable service
@@ -444,8 +436,8 @@ class mysql (
     if ($systemd_enable) {
       # Create systemd service
       basic_settings::systemd_service { 'automysqlbackup':
-        description   => 'Automysqlbackup service',
-        service       => {
+        description => 'Automysqlbackup service',
+        service     => {
           'ExecStart'               => '/usr/local/sbin/automysqlbackup',
           'LockPersonality'         => 'true',
           'MemoryDenyWriteExecute'  => 'true',
@@ -467,13 +459,12 @@ class mysql (
           'UMask'                   => '0077',
           'User'                    => 'root',
         },
-        unit          => {
+        unit        => {
           'After'   => "${package_name}.service",
           'BindsTo' => "${package_name}.service",
         },
-        daemon_reload => 'mysql_systemd_daemon_reload',
-        enable        => false,
-        require       => File['/etc/default/automysqlbackup.conf', '/usr/local/sbin/automysqlbackup'],
+        enable      => false,
+        require     => File['/etc/default/automysqlbackup.conf', '/usr/local/sbin/automysqlbackup'],
       }
 
       # Create systemd timer
@@ -492,19 +483,17 @@ class mysql (
           'After'   => "${package_name}.service",
           'BindsTo' => "${package_name}.service",
         },
-        daemon_reload      => 'mysql_systemd_daemon_reload',
       }
 
       # Bind the backup timer to the shared services target when that target is available.
       if ($basic_settings_enable) {
         # Create drop in for services target
         basic_settings::systemd_drop_in { 'automysqlbackup_dependency':
-          target_unit   => "${basic_settings::cluster_id}-services.target",
-          unit          => {
+          target_unit => "${basic_settings::cluster_id}-services.target",
+          unit        => {
             'BindsTo'   => 'automysqlbackup.timer',
           },
-          daemon_reload => 'mysql_systemd_daemon_reload',
-          require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+          require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
         }
       }
     }

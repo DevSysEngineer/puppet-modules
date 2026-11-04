@@ -308,9 +308,6 @@ define docker::compose (
               ],
             }
 
-            # The Compose service and backup timer share this project's daemon-reload exec.
-            $daemon_reload = "docker_compose_systemd_daemon_reload_${name}"
-
             # Use the parent class's monitoring decision for service checks and failure notifications.
             if ($docker::monitoring_enable) {
               # Inherit the monitoring backend and attach its unit-failure notification hook.
@@ -363,12 +360,8 @@ define docker::compose (
               }
               $service_require = concat($service_require_base, $project_directory_resources)
 
-              # Reload systemd after the generated compose service unit changes.
-              exec { $daemon_reload:
-                command     => '/usr/bin/systemctl daemon-reload',
-                refreshonly => true,
-                require     => Package['systemd'],
-              }
+              # Use the shared reload for unit changes without containing it in this class.
+              include basic_settings::systemd::reload
 
               # Manage the compose stack as a root-run orchestration service for the Docker daemon.
               basic_settings::systemd_service { $service_name:
@@ -406,24 +399,22 @@ define docker::compose (
                     'Requires' => 'docker.service',
                     'Wants'    => 'network-online.target',
                 }, $systemd_unit),
-                daemon_reload      => $daemon_reload,
                 enable             => false,
                 require            => $service_require,
               }
 
               # Bind the stack to the requested host target.
               basic_settings::systemd_drop_in { "${service_name}_dependency":
-                target_unit   => "${basic_settings::systemd::cluster_id}-${target}.target",
-                unit          => {
+                target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
+                unit        => {
                   'BindsTo' => "${service_name}.service",
                 },
-                daemon_reload => $daemon_reload,
-                require       => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+                require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
               }
 
               # Preserve manual stops while loading the unit and target binding before refreshing an active stack.
               Service <| title == $service_name |> {
-                require +> Exec[$daemon_reload],
+                require +> Exec['systemd_daemon_reload'],
               }
             }
 
@@ -431,7 +422,6 @@ define docker::compose (
             if ($backup_enabled) {
               docker::compose_backup { $name:
                 backup_service    => $backup_service,
-                daemon_reload     => $daemon_reload,
                 on_calendar       => $backup_database_on_calendar,
                 project_directory => $project_directory,
                 retention_days    => $backup_database_retention_days,

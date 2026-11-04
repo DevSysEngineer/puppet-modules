@@ -18,7 +18,8 @@
 #   Human-readable service description rendered into the unit.
 #
 # @param daemon_reload
-#   Exec resource title notified after the service file changes.
+#   Exec resource title notified after the service file changes. The shared default is declared automatically;
+#   a custom exec must be declared by the caller.
 #
 # @param enable
 #   Controls whether the service is enabled when `ensure` is `present`.
@@ -95,6 +96,9 @@ define basic_settings::systemd_service (
     }
   }
 
+  # Provide the shared reload without pulling in the systemd target ladder.
+  include basic_settings::systemd::reload
+
   # Create systemd service file
   file { "/etc/systemd/system/${name}.service":
     ensure  => $ensure,
@@ -123,8 +127,8 @@ define basic_settings::systemd_service (
       # Remove the service check when monitoring is not selected for this backend.
       $monitoring_ensure = absent
     }
-  } elsif ($monitoring_package != 'none') {
-    # Remove the service check when monitoring is not selected for this backend.
+  } else {
+    # Keep removal valid even when no monitoring backend is selected.
     $monitoring_ensure = absent
   }
 

@@ -152,12 +152,8 @@ class gitlab (
 
   # Register the GitLab unit reload only when the systemd package dependency exists.
   if (defined(Package['systemd'])) {
-    # Reload systemd deamon
-    exec { 'gitlab_systemd_daemon_reload':
-      command     => '/usr/bin/systemctl daemon-reload',
-      refreshonly => true,
-      require     => Package['systemd'],
-    }
+    # Use the shared reload for unit changes without containing it in this class.
+    include basic_settings::systemd::reload
 
     # Check if basic settings is defined
     if ($basic_settings_enable) {
@@ -170,12 +166,11 @@ class gitlab (
 
       # Create drop in for services target
       basic_settings::systemd_drop_in { 'gitlab_dependency':
-        target_unit   => "${basic_settings::cluster_id}-services.target",
-        unit          => {
+        target_unit => "${basic_settings::cluster_id}-services.target",
+        unit        => {
           'BindsTo'   => 'gitlab-runsvdir.service',
         },
-        daemon_reload => 'gitlab_systemd_daemon_reload',
-        require       => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
       }
     }
 
@@ -192,13 +187,12 @@ class gitlab (
 
     # Create drop in for nginx service
     basic_settings::systemd_drop_in { 'gitlab_settings':
-      target_unit   => 'gitlab-runsvdir.service',
-      unit          => $unit,
-      service       => {
+      target_unit => 'gitlab-runsvdir.service',
+      unit        => $unit,
+      service     => {
         'Nice'          => "-${nice_level}",
       },
-      daemon_reload => 'gitlab_systemd_daemon_reload',
-      require       => Exec['gitlab_install'],
+      require     => Exec['gitlab_install'],
     }
   }
 

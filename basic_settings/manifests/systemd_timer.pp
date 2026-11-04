@@ -13,7 +13,8 @@
 #   Human-readable timer description rendered into the unit.
 #
 # @param daemon_reload
-#   Exec resource title notified after the timer file changes.
+#   Exec resource title notified after the timer file changes. The shared default is declared automatically;
+#   a custom exec must be declared by the caller.
 #
 # @param enable
 #   Controls whether the timer is enabled when `ensure` is `present`.
@@ -72,6 +73,9 @@ define basic_settings::systemd_timer (
       install_options => ['--no-install-recommends', '--no-install-suggests'],
     }
   }
+
+  # Provide the shared reload without pulling in the systemd target ladder.
+  include basic_settings::systemd::reload
 
   # Create timer file
   file { "/etc/systemd/system/${title}.timer":

@@ -10,7 +10,9 @@ Het [standalone manifest](manifests/standalone.pp) compileert alle classes en de
 
 ## Scenario en invoer
 
-Hetzelfde manifest wordt gecompileerd met [Debian 13](facts/debian-13.json) en [Ubuntu 24.04](facts/ubuntu-noble.json). Beide bestanden beschrijven een synthetische amd64 Linux-VM met twee processors en acht GiB geheugen; zij controleren de bestaande platformtakken van de serverbasis.
+Beide manifests worden gecompileerd met [Debian 13](facts/debian-13.json) en [Ubuntu 24.04](facts/ubuntu-noble.json). Beide bestanden beschrijven een synthetische amd64 Linux-VM met twee processors en acht GiB geheugen; zij controleren de bestaande platformtakken van de serverbasis.
+
+[`systemd_helpers.pp`](manifests/systemd_helpers.pp) compileert de vijf systemd-wrappers zonder de hoofdclass of targetstructuur. Dit controleert dat hun gedeelde reload ook zelfstandig beschikbaar is en slechts eenmaal wordt gedeclareerd. Ook het verwijderen van een service zonder monitoringbackend wordt gecompileerd.
 
 `basic_settings` wordt niet met zichzelf gecombineerd. De combinatietests staan bij de modules die de serverbasis aanvullen.
 
