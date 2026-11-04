@@ -1,6 +1,8 @@
 # Cataloguscompilatie
 
-`catalog` ontdekt en compileert de scenario’s die modules in hun eigen `tests/`-directory onderhouden. De controle vindt onder meer dubbele resourcedeclaraties en ontbrekende classes die een afzonderlijke syntaxcontrole niet vindt. Zij past geen resources toe. Gebruik de [syntaxcontrole](../syntax/README.md) voor de native parser en het [testbeleid](../../TESTS.md) voor aanvullende validatie.
+Met `catalog` vind en compileer je automatisch de scenario’s uit de `tests/`-map van iedere module. De controle vindt onder meer dubbele resourcedeclaraties en ontbrekende classes die een afzonderlijke syntaxcontrole niet vindt. Zij past geen resources toe.
+
+Gebruik de [syntaxcontrole](../syntax/README.md) voor de native parser. In het [testbeleid](../../TESTS.md) lees je welke aanvullende validatie nodig is.
 
 De runner toont toolversie uit root-`VERSION`, de geselecteerde runtime en Ruby-versie via de gedeelde console. Zie [bewijs en simulatiegrenzen](../README.md#runtimekeuze-en-compatibiliteit): alleen de aanwezige OpenVox-runtime is integraal uitgevoerd; OpenVox 9 is geen acceptatievoorwaarde en wordt niet geïnstalleerd.
 
@@ -108,7 +110,7 @@ Alleen de fixture van de volgens [modulepadvoorrang](#modulepad-en-ontdekking) g
 
 ### Voorbeeld: nginx alleen en samen
 
-De [nginx-scenario’s](../../nginx/tests/README.md) laden de class `nginx` en instantiëren zowel `nginx::server` als `nginx::monitoring_cert`. De hoofdclass alleen zou beide defines missen. Het [standalone manifest](../../nginx/tests/manifests/standalone.pp) declareert geen hoofdclass `basic_settings`; het [combinatiemanifest](../../nginx/tests/manifests/with_basic_settings.pp) laadt die serverbasis eerst en gebruikt verder dezelfde kleine configuratie.
+De [nginx-scenario’s](../../nginx/tests/README.md) laden de class `nginx` en declareren zowel `nginx::server` als `nginx::monitoring_cert`. De hoofdclass alleen zou beide defines missen. Het [standalone manifest](../../nginx/tests/manifests/standalone.pp) declareert geen hoofdclass `basic_settings`; het [combinatiemanifest](../../nginx/tests/manifests/with_basic_settings.pp) laadt die serverbasis eerst en gebruikt verder dezelfde kleine configuratie.
 
 Beide manifests gebruiken hetzelfde [synthetische Debian-factsbestand](../../nginx/tests/facts/debian-13.json). De modulecode en haar echte dependencies blijven op het modulepad beschikbaar. Standalone betekent dat de hoofdclass `basic_settings` niet wordt gedeclareerd; benodigde deelclasses en gedeelde defines zijn wel toegestaan.
 
@@ -134,7 +136,7 @@ Alle gevonden modules met tests doen mee, inclusief geïmporteerde modules op he
 
 ## Vanuit een ander project uitvoeren
 
-De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoorbeeld onder `global-modules`. Hij heeft geen eigen gem. Gebruik een actieve consumerbundle met één geselecteerde [Puppet/OpenVox-runtime](../README.md#runtimekeuze-en-compatibiliteit), de bij die runtime behorende ondersteunende gems en `project-tools-shared` vanaf 0.1.1 binnen 0.1; Rake-aanroepen vereisen bovendien `rake`. De [bundle-installatie voor consumers](../README.md#installatie-in-je-project) beschrijft de gedeelde packages. Een installatie van uitsluitend gems bevat deze runner en de moduletests niet.
+De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoorbeeld onder `global-modules`. Hij heeft geen eigen gem. Gebruik een actieve consumerbundle met één geselecteerde [Puppet/OpenVox-runtime](../README.md#runtimekeuze-en-compatibiliteit), de bij die runtime behorende ondersteunende gems en `project-tools-shared` vanaf 0.1.1 binnen 0.1; Rake-aanroepen vereisen bovendien `rake`. De [bundle-installatie voor afnemers](../README.md#installatie-in-je-project) beschrijft de gedeelde packages. Een installatie van uitsluitend gems bevat deze runner en de moduletests niet.
 
 **Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** De genoemde bundle, de volledige checkout onder `global-modules` en een geslaagde voorafgaande Puppet-secretscontrole met de bestaande projectselectie. **Invoer:** Tests uit de geïmporteerde checkout. **Wijzigt bestanden:** Het gevraagde rapport binnen het consumerproject. **Verwacht resultaat:** Dezelfde selectie en exitcodes als vanuit de libraryroot.
 
@@ -159,7 +161,7 @@ De [runner](lib/catalog.rb) presenteert resultaten via zijn [rapportagemodule](l
 
 | Uitkomst | Exitstatus runner | JUnit | Dekking |
 | --- | --- | --- | --- |
-| Alle scenario’s compileren zonder native deprecations | 0 | Geslaagde testcase per scenario | Alle ontdekte compilaties uitgevoerd; beoordeel daarnaast de definitiedekking |
+| Alle scenario’s compileren zonder native deprecations | 0 | Geslaagde testcase per scenario | Alle ontdekte compilaties uitgevoerd; beoordeel daarnaast de dekking van classes en defines |
 | Native deprecation | 1 | `failure` met type `Deprecation` | Compilatie en overige scenario’s worden afgerond |
 | Native compilatiefout | 1 | `failure` met type `CatalogFailure` en compilerdiagnose | Overige scenario’s worden ook uitgevoerd |
 | Onbetrouwbare deprecation-detectie | 1 | `error` met type `CompilerError` | Onvolledige controle; overige scenario’s worden ook uitgevoerd |
@@ -170,7 +172,7 @@ De [runner](lib/catalog.rb) presenteert resultaten via zijn [rapportagemodule](l
 
 De standaardconsole volgt het [centrale logcontract](../README.md#joblogs): één start, beperkte voortgang, relevante bevindingen en één primaire afsluiting. Succesvolle scenario’s verhogen alleen de voortgangsteller en de totaaltelling. Resourceaantallen, gecompileerde definities en volledige dekking verschijnen uitsluitend in het aangevraagde JUnit-rapport. Gewone native Puppet-waarschuwingen blijven zichtbaar en behouden de compilatiestatus, ook wanneer hun tekst `deprecated` bevat. Herkende [native deprecations](#native-deprecations-afkeuren) geven `FAILED`.
 
-Dit illustratieve voorbeeld toont een geslaagde run met volledige definitiedekking; tellingen en duur komen in een echte run uit de uitvoering:
+Dit illustratieve voorbeeld toont een geslaagde run met volledige dekking van classes en defines; tellingen en duur komen in een echte run uit de uitvoering:
 
 ```text
 [START] Puppet catalogs | Module catalog scenarios
@@ -215,7 +217,7 @@ Een geslaagde compilatie bewijst dat deze classcombinatie met deze facts compile
 
 ## Native deprecations afkeuren
 
-Een scenario met native deprecations faalt ook wanneer Puppet de catalogus volledig compileert. De console noemt module, manifest en facts bij `Deprecated Puppet usage`, toont de oorspronkelijke diagnose en behoudt broninformatie wanneer Puppet die levert. Meerdere meldingen blijven één testcase en één failure. De oorspronkelijke native logging blijft zichtbaar; reeds daarin opgenomen meldingen worden niet opnieuw uitgeschreven. Bij een gelijktijdige compilatiefout blijft `Compilation failure` met JUnit-type `CatalogFailure` de primaire oorzaak, met deprecations als aanvullende diagnostiek. Een deprecation zonder compilatiefout krijgt type `Deprecation`; resourceaantallen en beschikbare definitiedekking blijven behouden.
+Een scenario met native deprecations faalt ook wanneer Puppet de catalogus volledig compileert. De console noemt module, manifest en facts bij `Deprecated Puppet usage`, toont de oorspronkelijke diagnose en behoudt broninformatie wanneer Puppet die levert. Meerdere meldingen blijven één testcase en één failure. De oorspronkelijke native logging blijft zichtbaar; reeds daarin opgenomen meldingen worden niet opnieuw uitgeschreven. Bij een gelijktijdige compilatiefout blijft `Compilation failure` met JUnit-type `CatalogFailure` de primaire oorzaak, met deprecations als aanvullende diagnostiek. Een deprecation zonder compilatiefout krijgt type `Deprecation`; resourceaantallen en beschikbare dekking van classes en defines blijven behouden.
 
 De worker gebruikt de kleine [runtimeadapter](lib/deprecations.rb) na centrale selectie van Puppet of OpenVox. Zij leest de interne `$deprecation_warnings`-registratie van `Puppet.deprecation_warning` en `Puppet.puppet_deprecation_warning`. De [synthetische gedragsprobes](lib/deprecation_probes.rb) verifiëren registratie, deduplicatie en capaciteit zonder eerdere meldingen te verliezen. De probe gebruikt een conservatief budget van 100 waarnemingen; een lagere native grens wordt ontdekt, een hogere of onbeperkte grens geeft geen onbegrensde dekkingsclaim. Bij het bereiken van de vastgestelde grens volgt `ERROR` wegens onvolledige detectie.
 
@@ -225,7 +227,7 @@ Een stille native proefmelding controleert bij het starten of registratie werkt.
 
 De native registratie dedupliceert op sleutels en stopt bij 100 registraties. De proefmelding gebruikt één plaats. Bij het bereiken van de limiet rapporteert de runner onvolledige detectie als `ERROR`, ook als al deprecations zijn gevonden. Taaldeprecations worden vóór hun afzonderlijke native weergavelimiet vastgelegd. Registratiesleutels zijn geen betrouwbaar bronformaat: de adapter verzint daaruit geen locaties. Gestructureerde taaldiagnostiek levert wel bestandsnaam en regel waar beschikbaar; overige broninformatie blijft in de oorspronkelijke diagnose.
 
-De controle geldt ook voor externe modules en voor consumers via CLI, Rake en `PROJECT_TOOLS_MODULEPATH`, zonder extra configuratie of uitzonderingslijsten. Zoek de genoemde functie en beschikbare bronlocatie op, vervang eigen verouderd gebruik en onderzoek bij externe meldingen een compatibele upstream-oplossing. Wijzig externe dependencies niet alleen om de controle groen te maken. GitHub- en GitLab-CI gebruiken de bestaande catalogusjob en dezelfde afkeurende exitcode; de secretscontrole blijft de eerste gate.
+De controle geldt ook voor externe modules en voor afnemers via CLI, Rake en `PROJECT_TOOLS_MODULEPATH`, zonder extra configuratie of uitzonderingslijsten. Zoek de genoemde functie en beschikbare bronlocatie op, vervang eigen verouderd gebruik en onderzoek bij externe meldingen een compatibele upstream-oplossing. Wijzig externe dependencies niet alleen om de controle groen te maken. GitHub- en GitLab-CI gebruiken de bestaande catalogusjob en dezelfde afkeurende exitcode; de secretscontrole blijft de eerste gate.
 
 Alleen tijdens het scenario geëvalueerde code kan een deprecation opleveren. Een groene catalogus bewijst niet dat ongebruikte codepaden vrij zijn van deprecated functies. Combineer een migratie daarom met een volledige broninventarisatie; voeg geen afzonderlijk moduletestscenario toe voor iedere deprecated functie. Deze adapter is een controle van de vertrouwde compilatieomgeving, geen beveiligingsgrens tegen modulecode die bewust de runtime wijzigt.
 

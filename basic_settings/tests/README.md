@@ -1,6 +1,6 @@
 # Compile-tests voor basic_settings
 
-Het [standalone manifest](manifests/standalone.pp) compileert alle classes en defines van de serverbasis met echte moduledependencies. De [centrale catalog](../../.tools/catalog/README.md#uitvoeren) voert het uit met de twee factsbestanden hieronder. De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
+Het [standalone manifest](manifests/standalone.pp) compileert alle classes en defines van de serverbasis met echte moduledependencies. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) voert het uit met de twee factsbestanden hieronder. De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
 
 ## Inhoudsopgave
 
@@ -18,4 +18,4 @@ Hetzelfde manifest wordt gecompileerd met [Debian 13](facts/debian-13.json) en [
 
 De hoofdclass schakelt hostsbeheer en de OpenITCOCKPIT-monitoringbackend in. Daardoor worden ook de optionele hostsclass en de monitoringhelpers gecompileerd. De overige losse defines krijgen één hostsvermelding, een vergrendeld synthetisch account met cron- en sudoregel en een npm-auditregistratie.
 
-De monitoringconfiguratie behoudt de compilatiecontrole op dubbele declaratie van `Package['python3']` door de NCSC-check en haar dependency. Een afzonderlijk defaultscenario is voor de definitiedekking niet nodig; de combinatietests van andere modules compileren de serverbasis ook met defaults. Deze controle past geen catalogus toe en voert geen monitoringchecks uit.
+De monitoringconfiguratie behoudt de compilatiecontrole op dubbele declaratie van `Package['python3']` door de NCSC-check en haar dependency. Een afzonderlijk defaultscenario is voor de dekking van classes en defines niet nodig; de combinatietests van andere modules compileren de serverbasis ook met defaults. Deze controle past geen catalogus toe en voert geen monitoringchecks uit.

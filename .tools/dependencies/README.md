@@ -1,10 +1,12 @@
 # Puppet-moduledependencies controleren
 
-`project-tools-dependencies` vergelijkt gedeclareerde module- en rootdependencies met één native Puppet/OpenVox-moduleset. Het commando staat los van Puppet-lint en gebruikt `project-tools-shared` voor XML en modulepadvalidatie. Installeer het via de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project); alleen dependencycontrole installeren vraagt geen linter, lintplugins of RuboCop.
+Met `project-tools-dependencies` controleer je of de gedeclareerde dependencies van het project en zijn modules passen bij één native Puppet/OpenVox-moduleset. Het commando gebruikt `project-tools-shared` voor XML en modulepadvalidatie.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+Volg de [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) om de tool te installeren. Voor alleen dependencycontrole heb je geen linter, lintplugins of RuboCop nodig.
 
-De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De consumertests gebruiken alleen de aanwezige runtime; versievarianten worden centraal gesimuleerd.
+Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+
+De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De tests voor gebruik in andere projecten draaien met de aanwezige runtime. Andere versies worden in de gedeelde tests gesimuleerd.
 
 ## Inhoudsopgave
 
@@ -31,7 +33,7 @@ bundle exec project-tools-dependencies
 
 Voeg voor CI of een bewaard resultaat `--junit REPORT.xml` toe met een relatief of absoluut pad dat eindigt op `.xml`. Alleen dan maakt de tool de bovenliggende rapportmap aan. Een afnemend project kiest zijn eigen rapportmap en modulepaden. `PROJECT_REPORT_DIR` is een shellafspraak; de tool leest uitsluitend het uitgewerkte argument.
 
-**Werkmap:** Consumerroot met metadata.json. **Shell:** POSIX shell. **Vereisten:** Eigen bundle, global-modules en modules. **Invoer:** De lokale equivalent van één servermodulepath. **Wijzigt bestanden:** Het genoemde rapport. **Verwacht resultaat:** Dependencybeoordeling van de native geselecteerde modules en de consumerroot.
+**Werkmap:** Consumerroot met metadata.json. **Shell:** POSIX shell. **Vereisten:** Eigen bundle, global-modules en modules. **Invoer:** Het lokale equivalent van één servermodulepath. **Wijzigt bestanden:** Het genoemde rapport. **Verwacht resultaat:** Dependencybeoordeling van de native geselecteerde modules en de consumerroot.
 
 ```sh
 export PROJECT_REPORT_DIR=".tools/quality/results"

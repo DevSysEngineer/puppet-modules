@@ -1,10 +1,12 @@
 # Zelfstandige Puppet-parservalidatie
 
-`project-tools-syntax` levert `syntax-junit`: native Puppet/OpenVox-syntaxvalidatie met JUnit per manifest. De gem gebruikt `project-tools-shared` voor de XML-opbouw en kan zonder linter, lintplugins, RuboCop of dependencytool worden geïnstalleerd. De [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) beschrijft installatie, packagekeuze en consumermigratie.
+Met `syntax-junit` uit `project-tools-syntax` controleer je Puppet-syntax met de native Puppet/OpenVox-parser en maak je een JUnit-rapport per manifest. De gem gebruikt `project-tools-shared` voor de XML-opbouw.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+Je kunt de tool zonder linter, lintplugins, RuboCop of dependencytool installeren. De [gezamenlijke toolinghandleiding](../README.md#installatie-in-je-project) beschrijft welke pakketten je nodig hebt, hoe je ze installeert en hoe je een bestaand afnemend project bijwerkt.
 
-De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De consumertests gebruiken alleen de aanwezige runtime; versievarianten worden centraal gesimuleerd.
+Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen. Voor onderhoud volg je de [onderhoudsafspraken](#ontwikkelen-en-testen).
+
+De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De tests voor gebruik in andere projecten draaien met de aanwezige runtime. Andere versies worden in de gedeelde tests gesimuleerd.
 
 ## Inhoudsopgave
 

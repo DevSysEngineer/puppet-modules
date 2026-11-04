@@ -125,7 +125,7 @@ Alleen een header die het bestandsformaat ongeldig maakt mag worden weggelaten, 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een manifest bevat de beheermelding als commentaar, maar het gegenereerde configuratiebestand niet. Keur dit af.
+Handmatig reviewscenario: Een manifest bevat de beheermelding als commentaar, maar het gegenereerde configuratiebestand niet.
 
 **Correct voorbeeld**
 
@@ -167,7 +167,7 @@ Service-eigen configuratie, data en monitoringplugins blijven op hun gevestigde 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een nieuwe interne beheerhelper krijgt een eigen installatiemap en een tweede declaratie van de gedeelde directory. Keur dit af.
+Handmatig reviewscenario: Een nieuwe interne beheerhelper krijgt een eigen installatiemap en een tweede declaratie van de gedeelde directory.
 
 **Correct voorbeeld**
 
@@ -193,7 +193,7 @@ Gebruik ERB en `template(...)` voor gegenereerde configuratie. Bestanden die all
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -205,7 +205,7 @@ Aanroepen van epp en inline_epp voor gegenereerde configuratie.
 
 **Detectiegrenzen**
 
-De AST-check herkent functieaanroepen, geen gelijknamige tekst of comments; inhoud, formaatkeuze en ERB-equivalentie blijven review.
+De AST-check herkent functieaanroepen, geen gelijknamige tekst of comments; controleer zelf de inhoud, het gekozen formaat en of ERB hetzelfde resultaat oplevert.
 
 **Meldingen en severity**
 
@@ -229,7 +229,7 @@ Suppressie niet toegestaan voor project_templates.
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_templates`; verwacht warning.
+Fragment voor `project_templates`. Verwacht een warning.
 
 <!-- lint-example: project_templates warning -->
 ```puppet
@@ -238,7 +238,7 @@ $content = epp('example/settings.epp')
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_templates`; verwacht geen melding.
+Fragment voor `project_templates`. Verwacht geen melding.
 
 <!-- lint-example: project_templates clean -->
 ```puppet
@@ -265,7 +265,7 @@ Een statisch modulebestand krijgt een bron onder `puppet:///modules/...`. Voor b
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -301,7 +301,7 @@ Alleen voor de files-mount: `# lint:ignore:puppet_url_without_modules` achter de
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_puppet_urls` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_puppet_urls`. Verwacht een warning.
 
 <!-- lint-example: project_puppet_urls warning -->
 ```puppet
@@ -310,7 +310,7 @@ $source = 'puppet:///invalid/example/data'
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_puppet_urls` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_puppet_urls`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_puppet_urls clean -->
 ```puppet
@@ -337,7 +337,7 @@ Een statisch modulebestand krijgt een bron onder `puppet:///modules/...`. Voor b
 
 De standaardcheck `puppet_url_without_modules` meldt een `files`-bron omdat die buiten de modulemount staat. Markeer deze bewuste keuze op de bronregel, zodat de uitzondering alleen voor die regel geldt:
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_puppet_urls` gecontroleerd.
 
@@ -370,7 +370,7 @@ Voorkom dat een APT-installatie onbedoeld aanbevolen of voorgestelde pakketten m
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -406,7 +406,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_packages` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_packages`. Verwacht een warning.
 
 <!-- lint-example: project_packages warning -->
 ```puppet
@@ -415,7 +415,7 @@ package { 'synthetic': ensure => installed }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_packages` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_packages`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_packages clean -->
 ```puppet
@@ -450,7 +450,7 @@ Voeg herhaalde package-declaraties met dezelfde instellingen samen met behoud va
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -486,7 +486,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_guarded_packages`; verwacht warning.
+Fragment voor `project_guarded_packages`. Verwacht een warning.
 
 <!-- lint-example: project_guarded_packages warning -->
 ```puppet
@@ -498,7 +498,7 @@ class example {
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_guarded_packages`; verwacht geen melding.
+Fragment voor `project_guarded_packages`. Verwacht geen melding.
 
 <!-- lint-example: project_guarded_packages clean -->
 ```puppet
@@ -525,7 +525,7 @@ Voeg herhaalde package-declaraties met dezelfde instellingen samen met behoud va
 
 De autofix vervangt de guards door een rechtstreekse `stdlib::ensure_packages()`-aanroep. Die functie controleert bestaande packages ook op de opgegeven attributen. Bij conflicterende instellingen is een duplicate-resource-fout gewenst: zo wordt een inconsistente declaratie zichtbaar. Filter bestaande packages daarom niet vooraf uit de lijst.
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_guarded_packages` gecontroleerd.
 
@@ -563,11 +563,11 @@ Geëxporteerde applicatiebomen, private recursieve bomen en verschillende uitvoe
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Pakketten en mappen](#pakketten-en-mappen).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Pakketten en mappen](#pakketten-en-mappen).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom zonder uitvoerbare bestanden mag recursief 0600 gebruiken; Puppet voegt zoekrechten aan mappen toe.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom zonder uitvoerbare bestanden mag recursief 0600 gebruiken; Puppet voegt zoekrechten aan mappen toe.
 
 **Toegestane uitzonderingen**
 
@@ -575,11 +575,11 @@ Aantoonbare applicatiebehoeften kunnen andere rechten vereisen. Een private boom
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een gemengde applicatieboom geeft alle gewone bestanden 0750. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een gemengde applicatieboom geeft alle gewone bestanden 0750.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beheer mappen en bestanden apart, met de genoemde uitgangspunten 0750 en 0640. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Beheer mappen en bestanden apart, met de genoemde uitgangspunten 0750 en 0640.
 
 **Handmatige review**
 
@@ -587,7 +587,7 @@ Inventariseer executable-inhoud en applicatiebehoeften; controleer ook het effec
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Recursieve bewerkingen tot module-eigendom beperken
 
@@ -607,11 +607,11 @@ Mappen met purge, force of recurse en bestanden met installer-inhoud.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Pakketten en mappen](#pakketten-en-mappen).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Pakketten en mappen](#pakketten-en-mappen).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace => false.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace => false.
 
 **Toegestane uitzonderingen**
 
@@ -619,11 +619,11 @@ Bestanden waarvan een installer de inhoud bepaalt blijven beschermd met replace 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Purge verwijdert inhoud die door de deployment wordt beheerd. Keur dit af tegen de norm.
+Handmatig reviewscenario: Purge verwijdert inhoud die door de deployment wordt beheerd.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beperk recursieve bewerkingen tot volledig module-eigendom en houd replace => false voor installer- of eenmalig geïnitialiseerde inhoud. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Beperk recursieve bewerkingen tot volledig module-eigendom en houd replace => false voor installer- of eenmalig geïnitialiseerde inhoud.
 
 **Handmatige review**
 
@@ -631,7 +631,7 @@ Bepaal eerst de eigenaar van ieder subtree en controleer de gevolgen van opschon
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Eigenaars en rechten
 
@@ -641,7 +641,7 @@ Bepaal eerst welke gebruiker een bestand tijdens uitvoering leest of schrijft en
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -677,7 +677,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_files` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_files`. Verwacht een warning.
 
 <!-- lint-example: project_files warning -->
 ```puppet
@@ -686,7 +686,7 @@ file { '/tmp/synthetic': ensure => file }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_files` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_files`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_files clean -->
 ```puppet
@@ -797,11 +797,11 @@ Toegang en rapportage bij eigen scripts, sudo, logrotate, audit, monitoring en s
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Eigenaars en rechten](#eigenaars-en-rechten).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Eigenaars en rechten](#eigenaars-en-rechten).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nodig om gevoelige rapportinhoud te beschermen.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nodig om gevoelige rapportinhoud te beschermen.
 
 **Toegestane uitzonderingen**
 
@@ -809,11 +809,11 @@ Sensitive is geen vervanging voor toegangsrechten; de norm gebruikt het waar nod
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een correct gechmod bestand is via een helper toch onleesbaar voor de uitvoerende service en een commando lekt in rapporten. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een correct gechmod bestand is via een helper toch onleesbaar voor de uitvoerende service en een commando lekt in rapporten.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Controleer toegang vanuit de uitvoerende gebruiker en pas Sensitive toe waar gevoelige inhoud of commando’s anders worden gerapporteerd. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Controleer toegang vanuit de uitvoerende gebruiker en pas Sensitive toe waar gevoelige inhoud of commando’s anders worden gerapporteerd.
 
 **Handmatige review**
 
@@ -821,7 +821,7 @@ Controleer elke indirecte toegangsroute en de weergave in rapporten met syntheti
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Privétoegang en uitvoerrechten onderbouwen
 
@@ -839,11 +839,11 @@ SSH-homes, .ssh en gewone bestanden met wereldleesbare of groepsschrijfbare toeg
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Eigenaars en rechten](#eigenaars-en-rechten).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Eigenaars en rechten](#eigenaars-en-rechten).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone bestanden krijgen alleen benodigde uitvoerrechten.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone bestanden krijgen alleen benodigde uitvoerrechten.
 
 **Toegestane uitzonderingen**
 
@@ -851,11 +851,11 @@ HTTP-openbaarheid bewijst geen behoefte aan lokale wereldleesbaarheid; gewone be
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een via HTTP gepubliceerd bestand is zonder noodzaak ook lokaal wereldleesbaar. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een via HTTP gepubliceerd bestand is zonder noodzaak ook lokaal wereldleesbaar.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Geef lokaal alleen de benodigde toegang en licht wereldleesbare of groepsschrijfbare rechten toe. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Geef lokaal alleen de benodigde toegang en licht wereldleesbare of groepsschrijfbare rechten toe.
 
 **Handmatige review**
 
@@ -863,7 +863,7 @@ Controleer daadwerkelijke lezers en uitvoerders, privé-SSH-paden en de reden vo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Shellcommando's in Puppet
 
@@ -873,7 +873,7 @@ Geef dynamische Puppet-waarden als afzonderlijk voorbereide shellwoorden aan een
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -909,7 +909,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_shell` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_shell`. Verwacht een warning.
 
 <!-- lint-example: project_shell warning -->
 ```puppet
@@ -918,7 +918,7 @@ exec { 'demo': command => "/usr/bin/printf %s ${value}" }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_shell` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_shell`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_shell clean -->
 ```puppet
@@ -958,11 +958,11 @@ Dynamische tekst en bewust voorbereide regeleinden in execs.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Shellcommando's in Puppet](#shellcommandos-in-puppet).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Shellcommando's in Puppet](#shellcommandos-in-puppet).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; dat is geen toestemming om willekeurige invoer te decoderen.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; dat is geen toestemming om willekeurige invoer te decoderen.
 
 **Toegestane uitzonderingen**
 
@@ -970,11 +970,11 @@ Letterlijke voorbereide \n mag eenmaal ge-escapet en met %b gedecodeerd worden; 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Willekeurige runtime-inhoud wordt met printf %b geïnterpreteerd alsof alle escapes bedoeld zijn. Keur dit af tegen de norm.
+Handmatig reviewscenario: Willekeurige runtime-inhoud wordt met printf %b geïnterpreteerd alsof alle escapes bedoeld zijn.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik bij voorkeur printf %s voor dynamische tekst; decodeer alleen bewust voorbereide regeleinden met %b. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik bij voorkeur printf %s voor dynamische tekst; decodeer alleen bewust voorbereide regeleinden met %b.
 
 **Handmatige review**
 
@@ -982,7 +982,7 @@ Controleer de herkomst van escapes en gebruik voor willekeurige meerregelige inh
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### SQL als volledige shellwaarde doorgeven
 
@@ -1000,11 +1000,11 @@ SQL-strings in Puppet-execs en guards met shellscheiding.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Shellcommando's in Puppet](#shellcommandos-in-puppet).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Shellcommando's in Puppet](#shellcommandos-in-puppet).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen provider voor wanneer die behoefte ontbreekt.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen provider voor wanneer die behoefte ontbreekt.
 
 **Toegestane uitzonderingen**
 
@@ -1012,11 +1012,11 @@ provider => shell is voor de beschreven parserbehoefte; de norm schrijft geen pr
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een SQL-string mist de puntkomma of wordt in losse shellcommando’s gelezen. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een SQL-string mist de puntkomma of wordt in losse shellcommando’s gelezen.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Escape de volledige SQL-string, behoud de puntkomma en gebruik provider => shell wanneer scheiding of guards dat vereisen. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Escape de volledige SQL-string, behoud de puntkomma en gebruik provider => shell wanneer scheiding of guards dat vereisen.
 
 **Handmatige review**
 
@@ -1024,7 +1024,7 @@ Vergelijk het uiteindelijk gelezen SQL-argument inclusief afsluiter en controlee
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Quoting per parserlaag toepassen
 
@@ -1042,11 +1042,11 @@ Samengestelde scripts die als argument aan een buitenste -c worden doorgegeven.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Shellcommando's in Puppet](#shellcommandos-in-puppet).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Shellcommando's in Puppet](#shellcommandos-in-puppet).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde laag wordt niet tweemaal ge-escapet.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde laag wordt niet tweemaal ge-escapet.
 
 **Toegestane uitzonderingen**
 
@@ -1054,11 +1054,11 @@ Een volledig statisch script mag eenmaal als geheel worden ge-escapet; dezelfde 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Veilig voorbereide woorden krijgen tweemaal escaping voor dezelfde laag. Keur dit af tegen de norm.
+Handmatig reviewscenario: Veilig voorbereide woorden krijgen tweemaal escaping voor dezelfde laag.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Quote het samengestelde script nog eenmaal voor de buitenste -c-laag; behoud de afzonderlijke woordescaping. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Quote het samengestelde script nog eenmaal voor de buitenste -c-laag; behoud de afzonderlijke woordescaping.
 
 **Handmatige review**
 
@@ -1066,7 +1066,7 @@ Controleer per laag wat exact één argument vormt en voer synthetische spaties,
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Shellsyntaxis tegen Puppet-interpolatie beschermen
 
@@ -1084,11 +1084,11 @@ Dubbele Puppet-strings met variabelen en substituties die de shell moet uitvoere
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Shellcommando's in Puppet](#shellcommandos-in-puppet).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Shellcommando's in Puppet](#shellcommandos-in-puppet).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben verschillende eigenaars van interpolatie.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben verschillende eigenaars van interpolatie.
 
 **Toegestane uitzonderingen**
 
@@ -1096,11 +1096,11 @@ Een Puppet-waarde en een pas tijdens shelluitvoering gevulde variabele hebben ve
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Puppet interpreteert een bedoeld shellargument $1 of een shellsubstitutie. Keur dit af tegen de norm.
+Handmatig reviewscenario: Puppet interpreteert een bedoeld shellargument $1 of een shellsubstitutie.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Escape de shellsyntaxis op de Puppet-laag zoals in de norm. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Escape de shellsyntaxis op de Puppet-laag zoals in de norm.
 
 **Handmatige review**
 
@@ -1108,7 +1108,7 @@ Volg de string eerst door Puppet en daarna door de shell; controleer tmpdir, pos
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Afhankelijkheden, audit en transport
 
@@ -1172,7 +1172,7 @@ Nieuwe of gewijzigde auditfilters en naburige uitzonderingen.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; beoordeel ook die combinatie.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; beoordeel ook die combinatie.
 
 **Toegestane uitzonderingen**
 
@@ -1180,11 +1180,11 @@ Een lokaal smalle uitzondering kan samen met een naburig filter breed worden; be
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een filter sluit gebeurtenissen uit zonder te verklaren welk legitiem gedrag dit nodig maakt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een filter sluit gebeurtenissen uit zonder te verklaren welk legitiem gedrag dit nodig maakt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beschrijf legitiem gedrag, verdwenen events en toepassingsgebied en controleer overlap met naburige filters. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Beschrijf legitiem gedrag, verdwenen events en toepassingsgebied en controleer overlap met naburige filters.
 
 **Handmatige review**
 
@@ -1192,7 +1192,7 @@ Vergelijk de afzonderlijke en gezamenlijke filterreikwijdte met de genoemde gebe
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Transportversleuteling behouden
 
@@ -1210,7 +1210,7 @@ Reverse proxies en verbindingen tussen services in alle eigen operationele integ
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonder TLS; lokaal of self-signed rechtvaardigt op zichzelf geen uitschakeling.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonder TLS; lokaal of self-signed rechtvaardigt op zichzelf geen uitschakeling.
 
 **Toegestane uitzonderingen**
 
@@ -1218,11 +1218,11 @@ HTTP is uitsluitend een expliciete gedocumenteerde keuze voor een upstream zonde
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een certificaatfout wordt opgelost door TLS uit te schakelen terwijl de upstream TLS ondersteunt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een certificaatfout wordt opgelost door TLS uit te schakelen terwijl de upstream TLS ondersteunt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Herstel vertrouwen of verificatie en behoud versleuteling. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Herstel vertrouwen of verificatie en behoud versleuteling.
 
 **Handmatige review**
 
@@ -1230,7 +1230,7 @@ Controleer upstream-TLS-ondersteuning, gebruikte trustbron en verificatiekeuze; 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Een minder streng beveiligingsmodel toelichten
 
@@ -1248,7 +1248,7 @@ Trust, rechten en sandboxkeuzes met een minder strenge instelling.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor voorafgaande beheerderkennis bepaalt dat.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor voorafgaande beheerderkennis bepaalt dat.
 
 **Toegestane uitzonderingen**
 
@@ -1256,11 +1256,11 @@ Niet iedere lokale uitleg hoeft in de README; de beschreven noodzaak voor vooraf
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een sandboxbeperking wordt verwijderd zonder lokale reden of beheerderinformatie. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een sandboxbeperking wordt verwijderd zonder lokale reden of beheerderinformatie.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Leg de noodzakelijke afwijking bij de code vast en ook in de project-README wanneer beheerders haar vooraf moeten kennen. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Leg de noodzakelijke afwijking bij de code vast en ook in de project-README wanneer beheerders haar vooraf moeten kennen.
 
 **Handmatige review**
 
@@ -1268,7 +1268,7 @@ Lees de reden tegen het concrete servicegedrag en bepaal welke gevolgen vooraf b
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Firewallconfiguratie bij de deployment houden
 
@@ -1290,7 +1290,7 @@ Deployment-eigen firewallconfiguratie en structurele firewallmonitoring vanuit d
 
 **Detectiegrenzen**
 
-De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Toegestane uitzonderingen**
 
@@ -1298,7 +1298,7 @@ De deployment kiest zelf haar aanlevermethode; een structureel geslaagde check v
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een check leidt de verwachte chains af uit de geladen firewall en rapporteert gezondheid op basis van een regeltelling. Keur dit af.
+Handmatig reviewscenario: Een check leidt de verwachte chains af uit de geladen firewall en rapporteert gezondheid op basis van een regeltelling.
 
 **Correct voorbeeld**
 
@@ -1306,7 +1306,7 @@ Handmatig reviewscenario: Een deployment levert verwachtingen via runtimeargumen
 
 **Grensgevallen**
 
-De deployment kiest zelf haar aanlevermethode; een structureel geslaagde check vervangt geen benodigde bereikbaarheidstest. De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+De deployment kiest zelf haar aanlevermethode; een structureel geslaagde check vervangt geen benodigde bereikbaarheidstest. De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Handmatige review**
 
@@ -1328,7 +1328,7 @@ De volgende afwegingen beoordeel je bij de review en functionele validatie. Alle
 
 **Herkomst**
 
-Projectregel; deze handmatige verplichtingen maken deel uit van de bestaande codeafspraken.
+Projectregel. Controleer deze afspraken handmatig.
 
 **Toepassingsgebied**
 
@@ -1370,7 +1370,7 @@ Laat `basic_settings::monitoring_custom` de backend kiezen. Een aanroeper mag al
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1382,7 +1382,7 @@ Monitoringaanroepen en statisch vindbare wrappers, backendvoorwaarden, selectors
 
 **Detectiegrenzen**
 
-De analyse voert geen functies uit. Dynamische wrappernamen en verborgen functiegedrag blijven review. Systemd-targetvolgorde, vendor-enablement en de inhoud van gegenereerde units hebben geen volledige automatische dekking.
+De analyse voert geen functies uit. Beoordeel dynamische wrappernamen en verborgen functiegedrag handmatig. Systemd-targetvolgorde, vendor-enablement en de inhoud van gegenereerde units hebben geen volledige automatische dekking.
 
 **Meldingen en severity**
 
@@ -1406,7 +1406,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_monitoring_backend` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_monitoring_backend`. Verwacht een warning.
 
 <!-- lint-example: project_monitoring_backend warning -->
 ```puppet
@@ -1415,7 +1415,7 @@ if $basic_settings::monitoring::package == 'openitcockpit' { basic_settings::mon
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_monitoring_backend` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_monitoring_backend`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_monitoring_backend clean -->
 ```puppet
@@ -1424,7 +1424,7 @@ if $basic_settings::monitoring::package != 'none' { basic_settings::monitoring_c
 
 **Grensgevallen**
 
-Vergelijking met none is toegestaan voor inschakelen en opruimen. monitoring_custom zelf kiest de backend; gewone pakketkeuzes zonder monitoringrelatie vallen buiten de check. De analyse voert geen functies uit. Dynamische wrappernamen en verborgen functiegedrag blijven review. Systemd-targetvolgorde, vendor-enablement en de inhoud van gegenereerde units hebben geen volledige automatische dekking. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Targets en monitoring](#verdieping-bij-targets-en-monitoring).
+Vergelijking met none is toegestaan voor inschakelen en opruimen. monitoring_custom zelf kiest de backend; gewone pakketkeuzes zonder monitoringrelatie vallen buiten de check. De analyse voert geen functies uit. Beoordeel dynamische wrappernamen en verborgen functiegedrag handmatig. Systemd-targetvolgorde, vendor-enablement en de inhoud van gegenereerde units hebben geen volledige automatische dekking. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Targets en monitoring](#verdieping-bij-targets-en-monitoring).
 
 **Handmatige review**
 
@@ -1438,7 +1438,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 `basic_settings::monitoring_custom` kiest en configureert de backend. Een aanroeper controleert alleen of monitoring beschikbaar en ingeschakeld is. Bijvoorbeeld:
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_monitoring_backend` gecontroleerd.
 
@@ -1485,11 +1485,11 @@ OpenITCOCKPIT-agentplugins, customchecks.ini, registraties van services, timers 
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Targets en monitoring](#targets-en-monitoring).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Targets en monitoring](#targets-en-monitoring).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volgen de afzonderlijke backendregel.
 
 **Toegestane uitzonderingen**
 
@@ -1497,7 +1497,7 @@ Deze norm laat de feitelijke backendkeuze aan monitoring_custom; aanroepers volg
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een featuremodule bouwt een tweede eigen registratiemechanisme. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een featuremodule bouwt een tweede eigen registratiemechanisme.
 
 Handmatig reviewscenario: Een nieuwe check kiest zelf `/var/cache/check_application` terwijl OpenITCOCKPIT actief is, of de centrale monitoringclass kiest de agentmap vóór de packagekeuze. Keur beide af: de centrale basislocatie moet uit de betreffende packagetak komen.
 
@@ -1505,7 +1505,7 @@ Handmatig reviewscenario: Een featuremodule declareert zelf de agentstatemap of 
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik de gedeelde monitoringtypes, de bestaande pluginlocatie en concat-opbouw van customchecks.ini. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik de gedeelde monitoringtypes, de bestaande pluginlocatie en concat-opbouw van customchecks.ini.
 
 Handmatig reviewscenario: Bij actieve OpenITCOCKPIT-monitoring vraagt een registratie `application` `state => true` aan. Puppet beheert `/etc/openitcockpit-agent/state/application` voordat de registratie beschikbaar komt; de template ontvangt `@state_dir` en de eigen opdracht gebruikt die standaardwaarde. Een tweede registratie via `script` krijgt een eigen map en geeft die als `STATE_DIR` door. Bij bron-URL’s of inhoud via `check` wordt de locatie eveneens via `STATE_DIR` doorgegeven. Herhaald gebruik en het verwijderen van een target laten de historie, het gedeelde executable en andere checks intact; benodigde locks en atomische vervanging blijven werken.
 
@@ -1521,7 +1521,7 @@ Volg de registratie en levenscyclus door de gedeelde bouwstenen; voorkom dubbele
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Uiteindelijke systemd-units volledig reviewen
 
@@ -1539,11 +1539,11 @@ Alle eigen systemd-integraties: gegenereerde units, wrappers, vendor-drop-ins, t
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Targets en monitoring](#targets-en-monitoring).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Targets en monitoring](#targets-en-monitoring).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm beperkt de review niet.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm beperkt de review niet.
 
 **Toegestane uitzonderingen**
 
@@ -1551,11 +1551,11 @@ Een gegenereerde unit is even relevant als een statisch bestand; bestandsvorm be
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: De review kijkt alleen naar de template en mist een vendor-drop-in. Keur dit af tegen de norm.
+Handmatig reviewscenario: De review kijkt alleen naar de template en mist een vendor-drop-in.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beoordeel alle lagen van de uiteindelijke unit en vermeld de unitnamen alfabetisch. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Beoordeel alle lagen van de uiteindelijke unit en vermeld de unitnamen alfabetisch.
 
 **Handmatige review**
 
@@ -1563,7 +1563,7 @@ Vergelijk de effectieve unit met elke producerende bron en leg de beoordeelde na
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Gedeelde targets en service-integratie behouden
 
@@ -1581,11 +1581,11 @@ Services met centrale targets, drop-ins, vendor-enablement en OnFailure.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Targets en monitoring](#targets-en-monitoring).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Targets en monitoring](#targets-en-monitoring).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaarden blijven behouden.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaarden blijven behouden.
 
 **Toegestane uitzonderingen**
 
@@ -1593,11 +1593,11 @@ OnFailure=notify-failed@%i.service geldt bij actieve monitoring; eigen voorwaard
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een geïntegreerde service houdt vendor-enablement en bindt aan een verkeerd target. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een geïntegreerde service houdt vendor-enablement en bindt aan een verkeerd target.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik de gedeelde drop-in-wrapper en het passende target, behoud de beschreven targetvolgorde en schakel vendor-enablement uit. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik de gedeelde drop-in-wrapper en het passende target, behoud de beschreven targetvolgorde en schakel vendor-enablement uit.
 
 **Handmatige review**
 
@@ -1605,7 +1605,7 @@ Volg system, storage, services, production, helpers en require-services; control
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Servicebeveiliging
 
@@ -1627,7 +1627,7 @@ Services die direct of via timers, sockets of paths worden gestart.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of timesyncd zijn geen vervanging voor de service-instelling.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of timesyncd zijn geen vervanging voor de service-instelling.
 
 **Toegestane uitzonderingen**
 
@@ -1635,11 +1635,11 @@ Targets, mounts, sockets, timers en daemonconfiguratie van journald, resolved of
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: NoNewPrivileges wordt op de timer gezet en als bescherming van het serviceproces beschouwd. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: NoNewPrivileges wordt op de timer gezet en als bescherming van het serviceproces beschouwd.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beoordeel en plaats de uitvoeringsoptie op de concrete .service. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Beoordeel en plaats de uitvoeringsoptie op de concrete .service.
 
 **Handmatige review**
 
@@ -1647,7 +1647,7 @@ Volg het startpunt tot de uitvoerende unit en controleer waar de uitvoeringsopti
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Servicebeperkingen tegen alle uitvoerpaden beoordelen
 
@@ -1667,7 +1667,7 @@ Alle Exec-fasen, procesidentiteiten, rechten, paden, netwerkgedrag en runtimes v
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiensten hebben verschillende behoeften; de voorbeelden in de norm zijn geen automatische vrijstelling.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiensten hebben verschillende behoeften; de voorbeelden in de norm zijn geen automatische vrijstelling.
 
 **Toegestane uitzonderingen**
 
@@ -1675,11 +1675,11 @@ Native oneshots en complexe provisioning-, monitoring-, back-up- of hersteldiens
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een gedeelde hardeningkeuze blokkeert een hook met sudo die buiten de hoofd-Exec over het hoofd is gezien. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een gedeelde hardeningkeuze blokkeert een hook met sudo die buiten de hoofd-Exec over het hoofd is gezien.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Inventariseer alle Exec-fasen en hun gebruikers, groepen, privilegeovergangen en toegang voordat je de beperking kiest. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Inventariseer alle Exec-fasen en hun gebruikers, groepen, privilegeovergangen en toegang voordat je de beperking kiest.
 
 **Handmatige review**
 
@@ -1687,7 +1687,7 @@ Doorloop elk object uit de norm: paden, sockets, logs, tijdelijke opslag, appara
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Hardeningbesluiten per optie vastleggen
 
@@ -1725,7 +1725,7 @@ Iedere overwogen hardeningoptie uit de effectentabel bij deze norm.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te activeren. Nog te onderzoeken keuzes blijven zichtbaar.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te activeren. Nog te onderzoeken keuzes blijven zichtbaar.
 
 **Toegestane uitzonderingen**
 
@@ -1733,11 +1733,11 @@ De tabel is een beoordelingshulp, geen verplichting om iedere optie blind te act
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: MemoryDenyWriteExecute wordt voor een onbekende JIT-runtime zonder onderzoek geactiveerd. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: MemoryDenyWriteExecute wordt voor een onbekende JIT-runtime zonder onderzoek geactiveerd.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Leg toepassen, weglaten of verder onderzoek met reden vast en kies een gerichte uitzondering wanneer noodzakelijk gedrag blokkeert. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Leg toepassen, weglaten of verder onderzoek met reden vast en kies een gerichte uitzondering wanneer noodzakelijk gedrag blokkeert.
 
 **Handmatige review**
 
@@ -1745,7 +1745,7 @@ Controleer voor iedere tabelrij de genoemde functies en schrijfbare of leesbare 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Umask per service expliciet kiezen
 
@@ -1763,7 +1763,7 @@ Private en gedeelde bestanden die services aanmaken.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld masker zoals 0027 vereist een lokale toelichting.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld masker zoals 0027 vereist een lokale toelichting.
 
 **Toegestane uitzonderingen**
 
@@ -1771,11 +1771,11 @@ Bij benodigd normaal 0022-gedrag blijft de instelling weg. Een ander gedeeld mas
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een private service vertrouwt op een verborgen generieke umask of maakt uitvoer met 0022. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een private service vertrouwt op een verborgen generieke umask of maakt uitvoer met 0022.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Zet voor private uitvoer UMask=0077 in de servicespecifieke sandboxhash; volg de aparte regels voor 0022 en andere gedeelde maskers. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Zet voor private uitvoer UMask=0077 in de servicespecifieke sandboxhash; volg de aparte regels voor 0022 en andere gedeelde maskers.
 
 **Handmatige review**
 
@@ -1783,7 +1783,7 @@ Controleer wie nieuwe bestanden, mappen, sockets en logs moet kunnen gebruiken; 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Wrapperdefaults voor alle afnemers beoordelen
 
@@ -1801,7 +1801,7 @@ Generieke servicewrappers en al hun bekende afnemers.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde uitschakelmogelijkheid toe; verberg de keuze niet in de wrapper.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde uitschakelmogelijkheid toe; verberg de keuze niet in de wrapper.
 
 **Toegestane uitzonderingen**
 
@@ -1809,11 +1809,11 @@ De norm laat beoordeling en validatie van alle gebruikers of een gedocumenteerde
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een wrapper krijgt stilzwijgend een restrictieve umask die bestaande gedeelde bestanden onleesbaar maakt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een wrapper krijgt stilzwijgend een restrictieve umask die bestaande gedeelde bestanden onleesbaar maakt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beoordeel en valideer alle bekende afnemers of bied per service een gedocumenteerde uitschakelmogelijkheid voor de beperking. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Beoordeel en valideer alle bekende afnemers of bied per service een gedocumenteerde uitschakelmogelijkheid voor de beperking.
 
 **Handmatige review**
 
@@ -1821,7 +1821,7 @@ Zoek alle wrappergebruikers en controleer hun normale en privilegegevoelige uitv
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ## Shellscripts
 
@@ -1843,7 +1843,7 @@ Alle eigen POSIX- en Bash-code, inclusief extensionless scripts, templates en in
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die gegenereerde shell niet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die gegenereerde shell niet.
 
 **Toegestane uitzonderingen**
 
@@ -1851,11 +1851,11 @@ Een .pp-bestand kan shellcode bevatten; een geslaagde Puppet-scan valideert die 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een shelltemplate wordt alleen met Puppet-lint gecontroleerd. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een shelltemplate wordt alleen met Puppet-lint gecontroleerd.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beoordeel bron en gerenderde uitvoer met de genoemde shellconventies en shellvalidatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Beoordeel bron en gerenderde uitvoer met de genoemde shellconventies en shellvalidatie.
 
 **Handmatige review**
 
@@ -1863,7 +1863,7 @@ Controleer interpreter, opbouw, naamgeving, inspringing, commandodetectie, argum
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Interpreter en shellcompatibiliteit
 
@@ -1891,7 +1891,7 @@ Bash is toegestaan wanneer benodigde functionaliteit dat vereist en die behoefte
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een script met `#!/bin/sh` gebruikt `[[ ... ]]` of `pipefail`. Keur dit af.
+Handmatig reviewscenario: Een script met `#!/bin/sh` gebruikt `[[ ... ]]` of `pipefail`.
 
 **Correct voorbeeld**
 
@@ -1933,7 +1933,7 @@ Onderdelen die het script niet nodig heeft worden weggelaten; de structuur verei
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: De commandodetectie roept een fouthelper aan die pas verderop is gedefinieerd. Keur dit af.
+Handmatig reviewscenario: De commandodetectie roept een fouthelper aan die pas verderop is gedefinieerd.
 
 **Correct voorbeeld**
 
@@ -1975,7 +1975,7 @@ Builtins worden rechtstreeks gebruikt; zij vereisen geen externe commandodetecti
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een script verstopt executable en argumenten in één commandovariabele zonder de fout bij commandodetectie af te handelen. Keur dit af.
+Handmatig reviewscenario: Een script verstopt executable en argumenten in één commandovariabele zonder de fout bij commandodetectie af te handelen.
 
 **Correct voorbeeld**
 
@@ -2021,7 +2021,7 @@ Letterlijke witruimte in heredocs en meerregelige gequote data blijft behouden; 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een formatter past de letterlijke inspringing in een heredoc aan of laat een data-argument ongequote. Keur dit af.
+Handmatig reviewscenario: Een formatter past de letterlijke inspringing in een heredoc aan of laat een data-argument ongequote.
 
 **Correct voorbeeld**
 
@@ -2071,7 +2071,7 @@ De bronvolgorde geldt alleen voor ondersteunde bronnen. Positionele interfaces, 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een CLI-override wordt na parsing teruggezet naar een omgevingswaarde, of environmentinvoer ontsnapt aan validatie. Keur dit af.
+Handmatig reviewscenario: Een CLI-override wordt na parsing teruggezet naar een omgevingswaarde, of environmentinvoer ontsnapt aan validatie.
 
 **Correct voorbeeld**
 
@@ -2121,7 +2121,7 @@ Een korte helper is toegestaan wanneer hij een afzonderlijke taak benoemt of val
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een helper verbergt uitsluitend één toekenning zonder gedeelde taak of validatie. Keur dit af.
+Handmatig reviewscenario: Een helper verbergt uitsluitend één toekenning zonder gedeelde taak of validatie.
 
 Handmatig reviewscenario: Eén check verplaatst haar eigen parser naar een los fragment zonder tweede check als afnemer. Keur dit af; houd de parser als lokale functie in het volledige checkbestand.
 
@@ -2171,7 +2171,7 @@ Een commandocontract dat een bestand vereist of data die te groot of onveilig is
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een noodzakelijk tijdelijk bestand blijft na gebruik of een foutpad staan. Keur dit af.
+Handmatig reviewscenario: Een noodzakelijk tijdelijk bestand blijft na gebruik of een foutpad staan.
 
 **Correct voorbeeld**
 
@@ -2215,7 +2215,7 @@ Betekenisvolle witruimte in letterlijke data blijft intact; deze opbouwregel rec
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een metadataoverdracht vertrouwt uitsluitend op een toegevoegde afsluitende newline. Keur dit af.
+Handmatig reviewscenario: Een metadataoverdracht vertrouwt uitsluitend op een toegevoegde afsluitende newline.
 
 **Correct voorbeeld**
 
@@ -2255,7 +2255,7 @@ Toevoegen, vervangen en verwijderen van shelltools en bijbehorende pakketten.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige controles is geen verbod op een noodzakelijke parser.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige controles is geen verbod op een noodzakelijke parser.
 
 **Toegestane uitzonderingen**
 
@@ -2263,11 +2263,11 @@ jq blijft geschikt bij complexe structuren; het voorkeurspad voor eenvoudige con
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een noodzakelijke gestructureerde parser wordt verwijderd uitsluitend om één dependency te besparen. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een noodzakelijke gestructureerde parser wordt verwijderd uitsluitend om één dependency te besparen.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik native uitvoer voor eenvoudige controles en behoud een parser voor complexe gestructureerde gegevens; controleer alle packageafnemers. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik native uitvoer voor eenvoudige controles en behoud een parser voor complexe gestructureerde gegevens; controleer alle packageafnemers.
 
 **Handmatige review**
 
@@ -2275,7 +2275,7 @@ Vergelijk output, fouten en exitcodes voor en na vervanging volgens de shellvali
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Puppet-waarden rechtstreeks in shelltemplates invoegen
 
@@ -2295,7 +2295,7 @@ Puppet-voorbereiding en ERB-shelltemplates met beheerde configuratiewaarden.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer dat is gevraagd of al gebruikelijk is.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer dat is gevraagd of al gebruikelijk is.
 
 **Toegestane uitzonderingen**
 
@@ -2303,11 +2303,11 @@ Een afzonderlijk configuratiebestand of parser wordt alleen toegevoegd wanneer d
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een nieuwe parser en configuratielaag worden toegevoegd voor alleen een voorbereide shellwaarde. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een nieuwe parser en configuratielaag worden toegevoegd voor alleen een voorbereide shellwaarde.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik ERB met directe shelltoekenningen en selecteer een gedeeld fragment uitsluitend met de door Puppet aangeleverde keuze. Bij expliciete uitschakeling bevat de uitvoer alleen de toepasselijke alternatieve implementatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik ERB met directe shelltoekenningen en selecteer een gedeeld fragment uitsluitend met de door Puppet aangeleverde keuze. Bij expliciete uitschakeling bevat de uitvoer alleen de toepasselijke alternatieve implementatie.
 
 **Handmatige review**
 
@@ -2315,7 +2315,7 @@ Controleer iedere ingevoegde waarde en de parserlaag die haar leest; vergelijk b
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Daemonconfiguratie als invoerbron behouden
 
@@ -2333,7 +2333,7 @@ Bestaande daemonconfiguratie en credentialinterfaces van shellhelpers.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeeld vnstat --showconfig introduceert geen verplichte tool voor andere daemons.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeeld vnstat --showconfig introduceert geen verplichte tool voor andere daemons.
 
 **Toegestane uitzonderingen**
 
@@ -2341,11 +2341,11 @@ Effectieve configuratie uitlezen is waar mogelijk het voorkeurspad; het voorbeel
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een script dupliceert daemoninstellingen via nieuwe CLI-opties en een tweede fallbackketen. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een script dupliceert daemoninstellingen via nieuwe CLI-opties en een tweede fallbackketen.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Behoud de bestaande invoerroute en lees waar mogelijk de effectieve daemonconfiguratie. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Behoud de bestaande invoerroute en lees waar mogelijk de effectieve daemonconfiguratie.
 
 **Handmatige review**
 
@@ -2353,7 +2353,7 @@ Vergelijk de gelezen waarde met de effectieve daemoninstelling en controleer dat
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ## Monitoringchecks
 
@@ -2365,7 +2365,7 @@ Voor eigen persistente status en caches geldt de opslagafspraak van het [central
 
 **Herkomst**
 
-Projectregel; deze handmatige verplichtingen maken deel uit van de bestaande codeafspraken.
+Projectregel. Controleer deze afspraken handmatig.
 
 **Toepassingsgebied**
 
@@ -2419,7 +2419,7 @@ Nieuwe en gewijzigde checkimplementaties, executabletemplates en targetregistrat
 
 **Detectiegrenzen**
 
-De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Toegestane uitzonderingen**
 
@@ -2427,7 +2427,7 @@ Een bestaande configuratie-interface is toegestaan naast runtimeargumenten; exec
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Het verwijderen van één target verwijdert ook het executable dat een ander target gebruikt. Keur dit af.
+Handmatig reviewscenario: Het verwijderen van één target verwijdert ook het executable dat een ander target gebruikt.
 
 **Correct voorbeeld**
 
@@ -2435,7 +2435,7 @@ Handmatig reviewscenario: Twee registraties gebruiken hetzelfde executable met h
 
 **Grensgevallen**
 
-Een bestaande configuratie-interface is toegestaan naast runtimeargumenten; executabletemplating is beperkt tot hostbreed gedeelde waarden. De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+Een bestaande configuratie-interface is toegestaan naast runtimeargumenten; executabletemplating is beperkt tot hostbreed gedeelde waarden. De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Handmatige review**
 
@@ -2463,7 +2463,7 @@ Monitoring van taken en hun uitvoer of opgeslagen status.
 
 **Detectiegrenzen**
 
-De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Toegestane uitzonderingen**
 
@@ -2471,7 +2471,7 @@ Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakru
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een check start de taakrunner om te bepalen of diens laatste resultaat gezond was. Keur dit af.
+Handmatig reviewscenario: Een check start de taakrunner om te bepalen of diens laatste resultaat gezond was.
 
 **Correct voorbeeld**
 
@@ -2481,7 +2481,7 @@ Handmatig reviewscenario: Een adviescheck vernieuwt vervallen brondata binnen ha
 
 **Grensgevallen**
 
-Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakrunner vereisen. De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakrunner vereisen. De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Handmatige review**
 
@@ -2583,7 +2583,7 @@ Statusbepaling en diagnose bij geverifieerde afwijkingen en mislukte of onvolled
 
 **Detectiegrenzen**
 
-De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Toegestane uitzonderingen**
 
@@ -2591,7 +2591,7 @@ Een onbeschikbare inspectietool levert UNKNOWN; een geverifieerd ontbrekend vere
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een mislukte inspectie wordt een lege lijst en daardoor een gezond resultaat. Keur dit af.
+Handmatig reviewscenario: Een mislukte inspectie wordt een lege lijst en daardoor een gezond resultaat.
 
 Handmatig reviewscenario: Een servicehelper behandelt een ontbrekend argument standaard als optioneel, zodat alle gewone aanroepers een ontbrekende service goedkeuren. Keur dit af: de uitzondering is niet expliciet gekozen.
 
@@ -2603,7 +2603,7 @@ Handmatig reviewscenario: Een gewone serviceaanroep meldt CRITICAL voor een geve
 
 **Grensgevallen**
 
-Een onbeschikbare inspectietool levert UNKNOWN; een geverifieerd ontbrekend vereist onderdeel levert CRITICAL. Bij samenloop blijft de gedocumenteerde prioriteit zichtbaar. De huidige projectchecks analyseren dit runtimecontract niet; opmaak- of resourcechecks leveren hiervoor geen bewijs.
+Een onbeschikbare inspectietool levert UNKNOWN; een geverifieerd ontbrekend vereist onderdeel levert CRITICAL. Bij samenloop blijft de gedocumenteerde prioriteit zichtbaar. De huidige projectchecks beoordelen dit gedrag tijdens uitvoering niet. Ook opmaak- en resourcechecks leveren daarvoor geen bewijs.
 
 **Handmatige review**
 
@@ -2633,7 +2633,7 @@ Optionele runtime-instellingen in Puppet-registraties, wrappers en ERB.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwerking; dit is geen opdracht om ongeraakte interfaces te veranderen.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwerking; dit is geen opdracht om ongeraakte interfaces te veranderen.
 
 **Toegestane uitzonderingen**
 
@@ -2641,11 +2641,11 @@ Pas de norm toe op nieuwe instellingen en wijzigingen aan bestaande defaultverwe
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een registratie geeft een tweede default als CLI-argument door wanneer de Puppet-parameter undef is. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een registratie geeft een tweede default als CLI-argument door wanneer de Puppet-parameter undef is.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik Optional met default undef en laat bij undef zowel optie als argument weg. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik Optional met default undef en laat bij undef zowel optie als argument weg.
 
 **Handmatige review**
 
@@ -2653,7 +2653,7 @@ Volg default, override en lege registratie door manifest, wrapper en executable;
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Effectieve monitoringinvoer volgens het configuratiecontract valideren
 
@@ -2673,7 +2673,7 @@ CLI-, environment- en standaardwaarden van monitoringchecks en Puppet-drempelver
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie van effectieve scriptwaarden niet naar Puppet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie van effectieve scriptwaarden niet naar Puppet.
 
 **Toegestane uitzonderingen**
 
@@ -2681,11 +2681,11 @@ Puppet mag twee expliciete drempels vergelijken; daarmee verhuist de validatie v
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Puppet vult een ontbrekende scriptdefault in om twee drempels te vergelijken. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Puppet vult een ontbrekende scriptdefault in om twee drempels te vergelijken.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Laat de check de effectieve waarden verwerken en valideren; vergelijk in Puppet hoogstens twee expliciet opgegeven drempels. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Laat de check de effectieve waarden verwerken en valideren; vergelijk in Puppet hoogstens twee expliciet opgegeven drempels.
 
 **Handmatige review**
 
@@ -2693,7 +2693,7 @@ Controleer de volgorde van invoerbronnen en toets alleen werkelijk ingevulde Pup
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Agentplanning afzonderlijk afstemmen
 
@@ -2711,7 +2711,7 @@ Registratie-interval en executor-timeout naast runtime-opties van het script.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een scriptoptie of environmentvariabele verandert de agentplanning niet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een scriptoptie of environmentvariabele verandert de agentplanning niet.
 
 **Toegestane uitzonderingen**
 
@@ -2719,11 +2719,11 @@ Een scriptoptie of environmentvariabele verandert de agentplanning niet.
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een langere script-timeout wordt ingesteld terwijl de agent het proces eerder afbreekt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een langere script-timeout wordt ingesteld terwijl de agent het proces eerder afbreekt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Stem interval en agent-timeout afzonderlijk af volgens de executorafspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Stem interval en agent-timeout afzonderlijk af volgens de executorafspraken.
 
 **Handmatige review**
 
@@ -2731,7 +2731,7 @@ Vergelijk de scriptuitvoering, beëindiging en outputbudget met de toegestane ex
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Uitvoer voor beheerders
 
@@ -2753,7 +2753,7 @@ Eerste uitvoerregel bij gezond, fout en onbekend resultaat.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt normaal functioneren.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt normaal functioneren.
 
 **Toegestane uitzonderingen**
 
@@ -2761,11 +2761,11 @@ Een gezonde check hoeft geen foutoorzaak te noemen; haar samenvatting bevestigt 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een foutmelding noemt geen geraakt object of directe oorzaak. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een foutmelding noemt geen geraakt object of directe oorzaak.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Noem het gecontroleerde onderdeel, belangrijkste object, oorzaak en benodigde escalatie; meld bij gezond resultaat normaal functioneren. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Noem het gecontroleerde onderdeel, belangrijkste object, oorzaak en benodigde escalatie; meld bij gezond resultaat normaal functioneren.
 
 **Handmatige review**
 
@@ -2773,7 +2773,7 @@ Beoordeel of een beheerder uit alleen de eerste regel kan bepalen wat wordt geco
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Status en technische tellers buiten de samenvatting houden
 
@@ -2791,7 +2791,7 @@ Samenvatting en oorzakenlabels naast Nagios-exitcode en perfdata.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun plaats.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun plaats.
 
 **Toegestane uitzonderingen**
 
@@ -2799,11 +2799,11 @@ Tellers blijven toegestaan in perfdata en lange uitvoer; de norm beperkt hun pla
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: De tekst begint met CRITICAL en bevat nulcategorieën en een drempeloverzicht. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: De tekst begint met CRITICAL en bevat nulcategorieën en een drempeloverzicht.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Laat de exitcode de status dragen en verplaats tellers naar perfdata of lange uitvoer. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Laat de exitcode de status dragen en verplaats tellers naar perfdata of lange uitvoer.
 
 **Handmatige review**
 
@@ -2811,7 +2811,7 @@ Controleer de eerste regel en oorzakenlabels op statuswoorden, nulcategorieën, 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Oorzaak en reikwijdte in de diagnose onderscheiden
 
@@ -2829,7 +2829,7 @@ Configuratiefouten, runtimefouten, contextuele waarschuwingen en onbekende toest
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daarbuiten mag de status niet wijzigen.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daarbuiten mag de status niet wijzigen.
 
 **Toegestane uitzonderingen**
 
@@ -2837,11 +2837,11 @@ Een bewust beperkte reikwijdte blijft toegestaan mits zichtbaar; informatie daar
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een check met beperkte reikwijdte wijzigt zijn exitcode door informatie buiten die reikwijdte. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een check met beperkte reikwijdte wijzigt zijn exitcode door informatie buiten die reikwijdte.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Vermeld de grens en baseer de exitcode op informatie binnen het vastgestelde bereik. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Vermeld de grens en baseer de exitcode op informatie binnen het vastgestelde bereik.
 
 **Handmatige review**
 
@@ -2849,7 +2849,7 @@ Koppel iedere statusbepalende waarneming aan het gecontroleerde bereik en onders
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### De hoofdoorzaak vooraan in lange uitvoer zetten
 
@@ -2867,7 +2867,7 @@ Volgorde en inhoud van lange diagnoses.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
 
 **Toegestane uitzonderingen**
 
@@ -2875,11 +2875,11 @@ Details mogen volgen, maar verbergen de belangrijkste diagnose niet.
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: De directe oorzaak staat onder details en drempelwaarden zonder vervolgstap. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: De directe oorzaak staat onder details en drempelwaarden zonder vervolgstap.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Begin met onderdeel, waarneming, waarschijnlijke oorzaak en vervolgstap of escalatie. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Begin met onderdeel, waarneming, waarschijnlijke oorzaak en vervolgstap of escalatie.
 
 **Handmatige review**
 
@@ -2887,7 +2887,7 @@ Lees de diagnose in afgedrukte volgorde; controleer dat de hoofdoorzaak en vervo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Lange uitvoer afsluiten met interpretatie
 
@@ -2905,7 +2905,7 @@ Niet-triviale lange uitvoer en de afsluitende Interpretation-sectie.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt geen opvulsectie.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt geen opvulsectie.
 
 **Toegestane uitzonderingen**
 
@@ -2913,11 +2913,11 @@ De verplichting betreft niet-triviale lange uitvoer; een triviale uitvoer vraagt
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een lange diagnose eindigt met losse tellers zonder uitleg over bereik en context. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een lange diagnose eindigt met losse tellers zonder uitleg over bereik en context.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Sluit af met Interpretation: en leg uit hoe gegevens, reikwijdte en context gelezen moeten worden. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Sluit af met Interpretation: en leg uit hoe gegevens, reikwijdte en context gelezen moeten worden.
 
 **Handmatige review**
 
@@ -2925,7 +2925,7 @@ Controleer de laatste sectie op betekenis en vervolginformatie zonder perfdata o
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Veilige en begrensde uitvoer
 
@@ -2947,7 +2947,7 @@ Vaste tekst, runtimegegevens, externe data en bewuste uitvoerscheidingen.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normalisatie vereisen.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normalisatie vereisen.
 
 **Toegestane uitzonderingen**
 
@@ -2955,11 +2955,11 @@ Vaste veilige tekst hoeft niet te worden bewerkt; dynamische data kan wel normal
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Vaste veilige tekst krijgt een extra normalisatiepijplijn zonder risico dat zij oplost. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Vaste veilige tekst krijgt een extra normalisatiepijplijn zonder risico dat zij oplost.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Volg de data naar de uitvoer en normaliseer wanneer onveilige pipes of ongewenste lege regels kunnen ontstaan. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Volg de data naar de uitvoer en normaliseer wanneer onveilige pipes of ongewenste lege regels kunnen ontstaan.
 
 **Handmatige review**
 
@@ -2967,7 +2967,7 @@ Identificeer per bewerking de onveilige bron en het effect; licht niet-vanzelfsp
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Pipes en lege regels in lange uitvoer veilig maken
 
@@ -2994,7 +2994,7 @@ Dynamische data op alle regels van lange Nagios-uitvoer.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het volledige lange uitvoerkanaal.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het volledige lange uitvoerkanaal.
 
 **Toegestane uitzonderingen**
 
@@ -3002,7 +3002,7 @@ Ook pipes op vervolgregels kunnen perfdata openen; de bescherming geldt voor het
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een logregel met een ruwe pipe wordt als vervolgtekst afgedrukt en kan als perfdata worden gelezen. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een logregel met een ruwe pipe wordt als vervolgtekst afgedrukt en kan als perfdata worden gelezen.
 
 **Correct voorbeeld**
 
@@ -3028,7 +3028,7 @@ Controleer alle normale, afwijkende, onvolledige en vroege foutpaden, inclusief 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Eén afkapmechanisme per diagnoseblok gebruiken
 
@@ -3046,7 +3046,7 @@ Configureerbare item-, regel-, blok- en tekenlimieten op diagnoseverzamelingen.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde gegevens afkapt.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde gegevens afkapt.
 
 **Toegestane uitzonderingen**
 
@@ -3054,11 +3054,11 @@ Een ander uitvoerkanaal mag een eigen limiet hebben wanneer die niet dezelfde ge
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Dezelfde verzameling wordt na elkaar door een itemlimiet, regellimiet en tekenlimiet afgeknipt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Dezelfde verzameling wordt na elkaar door een itemlimiet, regellimiet en tekenlimiet afgeknipt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Kies per diagnoseblok één configureerbare afkapmethode. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Kies per diagnoseblok één configureerbare afkapmethode.
 
 **Handmatige review**
 
@@ -3066,7 +3066,7 @@ Volg ieder verzameld item door alle limieten en bepaal welke informatie iedere a
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Interpretatie zichtbaar houden bij een UI-limiet
 
@@ -3084,7 +3084,7 @@ Totale tekenlimiet van lange uitvoer boven Interpretation.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen willekeurige extra limieten op dezelfde verzameling.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen willekeurige extra limieten op dezelfde verzameling.
 
 **Toegestane uitzonderingen**
 
@@ -3092,11 +3092,11 @@ Deze totale begrenzing geldt bij een relevante UI-limiet; zij rechtvaardigt geen
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een UI-limiet kapt de interpretatie en vervolgstap af. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een UI-limiet kapt de interpretatie en vervolgstap af.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Begrens de tekst boven Interpretation: en zet de afkapmelding vóór die laatste uitleg. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Begrens de tekst boven Interpretation: en zet de afkapmelding vóór die laatste uitleg.
 
 **Handmatige review**
 
@@ -3104,7 +3104,7 @@ Controleer de uitvoer bij de exacte grens en bij overschrijding; behoud afkapmel
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Werkbegrenzing van tekstbegrenzing onderscheiden
 
@@ -3122,7 +3122,7 @@ APT-ophaal-, groeps- en tijdslimieten, journalvensters en afkappen van verzameld
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heeft; maak dat doel expliciet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heeft; maak dat doel expliciet.
 
 **Toegestane uitzonderingen**
 
@@ -3130,11 +3130,11 @@ Een invoerlimiet mag bestaan naast een tekstlimiet omdat zij een ander doel heef
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een journalvenster wordt beschreven alsof het de lengte van reeds verzamelde diagnoses begrenst. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een journalvenster wordt beschreven alsof het de lengte van reeds verzamelde diagnoses begrenst.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Documenteer afzonderlijk welk extern werk wordt begrensd en welke uitvoer wordt ingekort. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Documenteer afzonderlijk welk extern werk wordt begrensd en welke uitvoer wordt ingekort.
 
 **Handmatige review**
 
@@ -3142,7 +3142,7 @@ Controleer de plaats van de grens vóór of na verzameling en behoud zichtbare m
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Perfdata en compatibiliteit
 
@@ -3164,7 +3164,7 @@ Labels, UOM en optionele velden van Nagios-perfdata.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden weggelaten.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden weggelaten.
 
 **Toegestane uitzonderingen**
 
@@ -3172,11 +3172,11 @@ Eenheden zoals %, B, s en Mbps horen in UOM; ontbrekende achterste velden worden
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een label heet DiskBytes en bevat de eenheid; lege optionele velden blijven als puntkomma’s staan. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een label heet DiskBytes en bevat de eenheid; lege optionele velden blijven als puntkomma’s staan.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik een stabiel snake_case-label met kleine beginletter, zet B in UOM en eindig bij het laatste gevulde optionele veld. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik een stabiel snake_case-label met kleine beginletter, zet B in UOM en eindig bij het laatste gevulde optionele veld.
 
 **Handmatige review**
 
@@ -3184,7 +3184,7 @@ Controleer labeltekens, eenheid en iedere veldpositie zonder betekenisvolle sche
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Counter-UOM alleen voor monotone tellers gebruiken
 
@@ -3202,7 +3202,7 @@ Perfdatavelden met UOM c.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen zijn geen monotone counters.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen zijn geen monotone counters.
 
 **Toegestane uitzonderingen**
 
@@ -3210,11 +3210,11 @@ Gauges, begrensde aantallen, huidig gebruik, pieken, snelheden en periodetotalen
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een gauge met huidig geheugengebruik krijgt c. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een gauge met huidig geheugengebruik krijgt c.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik c alleen voor een teller die oploopt tot een reset; kies voor een gauge de passende gewone eenheid. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Gebruik c alleen voor een teller die oploopt tot een reset; kies voor een gauge de passende gewone eenheid.
 
 **Handmatige review**
 
@@ -3222,7 +3222,7 @@ Volg de meetwaarde over meerdere waarnemingen en bepaal of een daling uitsluiten
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### De externe monitoringinterface behouden
 
@@ -3240,7 +3240,7 @@ Exitcodes, samenvatting, perfdata, opties, gegenereerde paden en registratiename
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een expliciete opdracht mag de afspraak veranderen; de operationele reden en validatie blijven vereist.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een expliciete opdracht mag de afspraak veranderen; de operationele reden en validatie blijven vereist.
 
 **Toegestane uitzonderingen**
 
@@ -3248,11 +3248,11 @@ Een expliciete opdracht mag de afspraak veranderen; de operationele reden en val
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een interne refactor verandert zonder opdracht een perfdatakey of exitcode. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een interne refactor verandert zonder opdracht een perfdatakey of exitcode.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Behoud de interface; documenteer bij een expliciet gevraagde wijziging de operationele reden. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Behoud de interface; documenteer bij een expliciet gevraagde wijziging de operationele reden.
 
 **Handmatige review**
 
@@ -3260,4 +3260,4 @@ Vergelijk de genoemde interfaceonderdelen vóór en na de wijziging en valideer 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.

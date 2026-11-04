@@ -1,6 +1,10 @@
 # Gevoelige gegevens lokaal controleren
 
-`project-tools-secrets` leest bestanden lokaal voordat je de inhoud gebruikt voor externe analyse of AI-analyse. De tool meldt mogelijke geheimen zonder hun waarden te tonen en bereidt een analysewerkboom voor waarin die waarden zijn gemaskeerd. Scanner en voorbereiding maken geen netwerkverbindingen, voeren geen invoer uit en wijzigen geen bronbestanden. Het subcommando `write` kan gecontroleerde bronwijzigingen toepassen; expliciete diagnostiek start goedgekeurde lokale opdrachten. Neem je deze repository als `global-modules` op in een ander project, begin dan bij [Gebruik in een ander project](#gebruik-in-een-ander-project).
+Met `project-tools-secrets` controleer je bestanden lokaal voordat je hun inhoud gebruikt voor externe analyse of AI-analyse. De tool meldt mogelijke geheimen zonder hun waarden te tonen. Je kunt er ook een analysewerkboom mee voorbereiden waarin die waarden zijn gemaskeerd.
+
+Scanner en voorbereiding maken geen netwerkverbindingen, voeren geen invoer uit en wijzigen geen bronbestanden. Met `write` pas je gecontroleerde bronwijzigingen toe; met expliciete diagnostiek start je goedgekeurde lokale opdrachten.
+
+Gebruik je deze repository als `global-modules` in een ander project, begin dan bij [Gebruik in een ander project](#gebruik-in-een-ander-project).
 
 Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Algemene tekstscans hebben geen Puppet-runtime nodig. Puppet-invoer gebruikt de [centraal geselecteerde Puppet/OpenVox-runtime](../shared/README.md#puppet-runtime-selecteren); ontbrekende of ongeschikte functionaliteit blijft een onvolledige scan. De versieheader verschijnt eenmaal op stderr bij afsluiting en bevat geen brongegevens.
 
@@ -78,9 +82,9 @@ Het pakket levert uitsluitend `project-tools-secrets`. Zonder subcommando scant 
 
 Gebruik `project-tools-secrets --help` of `project-tools-secrets ACTION --help`. Een bronbestand dat naar een subcommando is genoemd, selecteer je als `./run` of na `--`. Bundler-aanroepen beginnen steeds met `bundle exec`.
 
-Vanaf pakketversie `0.4.0` vervalt `--redact`, inclusief `files[].copy` en genummerde bestanden. De eerdere losse prepare-, write- en review-executables worden niet geleverd. Vervang hun aanroepen door respectievelijk `project-tools-secrets prepare`, `project-tools-secrets write` en `project-tools-secrets diff`; ondersteunende subcommando's staan rechtstreeks achter `project-tools-secrets`. Deze wijziging vereist aanpassing van consumers; er is geen alias, fallback of tijdelijke compatibiliteitsroute.
+Vanaf pakketversie `0.4.0` vervalt `--redact`, inclusief `files[].copy` en genummerde bestanden. De eerdere losse prepare-, write- en review-executables worden niet geleverd. Vervang hun aanroepen door respectievelijk `project-tools-secrets prepare`, `project-tools-secrets write` en `project-tools-secrets diff`; ondersteunende subcommando's staan rechtstreeks achter `project-tools-secrets`. Deze wijziging vereist aanpassing van afnemers; er is geen alias, fallback of tijdelijke compatibiliteitsroute.
 
-Ruby-consumers gebruiken één ingang: `ProjectTools::Secrets.run(arguments, output: io)`. Bijvoorbeeld `.run(['prepare', *options])`, `.run(['write', *options])` of `.run(['run', *options])`. De methode retourneert de exitcode en schrijft uitsluitend het gecontroleerde publieke resultaat naar `io`.
+Ruby-afnemers gebruiken één ingang: `ProjectTools::Secrets.run(arguments, output: io)`. Bijvoorbeeld `.run(['prepare', *options])`, `.run(['write', *options])` of `.run(['run', *options])`. De methode retourneert de exitcode en schrijft uitsluitend het gecontroleerde publieke resultaat naar `io`.
 
 Werk gemselectie, lockfile, scripts, resultaatlezers en eigen instructies samen bij en doorloop het oefenvoorbeeld hieronder vanuit de consumerbundle. De bestaande private state en het hersteljournal behouden hun formaat: afronden en herstel gebruiken dezelfde `--state` en `--session`. Bewaar die state zolang herstel nodig is. De [migratie van kopieën](#migreren-van-genummerde-kopieën) beschrijft de gewijzigde resultaatvelden.
 
@@ -115,7 +119,9 @@ Het beleid bevat expliciete bestanden, geen recursieve projectselectie. Dit synt
 | `commands` | Lokaal goedgekeurde diagnostiek, als naam naar argumentenlijst. `run` voert die opdracht op de echte bron uit en controleert beide uitvoerstromen. Dit is uitvoering van vertrouwde opdrachten, geen sandbox voor willekeurige code. |
 | `fixture_paths` | Expliciete testbestanden waarvoor de tool [synthetische waarden](#synthetische-fixtures-bewerken) mag genereren. |
 
-Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestanden die je bij de bewerking wilt betrekken; de tool zoekt niet automatisch naar agentconfiguratie. Gewijzigde geselecteerde context of gewijzigd beleid maakt een oude voorbereiding ongeldig. De tool ontdekt geen ontbrekende Hiera-hiërarchie: de aanroeper blijft verantwoordelijk voor een volledige `context`-selectie. De [repositorywerkwijze](../../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) bepaalt ook hier wanneer voorcontrole verplicht is; er is geen aparte agentlauncher nodig.
+Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestanden die je bij de bewerking wilt betrekken; de tool zoekt niet automatisch naar agentconfiguratie. Gewijzigde geselecteerde context of gewijzigd beleid maakt een oude voorbereiding ongeldig.
+
+De tool ontdekt geen ontbrekende Hiera-hiërarchie: de aanroeper blijft verantwoordelijk voor een volledige `context`-selectie. De [repositorywerkwijze](../../CONTRIBUTING.md#lokale-inspectie-vóór-inzage) bepaalt ook hier wanneer voorcontrole verplicht is; er is geen aparte agentlauncher nodig.
 
 ### Voorbereiden en een gewone wijziging toepassen
 
@@ -154,7 +160,9 @@ SESSION_REF=$(ruby -rjson -e '
 export SESSION_REF
 ```
 
-Beoordeel `prepared.json` voordat de agent de analysemap krijgt. Exitcode 1 is bij volledige voorbereiding met bevindingen normaal. Vereis `complete: true`, `prepared: true`, de verwachte bestandsselectie en de bijbehorende nieuwe analysebestanden. `coverage` onderscheidt `text_patterns`, `yaml_parser` en `puppet_parser`; `context` bevat veilige contextpaden. `context_omitted` meldt weggelaten meerregelige inhoud. Bij ontbrekende invoer, onvolledige inspectie of mislukte voorbereiding wordt geen gedeeltelijke werkboom vrijgegeven.
+Beoordeel `prepared.json` voordat de agent de analysemap krijgt. Exitcode 1 is bij volledige voorbereiding met bevindingen normaal. Vereis `complete: true`, `prepared: true`, de verwachte bestandsselectie en de bijbehorende nieuwe analysebestanden.
+
+`coverage` onderscheidt `text_patterns`, `yaml_parser` en `puppet_parser`; `context` bevat veilige contextpaden. `context_omitted` meldt weggelaten meerregelige inhoud. Bij ontbrekende invoer, onvolledige inspectie of mislukte voorbereiding wordt geen gedeeltelijke werkboom vrijgegeven.
 
 De inhoudelijke agent leest en bewerkt nu alleen `$TASK_BASE/analysis`. Voor deze gewone wijziging blijft de marker staan:
 
@@ -175,7 +183,9 @@ bundle exec project-tools-secrets close \
     --state "$TASK_BASE/state" --session "$SESSION_REF"
 ```
 
-De lokale caller voert writer, diagnostiek en diff uit; de agent krijgt hun gecontroleerde resultaten. Een geslaagde writer meldt `status: applied`. De gevoelige waarde blijft lokaal; de veilige diff gebruikt dezelfde occurrence-ID. Ongewijzigde bronnen worden niet opnieuw geschreven. Na toepassing is de sessie voor schrijven verbruikt, maar blijft zij beschikbaar voor review. `close` wist de mapping; `cancel` doet dat bij annulering. De gesaneerde analysemap blijft staan en vormt geen bewijs voor een volgende voorbereiding. Gebruik voor een volgende wijziging een nieuwe analysemap en een nieuwe sessie; fysieke vernietiging van filesystemkopieën of snapshots wordt niet beloofd.
+De lokale aanroeper voert de schrijfstap, diagnostiek en vergelijking uit en geeft de gecontroleerde resultaten aan de agent. Een geslaagde writer meldt `status: applied`. De gevoelige waarde blijft lokaal; de veilige diff gebruikt dezelfde occurrence-ID. Ongewijzigde bronnen worden niet opnieuw geschreven.
+
+Na toepassing is de sessie voor schrijven verbruikt, maar blijft zij beschikbaar voor review. `close` wist de mapping; `cancel` doet dat bij annulering. De gesaneerde analysemap blijft staan en vormt geen bewijs voor een volgende voorbereiding. Gebruik voor een volgende wijziging een nieuwe analysemap en een nieuwe sessie; fysieke vernietiging van filesystemkopieën of snapshots wordt niet beloofd.
 
 ### Volledig herschrijven en expliciete operaties
 
@@ -252,17 +262,23 @@ bundle exec project-tools-secrets write --state "$TASK_BASE/state" \
 | Gewone tekst, shell en ERB | Afgebakende fragmenten herstellen uitsluitend bij dezelfde extensie, quotes en omliggende regelcontext. Veranderde gevoelige expressies of onzekere interpolatie geven `unsupported_marker_context`. Gewone `.sh`-bestanden krijgen shellsyntaxcontrole; herkende ERB-templates krijgen de hieronder beschreven templatevalidatie. |
 | Eenvoudige Ruby-stringliterals | Enkele quotes en JSON-compatibele dubbele quotes kunnen als waarde herstellen, onder andere voor fixtures. Interpolatie en andere Ruby-escapes worden niet geëvalueerd; een niet-ondersteunde verplaatsing wordt geweigerd. |
 | Letterlijke Ruby-arrays en hashes | Bij ondersteunde containers blijven haakjes, komma's en nesting zichtbaar. Gevoelige leden krijgen afzonderlijke markers; bij een volledig gevoelige container worden ook sleutels afgeschermd. Herstel behoudt de oorspronkelijke bytes en scalartypen. Toevoegen, herschikken en herinspringen binnen dezelfde array is mogelijk; markerverwijdering, hergebruik en verplaatsing volgen de expliciete sessieacties. |
-| Archieven | De scan geeft uitsluitend metadata. Laat de lokale caller de benodigde leden veilig naar een private bronmap exporteren en bereid die gewone bestanden met hun context voor. `prepare` weigert het archiefbestand zelf. |
+| Archieven | De scan geeft uitsluitend metadata. Laat de lokale aanroeper de benodigde leden veilig naar een private bronmap exporteren en bereid die gewone bestanden met hun context voor. `prepare` weigert het archiefbestand zelf. |
 
 Bestaande markerachtige tekst in broncode of documentatie wordt tijdens voorbereiding eveneens beschermd met een nieuwe ID. De writer herstelt die oorspronkelijke tekst pas nadat de markers in de analyse zijn gevalideerd. Een onbekende of beschadigde marker in de analyse blijft een weigering.
 
 Voor Ruby (`.rb`, `.rake`, `.gemspec`, `Gemfile` en `Rakefile`) controleert `prepare` ook de gegenereerde analysekopie met Ripper. Een parserfout geeft `inspection_incomplete`; er wordt dan geen werkboom of herstelmapping vrijgegeven. Een succesvolle broncontrole alleen is dus onvoldoende. Deze controle voert de code niet uit en bewijst geen correct runtimegedrag.
 
-Structurele Ruby-bewerking ondersteunt geneste letterlijke arrays en hashes met eenvoudige strings, integers, floats, gewone symbolen, `true`, `false` en `nil`. Hashsleutels mogen zulke scalars zijn. Dynamische expressies, interpolatie, splats en commentaar binnen een volledig gevoelig containerfragment blijven als geheel afgeschermd wanneer afzonderlijk herstel niet betrouwbaar is. Die ene marker biedt geen toegang tot afzonderlijke leden; ongeldige gegenereerde syntaxis wordt altijd geweigerd. De analysekopie is bewerkingsinvoer en mag niet worden uitgevoerd: een marker voor een getal of symbool is tijdelijk een string. Eenvoudige stringleden kunnen met een expliciete verplaatsing ook naar een ondersteunde zelfstandige Ruby-, YAML- of Puppet-stringliteral. Andere typen en hashsleutels blijven aan een Ruby-container gebonden; een impliciete omzetting naar een string wordt geweigerd.
+Structurele Ruby-bewerking ondersteunt geneste letterlijke arrays en hashes met eenvoudige strings, integers, floats, gewone symbolen, `true`, `false` en `nil`. Hashsleutels mogen zulke scalars zijn. Dynamische expressies, interpolatie, splats en commentaar binnen een volledig gevoelig containerfragment blijven als geheel afgeschermd wanneer afzonderlijk herstel niet betrouwbaar is. Die ene marker biedt geen toegang tot afzonderlijke leden; ongeldige gegenereerde syntaxis wordt altijd geweigerd.
 
-Een nieuwe waarde in een gevoelige container moet via `register --input PRIVATE_FILE --to PATH` worden toegevoegd. Plaats de ontvangen marker als volledige stringliteral tussen de bestaande leden. In een gewone array met één afgeschermd lid mogen ook niet-gevoelige openbare leden worden toegevoegd. Markers mogen niet worden aangepast of met andere tekst tot een grotere string worden samengevoegd. Een hashwaarde blijft aan haar sleutel gekoppeld; voor verplaatsing naar een andere sleutel of toewijzing is `move_ids` vereist. Bewaar bestaande sleutelmarkers bij uitbreiding van een hash. Bereid een nieuwe sessie voor wanneer een oudere analysekopie de hele array nog als één marker afschermt.
+De analysekopie is bewerkingsinvoer en mag niet worden uitgevoerd: een marker voor een getal of symbool is tijdelijk een string. Eenvoudige stringleden kunnen met een expliciete verplaatsing ook naar een ondersteunde zelfstandige Ruby-, YAML- of Puppet-stringliteral. Andere typen en hashsleutels blijven aan een Ruby-container gebonden; een impliciete omzetting naar een string wordt geweigerd.
 
-De writer herkent `.erb` als ERB. Ook bestanden onder een map `templates/` met een volledige ERB-tag (`<% … %>`, inclusief expressies, commentaar en trimtags) krijgen templatevalidatie, ongeacht hun extensie. Dit omvat de `.sh`-templates en templates zonder extensie in deze repository. Alleen de tekst `<%` is onvoldoende: een gewoon shellscript dat die tekst afdrukt blijft shellcode. Een `.sh`-bestand buiten `templates/` blijft eveneens shellcode; gebruik daar `.erb` om een template aan te geven.
+Een nieuwe waarde in een gevoelige container moet via `register --input PRIVATE_FILE --to PATH` worden toegevoegd. Plaats de ontvangen marker als volledige stringliteral tussen de bestaande leden. In een gewone array met één afgeschermd lid mogen ook niet-gevoelige openbare leden worden toegevoegd. Markers mogen niet worden aangepast of met andere tekst tot een grotere string worden samengevoegd.
+
+Een hashwaarde blijft aan haar sleutel gekoppeld; voor verplaatsing naar een andere sleutel of toewijzing is `move_ids` vereist. Bewaar bestaande sleutelmarkers bij uitbreiding van een hash. Bereid een nieuwe sessie voor wanneer een oudere analysekopie de hele array nog als één marker afschermt.
+
+De writer herkent `.erb` als ERB. Ook bestanden onder een map `templates/` met een volledige ERB-tag (`<% … %>`, inclusief expressies, commentaar en trimtags) krijgen templatevalidatie, ongeacht hun extensie. Dit omvat de `.sh`-templates en templates zonder extensie in deze repository.
+
+Alleen de tekst `<%` is onvoldoende: een gewoon shellscript dat die tekst afdrukt blijft shellcode. Een `.sh`-bestand buiten `templates/` blijft eveneens shellcode; gebruik daar `.erb` om een template aan te geven.
 
 Templatevalidatie vertaalt de herstelde inhoud met `ERB.new(bytes, trim_mode: '-')` naar Ruby-bron en parseert die met Ripper. De writer voert de Ruby-code niet uit. Geldige Puppet-trimtags zoals `<%-` en `-%>` worden ondersteund; ongeldige Ruby-expressies geven `invalid_template`. Een geslaagde controle bewijst alleen syntactische geldigheid van de gegenereerde Ruby-bron. Zij bewijst niet dat templatevariabelen beschikbaar zijn of dat de gerenderde shellcode geldig is. Render vaste synthetische varianten afzonderlijk en controleer hun uitvoer met de passende shellparser. Gewone `.sh`-bestanden worden met `sh -n` gecontroleerd, of met `bash -n` wanneer de eerste regel `bash` bevat; afkeuring geeft `invalid_shell`. Ook die syntaxcontrole voert het script niet uit en bewijst geen correct runtimegedrag.
 
@@ -297,7 +313,7 @@ Bij meerregelig afgeschermde inhoud moet bovendien de oorspronkelijke inspringin
 
 Een marker in een YAML-sleutel, commentaar of niet-ondersteunde expressie is geen geldige nieuwe bestemming voor een literal. Behoud van markercontext en van de oorspronkelijke waarde bewijst niet dat de gewijzigde programmatuur het correct gebruikt: omliggende code kan bijvoorbeeld logging toevoegen. Codereview en functionele validatie blijven nodig.
 
-De writer inspecteert alle herstelde kandidaten samen met de kandidaatversie van de context. Ook ongewijzigde geselecteerde bestanden blijven onder de marker-, syntax- en bronversiecontroles vallen; alleen het opnieuw schrijven van ongewijzigde bytes wordt overgeslagen. Een algemene bevinding voor een behouden waarde in toegestane Hiera-data is geen schrijfweigering. Een nieuw herkenbaar geheim als gewone analysetekst geeft `unregistered_value`, ook wanneer gewijzigde `lookup_options` een voorheen onopvallende waarde gevoelig maakt. Voeg echte nieuwe waarden uitsluitend via de lokale caller toe met `register --input PRIVATE_FILE --to PATH`; geef nooit de inhoud van dat invoerbestand aan de agent. De caller ontvangt een nieuwe marker voor een ondersteunde literalcontext.
+De writer inspecteert alle herstelde kandidaten samen met de kandidaatversie van de context. Ook ongewijzigde geselecteerde bestanden blijven onder de marker-, syntax- en bronversiecontroles vallen; alleen het opnieuw schrijven van ongewijzigde bytes wordt overgeslagen. Een algemene bevinding voor een behouden waarde in toegestane Hiera-data is geen schrijfweigering. Een nieuw herkenbaar geheim als gewone analysetekst geeft `unregistered_value`, ook wanneer gewijzigde `lookup_options` een voorheen onopvallende waarde gevoelig maakt. Voeg echte nieuwe waarden uitsluitend via de lokale aanroeper toe met `register --input PRIVATE_FILE --to PATH`; geef nooit de inhoud van dat invoerbestand aan de agent. De aanroeper ontvangt een nieuwe marker voor een ondersteunde literalcontext.
 
 Voor migratie van een synthetisch hardcoded Puppet-stringgeheim bereid je het manifest en de benodigde Hiera-context voor, met het nieuwe databestand onder `destinations`. Vervang de toewijzing in de analysekopie door een gewone lookup, plaats de oorspronkelijke marker als YAML-waarde in het nieuwe bestand en benoem de verplaatsing:
 
@@ -548,7 +564,7 @@ De algemene scan ondersteunt tar, gzip, `.tar.gz` en `.tgz` lokaal in het geheug
 
 Per bestand of lid geldt de bestaande grens van 5 MiB. Een aanroep verwerkt maximaal 25 MiB uitgepakte gegevens, 1000 leden en drie archieflagen. Dubbele leden, absolute paden, `..`, symlinks, hardlinks, bijzondere bestandstypen, ongeldige headers, afgebroken inhoud en aanvullende gegevens na het archief worden geweigerd. Een overschreden grens of ongeldig archief geeft een onvolledige controle.
 
-Het rapport behoudt één record per geselecteerd bestand. `coverage: archive` benoemt archiefinspectie; bevindingen hebben daarnaast een numerieke `member`-route. Er wordt geen afzonderlijke archiefkopie gepubliceerd. Voor inhoudelijke inzage exporteert een vertrouwde lokale caller de benodigde leden veilig naar een private bronmap, zonder inhoud of lidnamen vooraf te tonen. Selecteer deze bestanden en hun volledige Hiera-context daarna met `prepare`. De export verleent op zichzelf geen toestemming tot inzage. Onvolledige inspectie blijft een blokkade; een tekstweergave kan niet naar een archief worden teruggeschreven.
+Het rapport behoudt één record per geselecteerd bestand. `coverage: archive` benoemt archiefinspectie; bevindingen hebben daarnaast een numerieke `member`-route. Er wordt geen afzonderlijke archiefkopie gepubliceerd. Voor inhoudelijke inzage exporteert een vertrouwde lokale aanroeper de benodigde leden veilig naar een private bronmap, zonder inhoud of lidnamen vooraf te tonen. Selecteer deze bestanden en hun volledige Hiera-context daarna met `prepare`. De export verleent op zichzelf geen toestemming tot inzage. Onvolledige inspectie blijft een blokkade; een tekstweergave kan niet naar een archief worden teruggeschreven.
 
 ## Puppet-manifesten in standaardtests en CI
 
@@ -657,7 +673,7 @@ Before project content enters AI context or external analysis, follow the [share
 
 Kies de bestanden die je daadwerkelijk nodig hebt en neem toepasselijke Hiera-`lookup_options` in dezelfde scan mee. De scanner ontdekt geen externe Hiera-hiërarchie. Geef niet zonder selectie de volledige projectroot op: `.git`, geïnstalleerde gems, de submodule, binaire bestanden en oude uitvoer vallen dan ook binnen de recursieve scan; `.gitignore` is geen scanneruitsluiting.
 
-Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasselijke context mee. Gebruik vervolgens uitsluitend de [analysewerkboomprocedure](#ontwikkelen-met-een-analysewerkboom), ook voor alleen lezen. Controleer het voorbereidingsresultaat vóór inzage en sluit de private waardekoppelingen na gebruik af. Kopieer het synthetische oefenbeleid niet ongewijzigd naar een echt project: de caller bepaalt de werkelijke selectie en bevoegdheden.
+Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasselijke context mee. Gebruik vervolgens uitsluitend de [analysewerkboomprocedure](#ontwikkelen-met-een-analysewerkboom), ook voor alleen lezen. Controleer het voorbereidingsresultaat vóór inzage en sluit de private waardekoppelingen na gebruik af. Kopieer het synthetische oefenbeleid niet ongewijzigd naar een echt project: de aanroeper bepaalt de werkelijke selectie en bevoegdheden.
 
 ### Koppel de Puppet-controle aan eigen taken
 

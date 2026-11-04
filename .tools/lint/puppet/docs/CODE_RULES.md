@@ -229,7 +229,7 @@ Suppressie niet toegestaan voor deze check. Een gemiste detectie is geen uitzond
 
 **Onjuist voorbeeld**
 
-Fragment; controle `2sp_soft_tabs`; verwacht error.
+Fragment voor `2sp_soft_tabs`. Verwacht een error.
 
 <!-- lint-example: 2sp_soft_tabs error -->
 ```puppet
@@ -240,7 +240,7 @@ Fragment; controle `2sp_soft_tabs`; verwacht error.
 
 **Correct voorbeeld**
 
-Fragment; controle `2sp_soft_tabs`; verwacht geen melding.
+Fragment voor `2sp_soft_tabs`. Verwacht geen melding.
 
 <!-- lint-example: 2sp_soft_tabs clean -->
 ```puppet
@@ -269,7 +269,7 @@ Na een openende `{` begint de inhoud direct op de volgende regel, ook als er ach
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -281,7 +281,7 @@ Na een openende `{` begint de inhoud direct op de volgende regel, ook als er ach
 
 **Detectiegrenzen**
 
-Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden, behalve bij de [beschreven resource-attribuutgrenzen](#resource-attributen-zonder-lege-regels-schrijven). De inhoudelijke juistheid van de uitleg blijft review.
+Na ( mag de eerste regel leeg zijn; letterlijke arrays volgen de [arrayopmaak](#inspringing). Tekens in strings, regex, heredocs en commentaar blijven data. Lege regels verder in het blok mogen onderdelen scheiden, behalve bij de [beschreven resource-attribuutgrenzen](#resource-attributen-zonder-lege-regels-schrijven). Controleer zelf of de uitleg inhoudelijk klopt.
 
 **Meldingen en severity**
 
@@ -305,7 +305,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht warning.
+Fragment voor `project_layout`. Verwacht een warning.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
@@ -317,7 +317,7 @@ if $active {
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht geen melding.
+Fragment voor `project_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
@@ -382,7 +382,7 @@ Suppressie van `project_layout` is niet toegestaan. Technisch genegeerde bereike
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht twee warnings.
+Fragment voor `project_layout`. Verwacht twee warnings.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
@@ -396,7 +396,7 @@ notify { 'example':
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht geen melding.
+Fragment voor `project_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
@@ -462,7 +462,7 @@ Suppressie niet toegestaan voor deze check. Een gemiste detectie is geen uitzond
 
 **Onjuist voorbeeld**
 
-Fragment; controle `arrow_alignment`; verwacht warning.
+Fragment voor `arrow_alignment`. Verwacht een warning.
 
 <!-- lint-example: arrow_alignment warning -->
 ```puppet
@@ -474,7 +474,7 @@ notify { 'example':
 
 **Correct voorbeeld**
 
-Fragment; controle `arrow_alignment`; verwacht geen melding.
+Fragment voor `arrow_alignment`. Verwacht geen melding.
 
 <!-- lint-example: arrow_alignment clean -->
 ```puppet
@@ -516,7 +516,7 @@ Letterlijke strings, interpolaties en bekende escapetekens in Puppet.
 
 **Detectiegrenzen**
 
-Inspecteert STRING-tokens zonder herkenbare escapes; apostrofs, nieuwe regels, tabs, backslashes en bekende escapes worden ontzien. Interpolatietokens vallen buiten deze waarschuwing. De bronvorm van iedere escape blijft review.
+Inspecteert STRING-tokens zonder herkenbare escapes; apostrofs, nieuwe regels, tabs, backslashes en bekende escapes worden ontzien. Interpolatietokens vallen buiten deze waarschuwing. Controleer zelf hoe iedere escape in de bron is geschreven.
 
 **Meldingen en severity**
 
@@ -540,7 +540,7 @@ Suppressie niet toegestaan voor deze check. Een gemiste detectie is geen uitzond
 
 **Onjuist voorbeeld**
 
-Fragment; controle `double_quoted_strings`; verwacht warning.
+Fragment voor `double_quoted_strings`. Verwacht een warning.
 
 <!-- lint-example: double_quoted_strings warning -->
 ```puppet
@@ -549,7 +549,7 @@ $label = "Example"
 
 **Correct voorbeeld**
 
-Fragment; controle `double_quoted_strings`; verwacht geen melding.
+Fragment voor `double_quoted_strings`. Verwacht geen melding.
 
 <!-- lint-example: double_quoted_strings clean -->
 ```puppet
@@ -558,7 +558,7 @@ $label = 'Example'
 
 **Grensgevallen**
 
-Inspecteert STRING-tokens zonder herkenbare escapes; apostrofs, nieuwe regels, tabs, backslashes en bekende escapes worden ontzien. Interpolatietokens vallen buiten deze waarschuwing. De bronvorm van iedere escape blijft review. Dubbele quotes blijven toegestaan voor interpolatie of escapes.
+Inspecteert STRING-tokens zonder herkenbare escapes; apostrofs, nieuwe regels, tabs, backslashes en bekende escapes worden ontzien. Interpolatietokens vallen buiten deze waarschuwing. Controleer zelf hoe iedere escape in de bron is geschreven. Dubbele quotes blijven toegestaan voor interpolatie of escapes.
 
 **Handmatige review**
 
@@ -612,7 +612,7 @@ Suppressie niet toegestaan voor deze check. Een gemiste detectie is geen uitzond
 
 **Onjuist voorbeeld**
 
-Fragment; controle `selector_inside_resource`; verwacht warning.
+Fragment voor `selector_inside_resource`. Verwacht een warning.
 
 <!-- lint-example: selector_inside_resource warning -->
 ```puppet
@@ -621,7 +621,7 @@ notify { 'example': message => $active ? { true => 'Active', default => 'Inactiv
 
 **Correct voorbeeld**
 
-Fragment; controle `selector_inside_resource`; verwacht geen melding.
+Fragment voor `selector_inside_resource`. Verwacht geen melding.
 
 <!-- lint-example: selector_inside_resource clean -->
 ```puppet
@@ -749,7 +749,7 @@ Suppressie van `project_layout` is niet toegestaan. Technisch genegeerde bereike
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht een warning omdat de korte eenvoudige array compact moet zijn.
+Fragment voor `project_layout`. Verwacht een warning omdat de korte eenvoudige array compact moet zijn.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
@@ -763,7 +763,7 @@ $ports = [
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht geen melding.
+Fragment voor `project_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
@@ -816,7 +816,7 @@ Zet één spatie na een komma wanneer het volgende element op dezelfde regel sta
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -852,7 +852,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_layout` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_layout`. Verwacht een warning.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
@@ -861,7 +861,7 @@ $values = [1,2]
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_layout` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_layout`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
@@ -888,7 +888,7 @@ Sluit een parameterlijst over meerdere regels af met een komma na de laatste par
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -924,7 +924,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht warning.
+Fragment voor `project_layout`. Verwacht een warning.
 
 <!-- lint-example: project_layout warning -->
 ```puppet
@@ -935,7 +935,7 @@ class example (
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_layout`; verwacht geen melding.
+Fragment voor `project_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_layout clean -->
 ```puppet
@@ -968,7 +968,7 @@ Houd Puppet-code binnen 140 tekens per regel. Lange arrays en functieaanroepen k
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -980,7 +980,7 @@ Fysieke Puppet-coderegels, codecommentaar en de apart behandelde Puppet Strings-
 
 **Detectiegrenzen**
 
-`140chars` slaat bepaalde URL- en template-regels over. De projectnorm verlangt daar toch een zichtbare markering; dat blijft review. Strings wordt apart beoordeeld.
+`140chars` slaat bepaalde URL- en template-regels over. De projectnorm verlangt daar toch een zichtbare markering; controleer dit handmatig. Strings wordt apart beoordeeld.
 
 **Meldingen en severity**
 
@@ -1004,7 +1004,7 @@ Alleen `# lint:ignore:140chars` achter de code of een minimaal blok met `# lint:
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `140chars` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `140chars`. Verwacht een warning.
 
 <!-- lint-example: 140chars warning -->
 ```puppet
@@ -1013,7 +1013,7 @@ $value = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `140chars` is voor dit voorbeeld bedoeld. De melding krijgt `ignored` en is zonder `--show-ignored` niet zichtbaar; de expliciete uitzondering voldoet aan het projectbeleid.
+Fragment voor `140chars`. De melding krijgt `ignored` en is zonder `--show-ignored` niet zichtbaar; de expliciete uitzondering voldoet aan het projectbeleid.
 
 <!-- lint-example: 140chars ignored -->
 ```puppet
@@ -1022,7 +1022,7 @@ $value = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 **Grensgevallen**
 
-Bewust lange code met een lokale markering; bij Strings uitsluitend ondeelbare letterlijke waarden. Alle plaatsingsvoorwaarden hieronder blijven gelden. `140chars` slaat bepaalde URL- en template-regels over. De projectnorm verlangt daar toch een zichtbare markering; dat blijft review. Strings wordt apart beoordeeld. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Lange regels](#verdieping-bij-lange-regels).
+Bewust lange code met een lokale markering; bij Strings uitsluitend ondeelbare letterlijke waarden. Alle plaatsingsvoorwaarden hieronder blijven gelden. `140chars` slaat bepaalde URL- en template-regels over. De projectnorm verlangt daar toch een zichtbare markering; controleer dit handmatig. Strings wordt apart beoordeeld. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Lange regels](#verdieping-bij-lange-regels).
 
 **Handmatige review**
 
@@ -1034,7 +1034,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij Lange regels
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_suppressions` gecontroleerd.
 
@@ -1059,7 +1059,7 @@ De standaardcheck `140chars` meldt lange regels, maar slaat bepaalde regels met 
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1095,7 +1095,7 @@ Suppressie van project_suppressions is niet toegestaan. Toegestane syntax: # lin
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_suppressions`; verwacht error.
+Fragment voor `project_suppressions`. Verwacht een error.
 
 <!-- lint-example: project_suppressions error -->
 ```puppet
@@ -1106,7 +1106,7 @@ $values = [1] + [2]
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_suppressions`; verwacht geen melding.
+Fragment voor `project_suppressions`. Verwacht geen melding.
 
 <!-- lint-example: project_suppressions clean -->
 ```puppet
@@ -1199,7 +1199,7 @@ Een aanroeper behoudt zijn eigen instellingen en voorwaarden; gedeeld gedrag rec
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Twee aanroepers dupliceren dezelfde resourceorkestratie of een gedeelde define verliest de beveiligingsvoorwaarde van één aanroeper. Keur dit af.
+Handmatig reviewscenario: Twee aanroepers dupliceren dezelfde resourceorkestratie of een gedeelde define verliest de beveiligingsvoorwaarde van één aanroeper.
 
 **Correct voorbeeld**
 
@@ -1261,7 +1261,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `parameter_types`; verwacht warning.
+Fragment voor `parameter_types`. Verwacht een warning.
 
 <!-- lint-example: parameter_types warning -->
 ```puppet
@@ -1270,7 +1270,7 @@ class example ($label) {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `parameter_types`; verwacht geen melding.
+Fragment voor `parameter_types`. Verwacht geen melding.
 
 <!-- lint-example: parameter_types clean -->
 ```puppet
@@ -1299,7 +1299,7 @@ Voor de sortering gebruikt het project twee groepen. Eerst komen parameters zond
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1311,7 +1311,7 @@ Publieke class- en defined-typeparameters, hun getypeerde declaratieblokken en l
 
 **Detectiegrenzen**
 
-`Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Betekenisvolle naamgeving en veilige configuratiekeuzes blijven review.
+`Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Beoordeel zelf of namen duidelijk zijn en configuratiekeuzes veilig zijn.
 
 **Meldingen en severity**
 
@@ -1335,7 +1335,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_parameter_order` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_parameter_order`. Verwacht een warning.
 
 <!-- lint-example: project_parameter_order warning -->
 ```puppet
@@ -1344,7 +1344,7 @@ class example (String $zulu, String $alpha) {}
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_parameter_order` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_parameter_order`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_parameter_order clean -->
 ```puppet
@@ -1353,7 +1353,7 @@ class example (String $alpha, String $zulu) {}
 
 **Grensgevallen**
 
-Lokale defaultafhankelijkheid doorbreekt de alfabetische volgorde met de voorgeschreven trailing comment. Een buitenste `Optional` staat in groep twee zonder daardoor een default te krijgen. Gesplitste beveiligingsparameters alleen wegens compatibiliteit. `Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Betekenisvolle naamgeving en veilige configuratiekeuzes blijven review. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Parameters met defaultafhankelijkheden sorteren](#verdieping-bij-parameters-met-defaultafhankelijkheden-sorteren).
+Lokale defaultafhankelijkheid doorbreekt de alfabetische volgorde met de voorgeschreven trailing comment. Een buitenste `Optional` staat in groep twee zonder daardoor een default te krijgen. Gesplitste beveiligingsparameters alleen wegens compatibiliteit. `Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Beoordeel zelf of namen duidelijk zijn en configuratiekeuzes veilig zijn. De aanvullende scenario’s en gedeelde analysegrenzen zijn uitgewerkt bij [Verdieping bij Parameters met defaultafhankelijkheden sorteren](#verdieping-bij-parameters-met-defaultafhankelijkheden-sorteren).
 
 **Handmatige review**
 
@@ -1369,7 +1369,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 Voor de sortering gebruikt het project twee groepen. Eerst komen parameters zonder default en zonder buitenste `Optional[...]`. Daarna volgen de parameters met een default of `Optional[...]`. Sorteer beide groepen alfabetisch en lijn de typen, namen, `=`-tekens en defaults over het hele parameterblok uit. Dit fragment laat de indeling zien:
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_parameter_order, project_parameter_alignment` gecontroleerd. Omgeef het voor uitvoering met `class example (` en `) {}`.
 
@@ -1394,7 +1394,7 @@ Lijn de typen, namen, `=`-tekens en defaults over het hele parameterblok uit.
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1406,7 +1406,7 @@ Volledig getypeerde parameterblokken van classes en defined types, inclusief ver
 
 **Detectiegrenzen**
 
-`Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Betekenisvolle naamgeving en veilige configuratiekeuzes blijven review.
+`Optional` zonder default blijft vereist bij een aanroep. Uitlijning slaat ongetypeerde blokken over. Cyclische lokale defaults geven een uitvoerfout; de check lost de cyclus niet op. Beoordeel zelf of namen duidelijk zijn en configuratiekeuzes veilig zijn.
 
 **Meldingen en severity**
 
@@ -1430,7 +1430,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_parameter_alignment`; verwacht warning.
+Fragment voor `project_parameter_alignment`. Verwacht een warning.
 
 <!-- lint-example: project_parameter_alignment warning -->
 ```puppet
@@ -1442,7 +1442,7 @@ class example (
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_parameter_alignment`; verwacht geen melding.
+Fragment voor `project_parameter_alignment`. Verwacht geen melding.
 
 <!-- lint-example: project_parameter_alignment clean -->
 ```puppet
@@ -1480,11 +1480,11 @@ Instellingen met veilige standaard, uitschakeling en eigen scalarwaarde.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Parameters en instellingen](#parameters-en-instellingen).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Parameters en instellingen](#parameters-en-instellingen).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/value-parameters.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/value-parameters.
 
 **Toegestane uitzonderingen**
 
@@ -1492,11 +1492,11 @@ Alleen een compatibiliteitsvereiste rechtvaardigt afzonderlijke enable/custom/va
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Drie nieuwe parameters modelleren enable, default en custom zonder compatibiliteitsreden. Keur dit af tegen de norm.
+Handmatig reviewscenario: Drie nieuwe parameters modelleren enable, default en custom zonder compatibiliteitsreden.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik één passende Variant; bereken eenmaal de *_correct-waarde en gebruik die in de template. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik één passende Variant; bereken eenmaal de *_correct-waarde en gebruik die in de template.
 
 **Handmatige review**
 
@@ -1504,7 +1504,7 @@ Controleer true als veilige standaard, false als weglaten en scalar als eigen wa
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Parameternamen op onderwerp kiezen
 
@@ -1522,11 +1522,11 @@ Namen van publieke en lokale Puppet-parameters.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Parameters en instellingen](#parameters-en-instellingen).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Parameters en instellingen](#parameters-en-instellingen).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteunde runtimes.
 
 **Toegestane uitzonderingen**
 
@@ -1534,11 +1534,11 @@ Een naam met een begincijfer vereist een geslaagde validatie op alle ondersteund
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een parameter heet maxBandwidth. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een parameter heet maxBandwidth.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik een snake_case-naam die met het onderwerp begint, zoals bandwidth_max. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik een snake_case-naam die met het onderwerp begint, zoals bandwidth_max.
 
 **Handmatige review**
 
@@ -1546,7 +1546,7 @@ Controleer naamvolgorde en test een cijfer aan het begin op iedere ondersteunde 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Voorwaarden en validatie
 
@@ -1560,7 +1560,7 @@ Zet de omvangrijkste verwerking in de eerste tak van een voorwaarde en de korter
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1596,7 +1596,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_positive_flow` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_positive_flow`. Verwacht een warning.
 
 <!-- lint-example: project_positive_flow warning -->
 ```puppet
@@ -1605,7 +1605,7 @@ if $active { notice('One') } else { notice('One'); notice('Two') }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_positive_flow` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_positive_flow`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_positive_flow clean -->
 ```puppet
@@ -1642,7 +1642,7 @@ Na zo'n validatie volgt binnen dezelfde class, hetzelfde defined type, hetzelfde
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1678,7 +1678,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_positive_flow`; verwacht warning.
+Fragment voor `project_positive_flow`. Verwacht een warning.
 
 <!-- lint-example: project_positive_flow warning -->
 ```puppet
@@ -1690,7 +1690,7 @@ node 'example.test' {
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_positive_flow`; verwacht geen melding.
+Fragment voor `project_positive_flow`. Verwacht geen melding.
 
 <!-- lint-example: project_positive_flow clean -->
 ```puppet
@@ -1727,11 +1727,11 @@ Templates met conditionele directives en berekende geërfde instellingen.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Voorwaarden en validatie](#voorwaarden-en-validatie).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Voorwaarden en validatie](#voorwaarden-en-validatie).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende inhoud.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende inhoud.
 
 **Toegestane uitzonderingen**
 
@@ -1739,11 +1739,11 @@ De ruwe parameter mag de aanwezigheid bepalen; zij vervangt niet de berekende in
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een directive wordt met de ruwe undef-parameter gevuld terwijl de effectieve waarde beschikbaar is. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een directive wordt met de ruwe undef-parameter gevuld terwijl de effectieve waarde beschikbaar is.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Gebruik de ruwe parameter uitsluitend om te beslissen of de regel nodig is, en de berekende waarde voor haar inhoud. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Gebruik de ruwe parameter uitsluitend om te beslissen of de regel nodig is, en de berekende waarde voor haar inhoud.
 
 **Handmatige review**
 
@@ -1751,7 +1751,7 @@ Vergelijk de aanwezigheid van de regel en haar inhoud afzonderlijk voor explicie
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Optionele waarden alleen bij gebruik valideren
 
@@ -1769,11 +1769,11 @@ Optionele invoer die wel of niet in resources of configuratie terechtkomt.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Voorwaarden en validatie](#voorwaarden-en-validatie).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Voorwaarden en validatie](#voorwaarden-en-validatie).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of waarden is geen toegestane structuur.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of waarden is geen toegestane structuur.
 
 **Toegestane uitzonderingen**
 
@@ -1781,11 +1781,11 @@ Niet-ingesteld is op zichzelf geen fout; een losse fail halverwege resources of 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een ongebruikte optionele undef-waarde veroorzaakt een fout. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een ongebruikte optionele undef-waarde veroorzaakt een fout.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Valideer alleen gebruikte waarden, bewaar één korte foutmelding of undef en plaats resources in de geldige tak. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Valideer alleen gebruikte waarden, bewaar één korte foutmelding of undef en plaats resources in de geldige tak.
 
 **Handmatige review**
 
@@ -1793,7 +1793,7 @@ Volg beide gebruikspaden en controleer dat de foutmelding in de laatste else sta
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Classcontroles hergebruiken
 
@@ -1803,7 +1803,7 @@ Gebruik binnen een class of defined type één gedeelde variabele als dezelfde c
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1839,7 +1839,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_class_check_reuse` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_class_check_reuse`. Verwacht een warning.
 
 <!-- lint-example: project_class_check_reuse warning -->
 ```puppet
@@ -1848,7 +1848,7 @@ class example { notice(defined(Class['optional'])); notice(defined(Class['option
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_class_check_reuse` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_class_check_reuse`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_class_check_reuse clean -->
 ```puppet
@@ -1893,11 +1893,11 @@ Defined types die een parentclass of haar variabelen nodig hebben.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Classcontroles hergebruiken](#classcontroles-hergebruiken).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Classcontroles hergebruiken](#classcontroles-hergebruiken).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalueerd was.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalueerd was.
 
 **Toegestane uitzonderingen**
 
@@ -1905,11 +1905,11 @@ Een eindcatalogus met de class bewijst niet dat zij vóór de controle geëvalue
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een define leest een parentvariabele voordat de aanwezigheid van de class is gecontroleerd. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een define leest een parentvariabele voordat de aanwezigheid van de class is gecontroleerd.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Controleer defined(Class[...]), plaats afhankelijke code in de geldige tak en geef bij ontbreken een duidelijke fout. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Controleer defined(Class[...]), plaats afhankelijke code in de geldige tak en geef bij ontbreken een duidelijke fout.
 
 **Handmatige review**
 
@@ -1917,7 +1917,7 @@ Valideer de aanwezigheid en afwezigheid en de daadwerkelijke evaluatievolgorde v
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Resources en afhankelijkheden
 
@@ -1931,7 +1931,7 @@ Gebruik één declaratie met vooraf berekende waarden wanneer resources alleen i
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -1967,7 +1967,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_files`; verwacht warning.
+Fragment voor `project_files`. Verwacht een warning.
 
 <!-- lint-example: project_files warning -->
 ```puppet
@@ -1976,7 +1976,7 @@ file { '/tmp/example': ensure => file, owner => 'root', group => 'root', mode =>
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_files`; verwacht geen melding.
+Fragment voor `project_files`. Verwacht geen melding.
 
 <!-- lint-example: project_files clean -->
 ```puppet
@@ -2003,7 +2003,7 @@ Combineer arrays met `concat($base, $extra)` en behoud de elementvolgorde. `proj
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -2039,7 +2039,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_arrays` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_arrays`. Verwacht een warning.
 
 <!-- lint-example: project_arrays warning -->
 ```puppet
@@ -2048,7 +2048,7 @@ $values = [1] + [2]
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_arrays` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_arrays`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_arrays clean -->
 ```puppet
@@ -2085,11 +2085,11 @@ Paden, poorten, unitnamen en andere gegevens tussen lokale bouwstenen.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparameters alsnog worden toegevoegd.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparameters alsnog worden toegevoegd.
 
 **Toegestane uitzonderingen**
 
@@ -2097,11 +2097,11 @@ Een afgewezen interface-uitbreiding mag niet via ongedocumenteerde gemaksparamet
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een afnemer bouwt een servicetitel opnieuw op met ongedocumenteerde naamregels. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een afnemer bouwt een servicetitel opnieuw op met ongedocumenteerde naamregels.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Lees de waarde via de geaccepteerde resource, alias, servicetitel of API. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Lees de waarde via de geaccepteerde resource, alias, servicetitel of API.
 
 **Handmatige review**
 
@@ -2109,7 +2109,7 @@ Vergelijk de contractafspraak tussen beide onderdelen en gebruik na een afgeweze
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Dependencies pas na een geslaagde controle koppelen
 
@@ -2127,11 +2127,11 @@ Voorwaardelijke require-relaties met directe resources, wrappers en parentwrappe
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is geen bewijs voor vroegere defined-uitkomsten.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is geen bewijs voor vroegere defined-uitkomsten.
 
 **Toegestane uitzonderingen**
 
@@ -2139,11 +2139,11 @@ Een gedocumenteerd anker blijft toegestaan; een later gevulde eindcatalogus is g
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een require wordt gekoppeld op basis van een pas later zichtbare wrapper. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een require wordt gekoppeld op basis van een pas later zichtbare wrapper.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Controleer eerst directe resource, dan wrapper en parentwrapper; koppel na succes aan een geaccepteerde resource of anker. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Controleer eerst directe resource, dan wrapper en parentwrapper; koppel na succes aan een geaccepteerde resource of anker.
 
 **Handmatige review**
 
@@ -2151,7 +2151,7 @@ Traceer zichtbaarheid op het evaluatiemoment en onderscheid die van de uiteindel
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Prerequisites van ordering onderscheiden
 
@@ -2171,11 +2171,11 @@ Operaties met vereiste of optionele runtimeprerequisites en resource-ordering.
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Resources en afhankelijkheden](#resources-en-afhankelijkheden).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen runtimebeschikbaarheid.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen runtimebeschikbaarheid.
 
 **Toegestane uitzonderingen**
 
@@ -2183,11 +2183,11 @@ Een weggelaten relatie schakelt niets uit; een declaratie alleen bewijst geen ru
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een operatie zonder beschikbare tool blijft actief omdat alleen require is weggelaten. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een operatie zonder beschikbare tool blijft actief omdat alleen require is weggelaten.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Lever de vereiste prerequisite of het gedocumenteerde gedrag voor afwezigheid en beoordeel ordering afzonderlijk. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Lever de vereiste prerequisite of het gedocumenteerde gedrag voor afwezigheid en beoordeel ordering afzonderlijk.
 
 **Handmatige review**
 
@@ -2195,7 +2195,7 @@ Controleer aanwezigheid, afwezigheid, declaratievolgorde en evaluatievolgorde vo
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Runtime-inventarisatie met Facter modelleren
 
@@ -2225,7 +2225,7 @@ Discovery tijdens catalogustoepassing blijft mogelijk wanneer informatie pas dan
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een Docker-fact filtert uitsluitend Nextcloud-containers, wijzigt hun configuratie of laat alle factverzameling falen wanneer Docker ontbreekt. Keur dit af. Keur ook een catalogus af die rekent op discovery van een container die pas later in dezelfde run wordt aangemaakt.
+Handmatig reviewscenario: Een Docker-fact filtert uitsluitend Nextcloud-containers, wijzigt hun configuratie of laat alle factverzameling falen wanneer Docker ontbreekt. Keur ook een catalogus af die rekent op discovery van een container die pas later in dezelfde run wordt aangemaakt.
 
 **Correct voorbeeld**
 
@@ -2237,7 +2237,7 @@ Een container kan tussen factverzameling en catalogustoepassing verdwijnen. Een 
 
 **Handmatige review**
 
-Controleer dat discovery alleen leest, algemene inventarisatie geen applicatiebeleid bevat en de afnemer de momentopname correct gebruikt. Beoordeel normale uitvoer, lege inventaris, ontbrekende executables, onbereikbare services, mislukte discovery en objecten die later ontstaan of verdwijnen. Neem alle geraakte consumers en het moment van factverzameling mee en leg vast wanneer een volgende Puppet-run nodig is.
+Controleer dat discovery alleen leest, algemene inventarisatie geen applicatiebeleid bevat en de afnemer de momentopname correct gebruikt. Beoordeel normale uitvoer, lege inventaris, ontbrekende executables, onbereikbare services, mislukte discovery en objecten die later ontstaan of verdwijnen. Neem alle geraakte afnemers en het moment van factverzameling mee en leg vast wanneer een volgende Puppet-run nodig is.
 
 **Verificatie**
 
@@ -2289,7 +2289,7 @@ Een ontbrekende `else` of `default` telt als een lege route. Een rechtstreeks, a
 
 De check is geen shellparser, cataloguscompiler of package-resolver. Hij volgt geen pipelines, substitutions, shellfuncties, `sh -c`-bodies, templates of aangeroepen scripts. Onbekende executable-namen en volledig dynamische commando’s blijven handmatige review en krijgen niet ieder een algemene melding. Strings met een terugvaloperator `||`, backticks of nieuwe regels vallen buiten de entrypointdetectie. Dit is een analysegrens, geen vrijstelling van de norm.
 
-Dynamische packages, providers, resource-overrides, collectors, classinheritance en onopgeloste relaties kunnen geen bewezen installatie of ordering leveren. Niet uitgewerkte defined types en resourcecreatie via `create_resources` of `ensure_resources` leveren evenmin zelfstandig bewijs. Een concrete herkende commandodependency krijgt dan gericht review wanneer zijn garantie niet kan worden vastgesteld. De check berekent geen package-dependencies uit distributiemetadata en geen willekeurige voorwaarden of caller-metaparameters. Controleer die ketens in de catalogus. Een geslaagde lintscan bewijst nooit dat alle runtimepackages aanwezig zullen zijn, ook niet bij monitoring.
+Dynamische packages, providers, resource-overrides, collectors, classinheritance en onopgeloste relaties kunnen geen bewezen installatie of ordering leveren. Niet uitgewerkte defined types en resourcecreatie via `create_resources` of `ensure_resources` leveren evenmin zelfstandig bewijs. Een concrete herkende commandodependency krijgt dan gericht review wanneer zijn garantie niet kan worden vastgesteld. De check berekent geen package-dependencies uit distributiemetadata en geen willekeurige voorwaarden of aanroeper-metaparameters. Controleer die ketens in de catalogus. Een geslaagde lintscan bewijst nooit dat alle runtimepackages aanwezig zullen zijn, ook niet bij monitoring.
 
 Een virtuele `@package` levert evenmin automatisch installatiebewijs: `PackageGraph` volgt de activatie door `realize()` niet. Ook met een passende `require` volgt voor een herkend commando `[review]` wanneer alleen die virtuele declaratie de installatie moet borgen. Dit kan geldige Puppet-code zijn; voeg geen dubbele declaratie of onvoorwaardelijke installatie toe om die analysegrens te omzeilen. Onderbouw de garantie met catalogusreview.
 
@@ -2468,7 +2468,7 @@ if ($ensure == present and $monitoring) { profile::check { 'example': } }
 
 **Correct voorbeeld**
 
-Fragment; controle `project_shared_conditions`; verwacht geen melding. De aanvullende monitoringvoorwaarde blijft binnen het gedeelde blok staan.
+Fragment voor `project_shared_conditions`. Verwacht geen melding. De aanvullende monitoringvoorwaarde blijft binnen het gedeelde blok staan.
 
 <!-- lint-example: project_shared_conditions clean -->
 ```puppet
@@ -2538,7 +2538,7 @@ Suppressie is in dit project niet toegestaan. De native engine verwerkt suppress
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_duplicate_function_calls`; verwacht één warning.
+Fragment voor `project_duplicate_function_calls`. Verwacht één warning.
 
 <!-- lint-example: project_duplicate_function_calls warning -->
 ```puppet
@@ -2613,7 +2613,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_interface_calls` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_interface_calls`. Verwacht een warning.
 
 <!-- lint-example: project_interface_calls warning -->
 ```puppet
@@ -2623,7 +2623,7 @@ example::item { 'demo': }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_interface_calls` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_interface_calls`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_interface_calls clean -->
 ```puppet
@@ -2666,7 +2666,7 @@ Geef waarden rechtstreeks als benoemde attributen mee wanneer een hash alleen ge
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -2702,7 +2702,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_parameter_passthrough`; verwacht warning.
+Fragment voor `project_parameter_passthrough`. Verwacht een warning.
 
 <!-- lint-example: project_parameter_passthrough warning -->
 ```puppet
@@ -2711,7 +2711,7 @@ example { 'synthetic': * => { 'label' => $label } }
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_parameter_passthrough`; verwacht geen melding.
+Fragment voor `project_parameter_passthrough`. Verwacht geen melding.
 
 <!-- lint-example: project_parameter_passthrough clean -->
 ```puppet
@@ -2760,7 +2760,7 @@ Schrijf references van hetzelfde resourcetype binnen één array als één refer
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -2796,7 +2796,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_resource_references` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_resource_references`. Verwacht een warning.
 
 <!-- lint-example: project_resource_references warning -->
 ```puppet
@@ -2805,7 +2805,7 @@ notify { 'demo': require => [Package['zulu'], Package['alpha']] }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_resource_references` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_resource_references`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_resource_references clean -->
 ```puppet
@@ -2826,7 +2826,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij References van hetzelfde type samenvoegen
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_resource_references` gecontroleerd.
 
@@ -2860,7 +2860,7 @@ Sorteer de titels van resource references alfabetisch. Vergelijk letterlijke tit
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -2896,7 +2896,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_resource_references`; verwacht warning.
+Fragment voor `project_resource_references`. Verwacht een warning.
 
 <!-- lint-example: project_resource_references warning -->
 ```puppet
@@ -2905,7 +2905,7 @@ notify { 'example': require => Package['zulu', 'alpha'] }
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_resource_references`; verwacht geen melding.
+Fragment voor `project_resource_references`. Verwacht geen melding.
 
 <!-- lint-example: project_resource_references clean -->
 ```puppet
@@ -2932,7 +2932,7 @@ Bij een dependency-attribuut of een losse relatieketen laat je de buitenste arra
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -2968,7 +2968,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_resource_references`; verwacht warning.
+Fragment voor `project_resource_references`. Verwacht een warning.
 
 <!-- lint-example: project_resource_references warning -->
 ```puppet
@@ -2977,7 +2977,7 @@ notify { 'example': require => [Package['alpha']] }
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_resource_references`; verwacht geen melding.
+Fragment voor `project_resource_references`. Verwacht geen melding.
 
 <!-- lint-example: project_resource_references clean -->
 ```puppet
@@ -3004,7 +3004,7 @@ Definieer een lijst met resourcetitels eenmaal wanneer declaraties of dependenci
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -3040,7 +3040,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_resource_list_reuse` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_resource_list_reuse`. Verwacht een warning.
 
 <!-- lint-example: project_resource_list_reuse warning -->
 ```puppet
@@ -3050,7 +3050,7 @@ notify { 'demo': require => File['/a', '/b'] }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_resource_list_reuse` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_resource_list_reuse`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_resource_list_reuse clean -->
 ```puppet
@@ -3075,7 +3075,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 Bij packages deel je de lijst ook tussen `stdlib::ensure_packages()` en `Package[...]`, zodat een toevoeging of verwijdering niet op meerdere plaatsen hoeft te worden bijgehouden:
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_resource_list_reuse` gecontroleerd.
 
@@ -3125,7 +3125,7 @@ Combineer eerst titels van hetzelfde resourcetype, maak daarna de resource refer
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -3161,7 +3161,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_resource_dependencies` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_resource_dependencies`. Verwacht een warning.
 
 <!-- lint-example: project_resource_dependencies warning -->
 ```puppet
@@ -3170,7 +3170,7 @@ notify { 'demo': require => File[concat(['/a'], ['/b'])] }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_resource_dependencies` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_resource_dependencies`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_resource_dependencies clean -->
 ```puppet
@@ -3192,7 +3192,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij Resource-dependencies opbouwen
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_resource_dependencies` gecontroleerd.
 
@@ -3241,7 +3241,7 @@ Nieuwe en verplaatste resources en defined-type-aanroepen binnen hun geldige uit
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats voor een gerelateerde aanroep vereist de lokale technische toelichting en validatie uit de norm.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats voor een gerelateerde aanroep vereist de lokale technische toelichting en validatie uit de norm.
 
 **Toegestane uitzonderingen**
 
@@ -3249,11 +3249,11 @@ Gedeelde voorbereiding en vereiste classes mogen eerder staan. Een andere plaats
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een monitoringregistratie staat vóór de serviceconfiguratie omdat haar instelvariabele vroeg wordt berekend. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een monitoringregistratie staat vóór de serviceconfiguratie omdat haar instelvariabele vroeg wordt berekend.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Plaats de registratie bij de aanvullende voorzieningen na de configuratie en service; behoud haar inschakelvoorwaarde. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Plaats de registratie bij de aanvullende voorzieningen na de configuratie en service; behoud haar inschakelvoorwaarde.
 
 **Handmatige review**
 
@@ -3261,7 +3261,7 @@ Vergelijk iedere toegevoegde of verplaatste aanroep met de hele omringende imple
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Relaties en meldingen behouden
 
@@ -3281,7 +3281,7 @@ Ordering, notificaties en containment bij afhankelijkheidscycli en te brede clas
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een kleinere stabiele resource mag de te brede classordering vervangen; de noodzakelijke notify blijft behouden.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een kleinere stabiele resource mag de te brede classordering vervangen; de noodzakelijke notify blijft behouden.
 
 **Toegestane uitzonderingen**
 
@@ -3289,11 +3289,11 @@ Een kleinere stabiele resource mag de te brede classordering vervangen; de noodz
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een cyclus wordt omzeild met een los reloadcommando en de notify-relatie verdwijnt. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een cyclus wordt omzeild met een los reloadcommando en de notify-relatie verdwijnt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Herstel de veroorzakende relatie of containment; behoud de service-notificatie, zo nodig met een kleinere stabiele orderingresource. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Herstel de veroorzakende relatie of containment; behoud de service-notificatie, zo nodig met een kleinere stabiele orderingresource.
 
 **Handmatige review**
 
@@ -3301,7 +3301,7 @@ Volg de cyclus door require, notify, subscribe en containment; controleer welke 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Instellingen bij hun eigenaar houden
 
@@ -3315,7 +3315,7 @@ De bestaande class of define mag die berekeningen rechtstreeks uitvoeren; een ex
 
 Hergebruik een toepasselijke keuze die de aanroepende of parentclass al beheert, zoals de selectie van een service manager. Geef die keuze via de bestaande interface door; voeg geen tweede parameter, default of onafhankelijke detectie toe die dezelfde keuze kan tegenspreken. Behoud het onderscheid tussen expliciet ingeschakeld, expliciet uitgeschakeld en niet opgegeven wanneer de interface deze toestanden ondersteunt. Een runtimecontrole toetst vervolgens of de verwachte toestand werkelijk bestaat; zij bepaalt de beheerde keuze niet opnieuw. Volg voor parentwaarden de [classcontroles](#classcontroles-hergebruiken) en voor de uitvoering de [runtimebronkeuze](OPERATIONAL_RULES.md#actuele-hosttoestand-uit-kernelgegevens-bepalen).
 
-Maak onderscheid tussen de unieke titel van een Puppet-registratie en de interne identiteit van het gedeelde object. Geef templates de voorbereide waarden; herhaal daar geen protocolselectie, identiteitsberekening of eigendomsbeslissing. Waarden die de caller zelf beheert, zoals zijn configuratiebestand of de positie van een fragment daarin, blijven broninvoer voor de ontvangende component.
+Maak onderscheid tussen de unieke titel van een Puppet-registratie en de interne identiteit van het gedeelde object. Geef templates de voorbereide waarden; herhaal daar geen protocolselectie, identiteitsberekening of eigendomsbeslissing. Waarden die de aanroeper zelf beheert, zoals zijn configuratiebestand of de positie van een fragment daarin, blijven broninvoer voor de ontvangende component.
 
 Beoordeel deze indeling bij de review van het hele omliggende blok. De [sectiechecks](DOCUMENTATION_RULES.md#toelichtingen-bij-code) controleren opmaak en toelichtingen; een geslaagde lintscan bewijst niet dat aanroepen inhoudelijk op de juiste plek staan. Verplaats ze niet automatisch op basis van hun naam, type of afstand tot een variabele: hun functie, voorwaarden en evaluatievolgorde bepalen welke plek klopt.
 
@@ -3327,11 +3327,11 @@ Projectregel
 
 **Toepassingsgebied**
 
-Daemonconfiguratie, instellingen van aanvullende voorzieningen en gegevensoverdracht tussen callers, classes, defined types en hun templates.
+Daemonconfiguratie, instellingen van aanvullende voorzieningen en gegevensoverdracht tussen aanroepers, classes, defined types en hun templates.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. Ook variabelereferenties, AST-expressies, functie-whitelists en aantallen lezingen bewijzen niet welke component een waarde hoort af te leiden. Deze architectuurafspraak wordt inhoudelijk beoordeeld en heeft geen generieke detectiecheck. De sectiechecks beoordelen alleen opmaak en toelichting.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. Ook variabelereferenties, AST-expressies, functie-whitelists en aantallen lezingen bewijzen niet welke component een waarde hoort af te leiden. Deze architectuurafspraak wordt inhoudelijk beoordeeld en heeft geen generieke detectiecheck. De sectiechecks beoordelen alleen opmaak en toelichting.
 
 **Toegestane uitzonderingen**
 
@@ -3339,7 +3339,7 @@ Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. De
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een daemonconfiguratiebestand verhuist naar de monitoringsectie alleen omdat monitoring het leest. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een daemonconfiguratiebestand verhuist naar de monitoringsectie alleen omdat monitoring het leest.
 
 Handmatig reviewscenario: Een profiel berekent transport, socket-identiteit, include-pad en primaire eigenaar en geeft die via extra parameters aan de vhostcomponent. Keur dit af: het profiel bereidt interne listen-configuratie voor die de vhostcomponent zelf uit de broninvoer kan afleiden.
 
@@ -3347,7 +3347,7 @@ Handmatig reviewscenario: De parentclass schakelt een integratie uit, maar een o
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Laat daemonconfiguratie bij de daemon; groepeer uitsluitend monitoringinstellingen bij de registratie. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Laat daemonconfiguratie bij de daemon; groepeer uitsluitend monitoringinstellingen bij de registratie.
 
 Handmatig reviewscenario: Een profiel geeft adressen, poorten, protocolkeuzes en socketopties aan `nginx::server`. Dit defined type berekent zelf transport, socket-identiteit, include-pad, eigenaarschap en effectieve opties. Het beheert de gedeelde socketconfiguratie en geeft voorbereide listen- of includeregels aan zijn templates. Meerdere vhosts delen één configuratie-eigenaar per socket; hiervoor is geen aparte listen-define nodig.
 
@@ -3357,11 +3357,11 @@ Handmatig reviewscenario: Een registratie gebruikt de bestaande selectie van haa
 
 Namen, resourcetype en afstand tot een variabele bewijzen geen juiste plaats. De sectiechecks beoordelen alleen opmaak en toelichting.
 
-Een pad van een bestand dat de caller beheert kan geldige broninvoer zijn. Een intern pad dat uitsluitend het ontvangende type beheert hoort daar te worden afgeleid. Verplaats geen lokale berekeningen zonder deze verantwoordelijkheden en de gebruikers van de waarde te beoordelen.
+Een pad van een bestand dat de aanroeper beheert kan geldige broninvoer zijn. Een intern pad dat uitsluitend het ontvangende type beheert hoort daar te worden afgeleid. Verplaats geen lokale berekeningen zonder deze verantwoordelijkheden en de gebruikers van de waarde te beoordelen.
 
 **Handmatige review**
 
-Stel per instelling vast welk onderdeel zij configureert; beoordeel functie, voorwaarden en evaluatievolgorde in het complete blok. Volg de broninvoer via de component tot de gerenderde configuratie en verwijder overbodige afgeleide parameters. Controleer bij gedeelde objecten unieke registratietitels, één eigenaar per interne identiteit, behoud van opties en conflictdetectie, en alle geraakte callers en relaties.
+Stel per instelling vast welk onderdeel zij configureert; beoordeel functie, voorwaarden en evaluatievolgorde in het complete blok. Volg de broninvoer via de component tot de gerenderde configuratie en verwijder overbodige afgeleide parameters. Controleer bij gedeelde objecten unieke registratietitels, één eigenaar per interne identiteit, behoud van opties en conflictdetectie, en alle geraakte aanroepers en relaties.
 
 Controleer bij doorgegeven keuzes dat de bestaande eigenaar leidend blijft en dat expliciete uitschakeling niet dezelfde betekenis krijgt als een ontbrekende waarde. Vergelijk selectie, gegenereerde code en toetsing van de werkelijke toestand afzonderlijk.
 

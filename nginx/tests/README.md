@@ -1,6 +1,6 @@
 # Compile-tests voor nginx
 
-De tests compileren de class `nginx` en de defines `nginx::server` en `nginx::monitoring_cert` met één kleine HTTPS-vhost. De [centrale catalog](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
+De tests compileren de class `nginx` en de defines `nginx::server` en `nginx::monitoring_cert` met één kleine HTTPS-vhost. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
 
 ## Inhoudsopgave
 
@@ -19,6 +19,6 @@ Beide gebruiken hetzelfde [synthetische Debian 13-factsbestand](facts/debian-13.
 
 ## Configuratiekeuzes
 
-De vhost gebruikt synthetische domein- en certificaatpaden. PHP-FPM is uitgeschakeld omdat deze nginx-test daarvoor geen extra applicatiemodule nodig heeft. De certificaatcontrole wordt expliciet geïnstantieerd en de automatische registratie op de vhost staat uit, zodat de define precies eenmaal wordt gedeclareerd. Zonder actieve monitoringbackend declareert deze helper geen backendcheck, maar de define zelf wordt wel gecompileerd en in de dekking geteld.
+De vhost gebruikt synthetische domein- en certificaatpaden. PHP-FPM is uitgeschakeld omdat deze nginx-test daarvoor geen extra applicatiemodule nodig heeft. De certificaatcontrole wordt expliciet gedeclareerd en de automatische registratie op de vhost staat uit, zodat de define precies eenmaal wordt gedeclareerd. Zonder actieve monitoringbackend declareert deze helper geen backendcheck, maar de define zelf wordt wel gecompileerd en in de dekking geteld.
 
 De compiler hoeft de certificaatbestanden niet te openen. Deze tests installeren geen webserver en testen geen HTTPS-verbinding of uitvoering van de monitoringcheck.

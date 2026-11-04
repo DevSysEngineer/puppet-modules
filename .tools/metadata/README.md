@@ -1,8 +1,10 @@
 # Projectmetadata controleren
 
-`project-tools-metadata` controleert root- en modulemetadata en synchroniseert bekende velden met `--fix`. Het pakket gebruikt JSON en `project-tools-shared` voor rapportage en installeert geen Puppet of RuboCop. De [gemspec](project-tools-metadata.gemspec) beheert de dependencygrenzen. Gebruik de [gezamenlijke installatiehandleiding](../README.md#importeren-en-distribueren) voor de gekozen gembron.
+Met `project-tools-metadata` controleer je de metadata in de projectroot en de modulemappen. Met `--fix` kun je bekende velden synchroniseren.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-verificatie).
+Het pakket gebruikt JSON en `project-tools-shared` voor rapportage en installeert geen Puppet of RuboCop. De [gemspec](project-tools-metadata.gemspec) legt de toegestane dependencies vast. Volg de [gezamenlijke installatiehandleiding](../README.md#importeren-en-distribueren) voor de gekozen gembron.
+
+Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-verificatie).
 
 Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Metadata heeft geen Puppet-runtime nodig.
 

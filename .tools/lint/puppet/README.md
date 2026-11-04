@@ -5,7 +5,7 @@
 
 Deze handleiding beschrijft hoe je Puppet-code voor de repository `puppet-modules` controleert. Je vindt hier de dagelijkse werkwijze, de lintcommando's en verwijzingen naar de [algemene coderegels en aanvullende Puppet-regels](docs/CODE_RULES.md), [documentatienormen](docs/DOCUMENTATION_RULES.md) en [operationele regels](docs/OPERATIONAL_RULES.md). Ook lees je hoe je die controles in een ander Puppet-project gebruikt en hoe de linter is opgebouwd. Voor onderhoud in de ontwikkelcheckout volg je de [onderhoudsafspraken](#linter-ontwikkelen-en-testen).
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
+Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen.
 
 **Puppet-lint** is een extern controleprogramma dat Puppet-broncode leest en afwijkingen van codeafspraken meldt. Zo'n programma heet een linter; iedere afzonderlijke controle heet een check. Je start het met het commando `puppet-lint`. Het programma heeft standaardchecks en kan extra checks uit uitbreidingen laden.
 
@@ -15,7 +15,9 @@ Voor deze repository zijn zulke uitbreidingen en de bijbehorende configuratie ve
 
 Gebruik de [leeswijzer](#leeswijzer) om de toepasselijke normen te kiezen. De [centrale informatieplaatsing](docs/DOCUMENTATION_RULES.md#informatieplaatsing) bepaalt hun eigenaar; de [profielen](#configuratie-bestandsselectie-en-modulepad) en het [checkregister](#checkregister) verbinden die normen met de actieve controles.
 
-Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of correct runtimegedrag. Bij ontbrekende automatische dekking blijft de norm gelden en is handmatige review vereist. Bij strijdigheid beschrijf je norm en waargenomen gedrag afzonderlijk en registreer je het conflict in de oplevering; pas de norm of implementatie niet aan als redactionele oplossing. Corrigeer een feitelijk onjuiste CLI-beschrijving alleen met uitvoerbewijs. Behoud onduidelijke normen letterlijk en markeer de precieze onzekerheid. Een niet-uitgevoerde verplichte controle of onopgelost normconflict verhindert de eindstatus `Afgerond`.
+Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of correct runtimegedrag. Bij ontbrekende automatische dekking blijft de norm gelden en is handmatige review vereist.
+
+Bij strijdigheid beschrijf je norm en waargenomen gedrag afzonderlijk en registreer je het conflict in de oplevering; pas de norm of implementatie niet aan als redactionele oplossing. Corrigeer een feitelijk onjuiste CLI-beschrijving alleen met uitvoerbewijs. Behoud onduidelijke normen letterlijk en markeer de precieze onzekerheid. Een niet-uitgevoerde verplichte controle of onopgelost normconflict verhindert de eindstatus `Afgerond`.
 
 ## Leeswijzer
 
@@ -29,7 +31,7 @@ Raakt de wijziging beheerde bestanden of mappen, eigenaarschap of rechten, bevei
 | --- | --- |
 | Gedrag delen of interfaces tussen componenten wijzigen | [Gedeelde implementaties](docs/CODE_RULES.md#gelijk-gedrag-in-één-implementatie-onderhouden) en [verantwoordelijkheden en interfaces](docs/CODE_RULES.md#verantwoordelijkheden-en-interfaces-afbakenen). |
 | Een normaal Puppet-manifest aanpassen | [Basisopmaak](docs/CODE_RULES.md#basisopmaak) en [parameters en resources](docs/CODE_RULES.md#parameters-en-resources). |
-| Verantwoordelijkheden tussen caller, component en template wijzigen | [Instellingen bij hun eigenaar houden](docs/CODE_RULES.md#instellingen-bij-hun-eigenaar-houden); controleer de gegevensstroom en het gedrag met de [aanvullende validatie](#aanvullende-validatie). |
+| Verantwoordelijkheden tussen aanroeper, component en template wijzigen | [Instellingen bij hun eigenaar houden](docs/CODE_RULES.md#instellingen-bij-hun-eigenaar-houden); controleer de gegevensstroom en het gedrag met de [aanvullende validatie](#aanvullende-validatie). |
 | Commentaar of Puppet-interface-documentatie aanpassen | [Commentaar en documentatie](docs/DOCUMENTATION_RULES.md#commentaar-en-documentatie), waaronder [toelichtingen bij code](docs/DOCUMENTATION_RULES.md#toelichtingen-bij-code) en [interfacebeschrijvingen synchroniseren](docs/DOCUMENTATION_RULES.md#interfacebeschrijvingen-synchroniseren). |
 | Puppet Strings aanpassen | [Puppet Strings](docs/DOCUMENTATION_RULES.md#puppet-strings), [lange regels](docs/CODE_RULES.md#lange-regels) en [waar de uitleg hoort](docs/DOCUMENTATION_RULES.md#waar-de-uitleg-hoort). |
 | Resources of dependencies aanpassen | [Packageafhankelijkheden bij externe commando’s](docs/CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos), [Resources en afhankelijkheden](docs/CODE_RULES.md#resources-en-afhankelijkheden), [resource references](docs/CODE_RULES.md#resource-references) en [volgorde en meldingen](docs/CODE_RULES.md#volgorde-en-meldingen). |
@@ -481,7 +483,7 @@ Dit is de publieke interface die de projectcode leest of die de ondersteunde pro
 | `BUNDLE_IGNORE_CONFIG` | Persoonlijke Bundlerconfiguratie isoleren | Native Bundlerconfig actief | Negeert configuratie eveneens: aanwezigheid telt | CI: `1` | Geen pad | Betreft Bundler, niet Puppet-lint-optiebestanden |
 | `BUNDLE_FROZEN` | Lockfile onveranderd vereisen | Native Bundlerdefault | Boolean false; frozen wordt niet vereist | CI: `true` | Eigen lockfile | Installatie faalt als resolutie moet wijzigen |
 | `BUNDLE_PATH` | Installatiemap gems | Native Bundlerdefault | Expliciet leeg basispad, geen fallback naar systeemgems; vermijd dit in installatieprocedures | CI: `vendor/bundle` | Projectroot | Bundlerinstelling, geen manifestselectie |
-| `BUNDLE_GEMFILE` | Gemfile selecteren | Gemfile vanaf werkmap | Zelfde zoekgedrag als unset: zoek Gemfile/gems.rb omhoog vanaf de werkmap | Eigen root-Gemfile | Native Bundlerpad | Niet naar bronrepository instellen voor consumers |
+| `BUNDLE_GEMFILE` | Gemfile selecteren | Gemfile vanaf werkmap | Zelfde zoekgedrag als unset: zoek Gemfile/gems.rb omhoog vanaf de werkmap | Eigen root-Gemfile | Native Bundlerpad | Niet naar bronrepository instellen voor afnemers |
 | `PATH` | Ruby en executables vinden | Shellomgeving | Lege zoekcomponent kan de werkmap doorzoeken; correcte Ruby-keuze is niet gegarandeerd | Actieve shell | Absolute zoekmappen | Homebrew-Ruby vóór systeem-Ruby |
 | `GITHUB_ACTION` | Native lintannotaties activeren | Geen annotaties | Aan: aanwezigheid is bepalend | CI levert waarde | Geen pad | Verandert niet de diagnostiektelling |
 | `CODECLIMATE_REPORT_FILE` | Native Code Climate-rapport | Geen rapport | Poging tot schrijven naar leeg pad faalt | Geen | Werkmap | CLI `--codeclimate-report-file` gaat voor |
@@ -665,7 +667,9 @@ De tabel beschrijft de automatische dekking en verwijst naar de volledige regel.
 De checks voor opmaak bewijzen niet dat commentaar inhoudelijk klopt. Voor systemd-hardening, transportbeveiliging, shellgedrag, monitoringdefaults, uitvoertijd en gedeelde checkexecutables bestaat hier geen volledige automatische lintcontrole. De inhoudelijke criteria staan in de gekoppelde regels; de [projectbrede validatieverplichtingen](../../../TESTS.md#testbeleid-en-validatie) blijven daarnaast gelden.
 
 
-De [native CLI-proeven](tests/native_autofix_test.rb) voeren de beschikbare standaard- en pluginfixes uit, inclusief hercontrole en een ongewijzigde tweede run. De [aanvullende CLI-proeven](tests/cli/safe_fixes_test.rb) bewaken nieuwe projectfixes en de native reference-richting; [cli/diagnostics_test.rb](tests/cli/diagnostics_test.rb) controleert behoud van fileservermounts. De bestaande checkspecifieke CLI-tests blijven de grenzen, interacties en suppressions controleren. De YAML-route van Puppet-lint ondersteunt detectie van legacy facts maar schrijft geen fixes: de parser levert waarden zonder eenduidige schrijfposities voor onder meer aliases en meerregelige scalars. De fixaanroep behoudt deze meldingen zonder een Puppet-tokenstream te renderen; de facts-conversie in deze tabel geldt voor manifests.
+De [native CLI-proeven](tests/native_autofix_test.rb) voeren de beschikbare standaard- en pluginfixes uit, inclusief hercontrole en een ongewijzigde tweede run. De [aanvullende CLI-proeven](tests/cli/safe_fixes_test.rb) bewaken nieuwe projectfixes en de native reference-richting; [cli/diagnostics_test.rb](tests/cli/diagnostics_test.rb) controleert behoud van fileservermounts. De bestaande checkspecifieke CLI-tests blijven de grenzen, interacties en suppressions controleren.
+
+De YAML-route van Puppet-lint ondersteunt detectie van legacy facts maar schrijft geen fixes: de parser levert waarden zonder eenduidige schrijfposities voor onder meer aliases en meerregelige scalars. De fixaanroep behoudt deze meldingen zonder een Puppet-tokenstream te renderen; de facts-conversie in deze tabel geldt voor manifests.
 
 
 ### Automatische dekking en handmatige review
@@ -684,7 +688,7 @@ Het ontbreken van een check, gedeeltelijke detectie of het ontbreken van veilige
 
 ## Puppet-coderegels en reviewcriteria
 
-De algemene codeprincipes, Puppet-coderegels en aanvullende reviewcriteria staan in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). De drie bestanden beschrijven per regel de norm, detectiegrenzen, autofixvoorwaarden, uitzonderingen, voorbeelden en handmatige review. Iedere regel heeft één autoritatieve locatie.
+De algemene codeprincipes, Puppet-coderegels en aanvullende reviewcriteria staan in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) en [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md). De drie bestanden beschrijven per regel de norm, detectiegrenzen, autofixvoorwaarden, uitzonderingen, voorbeelden en handmatige review. Iedere regel heeft één gezaghebbende plaats.
 
 Volg bij iedere Puppet-wijziging de toepasselijke algemene regels:
 
@@ -779,7 +783,9 @@ De gemtests controleren het lintgereedschap. Ze vervangen geen catalogus-, templ
 
 Het Puppet-lintrapport gebruikt JUnit XML onder `.tools/lint/puppet/results/`. Andere tools en gezamenlijke testresultaten hebben hun eigen [locaties](../../README.md#ci-van-deze-repository). De gegenereerde rapportmappen zijn uitgesloten van versiebeheer. Afnemende projecten kiezen hun [eigen rapportmap](#rapportmap-kiezen). De onderstaande aanroepen gebruiken dezelfde configuratie, bestandsselectie en foutstatus als de gewone scans. Voer ze afzonderlijk uit vanuit de repositoryroot, met de [ontwikkelbundle](#gems-installeren) geïnstalleerd.
 
-Puppet-lint levert zijn native JSON-uitvoer via een pipe aan `puppet-lint-junit`, de rapportomzetter uit `lint-project`. Die schrijft JUnit XML en toont actieve en gecorrigeerde meldingen met bronpositie in de console. De converter sorteert op pad, regel, kolom en check; de telling `Files reported` komt uit de native JSON-groepen en is geen JUnit-testcasetelling. Fouten, waarschuwingen, fixes en genegeerde bevindingen hebben afzonderlijke tellingen. De aanroep blijft eigenaar van start, activiteit en de uiteindelijke scanstatus volgens het [centrale logcontract](../../README.md#joblogs); de converter kan uit JSON geen waarschuwingdrempel of oorspronkelijke processtatus reconstrueren. Ook bij een onschrijfbaar rapport blijven beschikbare lintbevindingen zichtbaar. Gebruik Bash met `pipefail`:
+Puppet-lint levert zijn native JSON-uitvoer via een pipe aan `puppet-lint-junit`, de rapportomzetter uit `lint-project`. Die schrijft JUnit XML en toont actieve en gecorrigeerde meldingen met bronpositie in de console. De converter sorteert op pad, regel, kolom en check; de telling `Files reported` komt uit de native JSON-groepen en is geen JUnit-testcasetelling. Fouten, waarschuwingen, fixes en genegeerde bevindingen hebben afzonderlijke tellingen.
+
+De aanroep blijft eigenaar van start, activiteit en de uiteindelijke scanstatus volgens het [centrale logcontract](../../README.md#joblogs); de converter kan uit JSON geen waarschuwingdrempel of oorspronkelijke processtatus reconstrueren. Ook bij een onschrijfbaar rapport blijven beschikbare lintbevindingen zichtbaar. Gebruik Bash met `pipefail`:
 
 **Werkmap:** Repositoryroot. **Shell:** Bash met pipefail. **Vereisten:** Ontwikkelbundle. **Invoer:** Volledige lintselectie. **Wijzigt bestanden:** Puppet-lint-JUnit in .tools/lint/puppet/results. **Verwacht resultaat:** Lint- én conversiestatus behouden.
 
@@ -913,7 +919,7 @@ Dit gedeelte beschrijft de lintarchitectuur, fixinteracties en testaanroepen. De
 - Gebruik bij voorkeur Puppet-lints native registratie, configuratie, diagnostiek, suppressions en autofix-API's. Houd eenvoudige tokenchecks vrij van onnodige AST-analyse en behoud de gedeelde analyse- en laadcontracten uit de [architectuur](#technische-werking-van-de-checks).
 - Houd Ruby-helpers in `ProjectLint` met conventionele namespacegebonden require-paden. Voeg geen top-level helperconstants of bij laden vastgelegde mutable configuratie toe.
 - Deel helpers voor concrete begrippen zoals resource-attributen, commentaargrenzen, variabeledependencies en modulepaden. Houd substantiële zelfstandige analyses, zoals backendherkomst of shellescaping, los van hun checks; eenvoudige checkspecifieke methoden blijven bij de check. Een grotere analyse mag binnen hetzelfde bestand worden verdeeld, bijvoorbeeld commentaaropmaak, regelbreedte en suppressions, met behoud van samenhang en RuboCopregels. Extraheer alleen bestaande gedeelde complexiteit of een substantiële zelfstandige analyse, zonder speculatieve abstracties.
-- Behandel checknamen, severities, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, gedeelde configuratiepaden en rapportcommando's als publieke interfaces. Beoordeel wijzigingen volgens het [releasebeleid](../../../CONTRIBUTING.md#compatibiliteit-en-versies) en valideer de gebouwde gem in een onafhankelijk project. Houd consumerinstallatie en CI-voorbeelden in lijn met de [ondersteunde structuur](#aanbevolen-projectstructuur); documenteer afwijkingen zonder implementaties of gedeelde profielen te kopiëren. Volg de [gemreleaseprocedure](#een-gem-bouwen-en-versie-uitbrengen) en beschrijf gevolgen voor consumers.
+- Behandel checknamen, severities, veilige fixresultaten, `PROJECT_TOOLS_MODULEPATH`, het entrypoint, gedeelde configuratiepaden en rapportcommando's als publieke interfaces. Beoordeel wijzigingen volgens het [releasebeleid](../../../CONTRIBUTING.md#compatibiliteit-en-versies) en valideer de gebouwde gem in een onafhankelijk project. Houd consumerinstallatie en CI-voorbeelden in lijn met de [ondersteunde structuur](#aanbevolen-projectstructuur); documenteer afwijkingen zonder implementaties of gedeelde profielen te kopiëren. Volg de [gemreleaseprocedure](#een-gem-bouwen-en-versie-uitbrengen) en beschrijf gevolgen voor afnemers.
 
 ### Veilige autofix ontwikkelen
 
@@ -1174,7 +1180,7 @@ Zie de [gezamenlijke toolinghandleiding](../../README.md#junit-rapportage-instel
 - Beoordeel omvang op de taak van de lezer volgens de [README-richtlijnen](docs/DOCUMENTATION_RULES.md#readme-richtlijnen). Verplaats geen noodzakelijke inhoud uitsluitend vanwege bestandsgrootte; houd gebruik, technische naslag en onderhoud via gerichte links bereikbaar.
 - Behoud bij herindeling alle eisen, uitzonderingen, waarschuwingen, detectiebeperkingen, autofixvoorwaarden, gebruiksroutes en handmatige reviewcriteria. Consolidatie behoudt iedere unieke voorwaarde en verplichting.
 - Houd de README-inhoudsopgave taakgericht op lintgebruik en tooling. Link duidelijk naar alle drie regelsdocumenten en tussen relevante secties volgens de [Markdownnorm](docs/DOCUMENTATION_RULES.md#markdown); benoem cumulatieve toepasselijkheid in de leeswijzer.
-- Houd repository- en consumersnelstart vóór de gedetailleerde lintreferentie en link gedeelde setup aan `../../README.md`. Het enige checkregister en de maintaineruitleg blijven hier. Link vanuit het register rechtstreeks naar de normeigenaar zonder regels of register te dupliceren.
+- Houd repository- en consumersnelstart vóór de gedetailleerde lintreferentie en link gedeelde setup aan `../../README.md`. Het enige checkregister en de maintaineruitleg blijven hier. Link vanuit het register rechtstreeks naar de plaats waar de norm wordt onderhouden zonder regels of register te dupliceren.
 - Het onderstaande contract bewaakt de technische volledigheid van de lintreferentie. Gebruik voor uitsluitend handmatige normen de compacte uitleg; herhaal geen velden over niet-bestaande meldingen of fixes.
 
 ### Lintdocumentatie onderhouden
@@ -1196,7 +1202,7 @@ Verifieer inkomende links, ankers, inventarissen en uitvoeringscontracten met de
 
 Gebruik dit contract wanneer je een regel in [CODE_RULES.md](docs/CODE_RULES.md), [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md) of [OPERATIONAL_RULES.md](docs/OPERATIONAL_RULES.md), of een checkbeschrijving of gebruiksprocedure in deze README bijwerkt. De algemene afspraken voor de inhoudsopgave en samenhang binnen ieder onderwerp staan in [DOCUMENTATION_RULES.md](docs/DOCUMENTATION_RULES.md#markdown). Het onderstaande contract onderscheidt regels met automatische detectie van normen die inhoudelijke review vragen. De algemene documentatie-, Markdown-, README- en redactionele normen in DOCUMENTATION_RULES houden hun onderwerpstructuur; zij zijn geen extra lintcoderegels. Dit onderscheid geldt ook voor de aanvullende coderegels vanaf Commentaar en documentatie.
 
-Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één autoritatieve locatie. Een automatisch gecontroleerde regel bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](#documentatiewijzigingen-verifiëren) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
+Iedere onafhankelijke coderegel krijgt in `docs/CODE_RULES.md`, `docs/DOCUMENTATION_RULES.md` of `docs/OPERATIONAL_RULES.md` een eigen `##`- of `###`-subsectie op precies één gezaghebbende plaats. Een automatisch gecontroleerde regel bevat de onderstaande niet-lege velden in deze volgorde; de [lokale onderhoudsinstructies](#documentatiewijzigingen-verifiëren) bewaken wijzigingen eraan. Een regel kan meerdere checks hebben en een check meerdere regels: verbind ze met links naar de betreffende secties in de vier documenten, zonder een tweede regelnummering. Plaats de norm bij het beslispunt waarvoor het document verantwoordelijk is en verwijs vanuit de andere regelsbestanden gericht naar die norm.
 
 ```markdown
 **Norm**

@@ -1,8 +1,8 @@
 # Gedeelde toolingbibliotheek
 
-`project-tools-shared` levert het technische fundament voor `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-syntax` en `project-tools-dependencies`. Gebruik de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
+`project-tools-shared` bevat de technische functies die `lint-project`, `project-tools-secrets`, `project-tools-metadata`, `project-tools-syntax` en `project-tools-dependencies` delen. Volg de [gezamenlijke installatiehandleiding](../README.md#installatie) om de gembron en bundle in te richten.
 
-Voor links buiten deze gem lees je de handleiding in de bijbehorende repositorycheckout.
+Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen.
 
 ## Inhoudsopgave
 
@@ -20,9 +20,15 @@ Voor links buiten deze gem lees je de handleiding in de bijbehorende repositoryc
 
 De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een configuratiefout oplevert. Shared selecteert geen modules, metadata, manifests of toegestane bronbestanden. De linter behoudt zijn eigen symlink- en bronleesgrenzen; dependencycontrole volgt native Puppet-selectie. De package voert bij laden geen scans uit, initialiseert geen Puppet-instellingen of Minitest, registreert geen lintchecks en wijzigt geen rapporten.
 
-`require 'project_tools/shared/console'` levert `ProjectTools::Shared::Console` vanaf shared 0.1.1. Maak een instantie met een controlenaam, `output:` en eventueel `scope:`. `during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, output:)` toont een bevinding direct. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat. De aanroeper levert status en volledigheid; shared leidt geen oordeel af uit exitcodes of severitynamen. Geef `report:` uitsluitend na succesvol schrijven en sluiten van de gevraagde uitvoer.
+`require 'project_tools/shared/console'` levert `ProjectTools::Shared::Console` vanaf shared 0.1.1. Maak een instantie met een controlenaam, `output:` en eventueel `scope:`.
 
-`diagnostic(message, output:)` is ook als classmethode beschikbaar voor converters zonder eigen uitvoeringscyclus. Zij springt regels in en vlakt terminalcontroltekens af; XML blijft bij de JUnit-writer. De console schrijft geen bestanden, platformcommando’s of annotaties. Bij een onverwacht afgebroken `during` blijven verzamelde bevindingen zichtbaar in een onvolledige foutafsluiting, waarna de oorspronkelijke exception of het signaal doorgaat. Het [centrale logcontract](../README.md#joblogs) bepaalt de gebruikerspresentatie en de grens met native CI-stappen.
+`during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, output:)` toont een bevinding direct. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat.
+
+De aanroeper levert status en volledigheid; shared leidt geen oordeel af uit exitcodes of severitynamen. Geef `report:` uitsluitend na succesvol schrijven en sluiten van de gevraagde uitvoer.
+
+`diagnostic(message, output:)` is ook als classmethode beschikbaar voor converters zonder eigen uitvoeringscyclus. Zij springt regels in en vlakt terminalcontroltekens af; XML blijft bij de JUnit-writer. De console schrijft geen bestanden, platformcommando’s of annotaties.
+
+Bij een onverwacht afgebroken `during` blijven verzamelde bevindingen zichtbaar in een onvolledige foutafsluiting, waarna de oorspronkelijke exception of het signaal doorgaat. Het [centrale logcontract](../README.md#joblogs) bepaalt de gebruikerspresentatie en de grens met native CI-stappen.
 
 Gebruik `finding` voor een beknopte identiteit en het probleemtype; deze methode toont maximaal de eerste twee regels. Geef een volledige meerregelige diagnose daarom afzonderlijk aan `diagnostic`, dat alle regels behoudt en terminalcontroltekens veilig weergeeft. Succesdetails zoals gecompileerde resources of definities zijn geen bevinding: bewaar ze bij het toolresultaat voor JUnit. Shared beslist niet of een warning of ontbrekende dekking het toolbeleid schendt.
 
@@ -50,7 +56,7 @@ Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daa
 
 ## Puppet-runtime selecteren
 
-`require 'project_tools/shared/puppet_runtime'` laadt uitsluitend de gedeelde voorziening. `PuppetRuntime.detect` selecteert precies één geactiveerde gem uit `Gem.loaded_specs`: `puppet` of `openvox`. Bundler activeert de gem uit de eigen bundle; buiten Bundler moet de caller haar vooraf activeren. Geïnstalleerde alternatieven en `PATH` zijn geen selectiebron. Geen actieve runtime, beide gems tegelijk of overschaduwde Puppet-kerncode buiten de gekozen gem geeft `PuppetRuntime::Error`. `name`, `version` en `to_s` komen uit de geselecteerde gemspec. De herkomstcontrole beoordeelt `puppet.rb` en bestanden die in de geselecteerde runtime bestaan; module-eigen uitbreidingen onder `lib/puppet/` blijven toegestaan.
+`require 'project_tools/shared/puppet_runtime'` laadt uitsluitend de gedeelde voorziening. `PuppetRuntime.detect` selecteert precies één geactiveerde gem uit `Gem.loaded_specs`: `puppet` of `openvox`. Bundler activeert de gem uit de eigen bundle; buiten Bundler moet de aanroeper haar vooraf activeren. Geïnstalleerde alternatieven en `PATH` zijn geen selectiebron. Geen actieve runtime, beide gems tegelijk of overschaduwde Puppet-kerncode buiten de gekozen gem geeft `PuppetRuntime::Error`. `name`, `version` en `to_s` komen uit de geselecteerde gemspec. De herkomstcontrole beoordeelt `puppet.rb` en bestanden die in de geselecteerde runtime bestaan; module-eigen uitbreidingen onder `lib/puppet/` blijven toegestaan.
 
 `PuppetRuntime.load!(feature = 'puppet')` laadt de vereiste interface en controleert herkomst en overeenstemming tussen gemversie en `Puppet.version`. Dit is een consistentiecontrole tussen twee dynamische waarden, geen lijst toegestane releases. `detect.executable` kiest met RubyGems de executable van precies die gem en versie en controleert de herkomst. Start haar met de actieve `RbConfig.ruby`; zoek niet zelfstandig naar een executable of tweede runtime.
 
@@ -64,8 +70,8 @@ De [simulatietests](tests/puppet_runtime_test.rb) gebruiken tijdelijke gemspecs 
 
 Volg bij onderhoud ook de [gezamenlijke ontwikkelwerkwijze](../../CONTRIBUTING.md), het [testbeleid](../../TESTS.md) en het [gedeelde toolingonderhoud](../README.md#gedeeld-toolingonderhoud).
 
-- Voeg shared-code alleen toe wanneer concrete consumers hetzelfde technische gedrag nodig hebben. Houd metadataherstel, selectiebeleid, lintchecks, parserorkestratie en dependencybevindingen bij hun tools volgens de packagegrenzen hieronder.
-- Identificeer bij gewijzigde [runtimeinterfaces](#runtimecontracten) alle geraakte aanroepers, lees hun README-contracten en verifieer hun CLI en ondersteunde distributieroutes. Agents lezen ook hun lokale instructies. Behoud selectie-, resultaat- en exitsemantiek bij de caller, isolatie bij laden en de lint-JUnit-compatibility-shim.
+- Voeg shared-code alleen toe wanneer concrete afnemers hetzelfde technische gedrag nodig hebben. Houd metadataherstel, selectiebeleid, lintchecks, parserorkestratie en dependencybevindingen bij hun tools volgens de packagegrenzen hieronder.
+- Identificeer bij gewijzigde [runtimeinterfaces](#runtimecontracten) alle geraakte aanroepers, lees hun README-contracten en verifieer hun CLI en ondersteunde distributieroutes. Agents lezen ook hun lokale instructies. Behoud selectie-, resultaat- en exitsemantiek bij de aanroeper, isolatie bij laden en de lint-JUnit-compatibility-shim.
 - Houd [testondersteuning](#testondersteuning) buiten de runtimegem. Verifieer eenmalige bootstrap en reporterinitialisatie, opt-in JUnit, behoud van andere rapporten en foutstatus bij rapportschrijffouten. Lintconfiguratie en verwachtingen blijven in de linthelper.
 - Onderhoud package-testhelpers tegen de bestaande offline consumerroute met gescheiden stdout, stderr en processtatus. Gebruik shared-tests voor library- en bootstrapcontracten; navigatie, workflow en testindeling horen bij repositorycontroles.
 

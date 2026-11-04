@@ -1,6 +1,6 @@
 # Compile-test voor proxmox
 
-De test compileert Proxmox met de serverbasis op het ondersteunde Debian 12-platform. De [centrale catalog](../../.tools/catalog/README.md#uitvoeren) ontdekt dit scenario automatisch. De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
+De test compileert Proxmox met de serverbasis op het ondersteunde Debian 12-platform. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt dit scenario automatisch. De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
 
 ## Inhoudsopgave
 
@@ -16,4 +16,4 @@ De test compileert Proxmox met de serverbasis op het ondersteunde Debian 12-plat
 
 De [Proxmox-class](../manifests/init.pp) vereist expliciet de hoofdclass `basic_settings` en gebruikt haar platformdetectie om de kernel voor Debian 12 te kiezen. Zonder die class weigert zij vóór de pakketdeclaraties te compileren. Andere releases hebben geen ondersteunde kernelmapping.
 
-Daarom is er uitsluitend een combinatietest. Een standalone test wordt pas toepasbaar wanneer de module een zelfstandige platformconfiguratie ondersteunt; een nagebootste serverbasis zou dit contract niet controleren.
+Daarom is er uitsluitend een combinatietest. Een test zonder serverbasis is pas bruikbaar wanneer de module zelf de platformconfiguratie kan verzorgen. Een nagebootste serverbasis zou deze vereiste niet controleren.

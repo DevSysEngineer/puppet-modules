@@ -14,6 +14,7 @@ De [linthandleiding](../README.md) beheert gebruik, architectuur en linteronderh
     - [Informatieplaatsing](#informatieplaatsing)
   - [Duurzame documentatie](#duurzame-documentatie)
   - [Markdown](#markdown)
+  - [Stijl en uitleg](#stijl-en-uitleg)
 - [Redactionele review](#redactionele-review)
   - [Doelgroep en leesroute](#doelgroep-en-leesroute)
     - [Vóór bewerken](#vóór-bewerken)
@@ -24,7 +25,6 @@ De [linthandleiding](../README.md) beheert gebruik, architectuur en linteronderh
   - [Grenzen van redactionele automatisering](#grenzen-van-redactionele-automatisering)
 - [README-richtlijnen](#readme-richtlijnen)
   - [Scope en configuratie](#scope-en-configuratie)
-  - [Stijl en uitleg](#stijl-en-uitleg)
   - [Navigatie en prerequisites](#navigatie-en-prerequisites)
   - [Modulesecties](#modulesecties)
     - [Belangrijke aandachtspunten](#belangrijke-aandachtspunten)
@@ -132,6 +132,18 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 - Houd zinnen, alinea's, lijsten, tabellen en voorbeelden bij het onderwerp van hun heading en in logische leesvolgorde. Introduceer begrippen vóór gebruik en verbind uitleg vóór en na voorbeelden en tabellen. Herschrijf omringende tekst als verplaatsing of toevoeging die samenhang breekt.
 - Houd iedere prozaalinea of lijstitem op één fysieke regel zonder harde regelafbreking, behalve waar Markdownsyntax, tabellen of codeblokken dat vereisen. Scheid onderwerpen met gewone alineagrenzen en schrijf professioneel, concreet en gericht op operationele gevolgen en risico's.
 
+### Stijl en uitleg
+
+De [hoofd-README](../../../../README.md) is de leidraad voor stijl, toon en woordkeuze in alle eigen `.md`-bestanden, ook onder verborgen mappen, bij tools, in testmappen en in de drie regelsdocumenten. `AGENTS.md` valt buiten deze stijl-afstemming en behoudt zijn eigen instructieformaat. De overige afspraken over informatieplaatsing, juistheid en onderhoud blijven ook voor agentinstructies gelden. Behoud de bestaande taalafspraken; pas dezelfde helderheid en directheid toe wanneer een document Engels gebruikt.
+
+- Schrijf als een ervaren collega voor een technisch vaardige lezer die het project nog niet kent. Volg de directe, praktische uitleg in de hoofd-README: wat doet het onderdeel, wat moet de lezer doen en welk gevolg heeft dat? Gebruik passende passages als voorbeeld. Neem een onnatuurlijke of te samengeperste formulering niet over alleen omdat zij in de hoofd-README staat.
+- Gebruik gewoon, toegankelijk Nederlands rond exacte identifiers en spreek de lezer direct aan. Kies vertrouwde Nederlandse woorden waar die de betekenis goed weergeven. Gebruik dezelfde term voor hetzelfde begrip en leg noodzakelijke projecttermen uit voordat je ze gebruikt. Vermijd onnodig Engels, abstracte formuleringen, standaardovergangen, reclame en geforceerde informaliteit.
+- Orden de uitleg rond de taak van de lezer. Geef iedere alinea één samenhangend onderwerp en verbind de zinnen tot een doorlopende uitleg. Beschrijf concrete acties, voorwaarden en gevolgen. Leg een niet-vanzelfsprekende keuze uit wanneer de lezer die nodig heeft om goed te handelen. Splits onafhankelijke aanwijzingen; pers ze niet samen om tekst te besparen.
+- Pas opbouw en detailniveau aan het document aan. Een gebruikershandleiding, testhandleiding en normdocument hebben verschillende functies. Gebruik headings, lijsten en tabellen wanneer die navigatie, stappen of vergelijking verduidelijken. Behoud nuttige eigenschappenlijsten en installatiestappen, zonder secties met opvultekst gelijk te maken. Het [lintdocumentatiecontract](../README.md#schema-voor-regels-en-procedures) bepaalt welke informatie bij automatische controles en handmatige normen nodig is.
+- Behoud technische termen en exacte identifiers waar die nodig zijn. Begin prozalijstitems met een hoofdletter, behalve wanneer een identifier, module- of classnaam, pad of letterlijke waarde zijn eigen schrijfwijze vereist. Behoud bedoelde auteursstandpunten en relevante projectcontext bij een herindeling.
+- Behoud technische eisen, waarschuwingen, uitzonderingen, waarborgen en operationele kennis bij hun eigenaar. Formuleer verplichtingen en verboden even duidelijk als de rest van de uitleg; een stijlwijziging maakt ze niet vrijblijvend. Volg voor lint de [documentgrenzen](../README.md#grenzen-van-de-lintdocumentatie). Voeg geen documentlaag toe om tekst kwijt te kunnen. Verwijder dubbele of aantoonbaar verouderde informatie pas na redactionele review.
+- Beperk README's in testmappen tot relevante keuzes en uitzonderingen van de scenario's. Verwijs voor algemene testregels naar [TESTS.md](../../../../TESTS.md#moduletests-eenvoudig-houden). Volg daarbij dezelfde praktische stijl en Markdown-afspraken als in de overige eigen documentatie.
+
 ## Redactionele review
 
 ### Doelgroep en leesroute
@@ -165,7 +177,11 @@ Iedere duurzame norm heeft precies één gezaghebbende locatie. Bepaal die aan d
 
 ### Proza beoordelen
 
-Lees de passage als doorlopende uitleg, inclusief ongewijzigde omgeving. Corrigeer onnatuurlijke formulering, wisselende terminologie, abrupte overgangen en onverklaarde onderwerpwisselingen zonder technische betekenis te veranderen. Vergelijk gewijzigd lint-README-proza met representatieve root-README-passages volgens de README-stijlafspraken. Neem een korte representatieve passage op in de review voor feedback van de eigenaar en gebruik een geaccepteerde passage als concreet stijlvoorbeeld.
+Vergelijk bij iedere wijziging aan eigen Markdown de geraakte uitleg met een passende passage uit de hoofd-README, volgens [Stijl en uitleg](#stijl-en-uitleg). Kies het voorbeeld vóór het schrijven en herlees na afloop de volledige geraakte sectie met haar omgeving. Controleer of de toon, woordkeuze en zinsbouw aansluiten, of begrippen consequent worden gebruikt en of de lezer de volgende handeling en de gevolgen kan begrijpen. Voor `AGENTS.md` geldt het eigen instructieformaat.
+
+Corrigeer onnatuurlijke formuleringen, abrupte overgangen, onverklaarde onderwerpwisselingen en alinea's waarin onafhankelijke voorwaarden zijn samengeperst. Behoud daarbij de technische betekenis en de kracht van eisen en verboden. Alleen woorden vervangen of zinnen inkorten is geen volledige stijlreview.
+
+Vermeld in de wijzigingsreview welk hoofd-README-voorbeeld is gebruikt en wat de stijlreview heeft opgeleverd. Neem bij een brede herschrijving een korte representatieve passage op voor feedback van de eigenaar; een geaccepteerde passage kan daarna als concreet stijlvoorbeeld dienen. Controleer bij projectbreed onderhoud ieder eigen Markdown-document, inclusief documenten die na beoordeling ongewijzigd blijven.
 
 ### Grenzen van redactionele automatisering
 
@@ -185,15 +201,6 @@ Een technische controle bewijst nooit dat uitleg duidelijk, prettig leesbaar of 
 - Verifieer vóór voorgeschreven configuratie wat defaults, overerving en gedeclareerde componenten al leveren. Beschrijf dat effectieve gedrag eerst. Leg aanvullende configuratie alleen uit als de lezer een keuze of handeling nodig heeft; presenteer optionele overrides niet als verplichte inrichting.
 - Houd actuele, blijvende gebruiksvoorwaarden bij de betrokken handeling; plaats wijzigingsgebonden overstapstappen volgens [duurzame documentatie](#duurzame-documentatie) bij release notes of changelog.
 
-### Stijl en uitleg
-
-- Schrijf als een ervaren collega voor een technisch vaardige lezer die het project nog niet kent. Gebruik representatief root-README-proza als referentie voor een directe, praktische infrastructuurtoon, niet als template of kwaliteitsbewijs. Kopieer onnatuurlijke of te samengeperste tekst niet omwille van consistentie.
-- Schrijf gewoon, toegankelijk Nederlands rond exacte identifiers. Kies vertrouwde Nederlandse woorden boven onnodig Engels of abstract toolingjargon en spreek de lezer direct aan. Behoud natuurlijke verbindingen zonder boilerplate, stockovergangen, ongebruikelijke synoniemen, reclame of geforceerde informaliteit.
-- Organiseer gebruiksuitleg rond de lezerstaak, niet de implementatievolgorde of reviewvereisten. Geef iedere alinea één samenhangend onderwerp; scheid onafhankelijke aanwijzingen in plaats van ze voor beknoptheid samen te persen. Beschrijf concrete acties, voorwaarden en gevolgen en verklaar niet-vanzelfsprekende keuzes wanneer dat handelen helpt.
-- Laat README's binnen testmappen dezelfde taal, Markdown-conventies en praktische schrijfstijl volgen als de root-README en tool-README's. Beperk hun inhoud tot relevante scenariospecifieke keuzes en uitzonderingen en verwijs voor algemene testregels naar [TESTS.md](../../../../TESTS.md#moduletests-eenvoudig-houden).
-- Gebruik headings, lijsten en tabellen waar navigatie of vergelijking dat vraagt. Behoud nuttige lijsten zoals eigenschappen en installatiestappen. Voeg geen vulling toe om secties uniform te maken; het lintdocumentatiecontract onderscheidt automatische controles van handmatige normen.
-- Behoud noodzakelijke technische termen en exacte identifiers; leg projectbegrippen vóór gebruik uit. Begin README-prozalijstitems met een hoofdletter, met behoud van case van identifiers, module- en classnamen, paden en literals. Behoud bedoelde auteursstandpunten en relevante projectcontext bij herindeling.
-- Behoud noodzakelijke technische eisen, waarschuwingen, uitzonderingen, waarborgen en operationele kennis bij hun eigenaar; volg voor lint de [documentgrenzen](../README.md#grenzen-van-de-lintdocumentatie). Voeg geen extra documentlaag toe om omvang te reduceren. Verwijder duplicaten en aantoonbaar verouderde informatie pas na redactionele review.
 
 ### Navigatie en prerequisites
 
@@ -279,7 +286,7 @@ Bij een lokaal gedeelde berekening voor één resource of ondersteunde zelfstand
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -291,7 +298,7 @@ Een zelfstandig toelichtingsblok begint na een lege regel wanneer er code aan vo
 
 **Detectiegrenzen**
 
-Direct na {, [ of ( hoeft geen lege regel vóór commentaar. Een trailing comment of lintmarkering is geen zelfstandig toelichtingsblok. De inhoudelijke juistheid van de uitleg blijft review.
+Direct na {, [ of ( hoeft geen lege regel vóór commentaar. Een trailing comment of lintmarkering is geen zelfstandig toelichtingsblok. Controleer zelf of de uitleg inhoudelijk klopt.
 
 **Meldingen en severity**
 
@@ -315,7 +322,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_comment_spacing` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_comment_spacing`. Verwacht een warning.
 
 <!-- lint-example: project_comment_spacing warning -->
 ```puppet
@@ -326,7 +333,7 @@ $other = 2
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_comment_spacing` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_comment_spacing`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_comment_spacing clean -->
 ```puppet
@@ -360,7 +367,7 @@ Een resourcedeclaratie na een afgesloten `}` begint met een lege regel en een ei
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -372,7 +379,7 @@ Een resourcedeclaratie na een afgesloten `}` begint met een lege regel en een ei
 
 **Detectiegrenzen**
 
-Dit omvat defined types, resourcedefaults en overrides. Resources verbonden met een relatiepijl blijven samen één keten. De inhoudelijke juistheid van de uitleg blijft review.
+Dit omvat defined types, resourcedefaults en overrides. Resources verbonden met een relatiepijl blijven samen één keten. Controleer zelf of de uitleg inhoudelijk klopt.
 
 **Meldingen en severity**
 
@@ -396,7 +403,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_resource_sections`; verwacht warning.
+Fragment voor `project_resource_sections`. Verwacht een warning.
 
 <!-- lint-example: project_resource_sections warning -->
 ```puppet
@@ -406,7 +413,7 @@ notify { 'example': }
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_resource_sections`; verwacht geen melding.
+Fragment voor `project_resource_sections`. Verwacht geen melding.
 
 <!-- lint-example: project_resource_sections clean -->
 ```puppet
@@ -444,11 +451,11 @@ Bestaande toelichtingen in geraakte implementatieblokken van alle eigen code, in
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Toelichtingen bij code](#toelichtingen-bij-code).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Toelichtingen bij code](#toelichtingen-bij-code).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of overbodig is; noodzakelijke lokale redenen blijven staan.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of overbodig is; noodzakelijke lokale redenen blijven staan.
 
 **Toegestane uitzonderingen**
 
@@ -456,11 +463,11 @@ Het verwijderen van uitleg is alleen passend wanneer zij verouderd, dubbel of ov
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Commentaar beschrijft een verwijderde fallback en dupliceert projectbeleid. Keur dit af tegen de norm.
+Handmatig reviewscenario: Commentaar beschrijft een verwijderde fallback en dupliceert projectbeleid.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Verwijder verouderde of overbodige uitleg en behoud lokale redenen en gevolgen; laat beleid in de documentatie. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Verwijder verouderde of overbodige uitleg en behoud lokale redenen en gevolgen; laat beleid in de documentatie.
 
 **Handmatige review**
 
@@ -468,7 +475,7 @@ Vergelijk met de huidige code en goed gedocumenteerde voorbeelden en controleer 
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Niet-zichtbare implementatiekeuzes toelichten
 
@@ -486,11 +493,11 @@ Alle eigen code: onder meer afgeleide waarden, delegatie, opruimroutes, helpers 
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Toelichtingen bij code](#toelichtingen-bij-code).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Toelichtingen bij code](#toelichtingen-bij-code).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op keuzes en gevolgen die niet direct zichtbaar zijn.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op keuzes en gevolgen die niet direct zichtbaar zijn.
 
 **Toegestane uitzonderingen**
 
@@ -498,11 +505,11 @@ Vanzelfsprekende code verlangt geen overbodige herhaling; de norm richt zich op 
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een complexe escaping- of terugvalstap heeft geen uitleg over haar gevolgen. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een complexe escaping- of terugvalstap heeft geen uitleg over haar gevolgen.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Beschrijf de reden en de relevante invoer, uitvoer of exitgevolgen wanneer die niet vanzelf spreken. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Beschrijf de reden en de relevante invoer, uitvoer of exitgevolgen wanneer die niet vanzelf spreken.
 
 **Handmatige review**
 
@@ -510,7 +517,7 @@ Controleer iedere genoemde soort keuze en koppel de uitleg aan het lokale risico
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Codecommentaar in Engelse zinnen schrijven
 
@@ -528,11 +535,11 @@ Gewone codecomments in alle eigen talen, buiten Puppet Strings; de aparte String
 
 **Automatische controle**
 
-Geen automatische controle voor deze afzonderlijke inhoudelijke verplichting. De gerelateerde technische controles staan bij [Toelichtingen bij code](#toelichtingen-bij-code).
+Geen automatische controle voor deze norm. Zie voor de bijbehorende technische controles [Toelichtingen bij code](#toelichtingen-bij-code).
 
 **Detectiegrenzen**
 
-De gerelateerde checks voeren de beschreven runtime- of inhoudelijke beoordeling niet uit. Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heeft afgebroken tekst volgens de aparte opmaak.
+De bijbehorende checks beoordelen het beschreven gedrag en de inhoudelijke keuzes niet. Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heeft afgebroken tekst volgens de aparte opmaak.
 
 **Toegestane uitzonderingen**
 
@@ -540,11 +547,11 @@ Lijsten, voorbeelden en syntaxis mogen eigen regels krijgen; Puppet Strings heef
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een Engelse zin wordt willekeurig over meerdere fysieke regels verdeeld. Keur dit af tegen de norm.
+Handmatig reviewscenario: Een Engelse zin wordt willekeurig over meerdere fysieke regels verdeeld.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Houd iedere zin op één fysieke regel en leg de reden, beperking of relevante gevolgen uit. Beoordeel de genoemde voorwaarden afzonderlijk.
+Handmatig reviewscenario: Houd iedere zin op één fysieke regel en leg de reden, beperking of relevante gevolgen uit.
 
 **Handmatige review**
 
@@ -552,7 +559,7 @@ Lees de volledige zin en werk willekeurige afbrekingen in geraakte comments weg.
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Voorwaarden toelichten
 
@@ -562,7 +569,7 @@ Geef iedere `if` en `unless` een toelichting die de voorwaarde en de bijbehorend
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -598,7 +605,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_if_sections` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_if_sections`. Verwacht een warning.
 
 <!-- lint-example: project_if_sections warning -->
 ```puppet
@@ -607,7 +614,7 @@ if $active { notice('Active') }
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_if_sections` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_if_sections`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_if_sections clean -->
 ```puppet
@@ -629,7 +636,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij Voorwaarden toelichten
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_if_sections` gecontroleerd.
 
@@ -662,7 +669,7 @@ Een autofix die een variabele toevoegt, moet deze toelichting behouden of de cor
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -698,7 +705,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen de controle `project_variable_sections` is voor dit voorbeeld bedoeld. Verwacht een warning.
+Fragment voor `project_variable_sections`. Verwacht een warning.
 
 <!-- lint-example: project_variable_sections warning -->
 ```puppet
@@ -709,7 +716,7 @@ if $active {
 
 **Correct voorbeeld**
 
-Fragment; alleen de controle `project_variable_sections` is voor dit voorbeeld bedoeld. Verwacht geen melding voor deze check; de gewijzigde constructie voldoet aan de norm.
+Fragment voor `project_variable_sections`. Verwacht geen melding van deze check.
 
 <!-- lint-example: project_variable_sections clean -->
 ```puppet
@@ -739,7 +746,7 @@ Maak een nieuwe groep wanneer na onderling afhankelijke berekeningen een losstaa
 
 **Herkomst**
 
-Projectregel; de bestaande norm blijft van kracht waar automatische dekking ontbreekt.
+Projectregel.
 
 **Toepassingsgebied**
 
@@ -775,7 +782,7 @@ Suppressie niet toegestaan voor deze projectchecks. De afzonderlijke lengte- en 
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_variable_sections`; verwacht warning.
+Fragment voor `project_variable_sections`. Verwacht een warning.
 
 <!-- lint-example: project_variable_sections warning -->
 ```puppet
@@ -787,7 +794,7 @@ $c = 'c'
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_variable_sections`; verwacht geen melding.
+Fragment voor `project_variable_sections`. Verwacht geen melding.
 
 <!-- lint-example: project_variable_sections clean -->
 ```puppet
@@ -815,7 +822,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 Maak een nieuwe groep wanneer na onderling afhankelijke berekeningen een losstaande instelling volgt. In dit voorbeeld horen de genormaliseerde servernaam, de ge-escapete waarde en het label bij elkaar. Het configuratiepad en de numerieke instellingen vormen de volgende groep:
 
-Fragment; de omliggende regel beschrijft de te beoordelen constructie. Dit is geen bewijs van een groene volledige profielscan.
+Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
 Voor dit fragment wordt uitsluitend `project_variable_sections` gecontroleerd.
 
@@ -897,7 +904,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht warning.
+Fragment voor `project_documentation`. Verwacht een warning.
 
 <!-- lint-example: project_documentation warning -->
 ```puppet
@@ -906,7 +913,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht geen melding.
+Fragment voor `project_documentation`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation clean -->
 ```puppet
@@ -979,7 +986,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht warning.
+Fragment voor `project_documentation`. Verwacht een warning.
 
 <!-- lint-example: project_documentation warning -->
 ```puppet
@@ -993,7 +1000,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht geen melding.
+Fragment voor `project_documentation`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation clean -->
 ```puppet
@@ -1062,7 +1069,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht warning.
+Fragment voor `project_documentation`. Verwacht een warning.
 
 <!-- lint-example: project_documentation warning -->
 ```puppet
@@ -1076,7 +1083,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht geen melding.
+Fragment voor `project_documentation`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation clean -->
 ```puppet
@@ -1151,7 +1158,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht warning.
+Fragment voor `project_documentation`. Verwacht een warning.
 
 <!-- lint-example: project_documentation warning -->
 ```puppet
@@ -1166,7 +1173,7 @@ class example (String $label) {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht geen melding.
+Fragment voor `project_documentation`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation clean -->
 ```puppet
@@ -1240,7 +1247,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht warning.
+Fragment voor `project_documentation`. Verwacht een warning.
 
 <!-- lint-example: project_documentation warning -->
 ```puppet
@@ -1252,7 +1259,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation`; verwacht geen melding.
+Fragment voor `project_documentation`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation clean -->
 ```puppet
@@ -1348,7 +1355,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht warning.
+Fragment voor `project_documentation_layout`. Verwacht een warning.
 
 <!-- lint-example: project_documentation_layout warning -->
 ```puppet
@@ -1365,7 +1372,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht geen melding.
+Fragment voor `project_documentation_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation_layout clean -->
 ```puppet
@@ -1445,7 +1452,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht warning.
+Fragment voor `project_documentation_layout`. Verwacht een warning.
 
 <!-- lint-example: project_documentation_layout warning -->
 ```puppet
@@ -1463,7 +1470,7 @@ class example (String $label) {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht geen melding.
+Fragment voor `project_documentation_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation_layout clean -->
 ```puppet
@@ -1535,7 +1542,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht warning.
+Fragment voor `project_documentation_layout`. Verwacht een warning.
 
 <!-- lint-example: project_documentation_layout warning -->
 ```puppet
@@ -1549,7 +1556,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht geen melding.
+Fragment voor `project_documentation_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation_layout clean -->
 ```puppet
@@ -1622,7 +1629,7 @@ Suppressie niet toegestaan voor `project_documentation` of `project_documentatio
 
 **Onjuist voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht warning.
+Fragment voor `project_documentation_layout`. Verwacht een warning.
 
 <!-- lint-example: project_documentation_layout warning -->
 ```puppet
@@ -1639,7 +1646,7 @@ class example {}
 
 **Correct voorbeeld**
 
-Fragment; alleen `project_documentation_layout`; verwacht geen melding.
+Fragment voor `project_documentation_layout`. Verwacht geen melding.
 
 <!-- lint-example: project_documentation_layout clean -->
 ```puppet
@@ -1692,7 +1699,7 @@ Bronbeschrijvingen en voorbeelden van alle eigen publieke interfaces; Puppet Str
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedrag verandert.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedrag verandert.
 
 **Toegestane uitzonderingen**
 
@@ -1700,11 +1707,11 @@ Het checkoverzicht verandert alleen wanneer het beheerdergerichte monitoringgedr
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een parameterdefault verandert, maar Strings en het voorbeeld noemen de oude waarde. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een parameterdefault verandert, maar Strings en het voorbeeld noemen de oude waarde.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Werk Strings en geraakte voorbeelden bij en pas bij gewijzigd monitoringgedrag het checkoverzicht aan. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Werk Strings en geraakte voorbeelden bij en pas bij gewijzigd monitoringgedrag het checkoverzicht aan.
 
 **Handmatige review**
 
@@ -1720,7 +1727,7 @@ Beoordeel deze handmatige scenario's met de [README-richtlijn](#scope-en-configu
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Documentatie op haar aangewezen plaats onderhouden
 
@@ -1738,7 +1745,7 @@ Puppet-parametercontracten en handmatige duplicaten van genereerbare API-documen
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt het parametercontract bij de code niet.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt het parametercontract bij de code niet.
 
 **Toegestane uitzonderingen**
 
@@ -1746,11 +1753,11 @@ Een verwijzing naar gegenereerde API-documentatie is toegestaan; zij vervangt he
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een handmatig REFERENCE.md dupliceert de door Puppet Strings te genereren parameterbeschrijvingen. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een handmatig REFERENCE.md dupliceert de door Puppet Strings te genereren parameterbeschrijvingen.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Behoud parametercontracten bij de code en gebruik Puppet Strings als bron voor eventuele gegenereerde API-documentatie; beoordeel de overige informatieplaatsing volgens de gekoppelde repositoryafspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Behoud parametercontracten bij de code en gebruik Puppet Strings als bron voor eventuele gegenereerde API-documentatie; beoordeel de overige informatieplaatsing volgens de gekoppelde repositoryafspraken.
 
 **Handmatige review**
 
@@ -1758,7 +1765,7 @@ Controleer de verantwoordelijkheden van iedere geraakte uitleg en voorkom een tw
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
 
 ### Uitvoerbare voorbeeldscenario’s onderhouden
 
@@ -1776,7 +1783,7 @@ Nieuwe en bijgewerkte gebruiksvoorbeelden bij publieke interfaces.
 
 **Detectiegrenzen**
 
-De linter beoordeelt de genoemde runtimeobjecten, intentie en operationele gevolgen niet. Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder de vermelde voorwaarden en de beveiligingsafspraken blijven verplicht.
+Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder de vermelde voorwaarden en de beveiligingsafspraken blijven verplicht.
 
 **Toegestane uitzonderingen**
 
@@ -1784,11 +1791,11 @@ Uitbreiden van een bestaand scenario is een voorkeur. De uitvoerbaarheid onder d
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een voorbeeld mist een verplicht argument en presenteert een geheim als gewone tekst. De beschreven constructie wordt afgekeurd.
+Handmatig reviewscenario: Een voorbeeld mist een verplicht argument en presenteert een geheim als gewone tekst.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Breid bij voorkeur het bestaande scenario uit, vermeld voorwaarden en vereiste argumenten en volg de beschreven Sensitive- en Hiera-afspraken. Dit voldoet aan de norm onder de genoemde voorwaarden.
+Handmatig reviewscenario: Breid bij voorkeur het bestaande scenario uit, vermeld voorwaarden en vereiste argumenten en volg de beschreven Sensitive- en Hiera-afspraken.
 
 **Handmatige review**
 
@@ -1796,4 +1803,4 @@ Controleer alle genoemde prerequisites, argumenten en synthetische waarden; vali
 
 **Verificatie**
 
-Vergelijk de voorbeeldscenario’s met de norm en voer de hierboven beschreven handmatige review uit. Leg de bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden zijn geen uitgevoerde host- of modulegedragstests.
+Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
