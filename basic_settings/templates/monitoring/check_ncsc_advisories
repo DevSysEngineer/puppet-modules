@@ -300,6 +300,60 @@ fetch_source() {
     update_state --arg key "$fetch_key" --slurpfile http "$WORK/http.json" '.http[$key]=$http[0]'
 }
 
+# Collect CSAF within the caller-provided deadline; preserve completed working-state updates on interruption.
+collect_advisories() {
+    # Cache discovery and a persistent queue permit bounded first-time ingestion.
+    if fetch_source changes 'https://advisories.ncsc.nl/csaf/v2/changes.csv' 16777216; then
+        CHANGES_TIME=$FETCH_TIME
+        if [ "$(bounded "$JQ" -r '.indexed' "$WORK/state.json")" = false ]; then
+            if fetch_source index 'https://advisories.ncsc.nl/csaf/v2/index.txt' 16777216; then
+                # Reconcile discovery against the changes list before accepting the index.
+                if bounded "$JQ" -Rse --rawfile index "$STATE_DIR/index" '
+                    ($index|split("\n")|map(select(length>0)|{key:.,value:true})|from_entries) as $paths |
+                    split("\n")|map(select(length>0)|capture("^\"(?<path>[^\"]+)\""))|all(.[];$paths[.path]==true)
+                ' "$STATE_DIR/changes" >/dev/null 2>&1; then
+                    update_state '.indexed=true' || return 1
+                else
+                    SOURCE_USABLE=false
+                fi
+            else
+                SOURCE_USABLE=false
+            fi
+        fi
+        if bounded "$JQ" -Rse "$JQ_COMMON"'
+            split("\n") | map(select(length>0) | sub("\r$"; "") |
+                capture("^\"(?<path>[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json)\",\"(?<date>[^\"]+)\"$") |
+                if .path[0:4]!=.path[10:14] then error("year mismatch") else {path:.path,date:(.date|epoch)} end)
+        ' "$STATE_DIR/changes" > "$WORK/changes.json" 2>/dev/null; then
+            update_state --slurpfile changes "$WORK/changes.json" '
+                . as $state | .pending = ([$changes[0][] |
+                    select(.date>=$state.selection_since or $state.docs[.path]!=null) |
+                    select($state.docs[.path].date != .date)] | sort_by(-.date))
+            ' || return 1
+        else
+            SOURCE_USABLE=false
+        fi
+    else
+        SOURCE_USABLE=false
+    fi
+
+    # Leave evaluation time available; pending entries are durable data, not background jobs.
+    while remaining; do
+        NEXT=$(bounded "$JQ" -r '.pending[0].path // empty' "$WORK/state.json") || return 1
+        [ -n "$NEXT" ] || break
+        DOC_FILE=${NEXT##*/}
+        if fetch_source "$DOC_FILE" "https://advisories.ncsc.nl/csaf/v2/$NEXT" 2097152 changed && [ "$FETCH_FRESH" = true ]; then
+            # Download validation already populated parsed.json for the accepted response.
+            update_state --slurpfile records "$WORK/parsed.json" '
+                .pending[0] as $next | .docs[$next.path]={date:$next.date,records:$records[0]} | .pending |= .[1:]
+            ' || return 1
+        else
+            SOURCE_USABLE=false
+            break
+        fi
+    done
+}
+
 # Inventory fields come from the installed package, never from its APT candidate.
 inventory() {
     bounded "$DPKGQUERY" -W '-f=${binary:Package}\t${Architecture}\t${Version}\t${source:Package}\t${source:Version}\t${source:Upstream-Version}\t${db:Status-Status}\t${Homepage}\t${binary:Synopsis}\n' \
@@ -473,56 +527,17 @@ else
         > "$WORK/state.json" || die 'state initialization failed'
 fi
 
-# Cache discovery and a persistent queue permit bounded first-time ingestion.
-if fetch_source changes 'https://advisories.ncsc.nl/csaf/v2/changes.csv' 16777216; then
-    CHANGES_TIME=$FETCH_TIME
-    if [ "$(bounded "$JQ" -r '.indexed' "$WORK/state.json")" = false ]; then
-        if fetch_source index 'https://advisories.ncsc.nl/csaf/v2/index.txt' 16777216; then
-            # Reconcile discovery against the changes list before accepting the index.
-            if bounded "$JQ" -Rse --rawfile index "$STATE_DIR/index" '
-                ($index|split("\n")|map(select(length>0)|{key:.,value:true})|from_entries) as $paths |
-                split("\n")|map(select(length>0)|capture("^\"(?<path>[^\"]+)\""))|all(.[];$paths[.path]==true)
-            ' "$STATE_DIR/changes" >/dev/null 2>&1; then
-                update_state '.indexed=true' || die 'cannot record initial index'
-            else
-                SOURCE_USABLE=false
-            fi
-        else
-            SOURCE_USABLE=false
-        fi
-    fi
-    if bounded "$JQ" -Rse "$JQ_COMMON"'
-        split("\n") | map(select(length>0) | sub("\r$"; "") |
-            capture("^\"(?<path>[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json)\",\"(?<date>[^\"]+)\"$") |
-            if .path[0:4]!=.path[10:14] then error("year mismatch") else {path:.path,date:(.date|epoch)} end)
-    ' "$STATE_DIR/changes" > "$WORK/changes.json" 2>/dev/null; then
-        update_state --slurpfile changes "$WORK/changes.json" '
-            . as $state | .pending = ([$changes[0][] |
-                select(.date>=$state.selection_since or $state.docs[.path]!=null) |
-                select($state.docs[.path].date != .date)] | sort_by(-.date))
-        ' || die 'cannot update advisory queue'
-    else
-        SOURCE_USABLE=false
-    fi
-else
+# Reserve evaluation and persistence time by bounding every CSAF discovery, download and parser call.
+RUN_DEADLINE=$DEADLINE
+DEADLINE=$((RUN_DEADLINE - 30))
+if ! collect_advisories; then
     SOURCE_USABLE=false
+    SOURCE_ERRORS=$(printf '%s\n%s' "$SOURCE_ERRORS" 'CSAF collection incomplete; completed progress retained for retry.')
 fi
-
-# Leave evaluation time available; pending entries are durable data, not background jobs.
-while remaining && [ "$REMAINING" -gt 30 ]; do
-    NEXT=$(bounded "$JQ" -r '.pending[0].path // empty' "$WORK/state.json") || break
-    [ -n "$NEXT" ] || break
-    DOC_FILE=${NEXT##*/}
-    if fetch_source "$DOC_FILE" "https://advisories.ncsc.nl/csaf/v2/$NEXT" 2097152 changed && [ "$FETCH_FRESH" = true ] &&
-        parse_csaf "$STATE_DIR/$DOC_FILE" > "$WORK/parsed.json"; then
-        update_state --slurpfile records "$WORK/parsed.json" '
-            .pending[0] as $next | .docs[$next.path]={date:$next.date,records:$records[0]} | .pending |= .[1:]
-        ' || die 'cannot checkpoint processed advisory'
-    else
-        SOURCE_USABLE=false
-        break
-    fi
-done
+if ! remaining; then
+    SOURCE_ERRORS=$(printf '%s\n%s' "$SOURCE_ERRORS" 'CSAF ingestion time budget exhausted; remaining documents will be retried.')
+fi
+DEADLINE=$RUN_DEADLINE
 PENDING=$(bounded "$JQ" '.pending|length' "$WORK/state.json") || die 'cannot read ingestion progress'
 if [ "$PENDING" -eq 0 ] && [ "$SOURCE_USABLE" = true ]; then
     update_state --argjson time "$CHANGES_TIME" '.csaf_at=$time' || die 'cannot record CSAF coverage'
