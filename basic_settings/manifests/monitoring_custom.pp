@@ -29,7 +29,7 @@
 #   Human-readable check name. `undef` uses a capitalized resource title.
 #
 # @param interval
-#   Check interval in seconds. The default is 300.
+#   Check interval in seconds. The default is 300. Active registrations require an interval greater than timeout.
 #
 # @param package
 #   Monitoring package override. `undef` inherits `basic_settings::monitoring` when that class is declared.
@@ -64,7 +64,7 @@
 #   hash. It does not replace derived values such as state_dir or become executable shell code.
 #
 # @param timeout
-#   Check timeout in seconds. The default is 30.
+#   Check timeout in seconds. The default is 30. Must be less than interval when registering an active check.
 #
 # @api public
 define basic_settings::monitoring_custom (
@@ -96,10 +96,11 @@ define basic_settings::monitoring_custom (
   # Keep valid input on the main path so validation failures stay exceptional.
   if (($check == undef or $template == undef)
     and ($script == undef or ($check == undef and $template == undef))) {
-    # Validate the executable source and shared-script identifier before registering the check.
+    # Validate source, titles and scheduling before managing the executable or its registration.
     if (($source == undef or $source =~ /(?i:\A(?:puppet:\/\/\/|file:\/\/\/|https:\/\/))/)
       and ($script == undef or $script =~ /\A[A-Za-z0-9_.-]+\z/)
-      and (!$state or ($name =~ /\A[A-Za-z0-9_.-]+\z/ and $name !~ /\A\.{1,2}\z/))) {
+      and (!$state or ($name =~ /\A[A-Za-z0-9_.-]+\z/ and $name !~ /\A\.{1,2}\z/))
+      and ($ensure != present or !$register or $timeout < $interval)) {
       # Get friendly name
       if ($friendly == undef) {
         # Derive a readable monitoring label from the resource title.
@@ -262,7 +263,7 @@ define basic_settings::monitoring_custom (
         }
       }
     } else {
-      fail('basic_settings::monitoring_custom requires an approved source URL and safe shared-script/state titles containing only letters, digits, dots, underscores or hyphens.') # lint:ignore:140chars
+      fail("basic_settings::monitoring_custom[${name}] requires an approved source URL, safe shared-script/state titles and timeout (${timeout}) less than interval (${interval}) for active registrations.") # lint:ignore:140chars
     }
   } else {
     fail('basic_settings::monitoring_custom accepts only one of check or template; shared scripts accept neither.')

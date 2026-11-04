@@ -46,7 +46,7 @@ Environment: STATE_DIR (-S, existing private directory); CACHE_TTL (-t, default 
 Precedence: CLI, non-empty environment, default. Last repeated option wins.
 NCSC news and CSAF changes cover an initial 90-day selection, plus retained findings; this is not a complete vulnerability scan.
 Only installed dpkg packages are correlated. Containers, embedded components and unrelated product names are outside that inventory.
-The check may refresh APT lists (at most 25 seconds); it never upgrades, installs or removes software. Total work is bounded to 50 seconds.
+The check may refresh APT lists (at most 25 seconds); it never upgrades, installs or removes software. The monitoring executor controls the overall timeout.
 apt_current means operationally resolved by NCSC/APT policy; a CVE fix is not independently verified.
 Counters count CVE/source/architecture/distribution combinations and open periods, not notifications.
 Period MTTR is delta resolve_sec_total / delta resolved_total within the same stats_epoch; do not average the MTTR gauge.
@@ -63,29 +63,16 @@ done
 shift $((OPTIND - 1))
 [ "$#" -eq 0 ] || die "$USAGE_TEXT"
 
-# Use Linux monotonic uptime for the work budget; civil time remains the event clock.
-# Every subprocess doing collection or parsing runs within the remaining budget.
-remaining() {
-    IFS=' ' read -r uptime_value uptime_idle < /proc/uptime || return 1
-    uptime_value=${uptime_value%%.*}
-    case "$uptime_value" in ''|*[!0-9]*) return 1 ;; esac
-    REMAINING=$((DEADLINE - uptime_value))
-    [ "$REMAINING" -gt 0 ]
-}
-
-bounded() {
-    remaining || return 124
-    $TIMEOUT -k 1 "${REMAINING}s" "$@"
-}
-
 # Updates the working state only; commit_state publishes counters and findings together.
 update_state() {
-    bounded "$JQ" "$@" "$WORK/state.json" > "$WORK/state.next" 2>/dev/null &&
+    $JQ "$@" "$WORK/state.json" > "$WORK/state.next" 2>/dev/null &&
         $MV "$WORK/state.next" "$WORK/state.json"
 }
 
+# Keep the working copy usable after publishing collection progress or final findings.
 commit_state() {
-    $MV "$WORK/state.json" "$STATE_DIR/state.json" || die 'atomic state replacement failed'
+    $JQ . "$WORK/state.json" > "$STATE_DIR/state.next" &&
+        $MV "$STATE_DIR/state.next" "$STATE_DIR/state.json" || die 'atomic state replacement failed'
 }
 
 # Canonical keys retain significant +/# characters. No product aliases are maintained.
@@ -123,7 +110,7 @@ def positive_patch:
 
 # Return validated per-CVE product records, keeping release scope separate from affected versions.
 parse_csaf() {
-    bounded "$JQ" -ce "$JQ_COMMON"'
+    $JQ -ce "$JQ_COMMON"'
         if .document.csaf_version != "2.0" or (.document.tracking.id | test("^NCSC-[0-9]{4}-[0-9]{4,}$") | not)
             or (.vulnerabilities | type) != "array" or (.product_tree.branches | type) != "array"
         then error("invalid CSAF") else . end |
@@ -174,9 +161,9 @@ parse_csaf() {
     ' "$1" 2>/dev/null
 }
 
-# Validate and extract RSS locally with the Python standard library within the work budget.
+# Validate and extract RSS locally with the Python standard library.
 read_ncsc_news() {
-    bounded "$PYTHON" - "$1" "$2" <<'PY_NCSC_NEWS'
+    $PYTHON - "$1" "$2" <<'PY_NCSC_NEWS'
 import json
 import re
 import sys
@@ -234,7 +221,7 @@ validate_download() {
             read_ncsc_news validate "$2" 2>/dev/null
             ;;
         changes)
-            bounded "$JQ" -Rse "$JQ_COMMON"'
+            $JQ -Rse "$JQ_COMMON"'
                 split("\n") | map(select(length>0) | sub("\r$"; "")) |
                 length > 0 and all(.[];
                     test("^\"[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json\",\"[^\"]+\"$") and
@@ -243,7 +230,7 @@ validate_download() {
             ' "$2" >/dev/null 2>&1
             ;;
         index)
-            bounded "$JQ" -Rse 'split("\n") | map(select(length>0)) |
+            $JQ -Rse 'split("\n") | map(select(length>0)) |
                 length > 0 and all(.[]; test("^[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json$") and .[0:4]==.[10:14])' "$2" >/dev/null 2>&1
             ;;
         *) parse_csaf "$2" > "$WORK/parsed.json" ;;
@@ -257,7 +244,7 @@ fetch_source() {
     fetch_url=$2
     fetch_limit=$3
     FETCH_FRESH=false
-    FETCH_TIME=$(bounded "$JQ" -r --arg key "$fetch_key" '.http[$key].time // 0' "$WORK/state.json") || return 1
+    FETCH_TIME=$($JQ -r --arg key "$fetch_key" '.http[$key].time // 0' "$WORK/state.json") || return 1
     fetch_valid=false
     if [ -f "$STATE_DIR/$fetch_key" ] && validate_download "$fetch_key" "$STATE_DIR/$fetch_key"; then
         fetch_valid=true
@@ -266,18 +253,15 @@ fetch_source() {
             return 0
         fi
     fi
-    remaining || return 1
-    fetch_timeout=$REMAINING
-    [ "$fetch_timeout" -le 8 ] || fetch_timeout=8
-    set -- --proto '=https' --tlsv1.2 --silent --show-error --fail --connect-timeout 3 --max-time "$fetch_timeout" \
+    set -- --proto '=https' --tlsv1.2 --silent --show-error --fail --connect-timeout 3 --max-time 8 \
         --max-filesize "$fetch_limit" --dump-header "$WORK/headers" --output "$WORK/download" --write-out '%{http_code}'
     if [ "$fetch_valid" = true ]; then
-        fetch_etag=$(bounded "$JQ" -r --arg key "$fetch_key" '.http[$key].etag // empty' "$WORK/state.json") || return 1
-        fetch_modified=$(bounded "$JQ" -r --arg key "$fetch_key" '.http[$key].modified // empty' "$WORK/state.json") || return 1
+        fetch_etag=$($JQ -r --arg key "$fetch_key" '.http[$key].etag // empty' "$WORK/state.json") || return 1
+        fetch_modified=$($JQ -r --arg key "$fetch_key" '.http[$key].modified // empty' "$WORK/state.json") || return 1
         [ -z "$fetch_etag" ] || set -- "$@" --header "If-None-Match: $fetch_etag"
         [ -z "$fetch_modified" ] || set -- "$@" --header "If-Modified-Since: $fetch_modified"
     fi
-    fetch_code=$(bounded "$CURL" "$@" "$fetch_url" 2>/dev/null)
+    fetch_code=$($CURL "$@" "$fetch_url" 2>/dev/null)
     fetch_rc=$?
     if [ "$fetch_rc" -eq 0 ] && [ "$fetch_code" = 200 ] &&
         [ "$($STAT -c %s "$WORK/download")" -le "$fetch_limit" ] && validate_download "$fetch_key" "$WORK/download"; then
@@ -291,7 +275,7 @@ fetch_source() {
     fi
     FETCH_TIME=$($DATE +%s)
     FETCH_FRESH=true
-    bounded "$JQ" -Rn --argjson time "$FETCH_TIME" '
+    $JQ -Rn --argjson time "$FETCH_TIME" '
         [inputs | sub("\r$"; "") | select(test("^(etag|last-modified):";"i")) |
          capture("^(?<key>[^:]+):\\s*(?<value>[^\\r\\n]*)$") | .key |= ascii_downcase] |
         {time:$time,etag:([.[]|select(.key=="etag")|.value]|last // ""),
@@ -300,68 +284,14 @@ fetch_source() {
     update_state --arg key "$fetch_key" --slurpfile http "$WORK/http.json" '.http[$key]=$http[0]'
 }
 
-# Collect CSAF within the caller-provided deadline; preserve completed working-state updates on interruption.
-collect_advisories() {
-    # Cache discovery and a persistent queue permit bounded first-time ingestion.
-    if fetch_source changes 'https://advisories.ncsc.nl/csaf/v2/changes.csv' 16777216; then
-        CHANGES_TIME=$FETCH_TIME
-        if [ "$(bounded "$JQ" -r '.indexed' "$WORK/state.json")" = false ]; then
-            if fetch_source index 'https://advisories.ncsc.nl/csaf/v2/index.txt' 16777216; then
-                # Reconcile discovery against the changes list before accepting the index.
-                if bounded "$JQ" -Rse --rawfile index "$STATE_DIR/index" '
-                    ($index|split("\n")|map(select(length>0)|{key:.,value:true})|from_entries) as $paths |
-                    split("\n")|map(select(length>0)|capture("^\"(?<path>[^\"]+)\""))|all(.[];$paths[.path]==true)
-                ' "$STATE_DIR/changes" >/dev/null 2>&1; then
-                    update_state '.indexed=true' || return 1
-                else
-                    SOURCE_USABLE=false
-                fi
-            else
-                SOURCE_USABLE=false
-            fi
-        fi
-        if bounded "$JQ" -Rse "$JQ_COMMON"'
-            split("\n") | map(select(length>0) | sub("\r$"; "") |
-                capture("^\"(?<path>[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json)\",\"(?<date>[^\"]+)\"$") |
-                if .path[0:4]!=.path[10:14] then error("year mismatch") else {path:.path,date:(.date|epoch)} end)
-        ' "$STATE_DIR/changes" > "$WORK/changes.json" 2>/dev/null; then
-            update_state --slurpfile changes "$WORK/changes.json" '
-                . as $state | .pending = ([$changes[0][] |
-                    select(.date>=$state.selection_since or $state.docs[.path]!=null) |
-                    select($state.docs[.path].date != .date)] | sort_by(-.date))
-            ' || return 1
-        else
-            SOURCE_USABLE=false
-        fi
-    else
-        SOURCE_USABLE=false
-    fi
-
-    # Leave evaluation time available; pending entries are durable data, not background jobs.
-    while remaining; do
-        NEXT=$(bounded "$JQ" -r '.pending[0].path // empty' "$WORK/state.json") || return 1
-        [ -n "$NEXT" ] || break
-        DOC_FILE=${NEXT##*/}
-        if fetch_source "$DOC_FILE" "https://advisories.ncsc.nl/csaf/v2/$NEXT" 2097152 changed && [ "$FETCH_FRESH" = true ]; then
-            # Download validation already populated parsed.json for the accepted response.
-            update_state --slurpfile records "$WORK/parsed.json" '
-                .pending[0] as $next | .docs[$next.path]={date:$next.date,records:$records[0]} | .pending |= .[1:]
-            ' || return 1
-        else
-            SOURCE_USABLE=false
-            break
-        fi
-    done
-}
-
 # Inventory fields come from the installed package, never from its APT candidate.
 inventory() {
-    bounded "$DPKGQUERY" -W '-f=${binary:Package}\t${Architecture}\t${Version}\t${source:Package}\t${source:Version}\t${source:Upstream-Version}\t${db:Status-Status}\t${Homepage}\t${binary:Synopsis}\n' \
+    $DPKGQUERY -W '-f=${binary:Package}\t${Architecture}\t${Version}\t${source:Package}\t${source:Version}\t${source:Upstream-Version}\t${db:Status-Status}\t${Homepage}\t${binary:Synopsis}\n' \
         > "$1" 2>/dev/null
 }
 
 build_index() {
-    bounded "$JQ" -Rse "$JQ_COMMON"'
+    $JQ -Rse "$JQ_COMMON"'
         split("\n") | map(select(length>0) | split("\t") |
             if length != 9 then error("invalid inventory") else . end |
             select(.[6] == "installed") |
@@ -391,7 +321,7 @@ build_index() {
 # Correlate in dictionary lookups; unrelated global products do not become host alerts.
 # Ambiguous normalization and unconfirmed suffixes produce review records only.
 match_records() {
-    bounded "$JQ" -ce --slurpfile index "$WORK/index.json" --arg distro "$DISTRO" --argjson now "$NOW" "$JQ_COMMON"'
+    $JQ -ce --slurpfile index "$WORK/index.json" --arg distro "$DISTRO" --argjson now "$NOW" "$JQ_COMMON"'
         def match_product:
             . as $r | ([.name,product_name] | map(norm) | unique) as $names |
             ([$names[] | $index[0].exact[.][]?] | unique_by([.source,.arch])) as $exact |
@@ -424,7 +354,7 @@ match_records() {
 # Only explicitly distribution-scoped Debian ranges use Debian comparison. Upstream
 # ranges never become package-version limits, because a distribution may backport fixes.
 match_debian_ranges() {
-    bounded "$JQ" -r 'to_entries[]|select(.value.native_scope and (.value.version|startswith("vers:deb/")))|
+    $JQ -r 'to_entries[]|select(.value.native_scope and (.value.version|startswith("vers:deb/")))|
         .key as $i|.value as $r|.value.binaries[]|select(.binary==$r.native_package)|
         [$i,.version,$r.version]|@tsv' "$WORK/matches.json" > "$WORK/ranges" || return 1
     while IFS="$(printf '\t')" read -r range_index range_installed range_text; do
@@ -432,33 +362,33 @@ match_debian_ranges() {
         range_review=false
         range_lower=''
         # Support a single interval (up to two bounds); unfamiliar syntax requires review.
-        if ! bounded "$JQ" -ne --arg range "$range_text" '
+        if ! $JQ -ne --arg range "$range_text" '
             $range|ltrimstr("vers:deb/")|split("|")|
             length>0 and length<=2 and all(.[];test("^(>=|<=|!=|>|<|=)?[0-9][A-Za-z0-9.+:~_-]*$")) and
             (length==1 or ((.[0]|startswith(">")) and (.[1]|startswith("<"))))
         ' >/dev/null 2>&1; then
-            bounded "$JQ" --argjson i "$range_index" '.[$i].range_review=true' "$WORK/matches.json" > "$WORK/matches.next" || return 1
+            $JQ --argjson i "$range_index" '.[$i].range_review=true' "$WORK/matches.json" > "$WORK/matches.next" || return 1
             $MV "$WORK/matches.next" "$WORK/matches.json" || return 1
             continue
         fi
-        bounded "$JQ" -nr --arg range "$range_text" '
+        $JQ -nr --arg range "$range_text" '
             $range|ltrimstr("vers:deb/")|split("|")[]|capture("^(?<op>>=|<=|!=|>|<|=)?(?<v>.*)$")|
             [({">=":"ge","<=":"le","!=":"ne",">":"gt","<":"lt","=":"eq"}[.op // "="]),.v]|@tsv
         ' > "$WORK/bounds" || return 1
         while IFS="$(printf '\t')" read -r range_operator range_version; do
             if [ -n "$range_lower" ]; then
-                bounded "$DPKG" --compare-versions "$range_lower" lt "$range_version"
+                $DPKG --compare-versions "$range_lower" lt "$range_version"
                 range_exit=$?
                 [ "$range_exit" -le 1 ] || return 1
                 [ "$range_exit" -eq 0 ] || range_review=true
             fi
             case "$range_operator" in gt|ge) range_lower=$range_version ;; esac
-            bounded "$DPKG" --compare-versions "$range_installed" "$range_operator" "$range_version"
+            $DPKG --compare-versions "$range_installed" "$range_operator" "$range_version"
             range_exit=$?
             [ "$range_exit" -le 1 ] || return 1
             [ "$range_exit" -eq 0 ] || range_matches=false
         done < "$WORK/bounds"
-        bounded "$JQ" --argjson i "$range_index" --argjson applicable "$range_matches" --argjson review "$range_review" '
+        $JQ --argjson i "$range_index" --argjson applicable "$range_matches" --argjson review "$range_review" '
             .[$i] |= (.applicable=$applicable | .range_review=$review |
                 .concrete=($applicable and (.product_status=="known_affected" or .product_status=="first_affected")) |
                 .cleared=($applicable and (.product_status=="known_not_affected" or .product_status=="fixed" or .product_status=="first_fixed")))
@@ -483,14 +413,12 @@ $FLOCK -n 9 || die 'another run owns this state; retry next interval'
 WORK=$($MKTEMP -d "$STATE_DIR/.work.XXXXXX") || die 'cannot create private workspace'
 trap '$RM -rf "$WORK"' 0
 trap 'exit 3' HUP INT TERM
-IFS=' ' read -r UPTIME UPTIME_IDLE < /proc/uptime || die 'Linux monotonic clock unavailable'
-DEADLINE=$((${UPTIME%%.*} + 47))
 NOW=$($DATE +%s) || die 'event clock unavailable'
 case "$NOW" in ''|*[!0-9]*) die 'invalid event clock' ;; esac
 RUN_STARTED=$NOW
 
 # Do not source os-release: parse only the two identity fields as data.
-DISTRO=$(bounded "$AWK" -F= '
+DISTRO=$($AWK -F= '
     $1=="ID" || $1=="VERSION_ID" {
         value=substr($0,index($0,"=")+1); gsub(/^"|"$/, "", value)
         if (value !~ /^[a-z0-9._-]+$/ || seen[$1]++) exit 1
@@ -501,7 +429,7 @@ DISTRO=$(bounded "$AWK" -F= '
 case "$DISTRO" in debian\ *|ubuntu\ *) : ;; *) die 'requires Debian or Ubuntu package semantics' ;; esac
 
 if [ -e "$STATE_DIR/state.json" ]; then
-    bounded "$JQ" -e --argjson now "$NOW" '
+    $JQ -e --argjson now "$NOW" '
         def uint: type=="number" and .>=0 and floor==.;
         .schema==1 and (.stats_epoch|uint) and .stats_epoch<=$now and (.last_run|uint) and .last_run<=$now and
         (.http|type)=="object" and (.docs|type)=="object" and (.pending|type)=="array" and
@@ -518,27 +446,70 @@ if [ -e "$STATE_DIR/state.json" ]; then
             (.opened_at==null or ((.opened_at|uint) and .opened_at<=$now)) and (.status|type)=="string" and
             (.history|type)=="array" and (.ever_open|type)=="boolean" and (.binaries|type)=="array"))
     ' "$STATE_DIR/state.json" >/dev/null 2>&1 || die 'corrupt state or clock rollback; history retained for operator review'
-    bounded "$JQ" . "$STATE_DIR/state.json" > "$WORK/state.json" || die 'state unreadable'
+    $JQ . "$STATE_DIR/state.json" > "$WORK/state.json" || die 'state unreadable'
 else
-    bounded "$JQ" -n --argjson now "$NOW" '{schema:1,stats_epoch:$now,last_run:$now,selection_since:($now-7776000),
+    $JQ -n --argjson now "$NOW" '{schema:1,stats_epoch:$now,last_run:$now,selection_since:($now-7776000),
         http:{},docs:{},pending:[],findings:{},news:[],news_at:null,csaf_at:null,indexed:false,
         apt_started_at:null,apt_completed_at:null,apt_exit:null,
         findings_total:0,episodes_total:0,reopens_total:0,resolved_total:0,removed_total:0,resolve_sec_total:0,last_resolve:null}' \
         > "$WORK/state.json" || die 'state initialization failed'
 fi
 
-# Reserve evaluation and persistence time by bounding every CSAF discovery, download and parser call.
-RUN_DEADLINE=$DEADLINE
-DEADLINE=$((RUN_DEADLINE - 30))
-if ! collect_advisories; then
+# Cache discovery and a persistent queue allow interrupted imports to resume.
+if fetch_source changes 'https://advisories.ncsc.nl/csaf/v2/changes.csv' 16777216; then
+    CHANGES_TIME=$FETCH_TIME
+    if [ "$($JQ -r '.indexed' "$WORK/state.json")" = false ]; then
+        if fetch_source index 'https://advisories.ncsc.nl/csaf/v2/index.txt' 16777216; then
+            # Reconcile discovery against the changes list before accepting the index.
+            if $JQ -Rse --rawfile index "$STATE_DIR/index" '
+                ($index|split("\n")|map(select(length>0)|{key:.,value:true})|from_entries) as $paths |
+                split("\n")|map(select(length>0)|capture("^\"(?<path>[^\"]+)\""))|all(.[];$paths[.path]==true)
+            ' "$STATE_DIR/changes" >/dev/null 2>&1; then
+                update_state '.indexed=true' || die 'cannot record initial index'
+            else
+                SOURCE_USABLE=false
+            fi
+        else
+            SOURCE_USABLE=false
+        fi
+    fi
+    if $JQ -Rse "$JQ_COMMON"'
+        split("\n") | map(select(length>0) | sub("\r$"; "") |
+            capture("^\"(?<path>[0-9]{4}/ncsc-[0-9]{4}-[0-9]{4,}\\.json)\",\"(?<date>[^\"]+)\"$") |
+            if .path[0:4]!=.path[10:14] then error("year mismatch") else {path:.path,date:(.date|epoch)} end)
+    ' "$STATE_DIR/changes" > "$WORK/changes.json" 2>/dev/null; then
+        update_state --slurpfile changes "$WORK/changes.json" '
+            . as $state | .pending = ([$changes[0][] |
+                select(.date>=$state.selection_since or $state.docs[.path]!=null) |
+                select($state.docs[.path].date != .date)] | sort_by(-.date))
+        ' || die 'cannot update advisory queue'
+        commit_state
+    else
+        SOURCE_USABLE=false
+    fi
+else
     SOURCE_USABLE=false
-    SOURCE_ERRORS=$(printf '%s\n%s' "$SOURCE_ERRORS" 'CSAF collection incomplete; completed progress retained for retry.')
 fi
-if ! remaining; then
-    SOURCE_ERRORS=$(printf '%s\n%s' "$SOURCE_ERRORS" 'CSAF ingestion time budget exhausted; remaining documents will be retried.')
-fi
-DEADLINE=$RUN_DEADLINE
-PENDING=$(bounded "$JQ" '.pending|length' "$WORK/state.json") || die 'cannot read ingestion progress'
+
+# Process the complete selection; the monitoring executor controls the overall timeout.
+while :; do
+    NEXT=$($JQ -r '.pending[0].path // empty' "$WORK/state.json") || die 'cannot read advisory queue'
+    [ -n "$NEXT" ] || break
+    DOC_FILE=${NEXT##*/}
+    if fetch_source "$DOC_FILE" "https://advisories.ncsc.nl/csaf/v2/$NEXT" 2097152 changed && [ "$FETCH_FRESH" = true ]; then
+        # Download validation already populated parsed.json for the accepted response.
+        update_state --slurpfile records "$WORK/parsed.json" '
+            .pending[0] as $next | .docs[$next.path]={date:$next.date,records:$records[0]} | .pending |= .[1:]
+        ' || die 'cannot checkpoint processed advisory'
+
+        # Publish completed documents before the executor can interrupt a later download or parse.
+        commit_state
+    else
+        SOURCE_USABLE=false
+        break
+    fi
+done
+PENDING=$($JQ '.pending|length' "$WORK/state.json") || die 'cannot read ingestion progress'
 if [ "$PENDING" -eq 0 ] && [ "$SOURCE_USABLE" = true ]; then
     update_state --argjson time "$CHANGES_TIME" '.csaf_at=$time' || die 'cannot record CSAF coverage'
 else
@@ -563,19 +534,19 @@ fi
 # Expired or incomplete source coverage can never close a finding.
 NOW=$($DATE +%s)
 [ "$NOW" -ge "$RUN_STARTED" ] || die 'event clock moved backwards during collection; history retained'
-if ! bounded "$JQ" -e --argjson now "$NOW" 'all([.news_at,.csaf_at][]; .!=null and .<=$now)' \
+if ! $JQ -e --argjson now "$NOW" 'all([.news_at,.csaf_at][]; .!=null and .<=$now)' \
     "$WORK/state.json" >/dev/null 2>&1; then
     COVERAGE_COMPLETE=false
 fi
 update_state --argjson now "$NOW" '.last_run=$now' || die 'cannot checkpoint source progress'
+
 # Publish collection progress before evaluation; counters and findings remain unchanged.
-bounded "$JQ" . "$WORK/state.json" > "$STATE_DIR/state.next" &&
-    $MV "$STATE_DIR/state.next" "$STATE_DIR/state.json" || die 'cannot persist source progress'
+commit_state
 
 # Derive news products from bounded title tokens and the local inventory index.
 # GUID-only notices stay visible without inventing a CVE or increasing CVE counters.
 collect_records() {
-    bounded "$JQ" -ce --slurpfile index "$WORK/index.json" "$JQ_COMMON"'
+    $JQ -ce --slurpfile index "$WORK/index.json" "$JQ_COMMON"'
         . as $state |
         [$state.news[] | select(.title | test("kwetsbaar|beveilig|vulnerab|security";"i")) | . as $item |
             (.title | words) as $words |
@@ -596,16 +567,16 @@ collect_records() {
 # must identify the same source and upstream branch before a version is relevant.
 assess_apt() {
     : > "$WORK/apt.rows"
-    bounded "$APTMARK" showhold > "$WORK/holds" 2>/dev/null || return 1
-    bounded "$APTGET" -s dist-upgrade > "$WORK/simulation" 2>/dev/null || return 1
-    bounded "$JQ" -r '[.[]|select(.cve!=null and .strength=="strong" and .release=="released")|.binaries[]] |
+    $APTMARK showhold > "$WORK/holds" 2>/dev/null || return 1
+    $APTGET -s dist-upgrade > "$WORK/simulation" 2>/dev/null || return 1
+    $JQ -r '[.[]|select(.cve!=null and .strength=="strong" and .release=="released")|.binaries[]] |
         unique_by([.binary,.arch])[] | [.binary,.arch,.version,.source,.upstream] | @tsv' \
         "$WORK/matches.json" > "$WORK/targets" 2>/dev/null || return 1
     while IFS="$(printf '\t')" read -r apt_binary apt_arch apt_installed apt_source apt_upstream; do
         [ -n "$apt_binary" ] || continue
         apt_target="$apt_binary:$apt_arch"
-        bounded "$APTCACHE" policy "$apt_target" > "$WORK/policy" 2>/dev/null || return 1
-        bounded "$AWK" '
+        $APTCACHE policy "$apt_target" > "$WORK/policy" 2>/dev/null || return 1
+        $AWK '
             /Installed:/ { installed=1 }
             /Candidate:/ { candidate=1; if ($2=="(none)") bad=1 }
             /^[[:space:]]+(\*\*\* )?[^[:space:]]+[[:space:]]+-?[0-9]+$/ {
@@ -615,8 +586,8 @@ assess_apt() {
             / Packages$/ { if (version!="") print version "\t" pin }
             END { if (!installed || !candidate || bad) exit 1 }
         ' "$WORK/policy" > "$WORK/versions" || return 1
-        apt_candidate=$(bounded "$AWK" '/Candidate:/ { print $2 }' "$WORK/policy") || return 1
-        bounded "$AWK" -v pkg="$apt_binary" -v target="$apt_target" '
+        apt_candidate=$($AWK '/Candidate:/ { print $2 }' "$WORK/policy") || return 1
+        $AWK -v pkg="$apt_binary" -v target="$apt_target" '
             $1=="Inst" && ($2==pkg || $2==target) {
                 line=$0; sub(/^[^(]*\(/,"",line); sub(/ .*/,"",line); print line "\t1"
             }
@@ -624,17 +595,17 @@ assess_apt() {
         ' "$WORK/simulation" >> "$WORK/versions" || return 1
         apt_result=current
         apt_held=false
-        if bounded "$AWK" -v pkg="$apt_binary" -v target="$apt_target" '$0==pkg || $0==target {found=1} END {exit !found}' "$WORK/holds"; then
+        if $AWK -v pkg="$apt_binary" -v target="$apt_target" '$0==pkg || $0==target {found=1} END {exit !found}' "$WORK/holds"; then
             apt_held=true
         fi
         while IFS="$(printf '\t')" read -r apt_version apt_pin; do
             [ -n "$apt_version" ] || continue
-            bounded "$DPKG" --compare-versions "$apt_version" gt "$apt_installed"
+            $DPKG --compare-versions "$apt_version" gt "$apt_installed"
             apt_compare=$?
             [ "$apt_compare" -le 1 ] || return 1
             [ "$apt_compare" -eq 0 ] || continue
-            bounded "$APTCACHE" show --no-all-versions "$apt_target=$apt_version" > "$WORK/package" 2>/dev/null || return 1
-            apt_meta=$(bounded "$AWK" '
+            $APTCACHE show --no-all-versions "$apt_target=$apt_version" > "$WORK/package" 2>/dev/null || return 1
+            apt_meta=$($AWK '
                 /^Package:/ { pkg=$2 }
                 /^Version:/ { version=$2 }
                 /^Source:/ { source=$2; source_version=$3; gsub(/[()]/,"",source_version) }
@@ -665,7 +636,7 @@ assess_apt() {
 # Retain independently measured pending upgrades even if another APT query failed.
 # Partial current results still cannot authorize closure while APT_OK is false.
 summarize_apt() {
-    bounded "$JQ" -Rse 'split("\n") | map(select(length>0)|split("\t")|{source:.[0],arch:.[1],result:.[2]}) |
+    $JQ -Rse 'split("\n") | map(select(length>0)|split("\t")|{source:.[0],arch:.[1],result:.[2]}) |
         group_by([.source,.arch]) | map({key:([.[0].source,.[0].arch]|join("|")),
             value:(map(.result)| if index("held") then "held" elif index("pinned") then "pinned"
               elif index("update") then "update" else "current" end)}) | from_entries' \
@@ -675,7 +646,7 @@ summarize_apt() {
 # Keep one current outcome per identity. Current CSAF supersedes the broader news
 # announcement for the same CVE/target, without creating another period.
 decide() {
-    bounded "$JQ" -ce --slurpfile old "$WORK/state.json" --slurpfile apt "$WORK/apt.json" \
+    $JQ -ce --slurpfile old "$WORK/state.json" --slurpfile apt "$WORK/apt.json" \
         --argjson now "$NOW" --argjson complete "$COVERAGE_COMPLETE" --argjson apt_ok "$APT_OK" '
         group_by(.key) | map(
             . as $all | (if any(.[];.origin=="csaf") then map(select(.origin=="csaf")) else . end) as $records |
@@ -725,37 +696,32 @@ while [ "$ATTEMPT" -lt 2 ]; do
     fi
     printf '{}\n' > "$WORK/apt.json"
     APT_OK=true
-    if bounded "$JQ" -e 'any(.[];.cve!=null and .strength=="strong" and .release=="released")' "$WORK/matches.json" >/dev/null 2>&1; then
+    if $JQ -e 'any(.[];.cve!=null and .strength=="strong" and .release=="released")' "$WORK/matches.json" >/dev/null 2>&1; then
         assess_apt || APT_OK=false
         summarize_apt || APT_OK=false
     fi
     decide || break
     if [ "$SOURCE_USABLE" = true ] && [ "$COVERAGE_COMPLETE" = true ] && [ "$APT_OK" = true ] &&
-        bounded "$JQ" -e 'any(.[];.status=="refresh_needed")' "$WORK/decisions.json" >/dev/null 2>&1; then
-        remaining || break
-        APT_TIMEOUT=$((REMAINING - 6))
-        [ "$APT_TIMEOUT" -le 25 ] || APT_TIMEOUT=25
-        if [ "$APT_TIMEOUT" -gt 0 ]; then
-            APT_STARTED=$($DATE +%s)
-            $TIMEOUT -k 1 "${APT_TIMEOUT}s" $APTGET -o APT::Update::Error-Mode=any update > "$WORK/apt-update.log" 2>&1
-            APT_EXIT=$?
-            APT_COMPLETED=$($DATE +%s)
-            update_state --argjson started "$APT_STARTED" --argjson completed "$APT_COMPLETED" --argjson code "$APT_EXIT" \
-                '.apt_started_at=$started | .apt_completed_at=$completed | .apt_exit=$code' || break
-            if [ "$APT_EXIT" -eq 0 ]; then
-                assess_apt || APT_OK=false
-                summarize_apt || APT_OK=false
-            else
-                APT_OK=false
-            fi
-            NOW=$($DATE +%s)
-            [ "$NOW" -ge "$RUN_STARTED" ] && [ "$APT_COMPLETED" -ge "$APT_STARTED" ] ||
-                die 'event clock moved backwards during APT inspection; history retained'
-            decide || break
+        $JQ -e 'any(.[];.status=="refresh_needed")' "$WORK/decisions.json" >/dev/null 2>&1; then
+        APT_STARTED=$($DATE +%s)
+        $TIMEOUT -k 1 25s $APTGET -o APT::Update::Error-Mode=any update > "$WORK/apt-update.log" 2>&1
+        APT_EXIT=$?
+        APT_COMPLETED=$($DATE +%s)
+        update_state --argjson started "$APT_STARTED" --argjson completed "$APT_COMPLETED" --argjson code "$APT_EXIT" \
+            '.apt_started_at=$started | .apt_completed_at=$completed | .apt_exit=$code' || break
+        if [ "$APT_EXIT" -eq 0 ]; then
+            assess_apt || APT_OK=false
+            summarize_apt || APT_OK=false
+        else
+            APT_OK=false
         fi
+        NOW=$($DATE +%s)
+        [ "$NOW" -ge "$RUN_STARTED" ] && [ "$APT_COMPLETED" -ge "$APT_STARTED" ] ||
+            die 'event clock moved backwards during APT inspection; history retained'
+        decide || break
     fi
     inventory "$WORK/inventory.after" || break
-    if bounded "$JQ" -ne --rawfile before "$WORK/inventory.before" --rawfile after "$WORK/inventory.after" '$before==$after' >/dev/null 2>&1; then
+    if $JQ -ne --rawfile before "$WORK/inventory.before" --rawfile after "$WORK/inventory.after" '$before==$after' >/dev/null 2>&1; then
         INVENTORY_OK=true
         break
     fi
@@ -800,16 +766,16 @@ fi
 # Render current findings even during a source outage; CRITICAL outranks incomplete inspection.
 REVIEW_COUNT=0
 if [ "$INVENTORY_OK" = true ]; then
-    REVIEW_COUNT=$(bounded "$JQ" '[.[]|select(.cve==null or .strength!="strong")]|length' "$WORK/decisions.json") || REVIEW_COUNT=0
+    REVIEW_COUNT=$($JQ '[.[]|select(.cve==null or .strength!="strong")]|length' "$WORK/decisions.json") || REVIEW_COUNT=0
 fi
-STATE_CODE=$(bounded "$JQ" -r --argjson complete "$COVERAGE_COMPLETE" --argjson source "$SOURCE_USABLE" \
+STATE_CODE=$($JQ -r --argjson complete "$COVERAGE_COMPLETE" --argjson source "$SOURCE_USABLE" \
     --argjson inventory "$INVENTORY_OK" --argjson reviews "$REVIEW_COUNT" '
     [.findings[]|select(.opened_at!=null)] as $open |
     if any($open[];.urgent and (.status=="update" or .status=="held" or .status=="pinned" or .status=="affected")) then 2
     elif ($complete|not) or ($source|not) or ($inventory|not) or any($open[];.status=="unknown" or .status=="refresh_needed") then 3
     elif ($open|length)>0 or $reviews>0 then 1 else 0 end
 ' "$WORK/state.json") || die 'cannot determine monitoring status'
-PERF_DATA=$(bounded "$JQ" -r --argjson now "$NOW" '
+PERF_DATA=$($JQ -r --argjson now "$NOW" '
     [.findings[]|select(.opened_at!=null)] as $open |
     "ncsc_open=\($open|length);;;0 ncsc_preann=\([$open[]|select(.status=="announced")]|length);;;0 " +
     (["findings_total","episodes_total","reopens_total","resolved_total","removed_total","resolve_sec_total"] as $keys |
@@ -819,7 +785,7 @@ PERF_DATA=$(bounded "$JQ" -r --argjson now "$NOW" '
     " news_age=\(if .news_at==null then "U" else ($now-.news_at|tostring)+"s" end);;;0" +
     " csaf_age=\(if .csaf_at==null then "U" else ($now-.csaf_at|tostring)+"s" end);;;0 stats_epoch=\(.stats_epoch)"
 ' "$WORK/state.json") || die 'cannot calculate counters'
-SUMMARY=$(bounded "$JQ" -r --argjson code "$STATE_CODE" '
+SUMMARY=$($JQ -r --argjson code "$STATE_CODE" '
     [.findings[]|select(.opened_at!=null)] as $open |
     if ($open|length)>0 then
         ($open|sort_by(-.first_seen)|.[0]) as $latest |
@@ -841,7 +807,7 @@ SUMMARY=$(bounded "$JQ" -r --argjson code "$STATE_CODE" '
 monitor_section 'Advisory assessment'
 monitor_item "$SUMMARY"
 monitor_section 'Local findings'
-FINDING_TEXT=$(bounded "$JQ" -r '[.findings[]]|sort_by([if .opened_at!=null then 0 else 1 end,-.first_seen])|.[0:40][] |
+FINDING_TEXT=$($JQ -r '[.findings[]]|sort_by([if .opened_at!=null then 0 else 1 end,-.first_seen])|.[0:40][] |
     "\(.cve) / \(.source):\(.arch) [\(.distro)]: \(.status); patch \(.release); APT \(.apt); packages " +
     ([.binaries[]|.binary+"="+.version]|join(", ")) + "; sources " + ([.sources[]|.id+" revision "+(.revision|tostring)]|join(", "))' \
     "$WORK/state.json") || die 'cannot render findings'
@@ -849,7 +815,7 @@ monitor_items "$FINDING_TEXT"
 monitor_item 'Detail collection is limited to 40 recent findings; state.json retains all identities and lifetime counters.'
 if [ "$REVIEW_COUNT" -gt 0 ]; then
     monitor_section 'Product review'
-    REVIEW_TEXT=$(bounded "$JQ" -r '[.[]|select(.cve==null or .strength!="strong")]|.[0:20][] |
+    REVIEW_TEXT=$($JQ -r '[.[]|select(.cve==null or .strength!="strong")]|.[0:20][] |
         "\(.name) / \(.source): \(.strength); needs_review; source \(.source_id)"' "$WORK/decisions.json") || die 'cannot render product reviews'
     monitor_items "$REVIEW_TEXT"
     monitor_item 'At most 20 product reviews are shown.'
@@ -861,7 +827,7 @@ if [ "$INVENTORY_OK" = false ]; then
     monitor_item 'Package inventory or local advisory assessment failed, or inventory changed twice; finding history retained.'
 fi
 monitor_section 'APT measurement'
-APT_TEXT=$(bounded "$JQ" -r 'if .apt_started_at==null then "No own package-list refresh recorded."
+APT_TEXT=$($JQ -r 'if .apt_started_at==null then "No own package-list refresh recorded."
     else "Last own refresh: started \(.apt_started_at), completed \(.apt_completed_at), exit \(.apt_exit)." end' "$WORK/state.json") || die 'cannot render APT measurement'
 monitor_item "$APT_TEXT"
 monitor_limit "$DETAIL_LIMIT"

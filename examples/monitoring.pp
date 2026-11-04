@@ -71,6 +71,13 @@ node 'monitored-host.example.org' {
     require    => Class['openitcockpit::agent'],
   }
 
+  # Allow a longer npm audit for this application's dependency tree.
+  basic_settings::monitoring_npm_audit { 'frontend':
+    dir     => '/opt/frontend',
+    timeout => 60,
+    require => Class['openitcockpit::agent'],
+  }
+
   # Add Mirth Connect monitoring to the same agent.
   class { 'openitcockpit::agent_mirth_connect':
     ensure  => present,

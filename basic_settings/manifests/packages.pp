@@ -417,8 +417,8 @@ class basic_settings::packages (
       state    => true,
       template => 'basic_settings/monitoring/check_ncsc_advisories',
       friendly => 'NCSC advisories',
-      interval => 300,
-      timeout  => 60,
+      interval => 600,
+      timeout  => 300,
       require  => Package[$ncsc_required_packages],
     }
   }

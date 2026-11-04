@@ -35,6 +35,12 @@
 # @param monitoring_active_windows
 #   Optional active-window expression passed to generated service monitoring.
 #
+# @param monitoring_additional_check_timeout
+#   OpenITCOCKPIT execution timeout in seconds for additional checks registered for this service.
+#   The automatic npm audit check for Node.js services with a working directory currently uses this setting.
+#   Allow time for execution and output. This is independent of `monitoring_timeout` and does not change the check
+#   interval or service runtime limits.
+#
 # @param monitoring_enable
 #   Enables generated monitoring when set to `true`. `undef` leaves monitoring absent.
 #
@@ -48,8 +54,9 @@
 #   Monitoring backend package passed to `basic_settings::monitoring_service`.
 #
 # @param monitoring_timeout
-#   OpenITCOCKPIT execution timeout in seconds for the generated systemd service check. Set this separately from
-#   `monitoring_log_window`; it does not change service runtime limits, the check interval or the npm audit timeout.
+#   OpenITCOCKPIT execution timeout in seconds for the generated systemd service check. This is independent of
+#   `monitoring_additional_check_timeout` and `monitoring_log_window`; it does not change service runtime limits
+#   or check intervals.
 #
 # @param service
 #   Key/value settings rendered into the `[Service]` section.
@@ -63,21 +70,22 @@
 # @api public
 define basic_settings::systemd_service (
   String                    $description,
-  String                    $daemon_reload             = 'systemd_daemon_reload',
-  Boolean                   $enable                    = true,
-  Enum['present', 'absent'] $ensure                    = present,
-  Hash                      $install                   = {
+  String                    $daemon_reload                       = 'systemd_daemon_reload',
+  Boolean                   $enable                              = true,
+  Enum['present', 'absent'] $ensure                              = present,
+  Hash                      $install                             = {
     'WantedBy'  => 'multi-user.target',
   },
-  Optional[String]          $monitoring_active_days    = undef,
-  Optional[String]          $monitoring_active_windows = undef,
-  Optional[Boolean]         $monitoring_enable         = undef,
-  Optional[Integer[1]]      $monitoring_log_window     = undef,
-  Optional[String]          $monitoring_package        = undef,
-  Integer[1]                $monitoring_timeout        = 10,
-  Hash                      $service                   = {},
-  Optional[Array]           $service_subscribe         = undef,
-  Hash                      $unit                      = {},
+  Optional[String]          $monitoring_active_days              = undef,
+  Optional[String]          $monitoring_active_windows           = undef,
+  Integer[1]                $monitoring_additional_check_timeout = 30,
+  Optional[Boolean]         $monitoring_enable                   = undef,
+  Optional[Integer[1]]      $monitoring_log_window               = undef,
+  Optional[String]          $monitoring_package                  = undef,
+  Integer[1]                $monitoring_timeout                  = 10,
+  Hash                      $service                             = {},
+  Optional[Array]           $service_subscribe                   = undef,
+  Hash                      $unit                                = {},
 ) {
   # Check if systemd package is not defined
   if (!defined(Package['systemd'])) {
@@ -138,12 +146,14 @@ define basic_settings::systemd_service (
         ensure  => $monitoring_ensure,
         dir     => $service['WorkingDirectory'],
         package => $monitoring_package,
+        timeout => $monitoring_additional_check_timeout,
       }
     } else {
       basic_settings::monitoring_npm_audit { $name:
         ensure  => absent,
         dir     => '',
         package => $monitoring_package,
+        timeout => $monitoring_additional_check_timeout,
       }
     }
   }
