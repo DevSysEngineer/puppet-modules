@@ -4,8 +4,8 @@
 # Declare `docker` before using it.
 # The resource title becomes the Compose project name, so multiple Twenty stacks can be managed on the same host when
 # ports and public names do not conflict.
-# When `server_name` is set, declare `nginx` as well so `docker::compose_proxy` can add the reverse proxy; otherwise the
-# defined type declares `docker::compose` directly.
+# When `server_name` is set, declare `nginx` as well so `docker::compose::proxy` can add the reverse proxy; otherwise
+# the defined type declares `docker::compose` directly.
 # The generated `SERVER_URL` uses `scheme` with the first `server_name`, or `host` when `server_name` is unset.
 # The proxy supplies a fallback CSP allowing same-origin resources, inline scripts and styles, and HTTPS, data and
 # blob images. Objects are blocked; base URIs, framing ancestors and form actions remain same-origin.
@@ -233,7 +233,7 @@ define docker::twenty (
         ], '; ')
 
         # Apply the application policy through the shared proxy's existing header handling.
-        docker::compose_proxy { $name:
+        docker::compose::proxy { $name:
           ensure                     => $ensure,
           backup_database_type       => 'postgresql',
           backup_service             => 'db',

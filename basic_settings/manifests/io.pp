@@ -14,7 +14,7 @@
 #   }
 #
 # @param log_rotate
-#   Default rotation count used by `basic_settings::io_logrotate` when that defined type does not receive an explicit
+#   Default rotation count used by `basic_settings::io::logrotate` when that defined type does not receive an explicit
 #   `rotate` value. The default is 14.
 #
 # @param lvm_enable
@@ -151,7 +151,7 @@ class basic_settings::io (
 
     # Create service check
     if (defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'multipathd': }
+      basic_settings::monitoring::service { 'multipathd': }
     }
 
     # Create multipart config
@@ -198,7 +198,7 @@ class basic_settings::io (
     include basic_settings::systemd::reload
 
     # Create drop in for systemd journal service
-    basic_settings::systemd_drop_in { 'journald_settings':
+    basic_settings::systemd::drop_in { 'journald_settings':
       target_unit => 'journald.conf',
       path        => '/etc/systemd',
       journal     => {
@@ -211,7 +211,7 @@ class basic_settings::io (
 
   # Setup audit rules
   if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'logrotate':
+    basic_settings::security::audit { 'logrotate':
       rules => [
         '-a never,exit -F arch=b32 -F exe=/usr/sbin/logrotate -F auid=unset',
         '-a never,exit -F arch=b64 -F exe=/usr/sbin/logrotate -F auid=unset',
@@ -219,12 +219,12 @@ class basic_settings::io (
       order => 2,
     }
     $suspicious_filter = $suspicious_packages - $suspicious_packages_root
-    basic_settings::security_audit { 'io':
+    basic_settings::security::audit { 'io':
       rule_suspicious_packages => $suspicious_filter,
     }
 
     # Audit privileged I/O tools only when an originating login identity is available.
-    basic_settings::security_audit { 'io-root':
+    basic_settings::security::audit { 'io-root':
       rule_suspicious_packages => $suspicious_packages_root,
       rule_options             => ['-F auid!=unset'],
       order                    => 20,

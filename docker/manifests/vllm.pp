@@ -7,7 +7,7 @@
 # settings.
 # APIs listen only on host loopback. Set server_name and TLS certificates to publish the enabled APIs; whitelist_ips
 # optionally restricts clients.
-# The proxy uses docker::compose_proxy. Declare nginx before selecting it.
+# The proxy uses docker::compose::proxy. Declare nginx before selecting it.
 # DNS, certificates and host firewall rules remain consumer responsibilities.
 # Containers run as root to use their image's default caches, without privileged mode or the Docker socket.
 # vLLM downloads missing revisions into hf-cache; each enabled service also gets its own engine-cache directory.
@@ -68,7 +68,7 @@
 # @param proxy_timeout Nginx read and send timeout in seconds when server_name is set. Default 3600.
 #
 # @param server_name
-#   Optional server name passed to docker::compose_proxy. Undef creates no proxy and requires no nginx class.
+#   Optional server name passed to docker::compose::proxy. Undef creates no proxy and requires no nginx class.
 #   When set, requires nginx and both TLS paths; publishes only enabled /llm/v1/ and /stt/v1/ routes over HTTPS.
 #   Other application paths return 404. An empty whitelist_ips denies all clients.
 #
@@ -233,7 +233,7 @@ define docker::vllm (
                   }
 
                   # Forward authentication and streamed requests through the common proxy implementation.
-                  docker::compose_proxy { $name:
+                  docker::compose::proxy { $name:
                     *                      => $compose_parameters,
                     server_name            => $server_name,
                     http_enable            => false,

@@ -141,17 +141,17 @@ class basic_settings::monitoring (
 
           # Create drop in for x target
           if (defined(Class['basic_settings::systemd'])) {
-            basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
+            basic_settings::systemd::drop_in { 'openitcockpit_agent_dependency':
               target_unit => "${basic_settings::systemd::cluster_id}-services.target",
               unit        => {
                 'BindsTo'   => 'openitcockpit-agent.service',
               },
-              require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+              require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-services"],
             }
           }
 
           # Create drop in for ncpa service
-          basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
+          basic_settings::systemd::drop_in { 'openitcockpit_agent_settings':
             target_unit => 'openitcockpit-agent.service',
             unit        => {
               'OnFailure' => 'notify-failed@%i.service',
@@ -261,7 +261,7 @@ class basic_settings::monitoring (
     include basic_settings::systemd::reload
 
     # Create systemd service for notification
-    basic_settings::systemd_service { 'notify-failed@':
+    basic_settings::systemd::service { 'notify-failed@':
       description => 'Send systemd notifications to mail',
       service     => {
         'ExecStart'               => "/usr/bin/bash -c '${notify_failed_script}' %i",
@@ -290,14 +290,14 @@ class basic_settings::monitoring (
     }
 
     # Create drop in for notify-failed service
-    basic_settings::systemd_drop_in { "notify-failed_${mail_package}_dependency":
+    basic_settings::systemd::drop_in { "notify-failed_${mail_package}_dependency":
       target_unit => 'notify-failed@',
       unit        => {
         'Wants' => "${mail_package}.service",
       },
       require     => [
         Package[$mail_package],
-        Basic_settings::Systemd_service['notify-failed@'],
+        Basic_settings::Systemd::Service['notify-failed@'],
       ],
     }
 
@@ -318,7 +318,7 @@ class basic_settings::monitoring (
       )
 
       # Register the check after its runtime packages.
-      basic_settings::monitoring_custom { 'systemd_config':
+      basic_settings::monitoring::custom { 'systemd_config':
         friendly => 'Systemd config',
         template => 'basic_settings/monitoring/check_systemd_config',
         timeout  => 60,
@@ -328,7 +328,7 @@ class basic_settings::monitoring (
   }
 
   # Create service check
-  basic_settings::monitoring_service { 'mail':
+  basic_settings::monitoring::service { 'mail':
     services => [$mail_package],
   }
 }

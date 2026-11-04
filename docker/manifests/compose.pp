@@ -364,7 +364,7 @@ define docker::compose (
               include basic_settings::systemd::reload
 
               # Manage the compose stack as a root-run orchestration service for the Docker daemon.
-              basic_settings::systemd_service { $service_name:
+              basic_settings::systemd::service { $service_name:
                 description        => "Docker Compose stack ${name}",
                 monitoring_enable  => $docker::monitoring_enable,
                 monitoring_package => $monitoring_package,
@@ -404,12 +404,12 @@ define docker::compose (
               }
 
               # Bind the stack to the requested host target.
-              basic_settings::systemd_drop_in { "${service_name}_dependency":
+              basic_settings::systemd::drop_in { "${service_name}_dependency":
                 target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
                 unit        => {
                   'BindsTo' => "${service_name}.service",
                 },
-                require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+                require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-${target}"],
               }
 
               # Preserve manual stops while loading the unit and target binding before refreshing an active stack.
@@ -420,7 +420,7 @@ define docker::compose (
 
             # Schedule enabled database backups for the validated Compose project.
             if ($backup_enabled) {
-              docker::compose_backup { $name:
+              docker::compose::backup { $name:
                 backup_service    => $backup_service,
                 on_calendar       => $backup_database_on_calendar,
                 project_directory => $project_directory,
@@ -431,7 +431,7 @@ define docker::compose (
             # Register a monitoring check for the Compose stack if the monitoring class is available.
             if ($docker::monitoring_enable) {
               # Register stack health independently of the orchestration service's enablement.
-              docker::compose_monitoring { $name:
+              docker::compose::monitoring { $name:
                 project_directory              => $project_directory,
                 backup_database_type           => $backup_database_type,
                 backup_database_retention_days => $backup_database_retention_days,

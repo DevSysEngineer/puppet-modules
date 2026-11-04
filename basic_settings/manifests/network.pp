@@ -410,12 +410,12 @@ class basic_settings::network (
           )
 
           # Register the check after its runtime packages.
-          basic_settings::monitoring_custom { 'firewall':
+          basic_settings::monitoring::custom { 'firewall':
             check   => template("basic_settings/monitoring/check_${firewall_package}"),
             require => Package[$firewall_monitoring_required_packages],
           }
         } else {
-          basic_settings::monitoring_service { 'firewall':
+          basic_settings::monitoring::service { 'firewall':
             services => [$firewall_package],
           }
         }
@@ -424,7 +424,7 @@ class basic_settings::network (
       # Attach firewall failure notifications only when systemd integration is available.
       if ($systemd_enable) {
         # Create drop in for firewall service
-        basic_settings::systemd_drop_in { "${firewall_package}_notify_failed":
+        basic_settings::systemd::drop_in { "${firewall_package}_notify_failed":
           target_unit => "${firewall_package}.service",
           unit        => {
             'OnFailure' => 'notify-failed@%i.service',
@@ -450,14 +450,14 @@ class basic_settings::network (
     if ($interfaces_str != '') {
       # If DHCP is disabled, force system not to use DHCP
       if (!$dhcp_enable) {
-        basic_settings::systemd_network { '90-dhcpc':
+        basic_settings::systemd::network { '90-dhcpc':
           interface => $interfaces_str,
           network   => {
             'DHCP' => 'no',
           },
         }
       } else {
-        basic_settings::systemd_network { '90-dhcpc':
+        basic_settings::systemd::network { '90-dhcpc':
           ensure => absent,
         }
       }
@@ -466,7 +466,7 @@ class basic_settings::network (
       if ($ip_ra_enable) {
         # Translate the kernel's prefix-learning policy into a networkd boolean.
         $ip_learn_prefix = bool2str($basic_settings::kernel::ip_ra_learn_prefix, 'yes', 'no')
-        basic_settings::systemd_network { '90-router-advertisement':
+        basic_settings::systemd::network { '90-router-advertisement':
           interface      => $interfaces_str,
           ipv6_accept_ra => {
             'UseAutonomousPrefix' => $ip_learn_prefix,
@@ -478,7 +478,7 @@ class basic_settings::network (
           },
         }
       } else {
-        basic_settings::systemd_network { '90-router-advertisement':
+        basic_settings::systemd::network { '90-router-advertisement':
           interface => $interfaces_str,
           network   => {
             'IPv6AcceptRA'        => 'no',
@@ -487,7 +487,7 @@ class basic_settings::network (
         }
       }
     } else {
-      basic_settings::systemd_network { ['90-dhcpc', '90-router-advertisement']:
+      basic_settings::systemd::network { ['90-dhcpc', '90-router-advertisement']:
         ensure => absent,
       }
     }
@@ -598,7 +598,7 @@ class basic_settings::network (
       }
 
       # Create drop in for systemd resolved service
-      basic_settings::systemd_drop_in { 'resolved_settings':
+      basic_settings::systemd::drop_in { 'resolved_settings':
         target_unit => 'resolved.conf',
         path        => '/etc/systemd',
         resolve     => $systemd_resolved_settings,
@@ -635,7 +635,7 @@ class basic_settings::network (
       }
 
       # Create drop in for systemd resolved service
-      basic_settings::systemd_drop_in { 'resolved_settings':
+      basic_settings::systemd::drop_in { 'resolved_settings':
         target_unit => 'resolved.conf',
         path        => '/etc/systemd',
         resolve     => $systemd_resolved_settings,
@@ -715,7 +715,7 @@ class basic_settings::network (
     # The monitoring template inserts these lists as shell words without evaluating their contents.
     $service_str_shell = stdlib::shell_escape($service_str)
     $interfaces_str_shell = stdlib::shell_escape($interfaces_str)
-    basic_settings::monitoring_custom { 'network':
+    basic_settings::monitoring::custom { 'network':
       check    => template('basic_settings/monitoring/check_network'),
       interval => 600, # 10 minutes
       require  => Package[$network_monitoring_packages],
@@ -726,14 +726,14 @@ class basic_settings::network (
   if (defined(Package['auditd'])) {
     # Exclude executables already covered by the root audit rules.
     $suspicious_filter = $suspicious_packages - $suspicious_packages_root
-    basic_settings::security_audit { 'network':
+    basic_settings::security::audit { 'network':
       rules                    => $networkd_rules,
       rule_suspicious_packages => $suspicious_filter,
       order                    => 20,
     }
 
     # Retain login attribution when auditing privileged network tools.
-    basic_settings::security_audit { 'network-root':
+    basic_settings::security::audit { 'network-root':
       rule_suspicious_packages => $suspicious_packages_root,
       rule_options             => ['-F auid!=unset'],
       order                    => 20,

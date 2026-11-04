@@ -8,7 +8,7 @@ class MonitoringDecisionsTest < Minitest::Test
 
   # Build synthetic scopes and cyclic wrapper graphs for provenance tests.
   module MonitoringInputs
-    TARGET = "basic_settings::monitoring_custom { 'synthetic': }"
+    TARGET = "basic_settings::monitoring::custom { 'synthetic': }"
 
     PACKAGE = '$basic_settings::monitoring::package'
 
@@ -67,7 +67,7 @@ class MonitoringDecisionsTest < Minitest::Test
     assert_equal([2], finding_lines(code))
     assert_empty findings(code.sub("== 'synthetic_backend'", "!= 'none'"))
     shadowed = "define example (String $engine) { if $engine == 'nginx' { " \
-               "['synthetic_backend'].each |$engine| { basic_settings::monitoring_custom { " \
+               "['synthetic_backend'].each |$engine| { basic_settings::monitoring::custom { " \
                '$engine: package => $engine } } } }'
     assert_empty findings(shadowed)
   end
@@ -123,7 +123,7 @@ class MonitoringDecisionsTest < Minitest::Test
     assert_empty findings(code.sub("== 'synthetic_backend'", "!= 'none'"))
     assert_equal 1,
                  findings("if #{PACKAGE} == 'synthetic_backend' { " \
-                          "nginx::monitoring_cert { 'instance': config_file => '/tmp/synthetic.conf' } }").length
+                          "nginx::monitoring::cert { 'instance': config_file => '/tmp/synthetic.conf' } }").length
     assert_class_wrappers
   end
 
@@ -134,10 +134,10 @@ class MonitoringDecisionsTest < Minitest::Test
   end
 
   def test_backend_implementation_may_select_its_own_package_and_findings_are_deduplicated
-    code = "define basic_settings::monitoring_custom { if #{PACKAGE} == 'synthetic_backend' { #{TARGET} } }"
+    code = "define basic_settings::monitoring::custom { if #{PACKAGE} == 'synthetic_backend' { #{TARGET} } }"
     assert_empty findings(code)
     code = "$active = #{PACKAGE} == 'synthetic_backend'\nif $active { #{TARGET} }\n" \
-           "if $active { basic_settings::monitoring_custom { 'second': } }"
+           "if $active { basic_settings::monitoring::custom { 'second': } }"
     assert_equal([1], finding_lines(code))
   end
 end

@@ -482,7 +482,7 @@ class basic_settings::kernel (
       }
 
       # Create drop in for dev-hugepages mount
-      basic_settings::systemd_drop_in { 'hugetlb_hugepages':
+      basic_settings::systemd::drop_in { 'hugetlb_hugepages':
         target_unit => 'dev-hugepages.mount',
         mount       => {
           'Options' => "mode=1770,gid=${hugepages_shm_group}",
@@ -491,7 +491,7 @@ class basic_settings::kernel (
       }
 
       # Create systemd service. Keep /dev visible because hugeadm may inspect the hugetlbfs mount at /dev/hugepages.
-      basic_settings::systemd_service { 'dev-hugepages-shmmax':
+      basic_settings::systemd::service { 'dev-hugepages-shmmax':
         description => 'Hugespages recommended shmmax service',
         service     => {
           'ExecStart'               => '/usr/bin/hugeadm --set-recommended-shmmax',
@@ -541,7 +541,7 @@ class basic_settings::kernel (
 
       # Remove drop in for dev-hugepages mount
       if (defined(Package['systemd'])) {
-        basic_settings::systemd_drop_in { 'hugetlb_hugepages':
+        basic_settings::systemd::drop_in { 'hugetlb_hugepages':
           ensure      => absent,
           target_unit => 'dev-hugepages.mount',
           require     => Group['hugetlb'],
@@ -1014,14 +1014,14 @@ class basic_settings::kernel (
       })
 
       # Register memory pressure monitoring next to kernel memory tuning.
-      basic_settings::monitoring_custom { 'memory_pressure':
+      basic_settings::monitoring::custom { 'memory_pressure':
         friendly => 'Memory pressure',
         check    => template('basic_settings/monitoring/check_memory_pressure'),
         require  => Package[$monitoring_required_packages],
       }
 
       # Reegister USB monitoring
-      basic_settings::monitoring_custom { 'usb':
+      basic_settings::monitoring::custom { 'usb':
         friendly => 'USB',
         check    => template('basic_settings/monitoring/check_usb'),
         require  => Package[$monitoring_required_packages],
@@ -1032,7 +1032,7 @@ class basic_settings::kernel (
     if (defined(Package['auditd'])) {
       # Exclude executables already covered by the root audit rules.
       $suspicious_filter = $suspicious_packages - $suspicious_packages_root
-      basic_settings::security_audit { 'kernel':
+      basic_settings::security::audit { 'kernel':
         rules                    => [
           '# Injection',
           '# These rules watch for code injection by the ptrace facility.',
@@ -1066,14 +1066,14 @@ class basic_settings::kernel (
       }
 
       # Retain login attribution when auditing privileged kernel tools.
-      basic_settings::security_audit { 'kernel-root':
+      basic_settings::security::audit { 'kernel-root':
         rule_suspicious_packages => $suspicious_packages_root,
         rule_options             => ['-F auid!=unset'],
         order                    => 10,
       }
 
       # Ignore current working directory records
-      basic_settings::security_audit { 'kernel-cwd':
+      basic_settings::security::audit { 'kernel-cwd':
         rules => ['-a always,exclude -F msgtype=CWD'], # Special case, don't use never,exit
         order => 1,
       }

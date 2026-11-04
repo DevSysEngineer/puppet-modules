@@ -21,7 +21,7 @@ node 'dgx-spark.example.org' {
   class { 'nvidia':
     pinning => lookup('profile::nextcloud_ai::driver_branch', Integer[1]),
     require => [
-      Class['basic_settings::kernel', 'basic_settings::package_nvidia_dgx'],
+      Class['basic_settings::kernel', 'basic_settings::packages::nvidia_dgx'],
       Exec['basic_settings_source_reload'],
     ],
   }

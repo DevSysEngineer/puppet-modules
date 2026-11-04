@@ -6,7 +6,7 @@ module DuplicateFunctionCallsSupport
     define example(Integer $files_max_chunk_size, Boolean $enabled) {
       if $enabled {
         # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
-    %<assignment>s    docker::nextcloud_occ { "${name}_files_max_chunk_size":
+    %<assignment>s    docker::nextcloud::occ { "${name}_files_max_chunk_size":
           command      => ['config:app:set', 'files', 'max_chunk_size', '--value', %<call>s],
           compose_name => $name,
           unless       => ['config:app:get', 'files', 'max_chunk_size'],

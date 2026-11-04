@@ -890,7 +890,7 @@ define nginx::server (
 
         # Reuse the parent service integration only when systemd is managed.
         if ($nginx::systemd_enable) {
-          realize(Basic_settings::Systemd_drop_in['nginx_quic'])
+          realize(Basic_settings::Systemd::Drop_in['nginx_quic'])
         }
       }
 
@@ -1063,7 +1063,7 @@ define nginx::server (
         and $ssl_certificate_key != undef and $ssl_certificate_key != ''
         and $nginx::monitoring_enable and $basic_settings::monitoring::package != 'none') {
         # Register the main HTTPS identity using the configuration path owned by this vhost.
-        nginx::monitoring_cert { "${name}/main":
+        nginx::monitoring::cert { "${name}/main":
           config_file       => $config_file,
           registration_name => "${server_name_primary}/main",
           server_name       => $server_name,
@@ -1072,7 +1072,7 @@ define nginx::server (
         # Register a configured TLS redirect separately so its certificate cannot replace the main target's assessment.
         if ($redirect_from != undef and $redirect_from != ''
           and $redirect_certificate_correct != '' and $redirect_certificate_key_correct != '') {
-          nginx::monitoring_cert { "${name}/redirect":
+          nginx::monitoring::cert { "${name}/redirect":
             config_file       => $config_file,
             registration_name => "${server_name_primary}/redirect",
             server_name       => $redirect_from,

@@ -1,0 +1,149 @@
+# @summary Registers monitoring for a systemd timer unit.
+#
+# This defined type installs the shared systemd-timer check when needed and creates an OpenITCOCKPIT custom-check
+# fragment for `<title>.timer`. It is used by the local `basic_settings::systemd::timer` wrapper and by modules that
+# manage operational timers.
+#
+# @example Monitor a systemd timer
+#   basic_settings::monitoring::timer { 'automysqlbackup': }
+#
+# @param ensure
+#   Controls whether the check registration is present or absent.
+#
+# @param friendly
+#   Human-readable check name. `undef` uses a capitalized resource title.
+#
+# @param log_window
+#   Trailing journal interval in seconds, ending at the check time without clipping to the latest trigger. `undef`
+#   omits the override and keeps the check's last-trigger interval. Historical entries only provide diagnostic context;
+#   current target service properties determine status. Larger windows require more journal processing within the
+#   unchanged output limits and agent timeout.
+#
+# @param package
+#   Monitoring package override. `undef` inherits `basic_settings::monitoring` when that class is declared.
+#
+# @param timeout
+#   OpenITCOCKPIT execution timeout in seconds for this timer check. Set this separately from `log_window`;
+#   it does not change the check interval, timer schedule or target service's runtime limits.
+#
+# @api public
+define basic_settings::monitoring::timer (
+  Enum['present', 'absent'] $ensure     = present,
+  Optional[String]          $friendly   = undef,
+  Optional[Integer[1]]      $log_window = undef,
+  Optional[String]          $package    = undef,
+  Integer[1]                $timeout    = 10,
+) {
+  # Get friendly name
+  if ($friendly == undef) {
+    # Derive a readable monitoring label from the resource title.
+    $friendly_correct = capitalize($name)
+  } else {
+    # Use the caller's monitoring label.
+    $friendly_correct = $friendly
+  }
+
+  # Try to get package
+  if (defined(Class['basic_settings::monitoring'])) {
+    # Inherit the central monitoring backend unless this registration selects one.
+    if ($package == undef) {
+      # Inherit the monitoring backend selected by the central monitoring class.
+      $package_correct = $basic_settings::monitoring::package
+    } else {
+      # Use the explicitly selected monitoring backend.
+      $package_correct = $package
+    }
+    $sudoers_dir_enable = $basic_settings::monitoring::sudoers_dir_enable
+  } else {
+    # Disable backend registration and sudoers integration without monitoring configuration.
+    $package_correct = 'none'
+    $sudoers_dir_enable = false
+  }
+
+  # Get sudoers prefix
+  if ($sudoers_dir_enable) {
+    # Use unprefixed fragments in the managed sudoers directory.
+    $sudoers_prefix = ''
+  } else {
+    # Use the fallback sudoers prefix when no managed sudoers directory is available.
+    $sudoers_prefix = 'z'
+  }
+
+  # Check if sudo package is not defined
+  if (!defined(Package['sudo'])) {
+    package { 'sudo':
+      ensure          => installed,
+      install_options => ['--no-install-recommends', '--no-install-suggests'],
+    }
+  }
+
+  # Do thing based on package
+  case $package_correct {
+    'openitcockpit': {
+      # Resolve the registration name and check whether the shared timer executable is already managed.
+      $script_name = "check_${name}"
+      $script_path = '/etc/openitcockpit-agent/plugins/check_systemd_timer'
+      $script_exists = defined(File[$script_path])
+
+      # Keep the monitoring executable outside the control of unprivileged users.
+      $uid = 'root'
+      $gid = 'root'
+
+      # Create fragment for plugin
+      if ($ensure == present) {
+        # Supply a trailing interval only when this registration explicitly requests one.
+        $log_window_arg = $log_window ? { undef => '', default => " -w ${log_window}" }
+
+        # Register this timer with its own journal selection and the shared executable.
+        concat::fragment { "monitoring_timer_${name}":
+          target  => '/etc/openitcockpit-agent/customchecks.ini',
+          content => "\n[${script_name}] # ${friendly_correct}\ncommand = ${script_path}${log_window_arg} ${name}.timer\ninterval = 300\ntimeout = ${timeout}\nenabled = true\n", # lint:ignore:140chars
+          order   => '10',
+          require => File[$script_path],
+        }
+      }
+    }
+    default: {
+      # Leave executable and ownership settings unset for an unsupported monitoring backend.
+      $script_path = undef
+      $script_exists = true
+      $uid = undef
+      $gid = undef
+    }
+  }
+
+  # Check if script path is not defined
+  if (!$script_exists) {
+    # Install the tools used by the shared systemd check.
+    $monitoring_packages = ['coreutils', 'dash', 'mawk', 'sed', 'systemd']
+
+    stdlib::ensure_packages($monitoring_packages, {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
+
+    # Preserve the shared executable when an individual registration is retired.
+    file { $script_path:
+      ensure  => file,
+      content => template('basic_settings/monitoring/check_systemd_timer'),
+      owner   => $uid,
+      group   => $gid,
+      mode    => '0700',
+      require => Package[$monitoring_packages],
+    }
+
+    # Create sudo
+    if ($uid != 'root') {
+      # Normalize the resource title into a valid sudo command-alias identifier.
+      $sudo_cmnd = regsubst("monitoring_timer_${name}", '[^A-Za-z0-9]', '_', 'G').upcase
+      file { "/etc/sudoers.d/${sudoers_prefix}25-monitoring_timer_${name}":
+        ensure  => file,
+        owner   => 'root',
+        group   => $gid,
+        mode    => '0440',
+        content => "# Managed by puppet\nCmnd_Alias ${sudo_cmnd} = ${script_path} * \nDefaults!${sudo_cmnd} !mail_always\n${uid} ALL=(root) NOPASSWD: ${sudo_cmnd}\n", # lint:ignore:140chars
+        require => Package['sudo'],
+      }
+    }
+  }
+}

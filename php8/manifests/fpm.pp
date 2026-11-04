@@ -1,6 +1,6 @@
 # @summary Installs and configures PHP-FPM for the selected PHP 8 version.
 #
-# Declare `php8` first to select the version and extensions, and add at least one `php8::fpm_pool` after this class.
+# Declare `php8` first to select the version and extensions, and add at least one `php8::fpm::pool` after this class.
 # FPM runs without Nginx or the `basic_settings` class. Without shared startup integration, Puppet enables and starts
 # the service directly. With a declared systemd package, the shared drop-in helper applies the existing hardening.
 # A previously declared Nginx class binds FPM to Nginx; otherwise `basic_settings::systemd`, when declared, binds FPM
@@ -16,7 +16,7 @@
 #   }
 #
 #   # Provide the pool required by the managed FPM service.
-#   php8::fpm_pool { 'app': }
+#   php8::fpm::pool { 'app': }
 #
 # @param errorlog
 #   Optional FPM error log path. `undef` uses the versioned default under `/var/log`.
@@ -133,7 +133,7 @@ class php8::fpm (
         # Check if nginx class exists
         if ($nginx_enable) {
           # Create drop in for nginx service
-          basic_settings::systemd_drop_in { 'nginx_php_dependency':
+          basic_settings::systemd::drop_in { 'nginx_php_dependency':
             target_unit => 'nginx.service',
             unit        => {
               'After'   => "php8.${minor_version}-fpm.service",
@@ -163,7 +163,7 @@ class php8::fpm (
         }
 
         # Create drop in for PHP FPM service
-        basic_settings::systemd_drop_in { "php8_${minor_version}_settings":
+        basic_settings::systemd::drop_in { "php8_${minor_version}_settings":
           target_unit => "php8.${minor_version}-fpm.service",
           unit        => $unit,
           service     => $service,
@@ -173,12 +173,12 @@ class php8::fpm (
 
         # Supply a startup path on baseline hosts without changing the existing Nginx dependency chain.
         if (!$nginx_enable and $systemd_target_enable) {
-          basic_settings::systemd_drop_in { "php8_${minor_version}_dependency":
+          basic_settings::systemd::drop_in { "php8_${minor_version}_dependency":
             target_unit => "${basic_settings::systemd::cluster_id}-services.target",
             unit        => {
               'BindsTo' => "php8.${minor_version}-fpm.service",
             },
-            require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+            require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-services"],
           }
         }
       }
@@ -220,7 +220,7 @@ class php8::fpm (
 
       # Register the existing FPM service check only when a monitoring backend is active.
       if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-        basic_settings::monitoring_service { 'php8':
+        basic_settings::monitoring::service { 'php8':
           friendly => 'PHP8',
           services => ["php8.${minor_version}-fpm"],
         }
@@ -228,7 +228,7 @@ class php8::fpm (
 
       # Check if logrotate package exists
       if (defined(Package['logrotate'])) {
-        basic_settings::io_logrotate { "php8.${minor_version}-fpm":
+        basic_settings::io::logrotate { "php8.${minor_version}-fpm":
           path           => "/var/log/php8.${minor_version}-fpm.log",
           frequency      => 'weekly',
           compress_delay => true,

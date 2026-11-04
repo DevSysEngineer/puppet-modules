@@ -6,7 +6,7 @@ require 'project_lint/module_resolver'
 module ProjectLint
   # Follow backend-derived decisions through lexical assignments and monitoring calls.
   class BackendProvenance
-    TARGET = 'basic_settings::monitoring_custom'
+    TARGET = 'basic_settings::monitoring::custom'
     BackendValue = Struct.new(:backend, :literal, :decisions)
 
     include VariableDependencies

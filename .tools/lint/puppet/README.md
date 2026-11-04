@@ -1037,7 +1037,7 @@ Fragment uit Nextcloud; `$files_max_chunk_size` is daar een getypeerde Integer-p
 
 ```puppet
 # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
-docker::nextcloud_occ { "${name}_files_max_chunk_size":
+docker::nextcloud::occ { "${name}_files_max_chunk_size":
   command      => [
     'config:app:set',
     'files',
@@ -1056,7 +1056,7 @@ Na correctie, binnen dezelfde bestaande voorwaarde:
 ```puppet
 # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
 $files_max_chunk_size_string = String($files_max_chunk_size)
-docker::nextcloud_occ { "${name}_files_max_chunk_size":
+docker::nextcloud::occ { "${name}_files_max_chunk_size":
   command      => [
     'config:app:set',
     'files',

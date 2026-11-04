@@ -44,7 +44,7 @@ node 'monitored-host.example.org' {
   }
 
   # Register the application health check after the agent is configured.
-  basic_settings::monitoring_custom { 'application_health':
+  basic_settings::monitoring::custom { 'application_health':
     ensure        => present,
     cmd           => '--url https://127.0.0.1/health',
     friendly      => 'Application health',
@@ -57,7 +57,7 @@ node 'monitored-host.example.org' {
 
   # Inspect up to one hour of the current activation of an existing application service.
   # Choose the executor timeout separately and verify it against representative journal volume.
-  basic_settings::monitoring_service { 'application':
+  basic_settings::monitoring::service { 'application':
     log_window => 3600,
     timeout    => 60,
     require    => Class['openitcockpit::agent'],
@@ -65,21 +65,21 @@ node 'monitored-host.example.org' {
 
   # Show the preceding day for an existing timer, even when it fires every 15 seconds.
   # Historical journal failures are context only; current target service properties determine status.
-  basic_settings::monitoring_timer { 'application-poll':
+  basic_settings::monitoring::timer { 'application-poll':
     log_window => 86400,
     timeout    => 60,
     require    => Class['openitcockpit::agent'],
   }
 
   # Allow a longer npm audit for this application's dependency tree.
-  basic_settings::monitoring_npm_audit { 'frontend':
+  basic_settings::monitoring::npm_audit { 'frontend':
     dir     => '/opt/frontend',
     timeout => 60,
     require => Class['openitcockpit::agent'],
   }
 
   # Add Mirth Connect monitoring to the same agent.
-  class { 'openitcockpit::agent_mirth_connect':
+  class { 'openitcockpit::agent::mirth_connect':
     ensure  => present,
     require => Class['openitcockpit::agent'],
   }

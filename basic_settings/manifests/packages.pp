@@ -248,7 +248,7 @@ class basic_settings::packages (
 
     # Setup audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'packages':
+      basic_settings::security::audit { 'packages':
         rules                    => flatten($default_rules, $snap_rules),
         rule_suspicious_packages => $suspicious_packages,
       }
@@ -259,14 +259,14 @@ class basic_settings::packages (
 
     # Setup audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'packages':
+      basic_settings::security::audit { 'packages':
         rules => flatten($default_rules, $snap_rules),
       }
     }
   }
 
   # Setup audit rules to exclude APT
-  basic_settings::security_audit { 'apt_exclude':
+  basic_settings::security::audit { 'apt_exclude':
     rules => [
       '-a never,exit -F arch=b32 -F exe=/usr/bin/apt-config -F auid=unset',
       '-a never,exit -F arch=b64 -F exe=/usr/bin/apt-config -F auid=unset',
@@ -382,7 +382,7 @@ class basic_settings::packages (
     )
 
     # Register the check after its runtime packages.
-    basic_settings::monitoring_custom { 'apt':
+    basic_settings::monitoring::custom { 'apt':
       state         => true,
       template      => 'basic_settings/monitoring/check_apt',
       template_data => {
@@ -413,7 +413,7 @@ class basic_settings::packages (
     })
 
     # Register the advisory check after all collection and parser prerequisites.
-    basic_settings::monitoring_custom { 'ncsc_advisories':
+    basic_settings::monitoring::custom { 'ncsc_advisories':
       state    => true,
       template => 'basic_settings/monitoring/check_ncsc_advisories',
       friendly => 'NCSC advisories',
@@ -444,7 +444,7 @@ class basic_settings::packages (
     include basic_settings::systemd::reload
 
     # Create drop in for APT upgrade service
-    basic_settings::systemd_drop_in { 'apt_daily_upgrade_settings':
+    basic_settings::systemd::drop_in { 'apt_daily_upgrade_settings':
       target_unit => 'apt-daily-upgrade.timer',
       timer       => {
         'OnCalendar'         => ['', '*-*-* 2:00'],
@@ -455,7 +455,7 @@ class basic_settings::packages (
     # Attach APT failure notifications only when monitoring integration is available.
     if ($monitoring_enable) {
       # Create drop in for APT service
-      basic_settings::systemd_drop_in { 'apt_daily_notify_failed':
+      basic_settings::systemd::drop_in { 'apt_daily_notify_failed':
         target_unit => 'apt-daily.service',
         unit        => {
           'OnFailure' => 'notify-failed@%i.service',
@@ -463,7 +463,7 @@ class basic_settings::packages (
       }
 
       # Create drop in for APT upgrade service
-      basic_settings::systemd_drop_in { 'apt_daily_upgrade_notify_failed':
+      basic_settings::systemd::drop_in { 'apt_daily_upgrade_notify_failed':
         target_unit => 'apt-daily-upgrade.service',
         unit        => {
           'OnFailure' => 'notify-failed@%i.service',
@@ -474,27 +474,27 @@ class basic_settings::packages (
 
   # Check if logrotate package exists
   if (defined(Package['logrotate'])) {
-    basic_settings::io_logrotate { 'alternatives':
+    basic_settings::io::logrotate { 'alternatives':
       path           => '/var/log/alternatives.log',
       frequency      => 'monthly',
       compress_delay => true,
     }
 
     # Rotate APT transaction and terminal history together.
-    basic_settings::io_logrotate { 'apt':
+    basic_settings::io::logrotate { 'apt':
       path      => "/var/log/apt/term.log\n/var/log/apt/history.log",
       frequency => 'monthly',
     }
 
     # Delay dpkg log compression so recent package diagnostics remain directly readable.
-    basic_settings::io_logrotate { 'dpkg':
+    basic_settings::io::logrotate { 'dpkg':
       path           => '/var/log/dpkg.log',
       frequency      => 'monthly',
       compress_delay => true,
     }
 
     # Keep automatic upgrade, dpkg and shutdown logs on the same monthly rotation.
-    basic_settings::io_logrotate { 'unattended-upgrades':
+    basic_settings::io::logrotate { 'unattended-upgrades':
       path      => "/var/log/unattended-upgrades/unattended-upgrades.log\n/var/log/unattended-upgrades/unattended-upgrades-dpkg.log\n/var/log/unattended-upgrades/unattended-upgrades-shutdown.log", # lint:ignore:140chars
       frequency => 'monthly',
     }

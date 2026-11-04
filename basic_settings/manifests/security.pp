@@ -80,7 +80,7 @@ class basic_settings::security (
     )
 
     # Register the check after its runtime packages.
-    basic_settings::monitoring_custom { 'audit':
+    basic_settings::monitoring::custom { 'audit':
       check    => template('basic_settings/monitoring/check_audit'),
       timeout  => 300,
       interval => 600,
@@ -92,7 +92,7 @@ class basic_settings::security (
   case $antivirus_package {
     'eset': {
       # Setup audit rules
-      basic_settings::security_audit { 'antivirus':
+      basic_settings::security::audit { 'antivirus':
         rules => [
           '-a never,exit -F exe=/opt/eset/efs/lib/odfeeder',
           '-a never,exit -F exe=/opt/eset/efs/lib/schedd',
@@ -104,7 +104,7 @@ class basic_settings::security (
       # Setup monitoring
       if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
         # Register the check after its runtime packages.
-        basic_settings::monitoring_custom { 'antivirus':
+        basic_settings::monitoring::custom { 'antivirus':
           friendly => 'ESET Server Security',
           check    => template('basic_settings/monitoring/check_eset'),
           timeout  => 60,
@@ -119,7 +119,7 @@ class basic_settings::security (
 
   # Create service check
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_service { 'apparmor': }
+    basic_settings::monitoring::service { 'apparmor': }
   }
 
   # Create auditd config file */
@@ -158,7 +158,7 @@ class basic_settings::security (
 
   # Create systemd exclude rules
   if (defined(Package['systemd-cron'])) {
-    basic_settings::security_audit { 'systemd_exclude':
+    basic_settings::security::audit { 'systemd_exclude':
       rules   => [
         '-a never,exit -F arch=b32 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
         '-a never,exit -F arch=b64 -F exe=/usr/bin/systemd-tmpfiles -F auid=unset',
@@ -202,7 +202,7 @@ class basic_settings::security (
       }
 
       # Create drop in for apparmor service
-      basic_settings::systemd_drop_in { 'apparmor_notify_failed':
+      basic_settings::systemd::drop_in { 'apparmor_notify_failed':
         target_unit => 'apparmor.service',
         unit        => $unit,
         require     => Package['apparmor'],
@@ -213,7 +213,7 @@ class basic_settings::security (
     }
 
     # Create drop in for auditd service
-    basic_settings::systemd_drop_in { 'auditd_settings':
+    basic_settings::systemd::drop_in { 'auditd_settings':
       target_unit => 'auditd.service',
       unit        => $unit,
       service     => {
@@ -225,7 +225,7 @@ class basic_settings::security (
     }
 
     # Create systemd service
-    basic_settings::systemd_service { 'auditmail':
+    basic_settings::systemd::service { 'auditmail':
       description => 'Audit mail service',
       unit        => $unit,
       service     => {
@@ -254,7 +254,7 @@ class basic_settings::security (
     }
 
     # Create systemd timer
-    basic_settings::systemd_timer { 'auditmail':
+    basic_settings::systemd::timer { 'auditmail':
       description => 'Audit mail timer',
       state       => 'running',
       timer       => {

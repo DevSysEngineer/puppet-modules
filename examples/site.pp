@@ -36,7 +36,7 @@ node 'web01.example.org' {
   }
 
   # Provide the default socket used by the application vhost below.
-  php8::fpm_pool { 'app':
+  php8::fpm::pool { 'app':
     require => Package['php8.2-fpm'],
   }
 
@@ -62,7 +62,7 @@ node 'web01.example.org' {
   }
 
   # Create the administrator account with credentials supplied by the profile.
-  basic_settings::login_user { 'admin':
+  basic_settings::login::user { 'admin':
     gid             => 1001,
     home            => '/home/admin',
     password        => lookup('examples::site::password', Sensitive[String]),

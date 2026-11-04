@@ -110,7 +110,7 @@ Alleen de fixture van de volgens [modulepadvoorrang](#modulepad-en-ontdekking) g
 
 ### Voorbeeld: nginx alleen en samen
 
-De [nginx-scenario’s](../../nginx/tests/README.md) laden de class `nginx` en declareren zowel `nginx::server` als `nginx::monitoring_cert`. De hoofdclass alleen zou beide defines missen. Het [standalone manifest](../../nginx/tests/manifests/standalone.pp) declareert geen hoofdclass `basic_settings`; het [combinatiemanifest](../../nginx/tests/manifests/with_basic_settings.pp) laadt die serverbasis eerst en gebruikt verder dezelfde kleine configuratie.
+De [nginx-scenario’s](../../nginx/tests/README.md) laden de class `nginx` en declareren zowel `nginx::server` als `nginx::monitoring::cert`. De hoofdclass alleen zou beide defines missen. Het [standalone manifest](../../nginx/tests/manifests/standalone.pp) declareert geen hoofdclass `basic_settings`; het [combinatiemanifest](../../nginx/tests/manifests/with_basic_settings.pp) laadt die serverbasis eerst en gebruikt verder dezelfde kleine configuratie.
 
 Beide manifests gebruiken hetzelfde [synthetische Debian-factsbestand](../../nginx/tests/facts/debian-13.json). De modulecode en haar echte dependencies blijven op het modulepad beschikbaar. Standalone betekent dat de hoofdclass `basic_settings` niet wordt gedeclareerd; benodigde deelclasses en gedeelde defines zijn wel toegestaan.
 

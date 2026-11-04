@@ -54,7 +54,7 @@ class letsencrypt (
     }
 
     # Create drop in for certbot service
-    basic_settings::systemd_drop_in { 'letsencrypt_settings':
+    basic_settings::systemd::drop_in { 'letsencrypt_settings':
       target_unit => 'certbot.service',
       unit        => $unit,
       service     => {
@@ -81,7 +81,7 @@ class letsencrypt (
 
   # Check if logrotate package exists
   if (defined(Package['logrotate'])) {
-    basic_settings::io_logrotate { 'certbot':
+    basic_settings::io::logrotate { 'certbot':
       path      => '/var/log/letsencrypt/*.log',
       frequency => 'weekly',
     }

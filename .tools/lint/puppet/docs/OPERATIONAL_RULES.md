@@ -1322,7 +1322,7 @@ Beoordeel beide scenario’s en valideer passende, ontbrekende en afwijkende str
 
 `basic_settings` verzorgt de gedeelde serverbasis, van pakketten en APT-bronnen tot systemd, monitoring, loginbeleid en beveiligingsgereedschap. Ook pakketonderhoud, kernel, netwerk, tijdzone en Puppet-runtimegedrag sluiten daarop aan. Integreer andere modules met deze bestaande voorzieningen.
 
-Daarvoor zijn onder meer de bouwstenen `basic_settings::systemd_target`, `systemd_drop_in`, `systemd_service`, `systemd_timer`, `systemd_network`, `monitoring_service`, `monitoring_custom`, `monitoring_timer`, `monitoring_npm_audit`, `security_audit`, `io_logrotate` en `login_sudo` beschikbaar. Gebruik ze voor hun eigen taken, zodat featuremodules geen tweede uitvoering van die voorzieningen krijgen.
+Daarvoor zijn onder meer de bouwstenen `basic_settings::systemd::target`, `basic_settings::systemd::drop_in`, `basic_settings::systemd::service`, `basic_settings::systemd::timer`, `basic_settings::systemd::network`, `basic_settings::monitoring::service`, `basic_settings::monitoring::custom`, `basic_settings::monitoring::timer`, `basic_settings::monitoring::npm_audit`, `basic_settings::security::audit`, `basic_settings::io::logrotate` en `basic_settings::login::sudo` beschikbaar. Gebruik ze voor hun eigen taken, zodat featuremodules geen tweede uitvoering van die voorzieningen krijgen.
 
 De volgende afwegingen beoordeel je bij de review en functionele validatie. Alleen backendselectie bij monitoringaanroepen heeft hier een gerichte projectcheck. De linter controleert geen volledige systemd-ordering of servicehardening.
 
@@ -1366,7 +1366,7 @@ Handmatige beoordeling van beide bovenstaande reviewscenario’s tegen de norm: 
 
 **Norm**
 
-Laat `basic_settings::monitoring_custom` de backend kiezen. Een aanroeper mag alleen beschikbaarheid en ingeschakelde monitoring onderscheiden; een vergelijking met `none` blijft toegestaan.
+Laat `basic_settings::monitoring::custom` de backend kiezen. Een aanroeper mag alleen beschikbaarheid en ingeschakelde monitoring onderscheiden; een vergelijking met `none` blijft toegestaan.
 
 **Herkomst**
 
@@ -1386,7 +1386,7 @@ De analyse voert geen functies uit. Beoordeel dynamische wrappernamen en verborg
 
 **Meldingen en severity**
 
-`Delegate backend selection to basic_settings::monitoring_custom; callers may only distinguish package 'none' from enabled monitoring`: `warning` bij selectie van een concrete backend door een aanroeper.
+`Delegate backend selection to basic_settings::monitoring::custom; callers may only distinguish package 'none' from enabled monitoring`: `warning` bij selectie van een concrete backend door een aanroeper.
 
 **Autofix**
 
@@ -1410,7 +1410,7 @@ Fragment voor `project_monitoring_backend`. Verwacht een warning.
 
 <!-- lint-example: project_monitoring_backend warning -->
 ```puppet
-if $basic_settings::monitoring::package == 'openitcockpit' { basic_settings::monitoring_custom { 'demo': } }
+if $basic_settings::monitoring::package == 'openitcockpit' { basic_settings::monitoring::custom { 'demo': } }
 ```
 
 **Correct voorbeeld**
@@ -1419,7 +1419,7 @@ Fragment voor `project_monitoring_backend`. Verwacht geen melding van deze check
 
 <!-- lint-example: project_monitoring_backend clean -->
 ```puppet
-if $basic_settings::monitoring::package != 'none' { basic_settings::monitoring_custom { 'demo': } }
+if $basic_settings::monitoring::package != 'none' { basic_settings::monitoring::custom { 'demo': } }
 ```
 
 **Grensgevallen**
@@ -1436,7 +1436,7 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 
 #### Verdieping bij Targets en monitoring
 
-`basic_settings::monitoring_custom` kiest en configureert de backend. Een aanroeper controleert alleen of monitoring beschikbaar en ingeschakeld is. Bijvoorbeeld:
+`basic_settings::monitoring::custom` kiest en configureert de backend. Een aanroeper controleert alleen of monitoring beschikbaar en ingeschakeld is. Bijvoorbeeld:
 
 Fragment bij de regel hierboven. Het voorbeeld is alleen op de genoemde checks gecontroleerd; het bewijst geen geslaagde scan met het volledige profiel.
 
@@ -1447,7 +1447,7 @@ Voor dit fragment wordt uitsluitend `project_monitoring_backend` gecontroleerd.
 # Register this application's check when monitoring is enabled.
 $active = $ensure == present and defined(Class['basic_settings::monitoring']) and $basic_settings::monitoring::package != 'none'
 if $active {
-  basic_settings::monitoring_custom { 'application':
+  basic_settings::monitoring::custom { 'application':
     source => 'puppet:///modules/profile/check_application',
   }
 }
@@ -1465,9 +1465,9 @@ De analyse voert geen Puppet-functies uit. Dynamische wrappernamen en verborgen 
 
 Monitoring sluit aan op het centrale OpenITCOCKPIT-agentmodel. Plugins staan onder `/etc/openitcockpit-agent/plugins`; `concat` en `concat::fragment` bouwen `customchecks.ini` op. Gebruik de gedeelde monitoringtypes voor de registratie van services, timers en eigen checks, zodat featuremodules die registratie niet dupliceren.
 
-Persistente checkstatus en door checks beheerde caches worden aangevraagd met `state => true` op `basic_settings::monitoring_custom`. De centrale monitoringclass bepaalt `state_dir` binnen haar `case $package`: voor `openitcockpit` is dat `/etc/openitcockpit-agent/state`, in de defaulttak `/var/cache`. De locatie wordt niet vooraf aan één backend gekoppeld. Bij actieve OpenITCOCKPIT-registraties beheert `monitoring_custom` een root-owned map met modus `0700` per registratietitel onder die basis; de centrale monitoringclass beheert de bovenliggende agentmap. De registratie is afhankelijk van de eigen map. Featuremodules dupliceren deze padkeuze en dit mapbeheer niet. Bij `package => 'none'` worden geen checkmappen aangemaakt; de defaultwaarde geeft geen eigendom of gewijzigde rechten op de systeembrede `/var/cache`.
+Persistente checkstatus en door checks beheerde caches worden aangevraagd met `state => true` op `basic_settings::monitoring::custom`. De centrale monitoringclass bepaalt `state_dir` binnen haar `case $package`: voor `openitcockpit` is dat `/etc/openitcockpit-agent/state`, in de defaulttak `/var/cache`. De locatie wordt niet vooraf aan één backend gekoppeld. Bij actieve OpenITCOCKPIT-registraties beheert `basic_settings::monitoring::custom` een root-owned map met modus `0700` per registratietitel onder die basis; de centrale monitoringclass beheert de bovenliggende agentmap. De registratie is afhankelijk van de eigen map. Featuremodules dupliceren deze padkeuze en dit mapbeheer niet. Bij `package => 'none'` worden geen checkmappen aangemaakt; de defaultwaarde geeft geen eigendom of gewijzigde rechten op de systeembrede `/var/cache`.
 
-Gebruik de parameter `template` als een ERB-template de afgeleide opslaglocatie nodig heeft: `monitoring_custom` rendert deze met `@state_dir` en expliciete aanroepergegevens in `@template_data`. De eigen registratie gebruikt deze ingevulde standaardwaarde zonder dezelfde locatie nogmaals als omgevingsvariabele mee te geven. Bij bron-URL’s of inhoud via `check` en verwijzingen via `script` ontvangt de opdracht de locatie wel als `STATE_DIR`. Elke registratie krijgt haar eigen map; gedeelde scripts laten de runtimewaarde voorgaan op een ingebakken default.
+Gebruik de parameter `template` als een ERB-template de afgeleide opslaglocatie nodig heeft: `basic_settings::monitoring::custom` rendert deze met `@state_dir` en expliciete aanroepergegevens in `@template_data`. De eigen registratie gebruikt deze ingevulde standaardwaarde zonder dezelfde locatie nogmaals als omgevingsvariabele mee te geven. Bij bron-URL’s of inhoud via `check` en verwijzingen via `script` ontvangt de opdracht de locatie wel als `STATE_DIR`. Elke registratie krijgt haar eigen map; gedeelde scripts laten de runtimewaarde voorgaan op een ingebakken default.
 
 Scripts maken de beheerde statemap niet zelf aan en wijzigen haar rechten niet. Ze bewaren alleen hun eigen bestanden met afgeschermde rechten en melden ontbrekende of onbruikbare opslag volgens het inspectiestatuscontract. Beperk schrijven en opruimen tot de eigen bestanden volgens het [map-eigendomscontract](#recursieve-bewerkingen-tot-module-eigendom-beperken). Behoud benodigde locks, atomische updates en strengere bestaande rechtencontroles wanneer opslag verhuist. Het verwijderen van een registratie verwijdert geen historie of opslag van andere targets.
 
@@ -1501,7 +1501,7 @@ Handmatig reviewscenario: Een featuremodule bouwt een tweede eigen registratieme
 
 Handmatig reviewscenario: Een nieuwe check kiest zelf `/var/cache/check_application` terwijl OpenITCOCKPIT actief is, of de centrale monitoringclass kiest de agentmap vóór de packagekeuze. Keur beide af: de centrale basislocatie moet uit de betreffende packagetak komen.
 
-Handmatig reviewscenario: Een featuremodule declareert zelf de agentstatemap of een check maakt deze tijdens uitvoering met `mkdir` aan. Keur dit af: de registratie moet opslag aanvragen bij `monitoring_custom`.
+Handmatig reviewscenario: Een featuremodule declareert zelf de agentstatemap of een check maakt deze tijdens uitvoering met `mkdir` aan. Keur dit af: de registratie moet opslag aanvragen bij `basic_settings::monitoring::custom`.
 
 **Correct voorbeeld**
 

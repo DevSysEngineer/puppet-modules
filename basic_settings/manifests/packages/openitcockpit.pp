@@ -1,0 +1,191 @@
+# @summary Manages OpenITCOCKPIT server or agent APT repository access.
+#
+# This private helper writes or removes the OpenITCOCKPIT APT source, signing key, and root-only APT authentication
+# file. It supports server and agent repositories plus stable or nightly channels.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::packages::openitcockpit':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#     package     => 'agent',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
+#
+# @param enable
+#   Creates repository/authentication files and imports the key when `true`; removes them when `false`.
+#
+# @param os_name
+#   Distribution codename used by the server repository.
+#
+# @param os_parent
+#   Distribution family retained for consistency with repository helpers.
+#
+# @param package
+#   OpenITCOCKPIT repository family to manage: usually `agent` or `server`.
+#
+# @param license
+#   Optional repository license token. `undef` uses the community license token currently encoded by the module.
+#
+# @param nightly
+#   Uses the nightly repository channel when `true`; otherwise uses stable.
+#
+# @api private
+class basic_settings::packages::openitcockpit (
+  Enum['list', '822'] $deb_version,
+  Boolean             $enable,
+  String              $os_name,
+  String              $os_parent,
+  String              $package,
+  Optional[String]    $license     = undef,
+  Boolean             $nightly     = false,
+) {
+  # Provide the shell and source-list tools on both installation and removal paths.
+  $source_packages = ['apt', 'coreutils', 'dash']
+  stdlib::ensure_packages($source_packages, {
+    'ensure'          => 'installed',
+    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+  })
+
+  # Check if we need newer format for APT
+  if ($deb_version == '822') {
+    # Use the .sources filename for a deb822 repository definition.
+    $file = '/etc/apt/sources.list.d/openitcockpit.sources'
+    $alternative = '/etc/apt/sources.list.d/openitcockpit.list'
+  } else {
+    # Use the .list filename for a one-line APT repository definition.
+    $file = '/etc/apt/sources.list.d/openitcockpit.list'
+    $alternative = '/etc/apt/sources.list.d/openitcockpit.sources'
+  }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_openitcockpit_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_openitcockpit_source'] -> Exec['basic_settings_source_reload']
+
+  # Set keyrings file
+  $key = '/usr/share/keyrings/openitcockpit.gpg'
+
+  # Escape repository paths before using them in exec commands and guards.
+  $file_shell = stdlib::shell_escape($file)
+  $key_shell = stdlib::shell_escape($key)
+
+  # Install the selected OpenITCOCKPIT repository or remove its managed source when disabled.
+  if ($enable) {
+    # Install the download and signing tools only while this repository is enabled.
+    $repository_packages = [
+      'apt-transport-https',
+      'ca-certificates',
+      'curl',
+      'diffutils',
+      'gnupg',
+    ]
+    stdlib::ensure_packages($repository_packages, {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
+    $repository_required_packages = concat($source_packages, $repository_packages)
+
+    # Check if package is server or agent
+    if ($package == 'server') {
+      # Set url
+      if ($nightly) {
+        # Select the nightly package channel.
+        $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/nightly"
+      } else {
+        # Select the stable package channel.
+        $url = "https://packages5.openitcockpit.io/openitcockpit/${os_name}/stable"
+      }
+
+      # Get source
+      if ($deb_version == '822') {
+        # Render the selected repository and signing key in deb822 format.
+        $source  = "Types: deb\\nURIs: ${url}\\nSuites: ${os_name}\\nComponents: main\\nSigned-By:${key}\\n"
+      } else {
+        # Render the selected repository and signing key in one-line APT format.
+        $source = "deb [signed-by=${key}] ${url} ${os_name} main\\n"
+      }
+    } else {
+      # Set url
+      if ($nightly) {
+        # Select the nightly package channel.
+        $url = 'https://packages5.openitcockpit.io/openitcockpit-agent/deb/nightly'
+      } else {
+        # Select the stable package channel.
+        $url = 'https://packages5.openitcockpit.io/openitcockpit-agent/deb/stable'
+      }
+
+      # Get source
+      if ($deb_version == '822') {
+        # Render the selected repository and signing key in deb822 format.
+        $source  = "Types: deb\\nURIs: ${url}\\nSuites: deb\\nComponents: main\\nSigned-By:${key}\\n"
+      } else {
+        # Render the selected repository and signing key in one-line APT format.
+        $source = "deb [signed-by=${key}] ${url} deb main\\n"
+      }
+    }
+
+    # Get license
+    if ($license == undef) {
+      # Use the community repository license when none is supplied.
+      $license_correct = 'e5aef99e-817b-0ff5-3f0e-140c1f342792' #Community
+    } else {
+      # Keep the caller's repository license selection.
+      $license_correct = $license
+    }
+
+    # Escape generated repo content as literal newline sequences before the shell writes it.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
+
+    # Install openitcockpit license
+    file { 'package_openitcockpit_license':
+      ensure  => file,
+      path    => '/etc/apt/auth.conf.d/openitcockpit.conf',
+      owner   => 'root',
+      group   => 'root',
+      mode    => '0600',
+      content => Sensitive.new("machine packages5.openitcockpit.io login secret password ${license_correct}\n"),
+      require => Package['apt', 'apt-transport-https'],
+    }
+
+    # Install openitcockpit repo
+    exec { 'package_openitcockpit_source':
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      require  => [
+        File['package_openitcockpit_license'],
+        Package[$repository_required_packages],
+      ],
+    }
+  } else {
+    # Remove openitcockpit license
+    file { 'package_openitcockpit_license':
+      ensure => absent,
+      path   => '/etc/apt/auth.conf.d/openitcockpit.conf',
+    }
+
+    # Remove openitcockpit repo
+    exec { 'package_openitcockpit_source':
+      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif  => "/usr/bin/test -e ${file_shell}",
+      require => Package[$source_packages],
+    }
+
+    # Remove openitcockpit key
+    file { 'package_openitcockpit_key':
+      ensure => absent,
+      path   => $key,
+    }
+  }
+}

@@ -24,7 +24,7 @@
 #   class { 'nvidia':
 #     pinning => 580,
 #     require => [
-#       Class['basic_settings::package_nvidia_dgx'],
+#       Class['basic_settings::packages::nvidia_dgx'],
 #       Exec['basic_settings_source_reload'],
 #     ],
 #   }
@@ -121,7 +121,7 @@ class nvidia (
       $persistence_enable = false
 
       # Wait for the start attempt without making later system phases depend on a successful GPU initialization.
-      basic_settings::systemd_drop_in { 'nvidia_persistenced_dependency':
+      basic_settings::systemd::drop_in { 'nvidia_persistenced_dependency':
         target_unit => "${basic_settings::systemd::cluster_id}-system.target",
         unit        => {
           'After' => 'nvidia-persistenced.service',
@@ -129,7 +129,7 @@ class nvidia (
         },
         require     => [
           Package['nv-persistence-mode'],
-          Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-system"],
+          Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-system"],
         ],
       }
     } else {

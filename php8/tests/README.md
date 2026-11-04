@@ -12,10 +12,10 @@ De tests compileren de PHP-classes en één FPM-pool met [synthetische Debian 13
 
 | Manifest | Samenstelling |
 | --- | --- |
-| [standalone.pp](manifests/standalone.pp) | `php8`, `php8::cli`, `php8::fpm` en `php8::fpm_pool`, zonder `basic_settings`, zijn deelclasses of Nginx. |
+| [standalone.pp](manifests/standalone.pp) | `php8`, `php8::cli`, `php8::fpm` en `php8::fpm::pool`, zonder `basic_settings`, zijn deelclasses of Nginx. |
 | [with_basic_settings.pp](manifests/with_basic_settings.pp) | Dezelfde vier definities na de hoofdclass `basic_settings`, zonder Nginx. |
 | [cli_only.pp](manifests/cli_only.pp) | `php8` en `php8::cli`, zonder FPM, Nginx of de serverbasis. |
-| [fpm_only.pp](manifests/fpm_only.pp) | `php8`, `php8::fpm` en `php8::fpm_pool`, zonder CLI, Nginx of de serverbasis. |
+| [fpm_only.pp](manifests/fpm_only.pp) | `php8`, `php8::fpm` en `php8::fpm::pool`, zonder CLI, Nginx of de serverbasis. |
 
 De eerste twee scenario’s dekken alle classes en defines. De afzonderlijke CLI- en FPM-scenario’s controleren dat beide ook compileren zonder resources die de andere class levert.
 

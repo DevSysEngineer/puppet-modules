@@ -165,12 +165,12 @@ class gitlab (
       }
 
       # Create drop in for services target
-      basic_settings::systemd_drop_in { 'gitlab_dependency':
+      basic_settings::systemd::drop_in { 'gitlab_dependency':
         target_unit => "${basic_settings::cluster_id}-services.target",
         unit        => {
           'BindsTo'   => 'gitlab-runsvdir.service',
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+        require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-services"],
       }
     }
 
@@ -186,7 +186,7 @@ class gitlab (
     }
 
     # Create drop in for nginx service
-    basic_settings::systemd_drop_in { 'gitlab_settings':
+    basic_settings::systemd::drop_in { 'gitlab_settings':
       target_unit => 'gitlab-runsvdir.service',
       unit        => $unit,
       service     => {
@@ -207,7 +207,7 @@ class gitlab (
     })
 
     # Register the check after its runtime packages.
-    basic_settings::monitoring_custom { 'gitlab':
+    basic_settings::monitoring::custom { 'gitlab':
       template => 'gitlab/check_gitlab',
       friendly => 'GitLab',
       timeout  => 300,
@@ -221,7 +221,7 @@ class gitlab (
 
   # Setup audit rules
   if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'gitlab_exclude':
+    basic_settings::security::audit { 'gitlab_exclude':
       rules   => [
         # GitLab's bundled Prometheus periodically probes TSDB metadata; interrupted reads in that data directory are expected.
         '-a never,exit -F arch=b32 -S open,openat,open_by_handle_at -F dir=/var/opt/gitlab/prometheus/data -F exe=/usr/local/lib/gitlab/embedded/bin/prometheus -F gid=gitlab-prometheus -F success=0', # lint:ignore:140chars
@@ -256,7 +256,7 @@ class gitlab (
     }
 
     # Keep suspicious package execution audited alongside the scoped runtime exclusions.
-    basic_settings::security_audit { 'gitlab_packages':
+    basic_settings::security::audit { 'gitlab_packages':
       rule_suspicious_packages => $suspicious_packages,
       require                  => Exec['gitlab_install'],
     }

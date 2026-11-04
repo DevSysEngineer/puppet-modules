@@ -107,15 +107,15 @@ OpenITCOCKPIT is het monitoringsysteem dat dit project automatisch kan instellen
 
 De checks werken ook met een Nagios-compatibele executor. Gebruik `-h` bij een geïnstalleerde check voor de opties en raadpleeg bij los gebruik de vereisten in de [scripts en templates](#beschikbare-checks). Pas bij langere looptijden ook de timeout van de executor aan: een instelling in het script verandert die niet.
 
-Met `basic_settings::monitoring_custom` kun je een eigen script in de OpenITCOCKPIT-pluginmap plaatsen en registreren. Kies voor actieve registraties een `timeout` die strikt kleiner is dan `interval`; Puppet weigert een gelijke of hogere waarde. Verhoog bij bestaande configuraties zo nodig het interval voordat je de timeout verlengt. De defined types `monitoring_service`, `monitoring_timer` en `monitoring_npm_audit` zijn bedoeld voor veelvoorkomende systemd- en npm-controles. De checks zelf staan onder `files/` en `templates/`; zie ook [Beschikbare checks](#beschikbare-checks) en [`examples/monitoring.pp`](examples/monitoring.pp).
+Met `basic_settings::monitoring::custom` kun je een eigen script in de OpenITCOCKPIT-pluginmap plaatsen en registreren. Kies voor actieve registraties een `timeout` die strikt kleiner is dan `interval`; Puppet weigert een gelijke of hogere waarde. Verhoog bij bestaande configuraties zo nodig het interval voordat je de timeout verlengt. De defined types `monitoring::service`, `monitoring::timer` en `monitoring::npm_audit` zijn bedoeld voor veelvoorkomende systemd- en npm-controles. De checks zelf staan onder `files/` en `templates/`; zie ook [Beschikbare checks](#beschikbare-checks) en [`examples/monitoring.pp`](examples/monitoring.pp).
 
-Voor diensten die weinig loggen kun je het journalvenster per check verlengen met `log_window` bij [`monitoring_service`](basic_settings/manifests/monitoring_service.pp), of `monitoring_log_window` bij [`systemd_service`](basic_settings/manifests/systemd_service.pp). Geef de duur in seconden op, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Een actieve service toont alleen regels sinds haar laatste start. Het langere venster geldt ook voor het herkennen van fouten, waardoor een fout langer een alarm kan geven; de uitvoerlimiet en agenttimeout worden niet verruimd.
+Voor diensten die weinig loggen kun je het journalvenster per check verlengen met `log_window` bij [`monitoring::service`](basic_settings/manifests/monitoring/service.pp), of `monitoring_log_window` bij [`systemd::service`](basic_settings/manifests/systemd/service.pp). Geef de duur in seconden op, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Een actieve service toont alleen regels sinds haar laatste start. Het langere venster geldt ook voor het herkennen van fouten, waardoor een fout langer een alarm kan geven; de uitvoerlimiet en agenttimeout worden niet verruimd.
 
-Voor timers geven `log_window` bij [`monitoring_timer`](basic_settings/manifests/monitoring_timer.pp) en `monitoring_log_window` bij [`systemd_timer`](basic_settings/manifests/systemd_timer.pp) een terugkijkvenster tot het controlemoment, ook bij frequente triggers. Zonder override blijft het venster vanaf de laatste trigger gelden. Historische journalregels zijn alleen diagnosecontext: de actuele systemd-eigenschappen van de doelservice bepalen de status. Controleer bij een langer venster de looptijd met representatief journalvolume; uitvoerlimieten en agenttimeout blijven gelijk.
+Voor timers geven `log_window` bij [`monitoring::timer`](basic_settings/manifests/monitoring/timer.pp) en `monitoring_log_window` bij [`systemd::timer`](basic_settings/manifests/systemd/timer.pp) een terugkijkvenster tot het controlemoment, ook bij frequente triggers. Zonder override blijft het venster vanaf de laatste trigger gelden. Historische journalregels zijn alleen diagnosecontext: de actuele systemd-eigenschappen van de doelservice bepalen de status. Controleer bij een langer venster de looptijd met representatief journalvolume; uitvoerlimieten en agenttimeout blijven gelijk.
 
-Stel de agenttimeout voor service- en timerchecks afzonderlijk in met `monitoring_timeout` bij `systemd_service` en `systemd_timer`, of met `timeout` bij rechtstreeks gebruik van `monitoring_service` en `monitoring_timer`. De standaard is 10 seconden. Kies bijvoorbeeld 60 seconden wanneer de gemeten checklooptijd dat vraagt, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Reserveer ook tijd voor beëindiging en uitvoer van de check. Deze instelling verandert het controle-interval, de timerplanning en de looptijdlimieten van de bewaakte service niet.
+Stel de agenttimeout voor service- en timerchecks afzonderlijk in met `monitoring_timeout` bij `systemd::service` en `systemd::timer`, of met `timeout` bij rechtstreeks gebruik van `monitoring::service` en `monitoring::timer`. De standaard is 10 seconden. Kies bijvoorbeeld 60 seconden wanneer de gemeten checklooptijd dat vraagt, zoals in het [monitoringvoorbeeld](examples/monitoring.pp). Reserveer ook tijd voor beëindiging en uitvoer van de check. Deze instelling verandert het controle-interval, de timerplanning en de looptijdlimieten van de bewaakte service niet.
 
-Voor npm-auditchecks is de agenttimeout standaard 30 seconden. Stel per check `timeout` in bij [`monitoring_npm_audit`](basic_settings/manifests/monitoring_npm_audit.pp), of `monitoring_additional_check_timeout` bij [`systemd_service`](basic_settings/manifests/systemd_service.pp) voor de automatisch aangemaakte npm-check. Het [monitoringvoorbeeld](examples/monitoring.pp) toont een langere timeout voor een applicatie.
+Voor npm-auditchecks is de agenttimeout standaard 30 seconden. Stel per check `timeout` in bij [`monitoring::npm_audit`](basic_settings/manifests/monitoring/npm_audit.pp), of `monitoring_additional_check_timeout` bij [`systemd::service`](basic_settings/manifests/systemd/service.pp) voor de automatisch aangemaakte npm-check. Het [monitoringvoorbeeld](examples/monitoring.pp) toont een langere timeout voor een applicatie.
 
 Laat bij het uitschakelen van de hele monitoring `basic_settings::monitoring` aanwezig met `package => 'none'`: Puppet leegt dan zijn bestaande checkregistratie en herstart een actieve systemd-agent om de oude checks uit het geheugen te verwijderen. Andere pluginbestanden blijven staan.
 
@@ -264,7 +264,7 @@ class { 'basic_settings':
 }
 ```
 
-Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp). De Puppet Strings bij [`basic_settings`](basic_settings/manifests/init.pp) en [`basic_settings::login_user`](basic_settings/manifests/login_user.pp) beschrijven de instellingen voor de serverbasis en gebruikers, inclusief bestandsrechten en toegestane bronnen voor home- en sleutelbestanden.
+Meer gecombineerde basisconfiguratie staat in [`examples/site.pp`](examples/site.pp); `/etc/hosts`-varianten staan in [`examples/hosts.pp`](examples/hosts.pp). De Puppet Strings bij [`basic_settings`](basic_settings/manifests/init.pp) en [`basic_settings::login::user`](basic_settings/manifests/login/user.pp) beschrijven de instellingen voor de serverbasis en gebruikers, inclusief bestandsrechten en toegestane bronnen voor home- en sleutelbestanden.
 
 #### Een NVIDIA DGX Spark-kernel kiezen
 
@@ -286,7 +286,7 @@ Met `server_enable => true` in `basic_settings::puppet` en ingeschakelde monitor
 
 Deze controle vereist een lokale Puppet Server- of OpenVox Server-CA, `reports = store` (eventueel naast andere processors) op de server en ingeschakelde reporting op de agents. De check verandert die instellingen niet. Controleer vóór ingebruikname de effectieve serverconfiguratie en laat agents reports insturen. De legacyvariant `puppet-master`, ontbrekende lokale CA-bestanden en niet-ondersteunde ketens geven UNKNOWN. Een externe CA zonder betrouwbare lokale inventaris is hiermee niet te controleren.
 
-De paden komen uit `puppet config print cacert cacrl signeddir hostcert certname reportdir reports report --section server`, met de configuratie- en serverdatamap van de module expliciet als `--confdir` en `--vardir`. De moderne distributieroute gebruikt `/usr/bin/puppet`, `/etc/puppet` en `/var/lib/puppetserver`; de legacyroute gebruikt `/var/lib/puppet` als datamap. Als `basic_settings::package_voxpupuli` vóór `basic_settings::puppet` is gedeclareerd met `enable => true`, gebruikt zij `/opt/puppetlabs/bin/puppet`, `/etc/puppetlabs/puppet` en `/opt/puppetlabs/server/data/puppetserver`. De hoofdclass `basic_settings` verzorgt deze declaratievolgorde. De reportdirectory volgt de effectieve `reportdir`, inclusief de bestaande symlink. Houd afwijkende JRuby `server-conf-dir`/`server-var-dir` consistent met deze inrichting; de agent-CLI leest geen HOCON-overrides. De [Puppet-uitleg over serverinstellingen](https://help.puppet.com/core/current/Content/PuppetCore/server/puppet_conf_setting_diffs.htm) beschrijft die scheiding.
+De paden komen uit `puppet config print cacert cacrl signeddir hostcert certname reportdir reports report --section server`, met de configuratie- en serverdatamap van de module expliciet als `--confdir` en `--vardir`. De moderne distributieroute gebruikt `/usr/bin/puppet`, `/etc/puppet` en `/var/lib/puppetserver`; de legacyroute gebruikt `/var/lib/puppet` als datamap. Als `basic_settings::packages::voxpupuli` vóór `basic_settings::puppet` is gedeclareerd met `enable => true`, gebruikt zij `/opt/puppetlabs/bin/puppet`, `/etc/puppetlabs/puppet` en `/opt/puppetlabs/server/data/puppetserver`. De hoofdclass `basic_settings` verzorgt deze declaratievolgorde. De reportdirectory volgt de effectieve `reportdir`, inclusief de bestaande symlink. Houd afwijkende JRuby `server-conf-dir`/`server-var-dir` consistent met deze inrichting; de agent-CLI leest geen HOCON-overrides. De [Puppet-uitleg over serverinstellingen](https://help.puppet.com/core/current/Content/PuppetCore/server/puppet_conf_setting_diffs.htm) beschrijft die scheiding.
 
 De gebruikelijke OpenITCOCKPIT-agent draait als root. Dat is hier nodig voor de afgeschermde CA- en reportmappen en de eigen state. Controleer op de doelhost de effectieve servicegebruiker en voer de geregistreerde opdracht ook onder die identiteit uit. Een aangepaste, onprivileged agent voldoet niet aan dit contract; de check verruimt geen rechten en voegt geen sudo-regel toe. Er worden geen netwerkverzoeken gedaan, privésleutels gelezen of Puppet-taken gestart. De check gebruikt systemd alleen als de manager werkelijk actief is en anders `ps`; een gestopte systemd-service blijft een fout.
 
@@ -338,7 +338,7 @@ Controleer vóór uitrol het gedrag na installatie en een `tzdata`-update op de 
 
 <a id="doel-1"></a>
 
-`docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose_proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO, vLLM en GitLab Runner zijn er kant-en-klare configuraties.
+`docker` installeert Docker CE. Met `docker::compose` beheer je een applicatiestack onder `/opt/docker/<naam>`; `docker::compose::proxy` publiceert die via Nginx. Voor Authentik, Twenty, Nextcloud AIO, vLLM en GitLab Runner zijn er kant-en-klare configuraties.
 
 <a id="belangrijkste-eigenschappen-1"></a>
 
@@ -377,7 +377,7 @@ Een start of herstart kan nieuwe images ophalen, ook tijdens een serverstart. Co
 
 Geef `.env`-inhoud met geheimen door als `Sensitive(...)` en gebruik voor gedownloade Compose-bestanden HTTPS met een checksum.
 
-Declareer voor `docker::compose_proxy` ook `nginx`; kies alleen HTTP naar de achterliggende applicatie als die geen TLS ondersteunt.
+Declareer voor `docker::compose::proxy` ook `nginx`; kies alleen HTTP naar de achterliggende applicatie als die geen TLS ondersteunt.
 
 `docker::authentik` verwijdert standaard de eerste beheerder `akadmin`. Maak een eigen beheerder aan zoals in het [Authentik-scenario](examples/docker.pp#L126), of zet `akadmin_remove => false` om het account te behouden.
 
@@ -413,11 +413,11 @@ docker::compose { 'example':
 
 Start de stack na de eerste inrichting met `sudo systemctl start docker-compose-example.service`. Bij het opstarten van de server verzorgt het gekoppelde systemd-target de start. Puppet laat een gestopte stack gestopt; wijzigingen aan het Compose-bestand of `.env` herstarten alleen een al actieve service. Dit geldt ook voor de applicatiewrappers.
 
-Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L6), [Nginx-proxy](examples/docker.pp#L62), [Authentik met eigen beheerder](examples/docker.pp#L126) en [Twenty met S3-opslag](examples/docker.pp#L190). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en aanvullende opdrachten via [`docker::compose_exec`](docker/manifests/compose_exec.pp).
+Uitgewerkte scenario's staan in `examples/docker.pp`: [Compose met monitoring en initialisatie](examples/docker.pp#L6), [Nginx-proxy](examples/docker.pp#L62), [Authentik met eigen beheerder](examples/docker.pp#L126) en [Twenty met S3-opslag](examples/docker.pp#L190). Zie de Puppet Strings voor de interfaces van [`docker::compose`](docker/manifests/compose.pp), [`docker::compose::proxy`](docker/manifests/compose/proxy.pp) en aanvullende opdrachten via [`docker::compose::exec`](docker/manifests/compose/exec.pp).
 
-Met `systemd_service` en `systemd_unit` kun je via `docker::compose` en `docker::compose_proxy` de gegenereerde systemd-secties aanpassen. Bijvoorbeeld `systemd_service => { 'TimeoutStartSec' => '3600' }`. De opgegeven directives vervangen hun volledige standaardwaarde; overige instellingen blijven behouden. Behoud de benodigde Compose-commando’s, afhankelijkheden en hardening, en plaats geen geheimen in de publiek leesbare unit. Wijzigingen laden systemd opnieuw; de nieuwe instellingen gelden bij de volgende start. Zie de [Compose Strings](docker/manifests/compose.pp) voor het contract.
+Met `systemd_service` en `systemd_unit` kun je via `docker::compose` en `docker::compose::proxy` de gegenereerde systemd-secties aanpassen. Bijvoorbeeld `systemd_service => { 'TimeoutStartSec' => '3600' }`. De opgegeven directives vervangen hun volledige standaardwaarde; overige instellingen blijven behouden. Behoud de benodigde Compose-commando’s, afhankelijkheden en hardening, en plaats geen geheimen in de publiek leesbare unit. Wijzigingen laden systemd opnieuw; de nieuwe instellingen gelden bij de volgende start. Zie de [Compose Strings](docker/manifests/compose.pp) voor het contract.
 
-Met `proxy_routes` kunnen [`docker::compose_proxy`](docker/manifests/compose_proxy.pp) en [`docker::proxy`](docker/manifests/proxy.pp) meerdere URL-paden naar verschillende poorten sturen. Elke route bevat een `port` en optioneel een `uri` die het gematchte padvoorvoegsel vervangt. Zonder `uri` blijft het verzoekpad behouden; afsluitende slashes bepalen de vervanging volgens [Nginx `proxy_pass`](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass). Host, protocol, headers, timeouts en TLS-verificatie gelden voor alle routes. `proxy_port` blijft de backend voor `/`; zonder die parameter retourneert de rootlocatie 404. Geef voor een aanwezige proxy minstens één backend op. Het routevoorbeeld staat in de [Compose-proxy Strings](docker/manifests/compose_proxy.pp).
+Met `proxy_routes` kunnen [`docker::compose::proxy`](docker/manifests/compose/proxy.pp) en [`docker::proxy`](docker/manifests/proxy.pp) meerdere URL-paden naar verschillende poorten sturen. Elke route bevat een `port` en optioneel een `uri` die het gematchte padvoorvoegsel vervangt. Zonder `uri` blijft het verzoekpad behouden; afsluitende slashes bepalen de vervanging volgens [Nginx `proxy_pass`](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass). Host, protocol, headers, timeouts en TLS-verificatie gelden voor alle routes. `proxy_port` blijft de backend voor `/`; zonder die parameter retourneert de rootlocatie 404. Geef voor een aanwezige proxy minstens één backend op. Het routevoorbeeld staat in de [Compose-proxy Strings](docker/manifests/compose/proxy.pp).
 
 #### vLLM gebruiken
 
@@ -427,7 +427,7 @@ Declareer eerst Docker en de gedeelde systemd-inrichting. vLLM volgt Dockers GPU
 
 Kies tags volgens de [officiële Docker-handleiding](https://docs.vllm.ai/en/stable/deployment/docker/) en voor de CPU-route de [CPU-handleiding](https://docs.vllm.ai/en/stable/getting_started/installation/cpu/). Controleer vóór uitrol het image-entrypoint (`vllm serve`), de hostarchitectuur en de modelafhankelijkheden voor iedere exacte tag. Tags worden letterlijk gebruikt; de CPU- en CUDA-repositories kunnen verschillende tags hebben. De interface accepteert geen volledige imagereferenties of digests. Docker kiest uit het aangeboden manifest zelf de architectuur, zonder afgedwongen emulatie.
 
-Lever één willekeurig token van 64 hextekens als `Sensitive[String]` via beveiligde Hiera-data. De ingeschakelde API's gebruiken dit token en zijn op de host alleen via loopback bereikbaar. Met `server_name` en de TLS-certificaatpaden publiceert de wrapper via `docker::compose_proxy` en `docker::proxy`; declareer daarvoor eerst `nginx`. Alleen ingeschakelde diensten krijgen `/llm/v1/` of `/stt/v1/`. De proxy behoudt de Authorization-header en geeft voor andere applicatiepaden, waaronder `/invocations` en `/stt/invocations`, 404. Zonder `server_name` wordt geen proxy ingericht. De consumer beheert DNS, certificaatbestanden en firewalltoegang.
+Lever één willekeurig token van 64 hextekens als `Sensitive[String]` via beveiligde Hiera-data. De ingeschakelde API's gebruiken dit token en zijn op de host alleen via loopback bereikbaar. Met `server_name` en de TLS-certificaatpaden publiceert de wrapper via `docker::compose::proxy` en `docker::proxy`; declareer daarvoor eerst `nginx`. Alleen ingeschakelde diensten krijgen `/llm/v1/` of `/stt/v1/`. De proxy behoudt de Authorization-header en geeft voor andere applicatiepaden, waaronder `/invocations` en `/stt/invocations`, 404. Zonder `server_name` wordt geen proxy ingericht. De consumer beheert DNS, certificaatbestanden en firewalltoegang.
 
 IP-filtering is optioneel: zonder `whitelist_ips` voegt deze resource geen toegangsregels toe. Geef toegestane adressen expliciet op als je clients wilt beperken; `[]` weigert alle API-clients. Andere centraal beheerde Nginx- en firewallregels blijven gelden. De API-sleutel blijft ook zonder IP-filtering verplicht.
 
@@ -439,7 +439,7 @@ De geheugen-, dtype- en audiokeuzes in het Spark-voorbeeld vereisen validatie op
 
 #### Databaseback-ups en herstel
 
-Authentik en Twenty maken dagelijks om 05:00 uur in de lokale servertijd een PostgreSQL-back-up, met zeven dagen retentie. Bij deze wrappers kun je de back-up niet uitschakelen. Gebruik voor een eigen project het [Compose-scenario met databaseback-up](examples/docker.pp#L6). De [Compose Strings](docker/manifests/compose.pp) beschrijven de serviceselectie, planning en retentie; dezelfde instellingen zijn beschikbaar via `docker::compose_proxy`.
+Authentik en Twenty maken dagelijks om 05:00 uur in de lokale servertijd een PostgreSQL-back-up, met zeven dagen retentie. Bij deze wrappers kun je de back-up niet uitschakelen. Gebruik voor een eigen project het [Compose-scenario met databaseback-up](examples/docker.pp#L6). De [Compose Strings](docker/manifests/compose.pp) beschrijven de serviceselectie, planning en retentie; dezelfde instellingen zijn beschikbaar via `docker::compose::proxy`.
 
 De back-up werkt met één draaiende PostgreSQL-container; externe databases vallen erbuiten. Controleer de [containervereisten bij `backup_service`](docker/manifests/compose.pp) en of de applicatie daadwerkelijk de geselecteerde database gebruikt. Voer databasewijzigingen en wachtwoordrotaties ook in PostgreSQL door; initialisatievariabelen wijzigen een bestaande database niet.
 
@@ -496,7 +496,7 @@ Stop de AIO-containers en daarna de mastercontainer met `systemctl stop docker-c
 
 Bij een waarschuwing over mimetype-migraties start Puppet na installatie automatisch `maintenance:repair --include-expensive`. Dit voert alle expensive repair steps uit, met een timeout van één uur, en kan de Puppet-run aanzienlijk verlengen. De [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de uitvoeringsvoorwaarden.
 
-Met [`docker::nextcloud_occ`](docker/manifests/nextcloud_occ.pp) voer je aanvullende beheeropdrachten uit. Beperk de uitvoering volgens de voorbeelden in de Strings: opdrachten kunnen anders bij iedere Puppet-run terugkomen. OCC-wijzigingen worden overgeslagen zolang de container niet draait of de installatie niet als voltooid kan worden gelezen.
+Met [`docker::nextcloud::occ`](docker/manifests/nextcloud/occ.pp) voer je aanvullende beheeropdrachten uit. Beperk de uitvoering volgens de voorbeelden in de Strings: opdrachten kunnen anders bij iedere Puppet-run terugkomen. OCC-wijzigingen worden overgeslagen zolang de container niet draait of de installatie niet als voltooid kan worden gelezen.
 
 Activeer `allow_local_remote_servers` alleen voor benodigde lokale integraties, zoals federatieve shares of webcal: deze functies krijgen daarmee toegang tot lokale diensten. Standaard staat dit uit.
 
@@ -510,12 +510,12 @@ De herstart van `signaling` kan actieve gesprekken verstoren. Voer de eerste int
 
 ##### Aanvullende apps en OIDC beheren
 
-Gebruik [`docker::nextcloud_app`](docker/manifests/nextcloud_app.pp) om een aanvullende app te installeren, haar activatiestatus te beheren en opgegeven appinstellingen bij te houden. De app-id is de resourcenaam. Puppet werkt geïnstalleerde apps niet automatisch bij. Een weggelaten instelling blijft behouden; een weggelaten resource laat de app ongemoeid. Met `disable => true` blijft de app geïnstalleerd en uitgeschakeld. Met `ensure => false` verwijdert OCC de app indien aanwezig; daarbij kan appdata verloren gaan.
+Gebruik [`docker::nextcloud::app`](docker/manifests/nextcloud/app.pp) om een aanvullende app te installeren, haar activatiestatus te beheren en opgegeven appinstellingen bij te houden. De app-id is de resourcenaam. Puppet werkt geïnstalleerde apps niet automatisch bij. Een weggelaten instelling blijft behouden; een weggelaten resource laat de app ongemoeid. Met `disable => true` blijft de app geïnstalleerd en uitgeschakeld. Met `ensure => false` verwijdert OCC de app indien aanwezig; daarbij kan appdata verloren gaan.
 
-Voor OIDC gebruik je de afzonderlijke [`docker::nextcloud_user_oidc`](docker/manifests/nextcloud_user_oidc.pp)-class bij je bestaande AIO-deployment, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L244). De class installeert `user_oidc` indien nodig en houdt de app standaard globaal actief. Declareer daarnaast niet zelf dezelfde `docker::nextcloud_app`-resource. Richt de provider afzonderlijk in en controleer de werking voordat je login laat doorsturen:
+Voor OIDC gebruik je de afzonderlijke [`docker::nextcloud::user_oidc`](docker/manifests/nextcloud/user_oidc.pp)-class bij je bestaande AIO-deployment, zoals in het [Nextcloud-voorbeeld](examples/docker.pp#L244). De class installeert `user_oidc` indien nodig en houdt de app standaard globaal actief. Declareer daarnaast niet zelf dezelfde `docker::nextcloud::app`-resource. Richt de provider afzonderlijk in en controleer de werking voordat je login laat doorsturen:
 
 ```puppet
-class { 'docker::nextcloud_user_oidc':
+class { 'docker::nextcloud::user_oidc':
   compose_name                 => 'nextcloud-aio',
   allow_multiple_user_backends => false,
 }
@@ -523,7 +523,7 @@ class { 'docker::nextcloud_user_oidc':
 
 Met `allow_multiple_user_backends => true` sta je meerdere inlogmethoden toe. Zonder deze optie blijft de bestaande logininstelling behouden.
 
-OCC voert wijzigingen alleen uit wanneer Nextcloud is geïnstalleerd. Aanwezige appbestanden zonder registratiesleutel geven een fout en blokkeren verdere configuratie. Er is geen containerherstart nodig. De [Puppet Strings](docker/manifests/nextcloud_app.pp) beschrijven de voorwaarden, instellingstypen en verwijdergevolgen.
+OCC voert wijzigingen alleen uit wanneer Nextcloud is geïnstalleerd. Aanwezige appbestanden zonder registratiesleutel geven een fout en blokkeren verdere configuratie. Er is geen containerherstart nodig. De [Puppet Strings](docker/manifests/nextcloud/app.pp) beschrijven de voorwaarden, instellingstypen en verwijdergevolgen.
 
 Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/login?direct=1` kun je de normale loginpagina bereiken zolang die route beschikbaar blijft, zoals beschreven in de [user_oidc-documentatie](https://github.com/nextcloud/user_oidc#disable-other-login-methods). Deze instelling bepaalt het inloggedrag en maakt niet alle alternatieve authenticatiemethoden technisch onmogelijk.
 
@@ -531,7 +531,7 @@ Controleer vooraf je hersteltoegang met een werkend beheerdersaccount. Via `/log
 
 Het [Nextcloud-scenario](examples/docker.pp) koppelt Nextcloud 35 en Talk 35 met `integration_openai` 5.0.0 aan de twee Spark-API's. Gebruik een werkende AIO Talk-opnameserver en test eerst beide HTTPS-routes vanuit de Nextcloud-container. Controleer de versies bij een update; oudere Talk-versies gebruiken een ander taaktype voor samenvattingen. De wrapper werkt apps niet automatisch bij.
 
-Gebruik [`docker::nextcloud_integration_openai`](docker/manifests/nextcloud_integration_openai.pp) bij je bestaande AIO-deployment en gebruik dezelfde secretlookup als op Spark. De class beheert de app, de opgegeven tekst- en transcriptie-instellingen en beide API-sleutels met Nextclouds native sensitive- en lazy-vlaggen. Declareer daarnaast niet zelf dezelfde `docker::nextcloud_app`-resource. Het voorbeeld toont beide endpoints en modelnamen; de [Puppet Strings](docker/manifests/nextcloud_integration_openai.pp) beschrijven de parameters en wat weglaten of leegmaken betekent. Een bestaande persoonlijke integratiesleutel kan de beheerderssleutel voor tekstaanvragen vervangen; controleer die bij gebruikersgebonden authenticatiefouten. Voor deze integratie hoef je `allow_local_remote_servers` niet globaal in te schakelen.
+Gebruik [`docker::nextcloud::integration_openai`](docker/manifests/nextcloud/integration_openai.pp) bij je bestaande AIO-deployment en gebruik dezelfde secretlookup als op Spark. De class beheert de app, de opgegeven tekst- en transcriptie-instellingen en beide API-sleutels met Nextclouds native sensitive- en lazy-vlaggen. Declareer daarnaast niet zelf dezelfde `docker::nextcloud::app`-resource. Het voorbeeld toont beide endpoints en modelnamen; de [Puppet Strings](docker/manifests/nextcloud/integration_openai.pp) beschrijven de parameters en wat weglaten of leegmaken betekent. Een bestaande persoonlijke integratiesleutel kan de beheerderssleutel voor tekstaanvragen vervangen; controleer die bij gebruikersgebonden authenticatiefouten. Voor deze integratie hoef je `allow_local_remote_servers` niet globaal in te schakelen.
 
 Activeer transcriptie en samenvatting met `talk_call_recording_transcription => true` en `talk_call_recording_summary => true` in je `docker::nextcloud`-declaratie. Met `undef` blijven de bestaande Talk-instellingen behouden; de [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de voorwaarden.
 
@@ -557,7 +557,7 @@ Bij `ensure => absent` verdwijnt de hele projectmap, inclusief deze lokale back-
 
 ##### S3-opslag kiezen en wijzigen
 
-Gebruik het [voorbeeld met twee stores](examples/docker.pp#L244) om S3-opslag aan een geïnstalleerde AIO-deployment toe te voegen. Registratie alleen activeert geen primaire opslag; het voorbeeld laat ook die keuze zien. De gekozen stores moeten bestaan of via Puppet worden aangemaakt. De [S3 Strings](docker/manifests/nextcloud_s3.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de configuratie en opslagkeuzes. Een ingestelde keuze weglaten behoudt de opgeslagen selectie.
+Gebruik het [voorbeeld met twee stores](examples/docker.pp#L244) om S3-opslag aan een geïnstalleerde AIO-deployment toe te voegen. Registratie alleen activeert geen primaire opslag; het voorbeeld laat ook die keuze zien. De gekozen stores moeten bestaan of via Puppet worden aangemaakt. De [S3 Strings](docker/manifests/nextcloud/s3.pp) en [Nextcloud Strings](docker/manifests/nextcloud.pp) beschrijven de configuratie en opslagkeuzes. Een ingestelde keuze weglaten behoudt de opgeslagen selectie.
 
 Gebruik per store een eigen bucket waar alleen deze Nextcloud-installatie toegang toe heeft. Het wijzigen van primaire opslag migreert geen bestanden en kan bestaande data ontoegankelijk maken. Regel vooraf de migratie en back-ups van zowel de database als de objectdata; volg de [Nextcloud-handleiding voor primaire objectopslag](https://docs.nextcloud.com/server/stable/admin_manual/configuration_files/primary_storage.html).
 
@@ -565,9 +565,9 @@ Lever het secret als `Sensitive` uit beveiligde configuratie; ook access keys en
 
 Schakel met `monitoring_enable => true` in de S3-resource de alleen-lezen controle in, zoals in het [voorbeeld](examples/docker.pp#L244). Daarvoor moet de centrale monitoring actief zijn en moet de host curl met native SigV4-ondertekening leveren. Voor HTTPS is curl 7.88 of nieuwer met OpenSSL-certificaatondersteuning nodig; oudere distributiepakketten voldoen niet altijd. De check gebruikt de bestaande Nextcloud-instellingen en bewaakt metadata-toegang en responstijd, bij HTTPS ook TLS en certificaatverval. Zorg dat de storecredentials `HeadBucket` mogen uitvoeren (`s3:ListBucket` bij AWS), of kies bewust één bestaand object voor `HeadObject` met de bijbehorende leesrechten. Een geweigerde operatie bewijst op zichzelf geen verkeerd wachtwoord.
 
-Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud_s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/nextcloud/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
+Deze controle verstuurt geen schrijfverzoeken en downloadt geen objectinhoud. Zij meet vanaf de monitoringhost en gebruikt bij HTTPS diens CA-verzameling, dus niet het Nextcloud-netwerk of PHP's certificaatbasis. Bij `use_ssl => false` gebruikt ook de check onbeveiligd HTTP: alleen metadata-toegang en responstijd worden beoordeeld; TLS- en certificaatchecks worden overgeslagen. Een TLS-fout bij HTTPS leidt niet tot terugvallen op HTTP. Uploads, decryptie en de volledige bestandsketen worden niet getest. Niet-ondersteunde runtime- of configuratievormen geven `UNKNOWN`. Raadpleeg de [S3 Strings](docker/manifests/nextcloud/s3.pp) voor voorwaarden en overrides en de [checkinterface](docker/templates/nextcloud/check_nextcloud_s3) voor runtimegrenzen. Uitschakelen of weglaten van één monitoringregistratie behoudt de overige checks en de gedeelde executable.
 
-Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud_s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
+Verwijder een store pas nadat je de data hebt gemigreerd en opslagselecties en gebruikers niet meer naar die store verwijzen. `ensure => absent` verwijdert alleen de registratie; buckets en objecten blijven bestaan. Alleen de Puppet-resource weghalen laat de registratie in Nextcloud staan. De [S3 Strings](docker/manifests/nextcloud/s3.pp) beschrijven alle opslagopties en het effect van weggelaten waarden.
 
 #### GitLab Runner
 
@@ -682,7 +682,7 @@ Een volledige Nginx-, PHP- en certificaatcombinatie staat in [`examples/web.pp`]
 - Configureert `automysqlbackup` met een systemd-service en timer.
 - Maakt gecomprimeerde, versleutelde back-ups.
 - Registreert een MySQL-check wanneer monitoring actief is.
-- Kan de pakketversie en pakketbron van `basic_settings::package_mysql` overnemen.
+- Kan de pakketversie en pakketbron van `basic_settings::packages::mysql` overnemen.
 
 #### Belangrijke aandachtspunten
 
@@ -696,7 +696,7 @@ Voor expliciete wachtwoordauthenticatie kies je `root_authentication => 'caching
 
 Een overstap vereist werkende bestaande beheertoegang of een al werkende login met de gewenste methode. Puppet controleert de accountidentiteit en plugin, past de authenticatie aan en publiceert daarna de beheerconfiguratie. Pas externe rootclients aan bij een overstap; `auth_socket` biedt geen rootlogin via TCP of als een andere OS-gebruiker. De lokale back-upservice draait als root en gebruikt dezelfde beheerconfiguratie.
 
-Gebruik je MySQL zonder `basic_settings::package_mysql`, stem dan `package_version` af op de geïnstalleerde versie. Met die pakketbron neemt de module de versie daarvan over; zie de [Puppet Strings bij `mysql`](mysql/manifests/init.pp).
+Gebruik je MySQL zonder `basic_settings::packages::mysql`, stem dan `package_version` af op de geïnstalleerde versie. Met die pakketbron neemt de module de versie daarvan over; zie de [Puppet Strings bij `mysql`](mysql/manifests/init.pp).
 
 De module gebruikt vaste bufferinstellingen voor MySQL. Controleer of die bij het beschikbare RAM passen.
 
@@ -839,7 +839,7 @@ nginx::server { 'app.example.org':
 }
 ```
 
-TLS-, PHP-FPM-, monitoring-, security-header- en reverse-proxyvarianten staan in [`examples/web.pp`](examples/web.pp). De Puppet Strings bij [`nginx::server`](nginx/manifests/server.pp) en [`nginx::monitoring_cert`](nginx/manifests/monitoring_cert.pp) beschrijven de instellingen, drempels en beperkingen.
+TLS-, PHP-FPM-, monitoring-, security-header- en reverse-proxyvarianten staan in [`examples/web.pp`](examples/web.pp). De Puppet Strings bij [`nginx::server`](nginx/manifests/server.pp) en [`nginx::monitoring::cert`](nginx/manifests/monitoring/cert.pp) beschrijven de instellingen, drempels en beperkingen.
 
 #### Netwerkondersteuning controleren
 
@@ -880,7 +880,7 @@ Voeg de driver tussen de bestaande platform- en Docker-declaraties in. Het volle
 class { 'nvidia':
   pinning => 580,
   require => [
-    Class['basic_settings::kernel', 'basic_settings::package_nvidia_dgx'],
+    Class['basic_settings::kernel', 'basic_settings::packages::nvidia_dgx'],
     Exec['basic_settings_source_reload'],
   ],
 }
@@ -934,7 +934,7 @@ Pull-, push-, server- en maatwerkcheckscenario's staan in [`examples/monitoring.
 
 <a id="doel-10"></a>
 
-`php8` beheert de gedeelde pakketten en extensies voor een gekozen PHP 8 minorversie. `php8::cli` installeert de CLI en beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm_pool` beheren de FPM-service en afzonderlijke applicatiepools.
+`php8` beheert de gedeelde pakketten en extensies voor een gekozen PHP 8 minorversie. `php8::cli` installeert de CLI en beheert CLI-instellingen en Composer; `php8::fpm` en `php8::fpm::pool` beheren de FPM-service en afzonderlijke applicatiepools.
 
 <a id="belangrijkste-eigenschappen-10"></a>
 
@@ -950,7 +950,7 @@ Zorg dat de gekozen PHP-versie in de ingestelde APT-bron beschikbaar is, bijvoor
 
 Declareer eerst `php8` en daarna `php8::cli`, `php8::fpm` of beide. CLI en FPM werken zonder `basic_settings` en Nginx. Declareer optionele integraties vóór de PHP-classes om tijdzone, monitoring, logrotate en systemd over te nemen. De [PHP-handleiding](php8/README.md) toont zelfstandig CLI- en FPM-gebruik en de combinatie met `basic_settings`.
 
-PHP-FPM neemt de poolmap over en verwijdert onbeheerde pools, inclusief de distributiepool. Declareer daarom minstens één `php8::fpm_pool`, zoals in het voorbeeld. De gebruiker, groep en socketrechten moeten bij de webserver passen; anders kan die geen PHP-verzoeken doorgeven.
+PHP-FPM neemt de poolmap over en verwijdert onbeheerde pools, inclusief de distributiepool. Declareer daarom minstens één `php8::fpm::pool`, zoals in het voorbeeld. De gebruiker, groep en socketrechten moeten bij de webserver passen; anders kan die geen PHP-verzoeken doorgeven.
 
 Stem geheugenlimieten en het aantal PHP-processen af op het beschikbare geheugen en de applicatie.
 
@@ -975,12 +975,12 @@ class { 'php8::fpm':
 }
 
 # Provide a pool after the package has created the FPM directory layout.
-php8::fpm_pool { 'app':
+php8::fpm::pool { 'app':
   require => Package['php8.3-fpm'],
 }
 ```
 
-Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](examples/web.pp) laat de koppeling met Nginx zien. Zie de Puppet Strings bij [`php8`](php8/manifests/init.pp), [`cli`](php8/manifests/cli.pp), [`fpm`](php8/manifests/fpm.pp) en [`fpm_pool`](php8/manifests/fpm_pool.pp) voor de instellingen.
+Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](examples/web.pp) laat de koppeling met Nginx zien. Zie de Puppet Strings bij [`php8`](php8/manifests/init.pp), [`cli`](php8/manifests/cli.pp), [`fpm`](php8/manifests/fpm.pp) en [`fpm::pool`](php8/manifests/fpm/pool.pp) voor de instellingen.
 
 ### `proxmox`
 
@@ -1159,14 +1159,14 @@ Meerdere interfaces en verschillende capaciteiten staan in het [vnStat-scenario]
 
 De checks worden automatisch door relevante modules geregistreerd wanneer OpenITCOCKPIT-monitoring actief is. Je kunt ze ook los vanuit een Nagios-compatibele executor gebruiken. De script- en templatecomments zijn de technische bron voor argumenten, commandodependencies, drempels, exitcodes, perfdata en diagnose-uitvoer.
 
-Eigen status en caches worden beheerd via [`basic_settings::monitoring_custom`](basic_settings/manifests/monitoring_custom.pp). Vraag met `state => true` een privémap per registratie aan. Puppet maakt deze aan met root als eigenaar en modus `0700`. Templates krijgen de locatie tijdens het renderen; bij `check` en registraties van een gedeeld script via `script` krijgt de opdracht haar als `STATE_DIR` mee.
+Eigen status en caches worden beheerd via [`basic_settings::monitoring::custom`](basic_settings/manifests/monitoring/custom.pp). Vraag met `state => true` een privémap per registratie aan. Puppet maakt deze aan met root als eigenaar en modus `0700`. Templates krijgen de locatie tijdens het renderen; bij `check` en registraties van een gedeeld script via `script` krijgt de opdracht haar als `STATE_DIR` mee.
 
 Bij `package => 'openitcockpit'` staan de checkmappen onder `/etc/openitcockpit-agent/state`. Met `package => 'none'` blijven registratie en aanmaak van checkmappen uitgeschakeld.
 
 Met `template` laat je het type zelf een ERB-template laden. Daarin is de afgeleide map beschikbaar als `@state_dir`; overige invoer geef je expliciet mee via `template_data`, beschikbaar als `@template_data`. Geef met `check` een bron-URL (`puppet:///`, `file:///` of HTTPS) of de scriptinhoud door, eventueel als resultaat van `template()` of `epp()`. Gebruik `check` of `template` voor het executable. Een registratie die via `script` een bestaand executable hergebruikt geeft geen van beide mee.
 
 ```puppet
-basic_settings::monitoring_custom { 'application_health':
+basic_settings::monitoring::custom { 'application_health':
   state         => true,
   template      => 'profile/check_application_health',
   template_data => { 'service' => 'application.service' },
@@ -1203,7 +1203,7 @@ Wanneer de aanroepende class `systemd_enable = true` doorgeeft, verwachten de mo
 
 Servicecontroles verwachten standaard dat de bewaakte service bestaat en actief is. Een ontbrekende vereiste systemd-unit geeft CRITICAL. Een expliciet optionele aanvullende meting kan een ontbrekende unit toestaan; onleesbare status blijft onbekend en een aanwezige unit wordt nog steeds beoordeeld.
 
-De onderstaande checks worden vanuit templates uitgerold. Gebruik in eigen profielen `template => 'module/checknaam'` bij `monitoring_custom`, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`; de Puppet-checks staan onder `basic_settings/monitoring/puppet/`. Voor de Docker-checks gebruik je `docker/compose/check_compose` en `docker/nextcloud/check_nextcloud_s3`. Kopieer geen ongerenderde template naar een host. Zorg dat de betrokken module en `basic_settings` op het modulepath staan; voor het renderen hoef je de class `basic_settings` niet te declareren. Raadpleeg bij zelfstandig scriptgebruik de vereisten in de betreffende scriptheader en hulptekst.
+De onderstaande checks worden vanuit templates uitgerold. Gebruik in eigen profielen `template => 'module/checknaam'` bij `monitoring::custom`, of `content => template('module/checknaam')` bij een `file`-resource. Voor de basischecks is het templatepad `basic_settings/monitoring/checknaam`; de Puppet-checks staan onder `basic_settings/monitoring/puppet/`. Voor de Docker-checks gebruik je `docker/compose/check_compose` en `docker/nextcloud/check_nextcloud_s3`. Kopieer geen ongerenderde template naar een host. Zorg dat de betrokken module en `basic_settings` op het modulepath staan; voor het renderen hoef je de class `basic_settings` niet te declareren. Raadpleeg bij zelfstandig scriptgebruik de vereisten in de betreffende scriptheader en hulptekst.
 
 De uitgebreide checkuitvoer groepeert metingen per onderwerp. Lees de toelichting onder `Interpretation:` samen met de status en meetwaarden. Dit vereenvoudigde voorbeeld toont die uitvoer; de waarden zijn illustratief:
 

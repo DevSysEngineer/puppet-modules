@@ -25,17 +25,17 @@ docker::gitlab_runner { 'runner': }
 docker::nextcloud { 'nextcloud': }
 
 # Enable the OIDC integration for the existing application.
-class { 'docker::nextcloud_user_oidc':
+class { 'docker::nextcloud::user_oidc':
   compose_name => 'nextcloud',
 }
 
 # Enable the AI integration for the existing application.
-class { 'docker::nextcloud_integration_openai':
+class { 'docker::nextcloud::integration_openai':
   compose_name => 'nextcloud',
 }
 
 # Attach synthetic object storage to the existing application.
-docker::nextcloud_s3 { 'archive':
+docker::nextcloud::s3 { 'archive':
   compose_name => 'nextcloud',
   bucket       => 'compile-example',
   key          => $facts['compile_test_password'],

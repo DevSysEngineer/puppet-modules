@@ -1,0 +1,119 @@
+# @summary Manages the Proxmox VE no-subscription APT repository.
+#
+# This private helper writes or removes the Proxmox VE package source and signing key. It is called by `basic_settings`
+# after OS support has been calculated.
+# Requires Exec['basic_settings_source_reload'] to refresh APT after removing an alternative source file.
+#
+# @example Internal use from basic_settings
+#   class { 'basic_settings::packages::proxmox':
+#     deb_version => 'list',
+#     enable      => true,
+#     os_name     => 'bookworm',
+#     os_parent   => 'debian',
+#   }
+#
+# @param deb_version
+#   APT source format to manage: `list` or `822`. The alternative format is always removed, including when disabled.
+#
+# @param enable
+#   Creates the repository and imports its key when `true`; removes both when `false`.
+#
+# @param os_name
+#   Distribution codename used in the repository suite.
+#
+# @param os_parent
+#   Distribution family retained for consistency with repository helpers.
+#
+# @api private
+class basic_settings::packages::proxmox (
+  Enum['list', '822'] $deb_version,
+  Boolean             $enable,
+  String              $os_name,
+  String              $os_parent,
+) {
+  # Provide the shell and source-list tools on both installation and removal paths.
+  $source_packages = ['apt', 'coreutils', 'dash']
+  stdlib::ensure_packages($source_packages, {
+    'ensure'          => 'installed',
+    'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+  })
+
+  # Check if we need newer format for APT
+  if ($deb_version == '822') {
+    # Use the .sources filename for a deb822 repository definition.
+    $file = '/etc/apt/sources.list.d/proxmox.sources'
+    $alternative = '/etc/apt/sources.list.d/proxmox.list'
+  } else {
+    # Use the .list filename for a one-line APT repository definition.
+    $file = '/etc/apt/sources.list.d/proxmox.list'
+    $alternative = '/etc/apt/sources.list.d/proxmox.sources'
+  }
+
+  # Remove the unused source format on both lifecycle paths before any source exec refreshes APT.
+  file { $alternative:
+    ensure  => absent,
+    require => Package[$source_packages],
+    before  => Exec['package_proxmox_source'],
+    notify  => Exec['basic_settings_source_reload'],
+  }
+
+  # Even cleanup without a source exec change must refresh APT after source handling has finished.
+  Exec['package_proxmox_source'] -> Exec['basic_settings_source_reload']
+
+  # Set keyrings file
+  $key = '/usr/share/keyrings/proxmox.gpg'
+
+  # Escape repository paths before using them in exec commands and guards.
+  $file_shell = stdlib::shell_escape($file)
+  $key_shell = stdlib::shell_escape($key)
+
+  # Install the Proxmox repository when enabled and remove its managed source otherwise.
+  if ($enable) {
+    # Install the download and signing tools only while this repository is enabled.
+    $repository_packages = [
+      'apt-transport-https',
+      'ca-certificates',
+      'curl',
+      'diffutils',
+    ]
+    stdlib::ensure_packages($repository_packages, {
+      'ensure'          => 'installed',
+      'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+    })
+    $repository_required_packages = concat($source_packages, $repository_packages)
+
+    # Get source
+    if ($deb_version == '822') {
+      # Render the selected repository and signing key in deb822 format.
+      $source  = "Types: deb\\nURIs: http://download.proxmox.com/debian/pve\\nSuites: ${os_name}\\nComponents: pve-no-subscription\\nSigned-By:${key}\\n" # lint:ignore:140chars
+    } else {
+      # Render the selected repository and signing key in one-line APT format.
+      $source = "deb [signed-by=${key}] http://download.proxmox.com/debian/pve ${os_name} pve-no-subscription\\n"
+    }
+
+    # Escape generated repo content as literal newline sequences and key URL before the shell writes or fetches them.
+    $source_shell = stdlib::shell_escape("# Managed by puppet\\n${source}")
+    $key_url_shell = stdlib::shell_escape("https://enterprise.proxmox.com/debian/proxmox-release-${os_name}.gpg")
+
+    # Install proxmox repo
+    exec { 'package_proxmox_source':
+      provider => shell,
+      command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSLo ${key_shell} ${key_url_shell}; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
+      unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      require  => Package[$repository_required_packages],
+    }
+  } else {
+    # Remove proxmox repo
+    exec { 'package_proxmox_source':
+      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif  => "/usr/bin/test -e ${file_shell}",
+      require => Package[$source_packages],
+    }
+
+    # Remove proxmox key
+    file { 'package_proxmox_key':
+      ensure => absent,
+      path   => $key,
+    }
+  }
+}

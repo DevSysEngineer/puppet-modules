@@ -39,7 +39,7 @@ node 'container-basic.example.org' {
   }
 
   # The application's own read-only status command prevents repeating initialization.
-  docker::compose_exec { 'initialize-example':
+  docker::compose::exec { 'initialize-example':
     command      => ['/usr/local/bin/app', 'initialize'],
     compose_name => 'example',
     service      => 'web',
@@ -80,7 +80,7 @@ node 'container-proxy.example.org' {
   }
 
   # Expose the stack through Nginx with verified upstream TLS and WebSocket support.
-  docker::compose_proxy { 'custom':
+  docker::compose::proxy { 'custom':
     client_max_body_size          => '100m',
     compose_checksum              => '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     compose                       => 'puppet:///modules/profile/custom/docker-compose.yml',
@@ -176,7 +176,7 @@ node 'authentik.example.org' {
   }
 
   # Create the named administrator after deploying the identity service.
-  docker::authentik_admin { 'platform.admin':
+  docker::authentik::admin { 'platform.admin':
     compose_name => 'authentik',
     email        => 'info@example.org',
     password     => lookup('examples::docker::password', Sensitive[String]),
@@ -184,7 +184,7 @@ node 'authentik.example.org' {
   }
 
   # Remove the retired administrator from the same identity service.
-  docker::authentik_admin { 'old.admin':
+  docker::authentik::admin { 'old.admin':
     ensure       => absent,
     compose_name => 'authentik',
     require      => Docker::Authentik['authentik'],
@@ -294,13 +294,13 @@ node 'nextcloud.example.org' {
 
   # Install and enable OIDC; configure one working provider separately before requesting login redirection.
   # Keep administrative access through /login?direct=1 while available; omit the option to leave it unmanaged.
-  class { 'docker::nextcloud_user_oidc':
+  class { 'docker::nextcloud::user_oidc':
     compose_name                 => 'nextcloud-aio',
     allow_multiple_user_backends => false,
   }
 
   # Additional apps use the shared app lifecycle; the AIO-owned spreed app is already installed.
-  docker::nextcloud_app { 'assistant':
+  docker::nextcloud::app { 'assistant':
     ensure       => true,
     compose_name => 'nextcloud-aio',
   }
@@ -312,7 +312,7 @@ node 'nextcloud.example.org' {
   $ai_api_key = lookup('profile::nextcloud_ai::api_key', Sensitive[String])
 
   # Both Spark endpoints share this deployment's key; the app wrapper handles storage and native secret flags.
-  class { 'docker::nextcloud_integration_openai':
+  class { 'docker::nextcloud::integration_openai':
     compose_name                    => 'nextcloud-aio',
     api_key                         => $ai_api_key,
     chat_endpoint_enabled           => true,
@@ -338,8 +338,8 @@ node 'nextcloud.example.org' {
   }
 
   # Configure this deployment's AI provider and credentials before applying its Talk recording settings.
-  Class['docker::nextcloud_integration_openai']
-    -> Docker::Nextcloud_occ[
+  Class['docker::nextcloud::integration_openai']
+    -> Docker::Nextcloud::Occ[
       'nextcloud-aio_talk_call_recording_summary',
       'nextcloud-aio_talk_call_recording_summary_prompt',
       'nextcloud-aio_talk_call_recording_transcription',
@@ -350,7 +350,7 @@ node 'nextcloud.example.org' {
 
   # Register a path-style endpoint, preserving an explicit false option and fractional connection timeout.
   # Opt in to read-only HeadBucket monitoring; provision its permission and a host curl with certificate output.
-  docker::nextcloud_s3 { 'server1':
+  docker::nextcloud::s3 { 'server1':
     compose_name         => 'nextcloud-aio',
     bucket               => 'nextcloud-01',
     hostname             => 's3.example.org',
@@ -364,7 +364,7 @@ node 'nextcloud.example.org' {
   }
 
   # Register an Amazon store independently; Nextcloud supplies defaults for all unspecified options.
-  docker::nextcloud_s3 { 'server2':
+  docker::nextcloud::s3 { 'server2':
     compose_name                => 'nextcloud-aio',
     bucket                      => 'nextcloud-02',
     region                      => 'eu-central-1',

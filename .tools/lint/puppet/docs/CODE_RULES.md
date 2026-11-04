@@ -35,6 +35,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 - [Parameters en resources](#parameters-en-resources)
   - [Parameters en instellingen](#parameters-en-instellingen)
   - [Classes en defines bruikbaar ontwerpen](#classes-en-defines-bruikbaar-ontwerpen)
+  - [Classes en defined types per onderwerp groeperen](#classes-en-defined-types-per-onderwerp-groeperen)
   - [Herhaalde resourceorkestratie in defined types delen](#herhaalde-resourceorkestratie-in-defined-types-delen)
   - [Publieke parameters expliciet typeren](#publieke-parameters-expliciet-typeren)
   - [Parameters met defaultafhankelijkheden sorteren](#parameters-met-defaultafhankelijkheden-sorteren)
@@ -1174,6 +1175,46 @@ Controleer prerequisites, resource-eigendom en dubbele declaraties bij afzonderl
 **Verificatie**
 
 Handmatige vergelijking van de beschreven scenario’s; controleer het interfacecontract en benodigde afhankelijkheden. Een groene lintscan is geen catalogusbewijs.
+
+### Classes en defined types per onderwerp groeperen
+
+**Norm**
+
+Groepeer functioneel samenhangende classes en defined types in een herkenbare namespace binnen hun module. Voeg een namespacecomponent toe wanneer deze een werkelijk onderdeel of een gedeelde verantwoordelijkheid onderscheidt. Laat het pad onder `manifests/` exact volgen uit de volledige Puppet-naam.
+
+De hoofdclass blijft in `manifests/init.pp`. Een class `example::systemd` staat in `example/manifests/systemd.pp`; `example::systemd::reload` staat in `example/manifests/systemd/reload.pp`. Definieer ieder onderdeel zelfstandig op het hoogste niveau van zijn eigen manifest.
+
+Kies op betekenis. Een zelfstandig onderdeel zonder passende groep blijft op zijn logische niveau. Underscores mogen woorden verbinden die samen één begrip vormen. Vervang niet automatisch iedere underscore door `::` en voeg geen vooraf bedachte lagen toe.
+
+Een naamgevingsgroep vereist geen eigen class. Introduceer geen lege groepsclasses, automatische includes, overerving of containment uitsluitend om de mapstructuur te volgen. Bestaande prerequisites en relaties volgen het werkelijke gebruik van resources en classwaarden.
+
+**Herkomst**
+
+Projectregel.
+
+**Toepassingsgebied**
+
+Alle eigen Puppet-classes en defined types, hun manifests en actuele gebruiksvoorbeelden. Externe modules behouden hun eigen indeling. Opzettelijk onjuiste fixtures behouden het contract van de test die zij ondersteunen.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: verwante helpers voor hetzelfde onderdeel staan onder losstaande namen op het bovenste manifestniveau. Een andere indeling splitst ieder woord van een samengestelde naam in een eigen directory zonder afzonderlijke verantwoordelijkheid.
+
+**Correct voorbeeld**
+
+Handmatig reviewscenario: systemd-helpers gebruiken `example::systemd::service`, `example::systemd::timer` en `example::systemd::reload` onder `manifests/systemd/`. Een bestaande class `example::systemd` blijft afzonderlijk bestaan wanneer zij zelf gedrag beheert.
+
+**Handmatige review**
+
+Controleer de samenhang, naamgeving en overeenkomst tussen Puppet-naam en manifestpad. Behoud classes als classes en defined types als defined types. Controleer dat de nieuwe indeling geen extra declaraties, prerequisites of gewijzigde evaluatievolgorde introduceert.
+
+Volg bij interfacewijzigingen de [migratieafspraken](../../../../CONTRIBUTING.md#hergebruik-en-samenhang) en het [versiebeleid](../../../../CONTRIBUTING.md#compatibiliteit-en-versies). Behoud de bestaande [relaties en meldingen](#relaties-en-meldingen-behouden).
+
+**Verificatie**
+
+Gebruik de bestaande volledige lintscan en cataloguscompilatie. De native checks `autoloader_layout` en `nested_classes_or_defines` controleren technische aspecten; zij bepalen niet of de gekozen groepen inhoudelijk logisch zijn.
+
+Beoordeel de recursieve definitielijst en werkelijke scenariodekking volgens het [module-testbeleid](../../../../TESTS.md#moduletests-eenvoudig-houden). Controleer ook aanroepers en documentatielinks. Een geslaagde parser- of lintcontrole bewijst geen volledige consumermigratie.
 
 ### Herhaalde resourceorkestratie in defined types delen
 
@@ -3319,7 +3360,7 @@ Maak onderscheid tussen de unieke titel van een Puppet-registratie en de interne
 
 Beoordeel deze indeling bij de review van het hele omliggende blok. De [sectiechecks](DOCUMENTATION_RULES.md#toelichtingen-bij-code) controleren opmaak en toelichtingen; een geslaagde lintscan bewijst niet dat aanroepen inhoudelijk op de juiste plek staan. Verplaats ze niet automatisch op basis van hun naam, type of afstand tot een variabele: hun functie, voorwaarden en evaluatievolgorde bepalen welke plek klopt.
 
-Aanvullende Nextcloud-apps gebruiken `docker::nextcloud_app` voor installatie, verwijdering, activatiestatus en gewone appconfiguratie. Appspecifieke gebruikersparameters en omzettingen horen in een wrapper zoals `docker::nextcloud_user_oidc`. Voeg opties van zulke apps niet toe aan `docker::nextcloud` of de generieke OCC-uitvoering. Bepaal bij iedere nieuwe optie of AIO, Nextcloud-core/Talk of een aanvullende app haar gebruikt en welke opslagroute de officiële appinterface biedt. Houd generieke uitvoering en appkennis gescheiden.
+Aanvullende Nextcloud-apps gebruiken `docker::nextcloud::app` voor installatie, verwijdering, activatiestatus en gewone appconfiguratie. Appspecifieke gebruikersparameters en omzettingen horen in een wrapper zoals `docker::nextcloud::user_oidc`. Voeg opties van zulke apps niet toe aan `docker::nextcloud` of de generieke OCC-uitvoering. Bepaal bij iedere nieuwe optie of AIO, Nextcloud-core/Talk of een aanvullende app haar gebruikt en welke opslagroute de officiële appinterface biedt. Houd generieke uitvoering en appkennis gescheiden.
 
 **Herkomst**
 
@@ -3368,7 +3409,7 @@ Controleer bij doorgegeven keuzes dat de bestaande eigenaar leidend blijft en da
 Beoordeel bij Nextcloud-opties ook de volgende vragen:
 
 1. Welk onderdeel is eigenaar van deze optie?
-2. Gebruikt een aanvullende app `docker::nextcloud_app` voor haar levenscyclus en gewone appconfiguratie?
+2. Gebruikt een aanvullende app `docker::nextcloud::app` voor haar levenscyclus en gewone appconfiguratie?
 3. Staan appnamen, specifieke sleutels en bijzondere conversies in de appwrapper, behalve bij rechtstreeks gebruikersbeheer via de generieke resource?
 4. Past de opslagroute bij de officiële appinterface?
 5. Is bestaande uitvoering hergebruikt en is de vervangen implementatie volledig verwijderd?

@@ -18,7 +18,7 @@
 #
 # The application upstream is HTTP on loopback because APACHE_PORT enables AIO's external reverse-proxy mode.
 # The admin upstream remains self-signed HTTPS on loopback. Optional server_name and admin_server_name publish these
-# endpoints through the shared docker::proxy configuration, with docker::compose_proxy owning the application stack.
+# endpoints through the shared docker::proxy configuration, with docker::compose::proxy owning the application stack.
 # Both public endpoints request deferred, reuseport, so_keepalive on and multipath through nginx::server; its listener
 # option contracts define shared-socket behavior and platform requirements.
 # Both use backlog 0 to inherit basic_settings::kernel::connection_max when that class is declared.
@@ -31,13 +31,13 @@
 # Present stacks always apply this deployment's global OCC defaults (`allow_local_remote_servers`, `default_quota`,
 # `default_language`, `default_locale`, `default_phone_region`, `default_app`, `files_max_chunk_size`,
 # `skeleton_directory`) through
-# `docker::nextcloud_occ`. Puppet only writes on an actual difference. These settings are always managed, with
+# `docker::nextcloud::occ`. Puppet only writes on an actual difference. These settings are always managed, with
 # configurable values. App Store link visibility, Talk recording settings, SMTP and objectstore selections are optional;
-# use `docker::nextcloud_occ` for other settings.
+# use `docker::nextcloud::occ` for other settings.
 # Until AIO initialization completes, these resources are skipped without writing configuration. Finish setup through
 # the admin UI; the first Puppet run with a successful installation check applies any differing settings.
 #
-# Present stacks query Nextcloud's mimetype migration setup check through docker::nextcloud_occ. The installed OCC
+# Present stacks query Nextcloud's mimetype migration setup check through docker::nextcloud::occ. The installed OCC
 # command must support selecting a setup check by class. The read-only command repeats after the unchanged-state
 # guard; only a warning on that read produces a change and refresh.
 # A warning notifies the single ${name}_maintenance_repair_expensive OCC resource, which runs all expensive repair
@@ -45,7 +45,7 @@
 # the installation guard. Success makes no change; a failed or unreadable setup check fails without starting repair.
 #
 # Optional objectstore selections use the same guarded OCC path. Referenced stores must already exist or be declared
-# with docker::nextcloud_s3 and ensure present for this deployment; matching registrations run before selection.
+# with docker::nextcloud::s3 and ensure present for this deployment; matching registrations run before selection.
 # Selecting primary object storage does not migrate existing files; prepare storage migration and backups first.
 #
 # Optional Talk bitrates are checked on every Puppet run in nextcloud-aio-talk, independently of OCC installation.
@@ -65,7 +65,7 @@
 # SMTP shares docker::authentik's parameter names, relay fallback and Sensitive password contract. A resolved relay
 # manages mail_smtpmode, mail_smtphost, mail_smtpsecure and boolean mail_smtpauth. Port, timeout, sender and credentials
 # are only written when supplied. Omitting these optional values does not remove previously stored values, but
-# omitting credentials disables authentication. All mail settings use docker::nextcloud_occ with typed JSON guards;
+# omitting credentials disables authentication. All mail settings use docker::nextcloud::occ with typed JSON guards;
 # no config.php content is managed directly. Nextcloud supports implicit SSL or automatic STARTTLS, not enforced
 # STARTTLS; tls is rejected. See
 # https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/email_configuration.html.
@@ -209,7 +209,7 @@
 # @param smtp_password
 #   Optional Sensitive password written as mail_smtppassword. Undef or empty omits the key. Requires a nonempty
 #   smtp_username; newlines are rejected without logging the password. No authentication method
-#   is imposed. Commands, guards and output use the protection in docker::nextcloud_occ; credentials remain
+#   is imposed. Commands, guards and output use the protection in docker::nextcloud::occ; credentials remain
 #   visible to administrators who can inspect process arguments.
 #
 # @param smtp_port
@@ -365,7 +365,7 @@ define docker::nextcloud (
 
           # Use the proxy wrapper only when the Nextcloud application itself is published.
           if ($server_name != undef) {
-            docker::compose_proxy { $name:
+            docker::compose::proxy { $name:
               ensure                     => $ensure,
               backlog                    => 0,
               client_max_body_size       => '0', # lint:ignore:140chars Nextcloud handles large file uploads itself; do not cap the request body at the proxy.
@@ -482,7 +482,7 @@ define docker::nextcloud (
                 user     => 'root',
                 require  => [
                   Class['docker'],
-                  Docker::Compose_proxy[$name],
+                  Docker::Compose::Proxy[$name],
                 ],
               }
             }
@@ -564,7 +564,7 @@ define docker::nextcloud (
             $talk_bitrate_unless = join([$talk_bitrate_inspect, '[ -z "$EDITS" ]'], "\n")
 
             # A trivial container guard skips unavailable Talk containers without hiding configuration read/write failures.
-            docker::compose_exec { "${name}_talk_bitrates":
+            docker::compose::exec { "${name}_talk_bitrates":
               command        => [
                 '/bin/sh',
                 '-c',
@@ -584,11 +584,11 @@ define docker::nextcloud (
                 $talk_stream_value,
                 $talk_screen_value,
               ],
-              notify         => Docker::Compose_exec["${name}_talk_signaling_restart"],
+              notify         => Docker::Compose::Exec["${name}_talk_signaling_restart"],
             }
 
             # Coalesce both bitrate changes into one Dinit service restart and propagate its exit status unchanged.
-            docker::compose_exec { "${name}_talk_signaling_restart":
+            docker::compose::exec { "${name}_talk_signaling_restart":
               command        => ['dinitctl', '--system', 'restart', 'signaling'],
               compose_name   => $name,
               container_name => 'nextcloud-aio-talk',
@@ -614,7 +614,7 @@ define docker::nextcloud (
             }
 
             # The shared OCC resource preserves argument boundaries and skips an uninitialized Nextcloud instance.
-            docker::nextcloud_occ { "${name}_talk_${config_key}":
+            docker::nextcloud::occ { "${name}_talk_${config_key}":
               command      => [
                 'config:app:set',
                 'spreed',
@@ -629,7 +629,7 @@ define docker::nextcloud (
           }
 
           # All detectors share this event-only repair; Nextcloud may include more than mimetype migrations.
-          docker::nextcloud_occ { "${name}_maintenance_repair_expensive":
+          docker::nextcloud::occ { "${name}_maintenance_repair_expensive":
             command      => ['maintenance:repair', '--include-expensive'],
             compose_name => $name,
             refreshonly  => true,
@@ -638,18 +638,18 @@ define docker::nextcloud (
 
           # Only Nextcloud's own warning triggers maintenance; setup errors fail without sending a refresh.
           $mimetype_check = 'OCA\Settings\SetupChecks\MimeTypeMigrationAvailable'
-          docker::nextcloud_occ { "${name}_mimetype_migrations":
+          docker::nextcloud::occ { "${name}_mimetype_migrations":
             command      => ['setupchecks', '', $mimetype_check],
             compose_name => $name,
             command_json => '"warning"',
             json_path    => ['system', $mimetype_check, 'severity'],
             json_returns => [0, 1],
             unless_json  => '"success"',
-            notify       => Docker::Nextcloud_occ["${name}_maintenance_repair_expensive"],
+            notify       => Docker::Nextcloud::Occ["${name}_maintenance_repair_expensive"],
           }
 
           # The OCC wrapper orders guarded updates after the stack; installation must finish in AIO first.
-          docker::nextcloud_occ { "${name}_default_quota":
+          docker::nextcloud::occ { "${name}_default_quota":
             command      => [
               'config:app:set',
               'files',
@@ -671,7 +671,7 @@ define docker::nextcloud (
             }
 
             # Keep the boolean write type while comparing the representation returned by OCC.
-            docker::nextcloud_occ { "${name}_appstore_link_shown":
+            docker::nextcloud::occ { "${name}_appstore_link_shown":
               command      => [
                 'config:app:set',
                 'core',
@@ -686,7 +686,7 @@ define docker::nextcloud (
           }
 
           # Keep local remote requests restricted unless the deployment explicitly enables them.
-          docker::nextcloud_occ { "${name}_allow_local_remote_servers":
+          docker::nextcloud::occ { "${name}_allow_local_remote_servers":
             command      => [
               'config:system:set',
               'allow_local_remote_servers',
@@ -700,7 +700,7 @@ define docker::nextcloud (
 
           # Compare the string stored by config:app:set so an unchanged chunk size does not trigger another write.
           $files_max_chunk_size_string = String($files_max_chunk_size)
-          docker::nextcloud_occ { "${name}_files_max_chunk_size":
+          docker::nextcloud::occ { "${name}_files_max_chunk_size":
             command      => [
               'config:app:set',
               'files',
@@ -714,7 +714,7 @@ define docker::nextcloud (
           }
 
           # Set the default UI language for new sessions.
-          docker::nextcloud_occ { "${name}_default_language":
+          docker::nextcloud::occ { "${name}_default_language":
             command      => [
               'config:system:set',
               'default_language',
@@ -727,7 +727,7 @@ define docker::nextcloud (
           }
 
           # Set the default locale for number, date and currency formatting.
-          docker::nextcloud_occ { "${name}_default_locale":
+          docker::nextcloud::occ { "${name}_default_locale":
             command      => [
               'config:system:set',
               'default_locale',
@@ -740,7 +740,7 @@ define docker::nextcloud (
           }
 
           # Set the default region for phone numbers entered without a country prefix.
-          docker::nextcloud_occ { "${name}_default_phone_region":
+          docker::nextcloud::occ { "${name}_default_phone_region":
             command      => [
               'config:system:set',
               'default_phone_region',
@@ -753,7 +753,7 @@ define docker::nextcloud (
           }
 
           # Set the app users land on after login.
-          docker::nextcloud_occ { "${name}_defaultapp":
+          docker::nextcloud::occ { "${name}_defaultapp":
             command      => ['config:system:set', 'defaultapp', '--value', $default_app],
             compose_name => $name,
             unless       => ['config:system:get', 'defaultapp'],
@@ -761,7 +761,7 @@ define docker::nextcloud (
           }
 
           # Control the sample content copied into new users' file lists; empty disables it.
-          docker::nextcloud_occ { "${name}_skeletondirectory":
+          docker::nextcloud::occ { "${name}_skeletondirectory":
             command      => [
               'config:system:set',
               'skeletondirectory',
@@ -781,7 +781,7 @@ define docker::nextcloud (
 
           # Each selection changes only its own key and retains the named stores and existing user mappings.
           $objectstore_selections.each |$selection, $store| {
-            docker::nextcloud_occ { "${name}_objectstore_${selection}":
+            docker::nextcloud::occ { "${name}_objectstore_${selection}":
               command      => [
                 'config:system:set',
                 'objectstore',
@@ -795,8 +795,8 @@ define docker::nextcloud (
             }
 
             # Order managed stores before use while allowing stores provisioned outside this catalog.
-            Docker::Nextcloud_s3 <| title == $store and compose_name == $name |>
-              -> Docker::Nextcloud_occ["${name}_objectstore_${selection}"]
+            Docker::Nextcloud::S3 <| title == $store and compose_name == $name |>
+              -> Docker::Nextcloud::Occ["${name}_objectstore_${selection}"]
           }
 
           # AIO's separate HTTPS admin endpoint reuses the same proxy implementation without deploying Compose twice.
@@ -924,7 +924,7 @@ define docker::nextcloud (
                     $value_json = stdlib::to_json($value_correct)
 
                     # Typed JSON comparison prevents repeated writes, including for empty strings and false.
-                    docker::nextcloud_occ { "${name}_${setting}":
+                    docker::nextcloud::occ { "${name}_${setting}":
                       command      => [
                         'config:system:set',
                         $setting,

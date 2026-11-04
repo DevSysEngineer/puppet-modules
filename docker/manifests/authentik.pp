@@ -4,7 +4,7 @@
 # Declare `docker` before using it. The resource title becomes the Compose project name,
 # so multiple Authentik stacks can be managed on the same host
 # when ports and public names do not conflict. When `server_name` is set, declare `nginx` as well so
-# `docker::compose_proxy` can add the reverse proxy; otherwise the defined type declares `docker::compose` directly. By
+# `docker::compose::proxy` can add the reverse proxy; otherwise the defined type declares `docker::compose` directly. By
 # default, the bundled bootstrap `akadmin` user is removed after the stack is managed.
 #
 # The `custom-templates` directory is created for the stack; supply and maintain its contents separately.
@@ -50,7 +50,7 @@
 #   Secret key written as `AUTHENTIK_SECRET_KEY` in the generated `.env` file.
 #
 # @param akadmin_remove
-#   Removes the bundled Authentik bootstrap `akadmin` user through `docker::authentik_admin` when `true`.
+#   Removes the bundled Authentik bootstrap `akadmin` user through `docker::authentik::admin` when `true`.
 #
 # @param ensure
 #   Defaults to present. Delegates project lifecycle to `docker::compose`; follow its `ensure` contract before removing
@@ -288,7 +288,7 @@ define docker::authentik (
           }
 
           # Setup compose proxy
-          docker::compose_proxy { $name:
+          docker::compose::proxy { $name:
             ensure                     => $ensure,
             backup_database_type       => 'postgresql',
             backup_service             => 'postgresql',
@@ -347,7 +347,7 @@ define docker::authentik (
 
         # Remove Authentik's bundled bootstrap admin user through the managed Compose stack contract.
         if ($ensure == present and $akadmin_remove) {
-          docker::authentik_admin { "${name}_akadmin":
+          docker::authentik::admin { "${name}_akadmin":
             ensure       => absent,
             compose_name => $name,
             username     => 'akadmin',

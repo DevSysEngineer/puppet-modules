@@ -148,7 +148,7 @@ class basic_settings::timezone (
       )
 
       # Register the check after its runtime packages.
-      basic_settings::monitoring_custom { 'systemd_timesyncd':
+      basic_settings::monitoring::custom { 'systemd_timesyncd':
         template => 'basic_settings/monitoring/check_systemd_timesyncd',
         require  => Package[$monitoring_required_packages],
       }

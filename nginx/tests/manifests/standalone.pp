@@ -13,7 +13,7 @@ nginx::server { 'app.example.test':
 }
 
 # Instantiate the helper even when the monitoring backend is inactive.
-nginx::monitoring_cert { 'app':
+nginx::monitoring::cert { 'app':
   config_file => '/etc/nginx/conf.d/app.example.test.conf',
   server_name => 'app.example.test',
 }

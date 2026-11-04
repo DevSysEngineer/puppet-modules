@@ -45,14 +45,14 @@ Declareer na de gedeelde PHP-class de FPM-class en minstens één pool:
 include php8
 include php8::fpm
 
-php8::fpm_pool { 'app': }
+php8::fpm::pool { 'app': }
 ```
 
 De pool gebruikt standaard `www-data` en de Unix-socket `/run/php/php-fpm.sock`. De module maakt geen webserver aan. Configureer je eigen FastCGI-client met dezelfde socket en passende gebruikers- en groepsrechten. Geef aanvullende pools een eigen `listen`-adres om conflicten te voorkomen.
 
 FPM neemt zijn globale configuratie en volledige poolmap over. Onbeheerde pools, inclusief de distributiepool, verdwijnen. Neem benodigde pools daarom vóór uitrol op in Puppet. De module plaatst CLI- en FPM-instellingen in afzonderlijke `99-custom-settings.ini`-bestanden; expliciete INI-instellingen gelden alleen voor de betreffende class. `expose_php` blijft door de module beheerd.
 
-Zonder gedeelde opstartintegratie start Puppet FPM en schakelt het automatisch opstarten in. Zie de [FPM Strings](manifests/fpm.pp) en [poolinstellingen](manifests/fpm_pool.pp) voor de publieke interfaces.
+Zonder gedeelde opstartintegratie start Puppet FPM en schakelt het automatisch opstarten in. Zie de [FPM Strings](manifests/fpm.pp) en [poolinstellingen](manifests/fpm/pool.pp) voor de publieke interfaces.
 
 ## Samen met basic_settings
 
@@ -74,7 +74,7 @@ class { 'php8':
 include php8::cli
 include php8::fpm
 
-php8::fpm_pool { 'app': }
+php8::fpm::pool { 'app': }
 ```
 
 Laat `php8::fpm` en de pool weg als je alleen CLI nodig hebt. Laat `php8::cli` weg als je alleen FPM wilt beheren. Een expliciete `date.timezone` in de betreffende `ini_settings` gaat vóór de gedeelde tijdzone. Voor alleen tijdzone-integratie kun je ook `basic_settings::timezone` vóór de PHP-classes declareren.

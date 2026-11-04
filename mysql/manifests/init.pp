@@ -32,7 +32,7 @@
 #   Service/package family name used for dependencies. The default is `mysql`.
 #
 # @param package_version
-#   MySQL series used without an enabled `basic_settings::package_mysql` repository. An enabled repository declared
+#   MySQL series used without an enabled `basic_settings::packages::mysql` repository. An enabled repository declared
 #   before mysql takes precedence, even when this parameter differs. A disabled or absent helper leaves this choice
 #   authoritative. Select 8.0, 8.4 or 9.7; historical versions through 5.7 retain their existing behavior.
 #   Other series are rejected. This selects configuration and account behavior, not an exact package version or upgrade.
@@ -131,9 +131,9 @@ class mysql (
   $user_script_path = '/usr/local/lib/puppet/mysql-user.sh'
 
   # Only an enabled, previously declared repository owns the effective series.
-  if (defined(Class['basic_settings::package_mysql']) and $basic_settings::package_mysql::enable) {
+  if (defined(Class['basic_settings::packages::mysql']) and $basic_settings::packages::mysql::enable) {
     # Use the MySQL version selected by the managed repository.
-    $version = $basic_settings::package_mysql::version
+    $version = $basic_settings::packages::mysql::version
   } else {
     # Use the caller's series when the repository is absent or disabled.
     $version = $package_version
@@ -197,7 +197,7 @@ class mysql (
 
       # Setup audit rules
       if (defined(Package['auditd'])) {
-        basic_settings::security_audit { 'mysql':
+        basic_settings::security::audit { 'mysql':
           rule_suspicious_packages => $suspicious_packages,
           rule_options             => ['-F auid!=unset'],
         }
@@ -238,7 +238,7 @@ class mysql (
 
         # Order the drop-in after its vendor unit, before the shared reload and FPM service management.
         if (defined(Class['php8::fpm'])) {
-          basic_settings::systemd_drop_in { "php8_${$php8::minor_version}_mysql_dependency":
+          basic_settings::systemd::drop_in { "php8_${$php8::minor_version}_mysql_dependency":
             target_unit => "php8.${$php8::minor_version}-fpm.service",
             unit        => {
               'After'   => 'mysql.service',
@@ -248,12 +248,12 @@ class mysql (
           }
         } elsif ($basic_settings_enable) {
           # Create drop in for services target
-          basic_settings::systemd_drop_in { 'mysql_dependency':
+          basic_settings::systemd::drop_in { 'mysql_dependency':
             target_unit => "${basic_settings::cluster_id}-services.target",
             unit        => {
               'BindsTo'   => 'mysql.service',
             },
-            require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+            require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-services"],
           }
         }
 
@@ -269,7 +269,7 @@ class mysql (
         }
 
         # Create drop in for nginx service
-        basic_settings::systemd_drop_in { 'mysql_settings':
+        basic_settings::systemd::drop_in { 'mysql_settings':
           target_unit => 'mysql.service',
           unit        => $unit,
           service     => {
@@ -281,7 +281,7 @@ class mysql (
         }
 
         # Create drop in for puppet service
-        basic_settings::systemd_drop_in { 'puppet_mysql_dependency':
+        basic_settings::systemd::drop_in { 'puppet_mysql_dependency':
           target_unit => 'puppet.service',
           unit        => {
             'Wants' => 'mysql.service',
@@ -311,7 +311,7 @@ class mysql (
         $monitoring_required_packages = concat($monitoring_packages, ['dash', 'mawk'])
 
         # Register the check after its runtime packages.
-        basic_settings::monitoring_custom { 'mysql':
+        basic_settings::monitoring::custom { 'mysql':
           check   => template('mysql/check_mysql'),
           require => Package[$monitoring_required_packages],
         }
@@ -319,7 +319,7 @@ class mysql (
 
       # Check if logrotate package exists
       if (defined(Package['logrotate'])) {
-        basic_settings::io_logrotate { 'mysql-server':
+        basic_settings::io::logrotate { 'mysql-server':
           path        => "/var/log/mysql.log\n/var/log/mysql/*log",
           frequency   => 'daily',
           create_user => 'mysql',
@@ -435,7 +435,7 @@ class mysql (
     # Use the same systemd selection for database backups, service settings, and monitoring.
     if ($systemd_enable) {
       # Create systemd service
-      basic_settings::systemd_service { 'automysqlbackup':
+      basic_settings::systemd::service { 'automysqlbackup':
         description => 'Automysqlbackup service',
         service     => {
           'ExecStart'               => '/usr/local/sbin/automysqlbackup',
@@ -471,7 +471,7 @@ class mysql (
       $timer_state = $basic_settings_enable ? { true => undef, default => 'running' }
 
       # Schedule the daily backup with the startup state selected for the host's service management.
-      basic_settings::systemd_timer { 'automysqlbackup':
+      basic_settings::systemd::timer { 'automysqlbackup':
         description        => 'Automysqlbackup timer',
         monitoring_enable  => $monitoring_enable,
         monitoring_package => $monitoring_package,
@@ -488,12 +488,12 @@ class mysql (
       # Bind the backup timer to the shared services target when that target is available.
       if ($basic_settings_enable) {
         # Create drop in for services target
-        basic_settings::systemd_drop_in { 'automysqlbackup_dependency':
+        basic_settings::systemd::drop_in { 'automysqlbackup_dependency':
           target_unit => "${basic_settings::cluster_id}-services.target",
           unit        => {
             'BindsTo'   => 'automysqlbackup.timer',
           },
-          require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-services"],
+          require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-services"],
         }
       }
     }

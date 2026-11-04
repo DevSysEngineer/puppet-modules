@@ -5,13 +5,13 @@ class { 'basic_settings':
 }
 
 # Add the optional hosts entry.
-basic_settings::hosts_entry { 'app':
+basic_settings::hosts::entry { 'app':
   hostname => 'app.example.test',
   ip       => '192.0.2.20',
 }
 
 # A locked synthetic account needs no credential fixture.
-basic_settings::login_user { 'compile-example':
+basic_settings::login::user { 'compile-example':
   gid      => 2000,
   home     => '/home/compile-example',
   password => Sensitive('!'),
@@ -19,16 +19,16 @@ basic_settings::login_user { 'compile-example':
 }
 
 # Attach a cron entry to the synthetic account.
-basic_settings::login_cron { 'compile-example':
+basic_settings::login::cron { 'compile-example':
   user => 'compile-example',
 }
 
 # Allow one harmless command for the synthetic account.
-basic_settings::login_sudo { 'compile-example':
+basic_settings::login::sudo { 'compile-example':
   rule => 'compile-example ALL=(root) /usr/bin/true',
 }
 
 # Register the optional npm audit check.
-basic_settings::monitoring_npm_audit { 'app':
+basic_settings::monitoring::npm_audit { 'app':
   dir => '/opt/app',
 }

@@ -181,12 +181,12 @@ class nginx (
 
     # Create drop in for x target
     if (defined(Class['basic_settings::systemd'])) {
-      basic_settings::systemd_drop_in { 'nginx_dependency':
+      basic_settings::systemd::drop_in { 'nginx_dependency':
         target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
         unit        => {
           'BindsTo'   => 'nginx.service',
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+        require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-${target}"],
       }
     }
 
@@ -202,7 +202,7 @@ class nginx (
     }
 
     # Create drop in for nginx service
-    basic_settings::systemd_drop_in { 'nginx_settings':
+    basic_settings::systemd::drop_in { 'nginx_settings':
       target_unit => 'nginx.service',
       unit        => $unit,
       service     => {
@@ -227,7 +227,7 @@ class nginx (
     }
 
     # Older Linux kernels charge QUIC BPF maps against the service's locked-memory limit.
-    @basic_settings::systemd_drop_in { 'nginx_quic':
+    @basic_settings::systemd::drop_in { 'nginx_quic':
       target_unit => 'nginx.service',
       service     => {
         'LimitMEMLOCK' => 'infinity',
@@ -239,7 +239,7 @@ class nginx (
 
   # Create service check
   if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-    basic_settings::monitoring_service { 'nginx': }
+    basic_settings::monitoring::service { 'nginx': }
 
     # One executable serves all vhost registrations; only the main daemon configuration is templated.
     $monitoring_cert_packages = [
@@ -276,7 +276,7 @@ class nginx (
   }
 
   # Own one executable for all certificate registrations and remove it when monitoring is disabled.
-  basic_settings::monitoring_custom { 'nginx_cert':
+  basic_settings::monitoring::custom { 'nginx_cert':
     ensure   => $monitoring_cert_ensure,
     check    => $monitoring_cert_content,
     register => false,
@@ -451,7 +451,7 @@ class nginx (
 
   # Check if logrotate package exists
   if (defined(Package['logrotate'])) {
-    basic_settings::io_logrotate { 'nginx':
+    basic_settings::io::logrotate { 'nginx':
       path           => '/var/log/nginx/*.log',
       frequency      => 'daily',
       compress_delay => true,

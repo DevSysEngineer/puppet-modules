@@ -3,7 +3,7 @@
 # Declare `docker` and `basic_settings::systemd` first, with Docker's APT source available.
 # The title is the Compose project name; private state lives in `/opt/docker/<title>/config`.
 # Puppet manages the directory entry, never the contents of `config.toml` or `.runner_system_id`.
-# Registration uses docker::compose_exec in the running Compose container; an existing config.toml prevents another
+# Registration uses docker::compose::exec in the running Compose container; an existing config.toml prevents another
 # registration.
 # Existing configuration is not parsed or repaired; validate a failed or interrupted registration manually before
 # retrying Puppet.
@@ -246,7 +246,7 @@ define docker::gitlab_runner (
             ], ' ')
 
             # Reuse Compose container selection and argument escaping while retaining the private token input.
-            docker::compose_exec { "docker_gitlab_runner_register_${name}":
+            docker::compose::exec { "docker_gitlab_runner_register_${name}":
               command      => [
                 '/bin/sh',
                 '-c',

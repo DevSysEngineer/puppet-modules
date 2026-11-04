@@ -6,7 +6,7 @@ require_relative 'test_helper'
 class ResourceSectionsTest < Minitest::Test
   include LintTestSupport
 
-  RESOURCE_FORMS = ["basic_settings::monitoring_custom { 'example': }", "Notify { message => 'default' }",
+  RESOURCE_FORMS = ["basic_settings::monitoring::custom { 'example': }", "Notify { message => 'default' }",
                     "Notify['example'] { message => 'override' }",
                     "@notify { 'example': }",
                     "@@notify { 'example': }",

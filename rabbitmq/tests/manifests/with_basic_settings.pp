@@ -9,13 +9,13 @@ class { 'rabbitmq::management':
 }
 
 # Create the exchange used by the binding below.
-rabbitmq::management_exchange { 'app': }
+rabbitmq::management::exchange { 'app': }
 
 # Create the queue used by the binding below.
-rabbitmq::management_queue { 'app': }
+rabbitmq::management::queue { 'app': }
 
 # Bind the synthetic exchange to its queue.
-rabbitmq::management_binding { 'app':
+rabbitmq::management::binding { 'app':
   destination => 'app',
   source      => 'app',
 }

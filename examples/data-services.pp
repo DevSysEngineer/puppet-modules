@@ -103,31 +103,31 @@ node 'rabbitmq.example.org' {
   }
 
   # Keep application messaging resources in a dedicated vhost.
-  rabbitmq::management_vhost { 'app':
+  rabbitmq::management::vhost { 'app':
     ensure  => present,
     type    => 'quorum',
     require => Class['rabbitmq::management'],
   }
 
   # Route failed messages through a dedicated direct exchange.
-  rabbitmq::management_exchange { 'failure_exchange':
+  rabbitmq::management::exchange { 'failure_exchange':
     ensure  => present,
     type    => 'direct',
     vhost   => 'app',
-    require => Rabbitmq::Management_vhost['app'],
+    require => Rabbitmq::Management::Vhost['app'],
   }
 
   # Preserve failed messages in a durable quorum queue.
-  rabbitmq::management_queue { 'failure_messages':
+  rabbitmq::management::queue { 'failure_messages':
     ensure  => present,
     durable => true,
     type    => 'quorum',
     vhost   => 'app',
-    require => Rabbitmq::Management_exchange['failure_exchange'],
+    require => Rabbitmq::Management::Exchange['failure_exchange'],
   }
 
   # Send rejected result messages to the failure exchange and routing key.
-  rabbitmq::management_queue { 'result_messages':
+  rabbitmq::management::queue { 'result_messages':
     ensure    => present,
     arguments => {
       'x-dead-letter-exchange'    => 'failure_exchange',
@@ -136,24 +136,24 @@ node 'rabbitmq.example.org' {
     durable   => true,
     type      => 'quorum',
     vhost     => 'app',
-    require   => Rabbitmq::Management_exchange['failure_exchange'],
+    require   => Rabbitmq::Management::Exchange['failure_exchange'],
   }
 
   # Connect the failure routing key to the queue that retains failed messages.
-  rabbitmq::management_binding { 'failure_binding':
+  rabbitmq::management::binding { 'failure_binding':
     ensure      => present,
     destination => 'failure_messages',
     routing_key => 'failure_messages',
     source      => 'failure_exchange',
     vhost       => 'app',
     require     => [
-      Rabbitmq::Management_exchange['failure_exchange'],
-      Rabbitmq::Management_queue['failure_messages'],
+      Rabbitmq::Management::Exchange['failure_exchange'],
+      Rabbitmq::Management::Queue['failure_messages'],
     ],
   }
 
   # Create an application account without management roles.
-  rabbitmq::management_user { 'app':
+  rabbitmq::management::user { 'app':
     ensure   => present,
     password => lookup('rabbitmq::app_password'),
     tags     => [],
@@ -161,15 +161,15 @@ node 'rabbitmq.example.org' {
   }
 
   # Allow message access while keeping topology changes outside the application account.
-  rabbitmq::management_user_permissions { 'app_permissions':
+  rabbitmq::management::user::permissions { 'app_permissions':
     configure => '',
     read      => '.*',
     user      => 'app',
     vhost     => 'app',
     write     => '.*',
     require   => [
-      Rabbitmq::Management_user['app'],
-      Rabbitmq::Management_vhost['app'],
+      Rabbitmq::Management::User['app'],
+      Rabbitmq::Management::Vhost['app'],
     ],
   }
 }

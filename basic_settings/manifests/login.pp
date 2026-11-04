@@ -374,7 +374,7 @@ class basic_settings::login (
         }
 
         # Setup audit rules
-        basic_settings::security_audit { 'login_vulnerabilities':
+        basic_settings::security::audit { 'login_vulnerabilities':
           rules => [
             "-a never,exit -F arch=b32 -S connect -F exe=/bin/bash -F auid=${vulnerabilities_user}",
             "-a never,exit -F arch=b64 -S connect -F exe=/bin/bash -F auid=${vulnerabilities_user}",
@@ -392,7 +392,7 @@ class basic_settings::login (
 
   # Setup audit rules
   if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'login':
+    basic_settings::security::audit { 'login':
       rules                    => [
         '# Login',
         '-a always,exit -F arch=b32 -F path=/etc/login.defs -F perm=wa -F key=login',

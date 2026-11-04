@@ -16,7 +16,7 @@ module ProjectLint
         analysis.evaluate(ast.program.body)
         analysis.warnings.sort_by { |node| [node.line, node.pos] }.each do |node|
           issue(node,
-                'Delegate backend selection to basic_settings::monitoring_custom; callers may only distinguish ' \
+                'Delegate backend selection to basic_settings::monitoring::custom; callers may only distinguish ' \
                 "package 'none' from enabled monitoring")
         end
       end

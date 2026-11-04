@@ -65,12 +65,12 @@ class naemon () {
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
-        basic_settings::systemd_drop_in { 'naemon_dependency':
+        basic_settings::systemd::drop_in { 'naemon_dependency':
           target_unit => "${basic_settings::systemd::cluster_id}-helpers.target",
           unit        => {
             'BindsTo'   => 'naemon.service',
           },
-          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-helpers"],
+          require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-helpers"],
         }
       }
 
@@ -86,7 +86,7 @@ class naemon () {
       }
 
       # Create drop in for openitcockpit-node service
-      basic_settings::systemd_drop_in { 'naemon_settings':
+      basic_settings::systemd::drop_in { 'naemon_settings':
         target_unit => 'naemon.service',
         unit        => $unit,
         service     => {

@@ -1,6 +1,6 @@
 # Compile-tests voor nginx
 
-De tests compileren de class `nginx` en de defines `nginx::server` en `nginx::monitoring_cert` met één kleine HTTPS-vhost. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
+De tests compileren de class `nginx` en de defines `nginx::server` en `nginx::monitoring::cert` met één kleine HTTPS-vhost. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
 
 ## Inhoudsopgave
 

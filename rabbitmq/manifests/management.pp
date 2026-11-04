@@ -148,7 +148,7 @@ class rabbitmq::management (
     }
 
     # Create default vost
-    rabbitmq::management_vhost { '/':
+    rabbitmq::management::vhost { '/':
       type => $default_queue_type,
     }
 
@@ -163,14 +163,14 @@ class rabbitmq::management (
       })
 
       # Enable guest account
-      rabbitmq::management_user { 'guest':
+      rabbitmq::management::user { 'guest':
         password => $admin_password,
         tags     => ['administrator'],
         require  => Rabbitmq::Plugin['rabbitmq_management'],
       }
 
       # Grant the management account access to the default vhost after creating the account.
-      rabbitmq::management_user_permissions { 'guest_default':
+      rabbitmq::management::user::permissions { 'guest_default':
         user => 'guest',
       }
 
@@ -239,7 +239,7 @@ class rabbitmq::management (
       )
 
       # Register the check after its runtime packages.
-      basic_settings::monitoring_custom { 'rabbitmq':
+      basic_settings::monitoring::custom { 'rabbitmq':
         ensure   => present,
         check    => template('rabbitmq/check_rabbitmq'),
         friendly => 'RabbitMQ',
@@ -252,7 +252,7 @@ class rabbitmq::management (
 
     # Setup audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'rabbitmq_management':
+      basic_settings::security::audit { 'rabbitmq_management':
         rule_suspicious_packages => $suspicious_packages,
         rule_options             => ['-F auid!=unset'],
       }

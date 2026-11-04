@@ -278,7 +278,7 @@ class ssh (
     }
 
     # Create drop in for SSH socket
-    basic_settings::systemd_drop_in { 'ssh_socket_settings':
+    basic_settings::systemd::drop_in { 'ssh_socket_settings':
       target_unit => 'ssh.socket',
       socket      => $systemd_socket_settings,
       require     => Package['openssh-server'],
@@ -331,7 +331,7 @@ class ssh (
     $monitoring_required_packages = concat($monitoring_packages, $host_key_packages)
 
     # Register the check after its runtime packages.
-    basic_settings::monitoring_custom { 'ssh':
+    basic_settings::monitoring::custom { 'ssh':
       check    => template('ssh/check_ssh'),
       friendly => 'SSH',
       timeout  => 60,
@@ -341,7 +341,7 @@ class ssh (
 
   # Setup audit rules
   if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'ssh':
+    basic_settings::security::audit { 'ssh':
       rules                    => [
         '-a always,exit -F arch=b32 -F path=/etc/ssh/sshd_config -F perm=r -F auid!=unset -F key=sshd',
         '-a always,exit -F arch=b64 -F path=/etc/ssh/sshd_config -F perm=r -F auid!=unset -F key=sshd',

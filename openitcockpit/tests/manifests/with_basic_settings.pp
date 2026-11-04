@@ -8,7 +8,7 @@ class { 'openitcockpit::agent':
   push_enable => true,
   push_url    => 'https://monitoring.example.test',
 }
-include openitcockpit::agent_mirth_connect
+include openitcockpit::agent::mirth_connect
 
 class { 'openitcockpit::server':
   grafana_password => Sensitive($facts['compile_test_password']),

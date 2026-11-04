@@ -90,7 +90,7 @@ class vnstat (
       }
 
       # Create drop in for vnstat service
-      basic_settings::systemd_drop_in { 'vnstat_settings':
+      basic_settings::systemd::drop_in { 'vnstat_settings':
         target_unit => 'vnstat.service',
         unit        => $unit,
         service     => {
@@ -101,12 +101,12 @@ class vnstat (
 
       # Create drop in for x target
       if (defined(Class['basic_settings::systemd'])) {
-        basic_settings::systemd_drop_in { 'vnstat_dependency':
+        basic_settings::systemd::drop_in { 'vnstat_dependency':
           target_unit => "${basic_settings::systemd::cluster_id}-${target}.target",
           unit        => {
             'BindsTo'   => 'vnstat.service',
           },
-          require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-${target}"],
+          require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-${target}"],
         }
       }
     } else {
@@ -136,7 +136,7 @@ class vnstat (
 
     # Check if logrotate package exists
     if (defined(Package['logrotate'])) {
-      basic_settings::io_logrotate { 'vnstat':
+      basic_settings::io::logrotate { 'vnstat':
         path           => '/var/log/vnstat/vnstat.log',
         frequency      => 'weekly',
         compress_delay => true,
@@ -178,7 +178,7 @@ class vnstat (
       )
 
       # Register the check after its configuration and runtime packages are available.
-      basic_settings::monitoring_custom { 'vnstat_interfaces':
+      basic_settings::monitoring::custom { 'vnstat_interfaces':
         ensure   => present,
         template => 'vnstat/check_vnstat_interfaces',
         friendly => 'vnStat interfaces',

@@ -185,12 +185,12 @@ class openitcockpit::agent (
 
         # Create drop in for x target
         if (defined(Class['basic_settings::systemd'])) {
-          basic_settings::systemd_drop_in { 'openitcockpit_agent_dependency':
+          basic_settings::systemd::drop_in { 'openitcockpit_agent_dependency':
             target_unit => "${basic_settings::systemd::cluster_id}-services.target",
             unit        => {
               'BindsTo'   => 'openitcockpit-agent.service',
             },
-            require     => Basic_settings::Systemd_target["${basic_settings::systemd::cluster_id}-services"],
+            require     => Basic_settings::Systemd::Target["${basic_settings::systemd::cluster_id}-services"],
           }
         }
 
@@ -217,7 +217,7 @@ class openitcockpit::agent (
         }
 
         # Create drop in for ncpa service
-        basic_settings::systemd_drop_in { 'openitcockpit_agent_settings':
+        basic_settings::systemd::drop_in { 'openitcockpit_agent_settings':
           target_unit => 'openitcockpit-agent.service',
           unit        => $unit,
           service     => {
@@ -299,7 +299,7 @@ class openitcockpit::agent (
 
     # Setup security audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'monitoring':
+      basic_settings::security::audit { 'monitoring':
         rules => [
           '-a never,exit -F arch=b32 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',
           '-a never,exit -F arch=b64 -S adjtimex -F exe=/usr/bin/openitcockpit-agent -F auid=unset',

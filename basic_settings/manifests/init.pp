@@ -945,7 +945,7 @@ class basic_settings (
   if ($monitoring_package != 'none') {
     # Check if variable openitcockpit is true; if true, install new source list and key
     if ($openitcockpit_enable and $openitcockpit_allow) {
-      class { 'basic_settings::package_openitcockpit':
+      class { 'basic_settings::packages::openitcockpit':
         deb_version => $deb_version,
         enable      => true,
         license     => $openitcockpit_license,
@@ -955,7 +955,7 @@ class basic_settings (
         os_name     => $os_name,
       }
     } else {
-      class { 'basic_settings::package_openitcockpit':
+      class { 'basic_settings::packages::openitcockpit':
         deb_version => $deb_version,
         enable      => false,
         license     => $openitcockpit_license,
@@ -965,7 +965,7 @@ class basic_settings (
         os_name     => $os_name,
       }
     }
-    $monitoring_requirements = Class['basic_settings::package_openitcockpit', 'basic_settings::systemd']
+    $monitoring_requirements = Class['basic_settings::packages::openitcockpit', 'basic_settings::systemd']
   } else {
     # Retain systemd ordering without requiring an OpenITCockpit repository.
     $monitoring_requirements = Class['basic_settings::systemd']
@@ -1100,14 +1100,14 @@ class basic_settings (
 
   # Check if variable docket is true; if true, install new source list and key
   if ($docker_enable and $docker_allow) {
-    class { 'basic_settings::package_docker':
+    class { 'basic_settings::packages::docker':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_docker':
+    class { 'basic_settings::packages::docker':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1117,14 +1117,14 @@ class basic_settings (
 
   # Check if variable gitlab is true; if true, install new source list and key
   if ($gitlab_enable and $gitlab_allow) {
-    class { 'basic_settings::package_gitlab':
+    class { 'basic_settings::packages::gitlab':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_gitlab':
+    class { 'basic_settings::packages::gitlab':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1136,7 +1136,7 @@ class basic_settings (
   if ($monitoring_package == 'none') {
     # Check if variable openitcockpit is true; if true, install new source list and key
     if ($openitcockpit_enable and $openitcockpit_allow) {
-      class { 'basic_settings::package_openitcockpit':
+      class { 'basic_settings::packages::openitcockpit':
         deb_version => $deb_version,
         enable      => true,
         license     => $openitcockpit_license,
@@ -1146,7 +1146,7 @@ class basic_settings (
         os_name     => $os_name,
       }
     } else {
-      class { 'basic_settings::package_openitcockpit':
+      class { 'basic_settings::packages::openitcockpit':
         deb_version => $deb_version,
         enable      => false,
         license     => $openitcockpit_license,
@@ -1160,7 +1160,7 @@ class basic_settings (
 
   # Check if variable mysql is true; if true, install new source list and key
   if ($mongodb_enable and $mongodb_allow) {
-    class { 'basic_settings::package_mongodb':
+    class { 'basic_settings::packages::mongodb':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
@@ -1168,7 +1168,7 @@ class basic_settings (
       version     => $mongodb_version,
     }
   } else {
-    class { 'basic_settings::package_mongodb':
+    class { 'basic_settings::packages::mongodb':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1178,14 +1178,14 @@ class basic_settings (
 
   # Check if variable mozilla is true; if true, install new source list and key
   if ($mozilla_enable and $mozilla_allow) {
-    class { 'basic_settings::package_mozilla':
+    class { 'basic_settings::packages::mozilla':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_mozilla':
+    class { 'basic_settings::packages::mozilla':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1195,7 +1195,7 @@ class basic_settings (
 
   # Check if variable mysql is true; if true, install new source list and key
   if ($mysql_enable and $mysql_allow) {
-    class { 'basic_settings::package_mysql':
+    class { 'basic_settings::packages::mysql':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
@@ -1203,7 +1203,7 @@ class basic_settings (
       version     => $mysql_version,
     }
   } else {
-    class { 'basic_settings::package_mysql':
+    class { 'basic_settings::packages::mysql':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1213,14 +1213,14 @@ class basic_settings (
 
   # Check if variable nginx is true; if true, install new source list and key
   if ($nginx_enable and $nginx_allow) {
-    class { 'basic_settings::package_nginx':
+    class { 'basic_settings::packages::nginx':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_nginx':
+    class { 'basic_settings::packages::nginx':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1230,20 +1230,20 @@ class basic_settings (
 
   # Check if variable nodejs is true; if true, install new source list and key
   if ($nodejs_enable and $nodejs_allow) {
-    class { 'basic_settings::package_node':
+    class { 'basic_settings::packages::node':
       deb_version => $deb_version,
       enable      => true,
       version     => $nodejs_version,
     }
   } else {
-    class { 'basic_settings::package_node':
+    class { 'basic_settings::packages::node':
       deb_version => $deb_version,
       enable      => false,
     }
   }
 
   # Let the helper enforce its enable/allow decision so unsupported explicit requests fail instead of silently disabling.
-  class { 'basic_settings::package_nvidia_dgx':
+  class { 'basic_settings::packages::nvidia_dgx':
     deb_version => $deb_version,
     enable      => $nvidia_dgx_enable,
     os_parent   => $os_parent,
@@ -1252,14 +1252,14 @@ class basic_settings (
 
   # Check if variable proxmox is true; if true, install new source list and key
   if ($proxmox_enable and $proxmox_allow) {
-    class { 'basic_settings::package_proxmox':
+    class { 'basic_settings::packages::proxmox':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_proxmox':
+    class { 'basic_settings::packages::proxmox':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1269,14 +1269,14 @@ class basic_settings (
 
   # Check if variable rabbitmq is true; if true, install new source list and key
   if ($rabbitmq_enable and $rabbitmq_allow) {
-    class { 'basic_settings::package_rabbitmq':
+    class { 'basic_settings::packages::rabbitmq':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_rabbitmq':
+    class { 'basic_settings::packages::rabbitmq':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1286,14 +1286,14 @@ class basic_settings (
 
   # Check if variable rabbitmq is true; if true, install new source list and key
   if ($sury_enable and $sury_allow) {
-    class { 'basic_settings::package_sury':
+    class { 'basic_settings::packages::sury':
       deb_version => $deb_version,
       enable      => true,
       os_parent   => $os_parent,
       os_name     => $os_name,
     }
   } else {
-    class { 'basic_settings::package_sury':
+    class { 'basic_settings::packages::sury':
       deb_version => $deb_version,
       enable      => false,
       os_parent   => $os_parent,
@@ -1303,7 +1303,7 @@ class basic_settings (
 
   # Configure the selected OpenVox source only when enabled and supported by the platform.
   if ($voxpupuli_enable and $voxpupuli_allow) {
-    class { 'basic_settings::package_voxpupuli':
+    class { 'basic_settings::packages::voxpupuli':
       deb_version    => $deb_version,
       enable         => true,
       os_parent      => $os_parent,
@@ -1311,7 +1311,7 @@ class basic_settings (
       puppet_version => $puppet_version,
     }
   } else {
-    class { 'basic_settings::package_voxpupuli':
+    class { 'basic_settings::packages::voxpupuli':
       deb_version    => $deb_version,
       enable         => false,
       os_parent      => $os_parent,
@@ -1321,7 +1321,7 @@ class basic_settings (
   }
 
   # Remove Java when no enabled feature needs it, retaining GUI dependencies according to the selected mode.
-  $puppetserver_java_enable = $puppetserver_enable and ($basic_settings::package_voxpupuli::enable or $puppetserver_jdk)
+  $puppetserver_java_enable = $puppetserver_enable and ($basic_settings::packages::voxpupuli::enable or $puppetserver_jdk)
   if (!($puppetserver_java_enable or ($openjdk_enable and $openjdk_allow))) {
     # Remove openjdk package
     package { 'openjdk':

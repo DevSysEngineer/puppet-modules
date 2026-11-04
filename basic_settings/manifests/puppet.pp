@@ -7,7 +7,7 @@
 # is true, containing [main] certname and server_list, and [agent] environment. Other existing settings are replaced.
 # Disabling this management or enabling server mode preserves the file, including its metadata.
 # No agent package is installed and no service restart is requested by this configuration management.
-# Remote paths are selected only when basic_settings::package_voxpupuli has already been declared with enable => true;
+# Remote paths are selected only when basic_settings::packages::voxpupuli has already been declared with enable => true;
 # otherwise distribution paths are used. Declare the repository class first; resource ordering alone is insufficient.
 # Distro servers use puppetserver, except Debian 11 and Ubuntu 22.04 which retain puppet-master.
 # This class does not validate server availability or platform/major compatibility before selecting a package.
@@ -113,7 +113,7 @@ class basic_settings::puppet (
   $agent_auxiliary_packages = ['augeas-tools', 'facter']
 
   # Select remote paths only when the previously declared Vox Pupuli repository is enabled.
-  $repo = (defined(Class['basic_settings::package_voxpupuli']) and $basic_settings::package_voxpupuli::enable) ? {
+  $repo = (defined(Class['basic_settings::packages::voxpupuli']) and $basic_settings::packages::voxpupuli::enable) ? {
     true    => 'remote',
     default => 'distro',
   }
@@ -196,12 +196,12 @@ class basic_settings::puppet (
 
   # Create drop in for services target
   if ($basic_settings_enable) {
-    basic_settings::systemd_drop_in { 'puppet_dependency':
+    basic_settings::systemd::drop_in { 'puppet_dependency':
       target_unit => "${basic_settings::cluster_id}-system.target",
       unit        => {
         'Wants'   => 'puppet.service',
       },
-      require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-system"],
+      require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-system"],
     }
   }
 
@@ -225,7 +225,7 @@ class basic_settings::puppet (
       })
 
       # Register the check after its runtime packages.
-      basic_settings::monitoring_custom { 'puppet_agent':
+      basic_settings::monitoring::custom { 'puppet_agent':
         check    => template('basic_settings/monitoring/puppet/check_agent'),
         friendly => 'Puppet Agent',
         timeout  => 60,
@@ -241,7 +241,7 @@ class basic_settings::puppet (
   # Apply Puppet service settings only when systemd is managed.
   if ($systemd_enable) {
     # Create drop in for puppet service
-    basic_settings::systemd_drop_in { 'puppet_settings':
+    basic_settings::systemd::drop_in { 'puppet_settings':
       target_unit => 'puppet.service',
       unit        => $unit,
       service     => {
@@ -251,7 +251,7 @@ class basic_settings::puppet (
     }
 
     # Create systemd puppet clean bucket service
-    basic_settings::systemd_service { 'puppet-clean-filebucket':
+    basic_settings::systemd::service { 'puppet-clean-filebucket':
       description => 'Clean puppet filebucket service',
       service     => {
         'ExecStart'               => "/usr/bin/find ${cache_dir}/clientbucket/ -type f -mtime +14 -atime +14 -delete", # lint:ignore:140chars Last dir separator (/) very important
@@ -281,7 +281,7 @@ class basic_settings::puppet (
     # Schedule filebucket cleanup through the shared timer infrastructure when available.
     if ($basic_settings_enable) {
       # Create systemd puppet server clean reports timer
-      basic_settings::systemd_timer { 'puppet-clean-filebucket':
+      basic_settings::systemd::timer { 'puppet-clean-filebucket':
         description        => 'Clean puppet filebucket timer',
         monitoring_enable  => $monitoring_enable,
         monitoring_package => $monitoring_package,
@@ -291,16 +291,16 @@ class basic_settings::puppet (
       }
 
       # Create drop in for services target
-      basic_settings::systemd_drop_in { 'puppet_clean_filebucket_dependency':
+      basic_settings::systemd::drop_in { 'puppet_clean_filebucket_dependency':
         target_unit => "${basic_settings::cluster_id}-helpers.target",
         unit        => {
           'BindsTo'   => 'puppet-clean-filebucket.timer',
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+        require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-helpers"],
       }
     } else {
       # Create systemd puppet server clean reports timer
-      basic_settings::systemd_timer { 'puppet-clean-filebucket':
+      basic_settings::systemd::timer { 'puppet-clean-filebucket':
         description        => 'Clean puppet filebucket timer',
         monitoring_enable  => $monitoring_enable,
         monitoring_package => $monitoring_package,
@@ -314,7 +314,7 @@ class basic_settings::puppet (
 
   # Exclude Puppet's own SSL-directory writes only when auditd is managed.
   if (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'puppet_exclude':
+    basic_settings::security::audit { 'puppet_exclude':
       rules => [
         "-a never,exit -F arch=b32 -S all -F dir=${agent_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
         "-a never,exit -F arch=b64 -S all -F dir=${agent_etc_dir}/ssl -F perm=wa -F exe=${ruby_bin}",
@@ -384,7 +384,7 @@ class basic_settings::puppet (
 
     # An active upstream source must be installed before APT can resolve the server package.
     if ($repo == 'remote') {
-      Class['basic_settings::package_voxpupuli'] -> Package[$server_package]
+      Class['basic_settings::packages::voxpupuli'] -> Package[$server_package]
     }
 
     # Root-managed source cleanup and refresh must also finish before server installation.
@@ -426,18 +426,18 @@ class basic_settings::puppet (
 
     # Create drop in for services target
     if ($basic_settings_enable) {
-      basic_settings::systemd_drop_in { "${server_service}_dependency":
+      basic_settings::systemd::drop_in { "${server_service}_dependency":
         target_unit => "${basic_settings::cluster_id}-system.target",
         unit        => {
           'Wants'   => "${server_service}.service",
         },
-        require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-system"],
+        require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-system"],
       }
     }
 
     # Create service check
     if ($monitoring_enable and $basic_settings::monitoring::package != 'none') {
-      basic_settings::monitoring_service { 'puppetserver':
+      basic_settings::monitoring::service { 'puppetserver':
         services => [$server_service],
       }
     }
@@ -478,7 +478,7 @@ class basic_settings::puppet (
       }
 
       # Create drop in for puppet x service
-      basic_settings::systemd_drop_in { "${server_service}_settings":
+      basic_settings::systemd::drop_in { "${server_service}_settings":
         target_unit => "${server_service}.service",
         unit        => {
           'OnFailure' => 'notify-failed@%i.service',
@@ -490,7 +490,7 @@ class basic_settings::puppet (
       }
 
       # Create systemd puppet x clean reports service
-      basic_settings::systemd_service { "${server_service}-clean-reports":
+      basic_settings::systemd::service { "${server_service}-clean-reports":
         description => "Clean ${server_service} reports service",
         service     => {
           'ExecStart'               => "/usr/bin/find ${server_var_dir}/reports/ -type f -name '*.yaml' -ctime +1 -delete", # lint:ignore:140chars Last dir separator (/) very important
@@ -520,7 +520,7 @@ class basic_settings::puppet (
       # Schedule server report cleanup through the shared timer infrastructure when available.
       if ($basic_settings_enable) {
         # Create systemd puppet x clean reports timer
-        basic_settings::systemd_timer { "${server_service}-clean-reports":
+        basic_settings::systemd::timer { "${server_service}-clean-reports":
           description        => "Clean ${server_service} reports timer",
           monitoring_enable  => $monitoring_enable,
           monitoring_package => $monitoring_package,
@@ -530,16 +530,16 @@ class basic_settings::puppet (
         }
 
         # Create drop in for services target
-        basic_settings::systemd_drop_in { "${server_service}_clean_reports_dependency":
+        basic_settings::systemd::drop_in { "${server_service}_clean_reports_dependency":
           target_unit => "${basic_settings::cluster_id}-helpers.target",
           unit        => {
             'BindsTo'   => "${server_service}-clean-reports.timer",
           },
-          require     => Basic_settings::Systemd_target["${basic_settings::cluster_id}-helpers"],
+          require     => Basic_settings::Systemd::Target["${basic_settings::cluster_id}-helpers"],
         }
       } else {
         # Create systemd puppet x clean reports timer
-        basic_settings::systemd_timer { "${server_service}-clean-reports":
+        basic_settings::systemd::timer { "${server_service}-clean-reports":
           description        => "Clean ${server_service} reports timer",
           monitoring_enable  => $monitoring_enable,
           monitoring_package => $monitoring_package,
@@ -551,7 +551,7 @@ class basic_settings::puppet (
       }
 
       # Create drop in for puppet service
-      basic_settings::systemd_drop_in { "puppet_${server_service}_dependency":
+      basic_settings::systemd::drop_in { "puppet_${server_service}_dependency":
         target_unit => 'puppet.service',
         unit        => {
           'After'   => "${server_service}.service",
@@ -592,7 +592,7 @@ class basic_settings::puppet (
       }.join(' ')
 
       # Render the existing systemd inspector into one standalone executable; no runtime helper or API is required.
-      basic_settings::monitoring_custom { 'puppet_server':
+      basic_settings::monitoring::custom { 'puppet_server':
         state    => true,
         template => 'basic_settings/monitoring/puppet/check_server',
         cmd      => $server_monitoring_arguments,
@@ -605,7 +605,7 @@ class basic_settings::puppet (
 
     # Setup audit rules
     if (defined(Package['auditd'])) {
-      basic_settings::security_audit { 'puppet_general':
+      basic_settings::security::audit { 'puppet_general':
         rules => [
           "-a always,exit -F arch=b32 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
           "-a always,exit -F arch=b64 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
@@ -617,7 +617,7 @@ class basic_settings::puppet (
       }
     }
   } elsif (defined(Package['auditd'])) {
-    basic_settings::security_audit { 'puppet_general':
+    basic_settings::security::audit { 'puppet_general':
       rules => [
         "-a always,exit -F arch=b32 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",
         "-a always,exit -F arch=b64 -F dir=${agent_etc_dir}/ssl -F perm=wa -F key=puppet_ssl",

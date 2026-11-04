@@ -112,7 +112,7 @@ node 'web-example.example.org' {
   }
 
   # Create the application pool and socket used by its Nginx vhost.
-  php8::fpm_pool { 'app':
+  php8::fpm::pool { 'app':
     group                => 'www-data',
     listen               => '/run/php/php-fpm-app.sock',
     listen_group         => 'www-data',

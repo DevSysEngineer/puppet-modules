@@ -1,6 +1,6 @@
 # Compile-tests voor openitcockpit
 
-De tests compileren de vier classes `openitcockpit`, `openitcockpit::agent`, `openitcockpit::agent_mirth_connect` en `openitcockpit::server`. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) gebruikt daarvoor [synthetische Debian 13-facts](facts/debian-13.json). De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
+De tests compileren de vier classes `openitcockpit`, `openitcockpit::agent`, `openitcockpit::agent::mirth_connect` en `openitcockpit::server`. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) gebruikt daarvoor [synthetische Debian 13-facts](facts/debian-13.json). De algemene afspraken staan in het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden).
 
 ## Inhoudsopgave
 
