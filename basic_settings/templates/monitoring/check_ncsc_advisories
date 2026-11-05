@@ -807,11 +807,20 @@ SUMMARY=$($JQ -r --argjson code "$STATE_CODE" '
 monitor_section 'Advisory assessment'
 monitor_item "$SUMMARY"
 monitor_section 'Local findings'
-FINDING_TEXT=$($JQ -r '[.findings[]]|sort_by([if .opened_at!=null then 0 else 1 end,-.first_seen])|.[0:40][] |
-    "\(.cve) / \(.source):\(.arch) [\(.distro)]: \(.status); patch \(.release); APT \(.apt); packages " +
-    ([.binaries[]|.binary+"="+.version]|join(", ")) + "; sources " + ([.sources[]|.id+" revision "+(.revision|tostring)]|join(", "))' \
+# Keep each shared assessment and its CVEs in one record for whole-group text limiting.
+# Flatten source line breaks before passing these internally structured records to the formatter.
+FINDING_TEXT=$($JQ -r '[.findings[]]|sort_by([if .opened_at!=null then 0 else 1 end,-.first_seen])|.[0:40] |
+    to_entries | group_by(.value | [.source,.arch,.distro,.status,.release,.apt,
+        (.binaries|sort_by(.binary,.arch,.version)),(.sources|sort_by(.id,.revision,.origin))]) |
+    sort_by(map(.key)|min)[] | map(.value) as $group | $group[0] |
+    [(([.binaries[]|.binary+"="+.version]|join(", ")) +
+        (if .status=="removed" then " (removed); " else " (installed); " end) +
+        "\(.source):\(.arch) [\(.distro)]; " + ([.sources[]|.id+" revision "+(.revision|tostring)]|join(", ")) +
+        "; applicability: \(.status); patch: \(.release); APT: \(.apt)"),
+     ($group|map(.cve)|unique|join(", "))] | map(gsub("[\r\n]"; " ")) |
+    "- " + .[0] + "\n  - " + .[1]' \
     "$WORK/state.json") || die 'cannot render findings'
-monitor_items "$FINDING_TEXT"
+monitor_records "$FINDING_TEXT"
 monitor_item 'Detail collection is limited to 40 recent findings; state.json retains all identities and lifetime counters.'
 if [ "$REVIEW_COUNT" -gt 0 ]; then
     monitor_section 'Product review'
