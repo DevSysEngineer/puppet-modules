@@ -287,7 +287,7 @@ jobs:
       - name: Run tool tests
         env:
           MINITEST_REPORTERS_REPORTS_DIR: .tools/results/tests
-        run: bundle exec rake test:tools
+        run: bundle exec rake test:tools --jobs 2
       - name: Check for changes
         run: |
           source .github/actions/setup-tooling/log.sh

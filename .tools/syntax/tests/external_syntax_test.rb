@@ -30,7 +30,7 @@ class ExternalSyntaxTest < Minitest::Test
 
   def test_native_failures_keep_later_results_and_source_unchanged
     prepare_invalid_and_valid_manifests
-    command('bundle', 'exec', 'syntax-junit', 'reports/syntax-report.xml', *@paths)
+    command('bundle', 'exec', 'syntax-junit', '--jobs', '2', 'reports/syntax-report.xml', *@paths)
     refute @status.success?, @output + @errors
     assert_mixed_results(report_suite)
     assert_includes @output, 'Syntax error'
@@ -73,7 +73,7 @@ class ExternalSyntaxTest < Minitest::Test
     write(report, '<stale-failure/>')
     other = 'reports/puppet-lint-report.xml'
     write(other, 'synthetic other report')
-    run_success('bundle', 'exec', 'syntax-junit', report, 'manifests/site.pp',
+    run_success('bundle', 'exec', 'syntax-junit', '--jobs', '4', report, 'manifests/site.pp',
                 'modules/profile/manifests/init.pp')
     suite = report_suite
     assert_equal(%w[2 0 0], %w[tests failures errors].map { |key| suite.attributes[key] })
@@ -111,7 +111,7 @@ class ExternalSyntaxTest < Minitest::Test
       gem 'project-tools-shared', path: 'global-modules/.tools/shared', require: false
       gem 'project-tools-syntax', path: 'global-modules/.tools/syntax', require: false
     RUBY
-    run_success('bundle', 'exec', 'syntax-junit', 'reports/syntax-report.xml', 'manifests/site.pp')
+    run_success('bundle', 'exec', 'syntax-junit', '--jobs', '2', 'reports/syntax-report.xml', 'manifests/site.pp')
     assert_equal '0', report_suite.attributes['failures']
     assert_equal File.realpath(File.join(checkout, '.tools/syntax')), File.realpath(@installed)
   end

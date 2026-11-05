@@ -43,6 +43,12 @@ bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]'
 
 De CLI `bundle exec .tools/catalog/bin/project-tools-catalog [--junit REPORT.xml]` gebruikt dezelfde runner. Beide ingangen veronderstellen een geslaagde voorcontrole. Zonder rapportargument maakt de runner geen rapporten en laat hij bestaande rapporten ongemoeid. Relatieve rapportpaden volgen de werkmap van de aanroeper. De [CI-configuratie](../README.md#ci-van-deze-repository) publiceert uitsluitend het aangevraagde rapport.
 
+Met `bundle exec rake catalog:compile --jobs 2` draai je zonder rapport met maximaal twee compilerprocessen. Voor JUnit gebruik je `bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]' --jobs 2`. De CLI accepteert `--jobs 2`; de Ruby-constructor `ProjectTools::Catalog.new(jobs: 2)`. De standaard blijft 1. Alleen positieve gehele getallen zijn geldig; de controle gebeurt vóór rapportwijzigingen of workerstarts.
+
+Elke scenario/facts-combinatie behoudt een vers proces en eigen tijdelijke omgeving. De workerlimiet geldt voor gelijktijdige compilaties, begrensd door het aantal scenario’s. Voortgang volgt afgeronde workers; diagnoses en JUnit blijven in selectievolgorde. Native waarschuwingen, deprecations, cycluscontroles, skips en exitcodes behouden hun betekenis. SIGINT/SIGTERM stopt nieuwe starts en onderbreekt de eigen procesgroepen. De runner wacht op zijn kinderen, toont beschikbare resultaten als onvolledig en geeft het signaal door; een tweede signaal beëindigt de groepen hard. Er is geen interne timeout. Op Windows blijft de seriële route actief.
+
+Gebruik lokaal standaard console-uitvoer, begin met twee workers en vergelijk vier bij dezelfde selectie en bundle. Cataloguscompilatie vraagt relatief veel geheugen; houd rekening met andere processen op je ontwikkelmachine. Gebruik 1 voor de seriële referentie. De [lokale ontwikkelroute](../README.md#snel-lokaal-ontwikkelen) combineert dit met gerichte tests en native lintcontroles.
+
 ## Tests bij een module plaatsen
 
 Plaats de scenario’s en hun synthetische invoer bij de module die hun compilatiegedrag onderhoudt. Begin met de kleinste bruikbare selectie volgens het [beleid voor eenvoudige moduletests](../../TESTS.md#moduletests-eenvoudig-houden):
@@ -156,6 +162,8 @@ bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit buil
 ```
 
 De cycluscontrole loopt automatisch mee zodra de consumer de bijgewerkte checkout gebruikt. Zij vereist geen nieuwe optie, taak of deploymentdata en draait ook zonder JUnit-verzoek. Een failure of error geeft via de bestaande CLI- en Rake-status een falende catalogusjob in CI. Een overgeslagen cycluscontrole door native resourcevalidatie laat de opdracht op zichzelf niet falen; console en JUnit behouden de reden en de onvolledigheid.
+
+Afnemers gebruiken dezelfde limiet: `bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --jobs 2` werkt zonder rapport. Voeg `--junit build/reports/catalog.xml` alleen toe wanneer je XML nodig hebt. Werk zowel de geïmporteerde checkout als de shared-gem uit diezelfde wijziging bij.
 
 De bestaande Rake-ingang blijft bruikbaar met `bundle exec rake -f global-modules/Rakefile 'catalog:compile[build/reports/catalog.xml]'`. Vanuit een andere directory geef je absolute paden naar de CLI of het Rakefile en selecteer je de consumerbundle via `BUNDLE_GEMFILE`. Het modulepad blijft onafhankelijk van die directory; een relatief rapportpad volgt wel de aanroeper. Gebruikt de consumer een eigen `catalog:compile`, laat die uitsluitend de gedeelde runner aanroepen, zonder `catalog:secrets` of `rake secrets:puppet` als prerequisite. Controleer dit vanuit de consumerroot met `bundle exec rake --prereqs`; de upstream-taakgrafiek bewijst niets over eigen taakdefinities. Eigen modules kunnen dezelfde optionele `tests/hiera/`-structuur gebruiken. Hun relatieve Hiera-paden blijven modulegebonden en vereisen geen consumerconfiguratie of extra CLI-optie.
 

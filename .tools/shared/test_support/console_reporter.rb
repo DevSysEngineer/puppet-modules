@@ -6,6 +6,7 @@ require 'stringio'
 module ProjectTools
   # Development-only adapter; native Minitest owns test outcomes and JUnit cases.
   class TestConsoleReporter < Minitest::Reporters::DefaultReporter
+    alias native_on_record on_record
     # Keep headers out of the suite log while exercising their normal rendering in tests.
     module SoftwareOutput
       def software(tool, output: $stderr, **options)
@@ -16,7 +17,7 @@ module ProjectTools
     end
 
     class << self
-      attr_accessor :terminal_outputs
+      attr_accessor :terminal_outputs, :software
     end
 
     def on_start
@@ -42,8 +43,7 @@ module ProjectTools
     end
 
     def software
-      version = File.read(File.expand_path('../../../VERSION', __dir__)).strip
-      { tool: 'project-tools-tests', version: version, runtime: true }
+      TestConsoleReporter.software || { tool: 'project-tools-shared', runtime: false }
     end
 
     def before_test(test)
@@ -60,11 +60,15 @@ module ProjectTools
     end
 
     def on_record(test)
-      @running.delete([test_class(test).to_s, test.name])
-      @junit&.record(test)
+      track_result(test)
       @console.advance(unit: 'tests', total: @expected)
       @console.finding(message_for(test)) unless test.passed?
       super if options[:verbose]
+    end
+
+    def track_result(test)
+      @running.delete([test_class(test).to_s, test.name])
+      @junit&.record(test)
     end
 
     def on_report

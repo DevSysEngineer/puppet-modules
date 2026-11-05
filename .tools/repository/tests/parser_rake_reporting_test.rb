@@ -22,11 +22,11 @@ class ParserRakeReportingTest < Minitest::Test
     %w[.tools vendor concat debconf reboot stdlib]
   end
 
-  def run_parser(report = nil)
+  def run_parser(report = nil, jobs: nil)
     task = report ? "syntax:puppet[#{report}]" : 'syntax:puppet'
     @output, @errors, @status = Open3.capture3(
       { 'PROJECT_REPORT_DIR' => 'unused reports' },
-      RbConfig.ruby, Gem.bin_path('rake', 'rake'), task, chdir: @project
+      RbConfig.ruby, Gem.bin_path('rake', 'rake'), task, *(['--jobs', jobs.to_s] if jobs), chdir: @project
     )
   end
 
@@ -96,5 +96,21 @@ class ParserRakeReportingTest < Minitest::Test
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_includes @errors, 'Cannot write Puppet syntax JUnit report'
     assert_equal 'ordinary file', read('blocker')
+  end
+
+  def test_parallel_report_preserves_the_selected_manifest_cases
+    write('examples/extra.pp', "notify { 'synthetic': }")
+    run_parser('reports with spaces/syntax.xml', jobs: 2)
+    assert @status.success?, @output + @errors
+    assert_report_selection('examples/extra.pp', 'modules/profile/manifests/init.pp')
+    assert_equal '0', suite.attributes['errors']
+  end
+
+  def test_parallel_request_without_report_is_rejected_without_side_effects
+    before = tree
+    run_parser(jobs: 2)
+    refute @status.success?
+    assert_includes @output + @errors, 'Parallel syntax requires an explicit JUnit report.'
+    assert_equal before, tree
   end
 end

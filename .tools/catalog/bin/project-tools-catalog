@@ -5,9 +5,13 @@ require 'optparse'
 require_relative '../lib/catalog'
 
 report = nil
+jobs = 1
 options = OptionParser.new do |parser|
-  parser.banner = 'Usage: bundle exec .tools/catalog/bin/project-tools-catalog [--junit REPORT.xml]'
+  parser.banner = 'Usage: bundle exec .tools/catalog/bin/project-tools-catalog [--junit REPORT.xml] [--jobs N]'
   parser.on('--junit PATH', 'Write the catalog results as JUnit XML') { |path| report = path }
+  parser.on('--jobs N', 'Maximum compiler processes (default: 1)') do |value|
+    jobs = ProjectTools::Shared::WorkerCount.parse(value)
+  end
   parser.separator 'Modulepath: PROJECT_TOOLS_MODULEPATH, or this checkout when unset.'
   parser.on('-h', '--help', 'Show usage') do
     puts parser
@@ -17,10 +21,10 @@ end
 begin
   options.parse!
   raise OptionParser::InvalidArgument, ARGV.join(' ') unless ARGV.empty?
-rescue OptionParser::ParseError => e
+rescue OptionParser::ParseError, ArgumentError => e
   warn e.message
   warn options
   exit 1
 end
 
-exit ProjectTools::Catalog.new.run(report: report)
+exit ProjectTools::Catalog.new(jobs: jobs).run(report: report)

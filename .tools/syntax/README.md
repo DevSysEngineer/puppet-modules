@@ -49,7 +49,7 @@ Geef voor CI en de eindcontrole het rapportpad expliciet mee als `junit`-taakarg
 bundle exec rake 'syntax:puppet[.tools/syntax/results/syntax-report.xml]'
 ```
 
-Met dit argument roept de taak `syntax-junit` aan. Dit commando voert voor ieder bestand afzonderlijk de native parser uit. Een fout stopt de controle van de overige bestanden niet. De reporter volgt het [centrale logcontract](../README.md#joblogs): start met de unieke manifestselectie, beperkte voortgang en een eindresultaat met alle volledige native bevindingen en afzonderlijke failures en uitvoeringsproblemen. Lange native subprocessen krijgen een activiteitsmelding zonder verzonnen tussenresultaten. Ontbrekende of niet-beoordeelde manifests tellen niet als gecontroleerd. De native route zonder rapport geeft geen gestructureerde resultaten per bestand; bij een niet-nul status verwijst de taak naar de oorspronkelijke diagnose en vermeldt zij de status als ongeclassificeerd. Beide uitvoervormen geven een foutstatus bij ongeldige syntax of een lege selectie; een aangevraagd maar onschrijfbaar rapport geeft eveneens een foutstatus.
+Met dit rapportargument roept de taak `syntax-junit` aan. Dit commando voert voor ieder bestand afzonderlijk de native parser uit. Een fout stopt de controle van de overige bestanden niet. De reporter volgt het [centrale logcontract](../README.md#joblogs): start met de unieke manifestselectie, beperkte voortgang en een eindresultaat met alle volledige native bevindingen en afzonderlijke failures en uitvoeringsproblemen. Lange native subprocessen krijgen een activiteitsmelding zonder verzonnen tussenresultaten. Ontbrekende of niet-beoordeelde manifests tellen niet als gecontroleerd. De native route zonder rapport geeft geen gestructureerde resultaten per bestand; bij een niet-nul status verwijst de taak naar de oorspronkelijke diagnose en vermeldt zij de status als ongeclassificeerd. Beide uitvoervormen geven een foutstatus bij ongeldige syntax of een lege selectie; een aangevraagd maar onschrijfbaar rapport geeft eveneens een foutstatus.
 
 Het rapport staat in `.tools/syntax/results/syntax-report.xml`, met suite `syntax` en één testcase per uniek manifestpad. Een niet-nul exitcode van de validator geeft een `failure` met de native foutmelding. Ontbrekende bestanden en ongeschikte bestandstypen krijgen een `error`, net als een validator die niet kan starten of door een signaal eindigt. Een lege selectie levert een foutcase op en slaagt dus niet stilzwijgend. De opdracht eindigt met een foutcode zodra een controle of het schrijven van het rapport mislukt.
 
@@ -62,6 +62,10 @@ bundle exec syntax-junit .tools/syntax/results/syntax-report.xml examples/site.p
 ```
 
 Het eerste argument is het rapportpad met extensie `.xml`; daarna volgen concrete `.pp`-bestanden, geen directories. Zet paden met spaties tussen quotes. De opdracht maakt de rapportmap zo nodig aan en vervangt bij iedere uitvoering alleen zijn eigen rapportbestand. Een gerichte run bevat alleen die selectie; gebruik voor de eindcontrole de volledige Rake-taak. Afnemende projecten bepalen hun [eigen manifestselectie](#eigen-manifests-valideren).
+
+Gebruik voor een rapportselectie `bundle exec syntax-junit --jobs 2 RAPPORT.xml MANIFEST.pp ...` of `bundle exec rake 'syntax:puppet[.tools/syntax/results/syntax-report.xml]' --jobs 2`. `--jobs` accepteert bij de CLI en Rake uitsluitend een positief geheel getal; standaard is 1. Ongeldige waarden worden vóór processen en rapportwijzigingen geweigerd. Maximaal zoveel processen als geselecteerde bestanden worden tegelijk gestart. Voortgang telt afgeronde bestanden; diagnoses en XML behouden de invoervolgorde.
+
+Lokaal is de native route zonder rapport vaak het snelst: die start één parser voor de hele selectie. Gebruik tijdens ontwikkelen eerst het gewijzigde bestand en daarna de volledige taak. Paralleliseer alleen wanneer je resultaten per manifest nodig hebt; `bundle exec rake syntax:puppet --jobs 2` wordt geweigerd. Begin met twee workers en vergelijk vier bij dezelfde selectie. SIGINT/SIGTERM stopt nieuwe starts, onderbreekt de eigen procesgroepen en wacht op de kinderen; een tweede signaal beëindigt die groepen hard. Er is geen interne timeout. Een onderbroken rapport kan onvolledig zijn; alleen een succesvol gesloten rapport wordt als geschreven gemeld. Op Windows blijft de seriële route actief.
 
 ## Eigen manifests valideren
 
@@ -78,16 +82,29 @@ Vervang de manifestpaden door alle eigen `.pp`-bestanden die je wilt controleren
 Voor een recursieve projectselectie voeg je `gem 'rake'` toe aan je eigen Gemfile als Rake nog ontbreekt, voer je `bundle install` uit en plaats je de volgende taak in je eigen root-Rakefile. Behoud eventuele bestaande taken:
 
 ```ruby
+def project_syntax_jobs(args)
+  require 'project_tools/shared/rake_jobs'
+  jobs = ProjectTools::Shared::RakeJobs.count
+  abort 'Parallel syntax requires an explicit JUnit report.' if jobs > 1 && !args[:junit]
+
+  jobs
+end
+
+def project_syntax_report(report, manifests, jobs)
+  sh 'bundle', 'exec', 'syntax-junit', '--jobs', jobs.to_s, report, *manifests, verbose: false do |ok, status|
+    raise SignalException, status.termsig if status.signaled?
+
+    exit status.exitstatus unless ok
+  end
+end
+
 namespace :syntax do
   desc 'Check own Puppet syntax, optionally writing JUnit to the supplied path'
   task :puppet, [:junit] do |_task, args|
+    jobs = project_syntax_jobs(args)
     manifests = FileList['**/*.pp'].exclude('.tools/**/*', 'global-modules/**/*', 'vendor/**/*')
     if args[:junit]
-      sh 'bundle', 'exec', 'syntax-junit', args[:junit], *manifests, verbose: false do |ok, status|
-        raise SignalException, status.termsig if status.signaled?
-
-        exit status.exitstatus unless ok
-      end
+      project_syntax_report(args[:junit], manifests, jobs)
     else
       require 'project_tools/shared/console'
       console = ProjectTools::Shared::Console.new('Puppet syntax',

@@ -13,6 +13,7 @@ ci_activity() {
             if kill -KILL "$sleep_pid" 2>/dev/null; then :; fi
         fi
     ' INT TERM
+    rmdir "$CI_ACTIVITY_READY"
     while [ "$stopping" -eq 0 ]; do
         $CI_SLEEP 15 &
         sleep_pid=$!
@@ -28,12 +29,33 @@ ci_activity() {
     done
 }
 
+# Do not send the first stop signal until the child has installed its traps.
+ci_wait_activity_ready() {
+    while [ -n "$CI_ACTIVITY_READY" ] && [ -d "$CI_ACTIVITY_READY" ]; do
+        if ! kill -0 "$CI_ACTIVITY_PID" 2>/dev/null; then
+            rmdir "$CI_ACTIVITY_READY"
+            CI_ACTIVITY_READY=
+            return 1
+        fi
+        "$CI_SLEEP" 0.01
+    done
+    CI_ACTIVITY_READY=
+}
+
+ci_start_activity() {
+    CI_ACTIVITY_READY=$(mktemp -d "${TMPDIR:-/tmp}/project-ci-activity.XXXXXXXX") || return
+    ci_activity &
+    CI_ACTIVITY_PID=$!
+    ci_wait_activity_ready
+}
+
 ci_end() {
     local original_status="$1"
     local result="$2"
     local completeness="$3"
     local reason="${4:-}"
     trap - EXIT INT TERM
+    if ci_wait_activity_ready; then :; fi
     if [ -n "$CI_ACTIVITY_PID" ] && kill "$CI_ACTIVITY_PID" 2>/dev/null; then
         if wait "$CI_ACTIVITY_PID" 2>/dev/null; then :; fi
     fi
@@ -70,6 +92,7 @@ ci_begin() {
     CI_LOG_STARTED=$SECONDS
     CI_LOG_GROUP=none
     CI_ACTIVITY_PID=
+    CI_ACTIVITY_READY=
     printf '[START] %s\n' "$CI_LOG_NAME"
     if [ "${2:-}" != native ]; then
         CI_SLEEP=$(command -v sleep 2>/dev/null) || {
@@ -90,11 +113,10 @@ ci_begin() {
             printf '\033[0Ksection_start:%s:project_details[collapsed=true]\r\033[0K%s\n' "$($CI_DATE +%s)" "$CI_LOG_NAME"
         fi
     fi
-    if [ "${2:-}" != native ]; then
-        ci_activity &
-        CI_ACTIVITY_PID=$!
-    fi
     trap 'ci_exit "$?"' EXIT
     trap 'ci_end 130 ERROR incomplete "The step was interrupted (INT)."; exit 130' INT
     trap 'ci_end 143 ERROR incomplete "The step was terminated (TERM)."; exit 143' TERM
+    if [ "${2:-}" != native ]; then
+        ci_start_activity
+    fi
 }

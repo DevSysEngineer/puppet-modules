@@ -58,13 +58,13 @@ module CatalogConsumerSupport
     PUPPET
   end
 
-  def invoke(entry, report: false, options: [])
+  def invoke(entry, report: false, options: [], jobs: 2)
     arguments = if entry == :rake
                   ['rake', '-f', File.join(@library, 'Rakefile'),
-                   report ? 'catalog:compile[catalog.xml]' : 'catalog:compile']
+                   report ? 'catalog:compile[catalog.xml]' : 'catalog:compile', '--jobs', jobs.to_s]
                 else
                   [File.join(@library, '.tools', 'catalog', 'bin', 'project-tools-catalog'),
-                   *(['--junit', 'catalog.xml'] if report)]
+                   '--jobs', jobs.to_s, *(['--junit', 'catalog.xml'] if report)]
                 end
     command('bundle', 'exec', *arguments, *options, directory: File.join(@project, 'elsewhere'))
   end

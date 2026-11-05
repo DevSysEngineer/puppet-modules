@@ -5,6 +5,7 @@ require 'open3'
 require 'pathname'
 require 'rbconfig'
 require_relative 'syntax/command'
+require_relative 'syntax/validation'
 require 'project_tools/shared/junit_report'
 require 'project_tools/shared/console'
 require 'project_tools/shared/puppet_runtime'
@@ -13,8 +14,10 @@ module ProjectTools
   # Runs the native validator once per manifest and reports every result, including failures.
   class Syntax
     extend SyntaxCommand
+    include SyntaxValidation
 
-    def initialize(paths, console)
+    def initialize(paths, console, jobs: 1)
+      @jobs = Shared::WorkerCount.parse(jobs)
       @paths = paths.map { |path| Pathname.new(File.expand_path(path)).relative_path_from(Pathname.pwd).to_s }.uniq
       @console = Shared::Console.new('Puppet syntax', output: console, scope: "#{@paths.size} files selected",
                                                       software: { tool: 'project-tools-syntax', runtime: true })
@@ -50,6 +53,8 @@ module ProjectTools
       if @paths.empty?
         @results << { path: 'Manifest selection', kind: :error, message: 'No Puppet manifests selected.' }
         @console.finding(diagnostic(@results.last))
+      elsif @jobs > 1 && !Gem.win_platform?
+        parallel_validation
       else
         @paths.each { |path| process(path) }
       end
@@ -83,26 +88,6 @@ module ProjectTools
     def result_counts(results)
       { tests: results.length, failures: results.count { |r| r[:kind] == :failure },
         errors: results.count { |r| r[:kind] == :error } }
-    end
-
-    def syntax(path)
-      unless path.end_with?('.pp') && File.file?(path)
-        return { path: path, kind: :error, message: "Expected an existing .pp file: #{path}" }
-      end
-
-      # The active bundle supplies the executable and Ruby; no shell interprets manifest paths.
-      output, status = Open3.capture2e(RbConfig.ruby, Shared::PuppetRuntime.detect.executable,
-                                       'parser', 'validate', '--color=false', File.expand_path(path))
-      validation_result(path, output, status)
-    rescue SystemCallError, Shared::PuppetRuntime::Error => e
-      { path: path, kind: :error, message: "Cannot start Puppet validator: #{e.message}" }
-    end
-
-    def validation_result(path, output, status)
-      kind = status.success? ? nil : :failure
-      kind = :error if status.signaled?
-      output = "Validator failed: #{status}" if kind && output.empty?
-      { path: path, kind: kind, message: output }
     end
 
     def write_case(xml, result)

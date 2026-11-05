@@ -6,21 +6,25 @@ module ProjectTools
   # Parse the reporter interface before any native validation or report writes.
   module SyntaxCommand
     def run(arguments, console: $stdout, errors: $stderr)
-      options = parser do |help|
+      settings = { jobs: 1 }
+      options = parser(settings) do |help|
         console.puts help
         return 0
       end
       report, *paths = options.parse(arguments)
       return usage(console, errors) unless report&.end_with?('.xml')
 
-      new(paths, console).run(report, errors)
-    rescue OptionParser::ParseError
+      new(paths, console, **settings).run(report, errors)
+    rescue OptionParser::ParseError, ArgumentError
       usage(console, errors)
     end
 
-    def parser(&help)
+    def parser(settings, &help)
       OptionParser.new do |cli|
         cli.banner = 'Usage: syntax-junit REPORT.xml MANIFEST.pp [MANIFEST.pp ...]'
+        cli.on('--jobs N', 'Maximum native validator processes (default: 1)') do |value|
+          settings[:jobs] = Shared::WorkerCount.parse(value)
+        end
         cli.on('-h', '--help', 'Show usage') { help.call(cli) }
       end
     end

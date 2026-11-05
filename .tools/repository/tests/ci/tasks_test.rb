@@ -4,6 +4,7 @@ require_relative '../../../shared/test_support/bootstrap'
 require_relative '../../../shared/test_support/packages'
 require 'rexml/document'
 require 'yaml'
+require 'shellwords'
 require_relative 'task_support'
 
 # Load the real Rake graph in isolated projects and count only project scanner calls.
@@ -21,15 +22,17 @@ class CiTasksTest < Minitest::Test
 
   def test_loaded_ci_routes_scan_once_and_leave_catalog_reporting_intact
     routes = ci_routes
+    names = routes.map { |route| Shellwords.split(route).first }
     assert_equal %w[secrets:puppet syntax:puppet[.tools/syntax/results/syntax-report.xml] test:tools
-                    catalog:compile[.tools/catalog/results/catalog-report.xml]], routes
+                    catalog:compile[.tools/catalog/results/catalog-report.xml]], names
     routes.each { |route| invoke_route(route) }
     assert_ci_results
   end
 
   def invoke_route(route)
-    name, argument = route.delete_suffix(']').split('[', 2)
-    invoke(name, argument)
+    selection, *options = Shellwords.split(route)
+    name, argument = selection.delete_suffix(']').split('[', 2)
+    invoke(name, argument, options: options)
     assert @status.success?, @output + @errors
     assert_empty JSON.parse(read('prerequisites.json')) if %w[test:tools catalog:compile].include?(name)
   end

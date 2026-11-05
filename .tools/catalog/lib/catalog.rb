@@ -7,6 +7,7 @@ require 'rbconfig'
 require 'project_tools/shared/console'
 require 'project_tools/shared/modulepath'
 require_relative 'reporting'
+require_relative 'compilation'
 require_relative 'summary'
 require_relative 'worker_result'
 
@@ -14,19 +15,25 @@ module ProjectTools
   # Discover module-owned scenarios and compile each in an isolated Puppet process.
   class Catalog
     include Reporting
+    include Compilation
     include Summary
 
     ROOT = File.expand_path('../../..', __dir__)
     def initialize(root: ROOT, modulepath: ENV.fetch('PROJECT_TOOLS_MODULEPATH', root), scenarios: nil,
-                   console: $stdout, errors: $stderr)
+                   jobs: 1, **output)
+      @jobs = Shared::WorkerCount.parse(jobs)
       @modulepath_input = modulepath
       @scenarios = scenarios
+      prepare_console(**output)
+      @results = []
+      @processed = 0
+    end
+
+    def prepare_console(console: $stdout, errors: $stderr)
       software = { tool: 'project-tools-catalog', runtime: true, version: File.read(File.join(ROOT, 'VERSION')).strip }
       @console = Shared::Console.new('Puppet catalogs', output: console, scope: 'Module catalog scenarios',
                                                         software: software)
       @errors = errors
-      @results = []
-      @processed = 0
     end
 
     def run(report: nil)
@@ -73,7 +80,7 @@ module ProjectTools
         @results << { name: 'Scenario selection', kind: :error, message: 'No catalog scenarios selected.' }
       end
       @results.each { |result| present(result) }
-      @scenarios.each { |scenario| record(compile(scenario)) }
+      compile_scenarios
     end
 
     def record(result)
@@ -81,23 +88,6 @@ module ProjectTools
       @processed += 1
       present(result)
       @console.advance(unit: 'scenarios', total: @scenarios.size)
-    end
-
-    def compile(scenario)
-      arguments = worker_arguments(scenario)
-      output, diagnostics, status = Open3.capture3(RbConfig.ruby, File.join(__dir__, 'worker.rb'), *arguments)
-      worker_result(scenario, output, diagnostics, status)
-    rescue SystemCallError => e
-      { name: scenario.fetch(:name), kind: :error, message: "Cannot start compiler: #{e.message}" }
-    end
-
-    def worker_result(scenario, output, diagnostics, status)
-      WorkerResult.new(scenario.fetch(:name), output, diagnostics, status).result
-    end
-
-    def worker_arguments(scenario)
-      [@modulepath.join(File::PATH_SEPARATOR), *scenario.values_at(:manifest, :facts),
-       scenario[:module_directory].to_s, scenario[:hiera].to_s]
     end
 
     def finish(report: nil, error: nil)

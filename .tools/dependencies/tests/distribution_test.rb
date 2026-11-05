@@ -85,9 +85,18 @@ class DependencyDistributionTest < Minitest::Test
       spec = Gem::Package.new(File.join(@project, "#{name}.gem")).spec
       assert_includes spec.files, 'README.md'
       assert_includes spec.files, 'LICENSE'
-      assert_empty spec.files.grep(/(?:tests|test_support|results|Gemfile|\.lock)/)
+      assert_empty spec.files.grep(%r{(?:\A|/)(?:tests|results|Gemfile)(?:/|\z)|\.lock\z})
+      assert_package_support(spec)
       assert_empty spec.dependencies.map(&:name) & %w[lint-project puppet-lint rubocop minitest minitest-reporters]
     end
+  end
+
+  def assert_package_support(spec)
+    support = spec.files.grep(%r{\Atest_support/})
+    return assert_empty(support) unless spec.name == 'project-tools-shared'
+
+    assert_includes support, 'test_support/console_reporter.rb'
+    assert_empty support.grep_v(%r{\Atest_support/(?:console_reporter|parallel_\w+)\.rb\z})
   end
 
   def test_missing_unpublished_shared_source_fails_without_checkout_fallback

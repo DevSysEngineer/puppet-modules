@@ -1,13 +1,8 @@
 # frozen_string_literal: true
 
-require 'minitest/autorun'
-require 'minitest/reporters'
-require 'open3'
-require 'tmpdir'
-require 'fileutils'
-require 'json'
-require_relative 'console_reporter'
+require 'project_tools/shared/test_bootstrap'
 
-# Ruby require initializes this once, regardless of the number or order of tool helpers.
-ProjectTools::Shared::Console.singleton_class.prepend(ProjectTools::TestConsoleReporter::SoftwareOutput)
-Minitest::Reporters.use!(ProjectTools::TestConsoleReporter.new)
+ProjectTools::TestConsoleReporter.software = {
+  tool: 'project-tools-tests', runtime: true,
+  version: File.read(File.expand_path('../../../VERSION', __dir__)).strip
+}.freeze

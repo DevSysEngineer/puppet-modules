@@ -8,7 +8,9 @@ Gem::Specification.new do |spec|
   spec.license = 'Apache-2.0'
   spec.homepage = 'https://github.com/DevSysEngineer/puppet-modules'
   spec.required_ruby_version = '>= 3.2'
-  spec.files = Dir.chdir(__dir__) { Dir['lib/**/*.rb', 'README.md', 'LICENSE'] }
+  spec.files = Dir.chdir(__dir__) do
+    Dir['lib/**/*.rb', 'README.md', 'LICENSE', 'test_support/console_reporter.rb', 'test_support/parallel_*.rb']
+  end
   spec.require_paths = ['lib']
 
   spec.add_dependency 'builder', '~> 3.3'

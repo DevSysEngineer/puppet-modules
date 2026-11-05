@@ -40,6 +40,8 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
   - [CI en rapporten onderhouden](#ci-en-rapporten-onderhouden)
   - [Toolingdocumentatie onderhouden](#toolingdocumentatie-onderhouden)
 - [Gezamenlijke tooltests](#gezamenlijke-tooltests)
+  - [Parallelle tooltests](#parallelle-tooltests)
+    - [Snel lokaal ontwikkelen](#snel-lokaal-ontwikkelen)
   - [Versies bijwerken](#versies-bijwerken)
   - [Eigen tooltests](#eigen-tooltests)
     - [Testselectie en uitvoeropties](#testselectie-en-uitvoeropties)
@@ -225,7 +227,7 @@ Synthetische tests van de scanner blijven onderdeel van de toolsuite. Zij contro
 | `Puppet dependencies` | `bundle exec project-tools-dependencies --junit .tools/dependencies/results/project-tools-dependencies-report.xml` met het expliciete projectmodulepad | `Project-tools-dependencies-report` | `.tools/dependencies/results/project-tools-dependencies-report.xml` |
 | `Puppet lint` | Volledige lintscan met JUnit-omzetting volgens de workflow | `Puppet-lint-report` | `.tools/lint/puppet/results/puppet-lint-report.xml` |
 | `Ruby lint` | RuboCop met console en JUnit volgens de workflow | `Ruby-lint-report` | `.tools/lint/ruby/results/rubocop-report.xml` |
-| `Tool tests` | `MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests bundle exec rake test:tools` | `Test-results` | `.tools/results/tests/TEST-*.xml` |
+| `Tool tests` | `MINITEST_REPORTERS_REPORTS_DIR=.tools/results/tests bundle exec rake test:tools --jobs 2` | `Test-results` | `.tools/results/tests/TEST-*.xml` |
 | `Puppet catalogs` | `bundle exec rake 'catalog:compile[.tools/catalog/results/catalog-report.xml]'` | `Catalog-report` | `.tools/catalog/results/catalog-report.xml` |
 
 De metadatajob controleert zowel root- als modulemetadata, inclusief naamgeving en versieconsistentie. De syntaxjob gebruikt de [parsertaak](syntax/README.md#puppet-manifests-valideren); de catalogusjob ontdekt de [moduletests](catalog/README.md#tests-bij-een-module-plaatsen). Tooltests bewijzen gereedschapsgedrag en blijven afzonderlijk van compilatie met de echte moduleset. Iedere controle behoudt haar selectie, drempels, exitstatus en JUnit-formaat. Publiceer beschikbare rapporten ook na een gewone controlefout, zonder de oorspronkelijke fout te verbergen.
@@ -719,7 +721,7 @@ Open in GitHub **Actions** en kies de workflowrun. Daar download je `Metadata-re
 
 Als eigen Ruby-code van toepassing wordt, voeg je `ruby_lint` met naam `"Ruby lint"` toe aan fase 03, met `needs: [puppet_metadata, puppet_syntax]`. Gebruik de [Ruby-rapportaanroep](#rapporten-en-artifacts-in-je-project), de eigen `.rubocop.yml`, artifact `Ruby-lint-report` en `rubocop-report.xml`. Zonder toolsuite voeg je `ruby_lint` tevens toe aan de `needs` van catalogi.
 
-Bij een echte eigen toolsuite voeg je `tool_tests` met naam `"Tool tests"` toe aan fase 04. Laat die wachten op alle aanwezige fase-03-jobs en laat catalogi daarna op `tool_tests` wachten. De opdracht is `MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test:tools`, met de [eigen testtaak en reporter](#eigen-tooltests), artifact `Test-results`, uploadselectie `TEST-*.xml` en een `test-summary/action@v2`-stap met dezelfde `paths`. Behoud `if: ${{ !cancelled() }}` bij uploads en samenvattingen. Gebruik een bestaande lokale `test`-verzameltaak met secretsvoorcontrole uitsluitend lokaal. De tooltests van `global-modules` horen bij de ontwikkeling van de library en worden niet de consumer-suite.
+Bij een echte eigen toolsuite voeg je `tool_tests` met naam `"Tool tests"` toe aan fase 04. Laat die wachten op alle aanwezige fase-03-jobs en laat catalogi daarna op `tool_tests` wachten. De opdracht is `MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test:tools --jobs 2`, met de [eigen testtaak en reporter](#eigen-tooltests), artifact `Test-results`, uploadselectie `TEST-*.xml` en een `test-summary/action@v2`-stap met dezelfde `paths`. Behoud `if: ${{ !cancelled() }}` bij uploads en samenvattingen. Gebruik een bestaande lokale `test`-verzameltaak met secretsvoorcontrole uitsluitend lokaal. De tooltests van `global-modules` horen bij de ontwikkeling van de library en worden niet de consumer-suite.
 
 Houd rapportpaden, de eigen `.gitignore` en artifactinstellingen gelijk aan de [rapportafspraken](#rapporten-en-artifacts-in-je-project). Bewaar credentials voor een interne gembron in de daarvoor bedoelde CI-instellingen.
 
@@ -1300,7 +1302,7 @@ Houd toolspecifieke testinstructies in de eigen handleiding en maak geen losse t
 
 ## Gezamenlijke tooltests
 
-Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint/puppet`, `lint/ruby`, `shared`, `syntax`, `catalog`, `dependencies`, `metadata`, `secrets` en `repository`. Generieke repository-testhulp staat in `.tools/shared/test_support/`, buiten de runtimegem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../TESTS.md#testscope-en-plaatsing) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
+Tests blijven bij hun eigenaar onder `.tools/<tool>/tests/`: `lint/puppet`, `lint/ruby`, `shared`, `syntax`, `catalog`, `dependencies`, `metadata`, `secrets` en `repository`. Generieke testhulp staat in `.tools/shared/test_support/`; uitsluitend de herbruikbare runner en reporter worden optioneel met shared verpakt. Package-fixtures en de repositorybootstrap blijven buiten de gem. Lintfixtures, checks en verwachtingen blijven bij lint. De [testscope](../TESTS.md#testscope-en-plaatsing) beperkt deze tests tot gereedschap; een echte dependencycontrole van de checkout is een afzonderlijke taak.
 
 **Werkmap:** Repositoryroot. **Shell:** POSIX shell. **Vereisten:** Ontwikkelbundle. **Invoer:** Eigen Puppet-manifesten voor de secrets-gate en synthetische toolcontracten. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Niet-lege selectie zonder failures, errors of onverklaarde skips.
 
@@ -1333,6 +1335,55 @@ De reporter maakt de opgegeven map aan en vervangt alleen `TEST-*.xml`; andere r
 
 De shared-tests controleren paden, XML, laadbijwerkingen en de gedeelde testbootstrap. Repositorycontroles bewaken documentatienavigatie, CI, package-integratie en testindeling. Metadata- en Ruby-tests bewaken hun eigen CLI, correcties, rapporten en onafhankelijke installatie. De linkcontrole verifieert lokale doelen en ankers en meldt vaste repository-URL’s in Markdown volgens de [documentatieafspraken](lint/puppet/docs/DOCUMENTATION_RULES.md#markdown). Dependencytests controleren synthetische selectie, rootvoorwaarden, runtime-isolatie, presentatie, package-inhoud en afzonderlijke installatie. Catalogus-runnertests controleren compilatie, cycluscontrole, procesisolatie en rapportage met synthetische modules; de werkelijke moduletests blijven een aparte controle. Syntaxtests controleren native parseruitvoering, selectie, foutstatus, bronbehoud en afzonderlijke installatie. Linttests bewaren de bestaande lint-CLI-, autofix- en packagecontracten. Het [testonderhoud](#toolteststructuur-onderhouden) bewaakt plaatsing, discovery en dekking; de [lintgids](lint/puppet/README.md#tests-uitvoeren-en-uitbreiden) beschrijft zijn eigen testaanroepen.
 
+### Parallelle tooltests
+
+Geef `--jobs N` mee met een positief geheel getal om de bestaande tooltesttaken over meerdere Ruby-processen te verdelen. Bijvoorbeeld `bundle exec rake test --jobs 2` voert eerst de lokale secretscontrole uit en daarna de tooltests met maximaal twee workers. De CI-teststap gebruikt dezelfde runner met twee workers; de vijf kwaliteitsfases blijven gelden. Meer workers vragen meer CPU en geheugen, ook doordat tests zelf subprocessen starten. Kies de limiet op basis van metingen in de gebruikte omgeving.
+
+De root-Rakefile gebruikt de optionele `ProjectTools::Shared::TestTask` uit de shared-gem. Afnemende projecten activeren dezelfde runner voor hun eigen tests met de [Rake-koppeling en bootstrap](#eigen-tooltests). Alleen gems bijwerken voegt die koppeling niet toe. Alle eigen parallelle ingangen gebruiken `--jobs N`: de testtaken, syntax-JUnit en cataloguscompilatie, via zowel Rake als hun CLI. De limiet geldt per aangeroepen controle; zij maakt geen andere controles of rapporten actief.
+
+Rake heeft zelf dezelfde optie voor taakparallelisatie. De gedeelde adapter leest de expliciete commandoregeloptie ook voor de workerlimiet, met behoud van de native Rake-opties. Zowel `--jobs 2` als `--jobs=2` werkt; bij Rake kan ook `-j 2`. Geef altijd een getal mee. Zonder expliciete optie kiezen deze controles één worker, onafhankelijk van Rakes interne standaard voor zijn threadpool.
+
+Zonder `--jobs`, of met `--jobs 1`, worden de oorspronkelijke native Rake-acties uitgevoerd. Dit is ook de directe seriële terugval. Een lege waarde, nul, een negatief getal of tekst geeft een configuratiefout. Er worden nooit meer workers gestart dan er geselecteerde bestands­groepen zijn. Bij nul groepen of één effectieve worker blijft de native route gelden.
+
+Alle bestaande `test:<component>`-taken ondersteunen dezelfde instelling. `TEST` bepaalt de native bestandsselectie; `TESTOPTS` en de native optiealiassen behouden hun voorrang. Geef filters en seeds met een gelijkteken door, bijvoorbeeld `TESTOPTS='--name=/contract/ --seed=12345'`. Met `--verbose` blijven de testdetails beschikbaar. Help en versie worden eenmaal serieel uitgevoerd. Aanwezige alternatieve reporter- of IDE-instellingen veroorzaken eveneens een expliciet gemelde seriële terugval. Windows gebruikt de native seriële route.
+
+De runner verdeelt bestanden deterministisch en behoudt hun relatieve laadvolgorde binnen iedere worker. Tests binnen één worker blijven serieel. De parser- en consumerreportingtests vormen samen één groep omdat het consumerbestand de parenttests laadt. De optie wordt niet aan geneste Rake-aanroepen doorgegeven; die starten standaard serieel. De interne workerconfiguratie wordt vóór het laden van tests uit de omgeving verwijderd.
+
+Tijdens een parallelle run telt de voortgang afgeronde workerbatches. De gezamenlijke afsluiting toont testcase-aantallen, alle bevindingen en uitvoer per worker. Een normale testfailure stopt de overige workers niet. Een ontbrekend of ongeldig workerresultaat, onverwachte processtatus of mislukte rapportage geeft een fout met onvolledige uitvoering. Bij een exclude-filter blijft een onbekend verwacht totaal herkenbaar als onbekend.
+
+JUnit blijft uitsluitend op verzoek actief. Iedere worker schrijft in een eigen tijdelijke map; de coördinator controleert de resultaten en publiceert geldige XML-bestanden in de bestaande platte eindmap. Alleen oude `TEST-*.xml`-bestanden van deze producent worden bij de start verwijderd. Andere rapporten blijven staan. Zonder rapportverzoek blijven bestaande rapportmappen ongemoeid. Gebruik verschillende eindmappen voor onafhankelijk gestarte testaanroepen die tegelijk draaien.
+
+SIGINT en SIGTERM worden doorgegeven aan de eigen workerprocesgroepen. De runner wacht op zijn kinderen en meldt onvolledige uitvoering. Een tweede onderbreking beëindigt de eigen groepen met SIGKILL. Er is geen interne looptijdtimeout voor tests of workers. Zie [shared-testondersteuning](shared/README.md#testondersteuning) voor de onderhoudsgrenzen en regressies.
+
+#### Snel lokaal ontwikkelen
+
+Werk tijdens een wijziging van klein naar groot: eerst de betreffende test, daarna de geraakte tool en vóór oplevering de volledige selectie en overige [verplichte eindcontroles](../TESTS.md#controlevolgorde-en-verplichte-eindcontroles). Gebruik de geïnstalleerde ontwikkelbundle met de bestaande lockfile. Console-uitvoer is voldoende voor de lokale ontwikkellus; vraag JUnit expliciet aan wanneer je een rapport nodig hebt.
+
+Voer de Puppet-voorcontrole uit voordat je gerichte taken gebruikt. Daarna kun je de gerichte test herhalen zolang de gecontroleerde Puppet-invoer ongewijzigd is. Herhaal de voorcontrole na wijzigingen aan die invoer. De algemene inspectie vóór lezen en delen blijft afzonderlijk gelden volgens [CONTRIBUTING](../CONTRIBUTING.md#lokale-inspectie-vóór-inzage).
+
+**Werkmap:** Repositoryroot van deze checkout. **Shell:** POSIX shell. **Vereisten:** Geïnstalleerde ontwikkelbundle. **Invoer:** Eigen Puppet-invoer en de gekozen tooltests. **Wijzigt bestanden:** Tijdelijke testinvoer; zonder rapportinstelling geen rapportbestanden. **Verwacht resultaat:** Alle geselecteerde controles slagen; de eindcontrole omvat de volledige bedoelde selectie.
+
+| Stap | Voorbeeld |
+| --- | --- |
+| Voorcontrole | `bundle exec rake secrets:puppet` |
+| Eén relevante test met vaste seed | `bundle exec rake test:shared TEST=.tools/shared/tests/parallel/plan_test.rb TESTOPTS='--name=/round_robin/ --seed=12345'` |
+| De geraakte toolsuite | `bundle exec rake test:shared --jobs 2` |
+| Alle tooltests inclusief lokale voorcontrole | `bundle exec rake test --jobs 2` |
+| Seriële referentie bij onderzoek naar parallel gedrag | `bundle exec rake test:shared --jobs 1 TESTOPTS='--seed=12345 --verbose'` |
+
+Vervang de voorbeeldselectie door de test en tool waaraan je werkt. Eén geselecteerde bestandsgroep gebruikt automatisch de native seriële route; daarvoor levert een hoger workermaximum geen extra parallelisme op. Begin voor grotere selecties met twee workers. Vergelijk op je eigen machine twee en vier workers met dezelfde selectie en seed, zonder gelijktijdige zware controles, en gebruik de snelste instelling die binnen de beschikbare CPU- en geheugenmiddelen past. Een vaste seed maakt de globale testvolgorde tussen verschillende workerindelingen niet gelijk.
+
+Voor afnemende projecten geldt dezelfde volgorde na het inrichten van [eigen tooltests](#eigen-tooltests). Gebruik daarnaast de controle die bij de wijziging hoort:
+
+| Controle | Lokale aanbeveling |
+| --- | --- |
+| Ruby-lint | `bundle exec rubocop PAD` voor gewijzigde code; daarna de volledige scan. RuboCop gebruikt standaard native parallelisme en cache. Behoud hiervoor de native RuboCop-instellingen; deze externe CLI krijgt geen eigen projectwrapper. |
+| Puppet-lint | Selecteer tijdens ontwikkelen het gewijzigde manifest met de bestaande native CLI en projectconfiguratie. De CLI heeft geen workeroptie; voer voor afronding de volledige selectie uit. |
+| Puppet-syntax | Gebruik lokaal de native parser voor een bestand of de rapportloze Rake-taak voor alle manifests. Die laatste gebruikt één parserstart. Alleen de [JUnit-route](syntax/README.md#eigen-manifests-valideren) gebruikt `--jobs 2`, bijvoorbeeld `bundle exec rake 'syntax:puppet[RAPPORT.xml]' --jobs 2`. |
+| Catalogus | Gebruik na de voorcontrole `bundle exec rake catalog:compile --jobs 2` of de [consumer-CLI](catalog/README.md#vanuit-een-ander-project-uitvoeren) met `--jobs 2`; vraag JUnit alleen expliciet aan. |
+
+Gebruik bij de eigen test-, syntax- en catalogustaken steeds `--jobs N`. De limiet geldt per aanroep, niet voor alle processen op de machine samen. Voorkom daarom dat meerdere gelijktijdige controles samen het beschikbare geheugen uitputten. Geen van deze versnellingen vervangt de volledige eindcontroles.
+
 ### Versies bijwerken
 
 Bij de eerste installatie gebruikt Bundler de versies uit de lockfile. Wil je die combinatie bijwerken, voer dan het volgende uit vanuit de hoofdmap van deze repository, met de nieuwste stabiele Ruby actief:
@@ -1362,30 +1413,36 @@ Test eigen gereedschap onder `.tools/<tool-name>/tests/`, met bestandsnamen die 
 
 De tests staan bij de tool die ze controleren; er is geen afzonderlijke centrale `.tools/test/` of `.tools/tests/`. Houd require-paden, fixtures, taken, CI en documentatie in overeenstemming met die indeling en behoud de testdekking. Module- en catalogustests horen bij de eigen validatie van het afnemende project en staan buiten `.tools/`.
 
-Gebruik voor Ruby-tooltests Minitest en Rake uit de eigen ontwikkelbundle. Voeg deze dependencies alleen toe als je zulke tests hebt:
+Gebruik voor Ruby-tooltests de optionele shared-testintegratie, Minitest en Rake uit de eigen ontwikkelbundle. Shared zelf vereist geen Puppet-runtime en laadt het testframework alleen via de expliciete bootstrap. Voeg deze dependencies alleen toe als je zulke tests hebt:
 
 ```ruby
+gem 'project-tools-shared', path: 'global-modules/.tools/shared', require: false
 gem 'minitest'
+gem 'minitest-reporters'
 gem 'rake'
+gem 'rexml'
 ```
 
-Voer daarna `bundle install` uit. In een project met alleen tooltests kan de root-Rakefile de selectie als volgt vastleggen:
+Gebruik één shared-declaratie in je Gemfile; behoud een bestaande Git-bron volgens de [installatieroute](#installatie-in-je-project) in plaats van daarnaast een pathbron toe te voegen. Werk checkout en bundle samen bij. Voer daarna `bundle install` uit. In een project met alleen tooltests kan de root-Rakefile de selectie als volgt vastleggen:
 
 ```ruby
 # frozen_string_literal: true
 
 require 'rake/testtask'
+require 'project_tools/shared/test_task'
 
-Rake::TestTask.new('test:tools') do |task|
+tool_tests = Rake::TestTask.new('test:tools') do |task|
   task.test_files = Rake::FileList['.tools/**/tests/**/*_test.rb'].exclude(%r{(?:\A|/)fixtures/})
   task.warning = false
 end
+
+ProjectTools::Shared::TestTask.wrap(tool_tests)
 
 task test: 'test:tools'
 task default: :test
 ```
 
-Voer vanuit de projectroot `bundle exec rake test:tools` uit in CI. Voor projecten met Puppet-code koppelt de [secrets-inrichting](secrets/README.md#koppel-de-puppet-controle-aan-eigen-taken) de lokale verzameltaak `test` eerst aan de projectscan en daarna aan `test:tools`. De gerichte taak heeft zelf geen secrets-prerequisite. Controleer het aantal uitgevoerde tests; een geslaagde taak met nul tests bewijst niets. Een aanvullende `test:<tool-name>`-taak selecteert alleen `.tools/<tool-name>/tests/**/*_test.rb`, met dezelfde uitsluiting van `fixtures/` op ieder niveau. Heeft het project al een verzameltaak voor andere tests, voeg de toolselectie dan als afzonderlijke taak toe en behoud de bestaande dekking en het standaardgedrag.
+Voer vanuit de projectroot `bundle exec rake test:tools --jobs 2` uit in CI; meet de geschikte workerlimiet op de gebruikte runner. Voor projecten met Puppet-code koppelt de [secrets-inrichting](secrets/README.md#koppel-de-puppet-controle-aan-eigen-taken) de lokale verzameltaak `test` eerst aan de projectscan en daarna aan `test:tools`. De gerichte taak heeft zelf geen secrets-prerequisite. Controleer het aantal uitgevoerde tests; een geslaagde taak met nul tests bewijst niets. Een aanvullende `test:<tool-name>`-taak selecteert alleen `.tools/<tool-name>/tests/**/*_test.rb`, met dezelfde uitsluiting van `fixtures/` op ieder niveau. Heeft het project al een verzameltaak voor andere tests, voeg de toolselectie dan als afzonderlijke taak toe en behoud de bestaande dekking en het standaardgedrag.
 
 Laat de selectie alleen de eigen tools doorlopen. De tests onder `global-modules/.tools/**/tests/` horen bij de ontwikkeling van de gedeelde gem en draaien in de CI van die repository. Het afnemende project hoeft die suite niet te kopiëren of via zijn eigen Rakefile te laden. Wie alleen de linters gebruikt, heeft daarvoor geen eigen testmap of testtaak nodig.
 
@@ -1395,7 +1452,8 @@ De roottaak hierboven ondersteunt de standaardopties van Rake en Minitest. In de
 
 | Doel | Commando |
 | --- | --- |
-| Alle eigen tooltests uitvoeren | `bundle exec rake test` |
+| Alle eigen tooltests uitvoeren | `bundle exec rake test --jobs 2` |
+| Seriële referentie | `bundle exec rake test --jobs 1` |
 | Eén testbestand uitvoeren | `bundle exec rake test TEST=.tools/inventory/tests/inventory_test.rb` |
 | Testnamen tonen | `bundle exec rake test TESTOPTS='--verbose'` |
 | Eén testnaam of patroon selecteren | `bundle exec rake test TESTOPTS='--name=/inventory/'` |
@@ -1409,23 +1467,17 @@ Testmethoden behouden hun gebruikelijke `test_...`-namen; namen, aantallen en sk
 
 Gebruik standaard console-uitvoer en vraag JUnit expliciet aan wanneer je een rapport nodig hebt. Beide uitvoervormen komen dan uit dezelfde testuitvoering. Voeg voor de Minitest-suite `gem 'minitest-reporters'` toe aan de eigen root-Gemfile naast Minitest en Rake, voer `bundle install` uit en neem de lockfile op in versiebeheer. De reporter is een dependency van je eigen ontwikkelbundle; `lint-project` installeert hem niet voor afnemers.
 
-Configureer de reporters in de eigen `.tools/<tool-name>/tests/test_helper.rb`. Het onderstaande voorbeeld schakelt JUnit uitsluitend in wanneer de aanroeper een rapportmap opgeeft:
+Laad in iedere eigen `.tools/<tool-name>/tests/test_helper.rb` dezelfde publieke bootstrap:
 
 ```ruby
 # frozen_string_literal: true
 
-require 'minitest/autorun'
-require 'minitest/reporters'
-
-$stdout.sync = true
-reporters = [Minitest::Reporters::DefaultReporter.new]
-if ENV['MINITEST_REPORTERS_REPORTS_DIR']
-  reporters << Minitest::Reporters::JUnitReporter.new(ENV.fetch('MINITEST_REPORTERS_REPORTS_DIR'))
-end
-Minitest::Reporters.use!(reporters)
+require 'project_tools/shared/test_bootstrap'
 ```
 
-Laat de testbestanden deze helper laden met `require_relative 'test_helper'` en behoud de voorbereiding en assertions die de eigen tests nodig hebben. Eén uitvoering configureert de reporters eenmaal. Gebruikt de roottaak tests van meerdere eigen tools, laat hun helpers dezelfde reporterinitialisatie laden uit de gedeelde testhulp die dat project daarvoor gebruikt; herinitialiseer de reporters niet per tool.
+Laat de testbestanden deze helper laden met `require_relative 'test_helper'` en behoud eigen voorbereiding en assertions. Ruby initialiseert de bootstrap eenmaal. Registreer daarna geen vervangende reporter: parallelle workers hebben hun eigen resultaatoverdracht nodig. De bootstrap verzorgt console, optionele native JUnit en dezelfde foutstatus voor serieel en parallel gebruik. `rake`, `minitest`, `minitest-reporters` en `rexml` blijven expliciete ontwikkeldependencies van de consumer; gewone shared-runtimegebruikers hoeven ze niet te installeren.
+
+Bestanden die elkaar laden moeten in dezelfde worker blijven. Geef alleen voor zo’n aantoonbare afhankelijkheid bijvoorbeeld `groups: [%w[.tools/inventory/tests/base_test.rb .tools/inventory/tests/consumer_test.rb]]` mee aan `TestTask.wrap`. Groepen zijn niet leeg, overlappen elkaar niet en voegen geen niet-geselecteerde bestanden toe. Onafhankelijke bestanden hebben geen configuratie nodig. De [parallelcontracten](#parallelle-tooltests) gelden ook hier. Start lokaal met `--jobs 2`, vergelijk eventueel 4 en gebruik gerichte `TEST`/`TESTOPTS`-selectie voor de kortste feedback; één geselecteerde groep gebruikt vanzelf de native route.
 
 `bundle exec rake test` toont zonder rapportinstelling alleen de testuitslag. Gebruik vanuit de consumerroot `MINITEST_REPORTERS_REPORTS_DIR="$PROJECT_REPORT_DIR" bundle exec rake test:tools` om daarnaast per testklasse een `TEST-*.xml`-bestand in de [gekozen rapportmap](#rapportmap-kiezen) te schrijven. Geef een niet-leeg relatief of absoluut pad op. De reporter maakt de map zo nodig aan en vervangt alleen die testbestanden, zodat een gerichte testselectie een beperkt rapport oplevert en de lint- en validatierapporten behouden blijven. De rapportmap hoeft niet naast de helper of in een map met de naam `lint` te staan.
 

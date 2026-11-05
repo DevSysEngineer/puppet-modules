@@ -43,6 +43,8 @@ Richt ontwikkeling en CI in met de [gedocumenteerde bundle](.tools/README.md#ins
 
 `bundle exec rake test` is niet de volledige eindcontrole. De [root-Rakefile](Rakefile) voert met `test` lokaal eerst de Puppet-secretsvoorcontrole en daarna eenmaal `test:tools` uit. `test:tools` selecteert recursief alle `.tools/**/tests/**/*_test.rb` en heeft zelf geen projectsecrets-prerequisite. CI roept deze gerichte taak aan na vrijgave door de eerdere kwaliteitsfases. De standaardtaak `bundle exec rake` kiest dezelfde route. De gerichte `test:<component>`-taken selecteren hun eigen suite; zij verzorgen die voorcontrole niet zelf.
 
+Gebruik `bundle exec rake test --jobs 2` om de tooltests over afzonderlijke Ruby-processen te verdelen. Zonder `--jobs`, of met `--jobs 1`, blijft de native seriële route gelden. Gerichte selectie en testopties blijven beschikbaar; zie [parallelle tooltests](.tools/README.md#parallelle-tooltests) voor de instelling, rapporten en terugvalvoorwaarden. Vergelijk bij runnerwijzigingen ook de testcase-identiteiten en uitkomsten van de seriële en parallelle uitvoering, niet alleen het totale aantal.
+
 Metadata, volledige linting, RuboCop, de werkelijke dependencycontrole en repositorybrede parservalidatie en de ontdekte moduletests blijven afzonderlijke controles.
 
 De taak `catalog:compile` compileert de module-eigen scenario’s en controleert hun native uitvoeringsgrafen op dependency-cycli via [catalog](.tools/catalog/README.md), zonder automatische secrets-prerequisite. Voer lokaal zelf vooraf de toepasselijke controle uit; in CI verzorgt de eerste job die vrijgave via de vijf fasegrenzen.

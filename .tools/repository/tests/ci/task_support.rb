@@ -39,6 +39,7 @@ module CiTaskSupport
     <<~RUBY
       require 'rake'
       require 'json'
+      arguments = Rake.application.handle_options(ARGV)
       load 'Rakefile'
       original = method(:sh)
       define_singleton_method(:sh) do |*arguments, **options, &block|
@@ -55,17 +56,18 @@ module CiTaskSupport
         end
         original.call(*arguments, **options, &block)
       end
-      task = Rake::Task[ARGV.fetch(0)]
+      task = Rake::Task[arguments.fetch(0)]
       File.write('prerequisites.json', JSON.generate(task.all_prerequisite_tasks.map(&:name)))
-      task.invoke(*ARGV.drop(1))
+      task.invoke(*arguments.drop(1))
     RUBY
   end
 
-  def invoke(task, report = nil, code: nil)
+  def invoke(task, report = nil, code: nil, options: [])
     env = { 'TEST' => nil, 'TESTOPTS' => nil, 'PROBE_SCAN_STATUS' => code&.to_s,
             'MINITEST_REPORTERS_REPORTS_DIR' => 'reports',
             'PROJECT_TOOLS_MODULEPATH' => File.join(@project, 'modules') }
-    @output, @errors, @status = Open3.capture3(env, Gem.ruby, 'invoke.rb', task, *Array(report), chdir: @project)
+    @output, @errors, @status = Open3.capture3(env, Gem.ruby, 'invoke.rb', task, *Array(report),
+                                               *options, chdir: @project)
   end
 
   def events

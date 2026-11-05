@@ -30,14 +30,18 @@ class ToolingWorkflowTest < Minitest::Test
   end
 
   def test_test_job_explicitly_requests_the_published_reports
-    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
-    steps = workflow.fetch('jobs').fetch('tool_tests').fetch('steps')
-    test_step = steps.find { |step| step['run'] == 'bundle exec rake test:tools' }
+    steps = tool_test_steps
+    test_step = steps.find { |step| step['run'] == 'bundle exec rake test:tools --jobs 2' }
     reports = test_step.fetch('env').fetch('MINITEST_REPORTERS_REPORTS_DIR')
     refute_empty reports
     upload, summary = reporting_steps(steps)
     assert_equal "#{reports}/TEST-*.xml", upload.dig('with', 'path')
     assert_equal "#{reports}/TEST-*.xml", summary.dig('with', 'paths')
+  end
+
+  def tool_test_steps
+    workflow = YAML.load_file(File.join(ROOT, '.github/workflows/checks.yml'))
+    workflow.fetch('jobs').fetch('tool_tests').fetch('steps')
   end
 
   def test_validation_job_explicitly_requests_the_published_report

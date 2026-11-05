@@ -31,7 +31,7 @@ class CatalogIntegrationTest < Minitest::Test
   end
 
   def test_cli_invalid_arguments_from_the_consumer_bundle
-    [%w[--unknown], %w[--junit], %w[unexpected]].each do |arguments|
+    [%w[--unknown], %w[--junit], %w[unexpected], %w[--jobs 0]].each do |arguments|
       invoke(:cli, options: arguments)
       assert_equal 1, @status.exitstatus, @output + @errors
       assert_includes @errors, 'Usage:'
