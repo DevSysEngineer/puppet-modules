@@ -24,6 +24,7 @@ module ProjectTools
 
       def problem_label(result)
         return 'Execution error' if result[:kind] == :error
+        return 'Dependency cycle check skipped' if result[:kind] == :skipped
         return 'Dependency cycle' if result[:cause] == :dependency_cycle
 
         result[:cause] == :deprecation ? 'Deprecated Puppet usage' : 'Compilation failure'
@@ -31,8 +32,17 @@ module ProjectTools
 
       def diagnostic_details(result)
         lines = [result[:message], *deprecation_details(result)]
+        lines.concat(cycle_skip_details(result)) if result[:dependency_cycle_skip]
         lines << "Deprecation detection error: #{result[:deprecation_error]}" if result[:deprecation_error]
         lines.reject(&:empty?).join("\n")
+      end
+
+      def cycle_skip_details(result)
+        reason = result[:dependency_cycle_skip]
+        lines = ['Dependency cycle check skipped: native resource validation prevented graph construction.',
+                 'Cycle freedom was not checked.']
+        lines << reason unless result[:message].include?(reason)
+        lines
       end
 
       def deprecation_details(result)
@@ -92,6 +102,7 @@ module ProjectTools
 
       def problem_type(result)
         return 'CompilerError' if result[:kind] == :error
+        return 'DependencyCycleUnavailable' if result[:kind] == :skipped
 
         { deprecation: 'Deprecation', dependency_cycle: 'DependencyCycle' }.fetch(result[:cause], 'CatalogFailure')
       end

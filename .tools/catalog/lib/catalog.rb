@@ -7,12 +7,14 @@ require 'rbconfig'
 require 'project_tools/shared/console'
 require 'project_tools/shared/modulepath'
 require_relative 'reporting'
+require_relative 'summary'
 require_relative 'worker_result'
 
 module ProjectTools
   # Discover module-owned scenarios and compile each in an isolated Puppet process.
   class Catalog
     include Reporting
+    include Summary
 
     ROOT = File.expand_path('../../..', __dir__)
     def initialize(root: ROOT, modulepath: ENV.fetch('PROJECT_TOOLS_MODULEPATH', root), scenarios: nil,
@@ -48,7 +50,7 @@ module ProjectTools
       compile_all
       write_report(report) if report
       finish(report: report)
-      @results.any? { |result| result[:kind] } ? 1 : 0
+      counts.values_at(:failures, :errors).any?(&:positive?) ? 1 : 0
     end
 
     def select_scenarios
@@ -95,24 +97,10 @@ module ProjectTools
        scenario[:module_directory].to_s, scenario[:hiera].to_s]
     end
 
-    def counts
-      { tests: @results.size, failures: @results.count { |result| result[:kind] == :failure },
-        errors: @results.count { |result| result[:kind] == :error } }
-    end
-
     def finish(report: nil, error: nil)
-      incomplete = error || counts[:errors].positive?
-      outcome = counts[:failures].positive? ? 'FAILED' : 'PASSED'
-      @console.finish(status: incomplete ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
+      incomplete = error || counts[:errors].positive? || cycle_skips.positive?
+      @console.finish(status: outcome(error), execution: incomplete ? 'incomplete' : 'complete',
                       facts: facts(error: error), details: summary_details(error), report: report)
-    end
-
-    def facts(error: nil)
-      selected = @scenarios ? @scenarios.size : 'unknown'
-      details = ["Scenarios: #{selected} selected | #{counts[:tests] - counts[:errors]} checked",
-                 "Results: #{counts[:failures]} failures | #{counts[:errors] + (error ? 1 : 0)} errors"]
-      details << "Modules without tests: #{@skipped.size} skipped" if @skipped
-      details
     end
 
     def execution_error(message)

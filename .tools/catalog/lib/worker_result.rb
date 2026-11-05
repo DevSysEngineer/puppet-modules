@@ -22,11 +22,18 @@ module ProjectTools
       end
 
       def classify(details)
-        cause = :deprecation if @kind.nil? && !details[:deprecations].empty?
-        cause = :dependency_cycle if @kind.nil? && details[:dependency_cycles].positive?
+        cause = quality_cause(details)
         kind = cause ? :failure : @kind
+        kind = :skipped if kind.nil? && details[:dependency_cycle_skip]
         kind = :error if details[:deprecation_error]
         details.merge(name: @name, kind: kind, cause: cause, message: @diagnostics)
+      end
+
+      def quality_cause(details)
+        return unless @kind.nil?
+        return :dependency_cycle if details[:dependency_cycles]&.positive?
+
+        :deprecation unless details[:deprecations].empty?
       end
 
       def valid_details?(details)
@@ -44,9 +51,15 @@ module ProjectTools
       end
 
       def valid_cycle_check?(details)
+        return valid_cycle_skip?(details) if details.key?(:dependency_cycle_skip)
         return !@kind.nil? unless details.key?(:dependency_cycles)
 
         details[:dependency_cycles].is_a?(Integer) && details[:dependency_cycles] >= 0
+      end
+
+      def valid_cycle_skip?(details)
+        reason = details[:dependency_cycle_skip]
+        !details.key?(:dependency_cycles) && reason.is_a?(String) && !reason.strip.empty?
       end
 
       def optional?(entry, key, type)

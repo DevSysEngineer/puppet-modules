@@ -54,9 +54,9 @@ begin
     catalog = Puppet.override(environments: loader) { Puppet::Parser::Compiler.compile(node) }
     compiling = false
     result[:resources] = catalog.resources.size
-    result[:dependency_cycles] = Puppet.override(environments: loader, current_environment: environment) do
+    result.merge!(Puppet.override(environments: loader, current_environment: environment) do
       ProjectTools::Catalog::DependencyCycles.check(catalog)
-    end
+    end)
   end
   unless module_directory.nil? || module_directory.empty?
     result[:coverage] = ProjectTools::Catalog::Coverage.new(module_directory).result(catalog)
