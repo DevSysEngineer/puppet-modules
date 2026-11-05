@@ -6,6 +6,7 @@ require 'project_tools/shared/puppet_runtime'
 require 'project_tools/shared/modulepath'
 require_relative 'coverage'
 require_relative 'deprecations'
+require_relative 'dependency_cycles'
 
 # Reserve stdout for the result; native output stays on the diagnostic stream.
 result_output = $stdout.dup
@@ -13,6 +14,7 @@ $stdout.reopen($stderr)
 result = {}
 compiling = false
 deprecations = nil
+catalog = nil
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
 begin
@@ -52,11 +54,14 @@ begin
     catalog = Puppet.override(environments: loader) { Puppet::Parser::Compiler.compile(node) }
     compiling = false
     result[:resources] = catalog.resources.size
-    unless module_directory.nil? || module_directory.empty?
-      result[:coverage] = ProjectTools::Catalog::Coverage.new(module_directory).result(catalog)
+    result[:dependency_cycles] = Puppet.override(environments: loader, current_environment: environment) do
+      ProjectTools::Catalog::DependencyCycles.check(catalog)
     end
   end
-rescue ProjectTools::Shared::PuppetRuntime::Error => e
+  unless module_directory.nil? || module_directory.empty?
+    result[:coverage] = ProjectTools::Catalog::Coverage.new(module_directory).result(catalog)
+  end
+rescue ProjectTools::Shared::PuppetRuntime::Error, ProjectTools::Catalog::DependencyCycles::CheckError => e
   warn e.message
   exit 2
 rescue Puppet::Error => e

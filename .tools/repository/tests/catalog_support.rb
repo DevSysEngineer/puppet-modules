@@ -50,6 +50,14 @@ module CatalogConsumerSupport
     write("#{base}/#{name}/tests/facts/synthetic.json", '{}')
   end
 
+  def sample_cycle_module
+    sample_module('global-modules', 'cycle_probe', body: <<~PUPPET)
+      notify { 'cycle_probe_a': }
+      notify { 'cycle_probe_b': }
+      Notify['cycle_probe_a'] -> Notify['cycle_probe_b'] -> Notify['cycle_probe_a']
+    PUPPET
+  end
+
   def invoke(entry, report: false, options: [])
     arguments = if entry == :rake
                   ['rake', '-f', File.join(@library, 'Rakefile'),
@@ -77,6 +85,16 @@ module CatalogConsumerSupport
     sample_module('modules', 'sample')
     write('global-modules/sample/manifests/init.pp', "class sample { fail('shadowed module') }")
     @env['PROJECT_TOOLS_MODULEPATH'] = [File.join(@project, 'modules'), @library].join(File::PATH_SEPARATOR)
+  end
+
+  def prepare_hiera_consumer
+    prepare_modulepath
+    write('modules/sample/manifests/init.pp', <<~PUPPET)
+      class sample(Sensitive[String] $password) {
+        if $password.unwrap != '#{SYNTHETIC_VALUE}' { fail('wrong consumer fixture') }
+      }
+    PUPPET
+    %w[profile sample].each { |name| consumer_hiera(name) }
   end
 
   def consumer_hiera(name)

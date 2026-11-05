@@ -24,6 +24,7 @@ module ProjectTools
 
       def problem_label(result)
         return 'Execution error' if result[:kind] == :error
+        return 'Dependency cycle' if result[:cause] == :dependency_cycle
 
         result[:cause] == :deprecation ? 'Deprecated Puppet usage' : 'Compilation failure'
       end
@@ -82,13 +83,17 @@ module ProjectTools
       def write_case(xml, result)
         xml.testcase(classname: 'catalog', name: result[:name]) do
           if result[:kind]
-            type = result[:kind] == :failure ? 'CatalogFailure' : 'CompilerError'
-            type = 'Deprecation' if result[:kind] == :failure && result[:cause] == :deprecation
-            xml.tag!(result[:kind], report_details(result), type: type)
+            xml.tag!(result[:kind], report_details(result), type: problem_type(result))
           else
             xml.tag!('system-out', report_details(result))
           end
         end
+      end
+
+      def problem_type(result)
+        return 'CompilerError' if result[:kind] == :error
+
+        { deprecation: 'Deprecation', dependency_cycle: 'DependencyCycle' }.fetch(result[:cause], 'CatalogFailure')
       end
 
       def report_details(result)

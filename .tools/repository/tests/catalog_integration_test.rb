@@ -65,11 +65,13 @@ class CatalogIntegrationTest < Minitest::Test
 
   def test_failure_and_error_statuses_reach_ci_without_hiding_successful_modules
     sample_module('global-modules', 'failure', body: "notify { 'same': } notify { 'same': }")
+    sample_cycle_module
     write('global-modules/invalid/tests/facts/invalid.json', '[]')
     write('global-modules/invalid/tests/manifests/default.pp', "notify { 'valid syntax': }")
     %i[cli rake].each do |entry|
       [false, true].each { |report| assert_mixed_results(entry, report: report) }
-      assert_counts(%w[3 1 1])
+      assert_counts(%w[4 2 1])
+      assert_cycle_report
     end
   end
 
@@ -88,16 +90,6 @@ class CatalogIntegrationTest < Minitest::Test
     %i[cli rake].each { |entry| assert_hiera_error(entry, %w[2 1 0]) }
     write('modules/sample/tests/hiera/hiera.yaml', '')
     %i[cli rake].each { |entry| assert_hiera_error(entry, %w[2 0 1]) }
-  end
-
-  def prepare_hiera_consumer
-    prepare_modulepath
-    write('modules/sample/manifests/init.pp', <<~PUPPET)
-      class sample(Sensitive[String] $password) {
-        if $password.unwrap != '#{SYNTHETIC_VALUE}' { fail('wrong consumer fixture') }
-      }
-    PUPPET
-    %w[profile sample].each { |name| consumer_hiera(name) }
   end
 
   def assert_hiera_success(entry)

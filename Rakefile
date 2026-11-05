@@ -73,7 +73,7 @@ namespace :syntax do
 end
 
 namespace :catalog do
-  desc 'Compile discovered module catalog scenarios, optionally writing JUnit to the supplied path'
+  desc 'Compile module scenarios and check dependency cycles, optionally writing JUnit to the supplied path'
   task :compile, [:junit] do |_task, args|
     require_relative '.tools/catalog/lib/catalog'
     runner = ProjectTools::Catalog.new

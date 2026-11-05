@@ -17,10 +17,33 @@ module CatalogConsumerReportingSupport
     assert_includes @output, 'Duplicate declaration'
     assert_includes @output, 'Expected a JSON object of facts'
     assert_log_status('ERROR')
-    assert_includes @output, '3 selected | 2 checked'
-    assert_includes @output, '1 failures | 1 errors'
-    assert_equal 1, @output.scan('Duplicate declaration').size
-    assert_equal 1, @output.scan('Expected a JSON object of facts').size
+    assert_includes @output, '4 selected | 3 checked'
+    assert_includes @output, '2 failures | 1 errors'
+    assert_cycle_console
+  end
+
+  def assert_cycle_console
+    assert_includes @output, 'cycle_probe/default [synthetic] | Dependency cycle'
+    ['Found 1 dependency cycle', 'Duplicate declaration', 'Expected a JSON object of facts'].each do |message|
+      assert_equal 1, @output.scan(message).size
+    end
+  end
+
+  def assert_cycle_report
+    item = suite.get_elements('testcase').find { |test| test.attributes['name'] == 'cycle_probe/default [synthetic]' }
+    assert_cycle_case(item)
+    assert suite.get_elements('testcase').last.elements['system-out']
+  end
+
+  def assert_cycle_case(item)
+    assert_equal 'DependencyCycle', item.elements['failure'].attributes['type']
+    assert_cycle_details(item.elements['failure'].text)
+    assert_nil item.elements['system-out']
+  end
+
+  def assert_cycle_details(details)
+    assert_includes details, 'Definition coverage: 1/1'
+    assert_includes details, 'Notify[cycle_probe_a] => Notify[cycle_probe_b] => Notify[cycle_probe_a]'
   end
 
   def assert_default_success_log

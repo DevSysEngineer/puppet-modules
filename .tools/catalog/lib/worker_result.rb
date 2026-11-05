@@ -14,6 +14,7 @@ module ProjectTools
       def result
         details = @output.empty? && @kind ? {} : JSON.parse(@output, symbolize_names: true)
         return invalid_result('missing or invalid deprecation registration') unless valid_details?(details)
+        return invalid_result('missing or invalid dependency cycle check') unless valid_cycle_check?(details)
 
         classify(details)
       rescue JSON::ParserError => e
@@ -22,6 +23,7 @@ module ProjectTools
 
       def classify(details)
         cause = :deprecation if @kind.nil? && !details[:deprecations].empty?
+        cause = :dependency_cycle if @kind.nil? && details[:dependency_cycles].positive?
         kind = cause ? :failure : @kind
         kind = :error if details[:deprecation_error]
         details.merge(name: @name, kind: kind, cause: cause, message: @diagnostics)
@@ -39,6 +41,12 @@ module ProjectTools
       def valid_entry?(entry)
         entry.is_a?(Hash) && entry[:message].is_a?(String) && !entry[:message].empty? &&
           optional?(entry, :source, String) && valid_line?(entry)
+      end
+
+      def valid_cycle_check?(details)
+        return !@kind.nil? unless details.key?(:dependency_cycles)
+
+        details[:dependency_cycles].is_a?(Integer) && details[:dependency_cycles] >= 0
       end
 
       def optional?(entry, key, type)

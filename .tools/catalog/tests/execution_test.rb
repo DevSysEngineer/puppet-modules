@@ -21,11 +21,23 @@ class CatalogExecutionTest < Minitest::Test
   def test_successful_worker_with_deprecations_is_a_quality_failure
     runner = catalog_runner([])
     status = Struct.new(:exitstatus).new(0)
-    output = JSON.generate(resources: 42, deprecations: [{ message: 'synthetic deprecation' }])
+    output = JSON.generate(resources: 42, dependency_cycles: 0, deprecations: [{ message: 'synthetic deprecation' }])
     result = runner.worker_result({ name: 'synthetic' }, output, '', status)
     assert_equal :failure, result[:kind]
     assert_equal :deprecation, result[:cause]
     assert_equal 42, result[:resources]
+  end
+
+  def test_missing_or_invalid_cycle_results_cannot_pass
+    runner = catalog_runner([])
+    status = Struct.new(:exitstatus).new(0)
+    [{}, { dependency_cycles: nil }, { dependency_cycles: -1 }, { dependency_cycles: false }].each do |details|
+      output = JSON.generate(details.merge(deprecations: []))
+      result = runner.worker_result({ name: 'synthetic' }, output, 'native diagnostic', status)
+      assert_equal :error, result[:kind]
+      assert_includes result[:message], 'missing or invalid dependency cycle check'
+      assert_includes result[:message], 'native diagnostic'
+    end
   end
 
   def test_progress_uses_shared_format_and_counts_completed_scenarios
