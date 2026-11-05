@@ -43,7 +43,29 @@ class SecretsRubyPreparationTest < SecretsSessionTestCase
   def test_reserved_marker_pattern_in_a_regexp_stays_parseable
     prefix = 'REDACTED'
     pattern = "/\\[#{prefix}-[0-9a-f]{32}\\]/"
-    copy = round_trip("pattern = #{pattern}\nordinary = :before\n")
+    assert_regexp_round_trip(pattern)
+  end
+
+  def test_reserved_marker_pattern_with_escaped_backslashes
+    prefix = 'REDACTED'
+    escapes = '\\' * 3
+    assert_regexp_round_trip("/#{escapes}[#{prefix}-[0-9a-f]{32}\\]/")
+  end
+
+  def test_reserved_marker_pattern_with_regexp_delimiters_and_options
+    prefix = 'REDACTED'
+    assert_regexp_round_trip("%r{\\[#{prefix}-[0-9a-f]{32}\\]}im")
+  end
+
+  def test_reserved_marker_pattern_with_a_nested_regexp_in_interpolation
+    prefix = 'REDACTED'
+    assert_regexp_round_trip("/\\[#{prefix}-\#{/nested/.source}\\]/")
+  end
+
+  def assert_regexp_round_trip(pattern)
+    copy = nil
+    streams = capture_io { copy = round_trip("pattern = #{pattern}\nordinary = :before\n") }
+    streams.each { |stream| refute_includes stream, 'warning:' }
     assert_equal 1, copy.scan(ProjectTools::Secrets::Document::MARKER).length
   end
 

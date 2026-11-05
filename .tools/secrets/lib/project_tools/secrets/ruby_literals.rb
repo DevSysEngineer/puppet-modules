@@ -5,11 +5,12 @@ require 'json'
 
 module ProjectTools
   module Secrets
-    # Only simple string tokens are decoded, without evaluating Ruby source.
+    # Collect simple strings and regexp boundaries without evaluating Ruby source.
     class RubyLiterals
       def initialize(document)
         @document = document
         @lines = document.text.lines
+        @regexps = []
       end
 
       def collect
@@ -21,6 +22,7 @@ module ProjectTools
       end
 
       def visit(kind, token, offset)
+        record_regexp(kind, token, offset)
         @opening = [offset, token] if kind == :on_tstring_beg
         @opening = nil if %i[on_embexpr_beg on_embvar].include?(kind)
         return unless kind == :on_tstring_end && @opening
@@ -29,6 +31,13 @@ module ProjectTools
         @opening = nil
       rescue JSON::ParserError
         @opening = nil
+      end
+
+      def record_regexp(kind, token, offset)
+        @regexps << offset if kind == :on_regexp_beg
+        return unless kind == :on_regexp_end
+
+        @document.regexp_literals << [@regexps.pop, offset + token.length]
       end
 
       def record(last)

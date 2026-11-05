@@ -12,15 +12,13 @@ module ProjectTools
     class Document
       include MarkerSyntax
 
-      attr_reader :path, :text, :findings, :errors, :values, :members, :literals
+      attr_reader :path, :text, :findings, :errors, :values, :members, :literals, :regexp_literals
       attr_accessor :coverage
 
       def initialize(path, text = '')
         @path = path
         @text = text
-        initialize_findings
-        @members = []
-        @literals = []
+        initialize_collections
         @coverage = 'text'
         @line_ends = []
         text.each_char.with_index { |char, index| @line_ends << index if char == "\n" }
@@ -28,12 +26,15 @@ module ProjectTools
         RubyLiterals.new(self).collect if ruby_source? && complete?
       end
 
-      def initialize_findings
+      def initialize_collections
         @findings = []
         @errors = []
         @spans = []
         @values = []
         @finding_keys = {}
+        @members = []
+        @literals = []
+        @regexp_literals = []
       end
 
       def finding(rule, offset, kind = 'indicator')

@@ -41,8 +41,10 @@ module ProjectTools
       end
 
       def protect_reference(first, last)
-        literal = @document.literals.find { |start, stop, _value, _type| first >= start && last <= stop }
-        first, last = literal.first(2) if literal
+        # Mask a whole regexp so its escapes cannot change the marker's syntax.
+        regions = @document.regexp_literals + @document.literals
+        region = regions.find { |start, stop, *_| first >= start && last <= stop }
+        first, last = region.first(2) if region
         @document.redact(first, last, 'protected_literal', '"[REDACTED]"')
       end
 
