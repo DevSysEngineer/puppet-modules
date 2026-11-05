@@ -69,6 +69,6 @@ class CatalogDiscoveryTest < Minitest::Test
     File.symlink(actual, File.join(directory, 'sample'))
     runner = ProjectTools::Catalog.new(modulepath: directory, console: @console)
     assert_equal 0, runner.run
-    assert_includes @console.string, '1 selected | 1 checked'
+    assert_includes @console.string, '1 selected | 1 processed | 1 checked'
   end
 end

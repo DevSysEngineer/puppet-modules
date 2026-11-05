@@ -67,7 +67,6 @@ module ProjectTools
         outcome = @result.status.zero? ? 'PASSED' : 'FAILED'
         presentation.finish(status: incomplete ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
                             facts: console_facts, report: report) do
-          console_problems(presentation, errors)
           presentation.diagnostic(error, output: errors) if error
           presentation.diagnostic('Final report: not produced') if error
         end
@@ -76,13 +75,6 @@ module ProjectTools
       def console_facts
         coverage.lines.map(&:chomp) +
           [format('Scan: %<failures>d dependency conflicts, %<errors>d execution errors.', @result.counts)]
-      end
-
-      def console_problems(presentation, errors)
-        @result.sorted_problems.each do |problem|
-          options = problem[:kind] == :error ? { output: errors } : {}
-          presentation.diagnostic("#{title(problem)}\n#{details(problem)}", **options)
-        end
       end
     end
   end

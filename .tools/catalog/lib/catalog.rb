@@ -26,6 +26,7 @@ module ProjectTools
                                                         software: software)
       @errors = errors
       @results = []
+      @processed = 0
     end
 
     def run(report: nil)
@@ -72,12 +73,14 @@ module ProjectTools
         @results << { name: 'Scenario selection', kind: :error, message: 'No catalog scenarios selected.' }
       end
       @results.each { |result| present(result) }
-      @scenarios.each do |scenario|
-        result = compile(scenario)
-        @results << result
-        present(result)
-        @console.advance(unit: 'scenarios', total: @scenarios.size)
-      end
+      @scenarios.each { |scenario| record(compile(scenario)) }
+    end
+
+    def record(result)
+      @results << result
+      @processed += 1
+      present(result)
+      @console.advance(unit: 'scenarios', total: @scenarios.size)
     end
 
     def compile(scenario)
@@ -100,13 +103,11 @@ module ProjectTools
     def finish(report: nil, error: nil)
       incomplete = error || counts[:errors].positive? || cycle_skips.positive?
       @console.finish(status: outcome(error), execution: incomplete ? 'incomplete' : 'complete',
-                      facts: facts(error: error), details: summary_details(error), report: report)
+                      facts: facts(error: error), report: report)
     end
 
     def execution_error(message)
-      @has_findings = true
-      @console.finding('Execution error')
-      @console.diagnostic(message, output: @errors)
+      @console.finding("Execution error\n#{message}", output: @errors)
       finish(error: message)
     end
   end

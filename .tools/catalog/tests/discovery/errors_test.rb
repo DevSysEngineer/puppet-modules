@@ -25,7 +25,7 @@ class CatalogDiscoveryErrorsTest < Minitest::Test
     assert_includes @console.string, 'Duplicate declaration'
     assert_includes @console.string, 'no_facts/discovery'
     assert_includes @console.string, 'no_manifests/discovery'
-    assert_includes @console.string, '2 selected | 2 checked'
+    assert_includes @console.string, '2 selected | 2 processed | 2 checked'
     assert_primary_status('ERROR')
     assert_includes @console.string, '1 failures | 2 errors'
     assert_occurs_once('Duplicate declaration')

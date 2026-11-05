@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.executables = ['project-tools-dependencies']
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'project-tools-shared', '>= 0.1.1', '< 0.2.0'
+  spec.add_dependency 'project-tools-shared', '>= 0.1.2', '< 0.2.0'
   spec.add_dependency 'json', '>= 2'
   spec.add_dependency 'semantic_puppet', '~> 1.1'
 end

@@ -138,7 +138,7 @@ Alle gevonden modules met tests doen mee, inclusief geïmporteerde modules op he
 
 ## Vanuit een ander project uitvoeren
 
-De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoorbeeld onder `global-modules`. Hij heeft geen eigen gem. Gebruik een actieve consumerbundle met één geselecteerde [Puppet/OpenVox-runtime](../README.md#runtimekeuze-en-compatibiliteit), de bij die runtime behorende ondersteunende gems en `project-tools-shared` vanaf 0.1.1 binnen 0.1; Rake-aanroepen vereisen bovendien `rake`. De [bundle-installatie voor afnemers](../README.md#installatie-in-je-project) beschrijft de gedeelde packages. Een installatie van uitsluitend gems bevat deze runner en de moduletests niet.
+De runner wordt met de moduleset als checkout of submodule geïmporteerd, bijvoorbeeld onder `global-modules`. Hij heeft geen eigen gem. Gebruik een actieve consumerbundle met één geselecteerde [Puppet/OpenVox-runtime](../README.md#runtimekeuze-en-compatibiliteit), de bij die runtime behorende ondersteunende gems en `project-tools-shared` vanaf 0.1.2 binnen 0.1; Rake-aanroepen vereisen bovendien `rake`. De [bundle-installatie voor afnemers](../README.md#installatie-in-je-project) beschrijft de gedeelde packages. Een installatie van uitsluitend gems bevat deze runner en de moduletests niet.
 
 **Werkmap:** Consumerroot. **Shell:** POSIX shell. **Vereisten:** De genoemde bundle, de volledige checkout onder `global-modules` en een geslaagde voorafgaande Puppet-secretscontrole met de bestaande projectselectie. **Invoer:** Tests uit de geïmporteerde checkout. **Wijzigt bestanden:** Het gevraagde rapport binnen het consumerproject. **Verwacht resultaat:** Dezelfde selectie en exitcodes als vanuit de libraryroot.
 
@@ -177,7 +177,7 @@ De [runner](lib/catalog.rb) presenteert resultaten via zijn [rapportagemodule](l
 | Ongeldig modulepad of lege totale selectie | 1 | `error` voor de selectie | Geen compilaties |
 | Ongeldig rapportpad of rapportschrijffout | 1 | Geen bruikbaar nieuw rapport gegarandeerd | Log behoudt reeds bekende resultaten |
 
-De standaardconsole volgt het [centrale logcontract](../README.md#joblogs): één start, beperkte voortgang, relevante bevindingen en één primaire afsluiting. Succesvolle scenario’s verhogen alleen de voortgangsteller en de totaaltelling. Resourceaantallen, gecompileerde definities en volledige dekking verschijnen uitsluitend in het aangevraagde JUnit-rapport. Gewone native Puppet-waarschuwingen blijven zichtbaar en behouden de compilatiestatus, ook wanneer hun tekst `deprecated` bevat. Herkende [native deprecations](#native-deprecations-afkeuren) geven `FAILED`.
+De standaardconsole volgt het [centrale logcontract](../README.md#joblogs): één start, beperkte voortgang en alle relevante bevindingen in één primaire afsluiting. Succesvolle scenario’s verhogen alleen de voortgangsteller en de totaaltelling. Resourceaantallen, gecompileerde definities en volledige dekking verschijnen uitsluitend in het aangevraagde JUnit-rapport. Gewone native Puppet-waarschuwingen blijven zichtbaar en behouden de compilatiestatus, ook wanneer hun tekst `deprecated` bevat. Herkende [native deprecations](#native-deprecations-afkeuren) geven `FAILED`.
 
 Dit illustratieve voorbeeld toont een geslaagde run met volledige dekking van classes en defines; tellingen en duur komen in een echte run uit de uitvoering:
 
@@ -186,28 +186,32 @@ Dit illustratieve voorbeeld toont een geslaagde run met volledige dekking van cl
 
 [PASSED] Puppet catalogs
 Execution: complete
-Scenarios: 2 selected | 2 checked
+Scenarios: 2 selected | 2 processed | 2 checked
 Results: 0 failures | 0 errors
 Modules without tests: 1 skipped
 Duration: 3.2 s
 JUnit written: build/reports/catalog.xml
 ```
 
-Een compilatiefout verschijnt eenmaal als bevinding, met de volledige native diagnose en de locatie wanneer Puppet die levert. Een dekkingsbevinding vraagt beoordeling maar is geen compilatiefout. Dit illustratieve voorbeeld bevat beide:
+Een compilatiefout verschijnt eenmaal in het eindblok, met de volledige native diagnose en de locatie wanneer Puppet die levert. Exact gelijke volledige diagnoses worden gegroepeerd met alle getroffen scenario’s onder `Affected`, gesorteerd op module, manifest en facts-identiteit. Verschillende diagnoses blijven afzonderlijk zichtbaar; JUnit houdt alle testcase-identiteiten en hun volledige diagnoses. Een dekkingsbevinding vraagt beoordeling maar is geen compilatiefout. Dit illustratieve voorbeeld bevat beide:
 
 ```text
 [START] Puppet catalogs | Module catalog scenarios
-[FINDING] Puppet catalogs | sample/cli_only [debian] | Coverage review: 2/4
-  Missing definitions: class sample::fpm, define sample::pool
-[FINDING] Puppet catalogs | sample/combined [debian] | Compilation failure
-  Evaluation Error: Unknown variable: 'missing'. (line: 2, column: 8)
 
 [FAILED] Puppet catalogs
 Execution: complete
-Scenarios: 2 selected | 2 checked
+Scenarios: 2 selected | 2 processed | 2 checked
 Results: 1 failures | 0 errors
 Modules without tests: 0 skipped
-  See findings and diagnostics above.
+Findings:
+  Coverage review: 2/4
+  Missing definitions: class sample::fpm, define sample::pool
+  Affected:
+    - sample/cli_only [debian]
+  Compilation failure
+  Evaluation Error: Unknown variable: 'missing'. (line: 2, column: 8)
+  Affected:
+    - sample/combined [debian]
 Duration: 3.4 s
 JUnit written: build/reports/catalog.xml
 ```
@@ -216,7 +220,7 @@ Bij langere uitvoering gebruikt de runner de gedeelde voortgang, bijvoorbeeld `[
 
 Zijn er skips en geen failures of errors, dan sluit de console af met `SKIPPED` en `Execution: incomplete`, ook als andere scenario’s volledig zijn gecontroleerd. De exitstatus is dan 0. Failures en errors behouden voorrang op skips; een combinatie met skips blijft als onvolledig zichtbaar.
 
-Uitvoerings- en rapportagefouten geven `ERROR` met `Execution: incomplete`; een ongeldig rapportargument geeft `ERROR` met `not executed`. Het einde verwijst naar eerder getoonde diagnoses zonder ze te herhalen. Ook een onderbreking behoudt bekende resultaten en suggereert geen succes; een harde procesbeëindiging kan afsluiting verhinderen. De CLI behoudt exitcode 0 bij succes en 1 bij inhoudelijke of uitvoeringsfouten; een afhandelbaar signaal wordt na de onvolledige afsluiting doorgegeven.
+Uitvoerings- en rapportagefouten geven `ERROR` met `Execution: incomplete`; een ongeldig rapportargument geeft `ERROR` met `not executed`. Het eindblok bevat alle tot dan toe verzamelde diagnoses en de uitvoerings- of rapportagefout. Ook een onderbreking behoudt bekende resultaten en suggereert geen succes; een harde procesbeëindiging kan afsluiting verhinderen. De CLI behoudt exitcode 0 bij succes en 1 bij inhoudelijke of uitvoeringsfouten; een afhandelbaar signaal wordt na de onvolledige afsluiting doorgegeven.
 
 Bij een geldig rapportverzoek verwijdert de runner een bestaand doel vóór uitvoering en publiceert hij het nieuwe XML-bestand pas na volledig schrijven en sluiten. Een schrijffout geeft één `ERROR`, zonder `JUnit written` en zonder gedeeltelijk nieuw rapport. Kan het oude bestand zelf niet worden verwijderd, dan stopt de uitvoering en wordt het niet als nieuw resultaat aangekondigd. Zonder rapportverzoek wordt geen rapport geschreven of gewijzigd.
 

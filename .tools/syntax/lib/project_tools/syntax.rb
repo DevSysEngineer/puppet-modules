@@ -32,7 +32,7 @@ module ProjectTools
       status
     rescue SystemCallError, IOError => e
       message = "Cannot write Puppet syntax JUnit report: #{e.message}"
-      @console.diagnostic(message, output: errors)
+      @console.finding(message, output: errors)
       finish(error: message)
       1
     end
@@ -49,6 +49,7 @@ module ProjectTools
     def validation_results
       if @paths.empty?
         @results << { path: 'Manifest selection', kind: :error, message: 'No Puppet manifests selected.' }
+        @console.finding(diagnostic(@results.last))
       else
         @paths.each { |path| process(path) }
       end
@@ -67,16 +68,12 @@ module ProjectTools
       incomplete = error || counts[:errors].positive?
       outcome = counts[:failures].positive? ? 'FAILED' : 'PASSED'
       @console.finish(status: incomplete ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
-                      facts: facts(counts), details: diagnostics + Array(error), report: report)
+                      facts: facts(counts), report: report)
     end
 
     def facts(counts)
       ["Files: #{@paths.size} selected | #{@results.count { |r| r[:kind] != :error }} checked",
        "Results: #{counts[:failures]} failures | #{counts[:errors]} errors"]
-    end
-
-    def diagnostics
-      @results.sort_by { |r| r[:path] }.filter_map { |result| diagnostic(result) unless result[:message].empty? }
     end
 
     def diagnostic(result)

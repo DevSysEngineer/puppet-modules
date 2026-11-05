@@ -91,20 +91,15 @@ module ProjectTools
     end
 
     def finish(status, execution, error: nil)
-      @console.finish(status: status, execution: execution, facts: [result_line], details: diagnostics + Array(error),
+      @console.finish(status: status, execution: execution, facts: [result_line], details: Array(error),
                       report: @junit && !error && tests.any? ? "#{@junit.reports_path}/TEST-*.xml" : nil)
       @reported = true
-    end
-
-    def diagnostics
-      tests.reject(&:passed?).sort_by { |test| [test_class(test).to_s, test.name] }.map { |test| message_for(test) }
     end
 
     def interrupted
       @console.stop_activity
       @console.finish(status: 'ERROR', execution: 'incomplete',
-                      details: diagnostics +
-                        ['Test execution or required reporting did not complete; see native diagnostic above.'])
+                      details: ['Test execution or required reporting did not complete.'])
     ensure
       self.class.terminal_outputs = nil
     end

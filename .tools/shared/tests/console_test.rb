@@ -32,19 +32,20 @@ class SharedConsoleTest < Minitest::Test
 
   def test_start_full_diagnostics_and_caller_status_use_safe_terminal_text
     @console.during do
-      @console.finding('example.pp:2:3 | Compilation failure')
-      @console.diagnostic("first line\n::error::literal text\e[31m\nlast line\t\r\0")
-      @console.finish(status: 'FAILED', execution: 'complete', facts: ['Checks: 1'],
-                      details: ['See diagnostics above.'])
+      @console.finding("first line\n::error::literal text\e[31m\nlast line\t\r\0", subject: 'example.pp:2:3')
+      refute_includes @output.string, 'first line'
+      @console.finish(status: 'FAILED', execution: 'complete', facts: ['Checks: 1'])
     end
     assert_full_safe_diagnostic
   end
 
   def assert_full_safe_diagnostic
-    assert_equal 1, @output.string.scan('[START]').size
-    assert_equal 1, @output.string.scan('[FINDING]').size
-    assert_equal ['FAILED'], @output.string.scan(/^\[(PASSED|FAILED|ERROR|SKIPPED)\]/).flatten
-    assert_includes @output.string, 'Execution: complete'
+    text = @output.string
+    assert_equal 1, text.scan('[START]').size
+    assert_equal 1, text.scan('Findings:').size
+    assert_operator text.index('[FAILED]'), :<, text.index('first line')
+    assert_equal ['FAILED'], text.scan(/^\[(PASSED|FAILED|ERROR|SKIPPED)\]/).flatten
+    assert_includes text, 'Execution: complete'
     assert_safe_diagnostic_lines
   end
 
@@ -69,7 +70,7 @@ class SharedConsoleTest < Minitest::Test
   def assert_incomplete_diagnostics
     assert_includes @output.string, '[ERROR] Synthetic check'
     assert_includes @output.string, 'Execution: incomplete'
-    assert_equal 2, @output.string.scan('example file:2:3 [RULE] failed').size
+    assert_equal 1, @output.string.scan('example file:2:3 [RULE] failed').size
     refute_match(/^::error::/, @output.string)
     refute_includes @output.string, "\e"
   end
@@ -77,11 +78,10 @@ class SharedConsoleTest < Minitest::Test
   def test_success_keeps_warning_details_without_creating_a_report
     @console.during do
       @console.finding('example.pp:1:1: warning: synthetic')
-      @console.finish(status: 'PASSED', execution: 'complete', facts: ['Warnings: 1'],
-                      details: ['example.pp:1:1: warning: synthetic'])
+      @console.finish(status: 'PASSED', execution: 'complete', facts: ['Warnings: 1'])
     end
     assert_equal 1, @output.string.scan('[PASSED]').size
-    assert_equal 2, @output.string.scan('warning: synthetic').size
+    assert_equal 1, @output.string.scan('warning: synthetic').size
     refute_includes @output.string, 'JUnit'
   end
 
@@ -96,6 +96,7 @@ class SharedConsoleTest < Minitest::Test
       require 'project_tools/shared/console'
       console = ProjectTools::Shared::Console.new('Synthetic signal check')
       console.during do
+        console.finding("first diagnostic\\nlast diagnostic")
         console.advance(unit: 'files', total: 2)
         console.progress
         STDIN.read
@@ -108,8 +109,14 @@ class SharedConsoleTest < Minitest::Test
     assert_includes output.readline, '1/2 files processed'
     Process.kill('TERM', process.pid)
     input.close
-    assert_includes output.read, 'Execution: incomplete'
+    final = output.read
+    assert_signal_diagnostics(final)
     assert_empty errors.read
     assert_equal Signal.list.fetch('TERM'), process.value.termsig
+  end
+
+  def assert_signal_diagnostics(final)
+    assert_includes final, 'Execution: incomplete'
+    assert_includes final, "  first diagnostic\n  last diagnostic"
   end
 end

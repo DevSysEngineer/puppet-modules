@@ -73,22 +73,29 @@ class SyntaxTest < Minitest::Test
     assert_equal '$value = 1', File.read(path)
   end
 
-  def test_results_are_visible_before_the_next_manifest_and_survive_report_failure
+  def test_results_are_deferred_until_the_end_and_survive_report_failure
     console = StringIO.new
     errors = StringIO.new
     validator = failing_writer(console)
     assert_equal 1, validator.run(File.join(@project, 'report.xml'), errors)
-    assert_includes console.string, '[ERROR] Puppet syntax'
-    assert_includes console.string, 'Results: 2 failures'
-    assert_includes console.string, 'second diagnostic'
+    assert_failed_report(console, errors)
+  end
+
+  def assert_failed_report(console, errors)
+    text = console.string
+    assert_includes text, '[ERROR] Puppet syntax'
+    assert_includes text, 'Results: 2 failures'
+    assert_includes text, 'second diagnostic'
+    assert_equal 1, text.scan('first diagnostic').size
+    assert_operator text.index('[ERROR]'), :<, text.index('first diagnostic')
     assert_includes errors.string, 'synthetic report failure'
-    refute_includes console.string, 'JUnit written:'
+    refute_includes text, 'JUnit written:'
   end
 
   def failing_writer(console)
     validator = ProjectTools::Syntax.new(%w[first.pp second.pp], console)
     validator.define_singleton_method(:syntax) do |path|
-      raise 'first result was buffered' if path == 'second.pp' && !console.string.include?('first diagnostic')
+      raise 'diagnostic printed during execution' if path == 'second.pp' && console.string.include?('first diagnostic')
 
       { path: path, kind: :failure, message: path == 'first.pp' ? 'first diagnostic' : 'second diagnostic' }
     end

@@ -53,7 +53,7 @@ class CatalogReportingTest < Minitest::Test
     assert_equal 1, runner.run(report: report)
     assert_primary_status('ERROR')
     assert_includes @errors.string, 'synthetic writer failure'
-    assert_includes @console.string, '1 selected | 1 checked'
+    assert_includes @console.string, '1 selected | 1 processed | 1 checked'
     refute_includes @console.string, 'JUnit written:'
     assert_no_report_files(report)
   end

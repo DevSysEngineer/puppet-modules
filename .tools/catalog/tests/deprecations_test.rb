@@ -18,9 +18,9 @@ class CatalogDeprecationsTest < Minitest::Test
     assert_primary_status('FAILED')
     assert_counts(%w[3 1 0])
     assert_failure_type('Deprecation')
-    assert_includes @console.string, 'native | Deprecated Puppet usage'
+    assert_match(/Deprecated Puppet usage.*Affected:\n    - native/m, @console.string)
     assert_occurs_once('synthetic native')
-    assert_includes @console.string, '3 selected | 3 checked'
+    assert_includes @console.string, '3 selected | 3 processed | 3 checked'
   end
 
   def test_real_stdlib_legacy_function_fails_and_namespaced_function_passes_despite_inherited_suppression
@@ -68,7 +68,7 @@ class CatalogDeprecationsTest < Minitest::Test
     assert_equal 1, run_catalogs([scenario('both', code)], report: report_path)
     assert_failure_type('CatalogFailure')
     assert_counts(%w[1 1 0])
-    assert_includes @console.string, 'both | Compilation failure'
+    assert_match(/Compilation failure.*Affected:\n    - both/m, @console.string)
     ['earlier synthetic', 'synthetic failure'].each { |message| assert_occurs_once(message) }
   end
 

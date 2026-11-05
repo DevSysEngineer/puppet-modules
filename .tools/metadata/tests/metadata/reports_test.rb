@@ -16,10 +16,17 @@ class MetadataReportsTest < Minitest::Test
     write_file('modules/profile/manifests/init.pp', "$values = [1] + [2]\n")
     scan('--junit', '.reports/metadata.xml')
     assert_equal 1, @status.exitstatus, @output + @errors
-    assert_equal '1', suite.attributes['failures']
-    assert_equal '0', suite.attributes['errors']
-    assert_includes contents('.reports/metadata.xml'), 'modules/profile/metadata.json'
-    refute_includes contents('.reports/metadata.xml'), 'project_arrays'
+    assert_equal(%w[1 0], %w[failures errors].map { |key| suite.attributes[key] })
+    assert_final_metadata_finding
+    report = contents('.reports/metadata.xml')
+    assert_includes report, 'modules/profile/metadata.json'
+    refute_includes report, 'project_arrays'
+  end
+
+  def assert_final_metadata_finding
+    assert_equal 1, @output.scan('modules/profile/metadata.json:').size
+    assert_operator @output.index('[FAILED]'), :<, @output.index('modules/profile/metadata.json:')
+    refute_includes @output, '[FINDING]'
   end
 
   def test_clean_metadata_without_manifests_produces_success_cases

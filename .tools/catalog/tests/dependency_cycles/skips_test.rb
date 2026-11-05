@@ -19,8 +19,8 @@ class CatalogDependencyCycleSkipsTest < Minitest::Test
     assert_equal '1', report_suite.attributes['skipped']
     assert_primary_status('SKIPPED')
     assert_includes @console.string, 'Execution: incomplete'
-    assert_includes @console.string, '2 selected | 1 checked'
-    assert_includes @console.string, 'guard_probe/default [debian] | Dependency cycle check skipped'
+    assert_includes @console.string, '2 selected | 2 processed | 1 checked'
+    assert_match(%r{Dependency cycle check skipped.*Affected:\n    - guard_probe/default \[debian\]}m, @console.string)
     assert_occurs_once("'[' is not qualified")
   end
 
@@ -29,7 +29,7 @@ class CatalogDependencyCycleSkipsTest < Minitest::Test
     assert_equal 0, run_catalogs([scenario('guard [synthetic]', guard_resource)])
     assert_primary_status('SKIPPED')
     assert_includes @console.string, 'Dependency cycle checks: 1 skipped'
-    assert_includes @console.string, '1 selected | 0 checked'
+    assert_includes @console.string, '1 selected | 1 processed | 0 checked'
     assert_equal '<previous/>', File.read(report)
     refute_includes @console.string, 'JUnit written:'
   end

@@ -22,7 +22,7 @@ De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een
 
 `require 'project_tools/shared/console'` levert `ProjectTools::Shared::Console` vanaf shared 0.1.1. Maak een instantie met een controlenaam, `output:` en eventueel `scope:`.
 
-`during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, output:)` toont een bevinding direct. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat.
+`during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, subject: nil, output:)` bewaart vanaf shared 0.1.2 een volledige bevinding voor het eindblok. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat.
 
 De aanroeper levert status en volledigheid; shared leidt geen oordeel af uit exitcodes of severitynamen. Geef `report:` uitsluitend na succesvol schrijven en sluiten van de gevraagde uitvoer.
 
@@ -30,7 +30,7 @@ De aanroeper levert status en volledigheid; shared leidt geen oordeel af uit exi
 
 Bij een onverwacht afgebroken `during` blijven verzamelde bevindingen zichtbaar in een onvolledige foutafsluiting, waarna de oorspronkelijke exception of het signaal doorgaat. Het [centrale logcontract](../README.md#joblogs) bepaalt de gebruikerspresentatie en de grens met native CI-stappen.
 
-Gebruik `finding` voor een beknopte identiteit en het probleemtype; deze methode toont maximaal de eerste twee regels. Geef een volledige meerregelige diagnose daarom afzonderlijk aan `diagnostic`, dat alle regels behoudt en terminalcontroltekens veilig weergeeft. Succesdetails zoals gecompileerde resources of definities zijn geen bevinding: bewaar ze bij het toolresultaat voor JUnit. Shared beslist niet of een warning of ontbrekende dekking het toolbeleid schendt.
+Geef het probleemtype en de volledige meerregelige diagnose aan `finding`, met de getroffen identiteit als optionele `subject:`. `finish` toont de verzamelde diagnoses eenmaal na status, volledigheid en tellingen. Exact gelijke volledige teksten op dezelfde uitvoerstroom worden gegroepeerd met alle unieke, gesorteerde identiteiten onder `Affected`. Verschillende vervolgregels of bronposities blijven afzonderlijke diagnoses. Alle regels blijven behouden en terminalcontroltekens worden veilig weergegeven. Gebruik de direct schrijvende `diagnostic` alleen voor startinformatie, native converters of aanvullende informatie tijdens de afsluiting. Succesdetails zoals gecompileerde resources of definities zijn geen bevinding: bewaar ze bij het toolresultaat voor JUnit. Shared beslist niet of een warning of ontbrekende dekking het toolbeleid schendt.
 
 Dit kleine voorbeeld presenteert reeds door de tool beoordeelde resultaten. `status`, `execution` en `written_report` komen van de aanroeper; de rapportvariabele is alleen gevuld na geslaagde publicatie:
 
@@ -39,18 +39,16 @@ console = ProjectTools::Shared::Console.new('Example check', scope: "#{results.s
 console.during do
   results.each do |result|
     if result[:problem]
-      console.finding("#{result[:name]} | #{result[:problem]}")
-      console.diagnostic(result[:diagnostic])
+      console.finding("#{result[:problem]}\n#{result[:diagnostic]}", subject: result[:name])
     end
     console.advance(unit: 'checks', total: results.size)
   end
   console.finish(status: status, execution: execution,
-                 facts: ["Checks: #{results.size} processed"],
-                 details: ['See any findings and diagnostics above.'], report: written_report)
+                 facts: ["Checks: #{results.size} processed"], report: written_report)
 end
 ```
 
-Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daarna eenmaal `finish` aan met het juiste tooloordeel. Een rescue buiten `during` komt pas na de automatische onvolledige afsluiting en mag geen tweede primaire status schrijven. Herhaal volledig getoonde diagnoses niet via `finish(details:)`; verwijs ernaar bij de bekende tellingen. De automatische afsluiting bij een onverwachte exception is een vangnet, geen vervanging voor de toolspecifieke foutafhandeling en resultaatadministratie.
+Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daarna eenmaal `finish` aan met het juiste tooloordeel. Een rescue buiten `during` komt pas na de automatische onvolledige afsluiting en mag geen tweede primaire status schrijven. Herhaal gebufferde diagnoses niet via `finish(details:)`; dat argument is alleen voor aanvullende afsluitinformatie. Een herhaalde `finish` schrijft geen tweede primaire afsluiting. De automatische afsluiting bij een onverwachte exception is een vangnet, geen vervanging voor de toolspecifieke foutafhandeling en resultaatadministratie.
 
 `project_lint/junit_report` blijft in de lintgem beschikbaar als compatibility-shim. `ProjectLint::JunitReport` verwijst naar dezelfde shared-module, met dezelfde signatuur. Er is geen tweede XML-implementatie of fallback naar een naastgelegen checkout.
 

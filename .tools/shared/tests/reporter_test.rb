@@ -31,6 +31,8 @@ class SharedTestReporterTest < Minitest::Test
     assert_includes output, '[PASSED] Tool tests'
     assert_includes output, '1 skips'
     assert_includes output, 'synthetic policy skip'
+    assert_operator output.index('[PASSED]'), :<, output.index('synthetic policy skip')
+    assert_equal 1, output.scan('synthetic policy skip').size
     refute_includes output, 'JUnit written:'
   end
 
@@ -40,6 +42,8 @@ class SharedTestReporterTest < Minitest::Test
     assert_includes output, '[ERROR] Tool tests'
     assert_includes output, '1 errors'
     assert_includes output, 'synthetic runtime cause'
+    assert_operator output.index('[ERROR]'), :<, output.index('synthetic runtime cause')
+    assert_equal 1, output.scan('synthetic runtime cause').size
   end
 
   def test_software_versions_appear_at_start_without_repeating_during_tests

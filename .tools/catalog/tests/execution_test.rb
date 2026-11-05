@@ -49,7 +49,7 @@ class CatalogExecutionTest < Minitest::Test
     assert_equal 0, runner.run
     assert_match(/\[PROGRESS\] Puppet catalogs \| Still running \| \d+ s \| no new results/, @console.string)
     assert_match(%r{\[PROGRESS\] Puppet catalogs \| 1/2 scenarios processed \| \d+ s}, @console.string)
-    assert_includes @console.string, '2 selected | 2 checked'
+    assert_includes @console.string, '2 selected | 2 processed | 2 checked'
     assert_primary_status('PASSED')
   end
 
@@ -67,8 +67,29 @@ class CatalogExecutionTest < Minitest::Test
   def assert_interrupted_result
     assert_primary_status('ERROR')
     assert_includes @console.string, 'Execution: incomplete'
-    assert_includes @console.string, '2 selected | 1 checked'
+    assert_includes @console.string, '2 selected | 1 processed | 1 checked'
     assert_occurs_once('earlier compilation failure')
     refute_includes @console.string, 'JUnit written:'
+  end
+
+  def test_identical_execution_errors_are_grouped_only_in_the_final_block
+    output = @console
+    runner = catalog_runner([scenario('second', ''), scenario('first', '')])
+    runner.define_singleton_method(:compile) do |input|
+      raise 'diagnostic printed during execution' if output.string.include?('synthetic cause')
+
+      { name: input[:name], kind: :error, message: "synthetic cause\nfull last line" }
+    end
+    assert_equal 1, runner.run(report: report_path)
+    assert_grouped_errors
+    assert_equal 2, report_suite.get_elements('testcase/error').size
+  end
+
+  def assert_grouped_errors
+    assert_primary_status('ERROR')
+    assert_includes @console.string, '2 selected | 2 processed | 0 checked'
+    assert_occurs_once('synthetic cause')
+    assert_includes @console.string, "  full last line\n  Affected:\n    - first\n    - second"
+    assert_operator @console.string.index('[ERROR]'), :<, @console.string.index('synthetic cause')
   end
 end

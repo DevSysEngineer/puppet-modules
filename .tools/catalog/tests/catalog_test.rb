@@ -44,10 +44,10 @@ class CatalogTest < Minitest::Test
   end
 
   def assert_mixed_console
-    assert_includes @console.string, '3 selected | 3 checked'
+    assert_includes @console.string, '3 selected | 3 processed | 3 checked'
     assert_primary_status('FAILED')
     assert_occurs_once('Duplicate declaration')
-    assert_includes @console.string, '[FINDING] Puppet catalogs | duplicate | Compilation failure'
+    assert_match(/Compilation failure.*Affected:\n    - duplicate/m, @console.string)
     assert_compact_success
   end
 
@@ -70,7 +70,7 @@ class CatalogTest < Minitest::Test
     assert_equal 0, run_catalogs([input], report: report_path)
     assert_primary_status('PASSED')
     assert_compact_success
-    assert_includes @console.string, '| Native diagnostic'
+    assert_includes @console.string, 'Native diagnostic'
     ['synthetic native warning', 'native stdout'].each do |message|
       assert_occurs_once(message)
       assert_includes report_suite.elements['testcase/system-out'].text, message
@@ -84,7 +84,7 @@ class CatalogTest < Minitest::Test
     report = report_path
     assert_equal 1, run_catalogs([missing, invalid], report: report)
     assert_equal(%w[2 0 2], %w[tests failures errors].map { |key| report_suite.attributes[key] })
-    assert_includes @console.string, '2 selected | 0 checked'
+    assert_includes @console.string, '2 selected | 2 processed | 0 checked'
     assert_includes @console.string, 'Expected a JSON object of facts'
     assert_primary_status('ERROR')
   end
@@ -94,7 +94,7 @@ class CatalogTest < Minitest::Test
     valid = scenario('valid', "notify { 'example': }")
     assert_equal 1, run_catalogs([killed, valid], report: report_path)
     assert_equal(%w[2 0 1], %w[tests failures errors].map { |key| report_suite.attributes[key] })
-    assert_includes @console.string, '2 selected | 1 checked'
+    assert_includes @console.string, '2 selected | 2 processed | 1 checked'
     assert_primary_status('ERROR')
   end
 end

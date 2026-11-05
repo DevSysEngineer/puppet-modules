@@ -36,7 +36,7 @@ module ProjectTools
       report.finish(console, report: options[:junit])
       report.status
     rescue OptionParser::ParseError, ArgumentError, SystemCallError, IOError => e
-      console.diagnostic("metadata: #{e.message}", output: errors)
+      console.finding("metadata: #{e.message}", output: errors)
       Report.new(scanner&.results || {}).finish(console, error: e.message)
       2
     end
@@ -97,8 +97,7 @@ module ProjectTools
         outcome = status.zero? ? 'PASSED' : 'FAILED'
         incomplete = error || @findings.key?('configuration') || @findings.key?('VERSION')
         console.finish(status: error ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
-                       facts: facts, details: problems.map { |problem| self.class.diagnostic(problem) } + Array(error),
-                       report: report)
+                       facts: facts, report: report)
       end
 
       def problems

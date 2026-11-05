@@ -60,9 +60,7 @@ module ProjectTools
       end
 
       def present_diagnostic(name, problem, message)
-        @has_findings = true
-        @console.finding("#{name} | #{problem}")
-        @console.diagnostic(message)
+        @console.finding("#{problem}\n#{message}", subject: name)
       end
 
       def present_coverage(result)
@@ -71,10 +69,6 @@ module ProjectTools
 
         present_diagnostic(result[:name], "Coverage review: #{coverage[:compiled].size}/#{coverage[:total]}",
                            "Missing definitions: #{coverage[:missing].join(', ')}")
-      end
-
-      def summary_details(error)
-        error || @has_findings ? ['See findings and diagnostics above.'] : []
       end
 
       def write_report(path)

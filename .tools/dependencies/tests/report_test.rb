@@ -76,11 +76,16 @@ class DependencyReportTest < Minitest::Test
     output, errors, status = Open3.capture3(@env, RbConfig.ruby, '-e', failing_final_write,
                                             '--', '--junit', @report, chdir: @project)
     assert_equal 2, status.exitstatus, output + errors
-    assert_includes output, 'example/missing'
+    assert_final_conflict(output)
     assert_includes output, '[ERROR] Puppet module dependencies'
     assert_includes errors, 'Cannot write Puppet dependency JUnit report'
     assert_includes File.read(@report), 'incomplete_scan'
     refute_includes output, 'JUnit written:'
+  end
+
+  def assert_final_conflict(output)
+    assert_operator output.index('[ERROR]'), :<, output.index('example/missing')
+    assert_equal 1, output.scan('Request metadata:').size
   end
 
   def failing_final_write

@@ -25,7 +25,7 @@ module ProjectTools
         totals = counts
         selected = @scenarios ? @scenarios.size : 'unknown'
         checked = totals[:tests] - totals[:errors] - totals[:skipped]
-        details = ["Scenarios: #{selected} selected | #{checked} checked",
+        details = ["Scenarios: #{selected} selected | #{@processed} processed | #{checked} checked",
                    "Results: #{totals[:failures]} failures | #{totals[:errors] + (error ? 1 : 0)} errors"]
         details.concat(cycle_skip_summary)
         details << "Modules without tests: #{@skipped.size} skipped" if @skipped

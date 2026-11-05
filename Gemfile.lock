@@ -3,7 +3,7 @@ PATH
   specs:
     project-tools-dependencies (0.1.0)
       json (>= 2)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
+      project-tools-shared (>= 0.1.2, < 0.2.0)
       semantic_puppet (~> 1.1)
 
 PATH
@@ -28,7 +28,7 @@ PATH
   specs:
     project-tools-metadata (0.1.0)
       json (>= 2.21, < 4)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
+      project-tools-shared (>= 0.1.2, < 0.2.0)
 
 PATH
   remote: .tools/secrets
@@ -41,7 +41,7 @@ PATH
 PATH
   remote: .tools/shared
   specs:
-    project-tools-shared (0.1.1)
+    project-tools-shared (0.1.2)
       builder (~> 3.3)
 
 PATH
@@ -49,7 +49,7 @@ PATH
   specs:
     project-tools-syntax (0.1.0)
       json (>= 2)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
+      project-tools-shared (>= 0.1.2, < 0.2.0)
 
 GEM
   remote: https://rubygems.org/

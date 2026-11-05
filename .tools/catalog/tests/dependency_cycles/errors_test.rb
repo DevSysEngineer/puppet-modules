@@ -29,7 +29,7 @@ class CatalogDependencyCycleErrorsTest < Minitest::Test
     assert_counts(%w[5 0 4])
     assert_primary_status('ERROR')
     assert_includes @console.string, 'Execution: incomplete'
-    assert_includes @console.string, '5 selected | 1 checked'
+    assert_includes @console.string, '5 selected | 5 processed | 1 checked'
     assert_occurs_once('Puppet::Error: synthetic graph error')
     report_suite.get_elements('testcase/error').each do |error|
       assert_equal 'CompilerError', error.attributes['type']

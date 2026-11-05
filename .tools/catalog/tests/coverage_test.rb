@@ -9,7 +9,7 @@ class CatalogCoverageTest < Minitest::Test
   def test_coverage_reports_indirect_declarations_and_excludes_unrealized_defines
     prepare_coverage_module
     assert_equal 0, run_catalogs(nil, report: report_path)
-    assert_includes @console.string, '[FINDING] Puppet catalogs | sample/default [debian] | Coverage review: 3/5'
+    assert_match(%r{Coverage review: 3/5.*Affected:\n    - sample/default \[debian\]}m, @console.string)
     assert_includes @console.string, 'Missing definitions: class sample::missing, define sample::unused'
     assert_primary_status('PASSED')
     assert_compact_success
@@ -48,9 +48,9 @@ class CatalogCoverageTest < Minitest::Test
     prepare_failed_coverage
     assert_equal 1, run_catalogs(nil, report: report_path)
     assert_primary_status('FAILED')
-    assert_equal 2, @console.string.scan('| Compilation failure').size
+    assert_equal 2, @console.string.scan('Compilation failure').size
     assert_complete_failure_diagnostics
-    assert_includes @console.string, '2 selected | 2 checked'
+    assert_includes @console.string, '2 selected | 2 processed | 2 checked'
     refute_includes @console.string, 'Coverage review'
     refute_includes File.read(report_path), 'Definition coverage'
   end

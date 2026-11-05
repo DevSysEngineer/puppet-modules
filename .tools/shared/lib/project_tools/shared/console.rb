@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'software'
+require_relative 'console_findings'
 
 module ProjectTools
   module Shared
@@ -18,7 +19,7 @@ module ProjectTools
         @started = @clock.call
         @processed = 0
         @previous = 0
-        @findings = []
+        @findings = ConsoleFindings.new
         @mutex = Mutex.new
         line(["[START] #{@name}", scope].compact.join(' | '))
         self.class.software(software.fetch(:tool), **software.except(:tool), output: output) if software
@@ -32,7 +33,7 @@ module ProjectTools
         unless @finished
           facts = @unit ? ["Processed: #{@processed} #{@unit}"] : []
           finish(status: 'ERROR', execution: 'incomplete', facts: facts,
-                 details: @findings + ['Execution ended before a result was available.'])
+                 details: ['Execution ended before a result was available.'])
         end
       end
 
@@ -72,24 +73,29 @@ module ProjectTools
         end
       end
 
-      def finding(message, output: @output)
+      def finding(message, subject: nil, output: @output)
         @mutex.synchronize do
-          @findings << message
-          brief = message.to_s.lines.first(2).map { |part| safe(part.chomp) }.join(' | ')
-          line("[FINDING] #{@name} | #{brief}", output: output)
+          @findings.add(message, subject: subject, output: output)
         end
       end
 
       def finish(status:, execution:, facts: [], details: [], report: nil)
+        return if @finished
+
         stop_activity
         @finished = true
-        line("\n[#{status}] #{@name}")
-        line("Execution: #{execution}")
-        facts.each { |fact| line(safe(fact)) }
+        result_header(status, execution, facts)
+        @findings.write
         details.each { |detail| diagnostic(detail) }
         yield if block_given?
         line(format('Duration: %.1f s', @clock.call - @started))
         line("JUnit written: #{safe(report)}") if report
+      end
+
+      def result_header(status, execution, facts)
+        line("\n[#{status}] #{@name}")
+        line("Execution: #{execution}")
+        facts.each { |fact| line(safe(fact)) }
       end
 
       def diagnostic(message, output: @output)
