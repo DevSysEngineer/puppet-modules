@@ -139,8 +139,9 @@ class basic_settings::packages::mysql (
 
       # Rebuild key
       exec { 'package_mysql_key_build':
+        provider    => shell,
         command     => $key_rebuild,
-        onlyif      => "/usr/bin/test -e ${key_file_shell}",
+        onlyif      => "test -e ${key_file_shell}",
         refreshonly => true,
         require     => [
           File[$alternative],
@@ -164,7 +165,7 @@ class basic_settings::packages::mysql (
       exec { 'package_mysql_source':
         provider => shell,
         command  => "/usr/bin/printf %b ${source_content_shell} > ${source_file_shell}; ${key_rebuild}",
-        unless   => "/usr/bin/test -e ${source_file_shell} && /usr/bin/printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
+        unless   => "test -e ${source_file_shell} && printf %b ${source_content_shell} | /usr/bin/cmp -s - ${source_file_shell}", # lint:ignore:140chars
         require  => [
           Package[$repository_required_packages],
           File['package_mysql_key_filename'],
@@ -175,7 +176,7 @@ class basic_settings::packages::mysql (
       exec { 'package_mysql_preference':
         provider => shell,
         command  => "/usr/bin/printf %b ${preference_content_shell} > ${file_preference_shell}; chmod 644 ${file_preference_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-        unless   => "/usr/bin/test -e ${file_preference_shell} && /usr/bin/printf %b ${preference_content_shell} | /usr/bin/cmp -s - ${file_preference_shell}", # lint:ignore:140chars
+        unless   => "test -e ${file_preference_shell} && printf %b ${preference_content_shell} | /usr/bin/cmp -s - ${file_preference_shell}", # lint:ignore:140chars
         require  => Exec['package_mysql_source'],
       }
     } else {
@@ -184,16 +185,18 @@ class basic_settings::packages::mysql (
   } else {
     # Remove mysql repo
     exec { 'package_mysql_source':
-      command => "/usr/bin/rm ${source_file_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${source_file_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${source_file_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${source_file_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove mysql preference
     exec { 'package_mysql_preference':
-      command => "/usr/bin/rm ${file_preference_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${file_preference_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${file_preference_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${file_preference_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove MySQL key

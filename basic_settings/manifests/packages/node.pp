@@ -106,10 +106,11 @@ class basic_settings::packages::node (
 
     # Download and install the repository signing key in a dedicated keyring file.
     exec { 'package_node_key':
-      command => "/usr/bin/curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}", # lint:ignore:140chars
-      unless  => "/usr/bin/test -e ${key_shell}",
-      notify  => Exec['package_node_source_reload'],
-      require => Package[$repository_required_packages],
+      provider => shell,
+      command  => "/usr/bin/curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}", # lint:ignore:140chars
+      unless   => "test -e ${key_shell}",
+      notify   => Exec['package_node_source_reload'],
+      require  => Package[$repository_required_packages],
     }
 
     # Install Node.js only after the managed source and key have been applied.

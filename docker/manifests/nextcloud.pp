@@ -476,7 +476,7 @@ define docker::nextcloud (
 
               exec { "${name}_host_mapping_${container}":
                 command  => $host_mapping_command,
-                onlyif   => "/usr/bin/test -f ${hosts_path_shell}",
+                onlyif   => "test -f ${hosts_path_shell}",
                 provider => shell,
                 unless   => $host_mapping_unless,
                 user     => 'root',

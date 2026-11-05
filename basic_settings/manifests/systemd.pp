@@ -106,9 +106,10 @@ class basic_settings::systemd (
   # Escape the target unit before using it in systemctl commands and guards.
   $default_target_unit_shell = stdlib::shell_escape("${cluster_id}-${default_target}.target")
   exec { 'set_default_target':
-    command => "/bin/systemctl set-default ${default_target_unit_shell}",
-    unless  => "/usr/bin/test \"\$(/bin/systemctl get-default)\" = ${default_target_unit_shell}",
-    require => [
+    provider => shell,
+    command  => "/bin/systemctl set-default ${default_target_unit_shell}",
+    unless   => "test \"\$(/bin/systemctl get-default)\" = ${default_target_unit_shell}",
+    require  => [
       Package[$required_packages],
       File["/etc/systemd/system/${cluster_id}-${default_target}.target"],
     ],

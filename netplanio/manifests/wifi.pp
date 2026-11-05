@@ -124,9 +124,10 @@ define netplanio::wifi (
 
       # Apply the runtime setting only after the command and guard tools are installed.
       exec { "netplan_${name}_runtime_pm":
-        command => "/usr/bin/printf %s on > ${runtime_pm_file_shell}",
-        onlyif  => "/usr/bin/test -e ${runtime_pm_file_shell} && [ \"\$(/usr/bin/cat ${runtime_pm_file_shell})\" != \"on\" ]",
-        require => Package['coreutils', 'dash'],
+        provider => shell,
+        command  => "/usr/bin/printf %s on > ${runtime_pm_file_shell}",
+        onlyif   => "test -e ${runtime_pm_file_shell} && [ \"\$(/usr/bin/cat ${runtime_pm_file_shell})\" != \"on\" ]",
+        require  => Package['coreutils', 'dash'],
       }
     } else {
       # Remove config

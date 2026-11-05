@@ -162,7 +162,7 @@ class basic_settings::packages::openitcockpit (
     exec { 'package_openitcockpit_source':
       provider => shell,
       command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages5.openitcockpit.io/repokey.txt | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      unless   => "test -e ${file_shell} && printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
       require  => [
         File['package_openitcockpit_license'],
         Package[$repository_required_packages],
@@ -177,9 +177,10 @@ class basic_settings::packages::openitcockpit (
 
     # Remove openitcockpit repo
     exec { 'package_openitcockpit_source':
-      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${file_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${file_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove openitcockpit key

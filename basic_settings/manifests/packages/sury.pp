@@ -107,15 +107,16 @@ class basic_settings::packages::sury (
     exec { 'package_sury_source':
       provider => shell,
       command  => "/usr/bin/bash -c ${source_install_script_shell}",
-      unless   => "/usr/bin/test -s ${key_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      unless   => "test -s ${key_shell} && printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
       require  => Package[$repository_required_packages],
     }
   } else {
     # Remove sury php repo
     exec { 'package_sury_source':
-      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${file_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${file_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove the legacy Ubuntu PPA key, retaining the package-managed archive keyring.

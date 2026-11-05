@@ -30,6 +30,7 @@ De [linthandleiding](../README.md) beschrijft gebruik en linteronderhoud. Alleen
   - [Privétoegang en uitvoerrechten onderbouwen](#privétoegang-en-uitvoerrechten-onderbouwen)
   - [Shellcommando's in Puppet](#shellcommandos-in-puppet)
     - [Verdieping bij Shellcommando's in Puppet](#verdieping-bij-shellcommandos-in-puppet)
+  - [POSIX-shell voor exec-guards gebruiken](#posix-shell-voor-exec-guards-gebruiken)
   - [Dynamische tekst met passende uitvoer verwerken](#dynamische-tekst-met-passende-uitvoer-verwerken)
   - [SQL als volledige shellwaarde doorgeven](#sql-als-volledige-shellwaarde-doorgeven)
   - [Quoting per parserlaag toepassen](#quoting-per-parserlaag-toepassen)
@@ -941,6 +942,57 @@ De voorbeeldparen worden via de native engine gecontroleerd door `guide/examples
 #### Verdieping bij Shellcommando's in Puppet
 
 `project_shell` volgt de herkomst van waarden in exec-commando's en guards. Een variabelenaam met `_shell` bewijst op zichzelf geen escaping. De check heeft geen autofix en kan ook niet bewijzen dat een veilig ge-escapet woord op de juiste plaats in het commando staat. Voer samengestelde commando's daarom geïsoleerd uit met synthetische argumenten die spaties, aanhalingstekens en shelltekens bevatten.
+
+### POSIX-shell voor exec-guards gebruiken
+
+**Norm**
+
+Gebruik POSIX-shellconstructies en ingebouwde commando's, zoals `case`, `test`, `[` en `printf`, wanneer zij een `onlyif`- of `unless`-controle eenvoudig en volledig uitvoeren. Kies bij zulke guards expliciet `provider => shell` op de betreffende `exec`. Puppet voert de commandostrings dan via `/bin/sh` uit. Puppet's provider `posix` heeft een ander contract: die maakt een ongekwalificeerde builtin zonder `path` niet vanzelf bruikbaar. Een absoluut pad in `command` kwalificeert de afzonderlijke guards niet.
+
+Gebruik voor deze controles geen extern `test`-executable en voeg geen Bash-, Python- of andere helperdependency toe wanneer POSIX volstaat. Verwijder een overbodige `sh -c`- of `bash -c`-laag wanneer de shell-provider het volledige fragment al correct uitvoert. Behoud een expliciete interpreter wanneer het aangeroepen script die werkelijk nodig heeft, volgens [interpreter en shellcompatibiliteit](#interpreter-en-shellcompatibiliteit).
+
+De provider geldt ook voor `command` en `refresh`. Review daarom de hele resource bij een providerwijziging. Behoud argumentarrays die directe uitvoering vereisen; geef alleen de guard in dat geval een expliciete `/bin/sh -c` met correct ge-escapete scriptinhoud. Zet geen globale `Exec`-providerdefault om uiteenlopende resources stilzwijgend naar shelluitvoering over te zetten.
+
+Geef noodzakelijke externe commando's een absoluut pad of een expliciet, passend zoekpad. Een `path` alleen garandeert niet dat `test` als builtin wordt uitgevoerd. Borg `/bin/sh` en overige executables via de bestaande [packageafhankelijkheden](CODE_RULES.md#packageafhankelijkheden-bij-externe-commandos). Op de ondersteunde Debian- en Ubuntu-systemen levert `dash` de POSIX-shell. Verwijder `coreutils` of Bash niet wanneer het hoofdcommando, een script of een andere afnemer die nog nodig heeft.
+
+Behoud de exacte voorwaarden, exitcodes en bestaande `creates`- en refreshinstellingen. Meerdere `onlyif`-voorwaarden moeten samen waar blijven; herschrijf een samengestelde `unless` niet zonder haar booleaanse betekenis te controleren. Escape dynamische woorden volgens [shellcommando's in Puppet](#shellcommandos-in-puppet). De [afweging voor runtime-tools](#runtime-tools-op-hun-functie-beoordelen) blijft gelden voor controles die externe programma's of een echte parser nodig hebben.
+
+**Herkomst**
+
+Projectregel; het provider- en guardcontract volgt de [Puppet-documentatie van exec](https://help.puppet.com/core/current/Content/PuppetCore/Markdown/exec.htm).
+
+**Toepassingsgebied**
+
+Eigen Puppet-`exec`-resources met shellguards, inclusief via variabelen samengestelde guards. Argumentlijsten van applicatie- of containerwrappers behouden het contract van die wrapper.
+
+**Detectiegrenzen**
+
+Puppet-lint controleert escaping en enkele commandodependencies, maar bewijst geen builtinselectie, POSIX-compatibiliteit of gelijkwaardig guardgedrag. De cataloguscontrole bouwt de native uitvoeringsgraaf zonder de guards uit te voeren; een geslaagde graafcontrole bewijst daarom geen werkende hostcontrole.
+
+**Onjuist voorbeeld**
+
+Handmatig reviewscenario: `onlyif => '[ -e /var/lib/example/stale ]'` staat bij een absoluut `command`, zonder shell-provider of passend zoekpad. De native resourcevalidatie kan de guard afkeuren.
+
+**Correct voorbeeld**
+
+Fragment voor handmatige review; de aanroepende class borgt beide packages vóór uitvoering. `test` draait als shellbuiltin en het externe verwijdercommando behoudt zijn dependency.
+
+```puppet
+exec { 'remove_stale_file':
+  provider => shell,
+  command  => '/usr/bin/rm /var/lib/example/stale',
+  onlyif   => 'test -e /var/lib/example/stale',
+  require  => Package['coreutils', 'dash'],
+}
+```
+
+**Handmatige review**
+
+Controleer de effectieve provider, alle commandovelden, escaping, packagevolgorde en alle takken van de resource. Vergelijk bestandspredicaten, ontbrekende bestanden, lege waarden, spaties, quotes en shelltekens. Bewijs builtinwerking met een leeg zoekpad en uitsluitend synthetische invoer; vergelijk voor samengestelde guards ook false- en foutpaden. Voer daarbij geen beheercommando's uit.
+
+**Verificatie**
+
+Valideer de gerenderde commando's met de bedoelde shell en vergelijk guardresultaten in tijdelijke fixtures volgens de [shellvalidatie](../../../../TESTS.md#shellvalidatie). Controleer daarnaast native resourcevalidatie en de bestaande catalogusscenario's zonder toepassing. De documentatiecontroles bewaken structuur en links; deze gedragsreview blijft afzonderlijk nodig.
 
 ### Dynamische tekst met passende uitvoer verwerken
 

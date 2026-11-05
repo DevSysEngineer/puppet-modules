@@ -692,13 +692,13 @@ class basic_settings::kernel (
       if ($cpu_boost != undef) {
         # Escape the CPU boost value before embedding it in the guard script.
         $cpu_boost_shell = stdlib::shell_escape($cpu_boost)
-        $cpu_boost_check_script = "if [ ! -f /sys/devices/system/cpu/cpufreq/boost ]; then exit 1; fi; if [ \$(cat /sys/devices/system/cpu/cpufreq/boost) -eq ${cpu_boost_shell} ]; then exit 1; else exit 0; fi" # lint:ignore:140chars
+        $cpu_boost_check_script = "if [ ! -f /sys/devices/system/cpu/cpufreq/boost ]; then exit 1; fi; if [ \$(/usr/bin/cat /sys/devices/system/cpu/cpufreq/boost) -eq ${cpu_boost_shell} ]; then exit 1; else exit 0; fi" # lint:ignore:140chars
 
-        # Escape the complete guard script before passing it to bash -c.
-        $cpu_boost_check_script_shell = stdlib::shell_escape($cpu_boost_check_script)
+        # Run the POSIX guard and redirection in the resource's shell.
         exec { 'kernel_cpu_boost':
-          command => "/usr/bin/bash -c 'echo \"1\" > /sys/devices/system/cpu/cpufreq/boost'",
-          onlyif  => "/usr/bin/bash -c ${cpu_boost_check_script_shell}",
+          provider => shell,
+          command  => 'printf "%s\n" 1 > /sys/devices/system/cpu/cpufreq/boost',
+          onlyif   => $cpu_boost_check_script,
         }
       }
     } else {
@@ -903,18 +903,20 @@ class basic_settings::kernel (
     case $tcp_congestion_control {
       'bbr': {
         exec { 'tcp_congestion_control':
-          command => '/usr/bin/printf "net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr" > /etc/sysctl.d/20-tcp_congestion_control.conf; chmod 600 /etc/sysctl.d/20-tcp_congestion_control.conf; sysctl -p /etc/sysctl.d/20-tcp_congestion_control.conf', # lint:ignore:140chars
-          onlyif  => [
+          provider => shell,
+          command  => '/usr/bin/printf "net.core.default_qdisc=fq\nnet.ipv4.tcp_congestion_control=bbr" > /etc/sysctl.d/20-tcp_congestion_control.conf; /usr/bin/chmod 600 /etc/sysctl.d/20-tcp_congestion_control.conf; /usr/sbin/sysctl -p /etc/sysctl.d/20-tcp_congestion_control.conf', # lint:ignore:140chars
+          onlyif   => [
             'test ! -f /etc/sysctl.d/20-tcp_congestion_control.conf',
-            'test 4 -eq $(cat /boot/config-$(uname -r) | grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')',
+            'test 4 -eq $(/usr/bin/cat /boot/config-$(/usr/bin/uname -r) | /usr/bin/grep -c -E \'CONFIG_TCP_CONG_BBR|CONFIG_NET_SCH_FQ\')',
           ], # lint:ignore:140chars
         }
       }
       default: {
         exec { 'tcp_congestion_control':
-          command => '/usr/bin/rm /etc/sysctl.d/20-tcp_congestion_control.conf',
-          onlyif  => '[ -e /etc/sysctl.d/20-tcp_congestion_control.conf ]',
-          notify  => Exec['kernel_sysctl_reload'],
+          provider => shell,
+          command  => '/usr/bin/rm /etc/sysctl.d/20-tcp_congestion_control.conf',
+          onlyif   => 'test -e /etc/sysctl.d/20-tcp_congestion_control.conf',
+          notify   => Exec['kernel_sysctl_reload'],
         }
       }
     }
@@ -924,50 +926,52 @@ class basic_settings::kernel (
     $kernel_io_command_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 0; [ -w \"/sys/block/\${dev}/queue/scheduler\" ] || exit 0; /usr/bin/printf %s none > \"/sys/block/\${dev}/queue/scheduler\"" # lint:ignore:140chars
     $kernel_io_check_script = "${kernel_io_device_script}; [ -n \"\$dev\" ] || exit 1; [ -r \"/sys/block/\${dev}/queue/scheduler\" ] || exit 1; if /usr/bin/grep -q '\\[none\\]' \"/sys/block/\${dev}/queue/scheduler\"; then exit 1; fi; exit 0" # lint:ignore:140chars
 
-    # Escape the complete scripts once before passing them to bash -c.
-    $kernel_io_command_shell = stdlib::shell_escape($kernel_io_command_script)
-    $kernel_io_check_shell = stdlib::shell_escape($kernel_io_check_script)
+    # The scripts use POSIX syntax; dynamic values are already quoted inside them.
     exec { 'kernel_io':
-      command => "/usr/bin/bash -c ${kernel_io_command_shell}",
-      onlyif  => "/usr/bin/bash -c ${kernel_io_check_shell}",
+      provider => shell,
+      command  => $kernel_io_command_script,
+      onlyif   => $kernel_io_check_script,
     }
 
     # Activate transparent hugepage modus
     exec { 'kernel_transparent_hugepage':
-      command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/enabled'",
-      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/enabled) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
+      provider => shell,
+      command  => 'printf "%s\n" madvise > /sys/kernel/mm/transparent_hugepage/enabled',
+      onlyif   => 'if [ $(/usr/bin/grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/enabled) -eq 0 ]; then exit 0; fi; exit 1', # lint:ignore:140chars
     }
 
     # Activate transparent hugepage defrag
     exec { 'kernel_transparent_hugepage_defrag':
-      command => "/usr/bin/bash -c 'echo \"madvise\" > /sys/kernel/mm/transparent_hugepage/defrag'",
-      onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/defrag) -eq 0 ]; then exit 0; fi; exit 1"', # lint:ignore:140chars
+      provider => shell,
+      command  => 'printf "%s\n" madvise > /sys/kernel/mm/transparent_hugepage/defrag',
+      onlyif   => 'if [ $(/usr/bin/grep -c \'\\[madvise\\]\' /sys/kernel/mm/transparent_hugepage/defrag) -eq 0 ]; then exit 0; fi; exit 1', # lint:ignore:140chars
     }
 
     # Kernel Multi-Gen LRU
     if ($mglru_active) {
       exec { 'kernel_mglru':
-        command => "/usr/bin/bash -c 'echo \"y\" > /sys/kernel/mm/lru_gen/enabled'",
-        onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
+        provider => shell,
+        command  => 'printf "%s\n" y > /sys/kernel/mm/lru_gen/enabled',
+        onlyif   => 'if [ $(/usr/bin/grep -c \'0x0003\|0x0007\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1',
       }
     } else {
       exec { 'kernel_mglru':
-        command => "/usr/bin/bash -c 'echo \"n\" > /sys/kernel/mm/lru_gen/enabled'",
-        onlyif  => '/usr/bin/bash -c "if [ $(grep -c \'0x0000\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1"',
+        provider => shell,
+        command  => 'printf "%s\n" n > /sys/kernel/mm/lru_gen/enabled',
+        onlyif   => 'if [ $(/usr/bin/grep -c \'0x0000\' /sys/kernel/mm/lru_gen/enabled) -eq 0 ]; then exit 0; fi; exit 1',
       }
     }
 
     # Kernel Multi-Gen LRU thrashing prevention
     # Escape the MGLRU value before writing it and checking the current kernel state.
     $mglru_min_ttl_ms_shell = stdlib::shell_escape($mglru_min_ttl_ms_correct)
-    $mglru_min_ttl_ms_check_script = "if [ \$(grep -c ${mglru_min_ttl_ms_shell} /sys/kernel/mm/lru_gen/min_ttl_ms) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
+    $mglru_min_ttl_ms_check_script = "if [ \$(/usr/bin/grep -c ${mglru_min_ttl_ms_shell} /sys/kernel/mm/lru_gen/min_ttl_ms) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
 
-    # Escape the complete guard script before passing it to bash -c.
-    $mglru_min_ttl_ms_check_script_shell = stdlib::shell_escape($mglru_min_ttl_ms_check_script)
     exec { 'kernel_mglru_min_ttl_ms':
-      command => "/usr/bin/printf %s ${mglru_min_ttl_ms_shell} > /sys/kernel/mm/lru_gen/min_ttl_ms",
-      onlyif  => "/usr/bin/bash -c ${mglru_min_ttl_ms_check_script_shell}",
-      require => [
+      provider => shell,
+      command  => "printf %s ${mglru_min_ttl_ms_shell} > /sys/kernel/mm/lru_gen/min_ttl_ms",
+      onlyif   => $mglru_min_ttl_ms_check_script,
+      require  => [
         Package[$kernel_command_packages],
         Exec['kernel_mglru'],
       ],
@@ -977,13 +981,12 @@ class basic_settings::kernel (
     # Escape lockdown values before writing them and checking the current kernel state.
     $security_lockdown_correct_shell = stdlib::shell_escape($security_lockdown_correct)
     $security_lockdown_pattern_shell = stdlib::shell_escape("\\[${security_lockdown_correct}\\]")
-    $security_lockdown_check_script = "if [ \$(grep -c ${security_lockdown_pattern_shell} /sys/kernel/security/lockdown) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
+    $security_lockdown_check_script = "if [ \$(/usr/bin/grep -c ${security_lockdown_pattern_shell} /sys/kernel/security/lockdown) -eq 0 ]; then exit 0; fi; exit 1" # lint:ignore:140chars
 
-    # Escape the complete guard script before passing it to bash -c.
-    $security_lockdown_check_script_shell = stdlib::shell_escape($security_lockdown_check_script)
     exec { 'kernel_security_lockdown':
-      command => "/usr/bin/printf %s ${security_lockdown_correct_shell} > /sys/kernel/security/lockdown",
-      onlyif  => "/usr/bin/bash -c ${security_lockdown_check_script_shell}",
+      provider => shell,
+      command  => "printf %s ${security_lockdown_correct_shell} > /sys/kernel/security/lockdown",
+      onlyif   => $security_lockdown_check_script,
     }
 
     # Guest agent

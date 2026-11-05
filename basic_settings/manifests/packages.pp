@@ -235,12 +235,13 @@ class basic_settings::packages (
 
     # Remove man
     exec { 'packages_man_remove':
-      command => '/usr/bin/rm /usr/bin/man',
-      onlyif  => [
-        '[ -e /usr/bin/man ]',
-        '[ -e /etc/dpkg/dpkg.cfg.d/excludes ]',
+      provider => shell,
+      command  => '/usr/bin/rm /usr/bin/man',
+      onlyif   => [
+        'test -e /usr/bin/man',
+        'test -e /etc/dpkg/dpkg.cfg.d/excludes',
       ],
-      require => Package['coreutils', 'dash'],
+      require  => Package['coreutils', 'dash'],
     }
 
     # Create list of packages that is suspicious

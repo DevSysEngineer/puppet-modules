@@ -869,19 +869,21 @@ class basic_settings (
       # Escape generated backports source content before the shell writes it.
       $backports_source_shell = stdlib::shell_escape("deb ${os_url} ${os_name}-backports ${os_repo}\n")
       exec { 'basic_settings_source_backports':
-        command => "/usr/bin/printf %s ${backports_source_shell} > ${backports_file_shell}",
-        unless  => "/usr/bin/test -e ${backports_file_shell}",
-        notify  => Exec['basic_settings_source_reload'],
-        require => Package[$backports_packages],
+        provider => shell,
+        command  => "/usr/bin/printf %s ${backports_source_shell} > ${backports_file_shell}",
+        unless   => "test -e ${backports_file_shell}",
+        notify   => Exec['basic_settings_source_reload'],
+        require  => Package[$backports_packages],
       }
     } else {
       # Use normal package selection when backports are not enabled.
       $backports_install_options = []
       exec { 'basic_settings_source_backports':
-        command => "/usr/bin/rm ${backports_file_shell}",
-        onlyif  => "/usr/bin/test -e ${backports_file_shell}",
-        notify  => Exec['basic_settings_source_reload'],
-        require => Package[$backports_packages],
+        provider => shell,
+        command  => "/usr/bin/rm ${backports_file_shell}",
+        onlyif   => "test -e ${backports_file_shell}",
+        notify   => Exec['basic_settings_source_reload'],
+        require  => Package[$backports_packages],
       }
     }
 

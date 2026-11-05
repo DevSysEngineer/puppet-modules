@@ -241,7 +241,7 @@ class basic_settings::monitoring (
       # Retirement may follow removal of the agent Service resource, so refresh only an already running systemd backend.
       exec { 'monitoring_retire_customchecks_reload':
         command     => '/usr/bin/systemctl try-restart openitcockpit-agent.service',
-        onlyif      => '/usr/bin/test -x /usr/bin/systemctl && /usr/bin/systemctl is-active --quiet openitcockpit-agent.service',
+        onlyif      => 'test -x /usr/bin/systemctl && /usr/bin/systemctl is-active --quiet openitcockpit-agent.service',
         provider    => shell,
         refreshonly => true,
         subscribe   => Exec['monitoring_retire_customchecks'],

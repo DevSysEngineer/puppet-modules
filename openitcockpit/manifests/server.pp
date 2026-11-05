@@ -710,7 +710,7 @@ class openitcockpit::server (
     $grafana_graphing_dir_shell = stdlib::shell_escape("${install_dir_correct}/docker/container/graphing")
     $installation_done_file_shell = stdlib::shell_escape("${install_dir_correct}/etc/.installation_done")
     $grafana_password_update_script = "umask 077 && /usr/bin/printf %s ${grafana_password_shell} > ${grafana_password_file_shell} && cd ${grafana_graphing_dir_shell} && /usr/bin/docker exec -i graphing-grafana-1 grafana-cli --homepath=/usr/share/grafana --config=/etc/openitcockpit/grafana/grafana.ini admin reset-admin-password ${grafana_password_shell}" # lint:ignore:140chars
-    $grafana_password_check_script = "/usr/bin/test -f ${installation_done_file_shell} && ( ! [ -f ${grafana_password_file_shell} ] || ! /usr/bin/grep -qxF ${grafana_password_shell} ${grafana_password_file_shell} )" # lint:ignore:140chars
+    $grafana_password_check_script = "test -f ${installation_done_file_shell} && ( ! [ -f ${grafana_password_file_shell} ] || ! /usr/bin/grep -qxF ${grafana_password_shell} ${grafana_password_file_shell} )" # lint:ignore:140chars
 
     # Escape the complete reset and guard scripts before passing them to sh -c.
     $grafana_password_update_script_shell = stdlib::shell_escape($grafana_password_update_script)

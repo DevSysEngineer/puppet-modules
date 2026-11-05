@@ -112,15 +112,16 @@ class basic_settings::packages::voxpupuli (
     exec { 'package_voxpupuli_source':
       provider => shell,
       command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSLo ${key_shell} https://apt.voxpupuli.org/openvox-keyring.gpg; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-      unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+      unless   => "test -e ${file_shell} && printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
       require  => Package[$repository_required_packages],
     }
   } else {
     # Remove voxpupuli repo
     exec { 'package_voxpupuli_source':
-      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${file_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${file_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove voxpupuli key

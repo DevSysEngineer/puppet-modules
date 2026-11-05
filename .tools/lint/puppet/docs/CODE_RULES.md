@@ -2294,6 +2294,8 @@ Borg de packages die externe commando’s leveren bij de functionaliteit die ze 
 
 Inventariseer bij een `exec` het effectieve `command`, of de resourcetitel wanneer `command` ontbreekt, en alle commando’s in `onlyif`, `unless` en `refresh`. Neem string- en arrayvormen mee. Bekijk bij iedere toepassing de interpreter, aangeroepen scripts, pipelines, command substitutions, vaste executablepaden en conditionele uitvoerpaden. Onderscheid externe executables van shell-builtins en lokale functies.
 
+Volg voor eenvoudige guards de [POSIX-shellkeuze](OPERATIONAL_RULES.md#posix-shell-voor-exec-guards-gebruiken); beoordeel de overblijvende externe commando's en hun dependencies daarna afzonderlijk.
+
 Controleer per ondersteunde distributie en pakketbron welk package het executable levert; leid de packagenaam niet uit de commandonaam af. `cmp` komt bijvoorbeeld uit `diffutils` en `awk` heeft meerdere providers. NodeSource levert npm via `nodejs`, terwijl Debian en Ubuntu daarvoor een afzonderlijk `npm`-package leveren.
 
 Gebruik voor package-installatie via stdlib de functie `stdlib::ensure_packages()`; de oude globale `ensure_packages()` is deprecated. Declareer de dependency op `puppetlabs-stdlib` in de modulemetadata. De [cataloguscontrole](../../../catalog/README.md#native-deprecations-afkeuren) keurt geëvalueerde native deprecations af; hiervoor bestaat geen afzonderlijke statische lintregel.

@@ -29,7 +29,7 @@ define ssh::host_key (
     # Escape command arguments and select an explicit bit count only for variable-size key types.
     $path_shell = stdlib::shell_escape($path)
     $public_path_shell = stdlib::shell_escape("${path}.pub")
-    $public_command_shell = stdlib::shell_escape("/usr/bin/ssh-keygen -y -f ${path_shell} > ${public_path_shell}")
+    $public_command = "/usr/bin/ssh-keygen -y -f ${path_shell} > ${public_path_shell}"
 
     # Prepare the key-generation settings from the parent mapping.
     $key_type_shell = stdlib::shell_escape($key_type)
@@ -56,10 +56,11 @@ define ssh::host_key (
 
     # Restore only a missing public key after its private identity is available.
     exec { "ssh_host_key_public_generate_${path}":
-      command => "/bin/sh -c ${public_command_shell}",
-      creates => "${path}.pub",
-      onlyif  => "/usr/bin/test -f ${path_shell}",
-      require => Exec["ssh_host_key_generate_${path}"],
+      provider => shell,
+      command  => $public_command,
+      creates  => "${path}.pub",
+      onlyif   => "test -f ${path_shell}",
+      require  => Exec["ssh_host_key_generate_${path}"],
     }
 
     # Cryptographic formats cannot carry a Managed by puppet header; Puppet never supplies their contents.

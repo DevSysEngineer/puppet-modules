@@ -114,7 +114,7 @@ class basic_settings::packages::mozilla (
         exec { 'package_mozilla_source':
           provider => shell,
           command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x738BEB9321D1AAEC13EA9391AEBDF4819BE21867' | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-          unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+          unless   => "test -e ${file_shell} && printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
           require  => Package[$repository_required_packages],
         }
       }
@@ -122,7 +122,7 @@ class basic_settings::packages::mozilla (
         exec { 'package_mozilla_source':
           provider => shell,
           command  => "/usr/bin/printf %b ${source_shell} > ${file_shell}; /usr/bin/curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg | gpg --dearmor | tee ${key_shell} >/dev/null; chmod 644 ${key_shell}; /usr/bin/apt-get update", # lint:ignore:140chars
-          unless   => "/usr/bin/test -e ${file_shell} && /usr/bin/printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
+          unless   => "test -e ${file_shell} && printf %b ${source_shell} | /usr/bin/cmp -s - ${file_shell}",
           require  => Package[$repository_required_packages],
         }
       }
@@ -130,9 +130,10 @@ class basic_settings::packages::mozilla (
   } else {
     # Remove sury php repo
     exec { 'package_mozilla_source':
-      command => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
-      onlyif  => "/usr/bin/test -e ${file_shell}",
-      require => Package[$source_packages],
+      provider => shell,
+      command  => "/usr/bin/rm ${file_shell} && /usr/bin/apt-get update",
+      onlyif   => "test -e ${file_shell}",
+      require  => Package[$source_packages],
     }
 
     # Remove sury key

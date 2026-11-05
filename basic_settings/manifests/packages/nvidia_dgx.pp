@@ -119,7 +119,7 @@ class basic_settings::packages::nvidia_dgx (
       exec { 'package_nvidia_dgx_keys':
         provider => shell,
         command  => "/bin/dash -c ${bootstrap_shell}",
-        unless   => '/bin/dash -c "test -s /usr/share/keyrings/cuda_debian_prod.gpg && test -s /usr/share/keyrings/dgx_debian_prod.gpg"',
+        unless   => 'test -s /usr/share/keyrings/cuda_debian_prod.gpg && test -s /usr/share/keyrings/dgx_debian_prod.gpg',
         path     => ['/usr/bin', '/bin'],
         require  => [
           Package[$repository_packages],
