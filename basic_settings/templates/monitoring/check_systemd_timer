@@ -5,7 +5,7 @@
 
 # Fail helper
 die() {
-    monitor_error 'systemd timer check cannot run: ' "$*"
+    monitor_error 'systemd timer check cannot run: ' "$*" ' | last_run_age=U exit_code=U'
     exit 3
 }
 
@@ -23,6 +23,7 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
+TIMEOUT=$(command -v timeout 2>/dev/null) || die "timeout not available (GNU coreutils required)"
 
 # Window and log caps keep timer diagnosis bounded for monitoring output.
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
@@ -38,6 +39,12 @@ Environment: DETAIL_LIMIT (-l, default 6000); LOG_LINES (-n, default 20); WINDOW
 WINDOW selects the forward journal interval from the last timer trigger.
 LOG_WINDOW selects a positive integer interval from now minus that many seconds through now, without clipping to the last trigger. It overrides journal selection only; WINDOW retains its meaning when LOG_WINDOW is omitted.
 Journal entries are diagnostic context; current target service properties determine status. Output limits and the agent timeout do not expand with the lookback.
+A completed successful execution with exit status zero is OK. Concrete service failures are CRITICAL, including timeout or signal failures with exit status zero.
+An observed running main process (including an activating oneshot) is WARNING: service execution in progress; result pending. Long tasks can keep warning; no allowed-runtime policy is implied.
+Missing or invalid results and inconsistent observations are UNKNOWN. exit_code is U without a valid final result; last_run_age measures the timer trigger, not service completion.
+Status sampling uses at most three timer/service pairs, without sleeps. Each systemctl query has a one-second timeout and a one-second kill grace; the existing agent timeout still bounds the entire check, including journal processing.
+Matching samples reduce races but do not make timer and service reads atomic.
+Standalone use requires a running systemd manager, POSIX shell, awk, GNU date/timeout, sed and tail; journalctl is optional diagnostic context.
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 OPTERR=0
 while getopts ':l:n:t:w:m:h' opt; do
@@ -56,6 +63,48 @@ done
 shift $((OPTIND - 1))
 [ "$#" -eq 1 ] || die "$USAGE_TEXT"
 TIMER_UNIT=$1
+
+# Read named properties once per unit, preserving empty values and rejecting incomplete/duplicate fields.
+# PROPERTIES is canonical name=value output; READ_ERROR describes an unreadable snapshot.
+read_properties() {
+    property_unit=$1
+    property_names=$2
+    READ_ERROR=''
+    set --
+    for property_name in $property_names; do
+        set -- "$@" -p "$property_name"
+    done
+    PROPERTIES=$($TIMEOUT -k 1 1 $SYSTEMCTL show "$property_unit" --all --no-pager "$@" 2>/dev/null) || {
+        READ_ERROR="$property_unit status query failed or timed out"
+        return 1
+    }
+    PROPERTIES=$(printf '%s\n' "$PROPERTIES" | $AWK -v names="$property_names" '
+        BEGIN { count=split(names, fields, " "); for (i=1; i<=count; i++) wanted[fields[i]]=1 }
+        {
+            separator=index($0, "=")
+            name=substr($0, 1, separator-1)
+            if (!separator || !wanted[name] || seen[name]++) { bad=1; next }
+            values[name]=substr($0, separator+1)
+        }
+        END {
+            for (i=1; i<=count; i++)
+                if (!seen[fields[i]] && fields[i] != "StatusText" && values["LoadState"] != "not-found") bad=1
+            if (bad) exit 1
+            for (i=1; i<=count; i++) print fields[i] "=" values[fields[i]]
+        }
+    ') || {
+        READ_ERROR="$property_unit status properties missing, duplicated or malformed"
+        return 1
+    }
+}
+
+# Validate non-negative manager integers before shell comparisons; reject overflow as unreadable data.
+valid_number() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$1" -ge 0 ] 2>/dev/null
+}
 
 # Validate diagnostic output limits before journal text is rendered.
 case "$LOG_LINES" in
@@ -83,32 +132,164 @@ if [ "$LOG_WINDOW_SET" = true ]; then
     [ "$LOG_WINDOW" -ge 1 ] 2>/dev/null || die "LOG_WINDOW must be a positive integer"
 fi
 
-# Inspect manager properties: a bus failure does not prove a missing or inactive unit.
-TIMER_LOAD=$($SYSTEMCTL show "$TIMER_UNIT" -p LoadState --value 2>/dev/null)
-TIMER_RC=$?
-if [ "$TIMER_LOAD" = not-found ]; then
-    monitor_result "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
-    exit 2
-fi
-[ "$TIMER_RC" -eq 0 ] && [ -n "$TIMER_LOAD" ] || die "timer LoadState unavailable"
-TIMER_ACTIVE=$($SYSTEMCTL show "$TIMER_UNIT" -p ActiveState --value 2>/dev/null) || die "timer ActiveState unavailable"
-case "$TIMER_ACTIVE" in
-    active) : ;;
-    inactive|failed|activating|deactivating)
-        monitor_result "${TIMER_UNIT} is not active (${TIMER_ACTIVE})" "last_run_age=U exit_code=U"
+# Require two matching timer/service observations; retry changes at most twice without waiting.
+# Invocation, process timestamps and the timer trigger distinguish executions, even in the same second.
+PREVIOUS_SNAPSHOT=''
+CHECK_STATUS=3
+CHECK_MESSAGE='timer/service observations remain inconsistent after three samples'
+EXIT_CODE=U
+for SAMPLE in 1 2 3; do
+    read_properties "$TIMER_UNIT" 'LoadState ActiveState Unit LastTriggerUSec LastTriggerUSecMonotonic' || die "$READ_ERROR"
+    TIMER_SNAPSHOT=$PROPERTIES
+    while IFS='=' read -r PROPERTY VALUE; do
+        case "$PROPERTY" in
+            LoadState) TIMER_LOAD=$VALUE ;;
+            ActiveState) TIMER_ACTIVE=$VALUE ;;
+            Unit) SERVICE_UNIT=$VALUE ;;
+            LastTriggerUSec) LAST_RUN_TEXT=$VALUE ;;
+            LastTriggerUSecMonotonic) LAST_TRIGGER_MONOTONIC=$VALUE ;;
+        esac
+    done <<EOF
+$PROPERTIES
+EOF
+    # Preserve the existing missing/inactive timer policy before inspecting its target.
+    if [ "$TIMER_LOAD" = not-found ]; then
+        monitor_result "${TIMER_UNIT} does not exist" "last_run_age=U exit_code=U"
         exit 2
-        ;;
-    *) die "timer ActiveState unavailable or invalid" ;;
-esac
-SERVICE_UNIT=$($SYSTEMCTL show "$TIMER_UNIT" -p Unit --value 2>/dev/null) || die "timer target unavailable"
-[ -n "$SERVICE_UNIT" ] || die "timer target unavailable"
+    fi
+    case "$TIMER_LOAD" in
+        loaded|stub|masked|error|bad-setting|merged) : ;;
+        *) die "timer LoadState unavailable or invalid" ;;
+    esac
+    case "$TIMER_ACTIVE" in
+        active) : ;;
+        inactive|failed|activating|deactivating)
+            monitor_result "${TIMER_UNIT} is not active (${TIMER_ACTIVE})" "last_run_age=U exit_code=U"
+            exit 2
+            ;;
+        *) die "timer ActiveState unavailable or invalid" ;;
+    esac
+    [ -n "$SERVICE_UNIT" ] || die "timer target unavailable"
+    # systemctl formats this timer property as a duration; compare it verbatim, not as an integer.
+    [ -n "$LAST_TRIGGER_MONOTONIC" ] || die "timer LastTriggerUSecMonotonic unavailable"
+    # An active timer without a trigger still has the existing first-run warning.
+    if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = 0 ]; then
+        monitor_result "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
+        exit 1
+    fi
 
-# The last trigger timestamp anchors age perfdata and the default journal window.
-LAST_RUN_TEXT=$($SYSTEMCTL show "$TIMER_UNIT" -p LastTriggerUSec --value 2>/dev/null) || die "timer trigger timestamp unavailable"
-if [ -z "$LAST_RUN_TEXT" ] || [ "$LAST_RUN_TEXT" = "0" ]; then
-    monitor_result "${TIMER_UNIT} has never been triggered" "last_run_age=U exit_code=U"
-    exit 1
-fi
+    read_properties "$SERVICE_UNIT" 'LoadState ActiveState SubState Type Result ExecMainCode ExecMainStatus MainPID InvocationID ExecMainStartTimestampMonotonic ExecMainExitTimestampMonotonic StatusText' || die "$READ_ERROR"
+    while IFS='=' read -r PROPERTY VALUE; do
+        case "$PROPERTY" in
+            LoadState) SERVICE_LOAD=$VALUE ;;
+            ActiveState) SERVICE_ACTIVE=$VALUE ;;
+            SubState) SERVICE_SUB=$VALUE ;;
+            Type) SERVICE_TYPE=$VALUE ;;
+            Result) RESULT=$VALUE ;;
+            ExecMainCode) MAIN_CODE=$VALUE ;;
+            ExecMainStatus) MAIN_STATUS=$VALUE ;;
+            MainPID) MAIN_PID=$VALUE ;;
+            InvocationID) INVOCATION_ID=$VALUE ;;
+            ExecMainStartTimestampMonotonic) MAIN_START=$VALUE ;;
+            ExecMainExitTimestampMonotonic) MAIN_EXIT=$VALUE ;;
+            StatusText) STATUS_TEXT=$VALUE ;;
+        esac
+    done <<EOF
+$PROPERTIES
+EOF
+    # A missing required target is a concrete fault, even without service-specific properties.
+    if [ "$SERVICE_LOAD" = not-found ]; then
+        CHECK_STATUS=2
+        CHECK_MESSAGE='timer target does not exist'
+        break
+    fi
+    [ "$SERVICE_LOAD" = loaded ] || die "$SERVICE_UNIT LoadState unavailable or not loaded"
+    case "$SERVICE_ACTIVE" in
+        active|inactive|failed|activating|deactivating|reloading|refreshing|maintenance) : ;;
+        *) die "$SERVICE_UNIT ActiveState invalid" ;;
+    esac
+    case "$SERVICE_SUB" in
+        ''|*[!a-z-]*) die "$SERVICE_UNIT SubState invalid" ;;
+    esac
+    case "$SERVICE_TYPE" in
+        simple|exec|forking|oneshot|dbus|notify|notify-reload|idle) : ;;
+        *) die "$SERVICE_UNIT Type invalid" ;;
+    esac
+    case "$RESULT" in
+        ''|success|unknown|n/a|resources|protocol|timeout|exit-code|signal|core-dump|watchdog|start-limit-hit|oom-kill|exec-condition) : ;;
+        *) die "$SERVICE_UNIT Result invalid" ;;
+    esac
+    case "$MAIN_CODE" in
+        0|1|2|3) : ;;
+        *) die "$SERVICE_UNIT ExecMainCode invalid" ;;
+    esac
+    valid_number "$MAIN_STATUS" && [ "$MAIN_STATUS" -le 255 ] || die "$SERVICE_UNIT ExecMainStatus invalid"
+    valid_number "$MAIN_PID" || die "$SERVICE_UNIT MainPID invalid"
+    valid_number "$MAIN_START" || die "$SERVICE_UNIT ExecMainStartTimestampMonotonic invalid"
+    valid_number "$MAIN_EXIT" || die "$SERVICE_UNIT ExecMainExitTimestampMonotonic invalid"
+    case "$INVOCATION_ID" in
+        '') : ;; # Inactive units can have no invocation ID; timestamps still identify their last process.
+        *[!0-9a-f]*) die "$SERVICE_UNIT InvocationID invalid" ;;
+        *) [ "${#INVOCATION_ID}" -eq 32 ] || die "$SERVICE_UNIT InvocationID invalid" ;;
+    esac
+
+    # Only a stopped main process in a final service state supplies exit-code perfdata.
+    FINAL_RESULT=false
+    EXIT_CODE=U
+    case "$SERVICE_ACTIVE/$SERVICE_SUB" in
+        inactive/dead|failed/failed|active/exited)
+            # A final state alone does not establish that a main process has completed.
+            if [ "$MAIN_PID" -eq 0 ] && [ "$MAIN_CODE" -ne 0 ] &&
+                [ "$MAIN_START" -gt 0 ] && [ "$MAIN_EXIT" -ge "$MAIN_START" ]; then
+                FINAL_RESULT=true
+                case "$RESULT" in
+                    ''|unknown|n/a) : ;;
+                    *) EXIT_CODE=$MAIN_STATUS ;;
+                esac
+            fi
+            ;;
+    esac
+
+    # Concrete failures take precedence over an in-progress or changing service state.
+    SERVICE_FAILED=false
+    case "$RESULT" in
+        ''|success|unknown|n/a) : ;;
+        *) SERVICE_FAILED=true ;;
+    esac
+    if [ "$SERVICE_FAILED" = true ] || [ "$SERVICE_ACTIVE" = failed ] ||
+        [ "$MAIN_CODE" -eq 2 ] || [ "$MAIN_CODE" -eq 3 ] || [ "$MAIN_STATUS" -ne 0 ]; then
+        CHECK_STATUS=2
+        CHECK_MESSAGE="${RESULT:-result unavailable} with exit $MAIN_STATUS, code $MAIN_CODE, state $SERVICE_ACTIVE/$SERVICE_SUB, status ${STATUS_TEXT:-unknown}"
+        break
+    fi
+
+    # Require matching execution observations; StatusText can change independently and is excluded.
+    SNAPSHOT=$(printf '%s\n' "$TIMER_SNAPSHOT" "$SERVICE_LOAD" "$SERVICE_ACTIVE" "$SERVICE_SUB" "$SERVICE_TYPE" "$RESULT" "$MAIN_CODE" "$MAIN_STATUS" "$MAIN_PID" "$INVOCATION_ID" "$MAIN_START" "$MAIN_EXIT")
+    if [ "$SNAPSHOT" = "$PREVIOUS_SNAPSHOT" ]; then
+        # Success requires normal process termination and a successful service result together.
+        if [ "$FINAL_RESULT" = true ] && [ "$RESULT" = success ] && [ "$MAIN_CODE" -eq 1 ]; then
+            CHECK_STATUS=0
+            CHECK_MESSAGE="successful (${STATUS_TEXT:-unknown})"
+        else
+            # A live PID with an unfinished main-process timestamp also covers activating oneshots.
+            CHECK_MESSAGE="no completed execution result and no running main process established (state $SERVICE_ACTIVE/$SERVICE_SUB)"
+            if [ "$MAIN_PID" -gt 0 ] && [ "$MAIN_START" -gt 0 ] && [ "$MAIN_EXIT" -lt "$MAIN_START" ]; then
+                case "$SERVICE_ACTIVE/$SERVICE_SUB" in
+                    active/running|reloading/*|refreshing/*|activating/start|activating/start-post|deactivating/*)
+                        CHECK_STATUS=1
+                        CHECK_MESSAGE='service execution in progress; result pending'
+                        ;;
+                esac
+            elif [ "$FINAL_RESULT" = true ]; then
+                CHECK_MESSAGE='completed main process but service Result unavailable'
+            fi
+        fi
+        break
+    fi
+    PREVIOUS_SNAPSHOT=$SNAPSHOT
+    # An unstable final-looking snapshot must not publish an exit code as a settled result.
+    EXIT_CODE=U
+done
 
 # Convert systemd's timestamp into epoch seconds for age and journal range calculations.
 LAST_RUN_TS=$($DATE -d "$LAST_RUN_TEXT" +%s 2>/dev/null || true)
@@ -137,18 +318,6 @@ if [ -n "$JOURNALCTL" ]; then
     JOURNAL_RAW=$($JOURNALCTL -u "$SERVICE_UNIT" --since "@${SINCE_TS}" --until "@${UNTIL_TS}" -o short-iso --no-pager 2>/dev/null || true)
 fi
 
-# Current properties of the timer's actual target are authoritative; logs only add context.
-EXIT_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainStatus --value 2>/dev/null || printf 'U')
-RESULT_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p Result --value 2>/dev/null || printf 'unknown')
-MAIN_CODE_PROP=$($SYSTEMCTL show "$SERVICE_UNIT" -p ExecMainCode --value 2>/dev/null || printf 'U')
-STATUS_TEXT=$($SYSTEMCTL show "$SERVICE_UNIT" -p StatusText --value 2>/dev/null || printf '')
-
-EXIT_CODE=$EXIT_CODE_PROP
-RESULT=$RESULT_PROP
-case "$EXIT_CODE" in
-    ''|*[!0-9]*) EXIT_CODE=U ;;
-esac
-
 # Render journal for long output with a predictable line cap.
 JOURNAL_LINE_COUNT=$(printf '%s\n' "$JOURNAL_RAW" | $SED '/^$/d' | $SED -n '$=')
 case "$JOURNAL_LINE_COUNT" in
@@ -163,48 +332,17 @@ if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     fi
     monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES")" "$MAXLOG"
 fi
-if [ -n "${LONG_OUTPUT:-}" ]; then
+if [ -n "${LONG_OUTPUT:-}" ] || [ "$CHECK_STATUS" -ne 0 ]; then
     monitor_limit "$DETAIL_LIMIT"
     monitor_section "Interpretation"
     monitor_item "Current properties of the timer target decide the exit code; journal lines are bounded context from $JOURNAL_CONTEXT."
-    monitor_item "Inspect the named service journal around the timer trigger when the summary reports a failed result, non-zero exit status, or inconclusive timer outcome."
+    monitor_item "An in-progress execution has no final result and warns until completion; active state alone does not prove a running process. Inspect the named service when a failure or missing result persists."
 fi
 
-# Perfdata exposes timer age and the last observed service exit status.
+# Perfdata exposes trigger age and only a validated, settled main-process exit status.
 PERFDATA="last_run_age=${LAST_RUN_AGE}s exit_code=${EXIT_CODE}"
-
-# Zero ExecMainCode is the default before an execution completes, not evidence of success.
-if [ "$RESULT" = success ] && [ "$EXIT_CODE" = 0 ]; then
-    case "$MAIN_CODE_PROP" in
-        ''|0|*[!0-9]*) die "timer target has no completed execution result" ;;
-    esac
+if [ "$CHECK_STATUS" -ne 0 ]; then
+    monitor_prepend 'Timer findings' "$SERVICE_UNIT: $CHECK_MESSAGE; last trigger $LAST_RUN_TEXT" 'Inspect the target service state and journal around the timer trigger.'
 fi
-
-# A completed target result and numeric zero exit status establish success.
-if [ "$RESULT" = "success" ] && [ "${EXIT_CODE:-U}" = "0" ]; then
-    monitor_result \
-        "$SERVICE_UNIT successful (${STATUS_TEXT:-unknown}); last run: $LAST_RUN_TEXT" \
-        "$PERFDATA"
-    exit 0
-fi
-
-# Preserve the observed result, including signal/timeout failures with zero ExecMainStatus.
-if [ -n "${LONG_OUTPUT:-}" ]; then
-    monitor_prepend 'Timer findings' "$SERVICE_UNIT: $RESULT; exit $(monitor_value "$EXIT_CODE"); last trigger $LAST_RUN_TEXT" 'Inspect the target service result and journal around the timer trigger.'
-fi
-monitor_result \
-    "$SERVICE_UNIT $RESULT with exit ${EXIT_CODE}, code ${MAIN_CODE_PROP}, status ${STATUS_TEXT:-unknown}; last run: $LAST_RUN_TEXT" \
-    "$PERFDATA"
-
-# Missing evidence is UNKNOWN; a concrete unsuccessful result is CRITICAL even with exit status zero.
-case "$RESULT" in
-    ''|unknown|n/a) exit 3 ;;
-    success)
-        case "$EXIT_CODE" in
-            0) exit 0 ;;
-            U) exit 3 ;;
-            *) exit 2 ;;
-        esac
-        ;;
-    *) exit 2 ;;
-esac
+monitor_result "$SERVICE_UNIT $CHECK_MESSAGE; last run: $LAST_RUN_TEXT" "$PERFDATA"
+exit "$CHECK_STATUS"
