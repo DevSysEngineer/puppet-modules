@@ -9,7 +9,7 @@
 # Nextcloud owns their defaults. PHP-style option names are mapped from the snake_case Puppet parameters below.
 # Changes to active primary storage require a separate migration plan; removing a store still in use loses access.
 # Optional monitoring reads only this subtree using OCC as www-data in nextcloud-aio-nextcloud on the local daemon.
-# It requires the existing central monitoring backend, native curl SigV4, and GNU timeout in the AIO container.
+# It requires the existing central monitoring backend, native curl SigV4, and the AIO OCC interface.
 # HTTPS also requires host curl >= 7.88 with OpenSSL certificate output. Runtime incompatibilities report UNKNOWN;
 # no container packages or permissions are changed.
 # One signed HeadBucket (s3:ListBucket permission on AWS), or explicitly selected HeadObject (object read permission),
@@ -45,7 +45,7 @@
 #
 # @param connect_timeout
 #   S3 connection timeout in seconds, including fractional seconds. Zero disables it; undef leaves the Nextcloud
-#   default.
+#   default. Applies to Nextcloud operations, not to the monitoring check.
 #
 # @param copy_size_limit
 #   Single-copy size limit in bytes (copySizeLimit). Undef leaves the Nextcloud default.
@@ -90,9 +90,8 @@
 #   Undef omits the option. Must be below the effective critical threshold. Only successful HEAD requests use it.
 #
 # @param monitoring_timeout
-#   Optional whole seconds, at least five (-t, TIMEOUT), for the entire check and its agent timeout.
-#   Undef omits -t and retains the wrapper's agent default; environment changes do not change the agent budget.
-#   The executable reserves three seconds for termination, cleanup and output, and bounds OCC inside the container.
+#   Optional OpenITCOCKPIT execution timeout in seconds. Undef retains the wrapper's agent default.
+#   The executable has no timeout setting; OpenITCOCKPIT terminates checks that exceed this limit.
 #
 # @param monitoring_validity_critical
 #   Optional nonnegative days (-c, VALIDITY_CRITICAL). Undef omits the option and uses environment or script default.
@@ -130,6 +129,7 @@
 #
 # @param timeout
 #   S3 timeout in whole seconds; zero disables it. Undef leaves the Nextcloud default.
+#   Applies to Nextcloud operations, not to the monitoring check.
 #   Nextcloud stores this setting in an integer property; fractional values are supported only by connect_timeout.
 #
 # @param upload_part_size
@@ -170,7 +170,7 @@ define docker::nextcloud::s3 (
   Optional[String]                                            $monitoring_object            = undef,
   Optional[Variant[Integer[1], Float[0]]]                     $monitoring_response_critical = undef,
   Optional[Variant[Integer[1], Float[0]]]                     $monitoring_response_warning  = undef,
-  Optional[Integer[5]]                                        $monitoring_timeout           = undef,
+  Optional[Integer[1]]                                        $monitoring_timeout           = undef,
   Optional[Integer[0]]                                        $monitoring_validity_critical = undef,
   Optional[Integer[1]]                                        $monitoring_validity_warning  = undef,
   Integer[1]                                                  $occ_timeout                  = 120,
@@ -282,7 +282,6 @@ define docker::nextcloud::s3 (
               '-c' => $monitoring_validity_critical,
               '-W' => $monitoring_response_warning,
               '-C' => $monitoring_response_critical,
-              '-t' => $monitoring_timeout,
               '-l' => $monitoring_detail_limit,
             }.filter |$option, $value| { $value != undef }.map |$option, $value| {
               # Preserve shell arguments through OpenITCOCKPIT ConfigParser's percent interpolation as well.

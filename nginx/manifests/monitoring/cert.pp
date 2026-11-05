@@ -54,9 +54,8 @@
 #   fallback.
 #
 # @param timeout
-#   Optional timeout override in seconds for both script and agent. `undef` omits -t and uses the script environment
-#   value or default, while the agent uses monitoring_custom's default. The script reserves three seconds for
-#   termination and output and kills remaining children.
+#   Optional OpenITCOCKPIT execution timeout in seconds. `undef` retains monitoring_custom's agent default.
+#   The executable has no timeout setting; OpenITCOCKPIT terminates checks that exceed this limit.
 #
 # @param validity_critical
 #   Optional critical validity threshold in days. `undef` omits -c and uses the environment value or script default. The
@@ -76,7 +75,7 @@ define nginx::monitoring::cert (
   Integer[1]                   $interval          = 300,
   Optional[String[1]]          $registration_name = undef,
   Optional[String]             $server_name       = undef,
-  Optional[Integer[5, 300]]    $timeout           = undef,
+  Optional[Integer[1]]         $timeout           = undef,
   Optional[Integer[1, 36500]]  $validity_critical = undef,
   Optional[Integer[2, 36501]]  $validity_warning  = undef,
 ) {
@@ -103,7 +102,6 @@ define nginx::monitoring::cert (
         # Omit each unset override independently, without serializing undef as an empty argument.
         $check_overrides = {
           '-l' => $detail_limit,
-          '-t' => $timeout,
           '-c' => $validity_critical,
           '-w' => $validity_warning,
         }.filter |$option, $value| { $value != undef }.map |$option, $value| {

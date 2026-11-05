@@ -1,5 +1,6 @@
 # Monitoring examples for OpenITCOCKPIT agent mode and custom checks.
 # Replace URLs, API keys, and contact addresses with environment data.
+# All timeout values below configure OpenITCOCKPIT; checks, including new custom checks, must not impose their own limits.
 
 node 'monitored-host.example.org' {
   # Add optional deployment expectations to the default firewall checks.

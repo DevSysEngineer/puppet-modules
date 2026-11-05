@@ -2503,7 +2503,7 @@ Valideer minstens twee targets met eigen instellingen en verwijder of deactiveer
 
 Houd monitoring onafhankelijk van de taak die zij observeert: inspecteer resultaten of status zonder de taakrunner aan te roepen, te sourcen of ervan afhankelijk te zijn.
 
-Een check mag noodzakelijke brondata voor haar meting zelf ophalen en vervallen cache vernieuwen, met begrensde opdrachten en hergebruik van geldige data. Richt daarvoor niet uitsluitend een aparte systemd-dienst of collector in. Dit staat geen uitvoering van de bewaakte applicatietaak, pakketupgrades of herstelacties toe. Een begrensde pakketlijstrefresh voor de NCSC-check is dataverzameling.
+Een check mag noodzakelijke brondata voor haar meting zelf ophalen en vervallen cache vernieuwen, met hergebruik van geldige data en een uitvoertijd die door OpenITCOCKPIT wordt bewaakt. Richt daarvoor niet uitsluitend een aparte systemd-dienst of collector in. Dit staat geen uitvoering van de bewaakte applicatietaak, pakketupgrades of herstelacties toe. Een pakketlijstrefresh voor de NCSC-check is dataverzameling.
 
 **Herkomst**
 
@@ -2529,7 +2529,7 @@ Handmatig reviewscenario: Een check start de taakrunner om te bepalen of diens l
 
 Handmatig reviewscenario: Lees het bestaande resultaat of de status zonder de taak uit te voeren.
 
-Handmatig reviewscenario: Een adviescheck vernieuwt vervallen brondata binnen haar runbudget en hergebruikt geldige cache. Zij mag hiervoor pakketlijsten ophalen, maar voert geen pakketupgrade uit en start geen bewaakte jobrunner.
+Handmatig reviewscenario: Een adviescheck vernieuwt vervallen brondata onder de uitvoertijdlimiet van OpenITCOCKPIT en hergebruikt geldige cache. Zij mag hiervoor pakketlijsten ophalen, maar voert geen pakketupgrade uit en start geen bewaakte jobrunner.
 
 **Grensgevallen**
 
@@ -2537,7 +2537,7 @@ Geen uitzondering: statusinspectie mag geen uitvoering of sourcing van de taakru
 
 **Handmatige review**
 
-Volg commandopaden en afhankelijkheden van de check; controleer dat inspectie de waargenomen taak niet uitvoert. Onderscheid noodzakelijke dataverzameling van herstelacties en controleer cachehergebruik, opdrachtlimieten en het totale runbudget.
+Volg commandopaden en afhankelijkheden van de check; controleer dat inspectie de waargenomen taak niet uitvoert. Onderscheid noodzakelijke dataverzameling van herstelacties en controleer cachehergebruik, invoerlimieten en de agentregistratie.
 
 **Verificatie**
 
@@ -2751,7 +2751,9 @@ Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles 
 
 **Norm**
 
-Het uitvoerinterval en de timeout van de monitoringagent horen bij de registratie. Een scriptoptie of omgevingsvariabele verandert die agentinstellingen niet. De executor-timeout moet ruimte bieden voor uitvoering, beëindiging en uitvoer van het script. Beoordeel de agentplanning daarom afzonderlijk van scriptopties.
+OpenITCOCKPIT beheert de maximale uitvoertijd en bepaalt wanneer een monitoringcheck vanwege een time-out wordt afgebroken. Stel deze grens uitsluitend in bij de agentregistratie, met een timeout die kleiner is dan het uitvoerinterval. De check voert haar controles uit zonder eigen time-outlogica. Dit geldt voor alle bestaande en nieuwe checks, hun gedeelde functies, templates en configuratie.
+
+Gebruik geen `timeout`-commando, eigen timer, deadline, tijdbudget, bewakingsproces of timeoutopties voor aangeroepen hulpmiddelen of clients. Bied daarvoor ook geen scriptparameters of omgevingsvariabelen aan. Puppet-parameters voor monitoringtimeouts configureren uitsluitend de agent. Bij zelfstandig gebruik draagt de executor dezelfde verantwoordelijkheid. Meetvensters, responstijddrempels, begrenzing van invoer of uitvoer en het herkennen van time-outs van bewaakte services hebben een ander doel en blijven toegestaan.
 
 **Herkomst**
 
@@ -2759,31 +2761,31 @@ Projectregel
 
 **Toepassingsgebied**
 
-Registratie-interval en executor-timeout naast runtime-opties van het script.
+Alle monitoringchecks, hun subprocessen en gedeelde helpers, registratie, templates, configuratie, documentatie en voorbeelden.
 
 **Detectiegrenzen**
 
-Beoordeel zelf de genoemde runtimeobjecten, het doel van de code en de gevolgen voor het beheer; de linter controleert die niet. Een scriptoptie of environmentvariabele verandert de agentplanning niet.
+De linter bewijst niet dat een check geen eigen time-outlogica bevat of dat de agent de volledige uitvoering beëindigt. Controleer de commandopaden en de werkelijke registratie handmatig.
 
 **Toegestane uitzonderingen**
 
-Een scriptoptie of environmentvariabele verandert de agentplanning niet.
+Geen eigen time-outlogica in monitoringchecks. Looptijdlimieten van een bewaakte applicatie of taak vallen buiten deze norm; de check mag die waarnemen.
 
 **Onjuist voorbeeld**
 
-Handmatig reviewscenario: Een langere script-timeout wordt ingesteld terwijl de agent het proces eerder afbreekt.
+Handmatig reviewscenario: Een check start een subprocess met `timeout`, geeft curl een maximale looptijd of stopt haar inventarisatie zodra een eigen deadline is bereikt.
 
 **Correct voorbeeld**
 
-Handmatig reviewscenario: Stem interval en agent-timeout afzonderlijk af volgens de executorafspraken.
+Handmatig reviewscenario: De check roept de inspectie rechtstreeks aan. Alleen de OpenITCOCKPIT-registratie bevat de maximale uitvoertijd; de agent breekt een te lang lopende check af.
 
 **Handmatige review**
 
-Vergelijk de scriptuitvoering, beëindiging en outputbudget met de toegestane executortijd.
+Controleer scriptopties, omgevingsvariabelen, gedeelde functies en gegenereerde commando's op eigen uitvoertijdlimieten. Vergelijk de gemeten checklooptijd en het benodigde uitvoerwerk met timeout en interval in de agentregistratie. Controleer dat oude scriptopties ook uit voorbeelden en hulptekst zijn verdwenen.
 
 **Verificatie**
 
-Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles uit. Leg je bevindingen en eventuele functionele validatie vast in de wijzigingsreview volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering). De voorbeelden bewijzen op zichzelf geen host- of modulegedrag.
+Gebruik tijdelijk vertraagde synthetische afhankelijkheden om te controleren dat de check niet zelf wegens een tijdslimiet stopt. Controleer daarnaast de gegenereerde agentregistratie en, op een geschikte testhost, de beëindiging door OpenITCOCKPIT. Leg uitgevoerde en niet-uitgevoerde controles vast volgens de [projectafspraken](../../../../TESTS.md#isolatie-en-bewijsvoering).
 
 ### Uitvoer voor beheerders
 
@@ -3162,7 +3164,7 @@ Vergelijk de voorbeelden met de norm en voer de beschreven handmatige controles 
 
 **Norm**
 
-Een limiet op gegevensverzameling heeft een ander doel dan een limiet op de uiteindelijke tekst. APT-ophaal-, groeps- en tijdslimieten of een journalvenster begrenzen het externe werk en de invoer. Ze begrenzen niet de diagnose die al is verzameld. Leg dat onderscheid uit en behoud zichtbare meldingen wanneer uitvoer wordt afgekort.
+Een limiet op gegevensverzameling heeft een ander doel dan een limiet op de uiteindelijke tekst. Een APT-groepslimiet of een journalvenster begrenst het externe werk en de invoer. Ze begrenzen niet de diagnose die al is verzameld. Leg dat onderscheid uit en behoud zichtbare meldingen wanneer uitvoer wordt afgekort. De maximale uitvoertijd blijft uitsluitend bij OpenITCOCKPIT volgens [Agentplanning afzonderlijk afstemmen](#agentplanning-afzonderlijk-afstemmen).
 
 **Herkomst**
 
@@ -3170,7 +3172,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-APT-ophaal-, groeps- en tijdslimieten, journalvensters en afkappen van verzamelde diagnose.
+APT-groepslimieten, journalvensters en afkappen van verzamelde diagnose.
 
 **Detectiegrenzen**
 

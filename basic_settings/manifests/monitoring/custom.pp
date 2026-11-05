@@ -64,7 +64,8 @@
 #   hash. It does not replace derived values such as state_dir or become executable shell code.
 #
 # @param timeout
-#   Check timeout in seconds. The default is 30. Must be less than interval when registering an active check.
+#   OpenITCOCKPIT execution timeout in seconds. The default is 30; must be less than interval for an active check.
+#   The agent terminates checks that exceed this limit. This setting is not passed to the script.
 #
 # @api public
 define basic_settings::monitoring::custom (

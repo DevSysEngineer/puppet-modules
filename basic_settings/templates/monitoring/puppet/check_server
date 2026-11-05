@@ -21,7 +21,7 @@ die() {
     exit 3
 }
 
-# Discover tools directly; timeout bounds external inspections against one shared execution deadline.
+# Discover the tools needed for local inspections.
 AWK=$(command -v awk 2>/dev/null) || die 'awk unavailable'
 CAT=$(command -v cat 2>/dev/null) || die 'cat unavailable'
 DATE=$(command -v date 2>/dev/null) || die 'date unavailable'
@@ -36,7 +36,6 @@ RM=$(command -v rm 2>/dev/null) || die 'rm unavailable'
 SED=$(command -v sed 2>/dev/null) || die 'sed unavailable'
 SORT=$(command -v sort 2>/dev/null) || die 'sort unavailable'
 STAT=$(command -v stat 2>/dev/null) || die 'stat unavailable'
-TIMEOUT=$(command -v timeout 2>/dev/null) || die 'timeout unavailable'
 
 # CLI overrides non-empty environment values; only this executable owns monitoring defaults.
 PUPPET_BIN=${PUPPET_BIN:-}
@@ -50,7 +49,6 @@ CERT_WARNING_DAYS=${CERT_WARNING_DAYS:-30}
 CERT_CRITICAL_DAYS=${CERT_CRITICAL_DAYS:-14}
 CRL_WARNING_SECONDS=${CRL_WARNING_SECONDS:-86400}
 OUTPUT_LIMIT=${OUTPUT_LIMIT:-3500}
-CHECK_TIMEOUT=${CHECK_TIMEOUT:-80}
 LC_ALL=C
 export LC_ALL
 umask 077
@@ -70,13 +68,14 @@ REVOKED=0
 WORK=''
 
 # Paths describe the server layout, not alternative copies of its CA/report configuration.
-USAGE_TEXT="Usage: $0 -p puppet -d confdir -v server_vardir -s service -k package [-S state_dir] [-a seconds] [-w days] [-c days] [-r seconds] [-l bytes] [-t seconds]
+USAGE_TEXT="Usage: $0 -p puppet -d confdir -v server_vardir -s service -k package [-S state_dir] [-a seconds] [-w days] [-c days] [-r seconds] [-l bytes]
 Required environment equivalents: PUPPET_BIN (-p), PUPPET_CONFDIR (-d), PUPPET_VARDIR (-v), SERVER_SERVICE (-s), SERVER_PACKAGE (-k).
-Optional: STATE_DIR (-S, <%= @state_dir %>), STALE_SECONDS (-a, 86400), CERT_WARNING_DAYS (-w, 30), CERT_CRITICAL_DAYS (-c, 14), CRL_WARNING_SECONDS (-r, 86400), OUTPUT_LIMIT (-l, 3500), CHECK_TIMEOUT (-t, 80).
+Optional: STATE_DIR (-S, <%= @state_dir %>), STALE_SECONDS (-a, 86400), CERT_WARNING_DAYS (-w, 30), CERT_CRITICAL_DAYS (-c, 14), CRL_WARNING_SECONDS (-r, 86400), OUTPUT_LIMIT (-l, 3500).
 CLI wins; repeated options use the last value. Empty environment values use defaults; explicit empty options are invalid.
-Run as root; monitoring_custom manages the root-owned 0700 state directory. Explicit -S/STATE_DIR overrides must exist with those permissions. Output limit >= 2000 bytes; timeout 1..80 seconds. Help exits UNKNOWN."
+Run as root; monitoring_custom manages the root-owned 0700 state directory. Explicit -S/STATE_DIR overrides must exist with those permissions. Output limit >= 2000 bytes. Help exits UNKNOWN.
+OpenITCOCKPIT controls the maximum execution time and terminates the check."
 OPTERR=0
-while getopts ':p:d:v:s:k:S:a:w:c:r:l:t:h' opt; do
+while getopts ':p:d:v:s:k:S:a:w:c:r:l:h' opt; do
     case "$opt" in
         p) PUPPET_BIN=$OPTARG ;;
         d) PUPPET_CONFDIR=$OPTARG ;;
@@ -89,7 +88,6 @@ while getopts ':p:d:v:s:k:S:a:w:c:r:l:t:h' opt; do
         c) CERT_CRITICAL_DAYS=$OPTARG ;;
         r) CRL_WARNING_SECONDS=$OPTARG ;;
         l) OUTPUT_LIMIT=$OPTARG ;;
-        t) CHECK_TIMEOUT=$OPTARG ;;
         *) die 'check invocation requires valid options' "$USAGE_TEXT" ;;
     esac
 done
@@ -113,13 +111,6 @@ issue() {
     fi
 }
 
-# Every expensive subprocess gets the remaining total budget, including termination grace within the executor's 90s.
-run() {
-    run_left=$((DEADLINE - $($DATE +%s)))
-    [ "$run_left" -gt 0 ] || return 124
-    $TIMEOUT -k 1 "$run_left" "$@"
-}
-
 # Reject ambiguous line-oriented paths before using them as data or options; no shell evaluation is used.
 absolute_path() {
     case "$1" in
@@ -139,7 +130,7 @@ certname_valid() {
 
 # OpenSSL consumes PEM files; split bundles without ever reading or accepting private-key material.
 split_pem() {
-    run $AWK -v kind="$2" -v directory="$3" '
+    $AWK -v kind="$2" -v directory="$3" '
         $0 == "-----BEGIN " kind "-----" {
             if (inside) exit 1
             inside=1; count++; file=directory "/" count ".pem"
@@ -153,15 +144,15 @@ split_pem() {
 
 # Shared fields are refreshed for every certificate; malformed data cannot inherit a previous certificate's identity.
 certificate_fields() {
-    cert_fields=$(run $OPENSSL x509 -in "$1" -noout -subject -issuer -serial -dates -fingerprint -sha256 -nameopt RFC2253 2>/dev/null) || return 1
+    cert_fields=$($OPENSSL x509 -in "$1" -noout -subject -issuer -serial -dates -fingerprint -sha256 -nameopt RFC2253 2>/dev/null) || return 1
     CERT_SUBJECT=$(printf '%s\n' "$cert_fields" | $SED -n 's/^subject=//p')
     CERT_ISSUER=$(printf '%s\n' "$cert_fields" | $SED -n 's/^issuer=//p')
     CERT_SERIAL=$(printf '%s\n' "$cert_fields" | $SED -n 's/^serial=//p')
     CERT_START=$(printf '%s\n' "$cert_fields" | $SED -n 's/^notBefore=//p')
     CERT_END=$(printf '%s\n' "$cert_fields" | $SED -n 's/^notAfter=//p')
     CERT_FINGERPRINT=$(printf '%s\n' "$cert_fields" | $SED -n 's/^[sS][hH][aA]256 Fingerprint=//p')
-    CERT_BEGIN=$(run $DATE -d "$CERT_START" +%s 2>/dev/null) || return 1
-    CERT_UNTIL=$(run $DATE -d "$CERT_END" +%s 2>/dev/null) || return 1
+    CERT_BEGIN=$($DATE -d "$CERT_START" +%s 2>/dev/null) || return 1
+    CERT_UNTIL=$($DATE -d "$CERT_END" +%s 2>/dev/null) || return 1
     CERT_LEFT=$((CERT_UNTIL - NOW))
     CERT_DAYS=$((CERT_LEFT / 86400))
     [ "$CERT_LEFT" -ge 0 ] || CERT_DAYS=$(((CERT_LEFT - 86399) / 86400))
@@ -188,7 +179,7 @@ certificate_expiry() {
 # Validate signatures separately from time/revocation so an expired signed agent remains in the active inventory.
 verify_signature() {
     # -trusted excludes all default system stores, including OpenSSL 3 CAstore.
-    run $OPENSSL verify -trusted "$WORK/root.pem" -untrusted "$WORK/chain.pem" \
+    $OPENSSL verify -trusted "$WORK/root.pem" -untrusted "$WORK/chain.pem" \
         -no_check_time -check_ss_sig "$1" > "$WORK/verify" 2>&1
     verify_result=$?
     case "$verify_result" in
@@ -268,7 +259,7 @@ emit_result() {
 }
 
 # Only decimal integers in bounded ranges enter shell arithmetic.
-for VALUE in "$STALE_SECONDS" "$CERT_WARNING_DAYS" "$CERT_CRITICAL_DAYS" "$CRL_WARNING_SECONDS" "$OUTPUT_LIMIT" "$CHECK_TIMEOUT"; do
+for VALUE in "$STALE_SECONDS" "$CERT_WARNING_DAYS" "$CERT_CRITICAL_DAYS" "$CRL_WARNING_SECONDS" "$OUTPUT_LIMIT"; do
     case "$VALUE" in
         ''|*[!0-9]*|0[0-9]*|??????????*) die 'numeric options require decimal integers without leading zeroes (at most nine digits)' ;;
     esac
@@ -276,7 +267,6 @@ done
 [ "$STALE_SECONDS" -gt 0 ] || die 'stale window must be positive'
 [ "$CERT_WARNING_DAYS" -ge "$CERT_CRITICAL_DAYS" ] || die 'certificate warning days must be at least critical days'
 [ "$OUTPUT_LIMIT" -ge 2000 ] || die 'output limit must be at least 2000 bytes'
-[ "$CHECK_TIMEOUT" -ge 1 ] && [ "$CHECK_TIMEOUT" -le 80 ] || die 'timeout must be 1..80 seconds'
 for VALUE in "$PUPPET_BIN" "$PUPPET_CONFDIR" "$PUPPET_VARDIR" "$STATE_DIR"; do
     absolute_path "$VALUE" || die 'required paths must be absolute and contain only letters, digits, slash, dot, underscore or hyphen'
 done
@@ -290,7 +280,6 @@ esac
 # Directory ownership belongs to monitoring_custom; the check owns only the files inside it.
 [ -d "$STATE_DIR" ] && [ ! -L "$STATE_DIR" ] && [ "$($STAT -c '%u:%a' "$STATE_DIR" 2>/dev/null)" = 0:700 ] || die 'state directory must exist, be root-owned 0700 and not a symlink'
 NOW=$($DATE +%s) || die 'cannot read clock'
-DEADLINE=$((NOW + CHECK_TIMEOUT))
 TAB=$(printf '\t')
 
 # flock releases the lock after signals or agent restarts; never unlink its inode while another check may be waiting.
@@ -314,10 +303,9 @@ DAEMON_SOURCE=ps
 DAEMON_STATE=unknown
 if use_systemd; then
     DAEMON_SOURCE=systemd
-    # The shared inspector discovers systemctl; bound that command through the common deadline.
+    # Inspect the expected service through the shared status helper.
     SYSTEMCTL=$(command -v systemctl 2>/dev/null || true)
     if [ -n "$SYSTEMCTL" ]; then
-        systemctl() { run "$SYSTEMCTL" "$@"; }
         systemd_service_status "$SERVER_SERVICE"
         DAEMON_RESULT=$?
         DAEMON_STATE=${SERVICE_ACTIVE_STATE:-unknown}
@@ -325,7 +313,7 @@ if use_systemd; then
     else
         issue 3 'systemd is active but systemctl is unavailable; restore the inspection tool'
     fi
-elif run $PS -e -o stat= -o comm= -o args= > "$WORK/processes" 2>/dev/null; then
+elif $PS -e -o stat= -o comm= -o args= > "$WORK/processes" 2>/dev/null; then
     # JVM identity AND the Puppet Server main class/JAR are required; wrappers, agents and zombies do not qualify.
     if $AWK '$1 !~ /^Z/ && ($2 == "java" || $2 ~ /\/java$/) {
         for (i=3; i<=NF; i++) {
@@ -342,11 +330,11 @@ elif run $PS -e -o stat= -o comm= -o args= > "$WORK/processes" 2>/dev/null; then
         issue 2 "$SERVER_SERVICE daemon is absent; inspect the server startup logs"
     fi
 else
-    issue 3 'process information is unavailable; check process visibility and timeout'
+    issue 3 'process information is unavailable; check process visibility'
 fi
 
 # Read only explicitly selected settings, never config print all (which can expose credentials).
-if run "$PUPPET_BIN" config print cacert cacrl signeddir hostcert certname reportdir reports report \
+if $PUPPET_BIN config print cacert cacrl signeddir hostcert certname reportdir reports report \
     --section server --confdir "$PUPPET_CONFDIR" --vardir "$PUPPET_VARDIR" > "$WORK/config" 2>/dev/null; then
     CACERT=$($SED -n 's/^cacert = //p' "$WORK/config")
     CACRL=$($SED -n 's/^cacrl = //p' "$WORK/config")
@@ -374,7 +362,7 @@ if run "$PUPPET_BIN" config print cacert cacrl signeddir hostcert certname repor
 else
     CA_OK=0
     ACTIVITY_OK=0
-    issue 3 'effective Puppet configuration could not be read; check CLI, server paths and timeout'
+    issue 3 'effective Puppet configuration could not be read; check CLI, server paths'
 fi
 
 # Root plus intermediate bundles are supported; ambiguous roots or incomplete CRL chains remain unknown.
@@ -411,7 +399,7 @@ if [ "$CA_OK" -eq 1 ]; then
         if ! certificate_fields "$CERT"; then
             CA_OK=0
             CA_DAYS_LEFT=''
-            issue 3 'CA inspection became incomplete; check files and execution timeout'
+            issue 3 'CA inspection became incomplete; check files'
             break
         fi
         certificate_expiry "CA $CERT_SUBJECT"
@@ -424,9 +412,9 @@ if [ "$CA_OK" -eq 1 ]; then
         if [ "$VERIFY_RESULT" -ne 0 ]; then
             CA_OK=0
             CA_VERIFICATION='failed or incomplete'
-            issue "$VERIFY_RESULT" "CA $CERT_SUBJECT chain/signature verification failed or could not finish; inspect the CA chain and timeout"
+            issue "$VERIFY_RESULT" "CA $CERT_SUBJECT chain/signature verification failed or could not finish; inspect the CA chain"
         fi
-        if run $OPENSSL x509 -in "$CERT" -noout -ext basicConstraints,keyUsage > "$WORK/constraints" 2>/dev/null; then
+        if $OPENSSL x509 -in "$CERT" -noout -ext basicConstraints,keyUsage > "$WORK/constraints" 2>/dev/null; then
             if ! $AWK '/CA:TRUE/ {ca=1} END {exit !ca}' "$WORK/constraints"; then
                 CA_OK=0
                 CA_VERIFICATION='not a CA certificate'
@@ -439,7 +427,7 @@ if [ "$CA_OK" -eq 1 ]; then
             fi
         else
             CA_OK=0
-            issue 3 'CA constraints could not be inspected; check OpenSSL and timeout'
+            issue 3 'CA constraints could not be inspected; check OpenSSL'
         fi
         printf '%s\n' "- Subject: $(monitor_summary "$CERT_SUBJECT"); issuer: $(monitor_summary "$CERT_ISSUER"); serial: $CERT_SERIAL" \
             "  SHA256 fingerprint: $CERT_FINGERPRINT" \
@@ -449,7 +437,7 @@ fi
 if [ "$CA_OK" -eq 1 ] && [ -f "$CACRL" ] && [ -r "$CACRL" ] && split_pem "$CACRL" 'X509 CRL' "$CRL_DIR"; then
     : > "$WORK/crl-issuers"
     for CRL in "$CRL_DIR"/*.pem; do
-        CRL_FIELDS=$(run $OPENSSL crl -in "$CRL" -noout -issuer -lastupdate -nextupdate -nameopt RFC2253 2>/dev/null)
+        CRL_FIELDS=$($OPENSSL crl -in "$CRL" -noout -issuer -lastupdate -nextupdate -nameopt RFC2253 2>/dev/null)
         if [ "$?" -ne 0 ]; then
             CRL_OK=0
             issue 3 'full CA CRL cannot be decoded; inspect the CRL file'
@@ -458,8 +446,8 @@ if [ "$CA_OK" -eq 1 ] && [ -f "$CACRL" ] && [ -r "$CACRL" ] && split_pem "$CACRL
         CRL_ISSUER=$(printf '%s\n' "$CRL_FIELDS" | $SED -n 's/^issuer=//p')
         CRL_START=$(printf '%s\n' "$CRL_FIELDS" | $SED -n 's/^lastUpdate=//p')
         CRL_END=$(printf '%s\n' "$CRL_FIELDS" | $SED -n 's/^nextUpdate=//p')
-        CRL_BEGIN=$(run $DATE -d "$CRL_START" +%s 2>/dev/null)
-        CRL_UNTIL=$(run $DATE -d "$CRL_END" +%s 2>/dev/null)
+        CRL_BEGIN=$($DATE -d "$CRL_START" +%s 2>/dev/null)
+        CRL_UNTIL=$($DATE -d "$CRL_END" +%s 2>/dev/null)
         CRL_SIGNER=$(MATCH_ISSUER="$CRL_ISSUER" $AWK -F '\t' '$1 == ENVIRON["MATCH_ISSUER"] {print $2}' "$WORK/ca-index")
         if [ -z "$CRL_BEGIN" ] || [ -z "$CRL_UNTIL" ] || [ ! -f "$CRL_SIGNER" ]; then
             CRL_OK=0
@@ -467,13 +455,9 @@ if [ "$CA_OK" -eq 1 ] && [ -f "$CACRL" ] && [ -r "$CACRL" ] && split_pem "$CACRL
             continue
         fi
         CRL_STATE='signature verified'
-        run $OPENSSL crl -in "$CRL" -noout -verify -CAfile "$CRL_SIGNER" > "$WORK/verify" 2>&1
+        $OPENSSL crl -in "$CRL" -noout -verify -CAfile "$CRL_SIGNER" > "$WORK/verify" 2>&1
         VERIFY_RESULT=$?
-        if [ "$VERIFY_RESULT" -eq 124 ] || [ "$VERIFY_RESULT" -eq 137 ]; then
-            CRL_OK=0
-            CRL_STATE='verification timed out'
-            issue 3 "CRL from $CRL_ISSUER could not be verified within the time budget; inspect runtime load"
-        elif [ "$VERIFY_RESULT" -ne 0 ]; then
+        if [ "$VERIFY_RESULT" -ne 0 ]; then
             CRL_OK=0
             CRL_STATE='invalid signature'
             issue 2 "CRL from $CRL_ISSUER has an invalid signature; repair the full CA CRL"
@@ -486,7 +470,7 @@ if [ "$CA_OK" -eq 1 ] && [ -f "$CACRL" ] && [ -r "$CACRL" ] && split_pem "$CACRL
         fi
         printf '%s\n' "- CRL issuer: $(monitor_summary "$CRL_ISSUER"); thisUpdate: $CRL_START; nextUpdate: $CRL_END; $CRL_STATE" >> "$WORK/ca-details"
         printf '%s\n' "$CRL_ISSUER" >> "$WORK/crl-issuers"
-        if run $OPENSSL crl -in "$CRL" -noout -text > "$WORK/crl-text" 2>/dev/null; then
+        if $OPENSSL crl -in "$CRL" -noout -text > "$WORK/crl-text" 2>/dev/null; then
             if $AWK '/Delta CRL Indicator|Issuing Distribution Point/ {unsupported=1} END {exit !unsupported}' "$WORK/crl-text"; then
                 CRL_OK=0
                 issue 3 'delta or scoped/indirect CRLs are unsupported; provide the complete direct CA CRLs'
@@ -495,7 +479,7 @@ if [ "$CA_OK" -eq 1 ] && [ -f "$CACRL" ] && [ -r "$CACRL" ] && split_pem "$CACRL
             fi
         else
             CRL_OK=0
-            issue 3 'revocations could not be read; check CRL permissions and timeout'
+            issue 3 'revocations could not be read; check CRL permissions'
         fi
     done
     while IFS="$TAB" read -r SUBJECT CERT FINGERPRINT; do
@@ -514,7 +498,7 @@ if [ "$CA_OK" -eq 1 ] && [ "$CRL_OK" -eq 1 ]; then
     for CERT in "$CA_DIR"/*.pem; do
         if ! certificate_fields "$CERT"; then
             CA_OK=0
-            issue 3 'CA revocation inspection became incomplete; check files and execution timeout'
+            issue 3 'CA revocation inspection became incomplete; check files'
         elif is_revoked; then
             issue 2 "CA $CERT_SUBJECT is revoked; repair the certificate chain"
             printf '%s\n' "- CA $(monitor_summary "$CERT_SUBJECT"): revoked; serial: $CERT_SERIAL; notAfter: $CERT_END" >> "$WORK/ca-details"
@@ -525,7 +509,7 @@ fi
 
 # Inventory enumeration must succeed completely before publishing totals or pruning any snapshot record.
 if [ "$CA_OK" -eq 1 ] && [ "$CRL_OK" -eq 1 ] && [ -d "$SIGNEDDIR" ] && [ -r "$SIGNEDDIR" ] && \
-    run $FIND -H "$SIGNEDDIR" -mindepth 1 -maxdepth 1 -name '*.pem' -printf '%f\n' > "$WORK/signed" 2>/dev/null; then
+    $FIND -H "$SIGNEDDIR" -mindepth 1 -maxdepth 1 -name '*.pem' -printf '%f\n' > "$WORK/signed" 2>/dev/null; then
     # The host certificate is inspected independently and excluded by identity, even if also present in signeddir.
     printf '%s\n' "$HOSTCERT" > "$WORK/certificates"
     while IFS= read -r BASENAME; do
@@ -539,12 +523,6 @@ if [ "$CA_OK" -eq 1 ] && [ "$CRL_OK" -eq 1 ] && [ -d "$SIGNEDDIR" ] && [ -r "$SI
     done < "$WORK/signed"
     ISSUE_SCOPE=certificate
     while IFS= read -r CERT; do
-        if [ "$($DATE +%s)" -ge "$DEADLINE" ]; then
-            INVENTORY_OK=0
-            ISSUE_SCOPE=source
-            issue 3 'certificate inventory did not finish within the time budget; inspect runtime load'
-            break
-        fi
         if [ "$CERT" = "$HOSTCERT" ]; then
             NAME=$CERTNAME
             ROLE=server
@@ -567,7 +545,7 @@ if [ "$CA_OK" -eq 1 ] && [ "$CRL_OK" -eq 1 ] && [ -d "$SIGNEDDIR" ] && [ -r "$SI
         VERIFY_RESULT=$?
         if [ "$VERIFY_RESULT" -ne 0 ]; then
             CERT_STATE='chain/signature invalid or unverified'
-            issue "$VERIFY_RESULT" "$NAME certificate verification failed or could not finish; inspect CA issuance and timeout"
+            issue "$VERIFY_RESULT" "$NAME certificate verification failed or could not finish; inspect CA issuance"
             [ "$VERIFY_RESULT" -ne 3 ] || INVENTORY_OK=0
         fi
         if [ "$VERIFY_RESULT" -eq 0 ] && is_revoked; then
@@ -630,7 +608,7 @@ fi
 # One metadata traversal covers all nodes; no YAML deserialization or repeated scan per certificate is needed.
 if [ "$ACTIVITY_OK" -eq 1 ]; then
     if [ "$REPORT" = true ] && printf '%s\n' "$REPORTS" | $AWK -F ',' '{for(i=1;i<=NF;i++){gsub(/[[:space:]]/,"",$i);if($i=="store") found=1}} END {exit !found}'; then
-        if [ -d "$REPORTDIR" ] && [ -r "$REPORTDIR" ] && run $FIND -H "$REPORTDIR" -ignore_readdir_race \
+        if [ -d "$REPORTDIR" ] && [ -r "$REPORTDIR" ] && $FIND -H "$REPORTDIR" -ignore_readdir_race \
             -mindepth 1 -maxdepth 2 -printf '%y\t%P\t%T@\t%s\n' ! -readable -printf 'unreadable\n' > "$WORK/report-files" 2>/dev/null && \
             $AWK -F '\t' -v now="$NOW" '
                 $1=="d" && $2 ~ /^[a-zA-Z0-9_.-]+$/ {next}
@@ -712,9 +690,6 @@ if [ "$INVENTORY_OK" -eq 1 ] && [ "$ACTIVITY_OK" -eq 1 ]; then
         printf '%s\t%s\t%s\n' "$LAST" "$NAME" "$DETAIL" >> "$WORK/agents"
     done < "$WORK/activity"
     ISSUE_SCOPE=source
-fi
-if [ "$($DATE +%s)" -ge "$DEADLINE" ]; then
-    issue 3 'inspection time budget exhausted; inspect runtime load and the configured check timeout'
 fi
 if ! emit_result; then
     printf 'Puppet Server: output could not be completed; inspect the monitoring filesystem |\nInterpretation:\n- Inspection is incomplete.\n'

@@ -23,15 +23,12 @@ GREP=$(command -v grep 2>/dev/null) || die "grep not available"
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 STAT=$(command -v stat 2>/dev/null) || die "stat not available"
 SORT=$(command -v sort 2>/dev/null) || die "sort not available"
-TIMEOUT=$(command -v timeout 2>/dev/null || true)
 TR=$(command -v tr 2>/dev/null) || die "tr not available"
 
 # Managed input files and cache locations used by the APT check.
 BLACKLIST_FILE="<%= @template_data['apt_settings_file'] %>"
 STATE_DIR=${STATE_DIR:-<%= @state_dir %>}
-CHANGELOG_FETCH_TIMEOUT=${CHANGELOG_FETCH_TIMEOUT:-6}
 CHANGELOG_GROUP_LIMIT=${CHANGELOG_GROUP_LIMIT:-10}
-CHANGELOG_TOTAL_BUDGET=${CHANGELOG_TOTAL_BUDGET:-20}
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 SECURITY_PACKAGE_SUMMARY_LIMIT=${SECURITY_PACKAGE_SUMMARY_LIMIT:-10}
 
@@ -55,19 +52,17 @@ LAST_UPDATE_AGE_SEC=0
 # Final Nagios state and metadata-age threshold.
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 GRACE=${GRACE:-172800} # 48h
-CHECK_START=$($DATE +%s)
 
 # CLI options tune metadata age, changelog collection and output limits for this invocation.
-USAGE_TEXT="Usage: $0 [-c <seconds>] [-t seconds] [-g groups] [-b seconds] [-l chars] [-s packages] [-S state_directory]
-Environment: GRACE (-c); CHANGELOG_FETCH_TIMEOUT (-t); CHANGELOG_GROUP_LIMIT (-g); CHANGELOG_TOTAL_BUDGET (-b); DETAIL_LIMIT (-l); SECURITY_PACKAGE_SUMMARY_LIMIT (-s); STATE_DIR (-S, managed by monitoring_custom).
-Command-line options override non-empty environment values; unset or empty environment values use defaults."
+USAGE_TEXT="Usage: $0 [-c <seconds>] [-g groups] [-l chars] [-s packages] [-S state_directory]
+Environment: GRACE (-c); CHANGELOG_GROUP_LIMIT (-g); DETAIL_LIMIT (-l); SECURITY_PACKAGE_SUMMARY_LIMIT (-s); STATE_DIR (-S, managed by monitoring_custom).
+Command-line options override non-empty environment values; unset or empty environment values use defaults.
+OpenITCOCKPIT controls the maximum execution time and terminates the check."
 OPTERR=0
-while getopts ":c:t:g:b:l:s:S:h" opt; do
+while getopts ":c:g:l:s:S:h" opt; do
     case "$opt" in
         c) GRACE=$OPTARG ;;
-        t) CHANGELOG_FETCH_TIMEOUT=$OPTARG ;;
         g) CHANGELOG_GROUP_LIMIT=$OPTARG ;;
-        b) CHANGELOG_TOTAL_BUDGET=$OPTARG ;;
         l) DETAIL_LIMIT=$OPTARG ;;
         s) SECURITY_PACKAGE_SUMMARY_LIMIT=$OPTARG ;;
         S) STATE_DIR=$OPTARG ;;
@@ -83,14 +78,8 @@ esac
 case "$GRACE" in
     ''|*[!0-9]*) die "metadata-age grace period must be numeric" ;;
 esac
-case "$CHANGELOG_FETCH_TIMEOUT" in
-    ''|*[!0-9]*) die "changelog fetch timeout must be numeric" ;;
-esac
 case "$CHANGELOG_GROUP_LIMIT" in
     ''|*[!0-9]*) die "changelog group limit must be numeric" ;;
-esac
-case "$CHANGELOG_TOTAL_BUDGET" in
-    ''|*[!0-9]*) die "changelog runtime budget must be numeric" ;;
 esac
 case "$DETAIL_LIMIT" in
     ''|*[!0-9]*) die "long-output detail character limit must be numeric" ;;
@@ -99,9 +88,7 @@ case "$SECURITY_PACKAGE_SUMMARY_LIMIT" in
     ''|*[!0-9]*) die "security package summary limit must be numeric" ;;
 esac
 [ "$GRACE" -ge 1 ] || die "metadata-age grace period must be at least 1"
-[ "$CHANGELOG_FETCH_TIMEOUT" -ge 1 ] || die "changelog fetch timeout must be at least 1"
 [ "$CHANGELOG_GROUP_LIMIT" -ge 1 ] || die "changelog group limit must be at least 1"
-[ "$CHANGELOG_TOTAL_BUDGET" -ge 1 ] || die "changelog runtime budget must be at least 1"
 [ "$DETAIL_LIMIT" -ge 1 ] || die "long-output detail character limit must be at least 1"
 [ "$SECURITY_PACKAGE_SUMMARY_LIMIT" -ge 1 ] || die "security package summary limit must be at least 1"
 
@@ -410,131 +397,117 @@ if [ "$UPDATES_SECURITY" -gt 0 ]; then
     [ -n "$SEC_CSV" ] && MSG="$MSG Security packages: ${SEC_CSV}."
 
     # Keep this flow inline; it is only used once and sits next to the summary output that depends on it.
-    if [ -n "$TIMEOUT" ]; then
-        SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F '\t' '$1 == "SECINFO" { print $2 "|" $3 "|" $4 }')
-        if [ -n "$SECURITY_META" ]; then
-            GROUP_INPUT=""
-            while IFS='|' read -r pkg oldver newver; do
-                [ -n "$pkg" ] || continue
-                source_pkg=$(resolve_source_pkg "$pkg" "$newver")
-                if [ -z "$GROUP_INPUT" ]; then
-                    GROUP_INPUT="${source_pkg}|${pkg}|${oldver}|${newver}"
-                else
-                    GROUP_INPUT=$(printf '%s\n%s|%s|%s|%s' "$GROUP_INPUT" "$source_pkg" "$pkg" "$oldver" "$newver")
-                fi
-            done <<EOF
+    SECURITY_META=$(printf '%s\n' "$APT_SIM_SUMMARY" | $AWK -F '\t' '$1 == "SECINFO" { print $2 "|" $3 "|" $4 }')
+    if [ -n "$SECURITY_META" ]; then
+        GROUP_INPUT=""
+        while IFS='|' read -r pkg oldver newver; do
+            [ -n "$pkg" ] || continue
+            source_pkg=$(resolve_source_pkg "$pkg" "$newver")
+            if [ -z "$GROUP_INPUT" ]; then
+                GROUP_INPUT="${source_pkg}|${pkg}|${oldver}|${newver}"
+            else
+                GROUP_INPUT=$(printf '%s\n%s|%s|%s|%s' "$GROUP_INPUT" "$source_pkg" "$pkg" "$oldver" "$newver")
+            fi
+        done <<EOF
 $SECURITY_META
 EOF
 
-            if [ -n "$GROUP_INPUT" ]; then
-                # Group binary packages by source package so one changelog fetch can cover related packages such as vim/vim-runtime/xxd or kernel sets.
-                SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | $AWK -F '|' '
-                    {
-                        key=$1 "|" $4
-                        if (!seen[key]++) {
-                            order[++n]=key
-                            source[key]=$1
-                            first_pkg[key]=$2
-                            first_old[key]=$3
-                            newver[key]=$4
-                            packages[key]=$2
-                        } else {
-                            packages[key]=packages[key] ", " $2
-                        }
+        if [ -n "$GROUP_INPUT" ]; then
+            # Group binary packages by source package so one changelog fetch can cover related packages such as vim/vim-runtime/xxd or kernel sets.
+            SECURITY_GROUPS=$(printf '%s\n' "$GROUP_INPUT" | $AWK -F '|' '
+                {
+                    key=$1 "|" $4
+                    if (!seen[key]++) {
+                        order[++n]=key
+                        source[key]=$1
+                        first_pkg[key]=$2
+                        first_old[key]=$3
+                        newver[key]=$4
+                        packages[key]=$2
+                    } else {
+                        packages[key]=packages[key] ", " $2
                     }
-                    END {
-                        for (i = 1; i <= n; i++) {
-                            key=order[i]
-                            printf "%s|%s|%s|%s|%s\n", source[key], first_pkg[key], first_old[key], newver[key], packages[key]
-                        }
+                }
+                END {
+                    for (i = 1; i <= n; i++) {
+                        key=order[i]
+                        printf "%s|%s|%s|%s|%s\n", source[key], first_pkg[key], first_old[key], newver[key], packages[key]
                     }
-                ')
+                }
+            ')
 
-                if [ -n "$SECURITY_GROUPS" ]; then
-                    if [ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ]; then
-                        monitor_section "Security changelogs"
-                        CHANGELOG_GROUPS_RENDERED=0
-                        while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
-                            [ -n "$source_pkg" ] || continue
+            if [ -n "$SECURITY_GROUPS" ]; then
+                if [ -d "$STATE_DIR" ] && [ -w "$STATE_DIR" ]; then
+                    monitor_section "Security changelogs"
+                    CHANGELOG_GROUPS_RENDERED=0
+                    while IFS='|' read -r source_pkg first_pkg oldver newver packages; do
+                        [ -n "$source_pkg" ] || continue
 
-                            # Bound external changelog retrieval work separately from the single diagnostic character limit.
-                            NOW=$($DATE +%s)
-                            ELAPSED=$((NOW - CHECK_START))
-                            if [ "$ELAPSED" -ge "$CHANGELOG_TOTAL_BUDGET" ]; then
-                                monitor_item "  Remaining changelogs skipped after ${CHANGELOG_TOTAL_BUDGET}s runtime budget."
-                                break
-                            fi
-                            if [ "$CHANGELOG_GROUPS_RENDERED" -ge "$CHANGELOG_GROUP_LIMIT" ]; then
-                                monitor_item "  Remaining changelogs skipped after ${CHANGELOG_GROUP_LIMIT} package group(s)."
-                                break
-                            fi
-                            CHANGELOG_GROUPS_RENDERED=$(( CHANGELOG_GROUPS_RENDERED + 1 ))
+                        # Bound external changelog retrieval work separately from the single diagnostic character limit.
+                        if [ "$CHANGELOG_GROUPS_RENDERED" -ge "$CHANGELOG_GROUP_LIMIT" ]; then
+                            monitor_item "  Remaining changelogs skipped after ${CHANGELOG_GROUP_LIMIT} package group(s)."
+                            break
+                        fi
+                        CHANGELOG_GROUPS_RENDERED=$(( CHANGELOG_GROUPS_RENDERED + 1 ))
 
-                            CACHE_KEY=$(sanitize_key "${source_pkg}_${newver}")
-                            CACHE_FILE="${STATE_DIR}/${CACHE_KEY}.txt"
-                            FETCH_ERR=""
-                            FETCH_RC=0
+                        CACHE_KEY=$(sanitize_key "${source_pkg}_${newver}")
+                        CACHE_FILE="${STATE_DIR}/${CACHE_KEY}.txt"
+                        FETCH_ERR=""
+                        FETCH_RC=0
 
-                            # Reuse cached changelogs when possible; fetches are best-effort diagnostics.
-                            if [ -r "$CACHE_FILE" ]; then
-                                RAW_CHANGELOG=$($SED -n 'p' "$CACHE_FILE" 2>/dev/null)
+                        # Reuse cached changelogs when possible; fetches are best-effort diagnostics.
+                        if [ -r "$CACHE_FILE" ]; then
+                            RAW_CHANGELOG=$($SED -n 'p' "$CACHE_FILE" 2>/dev/null)
+                        else
+                            RAW_CHANGELOG=$(PAGER=cat LC_ALL=C DEBIAN_FRONTEND=noninteractive $APTGET changelog "${first_pkg}=${newver}" 2>&1)
+                            FETCH_RC=$?
+
+                            case "$FETCH_RC" in
+                                0)
+                                    OLD_UMASK=$(umask)
+                                    umask 077
+                                    printf '%s\n' "$RAW_CHANGELOG" > "$CACHE_FILE" 2>/dev/null || true
+                                    umask "$OLD_UMASK"
+                                    ;;
+                                *)
+                                    FETCH_ERR="fetch failed (rc=${FETCH_RC})"
+                                    ;;
+                            esac
+                        fi
+
+                        # Each long-output section names the source package and covered binaries.
+                        if [ -n "$oldver" ]; then
+                            monitor_item "$(monitor_text_value "[${source_pkg}] ${packages} (${oldver} -> ${newver})")"
+                        else
+                            monitor_item "$(monitor_text_value "[${source_pkg}] ${packages} (not installed -> ${newver})")"
+                        fi
+
+                        if [ "$FETCH_RC" -ne 0 ] || [ -z "$RAW_CHANGELOG" ]; then
+                            if [ -n "$FETCH_ERR" ]; then
+                                monitor_continuation "Changelog unavailable: ${FETCH_ERR}."
                             else
-                                RAW_CHANGELOG=$(PAGER=cat LC_ALL=C DEBIAN_FRONTEND=noninteractive $TIMEOUT "$CHANGELOG_FETCH_TIMEOUT" "$APTGET" changelog "${first_pkg}=${newver}" 2>&1)
-                                FETCH_RC=$?
-
-                                case "$FETCH_RC" in
-                                    0)
-                                        OLD_UMASK=$(umask)
-                                        umask 077
-                                        printf '%s\n' "$RAW_CHANGELOG" > "$CACHE_FILE" 2>/dev/null || true
-                                        umask "$OLD_UMASK"
-                                        ;;
-                                    124)
-                                        FETCH_ERR="timeout after ${CHANGELOG_FETCH_TIMEOUT}s"
-                                        ;;
-                                    *)
-                                        FETCH_ERR="fetch failed (rc=${FETCH_RC})"
-                                        ;;
-                                esac
+                                monitor_continuation "Changelog unavailable."
                             fi
+                            continue
+                        fi
 
-                            # Each long-output section names the source package and covered binaries.
-                            if [ -n "$oldver" ]; then
-                                monitor_item "$(monitor_text_value "[${source_pkg}] ${packages} (${oldver} -> ${newver})")"
-                            else
-                                monitor_item "$(monitor_text_value "[${source_pkg}] ${packages} (not installed -> ${newver})")"
-                            fi
+                        # Select newer entries; the single character limit applies to the complete diagnostic body later.
+                        FILTERED_CHANGELOG=$(printf '%s\n' "$RAW_CHANGELOG" | filter_changelog_since "$oldver")
+                        if [ -z "$FILTERED_CHANGELOG" ]; then
+                            monitor_continuation "No newer changelog entries found."
+                            continue
+                        fi
 
-                            if [ "$FETCH_RC" -ne 0 ] || [ -z "$RAW_CHANGELOG" ]; then
-                                if [ -n "$FETCH_ERR" ]; then
-                                    monitor_continuation "Changelog unavailable: ${FETCH_ERR}."
-                                else
-                                    monitor_continuation "Changelog unavailable."
-                                fi
-                                continue
-                            fi
-
-                            # Select newer entries; the single character limit applies to the complete diagnostic body later.
-                            FILTERED_CHANGELOG=$(printf '%s\n' "$RAW_CHANGELOG" | filter_changelog_since "$oldver")
-                            if [ -z "$FILTERED_CHANGELOG" ]; then
-                                monitor_continuation "No newer changelog entries found."
-                                continue
-                            fi
-
-                            monitor_continuation "$FILTERED_CHANGELOG"
-                        done <<EOF
+                        monitor_continuation "$FILTERED_CHANGELOG"
+                    done <<EOF
 $SECURITY_GROUPS
 EOF
-                    else
-                        monitor_section "Security changelogs"
-                        monitor_item "Managed state directory is missing or not writable."
-                    fi
+                else
+                    monitor_section "Security changelogs"
+                    monitor_item "Managed state directory is missing or not writable."
                 fi
             fi
         fi
-    else
-        monitor_section "Security changelogs"
-        monitor_item "Collection skipped because 'timeout' is unavailable."
     fi
 fi
 

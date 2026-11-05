@@ -23,7 +23,6 @@ JOURNALCTL=$(command -v journalctl 2>/dev/null || true)
 SED=$(command -v sed 2>/dev/null) || die "sed not available"
 SYSTEMCTL=$(command -v systemctl 2>/dev/null) || die "systemctl not available"
 TAIL=$(command -v tail 2>/dev/null) || die "tail not available"
-TIMEOUT=$(command -v timeout 2>/dev/null) || die "timeout not available (GNU coreutils required)"
 
 # Window and log caps keep timer diagnosis bounded for monitoring output.
 WINDOW=${WINDOW:-600} # seconds to scan logs after the timer trigger (default 10m)
@@ -42,9 +41,9 @@ Journal entries are diagnostic context; current target service properties determ
 A completed successful execution with exit status zero is OK. Concrete service failures are CRITICAL, including timeout or signal failures with exit status zero.
 An observed running main process (including an activating oneshot) is WARNING: service execution in progress; result pending. Long tasks can keep warning; no allowed-runtime policy is implied.
 Missing or invalid results and inconsistent observations are UNKNOWN. exit_code is U without a valid final result; last_run_age measures the timer trigger, not service completion.
-Status sampling uses at most three timer/service pairs, without sleeps. Each systemctl query has a one-second timeout and a one-second kill grace; the existing agent timeout still bounds the entire check, including journal processing.
+Status sampling uses at most three timer/service pairs, without sleeps. OpenITCOCKPIT controls the maximum execution time and terminates the check.
 Matching samples reduce races but do not make timer and service reads atomic.
-Standalone use requires a running systemd manager, POSIX shell, awk, GNU date/timeout, sed and tail; journalctl is optional diagnostic context.
+Standalone use requires a running systemd manager, POSIX shell, awk, GNU date, sed and tail; journalctl is optional diagnostic context.
 Command-line options override non-empty environment values; unset or empty environment values use defaults."
 OPTERR=0
 while getopts ':l:n:t:w:m:h' opt; do
@@ -74,8 +73,8 @@ read_properties() {
     for property_name in $property_names; do
         set -- "$@" -p "$property_name"
     done
-    PROPERTIES=$($TIMEOUT -k 1 1 $SYSTEMCTL show "$property_unit" --all --no-pager "$@" 2>/dev/null) || {
-        READ_ERROR="$property_unit status query failed or timed out"
+    PROPERTIES=$($SYSTEMCTL show "$property_unit" --all --no-pager "$@" 2>/dev/null) || {
+        READ_ERROR="$property_unit status query failed"
         return 1
     }
     PROPERTIES=$(printf '%s\n' "$PROPERTIES" | $AWK -v names="$property_names" '

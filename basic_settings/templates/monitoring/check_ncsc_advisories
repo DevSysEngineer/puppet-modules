@@ -17,7 +17,6 @@ AWK=$(command -v awk 2>/dev/null) || die 'awk not available'
 JQ=$(command -v jq 2>/dev/null) || die 'jq not available'
 PYTHON=$(command -v python3 2>/dev/null) || die 'python3 not available'
 CURL=$(command -v curl 2>/dev/null) || die 'curl not available'
-TIMEOUT=$(command -v timeout 2>/dev/null) || die 'timeout not available'
 DATE=$(command -v date 2>/dev/null) || die 'date not available'
 DPKG=$(command -v dpkg 2>/dev/null) || die 'dpkg not available'
 DPKGQUERY=$(command -v dpkg-query 2>/dev/null) || die 'dpkg-query not available'
@@ -46,7 +45,7 @@ Environment: STATE_DIR (-S, existing private directory); CACHE_TTL (-t, default 
 Precedence: CLI, non-empty environment, default. Last repeated option wins.
 NCSC news and CSAF changes cover an initial 90-day selection, plus retained findings; this is not a complete vulnerability scan.
 Only installed dpkg packages are correlated. Containers, embedded components and unrelated product names are outside that inventory.
-The check may refresh APT lists (at most 25 seconds); it never upgrades, installs or removes software. The monitoring executor controls the overall timeout.
+The check may refresh APT lists; it never upgrades, installs or removes software. OpenITCOCKPIT controls the maximum execution time and terminates the check.
 apt_current means operationally resolved by NCSC/APT policy; a CVE fix is not independently verified.
 Counters count CVE/source/architecture/distribution combinations and open periods, not notifications.
 Period MTTR is delta resolve_sec_total / delta resolved_total within the same stats_epoch; do not average the MTTR gauge.
@@ -253,7 +252,7 @@ fetch_source() {
             return 0
         fi
     fi
-    set -- --proto '=https' --tlsv1.2 --silent --show-error --fail --connect-timeout 3 --max-time 8 \
+    set -- --proto '=https' --tlsv1.2 --silent --show-error --fail \
         --max-filesize "$fetch_limit" --dump-header "$WORK/headers" --output "$WORK/download" --write-out '%{http_code}'
     if [ "$fetch_valid" = true ]; then
         fetch_etag=$($JQ -r --arg key "$fetch_key" '.http[$key].etag // empty' "$WORK/state.json") || return 1
@@ -491,7 +490,7 @@ else
     SOURCE_USABLE=false
 fi
 
-# Process the complete selection; the monitoring executor controls the overall timeout.
+# Process the complete selection; OpenITCOCKPIT controls the overall timeout.
 while :; do
     NEXT=$($JQ -r '.pending[0].path // empty' "$WORK/state.json") || die 'cannot read advisory queue'
     [ -n "$NEXT" ] || break
@@ -704,7 +703,7 @@ while [ "$ATTEMPT" -lt 2 ]; do
     if [ "$SOURCE_USABLE" = true ] && [ "$COVERAGE_COMPLETE" = true ] && [ "$APT_OK" = true ] &&
         $JQ -e 'any(.[];.status=="refresh_needed")' "$WORK/decisions.json" >/dev/null 2>&1; then
         APT_STARTED=$($DATE +%s)
-        $TIMEOUT -k 1 25s $APTGET -o APT::Update::Error-Mode=any update > "$WORK/apt-update.log" 2>&1
+        $APTGET -o APT::Update::Error-Mode=any update > "$WORK/apt-update.log" 2>&1
         APT_EXIT=$?
         APT_COMPLETED=$($DATE +%s)
         update_state --argjson started "$APT_STARTED" --argjson completed "$APT_COMPLETED" --argjson code "$APT_EXIT" \

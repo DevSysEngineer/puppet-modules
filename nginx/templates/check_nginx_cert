@@ -3,12 +3,11 @@
 
 <%= scope.function_template(['basic_settings/monitoring/_output']) %>
 # Local configuration and file validation, never a probe of a live TLS connection.
-# Requires Nginx >= 1.9.2, OpenSSL >= 1.1.1, POSIX awk/dash and GNU coreutils (date, stat, timeout).
+# Requires Nginx >= 1.9.2, OpenSSL >= 1.1.1, POSIX awk/dash and GNU coreutils (date, stat).
 # Puppet templates the main configuration path once. Each registration passes its target and settings as CLI arguments.
-# Usage: check_nginx_cert -n "app.example.org alias.example.org" -f /etc/nginx/conf.d/app.conf [-l characters] [-t seconds] [-c days] [-w days]
+# Usage: check_nginx_cert -n "app.example.org alias.example.org" -f /etc/nginx/conf.d/app.conf [-l characters] [-c days] [-w days]
 # Optional runtime defaults are initialized below and overridden independently by getopts.
-# The agent must allow the script's timeout budget, including its three-second termination/output reserve.
-# --worker is a private supervisor protocol; it receives the supervisor's effective settings as explicit options.
+# OpenITCOCKPIT controls the maximum execution time and terminates the check.
 # Exit codes: 0 healthy, 1 usable but nearing expiry, 2 proven target defect or critical lifetime, 3 incomplete or unsupported assessment.
 
 # Early failures contain fixed text only and still leave operator guidance visible.
@@ -28,7 +27,6 @@ NGINX=$(command -v nginx 2>/dev/null) || die 'nginx not available'
 OPENSSL=$(command -v openssl 2>/dev/null) || die 'openssl not available'
 RM=$(command -v rm 2>/dev/null) || die 'rm not available'
 STAT=$(command -v stat 2>/dev/null) || die 'stat not available'
-TIMEOUT=$(command -v timeout 2>/dev/null) || die 'timeout not available'
 
 # A fixed clock and locale make certificate dates and exact threshold comparisons reproducible.
 # validity_remaining is the minimum remaining lifetime of all certificates in stable assessed pairs, or U if none were assessed.
@@ -41,7 +39,6 @@ NGINX_CONFIG=<%= @nginx_config_shell %>
 CONFIG_FILE=${CONFIG_FILE:-''}
 SERVER_NAME=${SERVER_NAME:-''}
 DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
-AGENT_TIMEOUT=${AGENT_TIMEOUT:-30}
 VALIDITY_CRITICAL=${VALIDITY_CRITICAL:-14}
 VALIDITY_WARNING=${VALIDITY_WARNING:-30}
 STATE=0
@@ -49,26 +46,18 @@ SUMMARY='local certificates are valid and match their names and keys'
 DETAILS=''
 MINIMUM=U
 INCOMPLETE=0
-PAIR_ACTIVE=0
 TAB=$(printf '\t')
 
-# Only the private worker protocol precedes getopts; all check settings use the same CLI on both processes.
-WORKER=0
-if [ "${1:-}" = --worker ] && [ "$#" -ge 2 ] && [ -d "$2" ]; then
-    WORKER=1
-    WORK=$2
-    shift 2
-fi
-USAGE_TEXT="Usage: $0 -n names -f vhost_file [-l detail_limit] [-t timeout] [-c critical_days] [-w warning_days]
-Environment: SERVER_NAME (-n); CONFIG_FILE (-f); DETAIL_LIMIT (-l); AGENT_TIMEOUT (-t); VALIDITY_CRITICAL (-c); VALIDITY_WARNING (-w).
-Command-line options override non-empty environment values; unset or empty environment values use defaults."
+USAGE_TEXT="Usage: $0 -n names -f vhost_file [-l detail_limit] [-c critical_days] [-w warning_days]
+Environment: SERVER_NAME (-n); CONFIG_FILE (-f); DETAIL_LIMIT (-l); VALIDITY_CRITICAL (-c); VALIDITY_WARNING (-w).
+Command-line options override non-empty environment values; unset or empty environment values use defaults.
+OpenITCOCKPIT controls the maximum execution time and terminates the check."
 OPTERR=0
-while getopts ':n:f:l:t:c:w:h' opt; do
+while getopts ':n:f:l:c:w:h' opt; do
     case "$opt" in
         n) SERVER_NAME=$OPTARG ;;
         f) CONFIG_FILE=$OPTARG ;;
         l) DETAIL_LIMIT=$OPTARG ;;
-        t) AGENT_TIMEOUT=$OPTARG ;;
         c) VALIDITY_CRITICAL=$OPTARG ;;
         w) VALIDITY_WARNING=$OPTARG ;;
         *) die "$USAGE_TEXT" ;;
@@ -103,17 +92,6 @@ emit() {
     [ "$INCOMPLETE" -eq 0 ] || monitor_item 'Some required checks were not completed; this is a partial assessment.'
     monitor_item 'Repair the reported files or trust configuration and rerun; manage renewal and Nginx reload separately.'
     monitor_result "$HEAD" "validity_remaining=${MINIMUM}s;${WARN_SECONDS}:;${CRIT_SECONDS}:"
-    [ -z "${WORK:-}" ] || printf '%s\n' "$STATE" > "$WORK/status"
-}
-
-# A timeout during one pair discards that unfinished snapshot, retaining only previously established findings.
-interrupted() {
-    if [ "$PAIR_ACTIVE" -eq 1 ]; then
-        STATE=$SAVED_STATE; SUMMARY=$SAVED_SUMMARY; DETAILS=$SAVED_DETAILS; MINIMUM=$SAVED_MINIMUM; INCOMPLETE=$SAVED_INCOMPLETE
-    fi
-    finding 3 'execution deadline exceeded; assessment is incomplete'
-    emit
-    exit "$STATE"
 }
 
 # Metadata follows renewal symlinks and includes nanosecond mtime/ctime and inode identity; no key data is copied.
@@ -451,37 +429,20 @@ parse_config() {
 }
 
 # Validate scalar settings before arithmetic, even if a generated script was accidentally edited.
-for VALUE in "$DETAIL_LIMIT" "$AGENT_TIMEOUT" "$VALIDITY_CRITICAL" "$VALIDITY_WARNING"; do
+for VALUE in "$DETAIL_LIMIT" "$VALIDITY_CRITICAL" "$VALIDITY_WARNING"; do
     case "$VALUE" in ''|*[!0-9]*|0*|?????????*) die 'invalid numeric check settings' ;; esac
 done
 [ "$VALIDITY_CRITICAL" -lt "$VALIDITY_WARNING" ] && [ "$VALIDITY_WARNING" -le 36501 ] || die 'invalid validity threshold order or size'
-[ "$AGENT_TIMEOUT" -ge 5 ] && [ "$AGENT_TIMEOUT" -le 300 ] || die 'invalid agent timeout'
 [ "$DETAIL_LIMIT" -le 100000 ] || die 'invalid diagnostic character limit'
 WARN_SECONDS=$((VALIDITY_WARNING * 86400))
 CRIT_SECONDS=$((VALIDITY_CRITICAL * 86400))
 
-# GNU timeout owns a process group and bounds Nginx/OpenSSL/awk together, including blocked children.
 # The private workspace holds a potentially sensitive nginx dump and public certificates, never private-key copies.
-if [ "$WORKER" -eq 0 ]; then
-    WORK=$($MKTEMP -d /tmp/check-nginx-cert.XXXXXXXXXX) || die 'cannot create a private workspace'
-    trap '$RM -rf -- "$WORK"' 0
-    trap 'exit 3' HUP INT TERM
-    $TIMEOUT -k 1 "$((AGENT_TIMEOUT - 3))" /bin/sh "$0" --worker "$WORK" \
-        -n "$SERVER_NAME" -f "$CONFIG_FILE" -l "$DETAIL_LIMIT" -t "$AGENT_TIMEOUT" \
-        -c "$VALIDITY_CRITICAL" -w "$VALIDITY_WARNING" > "$WORK/result" 2> "$WORK/worker-error"
-    RESULT=$?
-    case "$RESULT" in
-        0|1|2|3) $CAT "$WORK/result"; exit "$RESULT" ;;
-        *)
-            if [ -s "$WORK/status" ] && [ -s "$WORK/result" ]; then
-                RESULT=$($CAT "$WORK/status")
-                case "$RESULT" in 2|3) $CAT "$WORK/result"; exit "$RESULT" ;; esac
-            fi
-            finding 3 'execution deadline exceeded or a subprocess failed; inspect the local configuration and retry'; emit; exit "$STATE"
-            ;;
-    esac
-fi
-trap interrupted TERM
+WORK=$($MKTEMP -d /tmp/check-nginx-cert.XXXXXXXXXX) || die 'cannot create a private workspace'
+trap '$RM -rf -- "$WORK"' 0
+trap 'exit 3' HUP INT TERM
+# Keep subprocess diagnostics private, as they can contain configuration data.
+exec 2> "$WORK/inspection-error"
 
 NOW=$($DATE +%s) || die 'cannot read the current time'
 $DATE -d '@0' +%s >/dev/null 2>&1 || die 'GNU date is required'
@@ -564,14 +525,12 @@ while IFS="$TAB" read -r TYPE CERT_PATH KEY_PATH; do
             CERT_BEFORE=$(signature "$CERT_PATH") && KEY_BEFORE=$(signature "$KEY_PATH") || {
                 finding 3 'cannot snapshot certificate/key metadata'; continue
             }
-            PAIR_ACTIVE=1
             verify_pair "$CERT_PATH" "$KEY_PATH"
             CERT_AFTER=$(signature "$CERT_PATH") && KEY_AFTER=$(signature "$KEY_PATH") || CERT_AFTER=unavailable
             if [ "$CERT_BEFORE" != "$CERT_AFTER" ] || [ "$KEY_BEFORE" != "$KEY_AFTER" ]; then
                 STATE=$SAVED_STATE; SUMMARY=$SAVED_SUMMARY; DETAILS=$SAVED_DETAILS; MINIMUM=$SAVED_MINIMUM; INCOMPLETE=$SAVED_INCOMPLETE
                 finding 3 "$CERT_PATH and $KEY_PATH changed during validation; retry after certificate deployment finishes"
             fi
-            PAIR_ACTIVE=0
             ;;
         trusted)
             if readable_file "$CERT_PATH"; then
