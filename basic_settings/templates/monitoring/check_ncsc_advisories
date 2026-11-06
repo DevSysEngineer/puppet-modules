@@ -45,6 +45,7 @@ Environment: STATE_DIR (-S, existing private directory); CACHE_TTL (-t, default 
 Precedence: CLI, non-empty environment, default. Last repeated option wins.
 NCSC news and CSAF changes cover an initial 90-day selection, plus retained findings; this is not a complete vulnerability scan.
 Only installed dpkg packages are correlated. Containers, embedded components and unrelated product names are outside that inventory.
+Installed packages and their versions are assessed separately; one CVE/source/architecture/distribution finding retains their combined outcome and history.
 The check may refresh APT lists; it never upgrades, installs or removes software. OpenITCOCKPIT controls the maximum execution time and terminates the check.
 apt_current means operationally resolved by NCSC/APT policy; a CVE fix is not independently verified.
 Counters count CVE/source/architecture/distribution combinations and open periods, not notifications.
@@ -289,6 +290,7 @@ inventory() {
         > "$1" 2>/dev/null
 }
 
+# Index each installed binary separately so source-name matching preserves all package versions and native advisory scopes.
 build_index() {
     $JQ -Rse "$JQ_COMMON"'
         split("\n") | map(select(length>0) | split("\t") |
@@ -300,34 +302,35 @@ build_index() {
             then . else error("invalid package identity") end |
             .arch as $arch | .binary |= rtrimstr(":"+$arch)) as $packages |
         if ($packages|length)==0 then error("empty inventory") else $packages end |
-        group_by([.source,.arch]) | map(
-            . as $binaries | .[0] as $first |
-            if (map(.upstream|branch)|unique|length)>1 then error("mixed installed source branches") else . end |
+        map(
+            . as $first |
             ($first.source | (try capture("^(?<family>.*?)(?<suffix>[0-9]+(?:\\.[0-9]+)*)$") catch null) // {family:"",suffix:""}) as $family |
             ($first.homepage | (try (capture("^https?://(?<host>[^/:?#]+)").host | ascii_downcase | split(".") | .[:-1]) catch null) // []) as $labels |
-            {source:$first.source,arch:$first.arch,upstream:$first.upstream,branch:($first.upstream|branch),
-             binaries:$binaries, family:$family.family, suffix:$family.suffix,
+            {source:$first.source,arch:$first.arch,binary:$first.binary,upstream:$first.upstream,branch:($first.upstream|branch),
+             binaries:[$first], family:$family.family, suffix:$family.suffix,
              confirmed:($family.family!="" and ($labels | index($family.family|norm))!=null and
                 ($first.upstream==$family.suffix or ($first.upstream|startswith($family.suffix+"."))))}) as $groups |
         {groups:$groups,
          exact:([$groups[] | . as $g | ([.source]+[.binaries[].binary] | unique[]) |
-            {key:(.|norm),value:$g}] | group_by(.key) | map({key:.[0].key,value:map(.value)|unique_by([.source,.arch])}) | from_entries),
+            {key:(.|norm),value:$g}] | group_by(.key) | map({key:.[0].key,value:map(.value)|unique_by([.source,.arch,.binary])}) | from_entries),
          families:([$groups[] | select(.family!="") | {key:(.family|norm),value:.}] |
             group_by(.key) | map({key:.[0].key,value:map(.value)}) | from_entries)}
     ' "$WORK/inventory.before" > "$WORK/index.json" 2>/dev/null
 }
 
+# Keep installed binaries distinct through product matching and APT assessment.
 # Correlate in dictionary lookups; unrelated global products do not become host alerts.
 # Ambiguous normalization and unconfirmed suffixes produce review records only.
+# A distribution-scoped package identifier selects only that installed binary.
 match_records() {
     $JQ -ce --slurpfile index "$WORK/index.json" --arg distro "$DISTRO" --argjson now "$NOW" "$JQ_COMMON"'
         def match_product:
             . as $r | ([.name,product_name] | map(norm) | unique) as $names |
-            ([$names[] | $index[0].exact[.][]?] | unique_by([.source,.arch])) as $exact |
-            (if ($exact|length)>0 then $exact else [$names[] | $index[0].families[.][]?] | unique_by([.source,.arch]) end) as $matches |
+            ([$names[] | $index[0].exact[.][]?] | unique_by([.source,.arch,.binary])) as $exact |
+            (if ($exact|length)>0 then $exact else [$names[] | $index[0].families[.][]?] | unique_by([.source,.arch,.binary]) end) as $matches |
             ($exact|map(.source)|unique|length) as $sources |
             $matches[] | . as $g |
-            $r + {source:$g.source,arch:$g.arch,upstream:$g.upstream,branch:$g.branch,binaries:$g.binaries,distro:$distro,
+            $r + {source:$g.source,arch:$g.arch,binary:$g.binary,upstream:$g.upstream,branch:$g.branch,binaries:$g.binaries,distro:$distro,
                 strength:(if $sources>1 then "ambiguous" elif $sources==1 or $g.confirmed then "strong" else "candidate" end),
                 key:([$r.cve,$g.source,$g.arch,$distro]|join("|"))};
         map(match_product) |
@@ -338,6 +341,10 @@ match_records() {
             if .patch_ref>$now then .release="announced" else . end |
             ((.helper.purl // "" | capture("^pkg:deb/(?<os>[a-z]+)/(?<package>[a-z0-9.+-]+)(?:@(?<version>[^?#]+))?(?:\\?(?<qualifiers>[^#]*))?$")) // {}) as $purl |
             ($purl.qualifiers // "" | split("&") | map(select(length>0)|split("=")|{key:.[0],value:.[1]}) | from_entries) as $qualifiers |
+            select($purl.os!=($distro|split(" ")[0]) or
+                ($qualifiers.distro!=null and $qualifiers.distro!=($distro|gsub(" ";"-"))) or
+                any(.binaries[]; .binary==$purl.package and
+                    ($qualifiers.arch==null or .arch==$qualifiers.arch))) |
             .native_scope = ($purl.os==($distro|split(" ")[0]) and
                 ($qualifiers.distro==null or $qualifiers.distro==($distro|gsub(" ";"-"))) and
                 any(.binaries[]; .binary==$purl.package and
@@ -628,51 +635,61 @@ assess_apt() {
                 fi
             fi
         done < "$WORK/versions"
-        printf '%s\t%s\t%s\n' "$apt_source" "$apt_arch" "$apt_result" >> "$WORK/apt.rows"
+        printf '%s\t%s\t%s\t%s\n' "$apt_source" "$apt_arch" "$apt_binary" "$apt_result" >> "$WORK/apt.rows"
     done < "$WORK/targets"
 }
 
-# Retain independently measured pending upgrades even if another APT query failed.
+# Retain independently measured pending upgrades per installed binary even if another APT query failed.
 # Partial current results still cannot authorize closure while APT_OK is false.
 summarize_apt() {
-    $JQ -Rse 'split("\n") | map(select(length>0)|split("\t")|{source:.[0],arch:.[1],result:.[2]}) |
-        group_by([.source,.arch]) | map({key:([.[0].source,.[0].arch]|join("|")),
-            value:(map(.result)| if index("held") then "held" elif index("pinned") then "pinned"
-              elif index("update") then "update" else "current" end)}) | from_entries' \
+    $JQ -Rse 'split("\n") | map(select(length>0)|split("\t")|
+        {key:(.[0:3]|join("|")),value:.[3]}) | from_entries' \
         "$WORK/apt.rows" > "$WORK/apt.json" 2>/dev/null
 }
 
-# Keep one current outcome per identity. Current CSAF supersedes the broader news
-# announcement for the same CVE/target, without creating another period.
+# Evaluate each installed binary before combining outcomes under the existing finding identity.
+# A fixed version cannot clear another affected or unassessed version; counters still count CVE/source/architecture/distribution combinations.
+# CSAF supersedes news only for the same installed binary, preserving announcements for other packages from that source.
 decide() {
     $JQ -ce --slurpfile old "$WORK/state.json" --slurpfile apt "$WORK/apt.json" \
-        --argjson now "$NOW" --argjson complete "$COVERAGE_COMPLETE" --argjson apt_ok "$APT_OK" '
+        --argjson now "$NOW" --argjson complete "$COVERAGE_COMPLETE" --argjson apt_ok "$APT_OK" "$JQ_COMMON"'
+        def outcome_rank:
+            if .urgent and (.status=="affected" or .status=="held" or .status=="pinned" or .status=="update") then 0
+            else {unknown:1,refresh_needed:2,affected:3,held:4,pinned:5,update:6,needs_review:7,
+                announced:8,apt_current:9,not_affected:10,retracted:11}[.status] end;
         group_by(.key) | map(
-            . as $all | (if any(.[];.origin=="csaf") then map(select(.origin=="csaf")) else . end) as $records |
+            . as $all | (group_by(.binary) | map(
+                if any(.[];.origin=="csaf") then map(select(.origin=="csaf")) else . end) | add) as $records |
             $records[0] as $first | ($old[0].findings[$first.key] // {}) as $previous |
-            ($apt[0][[$first.source,$first.arch]|join("|")] // "unknown") as $offer |
+            ($records|map(.binaries[])|unique_by([.binary,.arch,.version])) as $binaries |
             ($records|all(.[];.strength=="strong")) as $strong |
             ($records|any(.[];.concrete)) as $concrete |
-            ($records|all(.[];.cleared)) as $cleared |
-            ($records|all(.[];.retracted==true)) as $retracted |
-            ($records|any(.[];.release=="released")) as $released |
-            ($records|all(.[];.release=="announced")) as $announced |
-            (($records|all(.[];.release=="needs_review")) or ($records|any(.[];.range_review==true))) as $review |
-            ($records|any(.[];.priority=="urgent")) as $urgent |
             ($records|map(.evidence)|unique|sort_by(tostring)) as $evidence |
             ($records|map(select(.release=="released")|.patch_ref)|max) as $reference |
             ($records|map({release,branches,patch_date})|unique|sort_by(tostring)) as $release_fact |
             (if $release_fact==$previous.release_fact then ($previous.patch_ref // $reference) else $reference end) as $patch_ref |
-            ($strong and ($previous.status=="removed" or ($concrete and ($evidence!=$previous.evidence or
-                ($first.binaries|map(.version))!=($previous.binaries // []|map(.version)))))) as $invalidated |
-            $first + {sources:($all|map({id:.source_id,revision,origin})|unique),evidence:$evidence,
-                release_fact:$release_fact,patch_ref:(if $invalidated then ([$reference,$now]|max) else $patch_ref end),
-                apt:$offer,urgent:$urgent,concrete:$concrete,invalidated:$invalidated,
-                status:(if $first.cve==null or ($strong|not) then "needs_review"
+            (($binaries|map(.upstream|branch)|unique) - ($previous.binaries // []|map(.upstream|branch)|unique)) as $new_branches |
+            (($binaries|map([.binary,.arch])) - ($previous.binaries // []|map([.binary,.arch]))) as $new_binaries |
+            ($strong and ($previous.status=="removed" or ($previous.ever_open==true and (($new_branches|length)>0 or ($new_binaries|length)>0)) or
+                ($concrete and ($evidence!=$previous.evidence or
+                    ($binaries|map([.binary,.arch,.version]))!=($previous.binaries // []|sort_by([.binary,.arch,.version])|map([.binary,.arch,.version])))))) as $invalidated |
+            (if $invalidated then ([$reference,$now]|max) else $patch_ref end) as $patch_ref |
+            ($records | group_by(.binary) | map(
+                (if any(.[];.applicable) then map(select(.applicable)) else . end) |
+                .[0] as $package |
+                ($apt[0][[$package.source,$package.arch,$package.binary]|join("|")] // "unknown") as $offer |
+                (all(.[];.cleared)) as $cleared |
+                (all(.[];.retracted==true)) as $retracted |
+                (any(.[];.concrete)) as $affected |
+                (any(.[];.release=="released")) as $released |
+                (all(.[];.release=="announced")) as $announced |
+                ((all(.[];.release=="needs_review")) or (any(.[];.range_review==true))) as $review |
+                {binary:$package.binary,version:$package.binaries[0].version,upstream:$package.upstream,
+                 apt:$offer,urgent:(any(.[];.priority=="urgent")),
+                 status:(if $first.cve==null or ($strong|not) then "needs_review"
                     elif $cleared and $complete then "not_affected"
                     elif $retracted and $complete then "retracted"
-                    elif ($previous.opened_at==null and $previous.ever_open==true and ($invalidated|not)) then $previous.status
-                    elif $concrete then "affected"
+                    elif $affected then "affected"
                     elif $announced then "announced"
                     elif $review or ($released|not) then "needs_review"
                     elif $offer!="current" and $offer!="unknown" then $offer
@@ -680,7 +697,16 @@ decide() {
                     elif $old[0].apt_exit==0 and $old[0].apt_started_at>=$patch_ref and
                         $old[0].apt_completed_at>=$old[0].apt_started_at and $old[0].apt_completed_at<=$now and
                         $now-$old[0].apt_completed_at<=172800 then "apt_current"
-                    else "refresh_needed" end)})
+                    else "refresh_needed" end)})) as $assessments |
+            ($assessments|sort_by([outcome_rank,.binary])|.[0]) as $worst |
+            $first + {sources:($all|map({id:.source_id,revision,origin})|unique),evidence:$evidence,
+                binaries:$binaries,assessments:$assessments,release_fact:$release_fact,patch_ref:$patch_ref,
+                apt:$worst.apt,urgent:$worst.urgent,concrete:$concrete,invalidated:$invalidated,
+                release:(if any($records[];.release=="released") then "released"
+                    elif all($records[];.release=="announced") then "announced" else "needs_review" end),
+                status:(if all($assessments[];.status=="not_affected" or .status=="retracted") then $worst.status
+                    elif ($previous.opened_at==null and $previous.ever_open==true and ($invalidated|not)) then $previous.status
+                    else $worst.status end)})
     ' "$WORK/matches.json" > "$WORK/decisions.json" 2>/dev/null
 }
 
@@ -688,17 +714,26 @@ decide() {
 INVENTORY_OK=false
 APT_OK=false
 ATTEMPT=0
+ASSESSMENT_STEP='package inventory'
 while [ "$ATTEMPT" -lt 2 ]; do
     ATTEMPT=$((ATTEMPT + 1))
-    if ! inventory "$WORK/inventory.before" || ! build_index || ! collect_records || ! match_records || ! match_debian_ranges; then
-        break
-    fi
+    ASSESSMENT_STEP='reading installed packages'
+    inventory "$WORK/inventory.before" || break
+    ASSESSMENT_STEP='indexing installed package versions'
+    build_index || break
+    ASSESSMENT_STEP='collecting local advisory records'
+    collect_records || break
+    ASSESSMENT_STEP='matching advisories to installed versions'
+    match_records || break
+    ASSESSMENT_STEP='comparing Debian version ranges'
+    match_debian_ranges || break
     printf '{}\n' > "$WORK/apt.json"
     APT_OK=true
     if $JQ -e 'any(.[];.cve!=null and .strength=="strong" and .release=="released")' "$WORK/matches.json" >/dev/null 2>&1; then
         assess_apt || APT_OK=false
         summarize_apt || APT_OK=false
     fi
+    ASSESSMENT_STEP='combining installed-version assessments'
     decide || break
     if [ "$SOURCE_USABLE" = true ] && [ "$COVERAGE_COMPLETE" = true ] && [ "$APT_OK" = true ] &&
         $JQ -e 'any(.[];.status=="refresh_needed")' "$WORK/decisions.json" >/dev/null 2>&1; then
@@ -706,6 +741,7 @@ while [ "$ATTEMPT" -lt 2 ]; do
         $APTGET -o APT::Update::Error-Mode=any update > "$WORK/apt-update.log" 2>&1
         APT_EXIT=$?
         APT_COMPLETED=$($DATE +%s)
+        ASSESSMENT_STEP='recording the APT package-list refresh'
         update_state --argjson started "$APT_STARTED" --argjson completed "$APT_COMPLETED" --argjson code "$APT_EXIT" \
             '.apt_started_at=$started | .apt_completed_at=$completed | .apt_exit=$code' || break
         if [ "$APT_EXIT" -eq 0 ]; then
@@ -717,13 +753,16 @@ while [ "$ATTEMPT" -lt 2 ]; do
         NOW=$($DATE +%s)
         [ "$NOW" -ge "$RUN_STARTED" ] && [ "$APT_COMPLETED" -ge "$APT_STARTED" ] ||
             die 'event clock moved backwards during APT inspection; history retained'
+        ASSESSMENT_STEP='combining assessments after the APT refresh'
         decide || break
     fi
+    ASSESSMENT_STEP='rereading installed packages'
     inventory "$WORK/inventory.after" || break
     if $JQ -ne --rawfile before "$WORK/inventory.before" --rawfile after "$WORK/inventory.after" '$before==$after' >/dev/null 2>&1; then
         INVENTORY_OK=true
         break
     fi
+    ASSESSMENT_STEP='package inventory changed during both assessment attempts'
 done
 
 # Period transitions and lifetime counters form a single JSON replacement.
@@ -735,9 +774,12 @@ if [ "$INVENTORY_OK" = true ] && [ "$SOURCE_USABLE" = true ]; then
         --argjson now "$NOW" --arg distro "$DISTRO" --argjson complete "$COVERAGE_COMPLETE" '
         def closed: .=="apt_current" or .=="removed" or .=="not_affected" or .=="retracted";
         . as $initial |
-        ([$decisions[0][] | select(.cve!=null and .strength=="strong")] +
+        ([$index[0].groups[].binaries[] | {key:([.source,.arch,.binary]|join("|")),value:true}] | from_entries) as $installed |
+        [$decisions[0][] | select(.cve!=null and .strength=="strong")] as $current |
+        ($current +
          [.findings[] | select(.distro==$distro) | . as $f |
-            select($complete and ($index[0].groups | any(.[];.source==$f.source and .arch==$f.arch) | not)) |
+            select($complete and all($current[];.key!=$f.key) and
+                all($f.binaries[];$installed[[$f.source,$f.arch,.binary]|join("|")]!=true)) |
             .status="removed"]) as $updates |
         reduce $updates[] as $new (.;
             (.findings[$new.key] // {ever_open:false,opened_at:null,history:[],first_seen:$now}) as $old |
@@ -803,6 +845,9 @@ SUMMARY=$($JQ -r --argjson code "$STATE_CODE" '
     else "NCSC no relevant NCSC advisories in monitored scope" end
 ' "$WORK/state.json") || die 'cannot summarize findings'
 [ "$REVIEW_COUNT" -eq 0 ] || SUMMARY="$SUMMARY; possible local product relation requires review"
+if [ "$STATE_CODE" -eq 3 ] && [ "$INVENTORY_OK" = false ]; then
+    SUMMARY="NCSC local assessment incomplete: $ASSESSMENT_STEP; inspect local package data and retry"
+fi
 monitor_section 'Advisory assessment'
 monitor_item "$SUMMARY"
 monitor_section 'Local findings'
@@ -810,14 +855,18 @@ monitor_section 'Local findings'
 # Flatten source line breaks before passing these internally structured records to the formatter.
 FINDING_TEXT=$($JQ -r '[.findings[]]|sort_by([if .opened_at!=null then 0 else 1 end,-.first_seen])|.[0:40] |
     to_entries | group_by(.value | [.source,.arch,.distro,.status,.release,.apt,
-        (.binaries|sort_by(.binary,.arch,.version)),(.sources|sort_by(.id,.revision,.origin))]) |
+        (.binaries|sort_by(.binary,.arch,.version)),(.sources|sort_by(.id,.revision,.origin)),
+        (.assessments // []|sort_by(.binary))]) |
     sort_by(map(.key)|min)[] | map(.value) as $group | $group[0] |
     [(([.binaries[]|.binary+"="+.version]|join(", ")) +
         (if .status=="removed" then " (removed); " else " (installed); " end) +
         "\(.source):\(.arch) [\(.distro)]; " + ([.sources[]|.id+" revision "+(.revision|tostring)]|join(", ")) +
         "; applicability: \(.status); patch: \(.release); APT: \(.apt)"),
-     ($group|map(.cve)|unique|join(", "))] | map(gsub("[\r\n]"; " ")) |
-    "- " + .[0] + "\n  - " + .[1]' \
+     ($group|map(.cve)|unique|join(", ")),
+     (if (.assessments // []|length)>1 then
+         "Package assessments: " + ([.assessments[]|"\(.binary)=\(.version): \(.status) (APT: \(.apt))"]|join("; "))
+      else "" end)] | map(gsub("[\r\n]"; " ")) |
+    "- " + .[0] + "\n  - " + .[1] + (if .[2]!="" then "\n  - " + .[2] else "" end)' \
     "$WORK/state.json") || die 'cannot render findings'
 monitor_records "$FINDING_TEXT"
 monitor_item 'Detail collection is limited to 40 recent findings; state.json retains all identities and lifetime counters.'
@@ -832,7 +881,7 @@ monitor_section 'Source coverage'
 monitor_item "Initial selection: last 90 days at first start, plus retained advisories. Pending documents: $PENDING."
 monitor_items "$SOURCE_ERRORS"
 if [ "$INVENTORY_OK" = false ]; then
-    monitor_item 'Package inventory or local advisory assessment failed, or inventory changed twice; finding history retained.'
+    monitor_item "Local assessment incomplete: $ASSESSMENT_STEP; finding history retained."
 fi
 monitor_section 'APT measurement'
 APT_TEXT=$($JQ -r 'if .apt_started_at==null then "No own package-list refresh recorded."
