@@ -60,7 +60,7 @@ module ProjectTools
 
     def retain_results(results)
       @results = results.compact
-      @results.each { |result| @console.finding(diagnostic(result)) unless result[:message].empty? }
+      @results.each { |result| present_result(result) }
     end
 
     def parallel_result(path, result)

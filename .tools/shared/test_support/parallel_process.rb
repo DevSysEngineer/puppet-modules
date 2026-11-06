@@ -45,12 +45,12 @@ module ProjectTools
       @process.finished?
     end
 
-    def show_output(console)
+    def record_output(console)
       @process.each_stream(required: true) do |channel, text|
         next if text.empty?
 
-        console.diagnostic("#{config['worker_id']} #{channel}:")
-        console.diagnostic(text)
+        console.finding(text, kind: :info, title: "Worker #{channel}",
+                              subject: config['worker_id'], unit: 'worker')
       end
     end
   end

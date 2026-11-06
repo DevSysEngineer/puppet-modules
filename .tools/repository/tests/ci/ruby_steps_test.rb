@@ -7,6 +7,15 @@ require_relative 'log_support'
 class CiRubyStepsTest < Minitest::Test
   include CiLogSupport
 
+  def test_native_ruby_progress_is_grouped_and_the_failure_stays_visible
+    native = "bundle() { printf '<testsuites/>' > \"${@: -1}\"; return 1; }\n"
+    %w[GITHUB_ACTIONS GITLAB_CI].each do |platform|
+      output, errors, status = shell(native + ruby_scripts.first, platform => 'true')
+      assert_equal 1, status.exitstatus, errors
+      assert_ci_group(output, platform, name: 'Ruby lint', outcome: 'FAILED')
+    end
+  end
+
   def ruby_script(steps)
     steps.find { |item| item.fetch('run', '').include?('bundle exec rubocop') }.fetch('run')
   end

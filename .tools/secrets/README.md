@@ -8,6 +8,8 @@ Gebruik je deze repository als `global-modules` in een ander project, begin dan 
 
 Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Algemene tekstscans hebben geen Puppet-runtime nodig. Puppet-invoer gebruikt de [centraal geselecteerde Puppet/OpenVox-runtime](../shared/README.md#puppet-runtime-selecteren); ontbrekende of ongeschikte functionaliteit blijft een onvolledige scan. De versieheader verschijnt eenmaal op stderr bij afsluiting en bevat geen brongegevens.
 
+De mensgerichte scanuitvoer groepeert mogelijke geheime waarden en gevoeligheidsindicatoren als `FAILED`; onvolledige inspectie en uitvoeringsfouten staan onder `ERROR`. Koppen bevatten uitsluitend vrijgegeven bestandsmetadata, regelnummer en regelnaam. Inhoud bevat veilige omschrijvingen, nooit bronwaarden of parserfragmenten. JSON-uitvoer en de metadataformaten van voorbereidings- en schrijfoperaties blijven ongewijzigd. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

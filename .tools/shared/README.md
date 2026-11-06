@@ -25,11 +25,13 @@ De aanroeper bepaalt of een ontbrekende modulepath een terugval activeert of een
 
 `require 'project_tools/shared/console'` levert `ProjectTools::Shared::Console` vanaf shared 0.1.1. Maak een instantie met een controlenaam, `output:` en eventueel `scope:`.
 
-`during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, subject: nil, output:)` bewaart vanaf shared 0.1.2 een volledige bevinding voor het eindblok. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat.
+`during { ... }` beheert de activiteitsthread en stopt die ook bij exceptions en afhandelbare signalen. `advance(unit:, total: nil)` registreert één afgeronde eenheid; `finding(message, subject: nil, output:, kind: :info, title: 'Diagnostic', source: nil, unit: 'item')` bewaart vanaf shared 0.1.2 een volledige bevinding voor het eindblok. `finish(status:, execution:, facts: [], details: [], report: nil)` schrijft het primaire eindresultaat.
+
+De metadata bij `finding` bepaalt titel, type, bronpositie en de eenheid van getroffen identiteiten. Gebruik `error`, `failure`, `skipped`, `warning`, `review` of `info` als symbool; onbekende typen worden geweigerd. `ConsoleFindings.new(output:)`, `add(message, **metadata)` en `write` bieden dezelfde presentatie aan converters en native formatterintegraties zonder een extra uitvoeringscyclus. `ConsoleGroup` verzorgt gedeelde platformsecties; alle groepen worden gesloten, ook bij exceptions. De [centrale joblogregels](../README.md#joblogs) bepalen sortering, groepering en zichtbaarheid.
 
 De aanroeper levert status en volledigheid; shared leidt geen oordeel af uit exitcodes of severitynamen. Geef `report:` uitsluitend na succesvol schrijven en sluiten van de gevraagde uitvoer.
 
-`diagnostic(message, output:)` is ook als classmethode beschikbaar voor converters zonder eigen uitvoeringscyclus. Zij springt regels in en vlakt terminalcontroltekens af; XML blijft bij de JUnit-writer. De console schrijft geen bestanden, platformcommando’s of annotaties.
+`diagnostic(message, output:)` is ook als classmethode beschikbaar voor converters zonder eigen uitvoeringscyclus. Zij springt regels in en vlakt terminalcontroltekens af; XML blijft bij de JUnit-writer. De console schrijft geen bestanden of annotaties. In GitHub Actions en GitLab CI groepeert zij startinformatie en voortgang onder `Run <naam>`, volgens het [centrale logcontract](../README.md#joblogs). `finish` sluit die groep voordat het eindresultaat verschijnt; de automatische foutafsluiting doet hetzelfde. Buiten deze platforms blijft de uitvoer gewone tekst. Geef alleen de mensgerichte uitvoerstroom aan de console; JSON en XML blijven apart.
 
 Bij een onverwacht afgebroken `during` blijven verzamelde bevindingen zichtbaar in een onvolledige foutafsluiting, waarna de oorspronkelijke exception of het signaal doorgaat. Het [centrale logcontract](../README.md#joblogs) bepaalt de gebruikerspresentatie en de grens met native CI-stappen.
 

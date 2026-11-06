@@ -23,7 +23,7 @@ module CatalogCycleTestSupport
   end
 
   def assert_cycle_console
-    assert_match(%r{Dependency cycle.*Affected:\n    - cycle_probe/default \[debian\]}m, @console.string)
+    assert_match(%r{Dependency cycle.*Affected \(1 scenario\):\n    - cycle_probe/default \[debian\]}m, @console.string)
     assert_occurs_once('Found 1 dependency cycle')
     assert_includes @console.string, '(Notify[cycle_probe_a] => Notify[cycle_probe_b] => Notify[cycle_probe_a])'
     assert_includes @console.string, '2 selected | 2 processed | 2 checked'

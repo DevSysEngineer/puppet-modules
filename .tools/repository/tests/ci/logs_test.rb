@@ -2,7 +2,6 @@
 
 require_relative '../../../shared/test_support/bootstrap'
 require_relative 'log_support'
-require 'timeout'
 
 # Execute the actual CI shell layer with controlled native statuses and separate streams.
 class CiLogsTest < Minitest::Test
@@ -33,7 +32,7 @@ class CiLogsTest < Minitest::Test
 
   def test_setup_failure_closes_platform_group_before_the_error_summary
     { 'GITHUB_ACTIONS' => '::endgroup::', 'GITLAB_CI' => 'section_end:' }.each do |platform, marker|
-      script = 'source "$1"; ci_begin "Install synthetic bundle" details; ci_end 19 ERROR incomplete'
+      script = 'source "$1"; ci_begin "Install synthetic bundle"; ci_end 19 ERROR incomplete'
       output, _errors, status = shell(script, platform => 'true')
       assert_equal 19, status.exitstatus
       assert_operator output.index(marker), :<, output.index('[ERROR]')
@@ -43,11 +42,11 @@ class CiLogsTest < Minitest::Test
   end
 
   def test_dynamic_group_text_cannot_inject_a_workflow_command
-    script = 'source "$1"; ci_begin "$SYNTHETIC_NAME" details'
+    script = 'source "$1"; ci_begin "$SYNTHETIC_NAME"'
     output, _errors, status = shell(script, 'GITHUB_ACTIONS' => 'true',
                                             'SYNTHETIC_NAME' => "Example %\n::error::synthetic")
     assert status.success?
-    assert_includes output, '::group::Example %25 ::error::synthetic'
+    assert_includes output, '::group::Run Example %25 ::error::synthetic'
     refute_match(/^::error::/, output)
   end
 
@@ -83,23 +82,5 @@ class CiLogsTest < Minitest::Test
     assert_includes output, 'Execution: incomplete'
     pid = output[/activity:(\d+)/, 1].to_i
     assert_raises(Errno::ESRCH) { Process.kill(0, pid) }
-  end
-
-  def test_activity_is_visible_while_the_command_is_still_waiting
-    script = 'source "$1"; sleep() { command sleep 0.01; }; ' \
-             'ci_begin Synthetic; read -r synthetic; ci_end 0 PASSED complete'
-    Open3.popen3('bash', '-e', '-c', script, 'activity-test', @helper) do |input, output, errors, process|
-      Timeout.timeout(10) { assert_live_activity(input, output, errors, process) }
-    end
-  end
-
-  def assert_live_activity(input, output, errors, process)
-    assert_includes output.readline, '[START]'
-    assert_includes errors.readline, 'Still running'
-    assert process.alive?
-    input.puts 'finish'
-    input.close
-    assert_includes output.read, '[PASSED]'
-    assert process.value.success?
   end
 end

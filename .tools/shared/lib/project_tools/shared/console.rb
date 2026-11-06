@@ -2,6 +2,7 @@
 
 require_relative 'software'
 require_relative 'console_findings'
+require_relative 'console_group'
 
 module ProjectTools
   module Shared
@@ -13,16 +14,21 @@ module ProjectTools
 
       def initialize(name, output: $stdout, scope: nil, software: nil,
                      clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
-        @name = name
+        @name = safe(name)
         @output = output
         @clock = clock
         @started = @clock.call
-        @processed = 0
-        @previous = 0
-        @findings = ConsoleFindings.new
+        @processed = @previous = 0
+        @findings = ConsoleFindings.new(output: output)
         @mutex = Mutex.new
+        @group = ConsoleGroup.new("Run #{@name}", output: output)
+        start(scope, software)
+      end
+
+      def start(scope, software)
+        @group.open
         line(["[START] #{@name}", scope].compact.join(' | '))
-        self.class.software(software.fetch(:tool), **software.except(:tool), output: output) if software
+        self.class.software(software.fetch(:tool), **software.except(:tool), output: @output) if software
       end
 
       def during
@@ -73,9 +79,9 @@ module ProjectTools
         end
       end
 
-      def finding(message, subject: nil, output: @output)
+      def finding(message, subject: nil, output: @output, **metadata)
         @mutex.synchronize do
-          @findings.add(message, subject: subject, output: output)
+          @findings.add(message, subject: subject, output: output, **metadata)
         end
       end
 
@@ -84,9 +90,9 @@ module ProjectTools
 
         stop_activity
         @finished = true
+        @group.close
         result_header(status, execution, facts)
-        @findings.write
-        details.each { |detail| diagnostic(detail) }
+        @findings.write(details: details, kind: { 'ERROR' => :error, 'FAILED' => :failure }.fetch(status, :info))
         yield if block_given?
         line(format('Duration: %.1f s', @clock.call - @started))
         line("JUnit written: #{safe(report)}") if report

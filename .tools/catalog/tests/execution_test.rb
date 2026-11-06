@@ -89,7 +89,7 @@ class CatalogExecutionTest < Minitest::Test
     assert_primary_status('ERROR')
     assert_includes @console.string, '2 selected | 2 processed | 0 checked'
     assert_occurs_once('synthetic cause')
-    assert_includes @console.string, "  full last line\n  Affected:\n    - first\n    - second"
+    assert_includes @console.string, "  full last line\n  Affected (2 scenarios):\n    - first\n    - second"
     assert_operator @console.string.index('[ERROR]'), :<, @console.string.index('synthetic cause')
   end
 end

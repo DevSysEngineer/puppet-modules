@@ -116,8 +116,9 @@ module ProjectTools
         console = @console || Shared::Console.new('Sensitive data scan', output: @output)
         presentation = ConsoleReport.new(data)
         facts = presentation.facts + ['No findings means no matches in these checks, not a safety guarantee.']
+        presentation.record(console)
         console.finish(status: STATES.fetch(data[:status]), execution: data[:complete] ? 'complete' : 'incomplete',
-                       facts: facts, details: presentation.details,
+                       facts: facts,
                        report: @report_written ? '[requested report]' : nil)
       end
     end

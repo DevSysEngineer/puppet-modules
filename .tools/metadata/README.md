@@ -8,6 +8,8 @@ Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links 
 
 Deze tool toont dynamisch tool- en Ruby-versie via de gedeelde console, volgens het [logcontract](../README.md#joblogs). Metadata heeft geen Puppet-runtime nodig.
 
+De console toont metadata-afwijkingen als `FAILED`, uitgevoerde correcties als `INFO` en uitvoeringsfouten als `ERROR`. Iedere findingsgroep noemt de metadatabron en het aantal bestanden. Een inhoudelijke metadatafout blijft een failure volgens het bestaande rapport- en exitbeleid. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

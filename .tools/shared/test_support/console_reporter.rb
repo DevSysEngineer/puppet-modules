@@ -62,8 +62,14 @@ module ProjectTools
     def on_record(test)
       track_result(test)
       @console.advance(unit: 'tests', total: @expected)
-      @console.finding(message_for(test)) unless test.passed?
+      record_finding(test) unless test.passed?
       super if options[:verbose]
+    end
+
+    def record_finding(test)
+      kind = { fail: :failure, error: :error, skip: :skipped }.fetch(result(test))
+      identity = "#{test_class(test)}##{test.name}"
+      @console.finding(message_for(test), kind: kind, title: identity, subject: identity, unit: 'test')
     end
 
     def track_result(test)

@@ -19,6 +19,8 @@ Een groene lintscan bewijst geen volledige normnaleving, geldige catalogus of co
 
 Bij strijdigheid beschrijf je norm en waargenomen gedrag afzonderlijk en registreer je het conflict in de oplevering; pas de norm of implementatie niet aan als redactionele oplossing. Corrigeer een feitelijk onjuiste CLI-beschrijving alleen met uitvoerbewijs. Behoud onduidelijke normen letterlijk en markeer de precieze onzekerheid. Een niet-uitgevoerde verplichte controle of onopgelost normconflict verhindert de eindstatus `Afgerond`.
 
+De JUnit-converter groepeert native errors als `FAILED`, warnings als `WARNING` en correcties als `INFO`; converter- en rapportfouten zijn `ERROR`. De kop noemt check, bronpositie en aantal bestanden. De converter bepaalt geen lintdrempel: `--fail-on-warnings` kan warnings alsnog de totale controle laten afkeuren. CI bewaart deze mensgerichte groepen via `ci_findings` tot na de primaire afsluiting; JSON-invoer en JUnit blijven apart. Zie het [centrale logcontract](../../README.md#joblogs).
+
 ## Leeswijzer
 
 Gebruik je de tooling voor het eerst, begin dan bij de snelstart voor [deze repository](#snelstart-in-deze-repository) of [je eigen Puppet-project](#snelstart-in-een-ander-puppet-project). Voor een wijziging volg je de [dagelijkse werkwijze](#werkwijze-bij-een-wijziging). De onderwerpentabel verwijst naar de secties die je wijziging raakt; de taakroutes eronder verbinden die naslag met de benodigde stappen. Je hoeft de overige gespecialiseerde naslag niet vooraf door te nemen. Komt tijdens je werk een nieuwe afhankelijkheid of integratie in beeld, neem dan de bijbehorende sectie erbij.

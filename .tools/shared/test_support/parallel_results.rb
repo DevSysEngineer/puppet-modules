@@ -58,14 +58,24 @@ module ProjectTools
 
     def finish(console, workers, destination)
       record_findings(console)
-      console.finish(status: status, execution: execution, facts: facts, report: report_path(destination)) do
-        workers.each { |worker| worker.show_output(console) }
-      end
+      workers.each { |worker| worker.record_output(console) }
+      console.finish(status: status, execution: execution, facts: facts, report: report_path(destination))
     end
 
     def record_findings(console)
-      entries.each { |data| data['findings'].each { |finding| console.finding(finding['message']) } }
-      errors.each { |error| console.finding(error) }
+      entries.each { |data| record_cases(console, data) }
+      errors.each { |error| console.finding(error, kind: :error, title: 'Test worker execution') }
+    end
+
+    def record_cases(console, data)
+      cases = data['cases'].to_h { |test| [test.values_at('class_name', 'test_name'), test['outcome']] }
+      data['findings'].each do |finding|
+        key = finding.values_at('class_name', 'test_name')
+        identity = key.compact.join('#')
+        kind = { 'failure' => :failure, 'error' => :error, 'skipped' => :skipped }.fetch(cases[key], :info)
+        console.finding(finding['message'], kind: kind, title: identity.empty? ? 'Worker diagnostic' : identity,
+                                            subject: identity.empty? ? nil : identity, unit: 'test')
+      end
     end
 
     def report_path(destination)

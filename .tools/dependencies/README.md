@@ -8,6 +8,8 @@ Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links 
 
 De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De tests voor gebruik in andere projecten draaien met de aanwezige runtime. Andere versies worden in de gedeelde tests gesimuleerd.
 
+Findings gebruiken het gestructureerde dependencyresultaat: inhoudelijke problemen zijn `FAILED`, uitvoerings- en rapportagefouten `ERROR`. Niet-beoordeelde modulepaden staan afzonderlijk onder `SKIPPED`. De kop benoemt de regel, metadata-bron en getroffen modules of paden; de volledige diagnose blijft binnen het blok. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

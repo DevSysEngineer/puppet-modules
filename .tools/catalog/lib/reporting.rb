@@ -2,24 +2,17 @@
 
 require 'project_tools/shared/atomic_file'
 require 'project_tools/shared/junit_report'
+require_relative 'console_reporting'
 
 module ProjectTools
   class Catalog
     # Present catalog results through shared and retain scenario details in JUnit.
     module Reporting
+      include ConsoleReporting
+
       def invalid_report
         @console.finish(status: 'ERROR', execution: 'not executed', details: ['Expected a JUnit path ending in .xml.'])
         1
-      end
-
-      def present(result)
-        if result[:kind]
-          present_diagnostic(result[:name], problem_label(result), diagnostic_details(result))
-          present_coverage(result) if result[:resources]
-        else
-          present_coverage(result)
-          present_diagnostic(result[:name], 'Native diagnostic', result[:message]) unless result[:message].empty?
-        end
       end
 
       def problem_label(result)
@@ -57,18 +50,6 @@ module ProjectTools
       def deprecation_detail(entry)
         location = [entry[:source], entry[:line]].compact.join(':')
         [entry[:message], (location unless location.empty?)].compact.join(' | ')
-      end
-
-      def present_diagnostic(name, problem, message)
-        @console.finding("#{problem}\n#{message}", subject: name)
-      end
-
-      def present_coverage(result)
-        coverage = result[:coverage]
-        return unless coverage && !coverage[:missing].empty?
-
-        present_diagnostic(result[:name], "Coverage review: #{coverage[:compiled].size}/#{coverage[:total]}",
-                           "Missing definitions: #{coverage[:missing].join(', ')}")
       end
 
       def write_report(path)

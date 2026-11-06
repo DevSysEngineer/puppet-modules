@@ -35,7 +35,7 @@ module ProjectTools
       status
     rescue SystemCallError, IOError => e
       message = "Cannot write Puppet syntax JUnit report: #{e.message}"
-      @console.finding(message, output: errors)
+      @console.finding(message, output: errors, kind: :error, title: 'Syntax report')
       finish(error: message)
       1
     end
@@ -52,7 +52,7 @@ module ProjectTools
     def validation_results
       if @paths.empty?
         @results << { path: 'Manifest selection', kind: :error, message: 'No Puppet manifests selected.' }
-        @console.finding(diagnostic(@results.last))
+        present_result(@results.last)
       elsif @jobs > 1 && !Gem.win_platform?
         parallel_validation
       else
@@ -64,7 +64,7 @@ module ProjectTools
     def process(path)
       result = syntax(path)
       @results << result
-      @console.finding(diagnostic(result)) unless result[:message].empty?
+      present_result(result)
       @console.advance(unit: 'files', total: @paths.size)
     end
 
@@ -79,6 +79,15 @@ module ProjectTools
     def facts(counts)
       ["Files: #{@paths.size} selected | #{@results.count { |r| r[:kind] != :error }} checked",
        "Results: #{counts[:failures]} failures | #{counts[:errors]} errors"]
+    end
+
+    def present_result(result)
+      return if result[:message].empty?
+
+      title = { failure: 'Puppet syntax failure', error: 'Puppet validator error' }.fetch(result[:kind],
+                                                                                          'Native diagnostic')
+      @console.finding(diagnostic(result), kind: result[:kind] || :info, title: title,
+                                           source: result[:path], subject: result[:path], unit: 'file')
     end
 
     def diagnostic(result)

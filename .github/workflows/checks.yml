@@ -172,16 +172,17 @@ jobs:
         run: |
           source .tools/shared/ci/log.sh
           ci_begin 'Puppet lint'
+          ci_findings
           mkdir -p .tools/lint/puppet/results
           set +e
-          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit --result-status .tools/lint/puppet/results/puppet-lint-report.xml
+          bundle exec puppet-lint --no-config --config .puppet-lint.rc --json . | bundle exec puppet-lint-junit --result-status .tools/lint/puppet/results/puppet-lint-report.xml >"$CI_LOG_FINDINGS" 2>&1
           LINT_STATUS=("${PIPESTATUS[@]}")
           LINT_RESULT_STATUS=${LINT_STATUS[1]}
           if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
           set -e
           printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
           if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter findings.'
           elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
               if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
                   ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
@@ -229,9 +230,10 @@ jobs:
         run: |
           source .tools/shared/ci/log.sh
           ci_begin 'Ruby lint' native
+          ci_findings
           mkdir -p .tools/lint/ruby/results
           rm -f -- .tools/lint/ruby/results/rubocop-report.xml
-          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --format junit --out .tools/lint/ruby/results/rubocop-report.xml; then
+          if bundle exec rubocop --config .rubocop.yml --stderr --format progress --out "$CI_LOG_FINDINGS" --format junit --out .tools/lint/ruby/results/rubocop-report.xml; then
               RUBY_STATUS=0
           else
               RUBY_STATUS=$?

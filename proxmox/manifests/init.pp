@@ -1,8 +1,8 @@
 # @summary Installs Proxmox VE packages and kernel cleanup on Debian 12.
 #
 # This class expects `basic_settings` platform detection to be available. It installs the selected Proxmox kernel for
-# supported releases, schedules a reboot after kernel installation, installs `proxmox-ve` and `open-iscsi`, removes
-# generic Linux kernel packages, and refreshes GRUB after kernel cleanup.
+# supported releases, installs `proxmox-ve` and `open-iscsi`, removes generic Linux kernel packages, and refreshes
+# GRUB after kernel cleanup. Reboot the host manually during a maintenance window to activate the installed kernel.
 # Missing platform context or a platform other than Debian 12 fails before creating kernel-dependent resources.
 #
 # @example Install Proxmox after the basic server baseline
@@ -24,31 +24,32 @@ class proxmox () {
       }
     }
 
-    # Install the selected Proxmox kernel before scheduling the staged reboot.
+    # Keep kernel-dependent resources within the supported platform path.
     if ($kernel) {
-      # The selected kernel provides the package anchor for the staged reboot.
+      # GRUB refreshes require this package even when basic_settings does not manage the bootloader.
+      stdlib::ensure_packages(['grub2-common'], {
+        'ensure'          => 'installed',
+        'install_options' => ['--no-install-recommends', '--no-install-suggests'],
+      })
+
+      # Install the selected kernel before the platform packages.
       package { "pve-kernel-${kernel}":
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
       }
 
-      # Reboot after the selected kernel package changes.
-      reboot { 'proxmox_pre_kernel_after':
-        subscribe => Package["pve-kernel-${kernel}"],
-      }
-
-      # Stage the platform packages after the kernel reboot contract.
+      # Kernel activation is a manual maintenance action; installation continues without scheduling a reboot.
       package { ['proxmox-ve', 'open-iscsi']:
         ensure          => installed,
         install_options => ['--no-install-recommends', '--no-install-suggests'],
-        require         => Reboot['proxmox_pre_kernel_after'],
+        require         => Package["pve-kernel-${kernel}"],
       }
 
       # Regenerate GRUB when conflicting kernel packages are removed.
       exec { 'proxmox_update_grub':
-        command     => 'update-grub',
+        command     => '/usr/sbin/update-grub',
         refreshonly => true,
-        require     => Package['proxmox-ve'],
+        require     => Package['grub2-common', 'proxmox-ve'],
       }
 
       # Notify GRUB only after removing packages that conflict with the selected PVE kernel.

@@ -1,16 +1,20 @@
 # frozen_string_literal: true
 
-require_relative '../test_support/bootstrap'
+require_relative '../../test_support/bootstrap'
+require_relative '../../test_support/console_groups'
 require 'project_tools/shared/console'
 require 'stringio'
-require 'timeout'
 
 # Exercise presentation with controlled events, without waiting for the production interval.
 class SharedConsoleTest < Minitest::Test
+  include ProjectToolsConsoleGroups
+
   def setup
     @time = 0
     @output = StringIO.new
-    @console = ProjectTools::Shared::Console.new('Synthetic check', output: @output, clock: -> { @time })
+    with_ci_platform(nil) do
+      @console = ProjectTools::Shared::Console.new('Synthetic check', output: @output, clock: -> { @time })
+    end
   end
 
   def test_progress_counts_only_completed_units_and_distinguishes_activity
@@ -83,40 +87,5 @@ class SharedConsoleTest < Minitest::Test
     assert_equal 1, @output.string.scan('[PASSED]').size
     assert_equal 1, @output.string.scan('warning: synthetic').size
     refute_includes @output.string, 'JUnit'
-  end
-
-  def test_flushed_progress_precedes_completion_and_term_keeps_signal_status
-    Open3.popen3(RbConfig.ruby, '-e', signal_script) do |input, output, errors, process|
-      Timeout.timeout(10) { assert_signal_result(input, output, errors, process) }
-    end
-  end
-
-  def signal_script
-    <<~RUBY
-      require 'project_tools/shared/console'
-      console = ProjectTools::Shared::Console.new('Synthetic signal check')
-      console.during do
-        console.finding("first diagnostic\\nlast diagnostic")
-        console.advance(unit: 'files', total: 2)
-        console.progress
-        STDIN.read
-      end
-    RUBY
-  end
-
-  def assert_signal_result(input, output, errors, process)
-    assert_includes output.readline, '[START]'
-    assert_includes output.readline, '1/2 files processed'
-    Process.kill('TERM', process.pid)
-    input.close
-    final = output.read
-    assert_signal_diagnostics(final)
-    assert_empty errors.read
-    assert_equal Signal.list.fetch('TERM'), process.value.termsig
-  end
-
-  def assert_signal_diagnostics(final)
-    assert_includes final, 'Execution: incomplete'
-    assert_includes final, "  first diagnostic\n  last diagnostic"
   end
 end

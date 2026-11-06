@@ -1,5 +1,5 @@
 # Source from the existing Bash CI step; commands still run directly in that step.
-# ci_begin NAME [details|native] starts presentation; ci_end CODE STATUS COMPLETENESS [REASON] closes it.
+# ci_begin NAME [native] starts presentation; ci_end CODE STATUS COMPLETENESS [REASON] closes it.
 # Without an explicit outcome, EXIT preserves the code and reports an unfinished step.
 
 ci_activity() {
@@ -49,8 +49,24 @@ ci_start_activity() {
     ci_wait_activity_ready
 }
 
+# Native commands can defer human findings until the Run section has closed.
+ci_findings() {
+    CI_LOG_FINDINGS=$(mktemp "${TMPDIR:-/tmp}/project-ci-findings.XXXXXXXX")
+}
+
+ci_read_findings() {
+    local status=0
+    if [ -n "$CI_LOG_FINDINGS" ]; then
+        CI_LOG_DETAILS=$(cat -- "$CI_LOG_FINDINGS") || status=1
+        rm -f -- "$CI_LOG_FINDINGS" || status=1
+        CI_LOG_FINDINGS=
+    fi
+    return "$status"
+}
+
 ci_end() {
     local original_status="$1"
+    local exit_status="$1"
     local result="$2"
     local completeness="$3"
     local reason="${4:-}"
@@ -59,10 +75,16 @@ ci_end() {
     if [ -n "$CI_ACTIVITY_PID" ] && kill "$CI_ACTIVITY_PID" 2>/dev/null; then
         if wait "$CI_ACTIVITY_PID" 2>/dev/null; then :; fi
     fi
+    if ! ci_read_findings; then
+        result=ERROR
+        completeness=incomplete
+        reason='Cannot read or remove the temporary findings output.'
+        if [ "$exit_status" -eq 0 ]; then exit_status=1; fi
+    fi
     if [ "$CI_LOG_GROUP" = github ]; then
         printf '::endgroup::\n'
     elif [ "$CI_LOG_GROUP" = gitlab ]; then
-        printf '\033[0Ksection_end:%s:project_details\r\033[0K\n' "$($CI_DATE +%s)"
+        printf '\033[0Ksection_end:%s:%s\r\033[0K\n' "$($CI_DATE +%s)" "$CI_LOG_SECTION"
     fi
     printf '\n[%s] %s\nExecution: %s\n' "$result" "$CI_LOG_NAME" "$completeness"
     if [ -n "$reason" ]; then
@@ -73,46 +95,50 @@ ci_end() {
         printf 'Diagnostic: native output above; status preserved by this step.\n'
     fi
     printf 'Original exit status: %s\nDuration: %s s\n' "$original_status" "$((SECONDS - CI_LOG_STARTED))"
-    return "$original_status"
+    if [ -n "$CI_LOG_DETAILS" ]; then
+        printf '\n%s\n' "$CI_LOG_DETAILS"
+    fi
+    return "$exit_status"
 }
 
 ci_exit() {
     local original_status="$1"
     if [ "$original_status" -eq 0 ]; then
-        ci_end "$original_status" PASSED complete
+        ci_end "$original_status" PASSED complete || original_status=$?
     else
-        ci_end "$original_status" ERROR incomplete 'The step ended before a result was confirmed; inspect the native diagnostic above.'
+        ci_end "$original_status" ERROR incomplete 'The step ended before a result was confirmed; inspect the native diagnostic above.' || original_status=$?
     fi
     exit "$original_status"
 }
 
 ci_begin() {
-    CI_LOG_NAME="${1//$'\n'/ }"
-    CI_LOG_NAME="${CI_LOG_NAME//$'\r'/ }"
+    CI_LOG_NAME="${1//[[:cntrl:]]/ }"
     CI_LOG_STARTED=$SECONDS
     CI_LOG_GROUP=none
     CI_ACTIVITY_PID=
     CI_ACTIVITY_READY=
-    printf '[START] %s\n' "$CI_LOG_NAME"
+    CI_LOG_FINDINGS=
+    CI_LOG_DETAILS=
     if [ "${2:-}" != native ]; then
         CI_SLEEP=$(command -v sleep 2>/dev/null) || {
             printf '[ERROR] %s | Cannot find sleep for CI activity\nExecution: not executed\n' "$CI_LOG_NAME" >&2
             return 127
         }
     fi
-    if [ "${2:-}" = details ]; then
-        if [ "${GITHUB_ACTIONS:-}" = true ]; then
-            CI_LOG_GROUP=github
-            printf '::group::%s\n' "${CI_LOG_NAME//%/%25}"
-        elif [ "${GITLAB_CI:-}" = true ]; then
-            CI_DATE=$(command -v date 2>/dev/null) || {
-                printf '[ERROR] %s | Cannot find date for GitLab sections\nExecution: not executed\n' "$CI_LOG_NAME" >&2
-                return 127
-            }
-            CI_LOG_GROUP=gitlab
-            printf '\033[0Ksection_start:%s:project_details[collapsed=true]\r\033[0K%s\n' "$($CI_DATE +%s)" "$CI_LOG_NAME"
-        fi
+    if [ "${GITHUB_ACTIONS:-}" = true ]; then
+        CI_LOG_GROUP=github
+        printf '::group::Run %s\n' "${CI_LOG_NAME//%/%25}"
+    elif [ "${GITLAB_CI:-}" = true ]; then
+        CI_DATE=$(command -v date 2>/dev/null) || {
+            printf '[ERROR] %s | Cannot find date for GitLab sections\nExecution: not executed\n' "$CI_LOG_NAME" >&2
+            return 127
+        }
+        CI_LOG_GROUP=gitlab
+        CI_LOG_SEQUENCE=$((${CI_LOG_SEQUENCE:-0} + 1))
+        CI_LOG_SECTION="project_run_${BASHPID:-$$}_${CI_LOG_SEQUENCE}"
+        printf '\033[0Ksection_start:%s:%s[collapsed=true]\r\033[0KRun %s\n' "$($CI_DATE +%s)" "$CI_LOG_SECTION" "$CI_LOG_NAME"
     fi
+    printf '[START] %s\n' "$CI_LOG_NAME"
     trap 'ci_exit "$?"' EXIT
     trap 'ci_end 130 ERROR incomplete "The step was interrupted (INT)."; exit 130' INT
     trap 'ci_end 143 ERROR incomplete "The step was terminated (TERM)."; exit 143' TERM

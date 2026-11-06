@@ -81,14 +81,22 @@ module ProjectTools
         "Coverage: #{kinds.map { |kind, records| "#{records.length} #{kind}" }.join(' | ')}"
       end
 
-      def details
-        @records.sort_by { |record| record[:file] }.flat_map { |record| record_details(record) } +
-          @errors.sort.map { |code| error_message(code) }
+      def record(console)
+        @records.each { |record| record_details(console, record) }
+        @errors.each { |code| console.finding(error_message(code), kind: :error, title: code) }
       end
 
-      def record_details(record)
-        record[:findings].map { |item| finding_message(record[:file], item) } +
-          record[:errors].sort.map { |code| "#{record[:file]}: #{error_message(code)}" }
+      def record_details(console, record)
+        file = record[:file]
+        record[:findings].each do |item|
+          kind = item[:kind] == 'value' ? 'Possible secret value' : 'Sensitivity indicator'
+          console.finding(finding_message(file, item), kind: :failure, title: "#{kind}: #{item[:rule]}",
+                                                       source: "#{file}:#{item[:line]}", subject: file, unit: 'file')
+        end
+        record[:errors].each do |code|
+          console.finding("#{file}: #{error_message(code)}", kind: :error, title: code,
+                                                             source: file, subject: file, unit: 'file')
+        end
       end
 
       def finding_message(file, item)

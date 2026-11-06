@@ -6,6 +6,8 @@ Het pakket gebruikt shared voor versie-informatie en installeert geen Puppet-run
 
 Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links buiten de gem te kunnen volgen. Voor onderhoud volg je de [onderhoudsafspraken](#onderhoud-en-tests).
 
+In CI wordt de bestaande native progressformatter uitgebreid met de gedeelde findingspresentatie. Voortgang blijft direct op stderr; `--format progress --out "$CI_LOG_FINDINGS"` bewaart volledige native diagnoses met bronregel en caret voor na de primaire afsluiting. De kop noemt cop en bronpositie. Afkeurende offenses krijgen `FAILED` volgens de native fail-level, andere offenses `WARNING`, gecorrigeerde of uitgeschakelde offenses `INFO`. Lokale tekst, JSON, JUnit en de native exitstatus veranderen niet. Er komt geen extra formatternaam of CLI-wrapper bij. Zie het [centrale logcontract](../../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

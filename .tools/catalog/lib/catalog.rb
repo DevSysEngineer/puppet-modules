@@ -80,6 +80,7 @@ module ProjectTools
         @results << { name: 'Scenario selection', kind: :error, message: 'No catalog scenarios selected.' }
       end
       @results.each { |result| present(result) }
+      present_unselected
       compile_scenarios
     end
 
@@ -97,7 +98,7 @@ module ProjectTools
     end
 
     def execution_error(message)
-      @console.finding("Execution error\n#{message}", output: @errors)
+      @console.finding(message, output: @errors, kind: :error, title: 'Catalog execution')
       finish(error: message)
     end
   end

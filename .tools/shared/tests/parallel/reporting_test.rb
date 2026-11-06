@@ -1,10 +1,23 @@
 # frozen_string_literal: true
 
 require_relative 'support'
+require_relative '../../test_support/console_groups'
 
 # Exercise native subprocess contracts at the public Rake boundary.
 class ParallelReportingTest < Minitest::Test
   include ParallelTestSupport
+  include ProjectToolsConsoleGroups
+
+  def test_ci_group_is_shared_by_native_and_parallel_test_runs
+    %w[Alpha Beta].each { |name| probe(name) }
+    %w[GITHUB_ACTIONS GITLAB_CI].product([nil, '2']).each do |platform, jobs|
+      with_ci_platform(platform) do
+        run_tests(jobs)
+        assert_success
+        assert_ci_group(@output, platform, name: 'Tool tests', outcome: 'PASSED')
+      end
+    end
+  end
 
   def test_native_default_and_parallel_reports_have_identical_cases_and_cleanup_once
     %w[Alpha Beta Gamma].each { |name| probe(name) }

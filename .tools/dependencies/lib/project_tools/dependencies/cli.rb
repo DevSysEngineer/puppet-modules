@@ -56,11 +56,17 @@ module ProjectTools
       end
 
       def new_result
-        Result.new do |problem|
-          reporter = Reporter.new(nil, @root)
-          target = problem[:kind] == :error ? @errors : @console
-          @presentation.finding("#{reporter.title(problem)}\n#{reporter.details(problem)}", output: target)
-        end
+        Result.new { |problem| record_problem(problem) }
+      end
+
+      def record_problem(problem)
+        reporter = Reporter.new(nil, @root)
+        target = problem[:kind] == :error ? @errors : @console
+        message = "#{reporter.title(problem)}\n#{reporter.details(problem)}"
+        @presentation.finding(message, output: target, kind: problem.fetch(:kind),
+                                       title: problem.fetch(:reason).to_s,
+                                       source: reporter.path(problem[:requester_metadata]),
+                                       subject: problem[:requester_name], unit: 'module')
       end
 
       def prepare_report

@@ -13,7 +13,7 @@ Gem::Specification.new do |spec|
   spec.executables = ['project-tools-secrets']
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'project-tools-shared', '>= 0.1.1', '< 0.2.0'
+  spec.add_dependency 'project-tools-shared', '>= 0.1.2', '< 0.2.0'
   spec.add_dependency 'json', '>= 2.21', '< 4'
   spec.add_dependency 'psych', '>= 5', '< 6'
 end

@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 require_relative '../../../shared/test_support/packages'
+require_relative '../../../shared/test_support/console_groups'
 require 'yaml'
 
 # Temporary workspaces and Bash execution shared by presentation and native-step checks.
 module CiLogSupport
   include ProjectToolsPackageSupport
+  include ProjectToolsConsoleGroups
 
   def setup
     @project = Dir.mktmpdir('ci-logs-')

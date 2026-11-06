@@ -11,7 +11,7 @@ PATH
   specs:
     lint-project (0.4.0)
       json (>= 2)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
+      project-tools-shared (>= 0.1.2, < 0.2.0)
       puppet-lint (~> 5.1)
       puppet-lint-param-types (~> 3.0)
       puppet-lint-trailing_comma-check (~> 3.0)
@@ -20,7 +20,7 @@ PATH
   remote: .tools/lint/ruby
   specs:
     project-tools-ruby-lint (0.1.0)
-      project-tools-shared (>= 0.1.1, < 0.2)
+      project-tools-shared (>= 0.1.2, < 0.2)
       rubocop (~> 1.91)
 
 PATH
@@ -35,7 +35,7 @@ PATH
   specs:
     project-tools-secrets (0.4.0)
       json (>= 2.21, < 4)
-      project-tools-shared (>= 0.1.1, < 0.2.0)
+      project-tools-shared (>= 0.1.2, < 0.2.0)
       psych (>= 5, < 6)
 
 PATH

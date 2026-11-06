@@ -81,9 +81,8 @@ class SecretsConsoleOutputTest < SecretsTest
     assert_equal 1, @code
     diagnostics = @console.lines.grep(/sensitivity indicator:/)
     assert_equal 6, diagnostics.length
-    assert_includes diagnostics.first, "#{first} | line=1 |"
-    assert_includes diagnostics[2], "#{first} | line=2 |"
-    assert_includes diagnostics.last, "#{last} | line=1 |"
+    assert_equal([first, first, last, first, first, last], diagnostics.map { |line| line.split(' | ').first.strip })
+    assert_equal(%w[1 2 1 1 2 1], diagnostics.map { |line| line[/line=(\d+)/, 1] })
   end
 
   def machine_inputs

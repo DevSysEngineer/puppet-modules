@@ -36,7 +36,7 @@ module ProjectTools
       report.finish(console, report: options[:junit])
       report.status
     rescue OptionParser::ParseError, ArgumentError, SystemCallError, IOError => e
-      console.finding("metadata: #{e.message}", output: errors)
+      console.finding("metadata: #{e.message}", output: errors, kind: :error, title: 'Metadata execution')
       Report.new(scanner&.results || {}).finish(console, error: e.message)
       2
     end
@@ -49,7 +49,7 @@ module ProjectTools
 
     def self.scan(scanner, options, console)
       findings = scanner.findings(fix: options[:fix]) do |problem|
-        console.finding(Report.diagnostic(problem))
+        console.finding(Report.diagnostic(problem), **Report.presentation(problem))
         console.advance(unit: 'findings')
       end
       Report.new(findings)
@@ -81,11 +81,14 @@ module ProjectTools
       end
 
       def print(output)
-        @findings.each_value do |problems|
-          problems.each do |problem|
-            output.puts self.class.diagnostic(problem)
-          end
-        end
+        presentation = Shared::ConsoleFindings.new(output: output)
+        problems.each { |problem| presentation.add(self.class.diagnostic(problem), **self.class.presentation(problem)) }
+        presentation.write
+      end
+
+      def self.presentation(problem)
+        { kind: problem[:kind] == :fixed ? :info : :failure, title: 'project_metadata',
+          source: problem[:path], subject: problem[:path], unit: 'file' }
       end
 
       def self.diagnostic(problem)

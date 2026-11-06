@@ -70,7 +70,7 @@ De volledige combinatie is gemaakt voor `amd64`. Een deel van `basic_settings` w
 
 De huidige dependencies stellen hogere eisen dan de ondergrens van Puppet 5.5 die nog in individuele modulemetadata staat: `concat` 10 en de vastgezette `stdlib` 10.1.0 vereisen Puppet 8 en `debconf` 8 vermeldt OpenVox vanaf 8.19 binnen majorversie 8. De rootmetadata volgen deze dependencygrenzen. `basic_settings` kan de OpenVox-pakketbron voor major 8 of expliciet major 9 kiezen. Deze bronkeuze is geen automatische package-upgrade en bewijst geen compatibiliteit van de volledige moduleset met OpenVox 9. Er is geen centrale testset die iedere combinatie van Puppet- of OpenVox-versie en besturingssysteem controleert, dus test een upgrade altijd eerst buiten productie.
 
-Dit project gebruikt `concat`, `debconf`, `reboot` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald.
+Dit project gebruikt `concat`, `debconf` en `stdlib` als externe modules. Ze worden als Git-submodules meegeleverd en moeten tijdens de installatie ook worden opgehaald.
 
 Controleer de geïnstalleerde moduleversies met de [dependencycontrole](.tools/dependencies/README.md). Een geslaagde dependency-, metadata- of syntaxcontrole bewijst geen werkende uitrol; de projectbrede platformlijst is evenmin een geteste matrix van alle modules en dependencies.
 
@@ -996,13 +996,14 @@ Dit voorbeeld levert een pool op `/run/php/php-fpm.sock`. De [webconfiguratie](e
 
 - Installeert de Proxmox VE- en iSCSI-pakketten.
 - Installeert op het ondersteunde platform de verwachte PVE-kernel.
-- Plant een reboot na de kernelovergang.
 - Werkt GRUB bij na packagewijzigingen.
 - Verwijdert generieke Linux-imagepakketten en `os-prober` na de Proxmox-installatie.
 
 #### Belangrijke aandachtspunten
 
 Deze class wijzigt de kernel- en bootconfiguratie en kan daardoor een server onbruikbaar maken als er iets misgaat. Zorg voor consoletoegang, een recente back-up en een onderhoudsvenster voordat je haar toepast. Gebruik de class uitsluitend op Debian 12 (`bookworm`) met `basic_settings`.
+
+Plan na de installatie zelf een herstart om de geïnstalleerde PVE-kernel te activeren. De class plant of triggert geen automatische reboot.
 
 De [platformmapping](basic_settings/manifests/init.pp) schakelt de Proxmox-pakketbron niet in, ook niet met `proxmox_enable => true`. `basic_settings` verwijdert bovendien de bron- en sleutelbestanden die zijn eigen Proxmox-helper zou gebruiken. Beheer bij gebruik van Proxmox de pakketbron in een apart profiel met andere bestandspaden.
 

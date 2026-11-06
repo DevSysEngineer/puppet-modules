@@ -15,6 +15,7 @@ module ProjectTools
         details = @output.empty? && @kind ? {} : JSON.parse(@output, symbolize_names: true)
         return invalid_result('missing or invalid deprecation registration') unless valid_details?(details)
         return invalid_result('missing or invalid dependency cycle check') unless valid_cycle_check?(details)
+        return invalid_result('invalid native diagnostics') unless valid_diagnostics?(details)
 
         classify(details)
       rescue JSON::ParserError => e
@@ -48,6 +49,18 @@ module ProjectTools
       def valid_entry?(entry)
         entry.is_a?(Hash) && entry[:message].is_a?(String) && !entry[:message].empty? &&
           optional?(entry, :source, String) && valid_line?(entry)
+      end
+
+      def valid_diagnostics?(details)
+        return true unless details.key?(:native_diagnostics)
+
+        entries = details[:native_diagnostics]
+        entries.is_a?(Array) && entries.all? { |entry| valid_diagnostic?(entry) }
+      end
+
+      def valid_diagnostic?(entry)
+        entry.is_a?(Hash) && entry[:level].is_a?(String) && entry[:message].is_a?(String) &&
+          (entry[:source].nil? || entry[:source].is_a?(String))
       end
 
       def valid_cycle_check?(details)

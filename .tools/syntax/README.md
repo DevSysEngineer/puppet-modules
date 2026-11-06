@@ -8,6 +8,8 @@ Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links 
 
 De tool gebruikt de [gedeelde runtimevoorziening](../shared/README.md#puppet-runtime-selecteren) en toont tool-, runtime- en Ruby-versie volgens het [logcontract](../README.md#joblogs). Ontbrekende of conflicterende runtimes geven een uitvoerfout. De tests voor gebruik in andere projecten draaien met de aanwezige runtime. Andere versies worden in de gedeelde tests gesimuleerd.
 
+De console groepeert native syntaxafkeuringen als `FAILED` en validator- of rapportagefouten als `ERROR`, met het manifest als bron en eenheid bestand. Overige native diagnostiek blijft volledig zichtbaar onder `INFO`. De native status en JUnit-uitkomst blijven leidend. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)
@@ -37,7 +39,7 @@ Voer vanuit de repositoryroot de volledige selectie zonder rapport uit:
 bundle exec rake syntax:puppet
 ```
 
-De taak selecteert alle eigen `.pp`-bestanden recursief, inclusief `examples/` en nieuwe manifests. De vendored submodules `concat`, `debconf`, `reboot` en `stdlib`, geïnstalleerde gems onder `vendor/` en toolfixtures onder `.tools/` vallen buiten deze selectie. De taak staat los van `rake test` en is geen afhankelijkheid van die testtaak.
+De taak selecteert alle eigen `.pp`-bestanden recursief, inclusief `examples/` en nieuwe manifests. De vendored submodules `concat`, `debconf` en `stdlib`, geïnstalleerde gems onder `vendor/` en toolfixtures onder `.tools/` vallen buiten deze selectie. De taak staat los van `rake test` en is geen afhankelijkheid van die testtaak.
 
 Zonder taakargument geeft `syntax:puppet` de geselecteerde bestanden rechtstreeks aan `puppet parser validate` uit de actieve bundle, zonder kleurcodes. De taak maakt geen rapporten of rapportmappen en laat bestaande rapporten ongemoeid. Een lege selectie geeft een fout, zodat de parser niet terugvalt op stdin of een standaardmanifest. De parser controleert syntax zonder een catalogus te compileren of resources toe te passen; lintregels, functiegedrag en de werking op een host vallen buiten deze controle.
 

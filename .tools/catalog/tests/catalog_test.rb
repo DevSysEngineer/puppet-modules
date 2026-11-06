@@ -47,7 +47,7 @@ class CatalogTest < Minitest::Test
     assert_includes @console.string, '3 selected | 3 processed | 3 checked'
     assert_primary_status('FAILED')
     assert_occurs_once('Duplicate declaration')
-    assert_match(/Compilation failure.*Affected:\n    - duplicate/m, @console.string)
+    assert_match(/Compilation failure.*Affected \(1 scenario\):\n    - duplicate/m, @console.string)
     assert_compact_success
   end
 

@@ -12,7 +12,7 @@ runs:
       shell: bash
       run: |
         source "$GITHUB_ACTION_PATH/../../../.tools/shared/ci/log.sh"
-        ci_begin 'Install Bundler' details
+        ci_begin 'Install Bundler'
         if gem install bundler; then
             ci_end 0 PASSED complete
         else
@@ -22,7 +22,7 @@ runs:
       shell: bash
       run: |
         source "$GITHUB_ACTION_PATH/../../../.tools/shared/ci/log.sh"
-        ci_begin 'Install locked bundle' details
+        ci_begin 'Install locked bundle'
         if bundle install; then
             ci_end 0 PASSED complete
         else

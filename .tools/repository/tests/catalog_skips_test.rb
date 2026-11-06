@@ -45,7 +45,8 @@ class CatalogConsumerSkipsTest < Minitest::Test
     assert_log_status('SKIPPED')
     assert_counts(%w[2 0 0])
     assert_equal '1', suite.attributes['skipped']
-    assert_match(%r{Dependency cycle check skipped.*Affected:\n    - guard_probe/default \[synthetic\]}m, @output)
+    pattern = %r{Dependency cycle check skipped.*Affected \(1 scenario\):\n    - guard_probe/default \[synthetic\]}m
+    assert_match(pattern, @output)
     assert_includes @output, '2 selected | 2 processed | 1 checked'
     assert_includes @output, 'Execution: incomplete'
     assert_skip_case

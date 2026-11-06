@@ -33,18 +33,19 @@ class ParallelProcessTest < Minitest::Test
   def captured_output(worker)
     messages = []
     console = Object.new
-    console.define_singleton_method(:diagnostic) { |text| messages << text }
-    worker.show_output(console)
+    console.define_singleton_method(:finding) { |text, **metadata| messages << [text, metadata] }
+    worker.record_output(console)
     messages
   end
 
   def assert_output(worker, root, argument)
     messages = captured_output(worker)
-    assert_equal ['worker-00 stdout:', 'worker-00 stderr:', "synthetic stderr\n"],
-                 messages.values_at(0, 2, 3)
+    assert_equal "synthetic stderr\n", messages.fetch(1).first
+    assert_equal({ kind: :info, title: 'Worker stderr', subject: 'worker-00', unit: 'worker' },
+                 messages.fetch(1).last)
     assert_equal({ 'directory' => File.realpath(root), 'arguments' => [argument, '--synthetic-option'],
                    'test_options' => nil, 'reports' => nil, 'configuration' => File.join(root, 'config.json') },
-                 JSON.parse(messages.fetch(1)))
+                 JSON.parse(messages.fetch(0).first))
   end
 
   def assert_private_streams(root)

@@ -1,10 +1,22 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require_relative '../../shared/test_support/console_groups'
 
 # Reports are optional and must retain failure status and source files.
 class CatalogReportingTest < Minitest::Test
   include CatalogTestSupport
+  include ProjectToolsConsoleGroups
+
+  def test_ci_selection_errors_close_the_group_and_keep_junit_plain
+    %w[GITHUB_ACTIONS GITLAB_CI].each do |platform|
+      @console = StringIO.new
+      with_ci_platform(platform) { assert_equal 1, run_catalogs([], report: report_path) }
+      assert_ci_group(@console.string, platform, name: 'Puppet catalogs', outcome: 'ERROR')
+      assert_equal '1', report_suite.attributes['errors']
+      refute_ci_markers(File.read(report_path))
+    end
+  end
 
   def test_empty_selection_is_an_error
     assert_equal 1, run_catalogs([], report: report_path)

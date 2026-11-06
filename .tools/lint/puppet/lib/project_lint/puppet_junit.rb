@@ -41,15 +41,22 @@ module ProjectLint
       write_findings(output)
     end
 
-    def present(console)
-      visible = @problems.reject { |problem| problem['kind'] == 'ignored' }
-      visible.sort_by { |p| p.values_at('path', 'line', 'column', 'check', 'kind') }.each do |problem|
-        ProjectTools::Shared::Console.diagnostic(diagnostic(problem), output: console)
-      end
+    def present(console, errors: [], errors_output: console)
+      findings = ProjectTools::Shared::ConsoleFindings.new(output: console)
+      @problems.each { |problem| present_problem(findings, problem) unless problem['kind'] == 'ignored' }
+      errors.each { |message| findings.add(message, kind: :error, title: 'Puppet lint report', output: errors_output) }
       console.puts 'Puppet lint: no active findings.' if active.empty?
       console.puts "Files reported by Puppet-lint: #{@files}"
       console.puts "Findings: #{counts.join(' | ')}"
+      findings.write
       console.flush
+    end
+
+    def present_problem(findings, problem)
+      kind = { 'error' => :failure, 'warning' => :warning, 'fixed' => :info }.fetch(problem['kind'])
+      findings.add(diagnostic(problem), kind: kind, title: problem['check'],
+                                        source: problem.values_at('path', 'line', 'column').join(':'),
+                                        subject: problem['path'], unit: 'file')
     end
 
     def counts
@@ -75,21 +82,6 @@ module ProjectLint
       format('%<path>s:%<line>d:%<column>d: %<check>s: %<kind>s: %<message>s', problem.transform_keys(&:to_sym))
     end
 
-    def self.report(path, input, console, errors, finding_status: 0)
-      # Read and show available diagnostics even when the requested report cannot be opened.
-      converter, message = read(input)
-      converter&.present(console)
-      ProjectTools::Shared::Console.diagnostic(message, output: errors) if message
-      File.open(path, 'w') { |output| converter ? converter.write_findings(output) : write_error(output, message) }
-      console.puts "JUnit written: #{ProjectTools::Shared::Console.safe(path)}"
-      return 1 if message
-
-      converter.active.any? ? finding_status : 0
-    rescue SystemCallError, IOError => e
-      errors.puts "Cannot write Puppet-lint JUnit report: #{e.message}"
-      1
-    end
-
     def active
       @problems.select { |problem| %w[warning error].include?(problem['kind']) }
     end
@@ -101,7 +93,7 @@ module ProjectLint
         return 0
       end
 
-      ProjectTools::Shared::Console.diagnostic(message, output: errors)
+      report_error(message, errors)
       write_error(output, message)
       1
     end
@@ -112,6 +104,12 @@ module ProjectLint
       # Do not include parser excerpts: the input can contain source context.
       message = e.is_a?(JSON::ParserError) ? 'Invalid or missing Puppet-lint JSON; inspect the lint log.' : e.message
       [nil, message]
+    end
+
+    def self.report_error(message, output)
+      findings = ProjectTools::Shared::ConsoleFindings.new(output: output)
+      Array(message).each { |text| findings.add(text, kind: :error, title: 'Puppet lint report') }
+      findings.write
     end
 
     def self.write_error(output, message)

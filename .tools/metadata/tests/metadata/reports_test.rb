@@ -2,11 +2,23 @@
 
 require_relative '../test_helper'
 require_relative '../metadata_cli_support'
+require_relative '../../../shared/test_support/console_groups'
 require 'rexml/document'
 
 # Metadata reports stand alone and never execute Puppet checks.
 class MetadataReportsTest < Minitest::Test
   include MetadataCliSupport
+  include ProjectToolsConsoleGroups
+
+  def test_ci_cli_success_is_visible_and_junit_stays_plain
+    metadata('modules/profile/metadata.json')
+    %w[GITHUB_ACTIONS GITLAB_CI].each do |platform|
+      with_ci_platform(platform) { scan('--junit', '.reports/metadata.xml') }
+      assert_equal 0, @status.exitstatus, @output + @errors
+      assert_ci_group(@output, platform, name: 'Metadata', outcome: 'PASSED')
+      refute_ci_markers(contents('.reports/metadata.xml'))
+    end
+  end
 
   def suite
     REXML::Document.new(contents('.reports/metadata.xml')).root.elements['testsuite']
@@ -14,7 +26,7 @@ class MetadataReportsTest < Minitest::Test
 
   def test_missing_metadata_is_reported_once_without_linting_manifests
     write_file('modules/profile/manifests/init.pp', "$values = [1] + [2]\n")
-    scan('--junit', '.reports/metadata.xml')
+    with_ci_platform('GITHUB_ACTIONS') { scan('--junit', '.reports/metadata.xml') }
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_equal(%w[1 0], %w[failures errors].map { |key| suite.attributes[key] })
     assert_final_metadata_finding
@@ -24,6 +36,7 @@ class MetadataReportsTest < Minitest::Test
   end
 
   def assert_final_metadata_finding
+    assert_includes @output, '::group::[FAILED] project_metadata'
     assert_equal 1, @output.scan('modules/profile/metadata.json:').size
     assert_operator @output.index('[FAILED]'), :<, @output.index('modules/profile/metadata.json:')
     refute_includes @output, '[FINDING]'

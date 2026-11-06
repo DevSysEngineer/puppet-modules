@@ -20,7 +20,8 @@ class CatalogDependencyCycleSkipsTest < Minitest::Test
     assert_primary_status('SKIPPED')
     assert_includes @console.string, 'Execution: incomplete'
     assert_includes @console.string, '2 selected | 2 processed | 1 checked'
-    assert_match(%r{Dependency cycle check skipped.*Affected:\n    - guard_probe/default \[debian\]}m, @console.string)
+    pattern = %r{Dependency cycle check skipped.*Affected \(1 scenario\):\n    - guard_probe/default \[debian\]}m
+    assert_match(pattern, @console.string)
     assert_occurs_once("'[' is not qualified")
   end
 

@@ -172,7 +172,7 @@ node 'gitlab.example.org' {
   }
 }
 
-# Proxmox changes kernels and schedules a reboot; provide its repository without reusing paths owned by basic_settings.
+# Plan a manual reboot for Proxmox; provide its repository without reusing paths owned by basic_settings.
 node 'proxmox01.example.org' {
   include basic_settings
 

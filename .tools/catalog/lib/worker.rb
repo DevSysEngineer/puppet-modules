@@ -7,6 +7,7 @@ require 'project_tools/shared/modulepath'
 require_relative 'coverage'
 require_relative 'deprecations'
 require_relative 'dependency_cycles'
+require_relative 'diagnostics'
 
 # Reserve stdout for the result; native output stays on the diagnostic stream.
 result_output = $stdout.dup
@@ -14,6 +15,7 @@ $stdout.reopen($stderr)
 result = {}
 compiling = false
 deprecations = nil
+diagnostics = nil
 catalog = nil
 
 # A fresh process and settings directory prevent Puppet state leaking between scenarios.
@@ -30,6 +32,8 @@ begin
   deprecations = ProjectTools::Catalog::Deprecations.new
   ENV.delete('PUPPETLIB')
   Puppet::Util::Log.newdestination(:console)
+  diagnostics = ProjectTools::Catalog::Diagnostics.new
+  diagnostics.start
   Dir.mktmpdir('catalog-compile-') do |directory|
     Puppet.initialize_settings(['--confdir', directory, '--vardir', directory, '--logdir', directory,
                                 '--codedir', directory, '--color=false'])
@@ -73,6 +77,7 @@ rescue StandardError => e
   exit 2
 ensure
   result.merge!(deprecations.result) if deprecations
+  result[:native_diagnostics] = diagnostics.entries if diagnostics
   result_output.puts JSON.generate(result)
   result_output.close
 end

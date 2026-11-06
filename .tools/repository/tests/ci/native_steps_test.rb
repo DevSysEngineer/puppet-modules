@@ -8,6 +8,15 @@ require 'yaml'
 class CiNativeStepsTest < Minitest::Test
   include CiLogSupport
 
+  def test_lint_workflow_and_consumers_leave_the_failure_visible_in_both_platforms
+    puppet_scripts.product(%w[GITHUB_ACTIONS GITLAB_CI]).each do |script, platform|
+      output, errors, status = shell(fake_pipeline + script, platform => 'true',
+                                                             'SCAN_STATUS' => '1', 'CONVERTER_STATUS' => '10')
+      assert_equal 1, status.exitstatus, errors
+      assert_ci_group(output, platform, name: 'Puppet lint', outcome: 'FAILED')
+    end
+  end
+
   def test_pipeline_retains_scan_and_converter_status_and_rightmost_failure_priority
     puppet_scripts.each do |script|
       [[0, 0, 0, 'PASSED'], [1, 10, 1, 'FAILED'], [0, 10, 0, 'PASSED'],
@@ -23,7 +32,9 @@ class CiNativeStepsTest < Minitest::Test
     gitlab = guide_configuration('.check_setup').dig('puppet_lint', 'script')
     scripts = [puppet_script(workflow_steps('puppet_lint')), puppet_script(github)]
     scripts << gitlab.find { |script| script.include?('PIPESTATUS') }
-    scripts.map { |script| "source \"$1\"\nci_begin 'Puppet lint'\nset +e\n#{script.split("set +e\n", 2).last}" }
+    scripts.map do |script|
+      "source \"$1\"\nci_begin 'Puppet lint'\nci_findings\nset +e\n#{script.split("set +e\n", 2).last}"
+    end
   end
 
   def puppet_script(steps)

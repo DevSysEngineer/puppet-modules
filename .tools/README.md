@@ -370,7 +370,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -379,7 +379,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -411,7 +411,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -420,7 +420,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -468,7 +468,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -477,7 +477,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -525,7 +525,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -534,7 +534,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -592,7 +592,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -601,7 +601,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -611,19 +611,20 @@ jobs:
         run: |
           source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Puppet lint'
+          ci_findings
           mkdir -p "$PROJECT_REPORT_DIR"
           test -f .puppet-lint.rc
           lint_gem="$(bundle info --path lint-project)"
           export PROJECT_TOOLS_MODULEPATH="$GITHUB_WORKSPACE/global-modules:$GITHUB_WORKSPACE/modules"
           set +e
-          bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+          bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml" >"$CI_LOG_FINDINGS" 2>&1
           LINT_STATUS=("${PIPESTATUS[@]}")
           LINT_RESULT_STATUS=${LINT_STATUS[1]}
           if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
           set -e
           printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
           if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
+              ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter findings.'
           elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
               if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
                   ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
@@ -673,7 +674,7 @@ jobs:
       - name: Install the latest stable Bundler
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install Bundler' details
+          ci_begin 'Install Bundler'
           if gem install bundler; then
               ci_end 0 PASSED complete
           else
@@ -682,7 +683,7 @@ jobs:
       - name: Install the project bundle
         run: |
           source global-modules/.tools/shared/ci/log.sh
-          ci_begin 'Install locked bundle' details
+          ci_begin 'Install locked bundle'
           if bundle install; then
               ci_end 0 PASSED complete
           else
@@ -759,14 +760,14 @@ variables:
     - set -eo pipefail
     - source global-modules/.tools/shared/ci/log.sh
     - |
-      ci_begin 'Install Bundler' details
+      ci_begin 'Install Bundler'
       if gem install bundler; then
           ci_end 0 PASSED complete
       else
           ci_end "$?" ERROR incomplete
       fi
     - |
-      ci_begin 'Install locked bundle' details
+      ci_begin 'Install locked bundle'
       if bundle install; then
           ci_end 0 PASSED complete
       else
@@ -865,20 +866,21 @@ puppet_lint:
   script:
     - |
       ci_begin 'Puppet lint'
+      ci_findings
       mkdir -p "$PROJECT_REPORT_DIR"
     - test -f .puppet-lint.rc
     - lint_gem="$(bundle info --path lint-project)"
     - export PROJECT_TOOLS_MODULEPATH="$CI_PROJECT_DIR/global-modules:$CI_PROJECT_DIR/modules"
     - |
       set +e
-      bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml"
+      bundle exec puppet-lint --no-config --load "$lint_gem/lib/project_lint.rb" --config "$lint_gem/config/puppet-lint.rc" --config .puppet-lint.rc --json environments/production/manifests/site.pp modules/profile/manifests/init.pp | bundle exec puppet-lint-junit --result-status "$PROJECT_REPORT_DIR/puppet-lint-report.xml" >"$CI_LOG_FINDINGS" 2>&1
       LINT_STATUS=("${PIPESTATUS[@]}")
       LINT_RESULT_STATUS=${LINT_STATUS[1]}
       if [ "$LINT_RESULT_STATUS" -eq 10 ]; then LINT_STATUS[1]=0; fi
       set -e
       printf 'Native scan exit status: %s | Converter exit status: %s\n' "${LINT_STATUS[0]}" "${LINT_STATUS[1]}"
       if [ "${LINT_STATUS[1]}" -ne 0 ]; then
-          ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter diagnostic above.'
+          ci_end "${LINT_STATUS[1]}" ERROR incomplete 'The lint report could not be completed; inspect the converter findings.'
       elif [ "${LINT_STATUS[0]}" -ne 0 ]; then
           if [ "${LINT_STATUS[0]}" -eq 1 ] && [ "$LINT_RESULT_STATUS" -eq 10 ]; then
               ci_end 1 FAILED complete 'Lint findings exceed the configured threshold; --fail-on-warnings also rejects warnings.'
@@ -1242,19 +1244,25 @@ Houd consolepresentatie, controlesemantiek en rapportage afzonderlijk. De tool b
 
 Volledigheid staat afzonderlijk bij `Execution`: `complete`, `incomplete`, `not executed` of `unknown`. Een bevinding blijft ook bij een latere uitvoerfout zichtbaar. Niet-afgeronde onderdelen tellen niet als geslaagd of bewust overgeslagen. Een lege selectie volgt het bestaande toolbeleid. Tellingen benoemen hun eenheid: bronnen, manifests, modules, testgevallen en bevindingen zijn verschillende aantallen. Een onbekende telling wordt weggelaten of als onbekend aangeduid, nooit als nul. De [toolhandleidingen](#pakketten-en-commandos) leggen hun concrete tellingen vast.
 
-Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, voorspelbaar gesorteerd op bron en positie waar die beschikbaar zijn. Tijdens de uitvoering tonen eigen runners uitsluitend startinformatie en beperkte voortgang; zij bewaren bevindingen, waarschuwingen, correcties en uitvoeringsdiagnoses voor het eindblok. Dat blok vertelt het volledige verhaal in deze volgorde: status, volledigheid, tellingen, alle relevante diagnoses, duur en het eventueel geschreven rapport. Verwijzingen zoals `See findings and diagnostics above` vervangen deze diagnoses niet.
+Het eindresultaat bevat de bekende tellingen en relevante diagnostiek, eerst gesorteerd op type bevinding en daarna deterministisch op titel, bron en volledige diagnose. Tijdens de uitvoering tonen eigen runners uitsluitend startinformatie en beperkte voortgang; zij bewaren bevindingen, waarschuwingen, correcties en uitvoeringsdiagnoses voor het eindblok. Dat blok vertelt het volledige verhaal in deze volgorde: status, volledigheid, tellingen, alle relevante diagnoses, duur en het eventueel geschreven rapport. Verwijzingen zoals `See findings and diagnostics above` vervangen deze diagnoses niet.
 
-Groepeer alleen exact gelijke volledige diagnoses en behoud daarbij alle getroffen identiteiten, deterministisch gesorteerd. Verschillende oorzaken, bronposities of vervolgregels blijven afzonderlijk zichtbaar. Bewaar reeds verzamelde diagnoses ook bij een rapportagefout of afhandelbare onderbreking. Native externe formatters en expliciet gevraagde verbose-uitvoer behouden hun eigen uitvoer; deze uitzondering geldt niet voor de standaarduitvoer van eigen runners.
+Onder `Findings` krijgt iedere samenhangende diagnose een zelfstandig inklapbaar blok, buiten `Run <naam>`. De kop toont het type, een herkenbare titel, het aantal getroffen eenheden en de bronpositie wanneer bekend. De inhoud bevat de volledige diagnose, context en alle getroffen identiteiten. GitLab begint met ingeklapte secties; GitHub gebruikt zijn native groepen. Lokaal blijven dezelfde koppen, inspringing en witregels zichtbaar zonder platformcodes.
+
+De vaste volgorde is `ERROR`, `FAILED`, `SKIPPED`, `WARNING`, `REVIEW`, `INFO`. `ERROR` betekent een uitvoeringsfout; `FAILED` een inhoudelijke afkeuring; `SKIPPED` een niet-uitgevoerde controle met reden; `WARNING` een native waarschuwing; `REVIEW` een beperking die beoordeling vraagt; `INFO` overige relevante diagnostiek of correcties. Een warning kan door de ingestelde lintdrempel de totale controle laten falen. Deze bevindingstypen vervangen de primaire eindstatus of volledigheid niet. Ontbrekende scenariodekking is `REVIEW`; modules zonder tests en overgeslagen cycluscontroles zijn afzonderlijke `SKIPPED`-groepen met hun eigen eenheid.
+
+De producer levert het type uit zijn gestructureerde resultaat. Leid het nooit af uit woorden in vrije tekst. Groepeer alleen gelijke typen, titels, bronnen, eenheden en exact gelijke volledige diagnoses; behoud alle unieke getroffen identiteiten, gesorteerd. Verschillende oorzaken, bronposities of vervolgregels blijven afzonderlijk. Bij meerdere uitkomsten binnen hetzelfde scenario, zoals een deprecation-failure en een overgeslagen cycluscontrole, volgen afzonderlijke groepen. Bewaar reeds verzamelde diagnoses ook bij rapportagefouten en afhandelbare onderbrekingen. Expliciet gevraagde verbose-uitvoer behoudt haar eigen uitvoer.
 
 Kort geen bevindingen stilzwijgend af. Een rapportverwijzing verschijnt pas na een geslaagde schrijfhandeling voor deze uitvoering; een bestaand oud bestand is geen bewijs. Zonder rapportverzoek blijven bestaande rapporten ongemoeid. Een latere verplichte upload of checkoutcontrole kan de job alsnog laten falen.
 
-Nieuwe en gewijzigde eigen Ruby-tools moeten dit contract met gedragstests bij de betreffende tool bewaken, volgens het [testbeleid voor console en rapportage](../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud). De bestaande automatische `test:tools`-selectie voert deze regressies ook in de CI-gate uit. Shared-tests bewaken uitsluitend gedeeld presentatiegedrag; alleen de gedeelde console aanroepen is onvoldoende bewijs van correct toolgedrag.
+Nieuwe en gewijzigde eigen Ruby-tools moeten dit contract met gedragstests bij de betreffende tool bewaken, volgens het [testbeleid voor console en rapportage](../TESTS.md#interfaces-dependencies-en-gegenereerde-inhoud). De bestaande automatische `test:tools`-selectie voert deze regressies ook in de CI-gate uit. Bewaak voor GitHub en GitLab dat start en voortgang binnen `Run <naam>` staan en precies één eindresultaat erbuiten staat, ook bij fouten en onderbrekingen. Controleer daarnaast gewone lokale uitvoer en ongewijzigde machineformaten. Shared-tests bewaken uitsluitend gedeeld presentatiegedrag; alleen de gedeelde console aanroepen is onvoldoende bewijs van correct toolgedrag.
 
-JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De CI-aanroep vraagt met `--result-status` een afzonderlijk signaal voor actieve bevindingen na geslaagde conversie. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en normaliseert uitsluitend dat bevindingensignaal naar conversiestatus 0. Native lintstatus 1 met dat signaal geeft `FAILED`, met de ingestelde warningdrempel als reden. Een andere niet-nul lintstatus, lintstatus 1 zonder bevestigde bevindingen of een conversiefout geeft `ERROR`. De oorspronkelijke processtatussen en de prioriteit van de laatste niet-nul status blijven behouden; een converterbevinding maakt een native nulstatus niet alsnog afkeurend. De [converterinterface](lint/puppet/README.md#exitcodes-van-puppet-lint-junit) beschrijft de codes en het verschil met gewone conversie.
+JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Meng native stderr nooit met de JSON-invoer van de lintpipe. Alleen de mensgerichte uitvoerstromen van de laatste converter mogen samen naar het tijdelijke findingsbestand; native stdout blijft JSON. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De CI-aanroep vraagt met `--result-status` een afzonderlijk signaal voor actieve bevindingen na geslaagde conversie. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en normaliseert uitsluitend dat bevindingensignaal naar conversiestatus 0. Native lintstatus 1 met dat signaal geeft `FAILED`, met de ingestelde warningdrempel als reden. Een andere niet-nul lintstatus, lintstatus 1 zonder bevestigde bevindingen of een conversiefout geeft `ERROR`. De oorspronkelijke processtatussen en de prioriteit van de laatste niet-nul status blijven behouden; een converterbevinding maakt een native nulstatus niet alsnog afkeurend. De [converterinterface](lint/puppet/README.md#exitcodes-van-puppet-lint-junit) beschrijft de codes en het verschil met gewone conversie.
 
-Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](shared/ci/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS [REASON]` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. Een opgegeven `REASON` staat bij het eindresultaat en legt uit waarom de controle faalt. De EXIT-afhandeling meldt een onverwachte fout als `ERROR` met `Execution: incomplete`, benoemt dat geen resultaat kon worden bevestigd en bewaart de oorspronkelijke code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
+Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](shared/ci/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS [REASON]` sluit haar af en retourneert de oorspronkelijke code. `ci_findings` maakt na `ci_begin` een afgeschermd tijdelijk bestand in `CI_LOG_FINDINGS`. Native lintaanroepen schrijven hun mensgerichte bevindingen daarin. `ci_end` leest en verwijdert het bestand, sluit `Run`, toont de primaire afsluiting en schrijft daarna de bevindingen. Een lees- of opruimfout geeft `ERROR` en behoudt een bestaande niet-nul status; een eerdere nulstatus wordt 1. De EXIT- en signaalroute gebruiken dezelfde opruiming. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. Een opgegeven `REASON` staat bij het eindresultaat en legt uit waarom de controle faalt. De EXIT-afhandeling meldt een onverwachte fout als `ERROR` met `Execution: incomplete`, benoemt dat geen resultaat kon worden bevestigd en bewaart de oorspronkelijke code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
 
-`details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
+Iedere mensgerichte uitvoering opent in CI een inklapbaar blok `Run <naam>` voor startinformatie, voortgang en eventuele native uitvoer. De gedeelde Ruby-console en Bash-hulp sluiten dit blok vóór het primaire eindresultaat, zodat status, volledigheid, tellingen en diagnoses van eigen runners zichtbaar blijven als je het uitvoeringsblok inklapt. Dit geldt ook bij afhandelbare fouten en onderbrekingen. Gebruik [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [standaard ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default); opeenvolgende GitLab-uitvoeringen krijgen afzonderlijke secties. Lokaal verschijnen gewone tekstregels zonder platformmarkeringen.
+
+Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie en JUnit-formatter. De CI-integratie breidt de bestaande progressformatter uit met gedeelde findingsgroepen, zonder tekst te parsen of een tweede formatter voor diagnoses toe te voegen. Native bronregels en carets blijven intact. Startupdiagnoses zonder gestructureerd resultaat kunnen in `Run` staan; afgeronde lintbevindingen staan na de afzonderlijke eindstatus. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries.
 
 De consumer-voorbeelden sourcen de hulp uit hun vastgelegde `global-modules`-checkout; kopieer het script niet naar het eigen project. Wie uitsluitend geïnstalleerde gems gebruikt, behoudt de eigen CI-aanroeplaag en past daar dit presentatiecontract toe. De Ruby-gems vereisen geen CI-script of ontwikkelcheckout. Een Ruby-lintinstallatie gebruikt shared voor de versieheader en heeft geen Puppet-runtime nodig.
 
@@ -1319,7 +1327,7 @@ Volg bij toevoegen en verplaatsen de [centrale groeperingsconventie](../TESTS.md
 
 Pas de [CI- en rapportprocedures](#ci-van-deze-repository) toe bij tooling- of pipelinewijzigingen. Behoud de eenmalige secrets-gate en alle vijf fasegrenzen vóór vervolgdiagnostiek en de selecties, drempels, exitcodes en publicatiecontracten.
 
-Beoordeel gewijzigde reporters en CI-aanroepen tegen het [joblogcontract](#joblogs). Inspecteer representatieve uitvoer voor een schone run, één bevinding tussen veel schone invoer, meerdere bevindingen binnen en over invoer, en onvolledige uitvoering met bevindingen en meerdere uitvoerfouten. Bewaar die gevallen in de gedragstests van de eigenaar en noteer de handmatige leesbaarheidsreview. Controleer met gedragstests dat diagnoses vóór de primaire afsluiting ontbreken en erna volledig en eenmaal verschijnen, dat exacte duplicaten alle getroffen identiteiten behouden en dat verschillende diagnoses niet samenvallen. Alleen gebruik van de gedeelde console bewijst geen naleving. Houd uitvoering en presentatie gescheiden en valideer betrokken tool- en repositoryintegratietests.
+Beoordeel gewijzigde reporters en CI-aanroepen tegen het [joblogcontract](#joblogs). Inspecteer representatieve uitvoer voor een schone run, één bevinding tussen veel schone invoer, meerdere bevindingen binnen en over invoer, en onvolledige uitvoering met bevindingen en meerdere uitvoerfouten. Bewaar die gevallen in de gedragstests van de eigenaar en noteer de handmatige leesbaarheidsreview. Controleer met gedragstests dat diagnoses vóór de primaire afsluiting ontbreken en erna volledig en eenmaal verschijnen, dat exacte duplicaten alle getroffen identiteiten behouden en dat verschillende diagnoses niet samenvallen. Bewaak bovendien de typevolgorde, volledige inhoud per inklapbare groep, unieke gebalanceerde secties, gescheiden skips en failures, en ongewijzigde exitcodes en JUnit-tellingen. Alleen gebruik van de gedeelde console bewijst geen naleving. Houd uitvoering en presentatie gescheiden en valideer betrokken tool- en repositoryintegratietests.
 
 ### Toolingdocumentatie onderhouden
 

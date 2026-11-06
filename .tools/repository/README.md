@@ -2,6 +2,8 @@
 
 Met deze tests controleer je de samenhang van de repository: documentatielinks en navigatie, CI-configuratie en voorbeelden, testindeling en installatie van meerdere pakketten uit dezelfde bron. De tests horen bij deze ontwikkelcheckout. Ze leveren geen runtimegem en worden niet door afnemende projecten geïnstalleerd.
 
+Regressies voor joblogs bewaken de Bash-aanroepen, native lintintegratie en gedocumenteerde consumervoorbeelden voor GitHub en GitLab. Controleer dat `Run` sluit vóór de primaire afsluiting en dat findings daarna zelfstandig inklapbaar zijn, inclusief typevolgorde, volledige diagnoses, tijdelijke-bestandsopruiming en ongewijzigde native statusprioriteit. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

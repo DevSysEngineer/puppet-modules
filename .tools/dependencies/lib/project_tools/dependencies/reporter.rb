@@ -65,15 +65,23 @@ module ProjectTools
       def console(presentation, errors, report: nil, error: nil)
         incomplete = error || @result.status == 2
         outcome = @result.status.zero? ? 'PASSED' : 'FAILED'
+        presentation.finding(error, output: errors, kind: :error, title: 'Dependency report') if error
+        record_unassessed(presentation)
+        facts = console_facts + (error ? ['Final report: not produced'] : [])
         presentation.finish(status: incomplete ? 'ERROR' : outcome, execution: incomplete ? 'incomplete' : 'complete',
-                            facts: console_facts, report: report) do
-          presentation.diagnostic(error, output: errors) if error
-          presentation.diagnostic('Final report: not produced') if error
+                            facts: facts, report: report)
+      end
+
+      def record_unassessed(presentation)
+        message = 'Directory not assessed for module metadata.'
+        @result.unassessed.each do |directory|
+          presentation.finding(message, kind: :skipped, title: 'Module metadata not assessed',
+                                        subject: path(directory), unit: 'path')
         end
       end
 
       def console_facts
-        coverage.lines.map(&:chomp) +
+        coverage.lines.first(2).map(&:chomp) +
           [format('Scan: %<failures>d dependency conflicts, %<errors>d execution errors.', @result.counts)]
       end
     end

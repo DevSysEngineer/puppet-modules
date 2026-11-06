@@ -3,6 +3,7 @@
 require 'rubocop'
 require 'project_tools/shared/console'
 require_relative 'ruby_lint/runtime_coupling'
+require_relative 'ruby_lint/grouped_findings'
 
 module ProjectTools
   module RubyLint
@@ -17,3 +18,4 @@ module ProjectTools
 end
 
 RuboCop::Runner.prepend(ProjectTools::RubyLint::Versions)
+RuboCop::Formatter::ProgressFormatter.prepend(ProjectTools::RubyLint::GroupedFindings)

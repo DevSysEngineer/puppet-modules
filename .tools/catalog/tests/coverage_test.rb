@@ -9,8 +9,8 @@ class CatalogCoverageTest < Minitest::Test
   def test_coverage_reports_indirect_declarations_and_excludes_unrealized_defines
     prepare_coverage_module
     assert_equal 0, run_catalogs(nil, report: report_path)
-    assert_match(%r{Coverage review: 3/5.*Affected:\n    - sample/default \[debian\]}m, @console.string)
-    assert_includes @console.string, 'Missing definitions: class sample::missing, define sample::unused'
+    assert_match(%r{Coverage review: 3/5.*Affected \(1 scenario\):\n    - sample/default \[debian\]}m, @console.string)
+    assert_includes @console.string, "Missing definitions:\n    - class sample::missing\n    - define sample::unused"
     assert_primary_status('PASSED')
     assert_compact_success
     refute_includes @console.string, 'Compilation failure'

@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   spec.executables = ['puppet-lint-junit']
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'project-tools-shared', '>= 0.1.1', '< 0.2.0'
+  spec.add_dependency 'project-tools-shared', '>= 0.1.2', '< 0.2.0'
   spec.add_dependency 'json', '>= 2'
   spec.add_dependency 'puppet-lint', '~> 5.1'
   spec.add_dependency 'puppet-lint-param-types', '~> 3.0'

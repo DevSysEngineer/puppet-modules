@@ -6,6 +6,8 @@ Gebruik de [syntaxcontrole](../syntax/README.md) voor de native parser. In het [
 
 De runner toont toolversie uit root-`VERSION`, de geselecteerde runtime en Ruby-versie via de gedeelde console. Zie [bewijs en simulatiegrenzen](../README.md#runtimekeuze-en-compatibiliteit): alleen de aanwezige OpenVox-runtime is integraal uitgevoerd; OpenVox 9 is geen acceptatievoorwaarde en wordt niet geïnstalleerd.
 
+De console houdt afkeuringen, overgeslagen cycluscontroles en ontbrekende dekking in afzonderlijke findingsgroepen. Dit geldt ook wanneer één scenario zowel faalt als een controle overslaat. De kop telt scenario’s; modules zonder tests staan apart met een moduleaantal. Native Puppet-waarschuwingen krijgen hun type via een logdestination in de geïsoleerde worker; onbekende overige tekst blijft `INFO`. De volledige oorspronkelijke uitvoer en bestaande testcase-uitkomsten blijven in JUnit behouden. Zie het [centrale logcontract](../README.md#joblogs) voor de gedeelde bediening en volgorde.
+
 ## Inhoudsopgave
 
 - [Inhoudsopgave](#inhoudsopgave)

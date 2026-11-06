@@ -1,11 +1,24 @@
 # frozen_string_literal: true
 
 require_relative 'test_helper'
+require_relative '../../shared/test_support/console_groups'
 require 'stringio'
 
 # Reporting is optional and must not change the native dependency verdict.
 class DependencyCliTest < Minitest::Test
   include DependencyTestSupport
+  include ProjectToolsConsoleGroups
+
+  def test_ci_cli_success_uses_the_shared_group_boundary
+    write_module('library')
+    %w[GITHUB_ACTIONS GITLAB_CI].each do |platform|
+      with_ci_platform(platform) do
+        output, errors, status = capture_cli
+        assert_equal 0, status.exitstatus, errors
+        assert_ci_group(output, platform, name: 'Puppet module dependencies', outcome: 'PASSED')
+      end
+    end
+  end
 
   def test_library_help_returns_without_starting_a_scan_or_writing_reports
     %w[-h --help].each do |flag|
@@ -26,7 +39,8 @@ class DependencyCliTest < Minitest::Test
 
   def test_conflicts_without_a_report
     write_module('library', dependencies: [dependency('example-missing')])
-    assert_optional_report(1)
+    with_ci_platform('GITHUB_ACTIONS') { assert_optional_report(1) }
+    assert_includes @output, '::group::[FAILED] '
   end
 
   def test_configuration_errors_without_a_report
@@ -39,10 +53,15 @@ class DependencyCliTest < Minitest::Test
     assert_equal expected, status.exitstatus, output + errors
     refute_path_exists File.dirname(@report)
     scan(expected)
-    assert_equal(output.lines.reject { |line| line.start_with?('Duration:', 'JUnit written:') },
-                 @output.lines.reject { |line| line.start_with?('Duration:', 'JUnit written:') })
+    assert_equal comparable_output(output), comparable_output(@output)
     assert_equal errors, @errors
     assert_includes @output, 'JUnit written:'
+  end
+
+  def comparable_output(output)
+    output.lines.reject do |line|
+      line.start_with?('Duration:', 'JUnit written:') || line.match?(/section_(?:start|end):/)
+    end
   end
 
   def test_console_only_scan_preserves_existing_reports

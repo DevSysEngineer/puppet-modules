@@ -6,7 +6,7 @@ module CatalogConsumerReportingSupport
     assert_equal 1, @status.exitstatus, @output + @errors
     assert_log_status('FAILED')
     assert_counts(%w[2 1 0])
-    assert_match(%r{Compilation failure.*Affected:\n    - failure/default \[synthetic\]}m, @output)
+    assert_match(%r{Compilation failure.*Affected \(1 scenario\):\n    - failure/default \[synthetic\]}m, @output)
     assert_equal 1, @output.scan('synthetic consumer failure').size
     assert_includes suite.elements['testcase/failure'].text, 'synthetic consumer failure'
   end
@@ -23,7 +23,7 @@ module CatalogConsumerReportingSupport
   end
 
   def assert_cycle_console
-    assert_match(%r{Dependency cycle.*Affected:\n    - cycle_probe/default \[synthetic\]}m, @output)
+    assert_match(%r{Dependency cycle.*Affected \(1 scenario\):\n    - cycle_probe/default \[synthetic\]}m, @output)
     ['Found 1 dependency cycle', 'Duplicate declaration', 'Expected a JSON object of facts'].each do |message|
       assert_equal 1, @output.scan(message).size
     end
@@ -61,7 +61,7 @@ module CatalogConsumerReportingSupport
     assert_log_status('FAILED')
     assert_counts(%w[4 1 0])
     assert_equal 'Deprecation', suite.elements['testcase/failure'].attributes['type']
-    assert_match(%r{Deprecated Puppet usage.*Affected:\n    - legacy/default \[synthetic\]}m, @output)
+    assert_match(%r{Deprecated Puppet usage.*Affected \(1 scenario\):\n    - legacy/default \[synthetic\]}m, @output)
     assert_equal 1, @output.scan('synthetic consumer deprecation').size
     assert_includes @output, '4 selected | 4 processed | 4 checked'
   end
