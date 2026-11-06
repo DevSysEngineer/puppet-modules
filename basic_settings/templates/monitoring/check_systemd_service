@@ -59,6 +59,10 @@ WARN_RE=${WARN_RE:-''} # keep empty by default (avoid noisy WARNINGs)
 # CLI options select schedule controls, journal limits and runtime policy for one invocation.
 USAGE_TEXT="Usage: $0 [-W <HH:MM-HH:MM[,HH:MM-HH:MM...]>] [-D <dayspec>] [-a] [-l chars] [-n lines] [-t seconds] [-m chars_per_line] [-r 0|1] [-s 0|1] [-o 0|1] [-F failure_regex] [-w warning_regex] [-A] <service>
 Environment: ACTIVE_WINDOWS (-W); ACTIVE_DAYS (-D); ACTIVE_ALERT_OUTSIDE (-a); DETAIL_LIMIT (-l); LOG_LINES (-n); WINDOW (-t); MAXLOG (-m); REQUIRE_ACTIVE (-r); SCAN_LOGS (-s); SCAN_LOGS_OUTSIDE (-o); FAIL_RE (-F); WARN_RE (-w); ACTIVE_ALERT_OUTSIDE (-A).
+Journal display omits the header hostname and one leading ISO date/time from the message; the journal timestamp remains at second precision.
+Recognized message prefixes use YYYY-MM-DD, optionally followed by T or a space and HH[:MM[:SS[.fraction]]], or time-only HH:MM[:SS[.fraction]].
+Fractions also accept a comma; times accept Z or +/-HH:MM or +/-HHMM; matching square brackets are allowed. Invalid prefixes and timestamp-only messages remain intact.
+Failure and warning patterns inspect the original journal text, before display formatting.
 Command-line options override non-empty environment values; unset or empty environment values use defaults.
 -a/-A enable/disable alerts for active services outside the schedule."
 OPTERR=0
@@ -426,7 +430,7 @@ if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
         monitor_item "Selection: latest $LOG_LINES lines; $((JOURNAL_LINE_COUNT - LOG_LINES)) older lines omitted."
     fi
-    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES")" "$MAXLOG"
+    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES" | monitor_compact_journal)" "$MAXLOG"
 fi
 if [ -n "${LONG_OUTPUT:-}" ]; then
     monitor_limit "$DETAIL_LIMIT"

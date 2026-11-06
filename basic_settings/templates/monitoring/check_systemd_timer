@@ -38,6 +38,9 @@ Environment: DETAIL_LIMIT (-l, default 6000); LOG_LINES (-n, default 20); WINDOW
 WINDOW selects the forward journal interval from the last timer trigger.
 LOG_WINDOW selects a positive integer interval from now minus that many seconds through now, without clipping to the last trigger. It overrides journal selection only; WINDOW retains its meaning when LOG_WINDOW is omitted.
 Journal entries are diagnostic context; current target service properties determine status. Output limits and the agent timeout do not expand with the lookback.
+Journal display omits the header hostname and one leading ISO date/time from the message; the journal timestamp remains at second precision.
+Recognized message prefixes use YYYY-MM-DD, optionally followed by T or a space and HH[:MM[:SS[.fraction]]], or time-only HH:MM[:SS[.fraction]].
+Fractions also accept a comma; times accept Z or +/-HH:MM or +/-HHMM; matching square brackets are allowed. Invalid prefixes and timestamp-only messages remain intact.
 A completed successful execution with exit status zero is OK. Concrete service failures are CRITICAL, including timeout or signal failures with exit status zero.
 An observed running main process (including an activating oneshot) is WARNING: service execution in progress; result pending. Long tasks can keep warning; no allowed-runtime policy is implied.
 Missing or invalid results and inconsistent observations are UNKNOWN. exit_code is U without a valid final result; last_run_age measures the timer trigger, not service completion.
@@ -329,7 +332,7 @@ if [ "$JOURNAL_LINE_COUNT" -gt 0 ]; then
     if [ "$JOURNAL_LINE_COUNT" -gt "$LOG_LINES" ]; then
         monitor_item "Selection: latest $LOG_LINES lines; $((JOURNAL_LINE_COUNT - LOG_LINES)) older lines omitted."
     fi
-    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES")" "$MAXLOG"
+    monitor_log_items "$(printf '%s\n' "$JOURNAL_RAW" | $TAIL -n "$LOG_LINES" | monitor_compact_journal)" "$MAXLOG"
 fi
 if [ -n "${LONG_OUTPUT:-}" ] || [ "$CHECK_STATUS" -ne 0 ]; then
     monitor_limit "$DETAIL_LIMIT"
