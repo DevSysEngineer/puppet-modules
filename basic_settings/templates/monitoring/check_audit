@@ -58,7 +58,9 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 STATE_CODE=0 # 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN
 USAGE_TEXT="Usage: $0 [-q <int>] [-d <int>] [-l chars]
 Environment: QUEUE_WARN (-q); DROPPED_CRIT (-d); DETAIL_LIMIT (-l).
-Command-line options override non-empty environment values; unset or empty environment values use defaults."
+Command-line options override non-empty environment values; unset or empty environment values use defaults.
+Journal display keeps journal time and process/PID, omitting the hostname and a leading application date/time.
+Journal error counts use the original message text."
 WARNING_REASONS=""
 UNKNOWN_REASONS=""
 
@@ -217,12 +219,14 @@ monitor_item "Keyed events: $(monitor_value "$KEYS")"
 <% if @systemd_enable != false -%>
 if use_systemd && [ -n "$JOURNALCTL" ]; then
 # Auditd and augenrules journal errors since boot indicate broken rule loading or runtime failures.
-JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o cat 2>/dev/null)
+JLOG=$($JOURNALCTL -b -u auditd -u augenrules --no-pager -o short-iso 2>/dev/null)
 JLOG_RC=$?
 ERR_COMBINED=$(printf "%s\n" "$JLOG" | $AWK '
     {
         line=$0
         l=tolower(line)
+        # Match the original message only; header hostnames and process names are not audit errors.
+        sub(/^[^ \t]+[ \t]+[^ \t]+[ \t]+[^ \t:]+: /, "", l)
         if (l ~ /(error|unknown)/) {
             c++
             errors[c]=line
@@ -242,7 +246,7 @@ if [ "$ERROR_COUNT" != U ] && [ "$ERROR_COUNT" -gt 0 ]; then
     add_critical "journal errors since boot ${ERROR_COUNT}"
     monitor_section "Audit journal"
     monitor_item "Source: audit journal since boot, newest first"
-    monitor_log_items "$ERROR_SNIPPET"
+    monitor_log_items "$(printf '%s\n' "$ERROR_SNIPPET" | monitor_compact_journal)"
 fi
 else
 <% end -%>

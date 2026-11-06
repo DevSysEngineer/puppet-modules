@@ -51,7 +51,8 @@ DETAIL_LIMIT=${DETAIL_LIMIT:-6000}
 # CLI options tune last-run age thresholds without changing the managed check registration.
 USAGE_TEXT="Usage: $0 [-w warn_seconds] [-c crit_seconds] [-l chars] [-n lines] [-N lines] [-s seconds] [-e seconds]
 Environment: WARN_AGE (-w); CRIT_AGE (-c); DETAIL_LIMIT (-l); LOG_LINES (-n); LOG_SCAN_LINES (-N); RUN_JOURNAL_START_GRACE (-s); RUN_JOURNAL_END_GRACE (-e).
-Command-line options override non-empty environment values; unset or empty environment values use defaults."
+Command-line options override non-empty environment values; unset or empty environment values use defaults.
+Journal display keeps journal time and process/PID, omitting the hostname and a leading application date/time."
 OPTERR=0
 while getopts ":w:c:l:n:N:s:e:h" opt; do
     case "$opt" in
@@ -285,7 +286,7 @@ if [ -n "$JOURNAL_JOINED" ]; then
     if [ "${JOURNAL_OMITTED:-0}" -gt 0 ]; then
         monitor_item "Selection: latest $LOG_LINES lines; $JOURNAL_OMITTED older lines omitted."
     fi
-    monitor_log_items "$JOURNAL_JOINED"
+    monitor_log_items "$(printf '%s\n' "$JOURNAL_JOINED" | monitor_compact_journal)"
 elif [ -n "${JOURNAL_RAW:-}" ]; then
     monitor_item "No Puppet-tagged journal lines found in $JOURNAL_CONTEXT_LABEL"
 fi
