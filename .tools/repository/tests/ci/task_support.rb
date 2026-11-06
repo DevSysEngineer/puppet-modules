@@ -20,7 +20,7 @@ module CiTaskSupport
     write('modules/sample/tests/manifests/default.pp', "include sample\n")
     write('modules/sample/tests/facts/synthetic.json', '{}')
     write('examples/example.pp', "notify { 'example': }\n")
-    %w[.tools vendor concat debconf reboot stdlib].each { |dir| write("#{dir}/excluded.pp", 'class {') }
+    %w[.tools vendor concat debconf stdlib].each { |dir| write("#{dir}/excluded.pp", 'class {') }
   end
 
   def write_probe

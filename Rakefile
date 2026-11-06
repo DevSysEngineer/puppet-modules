@@ -4,8 +4,7 @@ require 'rake/testtask'
 require 'project_tools/shared/test_task'
 
 def project_manifests
-  FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*',
-                              'reboot/**/*', 'stdlib/**/*')
+  FileList['**/*.pp'].exclude('.tools/**/*', 'vendor/**/*', 'concat/**/*', 'debconf/**/*', 'stdlib/**/*')
 end
 
 {

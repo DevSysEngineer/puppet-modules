@@ -16,7 +16,7 @@ module ProjectLint
     end
 
     def allowed_module?(name)
-      @explicit || !%w[concat debconf reboot stdlib].include?(name)
+      @explicit || !%w[concat debconf stdlib].include?(name)
     end
 
     def first_module_root(name)

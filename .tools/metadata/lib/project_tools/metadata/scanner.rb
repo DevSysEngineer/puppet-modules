@@ -10,7 +10,7 @@ module ProjectTools
   module Metadata
     # Project metadata is selected independently of manifests and dependency modulepaths.
     class Scanner
-      REPOSITORY_EXCLUSIONS = %w[examples vendor concat debconf reboot stdlib].freeze
+      REPOSITORY_EXCLUSIONS = %w[examples vendor concat debconf stdlib].freeze
 
       attr_reader :results
 

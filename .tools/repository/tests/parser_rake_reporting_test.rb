@@ -19,7 +19,7 @@ class ParserRakeReportingTest < Minitest::Test
   end
 
   def excluded_directories
-    %w[.tools vendor concat debconf reboot stdlib]
+    %w[.tools vendor concat debconf stdlib]
   end
 
   def run_parser(report = nil, jobs: nil)
