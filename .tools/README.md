@@ -31,6 +31,8 @@ Voor onderhoud aan tools of hun integratie begin je bij de [gedeelde onderhoudsa
   - [Gebouwd gempakket installeren](#gebouwd-gempakket-installeren)
   - [Migreren naar afzonderlijke toolpakketten](#migreren-naar-afzonderlijke-toolpakketten)
 - [Verantwoordelijkheden gescheiden houden](#verantwoordelijkheden-gescheiden-houden)
+  - [Herbruikbare onderdelen](#herbruikbare-onderdelen)
+  - [Nieuwe code aansluiten](#nieuwe-code-aansluiten)
   - [CLI en rapportage](#cli-en-rapportage)
   - [Joblogs](#joblogs)
 - [Gedeeld toolingonderhoud](#gedeeld-toolingonderhoud)
@@ -367,7 +369,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -376,7 +378,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -408,7 +410,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -417,7 +419,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -428,7 +430,7 @@ jobs:
         run: bundle exec project-tools-metadata --junit "$PROJECT_REPORT_DIR/metadata-report.xml"
       - name: Check for changes
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Checkout changes'
           if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
@@ -465,7 +467,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -474,7 +476,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -485,7 +487,7 @@ jobs:
         run: bundle exec syntax-junit "$PROJECT_REPORT_DIR/syntax-report.xml" environments/production/manifests/site.pp modules/profile/manifests/init.pp
       - name: Check for changes
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Checkout changes'
           if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
@@ -522,7 +524,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -531,7 +533,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -544,7 +546,7 @@ jobs:
           bundle exec project-tools-dependencies --junit "$PROJECT_REPORT_DIR/project-tools-dependencies-report.xml"
       - name: Check for changes
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Checkout changes'
           if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
@@ -589,7 +591,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -598,7 +600,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -607,7 +609,7 @@ jobs:
           fi
       - name: Check own Puppet manifests
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Puppet lint'
           mkdir -p "$PROJECT_REPORT_DIR"
           test -f .puppet-lint.rc
@@ -633,7 +635,7 @@ jobs:
           fi
       - name: Check for changes
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Checkout changes'
           if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
@@ -670,7 +672,7 @@ jobs:
           bundler: none
       - name: Install the latest stable Bundler
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install Bundler' details
           if gem install bundler; then
               ci_end 0 PASSED complete
@@ -679,7 +681,7 @@ jobs:
           fi
       - name: Install the project bundle
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Install locked bundle' details
           if bundle install; then
               ci_end 0 PASSED complete
@@ -692,7 +694,7 @@ jobs:
           bundle exec global-modules/.tools/catalog/bin/project-tools-catalog --junit "$PROJECT_REPORT_DIR/catalog-report.xml"
       - name: Check for changes
         run: |
-          source global-modules/.github/actions/setup-tooling/log.sh
+          source global-modules/.tools/shared/ci/log.sh
           ci_begin 'Checkout changes'
           if git diff --quiet HEAD --; then
               ci_end 0 PASSED complete
@@ -755,7 +757,7 @@ variables:
   image: ruby:latest
   before_script:
     - set -eo pipefail
-    - source global-modules/.github/actions/setup-tooling/log.sh
+    - source global-modules/.tools/shared/ci/log.sh
     - |
       ci_begin 'Install Bundler' details
       if gem install bundler; then
@@ -1186,6 +1188,31 @@ Houd iedere onafhankelijke controle bij haar eigen tool: CLI, runtime-dependenci
 
 Shared bevat alleen technisch gedrag dat meerdere tools daadwerkelijk delen, zoals XML, modulepadvalidatie en consolepresentatie. Repositorydocumentatie, workflowconfiguratie, distributie-integratie en testindeling worden door [repositorycontroles](repository/README.md) bewaakt. De [ontwikkelinstructies](#verantwoordelijkheden-en-integratie-reviewen) regelen review en onderhoud over deze grenzen heen.
 
+### Herbruikbare onderdelen
+
+Gebruik onderstaande voorzieningen voor de genoemde taken. Hun eigen handleidingen beschrijven de interfaces en grenzen; deze tabel helpt je de bestaande eigenaar te vinden.
+
+| Taak | Bestaande voorziening | Verantwoordelijkheid van de aanroeper |
+| --- | --- | --- |
+| Puppet/OpenVox laden en uitvoeren | [Shared `PuppetRuntime`](shared/README.md#puppet-runtime-selecteren) | Benodigde functionaliteit kiezen en toolspecifieke runtimecontracten controleren. |
+| Modulepaden verwerken | [Shared `Modulepath`](shared/README.md#runtimecontracten) | Bronselectie, padvoorrang en gedrag bij een ontbrekende instelling bepalen. |
+| Mensgerichte voortgang en resultaten tonen | [Shared `Console`](shared/README.md#runtimecontracten) | Bevindingen, tellingen, volledigheid en eindoordeel aanleveren. |
+| JUnit schrijven | [Shared `JunitReport`](shared/README.md#runtimecontracten) | Testcases, diagnoses en rapportaanvraag bepalen. |
+| Een rapport atomair vervangen | [Shared `AtomicFile`](shared/README.md#runtimecontracten) | Doelmap, inhoud, uitvoermodus en foutclassificatie bepalen. |
+| Native opdrachten parallel uitvoeren | [Shared `CommandPool`](shared/README.md#runtimecontracten) | Opdrachten samenstellen en hun resultaten beoordelen. Processtart, uitvoerstromen en signaalafhandeling worden binnen shared hergebruikt door de pool en de testrunner. |
+| Puppet-bron analyseren en veilig corrigeren | [Lintanalyses en `TokenHelpers`](lint/puppet/README.md#technische-werking-van-de-checks) | De lintregel, meldingen en voorwaarden voor een toegestane correctie bepalen. Deze helpers blijven bij de linter. |
+| Tooltests starten en rapporteren | [Shared testbootstrap en `TestTask`](shared/README.md#testondersteuning) | Eigen tests, selectie, noodzakelijke bestandsgroepen en optionele rapportmap instellen. Repositorygebonden packagehulp blijft bij de ontwikkelcheckout. |
+| Native opdrachten in CI presenteren | [Shared Bash-hulp `log.sh`](shared/README.md#ci-hulp-vanuit-de-checkout) | De opdracht uitvoeren, haar oorspronkelijke status bewaren en die volgens het toolcontract beoordelen. |
+
+De runtimecode gebruikt gedeelde libraries; Rake en CI verbinden de bestaande ingangen met een projectselectie. Puppet-lint en RuboCop behouden hun native CLI en formatter. Bash-stappen sourcen de bestaande CI-hulp uit de checkout. Die hulp en de Ruby-console hebben ieder hun eigen uitvoeringscontext; zij krijgen geen afhankelijkheid van elkaar.
+
+### Nieuwe code aansluiten
+
+1. Kies via het [pakketoverzicht](#pakketten-en-commandos) de tool die het gedrag beheert en lees haar eigen interface en onderhoudsroute. Voeg taakverwerking daar toe; houd het startbestand en de commandolaag bij hun bestaande rol.
+2. Zoek de benodigde verwerking in het hergebruikoverzicht en bij de bestaande aanroepers. Laad de passende library via haar gewone `require`-pad. Deel toolgebonden analyses binnen hun component; gebruik shared voor technisch gedrag met concrete afnemers in meerdere componenten. Shared laadt geen aanroepende tool, CLI of repositorybootstrap.
+3. Laat nieuwe en bestaande aanroepers dezelfde verwerking gebruiken. Houd hun selectie en inhoudelijke oordeel bij de tool en pas de [integratiereview](#verantwoordelijkheden-en-integratie-reviewen) toe op alle geraakte ingangen. Leg het herbruikbare contract bij de eigenaar vast en verbind het zo nodig met dit overzicht.
+4. Plaats tests bij de eigenaar volgens de [testinrichting](#gezamenlijke-tooltests). Test een gedeelde voorziening bij shared en het gebruik ervan bij de betrokken tools; volg voor installatie en consumers de [distributieroutes](#importeren-en-distribueren).
+
 ### CLI en rapportage
 
 Iedere eigen executable, ook een converter of rapportagevariant, ondersteunt `-h` en `--help`. Beide tonen dezelfde gebruiksuitleg met de ondersteunde opties op stdout en eindigen met status 0 en lege stderr. Help voert geen controle of herstel uit, leest geen verwerkingsinvoer en maakt of wijzigt geen bestanden; start-, voortgangs- en resultaatmeldingen horen daar niet bij. Onbekende opties geven een niet-nul status en een diagnose, zonder als bestandsnamen te worden verwerkt. Behoud de gedocumenteerde toolspecifieke foutcodes en beveiligde diagnostiek. Gebruik de bestaande Ruby-optieparser voor de eigen CLI's; externe commando's houden hun native interface.
@@ -1225,7 +1252,7 @@ Nieuwe en gewijzigde eigen Ruby-tools moeten dit contract met gedragstests bij d
 
 JSON en XML blijven vrij van startregels, voortgang en platformmarkeringen. Voeg geen `2>&1` toe aan de lintpipe: native stdout blijft JSON, native stderr houdt zijn diagnoses. Puppet-lint schakelt zijn native annotaties bij JSON-uitvoer uit; de gewone native tekstaanroep behoudt die mogelijkheid. De converter toont de gestructureerde bevindingen en maakt JUnit; hij bepaalt geen lintdrempel. De CI-aanroep vraagt met `--result-status` een afzonderlijk signaal voor actieve bevindingen na geslaagde conversie. De Bash-aanroep bewaart beide `PIPESTATUS`-waarden onmiddellijk en normaliseert uitsluitend dat bevindingensignaal naar conversiestatus 0. Native lintstatus 1 met dat signaal geeft `FAILED`, met de ingestelde warningdrempel als reden. Een andere niet-nul lintstatus, lintstatus 1 zonder bevestigde bevindingen of een conversiefout geeft `ERROR`. De oorspronkelijke processtatussen en de prioriteit van de laatste niet-nul status blijven behouden; een converterbevinding maakt een native nulstatus niet alsnog afkeurend. De [converterinterface](lint/puppet/README.md#exitcodes-van-puppet-lint-junit) beschrijft de codes en het verschil met gewone conversie.
 
-Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](../.github/actions/setup-tooling/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS [REASON]` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. Een opgegeven `REASON` staat bij het eindresultaat en legt uit waarom de controle faalt. De EXIT-afhandeling meldt een onverwachte fout als `ERROR` met `Execution: incomplete`, benoemt dat geen resultaat kon worden bevestigd en bewaart de oorspronkelijke code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
+Native lokale commando’s houden hun eigen uitvoer en opties. In CI levert de bestaande Bash-stap waar nodig start, activiteit en afsluiting via [log.sh](shared/ci/log.sh). Deze kleine, gesourcete presentatiehulp voert zelf geen controlecommando uit en werkt ook vóór de bundle-installatie. `ci_begin NAME [details|native]` start de presentatie; `ci_end CODE STATUS COMPLETENESS [REASON]` sluit haar af en retourneert de oorspronkelijke code. `native` laat voortgang aan de native formatter en start geen tweede activiteitsproces. RuboCop gebruikt in deze CI-aanroepen `--stderr` voor direct zichtbare native voortgang; alleen de mensgerichte uitvoer verhuist, het aangevraagde JUnit-bestand blijft apart. De aanroep bepaalt de toolspecifieke statusbetekenis. Een opgegeven `REASON` staat bij het eindresultaat en legt uit waarom de controle faalt. De EXIT-afhandeling meldt een onverwachte fout als `ERROR` met `Execution: incomplete`, benoemt dat geen resultaat kon worden bevestigd en bewaart de oorspronkelijke code. INT en TERM sluiten activiteit en een geopende sectie af; harde beëindiging kan afsluiting en rapportage onmogelijk maken.
 
 `details` groepeert uitgebreide voorbereiding met [GitHub-groepen](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#grouping-log-lines) of [ingeklapte GitLab-secties](https://docs.gitlab.com/ci/jobs/job_logs/#collapse-sections-by-default). Het resultaat staat buiten de groep. Lokaal verschijnen geen platformmarkeringen. Platformacties voor checkout, Ruby-setup, uploads en summaries behouden hun native logs en foutafhandeling. RuboCop houdt zijn native voortgang, broninformatie, JUnit-formatter en eventuele GitHub-annotaties. De bestaande publicatieacties blijven eigenaar van de GitHub-summaries; er komt geen tweede samenvatting of annotatie bij.
 

@@ -48,7 +48,10 @@ class GuardedPackagesSafetyTest < Minitest::Test
   def test_intervening_statements_comments_and_duplicate_titles_prevent_fix
     assert_preserved(manifest(guard('alpha'), "  notice('synthetic')\n", guard('beta')), [:warning], review: true)
     assert_preserved(manifest(guard('alpha'), "  # Keep this explanation.\n", guard('beta')), [:warning], review: true)
-    assert_preserved(pair.gsub('ensure => installed,', "ensure => installed, # retained\n"), [:warning], review: true)
+    ['# Retain this comment.', '/* Retain this comment. */'].each do |comment|
+      code = pair.gsub('ensure => installed,', "ensure => installed, #{comment}\n")
+      assert_preserved code, [:warning], review: true
+    end
     assert_preserved(pair.gsub('beta', 'alpha'), [:warning], review: true)
   end
 

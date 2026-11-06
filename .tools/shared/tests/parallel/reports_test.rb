@@ -51,6 +51,11 @@ class ParallelReportsTest < Minitest::Test
     results.publish(accept(results, *with_report), destination)
     assert_equal 'ERROR', results.status
     assert_equal 'incomplete', results.execution
+    assert_preserved_publication(destination)
+  end
+
+  def assert_preserved_publication(destination)
     assert_equal '<preserved/>', File.read(File.join(destination, 'other.xml'))
+    assert_equal %w[TEST-report.xml other.xml], Dir.children(destination).sort
   end
 end

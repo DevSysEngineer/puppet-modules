@@ -3,6 +3,7 @@
 require 'tmpdir'
 require_relative 'worker_count'
 require_relative 'command_process'
+require_relative 'process_signals'
 
 module ProjectTools
   module Shared
@@ -14,33 +15,25 @@ module ProjectTools
         @combined = combined
         @workers = []
         @active = []
-        @signals = []
-        @forwarded = 0
+        @signals = ProcessSignals.new
         @results = Array.new(commands.size)
       end
 
       def run(&completed)
         Dir.mktmpdir('project-tools-commands-') do |directory|
-          with_signals { execute(directory, &completed) }
+          @signals.during { execute(directory, &completed) }
         end
-        raise SignalException, @signals.first unless @signals.empty?
+        raise SignalException, @signals.first if @signals.interrupted?
 
         @results
       end
 
-      def with_signals
-        previous = %w[INT TERM].to_h { |signal| [signal, Signal.trap(signal) { @signals << signal }] }
-        yield
-      ensure
-        previous&.each { |signal, handler| Signal.trap(signal, handler) }
-      end
-
       def execute(directory, &completed)
         loop do
-          forward_signals
-          fill(directory) if @signals.empty?
+          @signals.forward(@workers)
+          fill(directory) unless @signals.interrupted?
           collect(&completed)
-          break if @active.empty? && (@workers.size == @commands.size || @signals.any?)
+          break if @active.empty? && (@workers.size == @commands.size || @signals.interrupted?)
 
           sleep 0.02
         end
@@ -49,7 +42,7 @@ module ProjectTools
       end
 
       def fill(directory)
-        while @active.size < @jobs && @workers.size < @commands.size && @signals.empty?
+        while @active.size < @jobs && @workers.size < @commands.size && !@signals.interrupted?
           worker = CommandProcess.new(@workers.size, directory)
           @workers << worker
           @active << worker
@@ -67,13 +60,6 @@ module ProjectTools
         end
       end
 
-      def forward_signals
-        return unless @signals.size > @forwarded
-
-        signal_all(@forwarded.zero? && @signals.size == 1 ? @signals.first : 'KILL')
-        @forwarded = @signals.size
-      end
-
       def signal_all(signal)
         @workers.each { |worker| worker.signal(signal) }
       end
@@ -83,7 +69,7 @@ module ProjectTools
 
         signal_all('TERM')
         until @active.empty?
-          forward_signals
+          @signals.forward(@workers)
           @active.reject!(&:finished?)
           sleep 0.02 unless @active.empty?
         end

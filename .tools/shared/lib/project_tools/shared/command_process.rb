@@ -6,7 +6,7 @@ module ProjectTools
     class CommandProcess
       Result = Struct.new(:stdout, :stderr, :status, :error, keyword_init: true)
 
-      attr_reader :pid, :status, :index
+      attr_reader :pid, :status, :index, :error
 
       def initialize(index, directory)
         @index = index
@@ -14,9 +14,10 @@ module ProjectTools
         @stderr = File.join(directory, "#{index}.stderr")
       end
 
-      def start(command, combined: false)
-        @pid = Process.spawn(*command, pgroup: true, out: [@stdout, 'w', 0o600],
-                                       err: combined ? %i[child out] : [@stderr, 'w', 0o600])
+      def start(command, combined: false, chdir: nil)
+        options = chdir ? { chdir: chdir } : {}
+        @pid = Process.spawn(*command, **options, pgroup: true, out: [@stdout, 'w', 0o600],
+                                                  err: combined ? %i[child out] : [@stderr, 'w', 0o600])
       rescue SystemCallError => e
         @error = e
       end
@@ -30,17 +31,26 @@ module ProjectTools
       end
 
       def signal(signal)
+        # Reaped leaders may still have ordinary descendants in their process group.
         Process.kill(signal, -@pid) if @pid
       rescue Errno::ESRCH
         nil
       end
 
       def result
-        Result.new(stdout: read(@stdout), stderr: read(@stderr), status: @status, error: @error)
+        streams = {}
+        each_stream { |channel, text| streams[channel] = text }
+        Result.new(**streams, status: @status, error: @error)
       end
 
-      def read(path)
-        File.exist?(path) ? File.read(path) : ''
+      def each_stream(required: false)
+        { stdout: @stdout, stderr: @stderr }.each do |channel, path|
+          yield channel, read(path, required: required)
+        end
+      end
+
+      def read(path, required: false)
+        required || File.exist?(path) ? File.read(path) : ''
       end
     end
   end

@@ -55,4 +55,13 @@ class SharedCommandExecutionTest < Minitest::Test
     end
     assert_empty ProjectTools::Shared::CommandPool.new([], jobs: 4).run
   end
+
+  def test_previous_signal_handlers_survive_callback_failure
+    original = %w[INT TERM].to_h { |signal| [signal, Signal.trap(signal, 'IGNORE')] }
+    pool = ProjectTools::Shared::CommandPool.new([command("puts 'done'")], jobs: 1)
+    assert_raises(IOError) { pool.run { raise IOError, 'synthetic callback failure' } }
+    %w[INT TERM].each { |signal| assert_equal 'IGNORE', Signal.trap(signal, 'IGNORE') }
+  ensure
+    original&.each { |signal, handler| Signal.trap(signal, handler) }
+  end
 end

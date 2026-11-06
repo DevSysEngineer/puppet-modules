@@ -74,14 +74,9 @@ module ProjectLint
         def expression_tokens(entry)
           first = position(entry[:expression])
           last = first.next_code_token.next_token_of(:RPAREN)
-          raise PuppetLint::NoFix unless last && !ignored_span?(first, last)
+          raise PuppetLint::NoFix unless last && safe_tokens?(first, last)
 
-          span = token_span(first, last)
-          if span.any? { |token| %i[COMMENT MLCOMMENT SLASH_COMMENT HEREDOC_OPEN].include?(token.type) }
-            raise PuppetLint::NoFix
-          end
-
-          span
+          token_span(first, last)
         end
 
         def statement_anchor(entry)
@@ -151,10 +146,8 @@ module ProjectLint
         end
 
         def replace_expression(span, name)
-          index = tokens.index(span.first)
-          span.each { |token| remove_token(token) }
           replacement = PuppetLint::Lexer::Token.new(:VARIABLE, name, span.first.line, span.first.column)
-          add_token(index, replacement)
+          replace_tokens(span.first, span.last, [replacement])
         end
       end
 

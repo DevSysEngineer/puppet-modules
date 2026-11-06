@@ -976,6 +976,10 @@ Het entrypoint laadt eerst `puppet-lint` en daarna de eigen checks. Gebruik daar
 
 [`native_fixes.rb`](lib/project_lint/native_fixes.rb) vult de bestaande native checks voor reference-richting en pijlspaties aan en begrenst facts-conversie tot aantoonbaar schrijfbare invoer. De Puppet-URL-check weigert daarnaast de upstream-mountkeuze. Deze uitbreidingen behouden de bestaande checknamen, selectie, suppressions en fixafhandeling; zij registreren geen concurrerende checks.
 
+[`TokenHelpers`](lib/project_lint/token_helpers.rb) deelt bewerkingen op de actuele Puppet-linttokens. Gebruik `token_span(first, last)` voor een aaneengesloten bereik, `replace_tokens(first, last, replacement)` voor vervanging en de bestaande invoeg- en witruimtehelpers voor kleinere wijzigingen. `safe_tokens?(first, last)` weigert een bereik met suppressions, commentaar of heredoc-openingen. Deze controle wordt gedeeld door packageguards, resourcelijsthergebruik en dependency-extractie. De check blijft verantwoordelijk voor de inhoudelijke fixvoorwaarden en controleert alle betrokken wijzigingen voordat zij tokens vervangt; de helper bewijst geen semantische veiligheid.
+
+Nieuwe fixes sluiten op deze helpers aan en behouden de tokenobjecten die eerdere checks kunnen aanpassen. De helpers blijven bij de lintgem omdat zij de native lexer, tokenlijst, suppressions en `PuppetLint::NoFix` gebruiken. Technische voorzieningen die ook andere tools nodig hebben, zoals de console en JUnit-schrijver, komen uit [shared](../../shared/README.md#runtimecontracten).
+
 [`ResourceIndentation`](lib/project_lint/resource_indentation.rb) vult de native `2sp_soft_tabs`-check aan met AST-bewijs voor resource-inspringing. De check bepaalt het blokniveau onafhankelijk van de bestaande spaties en corrigeert uitsluitend aantoonbare regelprefixes. De [inspringingsregel](docs/CODE_RULES.md#twee-spaties-per-inspringniveau) beschrijft ondersteunde scopes, relatieve controle bij onbekende context en de grenzen voor overige Puppet-code.
 
 

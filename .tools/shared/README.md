@@ -9,12 +9,15 @@ Open deze handleiding vanuit de bijbehorende repositorycheckout om ook de links 
 - [Inhoudsopgave](#inhoudsopgave)
 - [Runtimecontracten](#runtimecontracten)
 - [Puppet-runtime selecteren](#puppet-runtime-selecteren)
+- [CI-hulp vanuit de checkout](#ci-hulp-vanuit-de-checkout)
 - [Afhankelijkheden en onderhoud](#afhankelijkheden-en-onderhoud)
 - [Testondersteuning](#testondersteuning)
 
 ## Runtimecontracten
 
 `require 'project_tools/shared/junit_report'` levert `ProjectTools::Shared::JunitReport.write(output, name:, **counts) { |xml| ... }`. De schrijver maakt de XML-declaratie, `testsuites` en `testsuite`; de producer levert tellingen, testcases, failures, errors en eventuele rapporttekst. Builder verzorgt escaping. Lint, secretcontrole, metadata, parser en dependencyreporter gebruiken dezelfde implementatie, maar behouden ieder hun eigen succescriterium en exitstatus.
+
+`require 'project_tools/shared/atomic_file'` levert `ProjectTools::Shared::AtomicFile.write(path) { |output| ... }`. De schrijver maakt een tijdelijk bestand met rechten `0600` in de bestaande doelmap, geeft de uitvoerhandle aan de caller en vervangt het doel via `rename` nadat schrijven en sluiten zijn geslaagd. Bij een exception ruimt hij het tijdelijke bestand op en blijft de bestaande doelinhoud behouden. Catalogusrapportage en de parallelle JUnit-publicatie delen deze schrijfcyclus. De caller blijft eigenaar van het aanmaken van de doelmap, tekst- of binaire modus, inhoud, validatie en foutclassificatie.
 
 `require 'project_tools/shared/modulepath'` levert `ProjectTools::Shared::Modulepath.parse(value)`. Deze functie splitst met `File::PATH_SEPARATOR`, weigert lege of ongeldige onderdelen en vereist absolute bestaande directories. Het resultaat bevat bevroren, gecanonicaliseerde paden in oorspronkelijke volgorde, inclusief duplicaten. Ongeldige invoer geeft `ArgumentError`; bestandsysteemfouten behouden hun Ruby-fouttype. De linter en dependencytool gebruiken deze validatie.
 
@@ -54,6 +57,8 @@ Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daa
 
 `require 'project_tools/shared/command_pool'` levert `CommandPool.new(commands, jobs:, combined: false).run { |index, result| ... }`. Syntax en catalogus gebruiken deze voorziening voor begrensde native subprocessen. De callback volgt afronding; de geretourneerde resultaten volgen invoervolgorde. Elk resultaat bevat `stdout`, `stderr`, native `status` of een `error` bij startproblemen. Met `combined: true` wordt stderr bij dezelfde stdout-handle gevoegd. De caller blijft eigenaar van selectie, classificatie en rapporten. De pool start geen shell, gebruikt tijdelijke bestanden met afgeschermde rechten en ruimt zijn kinderen en bestanden op. Signalen onderbreken uitsluitend eigen procesgroepen; na opruimen wordt het oorspronkelijke signaal opnieuw doorgegeven. Er zijn geen interne timeouts. Gebruik deze procesgroeproute op POSIX; de tools kiezen op Windows hun bestaande seriële route.
 
+De procesvoorzieningen hebben twee gedeelde bouwstenen. `CommandProcess` beheert het starten en ophalen van één proces, de afgeschermde uitvoerbestanden en signalen naar zijn procesgroep. `ProcessSignals` registreert onderbrekingen, verzorgt het doorsturen en herstelt de eerdere signaalafhandeling. Zowel `CommandPool` als de parallelle testondersteuning gebruiken deze bouwstenen. De pool verdeelt losse commando's over vrije plaatsen; de testrunner beheert vaste bestandsbatches, workerconfiguratie en testresultaten. Die verschillende taken blijven bij hun eigen runner. Gebruik voor een nieuwe verzameling native commando's de bestaande pool en voor tooltests de onderstaande `TestTask`-integratie.
+
 ## Puppet-runtime selecteren
 
 `require 'project_tools/shared/puppet_runtime'` laadt uitsluitend de gedeelde voorziening. `PuppetRuntime.detect` selecteert precies één geactiveerde gem uit `Gem.loaded_specs`: `puppet` of `openvox`. Bundler activeert de gem uit de eigen bundle; buiten Bundler moet de aanroeper haar vooraf activeren. Geïnstalleerde alternatieven en `PATH` zijn geen selectiebron. Geen actieve runtime, beide gems tegelijk of overschaduwde Puppet-kerncode buiten de gekozen gem geeft `PuppetRuntime::Error`. `name`, `version` en `to_s` komen uit de geselecteerde gemspec. De herkomstcontrole beoordeelt `puppet.rb` en bestanden die in de geselecteerde runtime bestaan; module-eigen uitbreidingen onder `lib/puppet/` blijven toegestaan.
@@ -65,6 +70,12 @@ Handel verwachte uitvoerings- en rapportagefouten binnen `during` af en roep daa
 `Console.software(tool, runtime: false, version: nil, output: $stderr)` toont eenmaal per aanroep de toolversie uit de geactiveerde gemspec, de runtime-identiteit en `RUBY_VERSION`. Checkouttools geven hun bestaande versiebron expliciet mee. `runtime: true` detecteert de actieve runtime; `false` toont `Puppet runtime: not required`. Een uitvoeringsconsole kan dezelfde informatie met `software: { tool: ..., runtime: ... }` bij haar start tonen. Een native CLI gebruikt rechtstreeks `software`; voeg geen tweede header toe in CI. `Console.with_software` houdt voor de secrets-tool bij of daadwerkelijk een Puppet-interface is gevraagd, ook bij een laadfout, en schrijft de header bij afsluiting. Algemene tekstscans activeren geen runtime.
 
 De [simulatietests](tests/puppet_runtime_test.rb) gebruiken tijdelijke gemspecs en een vervangende executable-resolver voor Puppet 8, OpenVox 8, OpenVox 9 en een onbekende toekomstige major. Ze testen selectie, conflicten, herkomst, versielogs en ontbrekende of gewijzigde API's zonder runtime-installaties. Ze bewijzen onze beslislogica, geen werking van die externe releases. De integratietests gebruiken uitsluitend de reeds geselecteerde lokale runtime; raadpleeg de [centrale bewijsgrenzen](../README.md#runtimekeuze-en-compatibiliteit).
+
+## CI-hulp vanuit de checkout
+
+De gedeelde Bash-presentatie staat in [`ci/log.sh`](ci/log.sh). CI-stappen sourcen dit bestand vanuit de checkout, ook vóór de installatie van Bundler. Het bestand is geen zelfstandige executable en wordt niet in de shared-gem verpakt. Nieuwe native CI-stappen gebruiken dezelfde hulp; het [centrale logcontract](../README.md#joblogs) beschrijft de functies, statussen en de grens met de Ruby-console.
+
+Source `.tools/shared/ci/log.sh` met de checkoutprefix van je project. De setup-action vindt de hulp relatief aan `GITHUB_ACTION_PATH`; de [consumervoorbeelden](../README.md#controle-in-ci) tonen het pad vanuit de eigen projectroot.
 
 ## Afhankelijkheden en onderhoud
 

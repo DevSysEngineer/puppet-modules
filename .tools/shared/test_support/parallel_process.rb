@@ -1,14 +1,20 @@
 # frozen_string_literal: true
 
 require 'fileutils'
+require 'forwardable'
 require 'json'
+require 'project_tools/shared/command_process'
 
 module ProjectTools
   # A single batch owns its process group, configuration and separate output streams.
   class ParallelProcess
+    extend Forwardable
+
     TEST_ENV = %w[TEST TESTOPTS TESTOPT TEST_OPTS TEST_OPT].freeze
 
-    attr_reader :pid, :status, :config
+    attr_reader :config
+
+    def_delegators :@process, :pid, :status, :signal
 
     def initialize(work, files, id:, reports:)
       FileUtils.mkdir_p(work, mode: 0o700)
@@ -17,13 +23,13 @@ module ProjectTools
       FileUtils.mkdir_p(@config['reports'], mode: 0o700) if reports
       @config_path = File.join(work, 'config.json')
       File.write(@config_path, JSON.generate(@config), mode: 'w', perm: 0o600)
-      @streams = %w[stdout stderr].to_h { |channel| [channel, File.join(work, channel)] }
+      @process = Shared::CommandProcess.new(id, work)
     end
 
     def start(command, options, root:)
-      @pid = Process.spawn(environment, *command, *config['selected_files'], *options,
-                           chdir: root, pgroup: true, out: [@streams['stdout'], 'w', 0o600],
-                           err: [@streams['stderr'], 'w', 0o600])
+      @process.start([environment, *command, *config['selected_files'], *options], chdir: root)
+      # Test batches stop after a start failure; the native command pool records it and continues.
+      raise @process.error if @process.error
     end
 
     def environment
@@ -36,21 +42,11 @@ module ProjectTools
     def reap?
       return false if status
 
-      finished = Process.waitpid2(pid, Process::WNOHANG)
-      @status = finished.last if finished
-      !finished.nil?
-    end
-
-    def signal(signal)
-      # Reaped leaders may still have ordinary descendants in their process group.
-      Process.kill(signal, -pid)
-    rescue Errno::ESRCH
-      nil
+      @process.finished?
     end
 
     def show_output(console)
-      @streams.each do |channel, path|
-        text = File.read(path)
+      @process.each_stream(required: true) do |channel, text|
         next if text.empty?
 
         console.diagnostic("#{config['worker_id']} #{channel}:")

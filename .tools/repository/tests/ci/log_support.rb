@@ -9,7 +9,7 @@ module CiLogSupport
 
   def setup
     @project = Dir.mktmpdir('ci-logs-')
-    @helper = File.join(ROOT, '.github/actions/setup-tooling/log.sh')
+    @helper = File.join(ROOT, '.tools/shared/ci/log.sh')
   end
 
   def shell(script, env = {})

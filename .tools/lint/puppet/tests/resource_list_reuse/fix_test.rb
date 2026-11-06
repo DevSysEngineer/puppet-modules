@@ -39,9 +39,14 @@ class ResourceListReuseFixTest < Minitest::Test
     assert_preserved code, [:warning], review: true
   end
 
-  def test_comments_suppressions_multiline_and_dynamic_values_prevent_fixing
-    inputs = [pair.sub("'beta',", "'beta', # Keep this explanation.\n    "),
-              pair.sub("['alpha',", "[\n    'alpha',"),
+  def test_comments_in_list_prevent_fixing
+    ['# Keep this explanation.', '/* Keep this explanation. */'].each do |comment|
+      assert_preserved pair.sub("'beta',", "'beta', #{comment}\n    "), [:warning], review: true
+    end
+  end
+
+  def test_suppressions_multiline_and_dynamic_values_prevent_fixing
+    inputs = [pair.sub("['alpha',", "[\n    'alpha',"),
               pair.sub("'gamma']", "'gamma', $extra]"),
               pair.sub("'gamma']", "'gamma', 'gamma']")]
     inputs.each { |code| assert_preserved code, [:warning], review: true }

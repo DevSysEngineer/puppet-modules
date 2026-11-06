@@ -92,7 +92,7 @@ De [linthandleiding](../README.md) beschrijft het gebruik, de installatie, de co
 
 **Norm**
 
-Geef gedrag dat bij meerdere aanroepers hetzelfde moet blijven één onderhouden implementatie. Hergebruik of breid de bestaande implementatie uit wanneer zij het benodigde contract kan vervullen. Dubbele implementaties met hetzelfde contract worden samengebracht; vergelijkbare syntax alleen bewijst niet dat verantwoordelijkheden of betekenis gelijk zijn.
+Geef gedrag dat bij meerdere aanroepers hetzelfde moet blijven één onderhouden implementatie. Hergebruik bestaande taalvoorzieningen, bibliotheken en projectcode waar zij het benodigde contract vervullen; breid een passende bestaande implementatie uit voordat je een nieuwe toevoegt. Breng dubbele implementaties met hetzelfde contract samen. Onderzoek daarbij ook verschillend geschreven code die dezelfde taak uitvoert en gedeeltelijk overlappende implementaties; deel hun gemeenschappelijke verwerking wanneer die hetzelfde contract heeft. Vergelijkbare syntax alleen bewijst niet dat verantwoordelijkheden of betekenis gelijk zijn.
 
 Behoud de instellingen, voorwaarden, beveiliging en levenscyclus van iedere aanroeper. Verschillen horen bij de aanroeper of bij de expliciete interface van de gedeelde implementatie. Voor Puppet werkt de regel voor [herhaalde resourceorkestratie](#herhaalde-resourceorkestratie-in-defined-types-delen) dit uit; voor shellcode gelden de [grenzen van gedeelde helpers](OPERATIONAL_RULES.md#shellhelpers-op-een-herkenbare-taak-afbakenen).
 
@@ -102,7 +102,7 @@ Projectregel
 
 **Toepassingsgebied**
 
-Alle eigen code, waaronder modules, scripts, bibliotheken, tools en integratiecode. De regel geldt binnen een component en tussen componenten die hetzelfde gedrag nodig hebben.
+Alle eigen code in het project, ongeacht de programmeer- of scripttaal: modules, scripts, templates, bibliotheken, tools, integratiecode en tests. Pas deze regel toe bij nieuwe code, wijzigingen en uitbreidingen, zowel binnen een component als tussen componenten die hetzelfde gedrag nodig hebben.
 
 **Detectiegrenzen**
 
@@ -126,7 +126,7 @@ Eén overeenkomstige expressie vormt nog geen gedeelde verantwoordelijkheid. Een
 
 **Handmatige review**
 
-Vergelijk per aanroeper invoer, resultaat, foutafhandeling, voorwaarden, beveiliging en levenscyclus. Stel vast welk gedrag hetzelfde moet blijven en welke verschillen behouden moeten worden. Controleer dat een correctie aan dat gedeelde gedrag alle betrokken aanroepers bereikt.
+Vergelijk per aanroeper invoer, resultaat, foutafhandeling, voorwaarden, beveiliging en levenscyclus. Zoek naast letterlijke duplicaten naar bestaande code met dezelfde verantwoordelijkheid, ook in andere talen of onderdelen. Stel vast welk gedrag hetzelfde moet blijven en welke verschillen behouden moeten worden. Controleer dat een correctie aan dat gedeelde gedrag alle betrokken aanroepers bereikt en dat nieuwe code op de bestaande oplossing aansluit.
 
 **Verificatie**
 

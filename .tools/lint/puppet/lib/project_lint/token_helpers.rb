@@ -68,6 +68,12 @@ module ProjectLint
       (first.line..(last.line + last.to_manifest.count("\n"))).any? { |line| ignored.key?(line) }
     end
 
+    def safe_tokens?(first, last)
+      !ignored_span?(first, last) && token_span(first, last).none? do |token|
+        %i[COMMENT SLASH_COMMENT MLCOMMENT HEREDOC_OPEN].include?(token.type)
+      end
+    end
+
     def line_prefix(token)
       index = tokens.index(token)
       raise PuppetLint::NoFix unless index

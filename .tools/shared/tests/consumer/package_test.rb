@@ -10,11 +10,21 @@ class SharedConsumerPackageTest < Minitest::Test
     run_success('bundle', 'exec', 'ruby', '-e', <<~RUBY)
       require 'project_tools/shared/test_task'
       require 'project_tools/shared/command_pool'
+      require 'project_tools/shared/atomic_file'
       abort 'framework loaded' if defined?(Minitest) || defined?(Puppet) || defined?(Rake)
       abort 'runtime dependency' if Gem.loaded_specs.key?('puppet') || Gem.loaded_specs.key?('openvox')
     RUBY
     assert_empty @output + @errors
     assert_package
+  end
+
+  def test_installed_atomic_writer_preserves_binary_bytes_and_cleans_up
+    run_success('bundle', 'exec', 'ruby', '-e', <<~RUBY)
+      require 'project_tools/shared/atomic_file'
+      ProjectTools::Shared::AtomicFile.write('report.xml') { |output| output.binmode; output.write("new\\r\\n\\xFF") }
+    RUBY
+    assert_equal "new\r\n\xFF".b, File.binread(File.join(@project, 'report.xml'))
+    assert_empty Dir[File.join(@project, '.project-tools-*')]
   end
 
   def assert_package

@@ -94,7 +94,7 @@ class ToolingWorkflowTest < Minitest::Test
   def assert_installation_steps(steps)
     ['gem install bundler', 'bundle install'].zip(steps).each do |command, step|
       assert_includes step.fetch('run'), "if #{command}; then"
-      assert_includes step.fetch('run'), 'source "$GITHUB_ACTION_PATH/log.sh"'
+      assert_includes step.fetch('run'), 'source "$GITHUB_ACTION_PATH/../../../.tools/shared/ci/log.sh"'
       assert_includes step.fetch('run'), 'ci_end "$?" ERROR incomplete'
     end
     assert(steps.all? { |step| step.fetch('shell') == 'bash' })

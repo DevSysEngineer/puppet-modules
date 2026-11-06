@@ -59,7 +59,7 @@ Iedere duurzame norm heeft één eigenaar volgens de [informatieplaatsing](.tool
 
 ### Hergebruik en samenhang
 
-Deze review geldt bij features en substantiële wijzigingen aan alle eigen code, inclusief scripts, bibliotheken, tools en integratiecode, binnen de geraakte implementatie en haar werkelijke aanroepers.
+Deze review geldt bij nieuwe code, wijzigingen en uitbreidingen aan alle eigen code, ongeacht de programmeer- of scripttaal. Onderzoek de geraakte implementatie en haar werkelijke aanroepers; de omvang van de wijziging bepaalt hoe uitgebreid die review moet zijn.
 
 - Onderzoek vóór implementatie bestaande verantwoordelijkheden, interfaces, verwante implementaties en werkelijke aanroepers. Bepaal wat kan worden hergebruikt, uitgebreid of samengebracht voordat je een nieuwe implementatie toevoegt.
 - Pas de [algemene ontwerpcriteria](.tools/lint/puppet/docs/CODE_RULES.md#algemene-ontwerpregels) en hun Puppet- en shelluitwerkingen toe. Volg bij tooling ook de [integratiereview](.tools/README.md#verantwoordelijkheden-en-integratie-reviewen). Onderbouw nieuwe abstracties volgens de wijzigingsscope, zonder lagen voor hypothetisch hergebruik.

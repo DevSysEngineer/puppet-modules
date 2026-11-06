@@ -11,7 +11,7 @@ runs:
     - name: Install the latest stable Bundler
       shell: bash
       run: |
-        source "$GITHUB_ACTION_PATH/log.sh"
+        source "$GITHUB_ACTION_PATH/../../../.tools/shared/ci/log.sh"
         ci_begin 'Install Bundler' details
         if gem install bundler; then
             ci_end 0 PASSED complete
@@ -21,7 +21,7 @@ runs:
     - name: Install the locked development bundle
       shell: bash
       run: |
-        source "$GITHUB_ACTION_PATH/log.sh"
+        source "$GITHUB_ACTION_PATH/../../../.tools/shared/ci/log.sh"
         ci_begin 'Install locked bundle' details
         if bundle install; then
             ci_end 0 PASSED complete

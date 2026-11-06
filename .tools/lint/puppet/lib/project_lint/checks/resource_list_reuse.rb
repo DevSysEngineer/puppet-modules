@@ -248,12 +248,6 @@ module ProjectLint
           end
         end
 
-        def safe_tokens?(first, last)
-          !ignored_span?(first, last) && token_span(first, last).none? do |token|
-            %i[COMMENT SLASH_COMMENT MLCOMMENT HEREDOC_OPEN].include?(token.type)
-          end
-        end
-
         def literal_tokens(entry)
           first, last = entry.values_at(:opening, :closing)
           raise PuppetLint::NoFix unless first && last && safe_tokens?(first, last)
@@ -341,12 +335,6 @@ module ProjectLint
           PuppetLint::Lexer.new.tokenise(text)
         end
 
-        def replace_tokens(originals, replacement)
-          index = tokens.index(originals.first)
-          originals.each { |token| remove_token(token) }
-          replacement.each_with_index { |token, offset| add_token(index + offset, token) }
-        end
-
         def apply_plan(plan)
           plan[:anchor].value = 'stdlib::ensure_packages'
           index = tokens.index(plan[:anchor])
@@ -368,7 +356,7 @@ module ProjectLint
         def replace_list(entry, name, interior:)
           original = token_span(entry[:opening], entry[:closing])
           original = original[1...-1] if interior
-          replace_tokens(original, lex("$#{name}"))
+          replace_tokens(original.first, original.last, lex("$#{name}"))
         end
       end
 

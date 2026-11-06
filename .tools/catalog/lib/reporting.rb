@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'tempfile'
+require 'project_tools/shared/atomic_file'
 require 'project_tools/shared/junit_report'
 
 module ProjectTools
@@ -73,12 +73,10 @@ module ProjectTools
 
       def write_report(path)
         FileUtils.mkdir_p(File.dirname(path))
-        Tempfile.create(['catalog-report-', '.xml'], File.dirname(path)) do |output|
+        Shared::AtomicFile.write(path) do |output|
           Shared::JunitReport.write(output, name: 'catalog', **counts) do |xml|
             @results.each { |result| write_case(xml, result) }
           end
-          output.close
-          File.rename(output.path, path)
         end
       rescue StandardError => e
         raise IOError, "Cannot write catalog JUnit report: #{e.message}"

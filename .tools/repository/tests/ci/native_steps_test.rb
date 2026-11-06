@@ -66,7 +66,7 @@ class CiNativeStepsTest < Minitest::Test
 
   def test_checkout_failure_is_a_separate_failed_control_after_success
     step = workflow_steps('puppet_metadata').find { |item| item['name'] == 'Check for changes' }
-    script = step.fetch('run').sub('source .github/actions/setup-tooling/log.sh', 'source "$1"')
+    script = step.fetch('run').sub('source .tools/shared/ci/log.sh', 'source "$1"')
     native = "printf '[PASSED] Metadata\n'\ngit() { [ \"$2\" = --quiet ] || printf 'synthetic diff\n'; return 1; }\n"
     output, _errors, status = shell(native + script)
     assert_equal 1, status.exitstatus
@@ -77,7 +77,8 @@ class CiNativeStepsTest < Minitest::Test
 
   def test_installation_failure_reports_without_an_installed_bundle
     script = "gem() { printf 'synthetic installation error\n' >&2; return 23; }\n#{bundler_step}"
-    output, errors, status = shell(script, 'GITHUB_ACTION_PATH' => File.dirname(@helper), 'GITHUB_ACTIONS' => 'true')
+    output, errors, status = shell(script, 'GITHUB_ACTION_PATH' => File.join(ROOT, '.github/actions/setup-tooling'),
+                                           'GITHUB_ACTIONS' => 'true')
     assert_equal 23, status.exitstatus
     assert_includes errors, 'synthetic installation error'
     assert_includes output, '[ERROR] Install Bundler'

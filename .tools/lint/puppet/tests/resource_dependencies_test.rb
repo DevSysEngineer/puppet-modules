@@ -68,8 +68,10 @@ class ResourceDependenciesTest < Minitest::Test
   end
 
   def test_comments_and_suppressions_prevent_partial_extraction
-    code = input("concat($backup_packages, # Keep this explanation.\n    ['server'])")
-    assert_preserved code, [:warning], review: true
+    ['# Keep this explanation.', '/* Keep this explanation. */'].each do |comment|
+      code = input("concat($backup_packages, #{comment}\n    ['server'])")
+      assert_preserved code, [:warning], review: true
+    end
     code = "# lint:ignore:project_resource_dependencies\n#{input}# lint:endignore\n"
     assert_preserved code, [:ignored]
   end

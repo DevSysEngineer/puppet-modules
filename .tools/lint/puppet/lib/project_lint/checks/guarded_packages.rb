@@ -151,12 +151,6 @@ module ProjectLint
             consecutive?(group) && !contextual_attributes?(group) &&
             group.map { |entry| entry[:title] }.uniq.length == group.length
         end
-
-        def safe_tokens?(first, last)
-          !ignored_span?(first, last) && token_span(first, last).none? do |token|
-            %i[COMMENT SLASH_COMMENT MLCOMMENT HEREDOC_OPEN].include?(token.type)
-          end
-        end
       end
 
       # Build one replacement using current native tokens, after earlier lint fixes have run.
@@ -265,14 +259,7 @@ module ProjectLint
         raise PuppetLint::NoFix unless safe_group?(edit[:group])
 
         replacement = prepared_replacement(edit)
-        replace_group(edit, replacement)
-      end
-
-      def replace_group(edit, replacement)
-        originals = token_span(edit[:first], edit[:last])
-        index = tokens.index(edit[:first])
-        originals.each { |token| remove_token(token) }
-        replacement.each_with_index { |token, offset| add_token(index + offset, token) }
+        replace_tokens(edit[:first], edit[:last], replacement)
       end
     end
     PuppetLint.new_check(:project_guarded_packages) { include GuardedPackages }

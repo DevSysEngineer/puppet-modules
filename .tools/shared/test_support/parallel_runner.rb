@@ -2,6 +2,7 @@
 
 require 'tmpdir'
 require 'project_tools/shared/console'
+require 'project_tools/shared/process_signals'
 require_relative 'parallel_task'
 require_relative 'parallel_process'
 require_relative 'parallel_results'
@@ -21,18 +22,18 @@ module ProjectTools
       @destination = File.expand_path(destination, root) if destination
       @results = ParallelResults.new
       @workers = []
-      @signals = []
+      @signals = Shared::ProcessSignals.new
     end
 
     def run
       start_console
       @console.during do
         Dir.mktmpdir('parallel-tooltests-') do |directory|
-          with_signals { execute(directory) }
+          @signals.during { execute(directory) }
           @results.finish(@console, @workers, @destination)
         end
       end
-      raise SignalException, @signals.first unless @signals.empty?
+      raise SignalException, @signals.first if @signals.interrupted?
 
       @results.status == 'PASSED' ? 0 : 1
     end
@@ -62,7 +63,7 @@ module ProjectTools
 
     def start_workers(directory)
       @plan.batches.each_with_index do |files, index|
-        break unless @signals.empty?
+        break if @signals.interrupted?
 
         start_worker(directory, files, index)
       end
@@ -82,17 +83,9 @@ module ProjectTools
       @workers << worker
     end
 
-    def with_signals
-      previous = %w[INT TERM].to_h { |signal| [signal, Signal.trap(signal) { @signals << signal }] }
-      yield
-    ensure
-      previous&.each { |signal, handler| Signal.trap(signal, handler) }
-    end
-
     def wait_for_workers
-      @forwarded = 0
       loop do
-        forward_signals
+        @signals.forward(@workers)
         @workers.each do |worker|
           @console.advance(unit: 'worker batches', total: @plan.effective_jobs) if worker.reap?
         end
@@ -100,13 +93,6 @@ module ProjectTools
 
         sleep 0.05
       end
-    end
-
-    def forward_signals
-      return unless @signals.size > @forwarded
-
-      signal_workers(@forwarded.zero? && @signals.size == 1 ? @signals.first : 'KILL')
-      @forwarded = @signals.size
     end
 
     def signal_workers(signal)
@@ -119,7 +105,7 @@ module ProjectTools
         @results.publish(paths, @destination) if @destination
       end
       @results.errors << 'Not all selected worker batches started.' if @workers.size != @plan.effective_jobs
-      @results.errors << "Interrupted by #{@signals.first}." unless @signals.empty?
+      @results.errors << "Interrupted by #{@signals.first}." if @signals.interrupted?
     end
   end
 end

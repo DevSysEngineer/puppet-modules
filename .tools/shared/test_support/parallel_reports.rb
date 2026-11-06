@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'rexml/document'
-require 'tempfile'
+require 'project_tools/shared/atomic_file'
 require_relative 'parallel_result'
 
 module ProjectTools
@@ -82,12 +82,9 @@ module ProjectTools
     end
 
     def replace(source, destination)
-      # Staging in the destination also works across filesystems.
-      Tempfile.create(['.test-report-', '.xml'], File.dirname(destination)) do |file|
+      Shared::AtomicFile.write(destination) do |file|
         file.binmode
         IO.copy_stream(source, file)
-        file.close
-        File.rename(file.path, destination)
       end
     end
   end
