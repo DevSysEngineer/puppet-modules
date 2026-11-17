@@ -1,7 +1,16 @@
 include basic_settings
 
 include rabbitmq
-include rabbitmq::tcp
+
+# Declare the optional plugin before evaluating its TLS listener configuration.
+rabbitmq::plugin { 'rabbitmq_mqtt': }
+
+# Exercise MQTT and AMQP with the same synthetic certificate paths.
+class { 'rabbitmq::tcp':
+  ssl_ca_certificate  => '/etc/rabbitmq/ssl/ca.pem',
+  ssl_certificate     => '/etc/rabbitmq/ssl/cert.pem',
+  ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
+}
 
 # Management also declares its plugin, default vhost, user and permissions.
 class { 'rabbitmq::management':
