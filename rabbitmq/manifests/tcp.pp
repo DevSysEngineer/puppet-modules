@@ -39,6 +39,7 @@
 #
 # @api public
 class rabbitmq::tcp (
+  Integer          $mqtt_ssl_port       = 8883,
   Optional[String] $ssl_ca_certificate  = undef,
   Optional[String] $ssl_certificate     = undef,
   Optional[String] $ssl_certificate_key = undef,
