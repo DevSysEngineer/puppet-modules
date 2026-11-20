@@ -1026,7 +1026,7 @@ De plaats van Proxmox in een [serverprofiel](examples/site.pp#L170) staat in `ex
 
 <a id="doel-12"></a>
 
-`rabbitmq` installeert en configureert RabbitMQ Server. Aanvullende classes en defined types beheren AMQP/TLS-listeners, de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en permissies.
+`rabbitmq` installeert en configureert RabbitMQ Server. Aanvullende classes en defined types beheren AMQP/TLS-listeners, optioneel MQTT via TLS, de managementplugin, vhosts, exchanges, queues, bindings, gebruikers en permissies.
 
 <a id="belangrijkste-eigenschappen-12"></a>
 
@@ -1043,6 +1043,8 @@ Regel de RabbitMQ APT-bron vóór de installatie.
 Lever bij ingeschakeld beheer een eigen wachtwoord via de Hiera-waarde `rabbitmq::management::admin_password` of geef `admin_password => lookup('rabbitmq::admin_password')` door. Er is geen ingebouwd wachtwoord. Wie bewust geen beheeraccount gebruikt, kiest `admin_enable => false` zonder wachtwoord. Vervang bij bestaande deployments eventueel gebruikte standaardcredentials door een eigen wachtwoord.
 
 `rabbitmq::tcp` houdt de gewone TCP-poort ingeschakeld zolang niet alle drie de certificaatpaden zijn opgegeven, ook met `tcp_enable => false`. Geef daarom het CA-certificaat, servercertificaat en de privésleutel op en zorg dat die bestanden beschikbaar zijn voordat je onversleuteld verkeer uitschakelt. De TLS-listener vereist ook een geldig clientcertificaat.
+
+Declareer voor MQTT `rabbitmq::plugin { 'rabbitmq_mqtt': }` na `rabbitmq` en vóór `rabbitmq::tcp`, zoals in het [MQTT-voorbeeld bij de class](rabbitmq/manifests/tcp.pp). De class schrijft dan ook MQTT-instellingen en gebruikt dezelfde certificaten voor TLS. Zonder die plugindeclaratie schrijft zij uitsluitend AMQP-instellingen; een eerder geactiveerde plugin wordt daardoor niet uitgeschakeld.
 
 De wachtwoorden voor de managementplugin zijn nog String-parameters en horen uit versleutelde Hiera-data te komen.
 

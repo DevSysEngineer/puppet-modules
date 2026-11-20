@@ -1,8 +1,12 @@
-# @summary Manages RabbitMQ AMQP TCP and TLS listener configuration.
+# @summary Manages RabbitMQ AMQP listeners and optional MQTT over TLS.
 #
 # This class requires `rabbitmq` and writes `/etc/rabbitmq/conf.d/tcp.conf`.
 # When all certificate paths are provided, TLS is enabled and plain TCP follows `tcp_enable`; otherwise TLS is disabled
 # and plain TCP is forced on so the broker remains reachable.
+# Declare `rabbitmq::plugin { 'rabbitmq_mqtt': }` before this class to include MQTT settings; this class does not enable
+# the plugin itself. MQTT uses TLS only and requires the same complete certificate set. The check uses the Puppet
+# declaration, not the running broker's plugin state. Omitting the declaration does not disable an already enabled
+# plugin.
 #
 # @example Enable TLS and disable plain TCP
 #   class { 'rabbitmq::tcp':
@@ -11,6 +15,22 @@
 #     ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
 #     tcp_enable          => false,
 #   }
+#
+# @example Configure MQTT over TLS with an explicitly enabled plugin
+#   include rabbitmq
+#   rabbitmq::plugin { 'rabbitmq_mqtt': }
+#
+#   # Configure both protocols after declaring the MQTT plugin.
+#   class { 'rabbitmq::tcp':
+#     ssl_ca_certificate  => '/etc/rabbitmq/ssl/ca.pem',
+#     ssl_certificate     => '/etc/rabbitmq/ssl/cert.pem',
+#     ssl_certificate_key => '/etc/rabbitmq/ssl/key.pem',
+#   }
+#
+# @param mqtt_ssl_port
+#   MQTT TLS listener port, used only when the MQTT plugin is declared before this class and all certificate paths are
+#   supplied. Without that declaration, no MQTT settings are written. Plain MQTT and anonymous access are disabled when
+#   the plugin is declared.
 #
 # @param ssl_ca_certificate
 #   Optional CA certificate path for TLS listeners.
@@ -64,6 +84,9 @@ class rabbitmq::tcp (
 ) {
   # Require the RabbitMQ parent before configuring AMQP listeners and TLS.
   if (defined(Class['rabbitmq'])) {
+    # Emit MQTT settings only for a plugin explicitly declared before this class is evaluated.
+    $mqtt_enable = defined(Rabbitmq::Plugin['rabbitmq_mqtt'])
+
     # Check if all cert variables are given
     if ($ssl_ca_certificate != undef and $ssl_certificate != undef and $ssl_certificate_key != undef) {
       # Enable TLS and honor the TCP toggle when a complete certificate set is supplied.
@@ -75,7 +98,7 @@ class rabbitmq::tcp (
       $tcp_enable_correct = true
     }
 
-    # Create management config file
+    # Manage the AMQP listeners and any explicitly requested MQTT configuration.
     file { '/etc/rabbitmq/conf.d/tcp.conf':
       ensure  => file,
       content => template('rabbitmq/tcp.conf'),
