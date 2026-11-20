@@ -1044,7 +1044,7 @@ Lever bij ingeschakeld beheer een eigen wachtwoord via de Hiera-waarde `rabbitmq
 
 `rabbitmq::tcp` houdt de gewone TCP-poort ingeschakeld zolang niet alle drie de certificaatpaden zijn opgegeven, ook met `tcp_enable => false`. Geef daarom het CA-certificaat, servercertificaat en de privésleutel op en zorg dat die bestanden beschikbaar zijn voordat je onversleuteld verkeer uitschakelt. De TLS-listener vereist ook een geldig clientcertificaat.
 
-Declareer voor MQTT `rabbitmq::plugin { 'rabbitmq_mqtt': }` na `rabbitmq` en vóór `rabbitmq::tcp`, zoals in het [MQTT-voorbeeld bij de class](rabbitmq/manifests/tcp.pp). De class schrijft dan ook MQTT-instellingen en gebruikt dezelfde certificaten voor TLS. Zonder die plugindeclaratie schrijft zij uitsluitend AMQP-instellingen; een eerder geactiveerde plugin wordt daardoor niet uitgeschakeld.
+Declareer voor MQTT `rabbitmq::mqtt` na `rabbitmq::management` en na `rabbitmq::tcp` met alle drie de certificaatpaden, zoals in het [voorbeeld bij de class](rabbitmq/manifests/mqtt.pp). De class schakelt de MQTT-plugin zelf in, maakt de MQTT-vhost aan en gebruikt dezelfde certificaten voor TLS; zonder volledige certificaten faalt de compilatie. Geef MQTT-gebruikers zelf rechten op die vhost. De onversleutelde listener blijft uit tenzij je `tcp_enable => true` kiest; clients sturen hun wachtwoord dan onversleuteld. Weglaten van de class schakelt een eerder geactiveerde plugin niet uit.
 
 De wachtwoorden voor de managementplugin zijn nog String-parameters en horen uit versleutelde Hiera-data te komen.
 
@@ -1069,7 +1069,7 @@ class { 'rabbitmq::tcp':
 }
 ```
 
-Vhosts, exchanges, queues, bindings en gebruikers staan in het [RabbitMQ-scenario](examples/data-services.pp#L63). Zie de Puppet Strings bij [`rabbitmq`](rabbitmq/manifests/init.pp), [`tcp`](rabbitmq/manifests/tcp.pp) en [`management`](rabbitmq/manifests/management.pp) voor de configuratie.
+Vhosts, exchanges, queues, bindings en gebruikers staan in het [RabbitMQ-scenario](examples/data-services.pp#L63). Zie de Puppet Strings bij [`rabbitmq`](rabbitmq/manifests/init.pp), [`tcp`](rabbitmq/manifests/tcp.pp), [`mqtt`](rabbitmq/manifests/mqtt.pp) en [`management`](rabbitmq/manifests/management.pp) voor de configuratie.
 
 ### `ssh`
 

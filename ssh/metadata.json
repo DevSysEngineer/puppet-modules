@@ -1,6 +1,6 @@
 {
     "name": "puppetmodules-ssh",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "author": "DevSysEngineer",
     "summary": "Setup SSH deamon",
     "license": "Apache-2.0",
