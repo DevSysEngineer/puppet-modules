@@ -13,8 +13,7 @@
 # dependencies.
 #
 # Socket options (`backlog`, `deferred`, `fastopen`, `multipath`, `reuseport`, `so_keepalive`) are shared per listen
-# address, port and transport, including redirects. Repeated equal overrides are merged onto one listen directive in
-# a shared `.inc` snippet.
+# address, port and transport, including redirects. The managed default server carries these options once per socket.
 # Conflicting effective values fail catalog compilation with the option and socket in the duplicate resource title.
 # Disabled defaults contribute no override and do not disable another vhost's setting. Absent vhosts contribute nothing.
 # Shared listeners must use the same address and port spelling.
@@ -98,9 +97,6 @@
 #   CSP header value. `true` uses the module default, a string sets a vhost policy, and `false` disables the managed
 #   header.
 #
-# @param default_server
-#   Marks this vhost as the default server for generated listen directives.
-#
 # @param deferred
 #   Requests shared `deferred` on TCP listeners, including redirects. Defaults to `false`, which omits the option
 #   without vetoing another vhost's request. Repeated `true` values emit it once per TCP socket.
@@ -147,7 +143,8 @@
 #   HTTP listen port.
 #
 # @param https_enable
-#   Creates HTTPS listeners when `true`.
+#   Creates HTTPS listeners when `true`. Each named server on a TLS socket needs its own certificate and key or a
+#   pair inherited from the HTTP context. Use separate listen sockets for plain HTTP and HTTPS.
 #
 # @param https_force
 #   Forces HTTP to HTTPS redirects when `true`.
@@ -272,7 +269,7 @@
 #
 # @param server_name
 #   Space-separated Nginx `server_name` value. `undef` omits the directive and keeps the title fallback for
-#   security.txt; TLS monitoring then reports an unassessable target.
+#   security.txt; TLS monitoring then reports an unassessable target. Set a name to make the site reachable by name.
 #
 # @param so_keepalive
 #   Shared TCP keepalive setting for listeners, including redirects. The strings `on` and `off` enable and disable
@@ -364,7 +361,6 @@ define nginx::server (
   Integer                   $backlog                         = -1, # Global settings; -1: Disabled, 0: Kernel; >0: Custom value
   Optional[String]          $client_max_body_size            = undef,
   Variant[Boolean, String]  $content_security_policy         = true,
-  Boolean                   $default_server                  = false,
   Boolean                   $deferred                        = false, # Global settings
   Array                     $directives                      = [],
   Optional[String]          $docroot                         = undef,
@@ -905,25 +901,8 @@ define nginx::server (
       }
       $listen_udp_settings = { 'reuseport' => $listen_tcp_settings['reuseport'] }
 
-      # Default-server selection remains specific to each vhost and transport.
-      $listen_default_flags = $default_server ? { true => ['default'], default => [] }
-      $listen_https_flags = $http3_active ? {
-        true    => [
-          concat(['quic'], $listen_default_flags),
-          ['ssl'],
-        ],
-        default => [
-          concat(['ssl'], $listen_default_flags),
-        ],
-      }
-
-      # Redirects share protocol settings without claiming the default-server role.
-      $listen_redirect_https_flags = $http3_active ? { true => [
-        ['quic'],
-        ['ssl'],
-      ], default => [
-        ['ssl'],
-      ] }
+      # Primary and redirect sites use the same protocols on their respective addresses.
+      $https_protocols = $http3_active ? { true => ['quic', 'ssl'], default => ['ssl'] }
 
       # Keep the existing primary and redirect listener enablement, addresses and ports together.
       $listen_groups = {
@@ -931,27 +910,25 @@ define nginx::server (
           'enable' => $http_enable,
           'ipv6_enable' => $http_ipv6_correct,
           'ip' => $ip, 'ipv6' => $ipv6, 'port' => $http_port,
-          'flags' => [$listen_default_flags],
+          'protocols' => [undef],
         },
         'https' => {
           'enable' => $https_enable,
           'ipv6_enable' => $https_ipv6_correct,
           'ip' => $ip, 'ipv6' => $ipv6, 'port' => $https_port,
-          'flags' => $listen_https_flags,
+          'protocols' => $https_protocols,
         },
         'redirect_http' => {
           'enable' => $redirect_from != undef,
           'ipv6_enable' => $http_ipv6_correct,
           'ip' => $redirect_ip_correct, 'ipv6' => $redirect_ipv6_correct, 'port' => $redirect_http_port_correct,
-          'flags' => [
-            [],
-          ],
+          'protocols' => [undef],
         },
         'redirect_https' => {
           'enable' => $redirect_from != undef and $https_enable,
           'ipv6_enable' => $https_ipv6_correct,
           'ip' => $redirect_ip_correct, 'ipv6' => $redirect_ipv6_correct, 'port' => $redirect_https_port_correct,
-          'flags' => $listen_redirect_https_flags,
+          'protocols' => $https_protocols,
         },
       }
       $listen_directives = Hash($listen_groups.map |$group, $listener| {
@@ -975,50 +952,39 @@ define nginx::server (
             # Use the default IPv4 wildcard only when no address is configured.
             $address_correct = $address ? { undef => '0.0.0.0', default => $address }
             $socket_address = "${address_correct}:${listener['port']}"
-            $listener['flags'].map |$flags| {
-              # TCP and QUIC on the same address and port have distinct identities and shared files.
-              $transport = 'quic' in $flags ? { true => 'udp', default => 'tcp' }
+            $listener['protocols'].map |$protocol| {
+              # Share socket options across all vhosts, keeping TCP and UDP independent.
+              $transport = $protocol ? { 'quic' => 'udp', default => 'tcp' }
               $socket = "${transport} ${socket_address}"
-              $path = "${nginx::config}/listen-${stdlib::sha256($socket)}.inc"
-              $primary = !defined(Concat[$path])
-
-              # Keep protocol selection and the shared directive's complete address/flags out of templates.
+              $target = stdlib::sha256($socket)
               $settings = $transport ? { 'udp' => $listen_udp_settings, default => $listen_tcp_settings }
-              $listen = join(concat([$socket_address], $flags), ' ')
 
-              # The first vhost for this socket owns its snippet; later vhosts contribute options to the same file.
-              if $primary {
-                concat { $path:
-                  owner   => 'root',
-                  group   => 'root',
-                  mode    => '0600',
-                  require => [
-                    Package['nginx'],
-                    File[$nginx::config],
-                  ],
-                }
+              # Named sites keep their own listen directive while the default owns the shared options.
+              $listen = $protocol ? { undef => $socket_address, default => "${socket_address} ${protocol}" }
+              ensure_resource('nginx::default_listener', $target, { 'address' => $socket_address })
 
-                # Keep the managed header and listener flags before the independently collected socket options.
-                concat::fragment { "nginx_listen_${socket}_header":
-                  target  => $path,
-                  content => template('nginx/listen.conf'),
-                  order   => '01',
-                }
+              # TLS sockets reject unknown names before exposing a certificate or an application.
+              if $protocol {
+                ensure_resource('concat::fragment', "nginx_listen_${socket}_protocol", {
+                  'target'  => $target,
+                  'content' => " ${protocol}",
+                  'order'   => '02',
+                })
 
-                # Terminate the directive only after every shared option fragment.
-                concat::fragment { "nginx_listen_${socket}_footer":
-                  target  => $path,
-                  content => ";\n",
-                  order   => '99',
-                }
+                # Also close HTTP requests routed here after a handshake on a named site.
+                ensure_resource('concat::fragment', "nginx_listen_${socket}_reject", {
+                  'target'  => $target,
+                  'content' => "ssl_reject_handshake on;\nreturn 444;\n",
+                  'order'   => '80',
+                })
               }
 
-              # Install the complete shared directive before any participating vhost can trigger a reload.
-              Concat[$path] -> File[$config_file]
+              # Publish the default before a participating vhost can request its reload.
+              Nginx::Default_listener[$target] -> File[$config_file]
 
-              # Any participating vhost can request reloads, including when the first vhost opts out.
+              # Any participant may request a reload for shared socket changes.
               if $restart_service {
-                Concat[$path] ~> Service['nginx']
+                Nginx::Default_listener[$target] ~> Service['nginx']
               }
 
               # Register only effective overrides; repeated equal values contribute one fragment per socket.
@@ -1031,18 +997,15 @@ define nginx::server (
 
                   # Reuse identical fragments; conflicting values fail with the socket and setting in the resource title.
                   ensure_resource('concat::fragment', $fragment, {
-                    'target'  => $path,
+                    'target'  => $target,
                     'content' => $content,
                     'order'   => "50-${setting}",
                   })
                 }
               }
 
-              # Include shared options once; all other server blocks retain their own address and flags.
-              $primary ? {
-                true    => "include ${path};",
-                default => "listen ${listen};",
-              }
+              # The default server owns socket options; named sites only select their address and protocol.
+              "listen ${listen};"
             }
           })
           [$group, $directives]

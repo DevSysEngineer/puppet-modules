@@ -3,7 +3,8 @@
 # This class installs Nginx, removes Apache, optionally installs the Certbot Nginx plugin, disables vendor service
 # enablement under systemd, binds Nginx into the shared target ladder, applies service hardening, manages global Nginx
 # configuration and owned config directories, prepares secure SSL/security fallback directories and a static
-# unavailable page, and adds monitoring and logrotate integration.
+# unavailable page, and adds monitoring and logrotate integration. An HTTP landing page handles unmatched hosts.
+# On managed TLS sockets the default server rejects connections without a matching server name.
 #
 # @example Install Nginx with default security.txt fallback settings
 #   include nginx
@@ -22,6 +23,11 @@
 #
 # @param keepalive_timeout
 #   Value rendered for `keepalive_timeout`.
+#
+# @param landing_page
+#   Self-contained HTML for the HTTP landing page. Pass HTML (including the result of `template()`) or a
+#   `puppet:///modules/...` or `puppet:///files/...` source. Include a Puppet management comment in source files.
+#   `undef` serves the bundled Dutch and English page. Only `/` serves this file. Additional paths return 404.
 #
 # @param limit_file
 #   `LimitNOFILE` value applied to the Nginx systemd drop-in.
@@ -85,6 +91,7 @@ class nginx (
   Array                       $http_directives                 = [],
   Integer                     $keepalive_requests              = 1000,
   String                      $keepalive_timeout               = '75s',
+  Optional[String[1]]         $landing_page                    = undef,
   Integer                     $limit_file                      = 10000,
   Integer                     $nice_level                      = 10,
   Enum['nginx', 'nginx-full'] $package                         = 'nginx',
@@ -366,6 +373,47 @@ class nginx (
     group   => 'root',
     mode    => '0700',
     require => Package['nginx'],
+  }
+
+  # Keep the default site independent of application files and backends.
+  case $landing_page {
+    undef: {
+      # Embed the bundled outage page's style in the landing page.
+      $landing_file = { 'content' => template('nginx/landing.html') }
+    }
+    /\A\s*</: {
+      # Keep a leading DOCTYPE first when marking supplied or rendered HTML as managed.
+      $html = regsubst($landing_page, '\A(\s*<!DOCTYPE[^>]*>[ \t]*(?:\r?\n)?)?', "\\1<!-- Managed by puppet -->\n", 'I')
+      $landing_file = { 'content' => $html }
+    }
+    default: {
+      # Restrict file delivery to the same Puppet mounts supported for outage pages.
+      $source = assert_type(Pattern[/\Apuppet:\/\/[^\/\s\x00-\x1f\x7f]*\/(?:modules|files)\/[^\s\x00-\x1f\x7f]+\z/], $landing_page)
+      $landing_file = { 'source' => $source }
+    }
+  }
+
+  # Workers only need read access to the public landing page.
+  file { '/etc/nginx/landing.html':
+    ensure  => file,
+    owner   => 'root',
+    group   => $run_group,
+    mode    => '0640',
+    require => Package['nginx'],
+    *       => $landing_file,
+  }
+
+  # Open port 80 even on hosts without application vhosts, respecting the managed kernel's IPv6 policy.
+  $landing_ipv6 = !defined(Class['basic_settings::kernel']) or $basic_settings::kernel::ip_version_v6
+  $landing_addresses = $landing_ipv6 ? { true => ['0.0.0.0:80', '[::]:80'], default => ['0.0.0.0:80'] }
+  $landing_addresses.each |$address| {
+    # The static server definition follows the baseline; vhosts control notifications for their shared socket options.
+    $listener = stdlib::sha256("tcp ${address}")
+    nginx::default_listener { $listener:
+      address => $address,
+    }
+
+    File["nginx_default_${listener}"] ~> Service['nginx']
   }
 
   # Create security directory

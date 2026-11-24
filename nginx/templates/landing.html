@@ -1,0 +1,27 @@
+<!doctype html>
+<!-- Managed by puppet -->
+<html lang="nl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Welkom · Welcome</title>
+    <%= scope.call_function('file', ['nginx/unavailable.html'])[/<style>.*?<\/style>/m] %>
+  </head>
+  <body>
+    <main class="notice">
+      <div class="messages">
+        <section class="message" lang="nl" aria-labelledby="heading-nl">
+          <p class="language">Nederlands</p>
+          <h1 id="heading-nl">Welkom</h1>
+          <p>Dit is de standaardpagina van deze webserver. Gebruik de domeinnaam van de website die je wilt bezoeken.</p>
+        </section>
+        <section class="message" lang="en" aria-labelledby="heading-en">
+          <p class="language">English</p>
+          <h2 id="heading-en">Welcome</h2>
+          <p>This is the web server’s default page. Use the domain name of the website you want to visit.</p>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
