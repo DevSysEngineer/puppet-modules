@@ -60,7 +60,8 @@ module ProjectTools
 
       def classified?
         @data['policy'].fetch('sensitive_paths', []).any? do |glob|
-          File.fnmatch?(glob, @document.path, File::FNM_PATHNAME | File::FNM_DOTMATCH)
+          pattern = glob.end_with?('/**') ? "#{glob}/*" : glob
+          File.fnmatch?(pattern, @document.path, File::FNM_PATHNAME | File::FNM_DOTMATCH)
         end
       end
 

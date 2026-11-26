@@ -104,9 +104,9 @@ Het beleid bevat expliciete bestanden, geen recursieve projectselectie. Dit synt
 {
   "files": ["data/common.yaml", "modules/example/manifests/init.pp"],
   "context": ["data/options.yaml"],
-  "destinations": {"data/moved.yaml": "0600", "tests/example.rb": "0644"},
+  "destinations": {"modules/example/manifests/profile.pp": "0644", "tests/example.rb": "0644"},
   "aliases": {},
-  "sensitive_paths": ["private/**"],
+  "sensitive_paths": ["data/**/*", "modules/puppet_certificate/**/*"],
   "commands": {"validate": ["bundle", "exec", "rake", "test"]}
 }
 ```
@@ -117,9 +117,11 @@ Het beleid bevat expliciete bestanden, geen recursieve projectselectie. Dit synt
 | `context` | Verplichte contextbestanden, bijvoorbeeld toepasselijke `lookup_options`. Deze worden mee voorbereid en versiegebonden. Gebruik afzonderlijke sessies voor onafhankelijke hiërarchieën. |
 | `destinations` | Vooraf toegestane, nog ontbrekende doelen voor toevoegingen en hernoemingen. Modus is expliciet `0600`, `0644`, `0700` of `0755`. Een hernoeming behoudt de bestaande metadata. |
 | `aliases` | Echte relatieve bronpaden naar veilige relatieve analysepaden. Classificeer vertrouwelijke namen zelf; herkenning van tokens is geen volledige naamclassificatie. Letterlijke verwijzingen naar expliciet gealiaste paden worden eveneens beschermd. |
-| `sensitive_paths` | Relatieve globpatronen voor reeds geclassificeerde vertrouwelijke bestanden. Hun hele inhoud wordt afgeschermd, ook onder onbekende veldnamen; het rapport vermeldt `writable: false`. Ze blijven leescontext en kunnen niet inhoudelijk worden herschreven. |
+| `sensitive_paths` | Globpatronen voor de oorspronkelijke relatieve bronpaden in `files` en `context`, ook als een bestand een alias krijgt. Bij een treffer schermt de tool de hele inhoud af, ook onder onbekende veldnamen, en weigert de writer inhoudelijke wijzigingen. |
 | `commands` | Lokaal goedgekeurde diagnostiek, als naam naar argumentenlijst. `run` voert die opdracht op de echte bron uit en controleert beide uitvoerstromen. Dit is uitvoering van vertrouwde opdrachten, geen sandbox voor willekeurige code. |
 | `fixture_paths` | Expliciete testbestanden waarvoor de tool [synthetische waarden](#synthetische-fixtures-bewerken) mag genereren. |
+
+Met `data/**/*` of `data/**` bescherm je geselecteerde bestanden direct onder `data/` en op elke diepte daaronder. Ook verborgen bestanden en bestanden in verborgen mappen vallen onder beide patronen.
 
 Selecteer alle benodigde context expliciet. Dit geldt ook voor instructiebestanden die je bij de bewerking wilt betrekken; de tool zoekt niet automatisch naar agentconfiguratie. Gewijzigde geselecteerde context of gewijzigd beleid maakt een oude voorbereiding ongeldig.
 
@@ -133,13 +135,16 @@ Dit doorlopende voorbeeld gebruikt uitsluitend synthetische invoer. Voer het uit
 TASK_BASE=$(mktemp -d)
 TASK_BASE=$(cd "$TASK_BASE" && pwd -P)
 export TASK_BASE
-mkdir "$TASK_BASE/source"
+mkdir -p "$TASK_BASE/source/data/team"
 ruby -rjson <<'RUBY'
 root = ENV.fetch('TASK_BASE')
 File.write(File.join(root, 'source', 'common.yaml'),
            "password: 'synthetic-example-only'\nordinary: before\n")
+File.write(File.join(root, 'source/data/team/note.yaml'), "description: fictional field notes\n")
 File.write(File.join(root, 'policy.json'), JSON.generate(
-  'files' => ['common.yaml'],
+  'files' => ['common.yaml', 'data/team/note.yaml'],
+  'aliases' => { 'data/team/note.yaml' => 'review/note.yaml' },
+  'sensitive_paths' => ['data/**/*'],
   'destinations' => { 'nested/moved.yaml' => '0600', 'extra.yaml' => '0600' }
 ))
 RUBY
@@ -155,14 +160,18 @@ fi
 [ "$PREPARE_STATUS" -le 1 ] || exit "$PREPARE_STATUS"
 SESSION_REF=$(ruby -rjson -e '
   result = JSON.parse(File.read(ARGV.fetch(0)))
-  abort "Preparation incomplete" unless result["complete"] && result["prepared"]
-  abort "Selection differs" unless result.fetch("files").map { |f| f.fetch("file") } == ["common.yaml"]
+  abort "Preparation incomplete" unless result.fetch("complete") == true && result.fetch("prepared") == true
+  expected = [["common.yaml", true], ["review/note.yaml", false]]
+  files = result.fetch("files").map { |file| file.fetch_values("file", "writable") }
+  abort "Unexpected files or write permissions" unless files.sort_by(&:first) == expected
   print result.fetch("session")
-' "$TASK_BASE/prepared.json")
+' "$TASK_BASE/prepared.json") || exit 2
 export SESSION_REF
 ```
 
 Beoordeel `prepared.json` voordat de agent de analysemap krijgt. Exitcode 1 is bij volledige voorbereiding met bevindingen normaal. Vereis `complete: true`, `prepared: true`, de verwachte bestandsselectie en de bijbehorende nieuwe analysebestanden.
+
+Controleer voor elk bestand dat volgens je beleid volledig afgeschermd moet zijn of het verwachte analysepad of de alias in `files[].file` staat en die vermelding `writable: false` heeft. Maak na een correctie van het beleid of de padbescherming een nieuwe analyseboom. Geef die pas vrij als alle verwachte bestanden deze controle doorstaan.
 
 `coverage` onderscheidt `text_patterns`, `yaml_parser` en `puppet_parser`; `context` bevat veilige contextpaden. `context_omitted` meldt weggelaten meerregelige inhoud. Bij ontbrekende invoer, onvolledige inspectie of mislukte voorbereiding wordt geen gedeeltelijke werkboom vrijgegeven.
 
@@ -675,7 +684,7 @@ Before project content enters AI context or external analysis, follow the [share
 
 Kies de bestanden die je daadwerkelijk nodig hebt en neem toepasselijke Hiera-`lookup_options` in dezelfde scan mee. De scanner ontdekt geen externe Hiera-hiërarchie. Geef niet zonder selectie de volledige projectroot op: `.git`, geïnstalleerde gems, de submodule, binaire bestanden en oude uitvoer vallen dan ook binnen de recursieve scan; `.gitignore` is geen scanneruitsluiting.
 
-Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasselijke context mee. Gebruik vervolgens uitsluitend de [analysewerkboomprocedure](#ontwikkelen-met-een-analysewerkboom), ook voor alleen lezen. Controleer het voorbereidingsresultaat vóór inzage en sluit de private waardekoppelingen na gebruik af. Kopieer het synthetische oefenbeleid niet ongewijzigd naar een echt project: de aanroeper bepaalt de werkelijke selectie en bevoegdheden.
+Selecteer in het lokale beleid de bestanden die je nodig hebt en neem toepasselijke context mee. Gebruik vervolgens uitsluitend de [analysewerkboomprocedure](#ontwikkelen-met-een-analysewerkboom), ook voor alleen lezen. Vul in de [vrijgavecontrole uit het voorbeeld](#voorbereiden-en-een-gewone-wijziging-toepassen) de verwachte analysepaden en schrijfrechten van je eigen selectie in. Sluit de private waardekoppelingen na gebruik af. Stem de overige bevoegdheden in het oefenbeleid af op je eigen project.
 
 ### Koppel de Puppet-controle aan eigen taken
 
