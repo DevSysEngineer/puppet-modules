@@ -5,11 +5,9 @@ module ProjectTools
     # Recognize complete quoted/balanced expressions without executing them.
     class ValueBounds
       PAIRS = { '(' => ')', '[' => ']', '{' => '}' }.freeze
-      attr_reader :lambda_start
 
-      def initialize(text, puppet: false, limit: text.length)
+      def initialize(text, limit: text.length)
         @text = text
-        @puppet = puppet
         @limit = limit
       end
 
@@ -27,8 +25,6 @@ module ProjectTools
         @outer_quote = outer_quote
         @word = word || shell
         @shell = shell
-        @lambda_start = nil
-        @lambda_body = false
       end
 
       def walk(balanced)
@@ -45,7 +41,11 @@ module ProjectTools
       end
 
       def closed?
-        @stack.empty? && !@quote && !@lambda_body
+        @stack.empty? && !@quote
+      end
+
+      def followed_by_statement?(_first, _last)
+        false
       end
 
       def step(char)
@@ -75,7 +75,6 @@ module ProjectTools
       end
 
       def unquoted(char)
-        return lambda_body(char) if @lambda_body
         return :stop if terminator?(char)
         return :invalid if @index + 2 <= @limit && ['@(', '<<'].include?(@text[@index, 2])
         return closing(char) if PAIRS.value?(char)
@@ -89,35 +88,12 @@ module ProjectTools
       end
 
       def opening(char)
-        return lambda_pipe if @puppet && char == '|'
-
         if %q('"`).include?(char)
           @quote = char
         elsif PAIRS.key?(char)
           @stack << PAIRS.fetch(char)
         end
         :continue
-      end
-
-      def lambda_pipe
-        if @stack.last == '|'
-          parameters = @text[@lambda_start...@index]
-          return :invalid unless parameters.match?(/\A\s*\$\w+(?:\s*,\s*\$\w+)*\s*\z/)
-
-          @lambda_body = @stack.pop == '|'
-        else
-          @lambda_start = @index + 1
-          @stack << '|'
-        end
-        :continue
-      end
-
-      def lambda_body(char)
-        return :continue if char.match?(/\s/)
-        return :invalid unless char == '{'
-
-        @lambda_body = false
-        opening(char)
       end
 
       def closing(char)

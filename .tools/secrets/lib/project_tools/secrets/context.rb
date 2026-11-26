@@ -44,22 +44,6 @@ module ProjectTools
           text[match.begin(0) + match[1].length + 1].to_s.match?(/\A(?:[\s;|&<>]|\z)/)
       end
 
-      def self.puppet_statement?(document, first, last, lambda_expression)
-        return false unless File.extname(document.path) == '.pp'
-
-        text = document.text
-        return false unless puppet_expression?(text[first...last].strip, lambda_expression)
-        return false unless text[last..].match?(/\A\s*(?:if|unless)\s+[^\r\n{]+\{/)
-
-        opening = text.index('{', last)
-        !!ValueBounds.new(text, puppet: true).finish(opening, balanced: true)
-      end
-
-      def self.puppet_expression?(expression, lambda_expression)
-        (lambda_expression && expression.end_with?('}')) ||
-          expression.match?(/\A\$[\w:]+(?:\[[^\r\n]+\]|\.[a-z_]\w*)*\z/)
-      end
-
       def self.pem_searches(document)
         shell = shell_source?(document.path, document.text)
         return [] unless shell || File.extname(document.path) == '.awk'

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'patterns'
-require_relative 'value_bounds'
+require_relative 'puppet_bounds'
 require_relative 'context'
 require_relative 'markdown_context'
 
@@ -66,7 +66,8 @@ module ProjectTools
       end
 
       def bounds
-        ValueBounds.new(@text, puppet: puppet_source?, limit: @region.last)
+        parser = puppet_source? ? PuppetBounds : ValueBounds
+        parser.new(@text, limit: @region.last)
       end
 
       def unbounded(rule)
@@ -100,12 +101,12 @@ module ProjectTools
         shell = @shell_context&.code?(first) && !quote
         last = parser.finish(first, outer_quote: quote, word: word, shell: shell)
         return unless last && last > first
-        return if !shell && ambiguous_continuation?(first, last, parser.lambda_start)
+        return if !shell && ambiguous_continuation?(first, last, parser)
 
         [first, last]
       end
 
-      def ambiguous_continuation?(first, last, lambda_expression)
+      def ambiguous_continuation?(first, last, parser)
         return false if ruby_source?
 
         # Only a proven code fragment can rule out continuation in the following text.
@@ -114,7 +115,7 @@ module ProjectTools
 
         following = tail.lines.find { |line| /\S/.match?(line) }
         return false unless following.to_s.match?(/\A[ \t]+\S/)
-        return false if Context.puppet_statement?(@document, first, last, lambda_expression)
+        return false if parser.followed_by_statement?(first, last)
 
         !following.match?(/\A[ \t]*(?:[#}\]);]|["'$]?[\w:.-]+["']?\s*(?:=>|=|:))/)
       end
