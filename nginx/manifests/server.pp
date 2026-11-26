@@ -1,6 +1,7 @@
 # @summary Manages one Nginx virtual host.
 #
-# This defined type renders `/etc/nginx/conf.d/<title>.conf`, optional fallback `security.txt` content, HTTP/HTTPS
+# This defined type renders `/etc/nginx/conf.d/<title>.conf` (the application title `default` uses
+# `/etc/nginx/sites-enabled/default.conf`), optional fallback `security.txt` content, HTTP/HTTPS
 # listeners, redirects, PHP-FPM locations, static or reverse-proxy locations, TLS settings, and secure-by-default
 # response headers. Applications can override or disable individual headers when they intentionally manage those headers
 # themselves. Strict CSP or HSTS settings can break applications that depend on external scripts, stylesheets, APIs,
@@ -462,7 +463,10 @@ define nginx::server (
   # Require the Nginx parent before using its paths and defaults to manage the vhost.
   if (defined(Class['nginx'])) {
     # Share the owning resource path with the check instead of rebuilding it in a monitoring helper.
-    $config_file = "${nginx::config}/${name}.conf"
+    $config_file = $name ? {
+      'default' => '/etc/nginx/sites-enabled/default.conf',
+      default   => "${nginx::config}/${name}.conf",
+    }
 
     # Give each vhost a stable, filesystem-safe identity for private content and Nginx variables.
     $vhost_hash = stdlib::sha256($name)
@@ -956,50 +960,21 @@ define nginx::server (
               # Share socket options across all vhosts, keeping TCP and UDP independent.
               $transport = $protocol ? { 'quic' => 'udp', default => 'tcp' }
               $socket = "${transport} ${socket_address}"
-              $target = stdlib::sha256($socket)
               $settings = $transport ? { 'udp' => $listen_udp_settings, default => $listen_tcp_settings }
 
-              # Named sites keep their own listen directive while the default owns the shared options.
+              # Collect primary and redirect listeners across all vhosts before rendering the two default servers.
               $listen = $protocol ? { undef => $socket_address, default => "${socket_address} ${protocol}" }
-              ensure_resource('nginx::default_listener', $target, { 'address' => $socket_address })
-
-              # TLS sockets reject unknown names before exposing a certificate or an application.
-              if $protocol {
-                ensure_resource('concat::fragment', "nginx_listen_${socket}_protocol", {
-                  'target'  => $target,
-                  'content' => " ${protocol}",
-                  'order'   => '02',
-                })
-
-                # Also close HTTP requests routed here after a handshake on a named site.
-                ensure_resource('concat::fragment', "nginx_listen_${socket}_reject", {
-                  'target'  => $target,
-                  'content' => "ssl_reject_handshake on;\nreturn 444;\n",
-                  'order'   => '80',
-                })
+              $participant = { 'socket' => $socket, 'protocol' => $protocol, 'restart' => $restart_service }
+              Nginx_default_config <| title == $nginx::default_config |> {
+                listeners +> [$participant],
               }
 
-              # Publish the default before a participating vhost can request its reload.
-              Nginx::Default_listener[$target] -> File[$config_file]
-
-              # Any participant may request a reload for shared socket changes.
-              if $restart_service {
-                Nginx::Default_listener[$target] ~> Service['nginx']
-              }
-
-              # Register only effective overrides; repeated equal values contribute one fragment per socket.
+              # Equal options are shared. Conflicting declarations fail at compile time with the socket and setting.
               $settings.each |$setting, $value| {
-                # A missing override neither contributes a fragment nor conflicts with an enabled option.
+                # Disabled defaults leave another participant's override intact.
                 if $value != undef {
-                  # Socket identity keeps fragments shared across vhosts, independently of evaluation order.
-                  $fragment = "nginx_listen_${socket}_${setting}"
-                  $content = $value ? { true => " ${setting}", default => " ${setting}=${value}" }
-
-                  # Reuse identical fragments; conflicting values fail with the socket and setting in the resource title.
-                  ensure_resource('concat::fragment', $fragment, {
-                    'target'  => $target,
-                    'content' => $content,
-                    'order'   => "50-${setting}",
+                  ensure_resource('nginx::listen', "${socket} ${setting}", {
+                    'socket' => $socket, 'setting' => $setting, 'value' => $value,
                   })
                 }
               }
@@ -1083,7 +1058,8 @@ define nginx::server (
       notify  => $config_notify,
       require => [
         Package['nginx'],
-        File[$nginx::config, 'nginx_unavailable'],
+        File[$nginx::config, '/etc/nginx/sites-enabled', 'nginx_unavailable'],
+        Nginx_default_config[$nginx::default_config],
       ],
     }
 

@@ -1,6 +1,6 @@
 # Compile-tests voor nginx
 
-De tests compileren de class `nginx` met één kleine HTTPS-vhost en de certificaatcontrole. Zowel de hoofdclass als de vhost declareert daarbij intern `nginx::default_listener` voor de gebruikte luisteradressen. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
+De tests compileren de class `nginx` met één kleine HTTPS-vhost en de certificaatcontrole. De vhost registreert `reuseport` via `nginx::listen` voor de gedeelde standaardconfiguratie. De [centrale cataloguscontrole](../../.tools/catalog/README.md#uitvoeren) ontdekt en voert beide manifests uit; het [testbeleid](../../TESTS.md#moduletests-eenvoudig-houden) bepaalt de vereiste basisdekking.
 
 ## Inhoudsopgave
 

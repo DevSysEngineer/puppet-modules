@@ -7,6 +7,7 @@ nginx::server { 'app.example.test':
   https_enable        => true,
   monitoring_cert     => false,
   php_fpm_enable      => false,
+  reuseport           => true,
   server_name         => 'app.example.test',
   ssl_certificate     => '/etc/ssl/certs/app.pem',
   ssl_certificate_key => '/etc/ssl/private/app.key',

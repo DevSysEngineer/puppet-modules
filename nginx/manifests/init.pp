@@ -114,6 +114,7 @@ class nginx (
   # Set some values
   $monitoring_enable = defined(Class['basic_settings::monitoring'])
   $config = '/etc/nginx/conf.d'
+  $default_config = "${config}/default.conf"
 
   # Monitoring shares the service configuration path and uses Nginx binary defaults for the package prefix.
   $config_file = '/etc/nginx/nginx.conf'
@@ -403,17 +404,24 @@ class nginx (
     *       => $landing_file,
   }
 
-  # Open port 80 even on hosts without application vhosts, respecting the managed kernel's IPv6 policy.
+  # Keep both address families on HTTP port 80 even when no application is declared.
   $landing_ipv6 = !defined(Class['basic_settings::kernel']) or $basic_settings::kernel::ip_version_v6
   $landing_addresses = $landing_ipv6 ? { true => ['0.0.0.0:80', '[::]:80'], default => ['0.0.0.0:80'] }
-  $landing_addresses.each |$address| {
-    # The static server definition follows the baseline; vhosts control notifications for their shared socket options.
-    $listener = stdlib::sha256("tcp ${address}")
-    nginx::default_listener { $listener:
-      address => $address,
-    }
 
-    File["nginx_default_${listener}"] ~> Service['nginx']
+  # Each server template receives only the listeners for its protocol.
+  $default_servers = Hash(['http', 'https'].map |$scheme| {
+    [
+      $scheme,
+      template('nginx/default.conf'),
+    ]
+  })
+
+  # The generated File is published after directory purging and before the service can reload.
+  nginx_default_config { $default_config:
+    baseline => $landing_addresses,
+    servers  => $default_servers,
+    require  => File[$config, '/etc/nginx/landing.html', '/etc/nginx/sites-enabled'],
+    before   => Service['nginx'],
   }
 
   # Create security directory

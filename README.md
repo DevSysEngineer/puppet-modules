@@ -822,6 +822,8 @@ Declareer `nginx` vóór de vhosts. Voeg bij een vhost of een wrapper die Nginx-
 
 De module verwijdert Apache en neemt de Nginx-configuratie over. Controleer bestaande vhosts, document roots, certificaatrechten en gebruikte poorten. In `conf.d` worden bestanden met `.conf` binnen `http {}` ingelezen en bestanden met `.main` op hoofdniveau; geef eigen HTTP-configuratie daarom de extensie `.conf`.
 
+Puppet schrijft de standaardsite naar `/etc/nginx/conf.d/default.conf`. De HTTP-luisterregels staan samen in één serverblok. Als een vhost TLS gebruikt, staan de SSL- en eventuele QUIC-luisterregels in een tweede blok. Een applicatie met de titel `default` krijgt een eigen bestand in `/etc/nginx/sites-enabled/default.conf`.
+
 Nginx opent poort 80 en toont een Nederlands-Engelse landingspagina op `/` als het IP-adres of de hostnaam bij geen website past. Dit geldt ook op andere beheerde HTTP-luisteradressen. Voor een eigen pagina geef je `landing_page` mee aan de [class `nginx`](nginx/manifests/init.pp).
 
 Gebruik de geconfigureerde domeinnaam om een HTTPS-site te bereiken. Op beheerde TLS-luisteradressen weigert Nginx verbindingen met een ontbrekende of onbekende servernaam tijdens de handshake.
